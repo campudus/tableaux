@@ -52,9 +52,9 @@ trait VertxProject extends Build {
 
   lazy val vertxSettings: Seq[Setting[_]] = baseSettings ++ Seq(
     libraryDependencies := Seq(
-      "io.vertx" % "vertx-core" % vertxVersion,
-      "io.vertx" % "vertx-platform" % vertxVersion
-    ) ++ module.scalaVersion.map(_ => "io.vertx" %% "lang-scala" % vertxScalaVersion).toList,
+      "io.vertx" % "vertx-core" % vertxVersion % "provided",
+      "io.vertx" % "vertx-platform" % vertxVersion % "provided"
+    ) ++ module.scalaVersion.map(_ => "io.vertx" %% "lang-scala" % vertxScalaVersion % "provided").toList,
     libraryDependencies ++= dependencies,
     libraryDependencies in fatJar += "io.vertx" % "vertx-hazelcast" % vertxVersion,
     //      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
@@ -73,14 +73,14 @@ trait VertxProject extends Build {
     javaOptions in Test += "-Dvertx.mods=mods",
     // Set the module name for tests
     javaOptions in Test += s"-Dvertx.modulename=${moduleInfo.value._1}"
-  ) ++ vertxScalaVersion.map { v =>
+  ) ++ module.scalaVersion.map { _ =>
     resourceGenerators in Compile += Def.task {
       val file = (resourceManaged in Compile).value / "langs.properties"
-      val contents = s"scala=io.vertx~lang-scala_${getMajor(scalaVersion.value)}~$v:org.vertx.scala.platform.impl.ScalaVerticleFactory\n.scala=scala\n"
+      val contents = s"scala=io.vertx~lang-scala_${getMajor(scalaVersion.value)}~$vertxScalaVersion:org.vertx.scala.platform.impl.ScalaVerticleFactory\n.scala=scala\n"
       IO.write(file, contents, StandardCharsets.UTF_8)
       Seq(file)
     }.taskValue
-  } ++ Seq(
+  }.toList ++ Seq(
     // Publishing settings
     publishMavenStyle := true,
     pomIncludeRepository := { _ => false},
@@ -114,6 +114,8 @@ trait VertxProject extends Build {
     val scalaMajor = getMajor(scalaVersion.value)
     val moduleName = s"$modOwner~${modName}_$scalaMajor~$modVersion"
     val moduleDir = target.value / "mods" / moduleName
+
+    println(s"MODULE NAME=$moduleName - MODULE DIR=$moduleDir")
     (moduleName, moduleDir)
   }
 
@@ -123,7 +125,6 @@ trait VertxProject extends Build {
     log.info("Create module " + moduleName)
     createDirectory(moduleDir)
     copyDirectory((classDirectory in Compile).value, moduleDir)
-    copyDirectory((resourceDirectory in Compile).value, target.value / "mods" / "resources")
     val libDir = moduleDir / "lib"
     createDirectory(libDir)
     // Get the runtime classpath to get all dependencies except provided ones

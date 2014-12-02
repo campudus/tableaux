@@ -1,0 +1,15 @@
+{
+
+  // Scala verticle
+  "main":"scala:com.campudus.tableaux.Starter",
+
+  // mandatory fields
+  "description":"Import and export tables",
+  "licenses": ["The Apache Software License Version 2.0"],
+  "author": "Campudus",
+
+  // Optional fields
+  "developers": ["Joern Bernhardt", "Sascha Schmidt"],
+  "keywords": ["tables", "storage", "relational", "database"],
+  "homepage": "https://github.com/campudus/tableaux"
+}
