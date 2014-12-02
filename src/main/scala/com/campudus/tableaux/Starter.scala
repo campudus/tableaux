@@ -21,6 +21,8 @@ class Starter extends Verticle {
   }
 
   def deployHttpServer: Future[Unit] = {
+    println("httpServer")
+    vertx.createHttpServer.requestHandler(new TableauxRouter(container, logger, vertx)).listen(8181)
     Future.successful()
   }
 }

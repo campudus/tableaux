@@ -1,18 +1,15 @@
 package com.campudus.tableaux
 
-import java.nio.file.{FileSystem, Path, Files}
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
 
 import org.junit.Test
 import org.vertx.scala.core.FunctionConverters._
-
 import org.vertx.scala.core.json.Json
 import org.vertx.scala.testtools.TestVerticle
-import org.vertx.testtools.VertxAssert._
-
-import collection.JavaConverters._
-import scala.tools.nsc.io
-
-import scala.util.{Failure, Success, Try}
+import org.vertx.testtools.VertxAssert.fail
+import org.vertx.testtools.VertxAssert.testComplete
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
