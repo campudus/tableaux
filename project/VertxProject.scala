@@ -97,6 +97,7 @@ trait VertxProject extends Build {
   lazy val vertxTasks: Seq[Setting[_]] = Seq(
     copyModTask,
     zipModTask,
+    runModTask,
     pullInDepsTask,
     fatJarTask,
     copyMod <<= copyMod dependsOn (copyResources in Compile),

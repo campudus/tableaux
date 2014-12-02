@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
  */
-class TableauxCreationTest extends TestVerticle {
+class TableauxDeploymentTest extends TestVerticle {
 
   @Test
   def deployTest(): Unit = {
