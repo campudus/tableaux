@@ -115,7 +115,6 @@ trait VertxProject extends Build {
     val moduleName = s"$modOwner~${modName}_$scalaMajor~$modVersion"
     val moduleDir = target.value / "mods" / moduleName
 
-    println(s"MODULE NAME=$moduleName - MODULE DIR=$moduleDir")
     (moduleName, moduleDir)
   }
 
