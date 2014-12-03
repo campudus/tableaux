@@ -1,3 +1,6 @@
+.project
+.cache
+.classpath
 .idea/
 *.iml
 
