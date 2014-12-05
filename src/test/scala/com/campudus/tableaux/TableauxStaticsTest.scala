@@ -6,33 +6,44 @@ import org.vertx.scala.core.buffer.Buffer
 import org.vertx.scala.core.http.HttpClientResponse
 import org.vertx.testtools.VertxAssert._
 
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 class TableauxStaticsTest extends TableauxTestBase {
 
   @Test
   def checkIndexHtml(): Unit = {
-    val p1, p2 = Promise[String]()
+    val p1 = readFile()
+    val p2 = httpGetIndex()
+
+    for {
+      (expected, actual) <- p1.zip(p2)
+    } yield {
+      assertEquals(expected, actual)
+      testComplete()
+    }
+  }
+
+  private def readFile(): Future[String] = {
+    val p1 = Promise[String]()
     vertx.fileSystem.readFile("index.html", {
       case Success(buf) =>
         val content = buf.toString()
         p1.success(content)
       case Failure(ex) =>
         logger.error("cannot read file", ex)
-        p2.failure(ex)
+        p1.failure(ex)
     }: Try[Buffer] => Unit)
+    p1.future
+  }
 
+  private def httpGetIndex(): Future[String] = {
+    val p = Promise[String]()
     vertx.createHttpClient().setHost("localhost").setPort(8181).get("/", { resp: HttpClientResponse =>
       logger.info("Got a response: " + resp.statusCode())
-      resp.bodyHandler { buf => p2.success(buf.toString())}
+      resp.bodyHandler { buf => p.success(buf.toString())}
     }).end()
-
-    p1.future.zip(p2.future).map {
-      case (expected, actual) =>
-        assertEquals(expected, actual)
-        testComplete()
-    }
+    p.future
   }
 
 }
