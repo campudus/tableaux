@@ -1,7 +1,19 @@
 package com.campudus.tableaux.database
 
-import scala.concurrent.Future
+import scala.concurrent.{ Future, Promise }
+import org.vertx.scala.core.VertxExecutionContext
 import TableStructure._
+import com.campudus.tableaux.Starter
+import org.vertx.scala.core.json.Json
+import org.vertx.java.core.json.JsonObject
+import org.vertx.scala.core.eventbus.Message
+import org.vertx.scala.core.Vertx
+
+// Checken -> new Starter !-!
+trait ExecutionContext {
+  val verticle: Starter = new Starter()
+  implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
+}
 
 sealed trait ColumnType {
   type Value
@@ -29,13 +41,13 @@ case class LinkColumn(table: Table, columnId: IdType, to: IdType, name: String) 
 
 case class Link(value: Seq[IdType])
 
-case class Table(id: IdType, name: String, columns: Seq[ColumnType]) {
+case class Table(id: IdType, name: String, columns: Seq[ColumnType]) extends ExecutionContext {
   def getColumn(columnId: IdType): Future[ColumnType] = {
     Future.apply(columns.find(_.columnId == columnId).get)
   }
 }
 
-object TableStructure {
+object TableStructure extends ExecutionContext {
 
   type IdType = Long
 
@@ -56,13 +68,13 @@ object TableStructure {
 
   def setup(): Future[Unit] = for {
     t <- beginTransaction()
-    t <- t.query( s"""
+    t <- t.query(s"""
                      |CREATE TABLE system_table (
                      |  table_id BIGSERIAL,
                      |  user_table_names VARCHAR(255) NOT NULL,
                      |  PRIMARY KEY(table_id)
                      |)""".stripMargin) recoverWith t.recover()
-    t <- t.query( s"""
+    t <- t.query(s"""
                      |CREATE TABLE system_columns(
                      |  table_id BIGINT,
                      |  column_id BIGINT,
@@ -75,7 +87,7 @@ object TableStructure {
                      |  REFERENCES system_table(table_id)
                      |  ON DELETE CASCADE
                      |)""".stripMargin) recoverWith t.recover()
-    t <- t.query( s"""
+    t <- t.query(s"""
                      |CREATE TABLE system_link_table(
                      |  link_id BIGSERIAL,
                      |  table_id_1 BIGINT,
@@ -91,7 +103,7 @@ object TableStructure {
                      |  REFERENCES system_columns(table_id, column_id)
                      |  ON DELETE CASCADE
                      |)""".stripMargin) recoverWith t.recover()
-    t <- t.query( s"""
+    t <- t.query(s"""
                      |ALTER TABLE system_columns
                      |  ADD FOREIGN KEY(link_id)
                      |  REFERENCES system_link_table(link_id)
@@ -105,7 +117,24 @@ object TableStructure {
 
 object Table {
 
-  def create(name: String): Future[Table] = ???
+  val address = "campudus.asyncdb"
+  var id = 1
+
+  // Need change -> SQL Statement
+  def create(name: String, vertx: Vertx): Future[Table] = {
+    val eb = vertx.eventBus
+    val p = Promise[Table]
+    val json = Json.obj(
+      "action" -> "raw",
+      "command" -> s"CREATE TABLE user_table_1 (id BIGSERIAL, PRIMARY KEY (id))")
+    
+    eb.send(address, json, { rep: Message[JsonObject] =>
+      println(rep.body().toString())
+      p.success(new Table(id, name, List())) // not rdy
+    })
+    id += 1
+    p.future
+  }
 
   def delete(id: IdType): Future[Unit] = ???
 

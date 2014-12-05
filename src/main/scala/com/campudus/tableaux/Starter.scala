@@ -11,10 +11,11 @@ import scala.util.{Try, Failure, Success}
 class Starter extends Verticle {
 
   val DEFAULT_PORT = 8181
+  val config = Json.obj("username" -> "postgres", "password" -> "admin")
 
   override def start(p: Promise[Unit]): Unit = {
     val modDeploy = Promise[Unit]()
-    container.deployModule("io.vertx~mod-mysql-postgresql_2.11~0.3.1", Json.obj(), 1, {
+    container.deployModule("io.vertx~mod-mysql-postgresql_2.11~0.3.1", config, 1, {
       case Success(id) => modDeploy.success()
       case Failure(ex) => modDeploy.failure(ex)
     }: Try[String] => Unit)
