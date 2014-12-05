@@ -1,5 +1,6 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.database.Table
 import org.vertx.scala.router.Router
 import org.vertx.scala.core.VertxAccess
 import org.vertx.scala.platform.Container
@@ -17,7 +18,9 @@ class TableauxRouter(val container: Container, val logger: Logger, val vertx: Ve
     case Get("/") => SendFile("index.html")
     case Post("/tables") => // create new table
       AsyncReply {
-        Future.failed(new RuntimeException("not implemented."))
+        for {
+          table <- Table.create("Test Nr. 1")
+        } yield Ok(Json.obj("id" -> table.id))
       }
     // more posts
     case Get("/tables") => // list all tables
