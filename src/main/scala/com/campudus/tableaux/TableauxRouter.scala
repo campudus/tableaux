@@ -1,7 +1,6 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.database.Table
-import com.campudus.tableaux.TableauxController._
 import org.vertx.scala.router.Router
 import org.vertx.scala.core.VertxAccess
 import org.vertx.scala.platform.Container
@@ -15,24 +14,29 @@ import org.vertx.scala.core.json.Json
 import org.vertx.scala.core.json.JsonObject
 import scala.util.{Success, Failure}
 
-class TableauxRouter(val container: Container, val logger: Logger, val vertx: Vertx) extends Router with VertxAccess {
-
+class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
+  val container = verticle.container
+  val vertx = verticle.vertx
+  val logger = verticle.logger
+  
   //val exp = "/column/\\w+".r
+  val tableIdColumns = "/tables/(\\d+)/columns".r
+  val controller = new TableauxController(verticle)
   
   def routes(implicit req: HttpServerRequest): PartialFunction[RouteMatch, Reply] = {
     case Get("/") => SendFile("index.html")
     case Post("/tables") => // create new table { action: "createTable", name : "Tabelle 1" }
       AsyncReply {
         for{
-          j <- getJson(req).map(js => js.putString("action", "createTable"))
-          x <- createTable(j, vertx)
+          j <- controller.getJson(req).map(js => js.putString("action", "createTable"))
+          x <- controller.createTable(j, vertx)
         } yield x
       }
-    case Post("/columns") =>
+    case Post(tableIdColumns(tableId)) =>
       AsyncReply {
         for{
-          j <- getJson(req).map(js => js.putString("action", "createColumn"))
-          x <- createStringColumn(j)
+          j <- controller.getJson(req).map(js => js.putString("action", "createColumn").putString("tableId", tableId))
+          x <- controller.createStringColumn(j)
         } yield x
       }
     // more posts

@@ -26,7 +26,7 @@ class Starter extends Verticle {
 
   def deployHttpServer(port: Int): Future[HttpServer] = {
     val p = Promise[HttpServer]()
-    vertx.createHttpServer().requestHandler(new TableauxRouter(container, logger, vertx)).listen(port, {
+    vertx.createHttpServer().requestHandler(new TableauxRouter(this)).listen(port, {
       case Success(srv) => p.success(srv)
       case Failure(ex) => p.failure(ex)
     }: Try[HttpServer] => Unit)

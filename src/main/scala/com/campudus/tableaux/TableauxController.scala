@@ -9,8 +9,7 @@ import org.vertx.scala.core.json.Json
 import org.vertx.scala.core.VertxExecutionContext
 import org.vertx.scala.core.Vertx
 
-object TableauxController {
-  val verticle: Starter = new Starter()  //NEED FIX
+class TableauxController(verticle: Starter) {
   implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
   
   def createStringColumn(json: JsonObject): Future[Reply] = {

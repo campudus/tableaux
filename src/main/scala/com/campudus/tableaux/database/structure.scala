@@ -9,9 +9,8 @@ import org.vertx.java.core.json.JsonObject
 import org.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.Vertx
 
-// Checken -> new Starter !-!
 trait ExecutionContext {
-  val verticle: Starter = new Starter()
+  val verticle: Starter
   implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
 }
 
@@ -120,20 +119,26 @@ object Table {
   val address = "campudus.asyncdb"
   var id = 1
 
+  private def ebSend(vertx: Vertx)(json: JsonObject): Future[Message[JsonObject]] = {
+    val p = Promise[Message[JsonObject]]()
+    vertx.eventBus.send(address, json, { rep: Message[JsonObject] =>
+      println(rep.body().encode())
+      p.success(rep)
+    })
+    p.future
+  }
+
   // Need change -> SQL Statement
   def create(name: String, vertx: Vertx): Future[Table] = {
-    val eb = vertx.eventBus
-    val p = Promise[Table]
     val json = Json.obj(
       "action" -> "raw",
       "command" -> s"CREATE TABLE user_table_1 (id BIGSERIAL, PRIMARY KEY (id))")
-    
-    eb.send(address, json, { rep: Message[JsonObject] =>
-      println(rep.body().toString())
-      p.success(new Table(id, name, List())) // not rdy
-    })
+
+    val ebSender = ebSend(vertx) _
     id += 1
-    p.future
+    ebSender(json) map { reply =>
+      new Table(id, name, List()) // not rdy
+    }
   }
 
   def delete(id: IdType): Future[Unit] = ???
