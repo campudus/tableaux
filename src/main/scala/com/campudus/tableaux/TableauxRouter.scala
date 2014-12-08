@@ -19,17 +19,23 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val vertx = verticle.vertx
   val logger = verticle.logger
   
-  //val exp = "/column/\\w+".r
   val tableIdColumns = "/tables/(\\d+)/columns".r
+  val tableId = "/tables/(\\d+)".r
   val controller = new TableauxController(verticle)
   
   def routes(implicit req: HttpServerRequest): PartialFunction[RouteMatch, Reply] = {
     case Get("/") => SendFile("index.html")
+    case Get(tableId(tableId)) => AsyncReply {
+      for {
+          j <- controller.getJson(req).map(js => js.putString("action", "getTable"))
+          x <- controller.getTable(j)
+        } yield x
+    }
     case Post("/tables") => // create new table { action: "createTable", name : "Tabelle 1" }
       AsyncReply {
         for{
           j <- controller.getJson(req).map(js => js.putString("action", "createTable"))
-          x <- controller.createTable(j, vertx)
+          x <- controller.createTable(j)
         } yield x
       }
     case Post(tableIdColumns(tableId)) =>

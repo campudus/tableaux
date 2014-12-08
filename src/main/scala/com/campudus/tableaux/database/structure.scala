@@ -4,13 +4,14 @@ import scala.concurrent.{ Future, Promise }
 import org.vertx.scala.core.VertxExecutionContext
 import TableStructure._
 import com.campudus.tableaux.Starter
-import org.vertx.scala.core.json.Json
-import org.vertx.java.core.json.JsonObject
+import org.vertx.scala.core.json.{ Json, JsonObject, JsonArray }
 import org.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.Vertx
+import org.vertx.scala.platform.Verticle
+import org.vertx.scala.core.eventbus.EventBus
 
-trait ExecutionContext {
-  val verticle: Starter
+class ExecutionContext() {
+  val verticle: Starter = verticle
   implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
 }
 
@@ -40,7 +41,7 @@ case class LinkColumn(table: Table, columnId: IdType, to: IdType, name: String) 
 
 case class Link(value: Seq[IdType])
 
-case class Table(id: IdType, name: String, columns: Seq[ColumnType]) extends ExecutionContext {
+case class Table(id: IdType, name: String, columns: Seq[ColumnType]) {
   def getColumn(columnId: IdType): Future[ColumnType] = {
     Future.apply(columns.find(_.columnId == columnId).get)
   }
@@ -50,30 +51,62 @@ object TableStructure extends ExecutionContext {
 
   type IdType = Long
 
+  val address = "campudus.asyncdb"
+
   case object Transaction {
+    
+    def query(eb: EventBus, query: String, values: JsonArray): Future[Transaction.type] = {
+      val jsonQuery = Json.obj(
+        "action" -> "prepared",
+        "statement" -> query,
+        "values" -> values)
 
-    def query(query: String): Future[Transaction.type] = ???
+      val p = Promise[Transaction.type]
+      eb.send(address, jsonQuery, { rep: Message[JsonObject] =>
+        println(rep.body().encode())
+        p.success(this)
+      })
+      p.future
+    }
 
-    def commit(): Future[Unit] = ???
+    def commit(eb: EventBus): Future[Unit] = {
+      val p = Promise[Unit]
+      eb.send(address, Json.obj("action" -> "commit"), { rep: Message[JsonObject] =>
+        p.success()
+      })
+      p.future
+    }
 
-    def rollback(): Future[Unit] = ???
+    def rollback(eb: EventBus): Future[Unit] = {
+      val p = Promise[Unit]
+      eb.send(address, Json.obj("action" -> "rollback"), { rep: Message[JsonObject] =>
+        p.success()
+      })
+      p.future
+    }
 
-    def recover(): PartialFunction[Throwable, Future[Transaction.type]] = {
-      case ex: Throwable => rollback() flatMap (_ => Future.failed[Transaction.type](ex))
+    def recover(eb: EventBus): PartialFunction[Throwable, Future[Transaction.type]] = {
+      case ex: Throwable => rollback(eb: EventBus) flatMap (_ => Future.failed[Transaction.type](ex))
     }
   }
 
-  def deinstall(): Future[Unit] = ???
+  def deinstall(eb: EventBus): Future[Unit] = for {
+    t <- beginTransaction(eb)
+    t <- t.query(eb, s"""DROP SCHEMA public CASCADE""".stripMargin, Json.arr()) recoverWith t.recover(eb)
+    t <- t.query(eb, s"""CREATE SCHEMA public""".stripMargin, Json.arr()) recoverWith t.recover(eb)
+    _ <- t.commit(eb)
+  } yield ()
 
-  def setup(): Future[Unit] = for {
-    t <- beginTransaction()
-    t <- t.query(s"""
+  def setup(eb: EventBus): Future[Unit] = for {
+    t <- beginTransaction(eb)
+    t <- t.query(eb, s"""
                      |CREATE TABLE system_table (
                      |  table_id BIGSERIAL,
                      |  user_table_names VARCHAR(255) NOT NULL,
                      |  PRIMARY KEY(table_id)
-                     |)""".stripMargin) recoverWith t.recover()
-    t <- t.query(s"""
+                     |)""".stripMargin, 
+                     Json.arr()) recoverWith t.recover(eb)
+    t <- t.query(eb, s"""
                      |CREATE TABLE system_columns(
                      |  table_id BIGINT,
                      |  column_id BIGINT,
@@ -85,8 +118,9 @@ object TableStructure extends ExecutionContext {
                      |  FOREIGN KEY(table_id)
                      |  REFERENCES system_table(table_id)
                      |  ON DELETE CASCADE
-                     |)""".stripMargin) recoverWith t.recover()
-    t <- t.query(s"""
+                     |)""".stripMargin,
+                     Json.arr()) recoverWith t.recover(eb)
+    t <- t.query(eb, s"""
                      |CREATE TABLE system_link_table(
                      |  link_id BIGSERIAL,
                      |  table_id_1 BIGINT,
@@ -101,44 +135,56 @@ object TableStructure extends ExecutionContext {
                      |  FOREIGN KEY(table_id_2, column_id_2)
                      |  REFERENCES system_columns(table_id, column_id)
                      |  ON DELETE CASCADE
-                     |)""".stripMargin) recoverWith t.recover()
-    t <- t.query(s"""
+                     |)""".stripMargin,
+                     Json.arr()) recoverWith t.recover(eb)
+    t <- t.query(eb, s"""
                      |ALTER TABLE system_columns
                      |  ADD FOREIGN KEY(link_id)
                      |  REFERENCES system_link_table(link_id)
-                     |  ON DELETE CASCADE""".stripMargin) recoverWith t.recover()
-    _ <- t.commit()
+                     |  ON DELETE CASCADE""".stripMargin,
+                     Json.arr()) recoverWith t.recover(eb)
+    _ <- t.commit(eb)
   } yield ()
 
-  def beginTransaction(): Future[Transaction.type] = ???
-
-}
-
-object Table {
-
-  val address = "campudus.asyncdb"
-  var id = 1
-
-  private def ebSend(vertx: Vertx)(json: JsonObject): Future[Message[JsonObject]] = {
-    val p = Promise[Message[JsonObject]]()
-    vertx.eventBus.send(address, json, { rep: Message[JsonObject] =>
-      println(rep.body().encode())
-      p.success(rep)
+  def beginTransaction(eb: EventBus): Future[Transaction.type] = {
+    val p = Promise[Transaction.type]
+    eb.send(address, Json.obj("action" -> "begin"), { rep: Message[JsonObject] =>
+      p.success(Transaction)
     })
     p.future
   }
 
-  // Need change -> SQL Statement
-  def create(name: String, vertx: Vertx): Future[Table] = {
-    val json = Json.obj(
-      "action" -> "raw",
-      "command" -> s"CREATE TABLE user_table_1 (id BIGSERIAL, PRIMARY KEY (id))")
+}
 
-    val ebSender = ebSend(vertx) _
-    id += 1
-    ebSender(json) map { reply =>
-      new Table(id, name, List()) // not rdy
-    }
+class Tableaux(verticle: Verticle) {
+
+  val address = "campudus.asyncdb"
+  val vertx = verticle.vertx
+
+  private def ebSend(json: JsonObject): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    vertx.eventBus.send(address, json, { rep: Message[JsonObject] =>
+      println(rep.body().encode())
+      p.success(rep.body())
+    })
+    p.future
+  }
+
+  def create(name: String): Future[Table] = {
+    val jsonInsert = Json.obj(
+      "action" -> "prepared",
+      "statement" -> "INSERT INTO system_table (user_table_names) VALUES (?) RETURNING table_id",
+      "values" -> Json.arr(name))
+
+    def jsonCreate(id: Long) = Json.obj(
+      "action" -> "raw",
+      "command" -> s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
+
+    for {
+      id <- ebSend(jsonInsert) map { r => r.getArray("results").get[JsonArray](0).get[Long](0) }
+      json <- Future.successful(jsonCreate(1))
+      x <- ebSend(json)
+    } yield new Table(id, name, List())
   }
 
   def delete(id: IdType): Future[Unit] = ???
@@ -156,7 +202,17 @@ object Table {
     _ <- column.setValue(rowId, v)
   } yield ()
 
-  def getTable(tableId: IdType): Future[Table] = ???
+  def getTable(tableId: IdType): Future[Table] = {
+    val json = Json.obj(
+      "action" -> "prepared",
+      "statement" -> "SELECT table_id, user_table_names FROM system_table WHERE user_table_id = ?",
+      "values" -> Json.arr(tableId))
+
+    for {
+      r <- ebSend(json)
+      name <- Future.successful(r.getArray("results").get[JsonArray](0).get[String](1))
+    } yield new Table(tableId, name, List())
+  }
 
   def getColumn(columnId: IdType): Future[ColumnType] = ???
 
