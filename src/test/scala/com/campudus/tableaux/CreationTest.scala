@@ -30,11 +30,13 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createStringColumn(): Unit = okTest {
-    val jsonObj = Json.obj("action" -> "createStringColumn", "tableId" -> 1, "columnName" -> "Test Column 1")
+    val createJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
+    val jsonObj = Json.obj("action" -> "createColumn", "type" -> "String", "tableId" -> 1, "columnName" -> "Test Column 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1)
     
     for {
       c <- createClient()
+      t <- sendRequest(c, createJson, "/tables")
       j <- sendRequest(c, jsonObj, "/tables/1/columns")
     } yield {
       assertEquals(expectedJson, j)

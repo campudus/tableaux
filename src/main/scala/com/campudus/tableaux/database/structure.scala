@@ -54,16 +54,18 @@ object TableStructure extends ExecutionContext {
   val address = "campudus.asyncdb"
 
   case object Transaction {
-    
+
+    var result: JsonObject = Json.obj()
+
     def query(eb: EventBus, query: String, values: JsonArray): Future[Transaction.type] = {
       val jsonQuery = Json.obj(
         "action" -> "prepared",
         "statement" -> query,
         "values" -> values)
-
+        
       val p = Promise[Transaction.type]
       eb.send(address, jsonQuery, { rep: Message[JsonObject] =>
-        println(rep.body().encode())
+        result = rep.body()
         p.success(this)
       })
       p.future
@@ -104,8 +106,8 @@ object TableStructure extends ExecutionContext {
                      |  table_id BIGSERIAL,
                      |  user_table_names VARCHAR(255) NOT NULL,
                      |  PRIMARY KEY(table_id)
-                     |)""".stripMargin, 
-                     Json.arr()) recoverWith t.recover(eb)
+                     |)""".stripMargin,
+      Json.arr()) recoverWith t.recover(eb)
     t <- t.query(eb, s"""
                      |CREATE TABLE system_columns(
                      |  table_id BIGINT,
@@ -119,7 +121,7 @@ object TableStructure extends ExecutionContext {
                      |  REFERENCES system_table(table_id)
                      |  ON DELETE CASCADE
                      |)""".stripMargin,
-                     Json.arr()) recoverWith t.recover(eb)
+      Json.arr()) recoverWith t.recover(eb)
     t <- t.query(eb, s"""
                      |CREATE TABLE system_link_table(
                      |  link_id BIGSERIAL,
@@ -136,15 +138,43 @@ object TableStructure extends ExecutionContext {
                      |  REFERENCES system_columns(table_id, column_id)
                      |  ON DELETE CASCADE
                      |)""".stripMargin,
-                     Json.arr()) recoverWith t.recover(eb)
+      Json.arr()) recoverWith t.recover(eb)
     t <- t.query(eb, s"""
                      |ALTER TABLE system_columns
                      |  ADD FOREIGN KEY(link_id)
                      |  REFERENCES system_link_table(link_id)
                      |  ON DELETE CASCADE""".stripMargin,
-                     Json.arr()) recoverWith t.recover(eb)
+      Json.arr()) recoverWith t.recover(eb)
     _ <- t.commit(eb)
   } yield ()
+
+  def createTable(eb: EventBus, name: String): Future[IdType] = for {
+    t <- beginTransaction(eb)
+    t <- t.query(eb, "INSERT INTO system_table (user_table_names) VALUES (?) RETURNING table_id", Json.arr(name)) recoverWith t.recover(eb)
+    id <- Future.successful(t.result.getArray("results").get[JsonArray](0).get[Long](0))
+    t <- t.query(eb, s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))", Json.arr()) recoverWith t.recover(eb)
+    t <- t.query(eb, s"CREATE SEQUENCE system_columns_column_id_table_$id", Json.arr()) recoverWith t.recover(eb)
+    _ <- t.commit(eb)
+  } yield id
+
+  def getTable(eb: EventBus, tableId: IdType): Future[String] = for {
+    t <- beginTransaction(eb)
+    t <- t.query(eb, "SELECT table_id, user_table_names FROM system_table WHERE table_id = ?", Json.arr(tableId)) recoverWith t.recover(eb)
+    n <- Future.successful(t.result.getArray("results").get[JsonArray](0).get[String](1))
+    _ <- t.commit(eb)
+  } yield n
+  
+  def insertColumn[StringColumn](eb: EventBus, tableId: IdType, name: String): Future[Long] = for {
+    t <- beginTransaction(eb)
+    t <- t.query(eb, s"""
+                     |INSERT INTO system_columns 
+                     |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, currval('system_columns_column_id_table_$tableId'))
+                     |  RETURNING column_id""".stripMargin, 
+                     Json.arr(tableId, name)) recoverWith t.recover(eb)
+    id <- Future.successful(t.result.getArray("results").get[JsonArray](0).get[Long](0))
+    t <- t.query(eb, s"ALTER TABLE user_table_$tableId ADD column_$id VARCHAR(255)", Json.arr()) recoverWith t.recover(eb)
+    _ <- t.commit(eb)
+  } yield id
 
   def beginTransaction(eb: EventBus): Future[Transaction.type] = {
     val p = Promise[Transaction.type]
@@ -158,43 +188,21 @@ object TableStructure extends ExecutionContext {
 
 class Tableaux(verticle: Verticle) {
 
-  val address = "campudus.asyncdb"
   val vertx = verticle.vertx
 
-  private def ebSend(json: JsonObject): Future[JsonObject] = {
-    val p = Promise[JsonObject]()
-    vertx.eventBus.send(address, json, { rep: Message[JsonObject] =>
-      println(rep.body().encode())
-      p.success(rep.body())
-    })
-    p.future
-  }
-
-  def create(name: String): Future[Table] = {
-    val jsonInsert = Json.obj(
-      "action" -> "prepared",
-      "statement" -> "INSERT INTO system_table (user_table_names) VALUES (?) RETURNING table_id",
-      "values" -> Json.arr(name))
-
-    def jsonCreate(id: Long) = Json.obj(
-      "action" -> "raw",
-      "command" -> s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
-
-    for {
-      id <- ebSend(jsonInsert) map { r => r.getArray("results").get[JsonArray](0).get[Long](0) }
-      json <- Future.successful(jsonCreate(1))
-      x <- ebSend(json)
-    } yield new Table(id, name, List())
-  }
+  def create(name: String): Future[Table] = for {
+    id <- createTable(vertx.eventBus, name)
+  } yield new Table(id, name, List())
 
   def delete(id: IdType): Future[Unit] = ???
 
   def addColumn[T <: ColumnType](tableId: IdType, name: String): Future[T] = for {
     table <- getTable(tableId)
+    id <- insertColumn[T](vertx.eventBus, table.id, name)
   } yield {
-    ???
+    new StringColumn(table, id, name).asInstanceOf[T]
   }
-
+  
   def insertValue[T <: ColumnType](tableId: IdType, columnId: IdType, rowId: IdType, value: T): Future[Unit] = for {
     table <- getTable(tableId)
     column <- table.getColumn(columnId)
@@ -202,17 +210,9 @@ class Tableaux(verticle: Verticle) {
     _ <- column.setValue(rowId, v)
   } yield ()
 
-  def getTable(tableId: IdType): Future[Table] = {
-    val json = Json.obj(
-      "action" -> "prepared",
-      "statement" -> "SELECT table_id, user_table_names FROM system_table WHERE user_table_id = ?",
-      "values" -> Json.arr(tableId))
-
-    for {
-      r <- ebSend(json)
-      name <- Future.successful(r.getArray("results").get[JsonArray](0).get[String](1))
-    } yield new Table(tableId, name, List())
-  }
+  def getTable(tableId: IdType): Future[Table] = for {
+    name <- TableStructure.getTable(vertx.eventBus, tableId)
+  } yield new Table(tableId, name, List())
 
   def getColumn(columnId: IdType): Future[ColumnType] = ???
 

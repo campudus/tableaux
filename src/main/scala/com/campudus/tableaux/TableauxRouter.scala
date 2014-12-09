@@ -42,7 +42,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       AsyncReply {
         for{
           j <- controller.getJson(req).map(js => js.putString("action", "createColumn").putString("tableId", tableId))
-          x <- controller.createStringColumn(j)
+          x <- controller.createColumn(j)
         } yield x
       }
     // more posts
