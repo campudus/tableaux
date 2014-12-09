@@ -62,7 +62,7 @@ object TableStructure extends ExecutionContext {
         "action" -> "prepared",
         "statement" -> query,
         "values" -> values)
-        
+
       val p = Promise[Transaction.type]
       eb.send(address, jsonQuery, { rep: Message[JsonObject] =>
         result = rep.body()
@@ -163,16 +163,16 @@ object TableStructure extends ExecutionContext {
     n <- Future.successful(t.result.getArray("results").get[JsonArray](0).get[String](1))
     _ <- t.commit(eb)
   } yield n
-  
-  def insertColumn[StringColumn](eb: EventBus, tableId: IdType, name: String): Future[Long] = for {
+
+  def insertColumn(eb: EventBus, tableId: IdType, name: String, columnType: String): Future[Long] = for {
     t <- beginTransaction(eb)
     t <- t.query(eb, s"""
                      |INSERT INTO system_columns 
                      |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, currval('system_columns_column_id_table_$tableId'))
-                     |  RETURNING column_id""".stripMargin, 
-                     Json.arr(tableId, name)) recoverWith t.recover(eb)
+                     |  RETURNING column_id""".stripMargin,
+      Json.arr(tableId, name)) recoverWith t.recover(eb)
     id <- Future.successful(t.result.getArray("results").get[JsonArray](0).get[Long](0))
-    t <- t.query(eb, s"ALTER TABLE user_table_$tableId ADD column_$id VARCHAR(255)", Json.arr()) recoverWith t.recover(eb)
+    t <- t.query(eb, s"ALTER TABLE user_table_$tableId ADD column_$id $columnType)", Json.arr()) recoverWith t.recover(eb)
     _ <- t.commit(eb)
   } yield id
 
@@ -196,13 +196,16 @@ class Tableaux(verticle: Verticle) {
 
   def delete(id: IdType): Future[Unit] = ???
 
-  def addColumn[T <: ColumnType](tableId: IdType, name: String): Future[T] = for {
+  def addColumn[T <: ColumnType](tableId: IdType, name: String, columnType: String): Future[T] = for {
     table <- getTable(tableId)
-    id <- insertColumn[T](vertx.eventBus, table.id, name)
+    id <- insertColumn(vertx.eventBus, table.id, name, columnType)
   } yield {
-    new StringColumn(table, id, name).asInstanceOf[T]
-  }
-  
+    columnType match {
+      case "text"    => StringColumn(table, id, name)
+      case "numeric" => NumberColumn(table, id, name)
+    }
+  }.asInstanceOf[T]
+
   def insertValue[T <: ColumnType](tableId: IdType, columnId: IdType, rowId: IdType, value: T): Future[Unit] = for {
     table <- getTable(tableId)
     column <- table.getColumn(columnId)
@@ -212,7 +215,7 @@ class Tableaux(verticle: Verticle) {
 
   def getTable(tableId: IdType): Future[Table] = for {
     name <- TableStructure.getTable(vertx.eventBus, tableId)
-  } yield new Table(tableId, name, List())
+  } yield Table(tableId, name, List())
 
   def getColumn(columnId: IdType): Future[ColumnType] = ???
 

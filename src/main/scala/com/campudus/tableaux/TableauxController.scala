@@ -17,17 +17,16 @@ class TableauxController(verticle: Starter) {
     val tableId = json.getString("tableId").toLong
     val columnName = json.getString("columnName")
     json.getString("type") match {
-      case "String" => for {
-        column <- tableaux.addColumn[StringColumn](tableId, columnName)
-      } yield Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.columnId))
-      case "Number" => for {
-        column <- tableaux.addColumn[NumberColumn](tableId, columnName)
-      } yield Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.columnId))
+      case "text" => for {
+        column <- tableaux.addColumn[StringColumn](tableId, columnName, "text")
+      } yield Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.columnId, "columnType" -> "text"))
+      case "numeric" => for {
+        column <- tableaux.addColumn[NumberColumn](tableId, columnName, "numeric")
+      } yield Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.columnId, "columnType" -> "numeric"))
       case "Link" => for {
-        column <- tableaux.addColumn[LinkColumn](tableId, columnName)
-      } yield Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.columnId))
+        column <- tableaux.addColumn[LinkColumn](tableId, columnName, "Link")
+      } yield Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.columnId, "columnType" -> "Link"))
     }
-
   }
 
   def createTable(json: JsonObject): Future[Reply] = {

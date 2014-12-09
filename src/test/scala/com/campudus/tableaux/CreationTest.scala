@@ -3,9 +3,9 @@ package com.campudus.tableaux
 import org.junit.Test
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.buffer.Buffer
-import org.vertx.scala.core.json.{Json, JsonObject}
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success}
+import org.vertx.scala.core.json.{ Json, JsonObject }
+import scala.concurrent.{ Future, Promise }
+import scala.util.{ Failure, Success }
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
@@ -31,9 +31,9 @@ class CreationTest extends TableauxTestBase {
   @Test
   def createStringColumn(): Unit = okTest {
     val createJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
-    val jsonObj = Json.obj("action" -> "createColumn", "type" -> "String", "tableId" -> 1, "columnName" -> "Test Column 1")
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1)
-    
+    val jsonObj = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnType" -> "text")
+
     for {
       c <- createClient()
       t <- sendRequest(c, createJson, "/tables")
@@ -44,14 +44,23 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createNumberColumn(): Unit = {
-    fail("not implemented")
+  def createNumberColumn(): Unit = okTest {
+    val createJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
+    val jsonObj = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 1")
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnType" -> "numeric")
+
+    for {
+      c <- createClient()
+      t <- sendRequest(c, createJson, "/tables")
+      j <- sendRequest(c, jsonObj, "/tables/1/columns")
+    } yield {
+      assertEquals(expectedJson, j)
+    }
   }
 
   @Test
   def createLinkColumn(): Unit = {
     fail("not implemented")
   }
-
 
 }

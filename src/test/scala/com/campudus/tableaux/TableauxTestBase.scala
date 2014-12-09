@@ -1,12 +1,12 @@
 package com.campudus.tableaux
 
 import org.vertx.scala.core.FunctionConverters._
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.{ Json, JsonObject }
 import org.vertx.scala.testtools.TestVerticle
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.http._
-import scala.concurrent.{Promise, Future}
-import scala.util.{Try, Failure, Success}
+import scala.concurrent.{ Promise, Future }
+import scala.util.{ Try, Failure, Success }
 import com.campudus.tableaux.database.TableStructure
 
 /**
@@ -14,7 +14,7 @@ import com.campudus.tableaux.database.TableStructure
  */
 trait TableauxTestBase extends TestVerticle {
   val DEFAULT_PORT = 8181
-  
+
   override def asyncBefore(): Future[Unit] = {
     for {
       _ <- deployModule()
@@ -22,7 +22,7 @@ trait TableauxTestBase extends TestVerticle {
       _ <- TableStructure.setup(vertx.eventBus)
     } yield ()
   }
-  
+
   def deployModule(): Future[Unit] = {
     val p = Promise[Unit]()
     container.deployModule(System.getProperty("vertx.modulename"), Json.obj(), 1, {
@@ -44,7 +44,7 @@ trait TableauxTestBase extends TestVerticle {
         fail("got exception")
     }
   }
-  
+
   def createClient(): Future[HttpClient] = {
     val p = Promise[HttpClient]()
     p.success(vertx.createHttpClient().setHost("localhost").setPort(DEFAULT_PORT))
