@@ -16,10 +16,11 @@ trait TableauxTestBase extends TestVerticle {
   val DEFAULT_PORT = 8181
 
   override def asyncBefore(): Future[Unit] = {
+    val tables = new TableStructure(this)
     for {
       _ <- deployModule()
-      _ <- TableStructure.deinstall(vertx.eventBus)
-      _ <- TableStructure.setup(vertx.eventBus)
+      _ <- tables.deinstall(vertx.eventBus)
+      _ <- tables.setup(vertx.eventBus)
     } yield ()
   }
 
