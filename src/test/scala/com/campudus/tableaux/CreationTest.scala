@@ -2,10 +2,8 @@ package com.campudus.tableaux
 
 import org.junit.Test
 import org.vertx.testtools.VertxAssert._
-import org.vertx.scala.core.buffer.Buffer
-import org.vertx.scala.core.json.{ Json, JsonObject }
-import scala.concurrent.{ Future, Promise }
-import scala.util.{ Failure, Success }
+import org.vertx.scala.core.json.Json
+import scala.concurrent.Future
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
@@ -20,8 +18,8 @@ class CreationTest extends TableauxTestBase {
 
     for {
       c <- createClient()
-      test1 <- sendRequest(c, jsonObj, "/tables")
-      test2 <- sendRequest(c, jsonObj, "/tables")
+      test1 <- sendRequest("POST", c, jsonObj, "/tables")
+      test2 <- sendRequest("POST", c, jsonObj, "/tables")
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -33,13 +31,18 @@ class CreationTest extends TableauxTestBase {
     val createJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
     val jsonObj = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnType" -> "text")
+    val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "columnType" -> "text")
 
     for {
       c <- createClient()
-      t <- sendRequest(c, createJson, "/tables")
-      j <- sendRequest(c, jsonObj, "/tables/1/columns")
+      t <- sendRequest("POST", c, createJson, "/tables")
+      test1 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
+      test2 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
+      r <- sendRequest("GET", c, Json.obj(), "/tables/1")
+      _ <- Future.successful(println(r.encode()))
     } yield {
-      assertEquals(expectedJson, j)
+      assertEquals(expectedJson, test1)
+      assertEquals(expectedJson2, test2)
     }
   }
 
@@ -48,13 +51,16 @@ class CreationTest extends TableauxTestBase {
     val createJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
     val jsonObj = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnType" -> "numeric")
+    val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "columnType" -> "numeric")
 
     for {
       c <- createClient()
-      t <- sendRequest(c, createJson, "/tables")
-      j <- sendRequest(c, jsonObj, "/tables/1/columns")
+      t <- sendRequest("POST", c, createJson, "/tables")
+      test1 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
+      test2 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
     } yield {
-      assertEquals(expectedJson, j)
+      assertEquals(expectedJson, test1)
+      assertEquals(expectedJson2, test2)
     }
   }
 

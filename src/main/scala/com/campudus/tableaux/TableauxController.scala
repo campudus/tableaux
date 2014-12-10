@@ -41,7 +41,10 @@ class TableauxController(verticle: Starter) {
     val id = json.getString("tableId").toLong
     for {
       table <- tableaux.getTable(id)
-    } yield Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name))
+      column <- Future.successful{
+        table.columns map {x => Json.obj("columnId" -> x.columnId.get, "columnName" -> x.name)}
+      }
+    } yield Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> column))
   }
 
   def getJson(req: HttpServerRequest): Future[JsonObject] = {

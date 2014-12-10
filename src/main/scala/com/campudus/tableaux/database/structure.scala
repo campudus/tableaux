@@ -52,8 +52,10 @@ case class LinkColumn(table: Table, columnId: Option[IdType], to: IdType, name: 
 case class Link(value: Seq[IdType])
 
 case class Table(id: IdType, name: String, columns: Seq[ColumnType]) {
+  def withNewColumnSeq(cols: Seq[ColumnType]) = copy(columns = cols)
+  
   def getColumn(columnId: IdType)(implicit executionContext: ExecutionContext): Future[ColumnType] = {
-    Future.apply(columns.find(_.columnId == columnId).get)
+    Future.apply(columns.find(_.columnId.get == columnId).get)
   }
 }
 
@@ -65,14 +67,14 @@ class TableStructure(transaction: Transaction) {
   implicit val executionContext = transaction.executionContext
 
   def deinstall(): Future[Unit] = for {
-    t <- transaction.beginTransaction()
+    t <- transaction.begin()
     (t, res) <- t.query(s"""DROP SCHEMA public CASCADE""".stripMargin, Json.arr())
     (t, res) <- t.query(s"""CREATE SCHEMA public""".stripMargin, Json.arr())
     _ <- t.commit()
   } yield ()
 
   def setup(): Future[Unit] = for {
-    t <- transaction.beginTransaction()
+    t <- transaction.begin()
     (t, res) <- t.query(s"""
                      |CREATE TABLE system_table (
                      |  table_id BIGSERIAL,
@@ -121,7 +123,7 @@ class TableStructure(transaction: Transaction) {
   } yield ()
 
   def createTable(name: String): Future[IdType] = for {
-    t <- transaction.beginTransaction()
+    t <- transaction.begin()
     (t, result) <- t.query("INSERT INTO system_table (user_table_names) VALUES (?) RETURNING table_id", Json.arr(name))
     id <- Future.successful(result.getArray("results").get[JsonArray](0).get[Long](0))
     (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))", Json.arr())
@@ -130,7 +132,7 @@ class TableStructure(transaction: Transaction) {
   } yield id
 
   def getTable(tableId: IdType): Future[String] = for {
-    t <- transaction.beginTransaction()
+    t <- transaction.begin()
     (t, result) <- t.query("SELECT table_id, user_table_names FROM system_table WHERE table_id = ?", Json.arr(tableId))
     n <- Future.successful(result.getArray("results").get[JsonArray](0).get[String](1))
     _ <- t.commit()
@@ -141,16 +143,47 @@ class ColumnStructure(transaction: Transaction) {
   implicit val executionContext = transaction.executionContext
 
   def insertColumn[T <: ValueColumnType](tableId: IdType, column: T): Future[Long] = for {
-    t <- transaction.beginTransaction()
+    t <- transaction.begin()
     (t, result) <- t.query(s"""
                      |INSERT INTO system_columns 
                      |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, currval('system_columns_column_id_table_$tableId'))
                      |  RETURNING column_id""".stripMargin,
       Json.arr(tableId, column.name))
     id <- Future.successful(result.getArray("results").get[JsonArray](0).get[Long](0))
-    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_$id ${column.dbType})", Json.arr())
+    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_$id ${column.dbType}", Json.arr())
     _ <- t.commit()
   } yield id
+
+  def getColumns(tableId: IdType): Future[JsonArray] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query("""
+                     |SELECT column_id, user_column_name 
+                     |  FROM system_columns 
+                     |  WHERE table_id = ? ORDER BY column_id""".stripMargin, Json.arr(tableId))
+    j <- Future.successful(result.getArray("results"))
+    _ <- t.commit()
+  } yield j
+
+  def getColumnType(tableId: IdType): Future[JsonObject] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query("SELECT column_name, data_type FROM information_schema.columns WHERE column_name LIKE 'column_%' AND table_name = ?", Json.arr(s"user_table_$tableId"))
+    j <- Future.successful(result)
+    _ <- t.commit()
+  } yield j
+
+  def typeMatcher(table: Table, json: JsonArray): Future[List[ColumnType]] = for {
+    t <- getColumnType(table.id)
+    x <- Future.successful {
+      var l: List[ColumnType] = List()
+      for (i <- 0 until t.getInteger("rows")) {
+        t.getArray("results").get[JsonArray](i).get[String](1) match {
+          case "text"    => l = l ::: List(StringColumn(table, Some(json.get[JsonArray](i).get[Long](0)), json.get[JsonArray](i).get[String](1)))
+          case "numeric" => l = l ::: List(NumberColumn(table, Some(json.get[JsonArray](i).get[Long](0)), json.get[JsonArray](i).get[String](1)))
+        }
+      }
+      l
+    }
+  } yield x
 }
 
 class Tableaux(verticle: Verticle) {
@@ -158,11 +191,11 @@ class Tableaux(verticle: Verticle) {
 
   val vertx = verticle.vertx
   val transaction = new Transaction(verticle)
-  val tables = new TableStructure(transaction)
-  val columns = new ColumnStructure(transaction)
+  val tableStruc = new TableStructure(transaction)
+  val columnStruc = new ColumnStructure(transaction)
 
   def create(name: String): Future[Table] = for {
-    id <- tables.createTable(name)
+    id <- tableStruc.createTable(name)
   } yield new Table(id, name, List())
 
   def delete(id: IdType): Future[Unit] = ???
@@ -175,7 +208,7 @@ class Tableaux(verticle: Verticle) {
         case "numeric" => NumberColumn(table, None, name)
       }
     }
-    id <- columns.insertColumn(table.id, column)
+    id <- columnStruc.insertColumn(table.id, column)
   } yield {
     column.withNewColumnId(id)
   }.asInstanceOf[T]
@@ -188,8 +221,11 @@ class Tableaux(verticle: Verticle) {
   } yield ()
 
   def getTable(tableId: IdType): Future[Table] = for {
-    name <- tables.getTable(tableId)
-  } yield Table(tableId, name, List())
+    name <- tableStruc.getTable(tableId)
+    table <- Future.successful { Table(tableId, name, List()) }
+    json <- columnStruc.getColumns(tableId)
+    columns <- columnStruc.typeMatcher(table, json)
+  } yield table.withNewColumnSeq(columns)
 
   def getColumn(columnId: IdType): Future[ColumnType] = ???
 

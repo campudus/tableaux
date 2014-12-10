@@ -47,7 +47,7 @@ class Transaction(verticle: Verticle) {
     }
   }
 
-  def beginTransaction(): Future[Transaction] = {
+  def begin(): Future[Transaction] = {
     val p = Promise[Transaction]
     eb.sendWithTimeout(address, Json.obj("action" -> "begin"), DEFAULT_TIMEOUT, {
       case Success(rep) =>

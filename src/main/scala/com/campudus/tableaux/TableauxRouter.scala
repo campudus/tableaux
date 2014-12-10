@@ -27,7 +27,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Get("/") => SendFile("index.html")
     case Get(tableId(tableId)) => AsyncReply {
       for {
-        j <- controller.getJson(req).map(js => js.putString("action", "getTable"))
+        j <- controller.getJson(req).map(js => js.putString("action", "getTable").putString("tableId", tableId))
         x <- controller.getTable(j)
       } yield x
     }

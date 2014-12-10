@@ -53,14 +53,14 @@ trait TableauxTestBase extends TestVerticle {
     p.future
   }
 
-  def sendRequest(client: HttpClient, jsonObj: JsonObject, path: String): Future[JsonObject] = {
+  def sendRequest(method: String, client: HttpClient, jsonObj: JsonObject, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]
-    client.request("POST", path, { resp: HttpClientResponse =>
+    client.request(method, path, { resp: HttpClientResponse =>
       logger.info("Got a response: " + resp.statusCode())
       resp.bodyHandler { buf =>
         p.success(Json.fromObjectString(buf.toString))
       }
-    }).setChunked(true).write(jsonObj.toString()).end()
+    }).setChunked(true).write(jsonObj.encode()).end()
     p.future
   }
 }
