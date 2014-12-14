@@ -7,7 +7,8 @@ import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.http._
 import scala.concurrent.{ Promise, Future }
 import scala.util.{ Try, Failure, Success }
-import com.campudus.tableaux.database.TableStructure
+import com.campudus.tableaux.database.SystemStructure
+import com.campudus.tableaux.database.Transaction
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
@@ -17,11 +18,11 @@ trait TableauxTestBase extends TestVerticle {
 
   override def asyncBefore(): Future[Unit] = {
     val transaction = new Transaction(this)
-    val tables = new TableStructure(transaction)
+    val system = new SystemStructure(transaction)
     for {
       _ <- deployModule()
-      _ <- tables.deinstall()
-      _ <- tables.setup()
+      _ <- system.deinstall()
+      _ <- system.setup()
     } yield ()
   }
 

@@ -1,4 +1,4 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.database
 
 import scala.concurrent.Future
 import scala.concurrent.Promise

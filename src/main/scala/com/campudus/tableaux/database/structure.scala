@@ -13,7 +13,6 @@ import scala.util.Try
 import scala.util.Failure
 import scala.util.Success
 import scala.concurrent.ExecutionContext
-import com.campudus.tableaux.Transaction
 
 sealed trait ColumnType {
   type Value
@@ -53,7 +52,7 @@ case class Link(value: Seq[IdType])
 
 case class Table(id: IdType, name: String, columns: Seq[ColumnType]) {
   def withNewColumnSeq(cols: Seq[ColumnType]) = copy(columns = cols)
-  
+
   def getColumn(columnId: IdType)(implicit executionContext: ExecutionContext): Future[ColumnType] = {
     Future.apply(columns.find(_.columnId.get == columnId).get)
   }
@@ -63,9 +62,9 @@ object TableStructure {
   type IdType = Long
 }
 
-class TableStructure(transaction: Transaction) {
+class SystemStructure(transaction: Transaction) {
   implicit val executionContext = transaction.executionContext
-
+  
   def deinstall(): Future[Unit] = for {
     t <- transaction.begin()
     (t, res) <- t.query(s"""DROP SCHEMA public CASCADE""".stripMargin, Json.arr())
@@ -121,8 +120,12 @@ class TableStructure(transaction: Transaction) {
       Json.arr())
     _ <- t.commit()
   } yield ()
+}
 
-  def createTable(name: String): Future[IdType] = for {
+class TableStructure(transaction: Transaction) {
+  implicit val executionContext = transaction.executionContext
+
+  def create(name: String): Future[IdType] = for {
     t <- transaction.begin()
     (t, result) <- t.query("INSERT INTO system_table (user_table_names) VALUES (?) RETURNING table_id", Json.arr(name))
     id <- Future.successful(result.getArray("results").get[JsonArray](0).get[Long](0))
@@ -131,18 +134,26 @@ class TableStructure(transaction: Transaction) {
     _ <- t.commit()
   } yield id
 
-  def getTable(tableId: IdType): Future[String] = for {
+  def get(tableId: IdType): Future[JsonArray] = for {
     t <- transaction.begin()
     (t, result) <- t.query("SELECT table_id, user_table_names FROM system_table WHERE table_id = ?", Json.arr(tableId))
-    n <- Future.successful(result.getArray("results").get[JsonArray](0).get[String](1))
+    n <- Future.successful(result.getArray("results").get[JsonArray](0))
     _ <- t.commit()
   } yield n
+
+  def delete(tableId: IdType): Future[Unit] = for {
+    t <- transaction.begin()
+    (t, _) <- t.query(s"DROP TABLE user_table_$tableId", Json.arr())
+    (t, _) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
+    (t, _) <- t.query(s"DROP SEQUENCE IF EXISTS system_columns_column_id_table_$tableId", Json.arr())
+    _ <- t.commit()
+  } yield ()
 }
 
 class ColumnStructure(transaction: Transaction) {
   implicit val executionContext = transaction.executionContext
 
-  def insertColumn[T <: ValueColumnType](tableId: IdType, column: T): Future[Long] = for {
+  def insert[T <: ValueColumnType](tableId: IdType, column: T): Future[Long] = for {
     t <- transaction.begin()
     (t, result) <- t.query(s"""
                      |INSERT INTO system_columns 
@@ -154,7 +165,7 @@ class ColumnStructure(transaction: Transaction) {
     _ <- t.commit()
   } yield id
 
-  def getColumns(tableId: IdType): Future[JsonArray] = for {
+  def get(tableId: IdType): Future[JsonArray] = for {
     t <- transaction.begin()
     (t, result) <- t.query("""
                      |SELECT column_id, user_column_name 
@@ -164,15 +175,22 @@ class ColumnStructure(transaction: Transaction) {
     _ <- t.commit()
   } yield j
 
-  def getColumnType(tableId: IdType): Future[JsonObject] = for {
+  def getType(tableId: IdType): Future[JsonObject] = for {
     t <- transaction.begin()
     (t, result) <- t.query("SELECT column_name, data_type FROM information_schema.columns WHERE column_name LIKE 'column_%' AND table_name = ?", Json.arr(s"user_table_$tableId"))
     j <- Future.successful(result)
     _ <- t.commit()
   } yield j
+  
+  def delete(tableId: IdType, columnId: IdType): Future[Unit] = for {
+    t <- transaction.begin()
+    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId", Json.arr())
+    (t, _) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
+    _ <- t.commit()
+  } yield ()
 
   def typeMatcher(table: Table, json: JsonArray): Future[List[ColumnType]] = for {
-    t <- getColumnType(table.id)
+    t <- getType(table.id)
     x <- Future.successful {
       var l: List[ColumnType] = List()
       for (i <- 0 until t.getInteger("rows")) {
@@ -195,10 +213,12 @@ class Tableaux(verticle: Verticle) {
   val columnStruc = new ColumnStructure(transaction)
 
   def create(name: String): Future[Table] = for {
-    id <- tableStruc.createTable(name)
+    id <- tableStruc.create(name)
   } yield new Table(id, name, List())
 
-  def delete(id: IdType): Future[Unit] = ???
+  def delete(id: IdType): Future[Unit] = for {
+    _ <- tableStruc.delete(id)
+  } yield ()
 
   def addColumn[T <: ValueColumnType](tableId: IdType, name: String, columnType: String): Future[T] = for {
     table <- getTable(tableId)
@@ -208,11 +228,15 @@ class Tableaux(verticle: Verticle) {
         case "numeric" => NumberColumn(table, None, name)
       }
     }
-    id <- columnStruc.insertColumn(table.id, column)
+    id <- columnStruc.insert(table.id, column)
   } yield {
     column.withNewColumnId(id)
   }.asInstanceOf[T]
 
+  def removeColumn(tableId: IdType, columnId: IdType): Future[Unit] = for {
+    _ <- columnStruc.delete(tableId, columnId)
+  } yield ()
+  
   def insertValue[T <: ColumnType](tableId: IdType, columnId: IdType, rowId: IdType, value: T): Future[Unit] = for {
     table <- getTable(tableId)
     column <- table.getColumn(columnId)
@@ -221,12 +245,15 @@ class Tableaux(verticle: Verticle) {
   } yield ()
 
   def getTable(tableId: IdType): Future[Table] = for {
-    name <- tableStruc.getTable(tableId)
-    table <- Future.successful { Table(tableId, name, List()) }
-    json <- columnStruc.getColumns(tableId)
+    json <- tableStruc.get(tableId)
+    table <- Future.successful { Table(json.get[Long](0), json.get[String](1), List()) }
+    json <- columnStruc.get(table.id)
     columns <- columnStruc.typeMatcher(table, json)
   } yield table.withNewColumnSeq(columns)
 
-  def getColumn(columnId: IdType): Future[ColumnType] = ???
+  def getColumn(tableId: IdType, columnId: IdType): Future[ColumnType] = for {
+    table <- getTable(tableId)
+    column <- table.getColumn(columnId)
+  } yield column
 
 }

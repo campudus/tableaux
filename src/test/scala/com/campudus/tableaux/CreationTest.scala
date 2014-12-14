@@ -3,7 +3,6 @@ package com.campudus.tableaux
 import org.junit.Test
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.json.Json
-import scala.concurrent.Future
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
@@ -38,8 +37,6 @@ class CreationTest extends TableauxTestBase {
       t <- sendRequest("POST", c, createJson, "/tables")
       test1 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
       test2 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
-      r <- sendRequest("GET", c, Json.obj(), "/tables/1")
-      _ <- Future.successful(println(r.encode()))
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
