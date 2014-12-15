@@ -73,5 +73,10 @@ class GetTest extends TableauxTestBase {
       assertEquals(expectedJson, test)
     }
   }
+  
+  @Test
+  def getLinkColumn(): Unit = {
+    fail("not implemented")
+  }
 
 }

@@ -21,9 +21,15 @@ sealed trait ColumnType {
 
   def name: String
 
+  def cells: Seq[Cell[Value]]
+
   def table: Table
 
-  def setValue(rowId: IdType, value: Value): Future[Unit] = ???
+  def setValue(rowId: IdType, value: Value): ColumnType
+
+  def getCell(rowId: IdType)(implicit executionContext: ExecutionContext): Future[Cell[Value]] = {
+    Future.apply(cells.find(_.rowId == rowId).get)
+  }
 
 }
 
@@ -32,20 +38,27 @@ sealed trait ValueColumnType extends ColumnType {
   def withNewColumnId(colId: IdType): ValueColumnType
 }
 
-case class StringColumn(table: Table, columnId: Option[IdType], name: String) extends ValueColumnType {
+case class StringColumn(table: Table, columnId: Option[IdType], name: String, cells: Seq[Cell[String]]) extends ValueColumnType {
   type Value = String
   val dbType = "text"
   override def withNewColumnId(colId: IdType) = copy(columnId = Some(colId))
+  override def setValue(rowId: IdType, value: Value) = copy(cells = cells :+ Cell[Value](this, rowId, value))
 }
 
-case class NumberColumn(table: Table, columnId: Option[IdType], name: String) extends ValueColumnType {
+case class NumberColumn(table: Table, columnId: Option[IdType], name: String, cells: Seq[Cell[Number]]) extends ValueColumnType {
   type Value = Number
   val dbType = "numeric"
   override def withNewColumnId(colId: IdType) = copy(columnId = Some(colId))
+  override def setValue(rowId: IdType, value: Value) = copy(cells = cells :+ Cell[Value](this, rowId, value))
 }
 
-case class LinkColumn(table: Table, columnId: Option[IdType], to: IdType, name: String) extends ColumnType {
+case class LinkColumn(table: Table, columnId: Option[IdType], to: IdType, name: String, cells: Seq[Cell[Link]]) extends ColumnType {
   type Value = Link
+  
+  override def setValue(rowId: IdType, value: Value) = copy(cells = cells :+ Cell[Value](this, rowId, value))
+}
+
+case class Cell[+T](column: ColumnType, rowId: IdType, value: T) {
 }
 
 case class Link(value: Seq[IdType])
@@ -64,7 +77,7 @@ object TableStructure {
 
 class SystemStructure(transaction: Transaction) {
   implicit val executionContext = transaction.executionContext
-  
+
   def deinstall(): Future[Unit] = for {
     t <- transaction.begin()
     (t, res) <- t.query(s"""DROP SCHEMA public CASCADE""".stripMargin, Json.arr())
@@ -153,7 +166,7 @@ class TableStructure(transaction: Transaction) {
 class ColumnStructure(transaction: Transaction) {
   implicit val executionContext = transaction.executionContext
 
-  def insert[T <: ValueColumnType](tableId: IdType, column: T): Future[Long] = for {
+  def insert[T <: ValueColumnType](tableId: IdType, column: T): Future[IdType] = for {
     t <- transaction.begin()
     (t, result) <- t.query(s"""
                      |INSERT INTO system_columns 
@@ -181,7 +194,7 @@ class ColumnStructure(transaction: Transaction) {
     j <- Future.successful(result)
     _ <- t.commit()
   } yield j
-  
+
   def delete(tableId: IdType, columnId: IdType): Future[Unit] = for {
     t <- transaction.begin()
     (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId", Json.arr())
@@ -195,13 +208,35 @@ class ColumnStructure(transaction: Transaction) {
       var l: List[ColumnType] = List()
       for (i <- 0 until t.getInteger("rows")) {
         t.getArray("results").get[JsonArray](i).get[String](1) match {
-          case "text"    => l = l ::: List(StringColumn(table, Some(json.get[JsonArray](i).get[Long](0)), json.get[JsonArray](i).get[String](1)))
-          case "numeric" => l = l ::: List(NumberColumn(table, Some(json.get[JsonArray](i).get[Long](0)), json.get[JsonArray](i).get[String](1)))
+          case "text"    => l = l ::: List(StringColumn(table, Some(json.get[JsonArray](i).get[IdType](0)), json.get[JsonArray](i).get[String](1), List()))
+          case "numeric" => l = l ::: List(NumberColumn(table, Some(json.get[JsonArray](i).get[IdType](0)), json.get[JsonArray](i).get[String](1), List()))
         }
       }
       l
     }
   } yield x
+}
+
+class RowStructure(transaction: Transaction) {
+  implicit val executionContext = transaction.executionContext
+
+  def create(tableId: IdType): Future[IdType] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id", Json.arr())
+    j <- Future.successful { result.getArray("results").get[JsonArray](0).get[IdType](0) }
+    _ <- t.commit()
+  } yield j
+}
+
+class CellStructure(transaction: Transaction) {
+  implicit val executionContext = transaction.executionContext
+
+  def update[T](tableId: IdType, columnId: IdType, rowId: IdType, value: T): Future[Unit] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query(s"UPDATE user_table_$tableId SET column_$columnId = ? WHERE id = ?", Json.arr(value, rowId))
+    _ <- t.commit()
+  } yield ()
+
 }
 
 class Tableaux(verticle: Verticle) {
@@ -211,6 +246,8 @@ class Tableaux(verticle: Verticle) {
   val transaction = new Transaction(verticle)
   val tableStruc = new TableStructure(transaction)
   val columnStruc = new ColumnStructure(transaction)
+  val cellStruc = new CellStructure(transaction)
+  val rowStruc = new RowStructure(transaction)
 
   def create(name: String): Future[Table] = for {
     id <- tableStruc.create(name)
@@ -224,8 +261,8 @@ class Tableaux(verticle: Verticle) {
     table <- getTable(tableId)
     column <- Future.successful {
       columnType match {
-        case "text"    => StringColumn(table, None, name)
-        case "numeric" => NumberColumn(table, None, name)
+        case "text"    => StringColumn(table, None, name, List())
+        case "numeric" => NumberColumn(table, None, name, List())
       }
     }
     id <- columnStruc.insert(table.id, column)
@@ -236,13 +273,19 @@ class Tableaux(verticle: Verticle) {
   def removeColumn(tableId: IdType, columnId: IdType): Future[Unit] = for {
     _ <- columnStruc.delete(tableId, columnId)
   } yield ()
-  
-  def insertValue[T <: ColumnType](tableId: IdType, columnId: IdType, rowId: IdType, value: T): Future[Unit] = for {
+
+  def addRow(tableId: IdType): Future[IdType] = for {
+    id <- rowStruc.create(tableId)
+  } yield id
+
+  def insertValue[T <: ColumnType, U <: Any](tableId: IdType, columnId: IdType, rowId: IdType, value: U): Future[Cell[U]] = for {
     table <- getTable(tableId)
     column <- table.getColumn(columnId)
-    v: column.Value <- Future.apply(value.asInstanceOf[column.Value])
-    _ <- column.setValue(rowId, v)
-  } yield ()
+    v <- Future.apply(value.asInstanceOf[column.Value])
+    _ <- cellStruc.update[column.Value](tableId, columnId, rowId, v)
+    column <- Future.successful { column.setValue(rowId, v) }
+    cell <- column.getCell(rowId)
+  } yield cell.asInstanceOf[Cell[U]]
 
   def getTable(tableId: IdType): Future[Table] = for {
     json <- tableStruc.get(tableId)

@@ -19,8 +19,11 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val vertx = verticle.vertx
   val logger = verticle.logger
 
+  val tableIdColumnsIdRowsId = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
+//  val tableIdColumnsIdRow = "/tables/(\\d+)/columns/(\\d+)/row".r
   val tableIdColumnsId = "/tables/(\\d+)/columns/(\\d+)".r
   val tableIdColumns = "/tables/(\\d+)/columns".r
+  val tableIdRows = "/tables/(\\d+)/rows".r
   val tableId = "/tables/(\\d+)".r
   val controller = new TableauxController(verticle)
 
@@ -28,17 +31,17 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Get("/") => SendFile("index.html")
     case Get(tableId(tableId)) => AsyncReply {
       for {
-        j <- controller.getJson(req).map(js => js.putString("action", "getTable").putString("tableId", tableId))
+        j <- controller.getJson(req).map(js => js.putString("action", "getTable").putNumber("tableId", tableId.toLong))
         x <- controller.getTable(j)
       } yield x
     }
     case Get(tableIdColumnsId(tableId, columnId)) => AsyncReply {
       for {
-        j <- controller.getJson(req).map(js => js.putString("action", "getColumn").putString("tableId", tableId).putString("columnId", columnId))
+        j <- controller.getJson(req).map(js => js.putString("action", "getColumn").putNumber("tableId", tableId.toLong).putNumber("columnId", columnId.toLong))
         x <- controller.getColumn(j)
       } yield x
     }
-    case Post("/tables") => // create new table { action: "createTable", name : "Tabelle 1" }
+    case Post("/tables") =>
       AsyncReply {
         for {
           j <- controller.getJson(req).map(js => js.putString("action", "createTable"))
@@ -48,10 +51,24 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Post(tableIdColumns(tableId)) =>
       AsyncReply {
         for {
-          j <- controller.getJson(req).map(js => js.putString("action", "createColumn").putString("tableId", tableId))
+          j <- controller.getJson(req).map(js => js.putString("action", "createColumn").putNumber("tableId", tableId.toLong))
           x <- controller.createColumn(j)
         } yield x
       }
+    case Post(tableIdRows(tableId)) =>
+      AsyncReply {
+        for {
+          j <- controller.getJson(req).map(js => js.putString("action", "createRow").putNumber("tableId", tableId.toLong))
+          x <- controller.createRow(j)
+        } yield x
+      }
+    case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) =>
+      AsyncReply {
+        for {
+          j <- controller.getJson(req).map(js => js.putString("action", "fillRow").putNumber("tableId", tableId.toLong).putNumber("columnId", columnId.toLong).putNumber("rowId", rowId.toLong))
+          x <- controller.fillCell(j)
+        } yield x
+      }  
     // more posts
     case Get("/tables") => // list all tables
       AsyncReply {
@@ -69,13 +86,13 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       }
     case Delete(tableId(tableId)) => AsyncReply {
       for {
-        j <- controller.getJson(req).map(js => js.putString("action", "deleteTable").putString("tableId", tableId))
+        j <- controller.getJson(req).map(js => js.putString("action", "deleteTable").putNumber("tableId", tableId.toLong))
         x <- controller.deleteTable(j)
       } yield x
     }
     case Delete(tableIdColumnsId(tableId, columnId)) => AsyncReply {
       for {
-        j <- controller.getJson(req).map(js => js.putString("action", "deleteColumn").putString("tableId", tableId).putString("columnId", columnId))
+        j <- controller.getJson(req).map(js => js.putString("action", "deleteColumn").putNumber("tableId", tableId.toLong).putNumber("columnId", columnId.toLong))
         x <- controller.deleteColumn(j)
       } yield x
     }
