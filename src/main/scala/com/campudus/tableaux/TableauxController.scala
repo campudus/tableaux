@@ -14,78 +14,79 @@ class TableauxController(verticle: Starter) {
   implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
   val tableaux = new Tableaux(verticle)
 
-  def createColumn(json: JsonObject): Future[Reply] = for {
-    tableId <- Future.successful { json.getLong("tableId") }
-    columnName <- Future.successful { json.getString("columnName") }
-    columnType <- Future.successful { json.getString("type") }
-    _ <- Future.successful { verticle.logger.info(s"createColumn $tableId $columnName $columnType") }
-    column <- columnType match {
-      case "text" => tableaux.addColumn[StringColumn](tableId, columnName, "text")
-      case "numeric" => tableaux.addColumn[NumberColumn](tableId, columnName, "numeric")
-//      case "Link" => Future.successful(Error(RouterException("not implemented yet.")))
-    }
-  } yield Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.columnId.get, "columnType" -> column.dbType))
+  def createColumn(json: JsonObject): Future[Reply] = {
+    val tableId = json.getLong("tableId")
+    val columnName = json.getString("columnName")
+    val columnType = json.getString("type")
+    val (colApply, dbType) = Mapper.ctype(columnType)
 
-  def createTable(json: JsonObject): Future[Reply] = for {
-    name <- Future.successful { json.getString("tableName") }
-    _ <- Future.successful { verticle.logger.info(s"createTable $name") }
-    table <- tableaux.create(name)
-  } yield Ok(Json.obj("tableId" -> table.id))
+    verticle.logger.info(s"createColumn $tableId $columnName $columnType")
+    tableaux.addColumn(tableId, columnName, dbType) map { column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> dbType)) }
+  }
 
-  def createRow(json: JsonObject): Future[Reply] = for {
-    tableId <- Future.successful { json.getLong("tableId") }
-    _ <- Future.successful { verticle.logger.info(s"createRow $tableId") }
-    rowId <- tableaux.addRow(tableId)
-  } yield Ok(Json.obj("tableId" -> tableId, "rowId" -> rowId))
-  
-  def getTable(json: JsonObject): Future[Reply] = for {
-    id <- Future.successful { json.getLong("tableId") }
-    _ <- Future.successful { verticle.logger.info(s"getTable $id") }
-    table <- tableaux.getTable(id)
-    column <- Future.successful {
-      table.columns map { x => Json.obj("columnId" -> x.columnId.get, "columnName" -> x.name) }
-    }
-  } yield Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> column))
+  def createTable(json: JsonObject): Future[Reply] = {
+    val name = json.getString("tableName")
 
-  def getColumn(json: JsonObject): Future[Reply] = for {
-    tableId <- Future.successful{ json.getLong("tableId") }
-    columnId <- Future.successful { json.getLong("columnId") }
-    _ <- Future.successful { verticle.logger.info(s"getColumn $tableId $columnId") }
-    column <- tableaux.getColumn(tableId, columnId)
-    reply <- Future.successful {
-      column match {
-        case c: ValueColumnType => Ok(Json.obj("columnId" -> c.columnId.get, "columnName" -> c.name, "type" -> c.dbType))
-        case c: ColumnType => Ok(Json.obj("columnId" -> c.columnId.get, "columnName" -> c.name))
-      }
+    verticle.logger.info(s"createTable $name")
+    tableaux.create(name) map { table => Ok(Json.obj("tableId" -> table.id)) }
+  }
+
+  def createRow(json: JsonObject): Future[Reply] = {
+    val tableId = json.getLong("tableId")
+
+    verticle.logger.info(s"createRow $tableId")
+    tableaux.addRow(tableId) map { rowId => Ok(Json.obj("tableId" -> tableId, "rowId" -> rowId)) }
+  }
+
+  def getTable(json: JsonObject): Future[Reply] = {
+    val id = json.getLong("tableId")
+
+    verticle.logger.info(s"getTable $id")
+    tableaux.getTable(id) map { table => Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name)) }
+    // table.columns map { x => Json.obj("columnId" -> x.columnId.get, "columnName" -> x.name) }
+  }
+
+  def getColumn(json: JsonObject): Future[Reply] = {
+    val tableId = json.getLong("tableId")
+    val columnId = json.getLong("columnId")
+
+    verticle.logger.info(s"getColumn $tableId $columnId")
+    tableaux.getColumn(tableId, columnId) map { column => Ok(Json.obj("columnId" -> column.id, "columnName" -> column.name, "type" -> column.dbType)) }
+  }
+
+  def deleteTable(json: JsonObject): Future[Reply] = {
+    val id = json.getLong("tableId")
+
+    verticle.logger.info(s"deleteTable $id")
+    tableaux.delete(id) map { _ => Ok(Json.obj()) }
+  }
+
+  def deleteColumn(json: JsonObject): Future[Reply] = {
+    val tableId = json.getLong("tableId")
+    val columnId = json.getLong("columnId")
+
+    verticle.logger.info(s"deleteColumn $tableId $columnId")
+    tableaux.removeColumn(tableId, columnId) map { _ => Ok(Json.obj()) }
+  }
+
+  def fillCell(json: JsonObject): Future[Reply] = {
+    val tableId = json.getLong("tableId")
+    val columnId = json.getLong("columnId")
+    val rowId = json.getLong("rowId")
+    val columnType = json.getString("type")
+    val (colApply, dbType) = Mapper.ctype(columnType)
+
+    val value = dbType match {
+      case "text"    => json.getString("value")
+      case "numeric" => json.getNumber("value")
     }
-  } yield reply
-  
-  def deleteTable(json: JsonObject): Future[Reply] = for {
-    id <- Future.successful { json.getLong("tableId") }
-    _ <- Future.successful { verticle.logger.info(s"deleteTable $id") }
-    table <- tableaux.delete(id)
-  } yield Ok(Json.obj())
-  
-  def deleteColumn(json: JsonObject): Future[Reply] = for {
-    tableId <- Future.successful { json.getLong("tableId") }
-    columnId <- Future.successful { json.getLong("columnId") }
-    _ <- Future.successful { verticle.logger.info(s"deleteColumn $tableId $columnId") }
-    table <- tableaux.removeColumn(tableId, columnId)
-  } yield Ok(Json.obj())
-  
-  def fillCell(json: JsonObject): Future[Reply] = for {
-    tableId <- Future.successful { json.getLong("tableId") }
-    columnId <- Future.successful { json.getLong("columnId") }
-    rowId <- Future.successful { json.getLong("rowId") }
-    columnType <- Future.successful { json.getString("type") }
-    _ <- Future.successful { verticle.logger.info(s"fillRow $tableId $columnId $rowId $columnType") }
-    cell <- columnType match {
-      case "text" => tableaux.insertValue[StringColumn, String](tableId, columnId, rowId, json.getString("value"))
-      case "numeric" => tableaux.insertValue[NumberColumn, Number](tableId, columnId, rowId, json.getLong("value"))
-//      case "Link" => Future.successful(Error(RouterException("not implemented yet.")))
+
+    verticle.logger.info(s"fillRow $tableId $columnId $rowId $columnType")
+    tableaux.insertValue[value.type, ColumnType[value.type]](tableId, columnId, rowId, value) map { cell =>
+      Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> cell.value))
     }
-  } yield Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.columnId.get, "rowId" -> cell.rowId, "value" -> cell.value))
-    
+  }
+
   def getJson(req: HttpServerRequest): Future[JsonObject] = {
     val p = Promise[JsonObject]
     req.bodyHandler { buf =>

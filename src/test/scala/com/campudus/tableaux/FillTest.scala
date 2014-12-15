@@ -11,13 +11,14 @@ class FillTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
   val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
-  
+  val createNumberColumnJson = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 1")
+  val createStringColumnJson = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
+
   @Test
   def fillSingleStringCell(): Unit = okTest {
-    val createStringColumnJson = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
     val fillStringCellJson = Json.obj("action" -> "fillCell", "type" -> "text", "tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> "Test Fill 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> "Test Fill 1")
-    
+
     for {
       c <- createClient()
       _ <- sendRequest("POST", c, createTableJson, "/tables")
@@ -31,10 +32,9 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillSingleNumberCell(): Unit = okTest {
-    val createNumberColumnJson = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 1")
     val fillNumberCellJson = Json.obj("action" -> "fillCell", "type" -> "numeric", "tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
-    
+
     for {
       c <- createClient()
       _ <- sendRequest("POST", c, createTableJson, "/tables")
@@ -45,16 +45,14 @@ class FillTest extends TableauxTestBase {
       assertEquals(expectedJson, test1)
     }
   }
-  
+
   @Test
   def fillTwoDifferentCell(): Unit = okTest {
-    val createNumberColumnJson = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 1")
-    val createStringColumnJson = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
     val fillNumberCellJson = Json.obj("action" -> "fillCell", "type" -> "numeric", "tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
     val fillStringCellJson = Json.obj("action" -> "fillCell", "type" -> "text", "tableId" -> 1, "columnId" -> 2, "rowId" -> 1, "value" -> "Test Fill 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
     val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "rowId" -> 1, "value" -> "Test Fill 1")
-    
+
     for {
       c <- createClient()
       _ <- sendRequest("POST", c, createTableJson, "/tables")
@@ -67,11 +65,6 @@ class FillTest extends TableauxTestBase {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
     }
-  }
-
-  @Test
-  def fillSingleLinkCell(): Unit = {
-    fail("not implemented")
   }
 
   @Test

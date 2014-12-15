@@ -59,11 +59,6 @@ class CreationTest extends TableauxTestBase {
       assertEquals(expectedJson2, test2)
     }
   }
-
-  @Test
-  def createLinkColumn(): Unit = {
-    fail("not implemented")
-  }
   
   @Test
   def createRow(): Unit = okTest {

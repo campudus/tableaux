@@ -20,30 +20,27 @@ class Transaction(verticle: Verticle) {
   case class Transaction(msg: Message[JsonObject]) {
 
     def query(query: String, values: JsonArray): Future[(Transaction, JsonObject)] = transactionHelper(Json.obj(
-        "action" -> "prepared",
-        "statement" -> query,
-        "values" -> values))
+      "action" -> "prepared",
+      "statement" -> query,
+      "values" -> values)) map { r => (Transaction(r), r.body()) }
 
-    def commit(): Future[Unit] = transactionHelper(Json.obj("action" -> "commit"))
+    def commit(): Future[Unit] = transactionHelper(Json.obj("action" -> "commit")) map { _ => () }
 
-    def rollback(): Future[Unit] = transactionHelper(Json.obj("action" -> "rollback"))
+    def rollback(): Future[Unit] = transactionHelper(Json.obj("action" -> "rollback")) map { _ => () }
 
     def recover(): PartialFunction[Throwable, Future[Transaction]] = {
       case ex: Throwable => rollback() flatMap (_ => Future.failed[Transaction](ex))
     }
 
-    private def transactionHelper[T](jsonObj: JsonObject): Future[T] = {
-      val p = Promise[Any]
+    private def transactionHelper(jsonObj: JsonObject): Future[Message[JsonObject]] = {
+      val p = Promise[Message[JsonObject]]
       msg.replyWithTimeout(jsonObj, DEFAULT_TIMEOUT, {
-        case Success(rep) => jsonObj.getString("action") match {
-          case "prepared" => p.success((Transaction(rep), rep.body()))
-          case _ => p.success()
-        }
+        case Success(rep) => p.success(rep)
         case Failure(ex) =>
           verticle.logger.error(s"fail in ${jsonObj.getString("action")}", ex)
           p.failure(ex)
       }: Try[Message[JsonObject]] => Unit)
-      p.future.asInstanceOf[Future[T]]
+      p.future
     }
   }
 
@@ -57,5 +54,5 @@ class Transaction(verticle: Verticle) {
         p.failure(ex)
     }: Try[Message[JsonObject]] => Unit)
     p.future
-  }  
+  }
 }

@@ -74,9 +74,4 @@ class GetTest extends TableauxTestBase {
     }
   }
   
-  @Test
-  def getLinkColumn(): Unit = {
-    fail("not implemented")
-  }
-
 }
