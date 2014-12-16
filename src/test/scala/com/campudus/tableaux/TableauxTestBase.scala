@@ -8,7 +8,7 @@ import org.vertx.scala.core.http._
 import scala.concurrent.{ Promise, Future }
 import scala.util.{ Try, Failure, Success }
 import com.campudus.tableaux.database.SystemStructure
-import com.campudus.tableaux.database.Transaction
+import com.campudus.tableaux.database.DatabaseConnection
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
@@ -17,7 +17,7 @@ trait TableauxTestBase extends TestVerticle {
   val DEFAULT_PORT = 8181
 
   override def asyncBefore(): Future[Unit] = {
-    val transaction = new Transaction(this)
+    val transaction = new DatabaseConnection(this)
     val system = new SystemStructure(transaction)
     for {
       _ <- deployModule()

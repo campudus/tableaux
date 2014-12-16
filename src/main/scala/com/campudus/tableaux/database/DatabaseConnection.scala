@@ -10,7 +10,7 @@ import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
 import org.vertx.scala.platform.Verticle
 import org.vertx.scala.core.AsyncResult
 
-class Transaction(verticle: Verticle) {
+class DatabaseConnection(verticle: Verticle) {
   val DEFAULT_TIMEOUT = 5000L
   val address = "campudus.asyncdb"
   val eb = verticle.vertx.eventBus
@@ -33,7 +33,7 @@ class Transaction(verticle: Verticle) {
     }
 
     private def transactionHelper(jsonObj: JsonObject): Future[Message[JsonObject]] = {
-      val p = Promise[Message[JsonObject]]
+      val p = Promise[Message[JsonObject]]()
       msg.replyWithTimeout(jsonObj, DEFAULT_TIMEOUT, {
         case Success(rep) => p.success(rep)
         case Failure(ex) =>
@@ -45,7 +45,7 @@ class Transaction(verticle: Verticle) {
   }
 
   def begin(): Future[Transaction] = {
-    val p = Promise[Transaction]
+    val p = Promise[Transaction]()
     eb.sendWithTimeout(address, Json.obj("action" -> "begin"), DEFAULT_TIMEOUT, {
       case Success(rep) =>
         p.success(Transaction(rep))

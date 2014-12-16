@@ -36,8 +36,8 @@ case class LinkColumn(table: Table, id: IdType, to: IdType, name: String) extend
 
 object Mapper {
   def ctype(s: String): ((Table, IdType, String) => ColumnType[_], String) = s match {
-    case "text"    => (StringColumn.apply _, "text")
-    case "numeric" => (NumberColumn.apply _, "numeric")
+    case "text"    => (StringColumn.apply, "text")
+    case "numeric" => (NumberColumn.apply, "numeric")
   }
 
   def getApply(s: String): (Table, IdType, String) => ColumnType[_] = ctype(s)._1
@@ -54,7 +54,7 @@ object TableStructure {
   type IdType = Long
 }
 
-class SystemStructure(transaction: Transaction) {
+class SystemStructure(transaction: DatabaseConnection) {
   implicit val executionContext = transaction.executionContext
 
   def deinstall(): Future[Unit] = for {
@@ -115,7 +115,7 @@ class SystemStructure(transaction: Transaction) {
   } yield ()
 }
 
-class TableStructure(transaction: Transaction) {
+class TableStructure(transaction: DatabaseConnection) {
   implicit val executionContext = transaction.executionContext
 
   def create(name: String): Future[IdType] = for {
@@ -143,7 +143,7 @@ class TableStructure(transaction: Transaction) {
   } yield ()
 }
 
-class ColumnStructure(transaction: Transaction) {
+class ColumnStructure(transaction: DatabaseConnection) {
   implicit val executionContext = transaction.executionContext
 
   def insert(tableId: IdType, dbType: String, name: String): Future[IdType] = for {
@@ -162,8 +162,8 @@ class ColumnStructure(transaction: Transaction) {
     t <- transaction.begin()
     (t, result) <- t.query("""
                      |SELECT column_id, user_column_name, column_type
-                     |  FROM system_columns 
-                     |  WHERE table_id = ? AND column_id = ? 
+                     |  FROM system_columns
+                     |  WHERE table_id = ? AND column_id = ?
                      |  ORDER BY column_id""".stripMargin, Json.arr(table.id, columnId))
     j <- Future.successful(result.getArray("results").get[JsonArray](0))
     _ <- t.commit()
@@ -173,7 +173,7 @@ class ColumnStructure(transaction: Transaction) {
     t <- transaction.begin()
     (t, result) <- t.query("""
                      |SELECT column_id, user_column_name, column_type
-                     |  FROM system_columns 
+                     |  FROM system_columns
                      |  WHERE table_id = ? ORDER BY column_id""".stripMargin, Json.arr(table.id))
     j <- Future.successful { result.getArray("results") }
     _ <- t.commit()
@@ -202,7 +202,7 @@ class ColumnStructure(transaction: Transaction) {
   } yield x
 }
 
-class RowStructure(transaction: Transaction) {
+class RowStructure(transaction: DatabaseConnection) {
   implicit val executionContext = transaction.executionContext
 
   def create(tableId: IdType): Future[IdType] = for {
@@ -227,7 +227,7 @@ class RowStructure(transaction: Transaction) {
   } yield j
 }
 
-class CellStructure(transaction: Transaction) {
+class CellStructure(transaction: DatabaseConnection) {
   implicit val executionContext = transaction.executionContext
 
   def update[A, B <: ColumnType[A]](cell: Cell[A, B]): Future[Unit] = for {
@@ -242,11 +242,11 @@ class Tableaux(verticle: Verticle) {
   implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
 
   val vertx = verticle.vertx
-  val transaction = new Transaction(verticle)
-  val tableStruc = new TableStructure(transaction)
-  val columnStruc = new ColumnStructure(transaction)
-  val cellStruc = new CellStructure(transaction)
-  val rowStruc = new RowStructure(transaction)
+  val dbConnection = new DatabaseConnection(verticle)
+  val tableStruc = new TableStructure(dbConnection)
+  val columnStruc = new ColumnStructure(dbConnection)
+  val cellStruc = new CellStructure(dbConnection)
+  val rowStruc = new RowStructure(dbConnection)
 
   def create(name: String): Future[Table] = for {
     id <- tableStruc.create(name)
