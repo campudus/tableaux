@@ -1,10 +1,12 @@
 package com.campudus.tableaux.database
 
+import java.util
+
 import org.vertx.scala.core.FunctionConverters._
-import scala.concurrent.{ Future, Promise }
+import scala.concurrent.{Future, Promise}
 import org.vertx.scala.core.VertxExecutionContext
 import TableStructure._
-import org.vertx.scala.core.json.{ Json, JsonObject, JsonArray }
+import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
 import org.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.Vertx
 import org.vertx.scala.platform.Verticle
@@ -18,14 +20,18 @@ sealed trait ColumnType[A] {
   type Value = A
 
   def dbType: String
+
   def id: IdType
+
   def name: String
+
   def table: Table
 }
 
 case class StringColumn(table: Table, id: IdType, name: String) extends ColumnType[String] {
   val dbType = "text"
 }
+
 case class NumberColumn(table: Table, id: IdType, name: String) extends ColumnType[Number] {
   val dbType = "numeric"
 }
@@ -36,11 +42,12 @@ case class LinkColumn(table: Table, id: IdType, to: IdType, name: String) extend
 
 object Mapper {
   def ctype(s: String): ((Table, IdType, String) => ColumnType[_], String) = s match {
-    case "text"    => (StringColumn.apply, "text")
+    case "text" => (StringColumn.apply, "text")
     case "numeric" => (NumberColumn.apply, "numeric")
   }
 
   def getApply(s: String): (Table, IdType, String) => ColumnType[_] = ctype(s)._1
+
   def getDatabaseType(s: String): String = ctype(s)._2
 }
 
@@ -59,21 +66,21 @@ class SystemStructure(transaction: DatabaseConnection) {
 
   def deinstall(): Future[Unit] = for {
     t <- transaction.begin()
-    (t, res) <- t.query(s"""DROP SCHEMA public CASCADE""".stripMargin, Json.arr())
-    (t, res) <- t.query(s"""CREATE SCHEMA public""".stripMargin, Json.arr())
+    (t, res) <- t.query( s"""DROP SCHEMA public CASCADE""".stripMargin, Json.arr())
+    (t, res) <- t.query( s"""CREATE SCHEMA public""".stripMargin, Json.arr())
     _ <- t.commit()
   } yield ()
 
   def setup(): Future[Unit] = for {
     t <- transaction.begin()
-    (t, res) <- t.query(s"""
+    (t, res) <- t.query( s"""
                      |CREATE TABLE system_table (
                      |  table_id BIGSERIAL,
                      |  user_table_names VARCHAR(255) NOT NULL,
                      |  PRIMARY KEY(table_id)
                      |)""".stripMargin,
       Json.arr())
-    (t, res) <- t.query(s"""
+    (t, res) <- t.query( s"""
                      |CREATE TABLE system_columns(
                      |  table_id BIGINT,
                      |  column_id BIGINT,
@@ -88,7 +95,7 @@ class SystemStructure(transaction: DatabaseConnection) {
                      |  ON DELETE CASCADE
                      |)""".stripMargin,
       Json.arr())
-    (t, res) <- t.query(s"""
+    (t, res) <- t.query( s"""
                      |CREATE TABLE system_link_table(
                      |  link_id BIGSERIAL,
                      |  table_id_1 BIGINT,
@@ -105,7 +112,7 @@ class SystemStructure(transaction: DatabaseConnection) {
                      |  ON DELETE CASCADE
                      |)""".stripMargin,
       Json.arr())
-    (t, res) <- t.query(s"""
+    (t, res) <- t.query( s"""
                      |ALTER TABLE system_columns
                      |  ADD FOREIGN KEY(link_id)
                      |  REFERENCES system_link_table(link_id)
@@ -148,7 +155,7 @@ class ColumnStructure(transaction: DatabaseConnection) {
 
   def insert(tableId: IdType, dbType: String, name: String): Future[IdType] = for {
     t <- transaction.begin()
-    (t, result) <- t.query(s"""
+    (t, result) <- t.query( s"""
                      |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering)
                      |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, currval('system_columns_column_id_table_$tableId'))
                      |  RETURNING column_id""".stripMargin,
@@ -160,22 +167,24 @@ class ColumnStructure(transaction: DatabaseConnection) {
 
   def get(table: Table, columnId: IdType): Future[JsonArray] = for {
     t <- transaction.begin()
-    (t, result) <- t.query("""
-                     |SELECT column_id, user_column_name, column_type
-                     |  FROM system_columns
-                     |  WHERE table_id = ? AND column_id = ?
-                     |  ORDER BY column_id""".stripMargin, Json.arr(table.id, columnId))
+    (t, result) <- t.query( """
+                              |SELECT column_id, user_column_name, column_type
+                              |  FROM system_columns
+                              |  WHERE table_id = ? AND column_id = ?
+                              |  ORDER BY column_id""".stripMargin, Json.arr(table.id, columnId))
     j <- Future.successful(result.getArray("results").get[JsonArray](0))
     _ <- t.commit()
   } yield j
 
   def getAll(table: Table): Future[JsonArray] = for {
     t <- transaction.begin()
-    (t, result) <- t.query("""
-                     |SELECT column_id, user_column_name, column_type
-                     |  FROM system_columns
-                     |  WHERE table_id = ? ORDER BY column_id""".stripMargin, Json.arr(table.id))
-    j <- Future.successful { result.getArray("results") }
+    (t, result) <- t.query( """
+                              |SELECT column_id, user_column_name, column_type
+                              |  FROM system_columns
+                              |  WHERE table_id = ? ORDER BY column_id""".stripMargin, Json.arr(table.id))
+    j <- Future.successful {
+      result.getArray("results")
+    }
     _ <- t.commit()
   } yield j
 
@@ -193,7 +202,7 @@ class ColumnStructure(transaction: DatabaseConnection) {
       //      val liste = t.getArray("results").toList().asScala.asInstanceOf[List[JsonArray]].map(_.get[String](1)).foldLeft(List()) { (s, e) => s ::: List() }
       for (j <- json.toList().asScala.asInstanceOf[List[JsonArray]]) {
         json.get[String](2) match {
-          case "text"    => l = l ::: List(StringColumn(table, j.get[IdType](0), j.get[String](1)))
+          case "text" => l = l ::: List(StringColumn(table, j.get[IdType](0), j.get[String](1)))
           case "numeric" => l = l ::: List(NumberColumn(table, j.get[IdType](0), j.get[String](1)))
         }
       }
@@ -208,21 +217,27 @@ class RowStructure(transaction: DatabaseConnection) {
   def create(tableId: IdType): Future[IdType] = for {
     t <- transaction.begin()
     (t, result) <- t.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id", Json.arr())
-    j <- Future.successful { result.getArray("results").get[JsonArray](0).get[IdType](0) }
+    j <- Future.successful {
+      result.getArray("results").get[JsonArray](0).get[IdType](0)
+    }
     _ <- t.commit()
   } yield j
 
   def getAllFromColumn(column: ColumnType[_]): Future[JsonArray] = for {
     t <- transaction.begin()
     (t, result) <- t.query(s"SELECT id, column_${column.id} FROM user_table_${column.table.id} ORDER BY id", Json.arr())
-    j <- Future.successful { result.getArray("results") }
+    j <- Future.successful {
+      result.getArray("results")
+    }
     _ <- t.commit()
   } yield j
 
   def getAll(column: ColumnType[_]): Future[JsonArray] = for {
     t <- transaction.begin()
     (t, result) <- t.query(s"SELECT * FROM user_table_${column.table.id} ORDER BY id", Json.arr())
-    j <- Future.successful { result.getArray("results") }
+    j <- Future.successful {
+      result.getArray("results")
+    }
     _ <- t.commit()
   } yield j
 }
@@ -278,7 +293,9 @@ class Tableaux(verticle: Verticle) {
     table <- getTable(tableId)
     column <- getColumn(tableId, columnId)
     v <- Future.apply(value.asInstanceOf[column.Value])
-    cell <- Future.successful { Cell[A, B](column.asInstanceOf[B], rowId, v.asInstanceOf[A]) }
+    cell <- Future.successful {
+      Cell[A, B](column.asInstanceOf[B], rowId, v.asInstanceOf[A])
+    }
     _ <- cellStruc.update[A, B](cell)
   } yield cell
 
@@ -300,33 +317,36 @@ class Tableaux(verticle: Verticle) {
   } yield (table, cc)
 
   def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = {
-    import collection.JavaConverters._
     for {
-      j <- columnStruc.getAll(table) map { x => x.toList().asScala.toList.asInstanceOf[List[java.util.ArrayList[_]]] } map { i => i map { x => x.asScala.toList } }
-      //      j <- columnStruc.getAll(table) map { _.toList().asScala.asInstanceOf[List[JsonArray]] }
-      i <- Future.successful {
-        j map { x => Mapper.ctype(x(2).asInstanceOf[String])._1(table, x(0).asInstanceOf[Long], x(1).asInstanceOf[String]) }
-        //        j map { x => Mapper.ctype(x.get[String](2))._1(table, x.get[Long](0), x.get[String](1)) }
+      results <- columnStruc.getAll(table)
+    } yield {
+      val listOfList = resultsInListOfList(results)
+      listOfList map { x =>
+        Mapper.getApply(x(2).asInstanceOf[String]).apply(table, x(0).asInstanceOf[Long], x(1).asInstanceOf[String])
       }
-    } yield i
+    }
   }
 
   def getAllRowsFromColumn(column: ColumnType[_]): Future[Seq[Cell[_, _]]] = {
-    import collection.JavaConverters._
     for {
-      j <- rowStruc.getAllFromColumn(column) map { x => x.toList().asScala.toList.asInstanceOf[List[java.util.ArrayList[_]]] } map { i => i map { x => x.asScala.toList } }
-      i <- Future.successful {
-        j map { x => Cell[column.type, ColumnType[column.type]](column.asInstanceOf[ColumnType[column.type]], x(0).asInstanceOf[Long], x(1).asInstanceOf[column.type]) }
-      }
-    } yield i
+      results <- rowStruc.getAllFromColumn(column)
+    } yield {
+      val listOfLists = resultsInListOfList(results)
+      listOfLists map { x => Cell[column.type, ColumnType[column.type]](column.asInstanceOf[ColumnType[column.type]], x(0).asInstanceOf[Long], x(1).asInstanceOf[column.type])}
+    }
   }
 
   def getAllTableCells(table: Table): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = {
-    getAllColumns(table) flatMap { seq => Future.sequence(seq map { column => getAllRowsFromColumn(column) map {x => (column, x)} }) }
+    getAllColumns(table) flatMap { seq => Future.sequence(seq map { column => getAllRowsFromColumn(column) map { x => (column, x)}})}
   }
 
-//  def test2(seq: Seq[ColumnType[_]]): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = (Future.sequence(seq map { column => getAllRowsFromColumn(column) map {x => (column, x)} }))
-//
-//  def test(column: ColumnType[_]): Future[(ColumnType[_], Seq[Cell[_, _]])] = getAllRowsFromColumn(column) map {x => (column, x)}
+  private def resultsInListOfList(results: JsonArray): Seq[Seq[_]] = {
+    import collection.JavaConverters._
+    results.toList.asScala.map(list => list.asInstanceOf[java.util.ArrayList[_]].asScala)
+  }
+
+  //  def test2(seq: Seq[ColumnType[_]]): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = (Future.sequence(seq map { column => getAllRowsFromColumn(column) map {x => (column, x)} }))
+  //
+  //  def test(column: ColumnType[_]): Future[(ColumnType[_], Seq[Cell[_, _]])] = getAllRowsFromColumn(column) map {x => (column, x)}
 
 }
