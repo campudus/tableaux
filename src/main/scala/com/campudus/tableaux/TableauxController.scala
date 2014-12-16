@@ -42,14 +42,17 @@ class TableauxController(verticle: Starter) {
     val id = json.getLong("tableId")
 
     verticle.logger.info(s"getTable $id")
-    
-    for {
-    	(table, columnList) <- tableaux.getCompleteTable(id)
-      columnJson <- Future.successful{columnList map {case (x, _) => Json.obj("id" -> x.id, "name" -> x.name)}}
-      rowJson <- Future.successful{columnList map {case (c, i) => (c, i) } flatMap {case (c, x) => x map { j => Json.obj("id" -> j.rowId, s"c${c.id}" -> j.value)}}}
-    } yield Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> columnJson, "rows" -> rowJson))
 
-    // table.columns map { x => Json.obj("columnId" -> x.columnId.get, "columnName" -> x.name) }
+    for {
+      (table, columnList) <- tableaux.getCompleteTable(id) // (Table, Seq[(ColumnType[_], Seq[Cell[_, _]])])
+      columnJson <- Future.successful { columnList map { case (x, _) => Json.obj("id" -> x.id, "name" -> x.name) } } // Seq[(ColumnType[_], Seq[Cell[_, _]])]
+      rowJson <- Future.successful { columnList flatMap { case (c, x) => x map { j => Json.obj("id" -> j.rowId, s"c${c.id}" -> j.value) } } }
+      row <- Future.successful { rowJson.foldLeft(Seq[JsonObject]()) { (s, j) => 
+        val helper = rowJson.filter { x => x.getLong("id") == j.getLong("id") }.foldLeft(Json.obj()) { (j, f) => j.mergeIn(f) }
+        if(s.contains(helper)) s else s :+ helper
+        } 
+      }
+    } yield Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> columnJson, "rows" -> row))
   }
 
   def getColumn(json: JsonObject): Future[Reply] = {

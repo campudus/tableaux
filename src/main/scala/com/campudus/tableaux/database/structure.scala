@@ -303,10 +303,10 @@ class Tableaux(verticle: Verticle) {
     import collection.JavaConverters._
     for {
       j <- columnStruc.getAll(table) map { x => x.toList().asScala.toList.asInstanceOf[List[java.util.ArrayList[_]]] } map { i => i map { x => x.asScala.toList } }
-//      j <- columnStruc.getAll(table) map { _.toList().asScala.asInstanceOf[List[JsonArray]] }
+      //      j <- columnStruc.getAll(table) map { _.toList().asScala.asInstanceOf[List[JsonArray]] }
       i <- Future.successful {
         j map { x => Mapper.ctype(x(2).asInstanceOf[String])._1(table, x(0).asInstanceOf[Long], x(1).asInstanceOf[String]) }
-//        j map { x => Mapper.ctype(x.get[String](2))._1(table, x.get[Long](0), x.get[String](1)) }
+        //        j map { x => Mapper.ctype(x.get[String](2))._1(table, x.get[Long](0), x.get[String](1)) }
       }
     } yield i
   }
@@ -314,60 +314,19 @@ class Tableaux(verticle: Verticle) {
   def getAllRowsFromColumn(column: ColumnType[_]): Future[Seq[Cell[_, _]]] = {
     import collection.JavaConverters._
     for {
-      j <- rowStruc.getAllFromColumn(column) map { _.toList().asScala.asInstanceOf[List[JsonArray]] }
+      j <- rowStruc.getAllFromColumn(column) map { x => x.toList().asScala.toList.asInstanceOf[List[java.util.ArrayList[_]]] } map { i => i map { x => x.asScala.toList } }
       i <- Future.successful {
-        j map { x => Cell[column.type, ColumnType[column.type]](column.asInstanceOf[ColumnType[column.type]], x.get[Long](0), x.get[column.type](1)) }
+        j map { x => Cell[column.type, ColumnType[column.type]](column.asInstanceOf[ColumnType[column.type]], x(0).asInstanceOf[Long], x(1).asInstanceOf[column.type]) }
       }
     } yield i
   }
 
   def getAllTableCells(table: Table): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = {
-    getAllColumns(table) map {
-      c =>
-        c map {
-          i => 
-//            val p = Promise[(ColumnType[_], Seq[Cell[_, _]])]
-            var b: Seq[Cell[_, _]] = Seq()
-//            getAllRowsFromColumn(i).onComplete {
-//              case Success(x)  => p.success((i, x))
-//              case Failure(ex) => ex
-//            }
-            (i, b)
-//            p.future
-        }
-    }
+    getAllColumns(table) flatMap { seq => Future.sequence(seq map { column => getAllRowsFromColumn(column) map {x => (column, x)} }) }
   }
 
-//  def getAllTableCells(table: Table): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = {
-//    getAllColumns(table) flatMap { c => test2(c) }
-//  }
-//  
-//  def test2(seq: Seq[ColumnType[_]]): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = {
-//    val p = Promise[Seq[(ColumnType[_], Seq[Cell[_, _]])]]
-//    var sequenz: Seq[(ColumnType[_], Seq[Cell[_, _]])] = Seq()
-//    
-//    seq.foreach { x => test(x) map {i => sequenz = sequenz :+ i} }
-//        
-//    for {
-//      x <- seq map {x => test(x) flatMap {i => seq(i)}}
-//      i <- test(x)
-//    }
-//    
-//    println(sequenz)
-//    p.success(sequenz)
-//    
-//    p.future
-//  }
-//  
-//  def test(column: ColumnType[_]): Future[(ColumnType[_], Seq[Cell[_, _]])] = {
-//                val p = Promise[(ColumnType[_], Seq[Cell[_, _]])]
-//                
-//            getAllRowsFromColumn(column).onComplete {
-//              case Success(x)  => p.success((column, x))
-//              case Failure(ex) => ex
-//            }
-//                
-//            p.future
-//  }
-  
+//  def test2(seq: Seq[ColumnType[_]]): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = (Future.sequence(seq map { column => getAllRowsFromColumn(column) map {x => (column, x)} }))
+//
+//  def test(column: ColumnType[_]): Future[(ColumnType[_], Seq[Cell[_, _]])] = getAllRowsFromColumn(column) map {x => (column, x)}
+
 }

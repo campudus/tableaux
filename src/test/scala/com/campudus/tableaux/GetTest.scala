@@ -44,11 +44,36 @@ class GetTest extends TableauxTestBase {
       assertEquals(expectedJson, test)
     }
   }
-
+  
   @Test
-  def getAllTables(): Unit = {
-    fail("not implemented")
+  def getWithColumnAndRowTable(): Unit = okTest {
+    val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
+    val expectedJson = Json.obj(
+      "tableId" -> 1,
+      "tableName" -> "Test Nr. 1",
+      "cols" -> Json.arr(
+        Json.obj("id" -> 1, "name" -> "Test Column 1"),
+        Json.obj("id" -> 2, "name" -> "Test Column 2")),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 1, "c1" -> null, "c2" -> null)    
+      ))
+
+    for {
+      c <- createClient()
+      _ <- sendRequest("POST", c, postTable, "/tables")
+      _ <- sendRequest("POST", c, postTextCol, "/tables/1/columns")
+      _ <- sendRequest("POST", c, postNumCol, "/tables/1/columns")
+      _ <- sendRequest("POST", c, createRowJson, "/tables/1/rows")
+      test <- sendRequest("GET", c, getTable, "/tables/1")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
   }
+
+//  @Test
+//  def getAllTables(): Unit = {
+//    fail("not implemented")
+//  }
 
   @Test
   def getStringColumn(): Unit = okTest {

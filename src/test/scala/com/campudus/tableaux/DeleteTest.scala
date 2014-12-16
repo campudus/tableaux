@@ -52,9 +52,9 @@ class DeleteTest extends TableauxTestBase {
     }
   }
   
-  @Test
-  def deleteRow(): Unit = {
-    fail("not implemented")
-  }
+//  @Test
+//  def deleteRow(): Unit = {
+//    fail("not implemented")
+//  }
 
 }
