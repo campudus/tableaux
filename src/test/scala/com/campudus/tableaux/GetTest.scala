@@ -14,7 +14,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getEmptyTable(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1", "cols" -> Json.arr())
+    val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1", "cols" -> Json.arr(), "rows" -> Json.arr())
     for {
       c <- createClient()
       _ <- sendRequest("POST", c, postTable, "/tables")
@@ -26,9 +26,13 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getWithColumnTable(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1", "cols" -> Json.arr(
-      Json.obj("columnId" -> 1, "columnName" -> "Test Column 1"),
-      Json.obj("columnId" -> 2, "columnName" -> "Test Column 2")))
+    val expectedJson = Json.obj(
+      "tableId" -> 1,
+      "tableName" -> "Test Nr. 1",
+      "cols" -> Json.arr(
+        Json.obj("id" -> 1, "name" -> "Test Column 1"),
+        Json.obj("id" -> 2, "name" -> "Test Column 2")),
+      "rows" -> Json.arr())
 
     for {
       c <- createClient()
@@ -73,5 +77,5 @@ class GetTest extends TableauxTestBase {
       assertEquals(expectedJson, test)
     }
   }
-  
+
 }

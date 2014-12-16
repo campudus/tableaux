@@ -42,7 +42,13 @@ class TableauxController(verticle: Starter) {
     val id = json.getLong("tableId")
 
     verticle.logger.info(s"getTable $id")
-    tableaux.getTable(id) map { table => Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name)) }
+    
+    for {
+    	(table, columnList) <- tableaux.getCompleteTable(id)
+      columnJson <- Future.successful{columnList map {case (x, _) => Json.obj("id" -> x.id, "name" -> x.name)}}
+      rowJson <- Future.successful{columnList map {case (c, i) => (c, i) } flatMap {case (c, x) => x map { j => Json.obj("id" -> j.rowId, s"c${c.id}" -> j.value)}}}
+    } yield Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> columnJson, "rows" -> rowJson))
+
     // table.columns map { x => Json.obj("columnId" -> x.columnId.get, "columnName" -> x.name) }
   }
 
