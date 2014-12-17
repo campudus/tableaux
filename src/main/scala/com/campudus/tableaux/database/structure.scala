@@ -304,12 +304,12 @@ class Tableaux(verticle: Verticle) {
     }
   }
 
-  def getAllRowsFromColumn(column: ColumnType[_]): Future[Seq[Cell[_, _]]] = {
+  def getAllRowsFromColumn[A](column: ColumnType[A]): Future[Seq[Cell[A, ColumnType[A]]]] = {
     for {
       results <- rowStruc.getAllFromColumn(column)
     } yield {
       val listOfLists = resultsInListOfList(results)
-      listOfLists map { x => Cell[column.type, ColumnType[column.type]](column.asInstanceOf[ColumnType[column.type]], x(0).asInstanceOf[Long], x(1).asInstanceOf[column.type])}
+      listOfLists map { x => Cell[A, ColumnType[A]](column.asInstanceOf[ColumnType[A]], x(0).asInstanceOf[Long], x(1).asInstanceOf[A])}
     }
   }
 

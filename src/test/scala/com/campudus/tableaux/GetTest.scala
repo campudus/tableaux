@@ -11,6 +11,7 @@ class GetTest extends TableauxTestBase {
   val postTextCol = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
   val postNumCol = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 2")
   val getColumn = Json.obj("action" -> "getColumn", "tableId" -> 1, "columnId" -> 1)
+  val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
 
   @Test
   def getEmptyTable(): Unit = okTest {
@@ -47,7 +48,6 @@ class GetTest extends TableauxTestBase {
   
   @Test
   def getWithColumnAndRowTable(): Unit = okTest {
-    val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
     val expectedJson = Json.obj(
       "tableId" -> 1,
       "tableName" -> "Test Nr. 1",
@@ -70,6 +70,40 @@ class GetTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def getFullTable(): Unit = okTest {
+    val fillStringCellJson = Json.obj("action" -> "fillCell", "type" -> "text", "tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> "Test Fill 1")
+    val fillStringCellJson2 = Json.obj("action" -> "fillCell", "type" -> "text", "tableId" -> 1, "columnId" -> 1, "rowId" -> 2, "value" -> "Test Fill 2")
+    val fillNumberCellJson = Json.obj("action" -> "fillCell", "type" -> "numeric", "tableId" -> 1, "columnId" -> 2, "rowId" -> 1, "value" -> 1)
+    val fillNumberCellJson2 = Json.obj("action" -> "fillCell", "type" -> "numeric", "tableId" -> 1, "columnId" -> 2, "rowId" -> 2, "value" -> 2)
+    val expectedJson = Json.obj(
+      "tableId" -> 1,
+      "tableName" -> "Test Nr. 1",
+      "cols" -> Json.arr(
+        Json.obj("id" -> 1, "name" -> "Test Column 1"),
+        Json.obj("id" -> 2, "name" -> "Test Column 2")),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 1, "c1" -> "Test Fill 1", "c2" -> 1),
+        Json.obj("id" -> 2, "c1" -> "Test Fill 2", "c2" -> 2)
+      ))
+
+    for {
+      c <- createClient()
+      _ <- sendRequest("POST", c, postTable, "/tables")
+      _ <- sendRequest("POST", c, postTextCol, "/tables/1/columns")
+      _ <- sendRequest("POST", c, postNumCol, "/tables/1/columns")
+      _ <- sendRequest("POST", c, createRowJson, "/tables/1/rows")
+      _ <- sendRequest("POST", c, createRowJson, "/tables/1/rows")
+      _ <- sendRequest("POST", c, fillStringCellJson, "/tables/1/columns/1/rows/1")
+      _ <- sendRequest("POST", c, fillStringCellJson2, "/tables/1/columns/1/rows/2")
+      _ <- sendRequest("POST", c, fillNumberCellJson, "/tables/1/columns/2/rows/1")
+      _ <- sendRequest("POST", c, fillNumberCellJson2, "/tables/1/columns/2/rows/2")
+      test <- sendRequest("GET", c, getTable, "/tables/1")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
+  
 //  @Test
 //  def getAllTables(): Unit = {
 //    fail("not implemented")
