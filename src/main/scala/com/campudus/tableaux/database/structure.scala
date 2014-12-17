@@ -1,20 +1,11 @@
 package com.campudus.tableaux.database
 
-import java.util
-
-import org.vertx.scala.core.FunctionConverters._
-import scala.concurrent.{Future, Promise}
+import com.campudus.tableaux.database.TableStructure._
 import org.vertx.scala.core.VertxExecutionContext
-import TableStructure._
-import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
-import org.vertx.scala.core.eventbus.Message
-import org.vertx.scala.core.Vertx
+import org.vertx.scala.core.json.{Json, JsonArray}
 import org.vertx.scala.platform.Verticle
-import org.vertx.scala.core.eventbus.EventBus
-import scala.util.Try
-import scala.util.Failure
-import scala.util.Success
-import scala.concurrent.ExecutionContext
+
+import scala.concurrent.Future
 
 sealed trait ColumnType[A] {
   type Value = A
@@ -327,7 +318,7 @@ class Tableaux(verticle: Verticle) {
   }
 
   private def resultsInListOfList(results: JsonArray): Seq[Seq[_]] = {
-    import collection.JavaConverters._
+    import scala.collection.JavaConverters._
     results.toList.asScala.map(list => list.asInstanceOf[java.util.ArrayList[_]].asScala)
   }
 
