@@ -18,9 +18,6 @@ class TableauxDeploymentTest extends TestVerticle {
 
   @Test
   def deployTest(): Unit = {
-    println(s"module name=${System.getProperty("vertx.modulename")}")
-    println(s"mods dir=${System.getProperty("vertx.mods")}")
-    vertx.fileSystem.readDirSync(System.getProperty("vertx.mods")).map(println)
     container.deployModule(System.getProperty("vertx.modulename"), Json.obj(), 1, {
       case Success(id) => testComplete()
       case Failure(ex) =>
