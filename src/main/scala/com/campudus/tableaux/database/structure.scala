@@ -195,20 +195,6 @@ class ColumnStructure(transaction: DatabaseConnection) {
     _ <- t.commit()
   } yield ()
 
-  def typeMatcher(table: Table, json: JsonArray): Future[List[ColumnType[_]]] = for {
-    x <- Future.successful {
-      import collection.JavaConverters._
-      var l: List[ColumnType[_]] = List()
-      //      val liste = t.getArray("results").toList().asScala.asInstanceOf[List[JsonArray]].map(_.get[String](1)).foldLeft(List()) { (s, e) => s ::: List() }
-      for (j <- json.toList().asScala.asInstanceOf[List[JsonArray]]) {
-        json.get[String](2) match {
-          case "text" => l = l ::: List(StringColumn(table, j.get[IdType](0), j.get[String](1)))
-          case "numeric" => l = l ::: List(NumberColumn(table, j.get[IdType](0), j.get[String](1)))
-        }
-      }
-      l
-    }
-  } yield x
 }
 
 class RowStructure(transaction: DatabaseConnection) {
