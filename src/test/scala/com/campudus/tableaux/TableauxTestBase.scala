@@ -48,11 +48,7 @@ trait TableauxTestBase extends TestVerticle {
     }
   }
 
-  def createClient(): Future[HttpClient] = {
-    val p = Promise[HttpClient]()
-    p.success(vertx.createHttpClient().setHost("localhost").setPort(DEFAULT_PORT))
-    p.future
-  }
+  def createClient(): HttpClient = vertx.createHttpClient().setHost("localhost").setPort(DEFAULT_PORT)
 
   def sendRequest(method: String, client: HttpClient, jsonObj: JsonObject, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]

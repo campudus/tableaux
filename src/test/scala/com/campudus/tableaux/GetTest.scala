@@ -14,12 +14,12 @@ class GetTest extends TableauxTestBase {
   val postNumCol = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 2")
   val getColumn = Json.obj("action" -> "getColumn", "tableId" -> 1, "columnId" -> 1)
   val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
-
+  
   @Test
   def getEmptyTable(): Unit = okTest {
+    val c = createClient()
     val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1", "cols" -> Json.arr(), "rows" -> Json.arr())
     for {
-      c <- createClient()
       _ <- sendRequest("POST", c, postTable, "/tables")
       test <- sendRequest("GET", c, getTable, "/tables/1")
     } yield {
@@ -29,6 +29,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getWithColumnTable(): Unit = okTest {
+    val c = createClient()
     val expectedJson = Json.obj(
       "tableId" -> 1,
       "tableName" -> "Test Nr. 1",
@@ -38,7 +39,6 @@ class GetTest extends TableauxTestBase {
       "rows" -> Json.arr())
 
     for {
-      c <- createClient()
       _ <- sendRequest("POST", c, postTable, "/tables")
       _ <- sendRequest("POST", c, postTextCol, "/tables/1/columns")
       _ <- sendRequest("POST", c, postNumCol, "/tables/1/columns")
@@ -50,6 +50,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getWithColumnAndRowTable(): Unit = okTest {
+    val c = createClient()
     val expectedJson = Json.obj(
       "tableId" -> 1,
       "tableName" -> "Test Nr. 1",
@@ -60,7 +61,6 @@ class GetTest extends TableauxTestBase {
         Json.obj("id" -> 1, "c1" -> null, "c2" -> null)))
 
     for {
-      c <- createClient()
       _ <- sendRequest("POST", c, postTable, "/tables")
       _ <- sendRequest("POST", c, postTextCol, "/tables/1/columns")
       _ <- sendRequest("POST", c, postNumCol, "/tables/1/columns")
@@ -121,12 +121,12 @@ class GetTest extends TableauxTestBase {
   }
 
   private def setupTables(): Future[HttpClient] = {
+    val c = createClient()
     val fillStringCellJson = Json.obj("action" -> "fillCell", "type" -> "text", "tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> "Test Fill 1")
     val fillStringCellJson2 = Json.obj("action" -> "fillCell", "type" -> "text", "tableId" -> 1, "columnId" -> 1, "rowId" -> 2, "value" -> "Test Fill 2")
     val fillNumberCellJson = Json.obj("action" -> "fillCell", "type" -> "numeric", "tableId" -> 1, "columnId" -> 2, "rowId" -> 1, "value" -> 1)
     val fillNumberCellJson2 = Json.obj("action" -> "fillCell", "type" -> "numeric", "tableId" -> 1, "columnId" -> 2, "rowId" -> 2, "value" -> 2)
     for {
-      c <- createClient()
       _ <- sendRequest("POST", c, postTable, "/tables")
       _ <- sendRequest("POST", c, postTextCol, "/tables/1/columns")
       _ <- sendRequest("POST", c, postNumCol, "/tables/1/columns")
