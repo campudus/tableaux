@@ -293,37 +293,40 @@ class Tableaux(verticle: Verticle) {
     cc <- getAllTableCells(table)
   } yield (table, cc)
 
-  def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = {
+  private def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = {
     for {
       results <- columnStruc.getAll(table)
     } yield {
       val listOfList = resultsInListOfList(results)
-      listOfList map { x =>
-        Mapper.getApply(x(2).asInstanceOf[String]).apply(table, x(0).asInstanceOf[Long], x(1).asInstanceOf[String])
+      listOfList map { jsonRes =>
+        Mapper.getApply(jsonRes.get(2)).apply(table, jsonRes.get(0), jsonRes.get(1))
       }
     }
   }
 
-  def getAllRowsFromColumn[A](column: ColumnType[A]): Future[Seq[Cell[A, ColumnType[A]]]] = {
+  private def getAllRowsFromColumn[A](column: ColumnType[A]): Future[Seq[Cell[A, ColumnType[A]]]] = {
     for {
       results <- rowStruc.getAllFromColumn(column)
     } yield {
       val listOfLists = resultsInListOfList(results)
-      listOfLists map { x => Cell[A, ColumnType[A]](column.asInstanceOf[ColumnType[A]], x(0).asInstanceOf[Long], x(1).asInstanceOf[A])}
+      listOfLists map { jsonRes => 
+        Cell[A, ColumnType[A]](column, jsonRes.get(0), jsonRes.get(1))
+      }
     }
   }
 
-  def getAllTableCells(table: Table): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = {
-    getAllColumns(table) flatMap { seq => Future.sequence(seq map { column => getAllRowsFromColumn(column) map { x => (column, x)}})}
+  private def getAllTableCells(table: Table): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = {
+    getAllColumns(table) flatMap { seqColumn => Future.sequence(seqColumn map { column => getAllRowsFromColumn(column) map { seqCell => (column, seqCell)}})}
   }
 
-  private def resultsInListOfList(results: JsonArray): Seq[Seq[_]] = {
+  private def resultsInListOfList(results: JsonArray): Seq[JsonArray] = {
     import scala.collection.JavaConverters._
-    results.toList.asScala.map(list => list.asInstanceOf[java.util.ArrayList[_]].asScala)
+    val listOfJsonArray = (for {
+      elem <- results.iterator().asScala
+    } yield {
+      elem.asInstanceOf[JsonArray]
+    }).toStream
+    listOfJsonArray
   }
-
-  //  def test2(seq: Seq[ColumnType[_]]): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = (Future.sequence(seq map { column => getAllRowsFromColumn(column) map {x => (column, x)} }))
-  //
-  //  def test(column: ColumnType[_]): Future[(ColumnType[_], Seq[Cell[_, _]])] = getAllRowsFromColumn(column) map {x => (column, x)}
 
 }

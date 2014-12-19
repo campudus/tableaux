@@ -45,14 +45,16 @@ class TableauxController(verticle: Starter) {
 
     for {
       (table, columnList) <- tableaux.getCompleteTable(id) // (Table, Seq[(ColumnType[_], Seq[Cell[_, _]])])
-      columnJson <- Future.successful { columnList map { case (x, _) => Json.obj("id" -> x.id, "name" -> x.name) } } // Seq[(ColumnType[_], Seq[Cell[_, _]])]
-      rowJson <- Future.successful { columnList flatMap { case (c, x) => x map { j => Json.obj("id" -> j.rowId, s"c${c.id}" -> j.value) } } }
-      row <- Future.successful { rowJson.foldLeft(Seq[JsonObject]()) { (s, j) => 
-        val helper = rowJson.filter { x => x.getLong("id") == j.getLong("id") }.foldLeft(Json.obj()) { (j, f) => j.mergeIn(f) }
-        if(s.contains(helper)) s else s :+ helper
+    } yield {
+      val columnsJson = columnList map { case (col, _) => Json.obj("id" -> col.id, "name" -> col.name) } // Seq[(ColumnType[_], Seq[Cell[_, _]])]
+      val fromColumnValueToRowValue = columnList flatMap { case (col, colValues) => colValues map { cell => Json.obj("id" -> cell.rowId, s"c${col.id}" -> cell.value) } } 
+      val rowsJson = fromColumnValueToRowValue.foldLeft(Seq[JsonObject]()) { (finalRowValues, rowValues) => 
+        val helper = fromColumnValueToRowValue.filter { filterJs => filterJs.getLong("id") == rowValues.getLong("id") }.foldLeft(Json.obj()) { (js, filteredJs) => js.mergeIn(filteredJs) }
+        if(finalRowValues.contains(helper)) finalRowValues else finalRowValues :+ helper
         } 
-      }
-    } yield Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> columnJson, "rows" -> row))
+      
+      Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> columnsJson, "rows" -> rowsJson))
+    }
   }
 
   def getColumn(json: JsonObject): Future[Reply] = {
