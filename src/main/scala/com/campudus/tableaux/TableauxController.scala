@@ -18,10 +18,20 @@ class TableauxController(verticle: Starter) {
     val tableId = json.getLong("tableId")
     val columnName = json.getString("columnName")
     val columnType = json.getString("type")
-    val (colApply, dbType) = Mapper.ctype(columnType)
 
+    val (colApply, dbType) = Mapper.ctype(columnType)
+    
     verticle.logger.info(s"createColumn $tableId $columnName $columnType")
-    tableaux.addColumn(tableId, columnName, dbType) map { column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> dbType)) }
+    dbType match {
+      case "link" => 
+        val toTable = json.getLong("toTable")
+        val toColumn = json.getLong("toColumn")
+        val fromColumn = json.getLong("fromColumn")
+        tableaux.addLinkColumn(tableId, columnName, fromColumn, toTable, toColumn) map { 
+          column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> column.dbType, "toTable" -> column.to.table.id, "toColumn" -> column.to.id)) 
+        }
+      case _ => tableaux.addColumn(tableId, columnName, dbType) map { column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> column.dbType)) }
+    }    
   }
 
   def createTable(json: JsonObject): Future[Reply] = {

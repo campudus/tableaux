@@ -2,7 +2,7 @@ package com.campudus.tableaux.database
 
 import com.campudus.tableaux.database.TableStructure._
 import org.vertx.scala.core.VertxExecutionContext
-import org.vertx.scala.core.json.{Json, JsonArray}
+import org.vertx.scala.core.json.{ Json, JsonArray }
 import org.vertx.scala.platform.Verticle
 
 import scala.concurrent.Future
@@ -19,6 +19,10 @@ sealed trait ColumnType[A] {
   def table: Table
 }
 
+sealed trait LinkType extends ColumnType[Link] { 
+  def to: ColumnType[_]
+}
+
 case class StringColumn(table: Table, id: IdType, name: String) extends ColumnType[String] {
   val dbType = "text"
 }
@@ -27,14 +31,15 @@ case class NumberColumn(table: Table, id: IdType, name: String) extends ColumnTy
   val dbType = "numeric"
 }
 
-case class LinkColumn(table: Table, id: IdType, to: IdType, name: String) extends ColumnType[Link] {
-  val dbType = "Link"
+case class LinkColumn(table: Table, id: IdType, to: ColumnType[_], name: String) extends LinkType {
+  val dbType = "link"
 }
 
 object Mapper {
   def ctype(s: String): ((Table, IdType, String) => ColumnType[_], String) = s match {
-    case "text" => (StringColumn.apply, "text")
+    case "text"    => (StringColumn.apply, "text")
     case "numeric" => (NumberColumn.apply, "numeric")
+    case "link"    => (NumberColumn.apply, "link")
   }
 
   def getApply(s: String): (Table, IdType, String) => ColumnType[_] = ctype(s)._1
@@ -57,21 +62,21 @@ class SystemStructure(transaction: DatabaseConnection) {
 
   def deinstall(): Future[Unit] = for {
     t <- transaction.begin()
-    (t, res) <- t.query( s"""DROP SCHEMA public CASCADE""".stripMargin, Json.arr())
-    (t, res) <- t.query( s"""CREATE SCHEMA public""".stripMargin, Json.arr())
+    (t, res) <- t.query(s"""DROP SCHEMA public CASCADE""".stripMargin, Json.arr())
+    (t, res) <- t.query(s"""CREATE SCHEMA public""".stripMargin, Json.arr())
     _ <- t.commit()
   } yield ()
 
   def setup(): Future[Unit] = for {
     t <- transaction.begin()
-    (t, res) <- t.query( s"""
+    (t, res) <- t.query(s"""
                      |CREATE TABLE system_table (
                      |  table_id BIGSERIAL,
                      |  user_table_names VARCHAR(255) NOT NULL,
                      |  PRIMARY KEY(table_id)
                      |)""".stripMargin,
       Json.arr())
-    (t, res) <- t.query( s"""
+    (t, res) <- t.query(s"""
                      |CREATE TABLE system_columns(
                      |  table_id BIGINT,
                      |  column_id BIGINT,
@@ -86,7 +91,7 @@ class SystemStructure(transaction: DatabaseConnection) {
                      |  ON DELETE CASCADE
                      |)""".stripMargin,
       Json.arr())
-    (t, res) <- t.query( s"""
+    (t, res) <- t.query(s"""
                      |CREATE TABLE system_link_table(
                      |  link_id BIGSERIAL,
                      |  table_id_1 BIGINT,
@@ -103,7 +108,7 @@ class SystemStructure(transaction: DatabaseConnection) {
                      |  ON DELETE CASCADE
                      |)""".stripMargin,
       Json.arr())
-    (t, res) <- t.query( s"""
+    (t, res) <- t.query(s"""
                      |ALTER TABLE system_columns
                      |  ADD FOREIGN KEY(link_id)
                      |  REFERENCES system_link_table(link_id)
@@ -146,7 +151,7 @@ class ColumnStructure(transaction: DatabaseConnection) {
 
   def insert(tableId: IdType, dbType: String, name: String): Future[IdType] = for {
     t <- transaction.begin()
-    (t, result) <- t.query( s"""
+    (t, result) <- t.query(s"""
                      |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering)
                      |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, currval('system_columns_column_id_table_$tableId'))
                      |  RETURNING column_id""".stripMargin,
@@ -156,9 +161,51 @@ class ColumnStructure(transaction: DatabaseConnection) {
     _ <- t.commit()
   } yield id
 
+  def insertLink(tableId: IdType, name: String, fromColumn: IdType, toColumn: ColumnType[_]): Future[IdType] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query(s"""INSERT INTO system_link_table (table_id_1, table_id_2, column_id_1, column_id_2) VALUES (?, ?, ?, ?) RETURNING link_id""".stripMargin,
+      Json.arr(tableId, toColumn.table.id, fromColumn, toColumn.id))
+    linkId <- Future.successful { result.getArray("results").get[JsonArray](0).get[Long](0) }
+    (t, _) <- t.query(s"""
+                    |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
+                    |  ?, 
+                    |  nextval('system_columns_column_id_table_${toColumn.table.id}'), 
+                    |  'link',
+                    |  ?, 
+                    |  currval('system_columns_column_id_table_${toColumn.table.id}'), 
+                    |  ?)""".stripMargin,
+      Json.arr(toColumn.table.id, name, linkId))
+    (t, result) <- t.query(s"""
+                    |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
+                    |  ?, 
+                    |  nextval('system_columns_column_id_table_$tableId'), 
+                    |  'link',
+                    |  ?, 
+                    |  currval('system_columns_column_id_table_$tableId'), 
+                    |  ?
+                    |) RETURNING column_id""".stripMargin,
+      Json.arr(tableId, name, linkId))
+    (t, _) <- t.query(s"""
+                    |CREATE TABLE link_table_$linkId (
+                    |  id_1 bigint, 
+                    |  id_2 bigint, 
+                    |  PRIMARY KEY(id_1, id_2), 
+                    |  CONSTRAINT link_table_${linkId}_foreign_1 
+                    |    FOREIGN KEY(id_1) 
+                    |    REFERENCES user_table_$tableId (id) 
+                    |    ON DELETE CASCADE, 
+                    |  CONSTRAINT link_table_${linkId}_foreign_2
+                    |    FOREIGN KEY(id_2) 
+                    |    REFERENCES user_table_${toColumn.table.id} (id) 
+                    |    ON DELETE CASCADE
+                    |)""".stripMargin, Json.arr())
+    id <- Future.successful { result.getArray("results").get[JsonArray](0).get[Long](0) }
+    _ <- t.commit()
+  } yield id
+
   def get(table: Table, columnId: IdType): Future[JsonArray] = for {
     t <- transaction.begin()
-    (t, result) <- t.query( """
+    (t, result) <- t.query("""
                               |SELECT column_id, user_column_name, column_type
                               |  FROM system_columns
                               |  WHERE table_id = ? AND column_id = ?
@@ -169,7 +216,7 @@ class ColumnStructure(transaction: DatabaseConnection) {
 
   def getAll(table: Table): Future[JsonArray] = for {
     t <- transaction.begin()
-    (t, result) <- t.query( """
+    (t, result) <- t.query("""
                               |SELECT column_id, user_column_name, column_type
                               |  FROM system_columns
                               |  WHERE table_id = ? ORDER BY column_id""".stripMargin, Json.arr(table.id))
@@ -254,9 +301,13 @@ class Tableaux(verticle: Verticle) {
       Mapper.ctype(columnType)
     }
     id <- columnStruc.insert(table.id, dbType, name)
-  } yield {
-    colApply(table, id, name)
-  }
+  } yield colApply(table, id, name)
+
+  def addLinkColumn(tableId: IdType, name: String, fromColumn: IdType, toTable: IdType, toColumn: IdType): Future[LinkType] = for {
+    table <- getTable(tableId)
+    toCol <- getColumn(toTable, toColumn)
+    id <- columnStruc.insertLink(tableId, name, fromColumn, toCol)
+  } yield LinkColumn(table, id, toCol, name)
 
   def removeColumn(tableId: IdType, columnId: IdType): Future[Unit] = for {
     _ <- columnStruc.delete(tableId, columnId)
@@ -269,9 +320,9 @@ class Tableaux(verticle: Verticle) {
   def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     table <- getTable(tableId)
     column <- getColumn(tableId, columnId)
-    v <- Future.apply(value.asInstanceOf[column.Value])
+    value <- Future.apply(value.asInstanceOf[column.Value])
     cell <- Future.successful {
-      Cell[A, B](column.asInstanceOf[B], rowId, v.asInstanceOf[A])
+      Cell[A, B](column.asInstanceOf[B], rowId, value.asInstanceOf[A])
     }
     _ <- cellStruc.update[A, B](cell)
   } yield cell
@@ -309,14 +360,14 @@ class Tableaux(verticle: Verticle) {
       results <- rowStruc.getAllFromColumn(column)
     } yield {
       val listOfLists = resultsInListOfList(results)
-      listOfLists map { jsonRes => 
+      listOfLists map { jsonRes =>
         Cell[A, ColumnType[A]](column, jsonRes.get(0), jsonRes.get(1))
       }
     }
   }
 
   private def getAllTableCells(table: Table): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = {
-    getAllColumns(table) flatMap { seqColumn => Future.sequence(seqColumn map { column => getAllRowsFromColumn(column) map { seqCell => (column, seqCell)}})}
+    getAllColumns(table) flatMap { seqColumn => Future.sequence(seqColumn map { column => getAllRowsFromColumn(column) map { seqCell => (column, seqCell) } }) }
   }
 
   private def resultsInListOfList(results: JsonArray): Seq[JsonArray] = {

@@ -12,26 +12,36 @@ class LinkTest extends TableauxTestBase {
   
   @Test
   def getLinkColumn(): Unit = {
+    //    val expectedJson = Json.obj(
+//      "tableId" -> 1,
+//      "tableName" -> "Test Nr. 1",
+//      "cols" -> Json.arr(
+//        Json.obj("id" -> 1, "name" -> "Test Column 1"),
+//        Json.obj("id" -> 2, "name" -> "Test Column 2"),
+//        Json.obj("id" -> 3, "name" -> "Test Link 1")),
+//      "rows" -> Json.arr(
+//        Json.obj("id" -> 1, "c1" -> "Test Fill 1", "c2" -> 1, "c3" -> null),
+//        Json.obj("id" -> 2, "c1" -> "Test Fill 2", "c2" -> 2, "c3" -> null)))
+//    val expectedJson2 = expectedJson.putNumber("tableId", 2)
+    
+//      test <- sendRequest("GET", c, getTable, "/tables/1")
+//      test2 <- sendRequest("GET", c, getTable, "/tables/2")
+    
     fail("not implemented")
   }
 
-//  @Test
-//  def createLinkColumn(): Unit = okTest {
-//    val postLinkCol = Json.obj("action" -> "createColumn", "type" -> "link", "tableId" -> 1, "columnName" -> "Test Link 1")
-//    
-//    val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1", "cols" -> Json.arr(), "rows" -> Json.arr())
-//    val expectedJson2 = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1", "cols" -> Json.arr(), "rows" -> Json.arr())
-//    
-//    for {
-//      c <- setupTables()
-//      _ <- sendRequest("POST", c, postLinkCol, "/tables/1/columns")
-//      test <- sendRequest("GET", c, getTable, "/tables/1")
-//      test2 <- sendRequest("GET", c, getTable, "/tables/2")
-//    } yield {
-//      assertEquals(expectedJson, test)
-//      assertEquals(expectedJson2, test2)
-//    }
-//  }
+  @Test
+  def createLinkColumn(): Unit = okTest {
+    val postLinkCol = Json.obj("action" -> "createColumn", "type" -> "link", "tableId" -> 1, "columnName" -> "Test Link 1", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "columnType" -> "link", "toTable" -> 2, "toColumn" -> 1)
+    
+    for {
+      c <- setupTables()
+      test <- sendRequest("POST", c, postLinkCol, "/tables/1/columns")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
 
   @Test
   def fillSingleLinkCell(): Unit = {
