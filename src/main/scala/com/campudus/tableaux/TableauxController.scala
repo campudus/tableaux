@@ -97,19 +97,22 @@ class TableauxController(verticle: Starter) {
     val columnId = json.getLong("columnId")
     val rowId = json.getLong("rowId")
     val columnType = json.getString("type")
-    val (colApply, dbType) = Mapper.ctype(columnType)
+    val dbType = Mapper.getDatabaseType(columnType)
 
     val value = dbType match {
       case "text"    => json.getString("value")
       case "numeric" => json.getNumber("value")
-      case "link"    => (json.getArray("value").asScala.toList(0).toString().toLong, json.getArray("value").asScala.toList(1).toString().toLong)
+      case "link"    => 
+        val valueList = json.getArray("value").asScala.toList
+        (valueList(0).asInstanceOf[Number].longValue(), valueList(1).asInstanceOf[Number].longValue())
     }
 
     verticle.logger.info(s"fillCell $tableId $columnId $rowId $columnType")
 
     dbType match {
-      case "link" => tableaux.insertLinkValue[Link, ColumnType[Link]](tableId, columnId, rowId, value.asInstanceOf[(Long, Long)]) map { cell =>
-        Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> cell.value.value))
+      case "link" => tableaux.insertLinkValue(tableId, columnId, rowId, value.asInstanceOf[(Long, Long)]) map { cell =>
+        val value = cell.value.value map {case (id, v) => Json.obj("id" -> id, "value" -> v)}
+        Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> value))
       }
       case _ => tableaux.insertValue[value.type, ColumnType[value.type]](tableId, columnId, rowId, value) map { cell =>
         Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> cell.value))

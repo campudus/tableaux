@@ -8,31 +8,25 @@ import org.vertx.scala.core.http.HttpClient
 
 class LinkTest extends TableauxTestBase {
 
-  val getTable = Json.obj("action" -> "getTable", "tableId" -> 1)
+  val postLinkCol = Json.obj("action" -> "createColumn", "type" -> "link", "tableId" -> 1, "columnName" -> "Test Link 1", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)
 
-//  @Test
-//  def getLinkColumn(): Unit = {
-////    val expectedJson = Json.obj(
-////      "tableId" -> 1,
-////      "tableName" -> "Test Nr. 1",
-////      "cols" -> Json.arr(
-////        Json.obj("id" -> 1, "name" -> "Test Column 1"),
-////        Json.obj("id" -> 2, "name" -> "Test Column 2"),
-////        Json.obj("id" -> 3, "name" -> "Test Link 1")),
-////      "rows" -> Json.arr(
-////        Json.obj("id" -> 1, "c1" -> "Test Fill 1", "c2" -> 1, "c3" -> null),
-////        Json.obj("id" -> 2, "c1" -> "Test Fill 2", "c2" -> 2, "c3" -> null)))
-////    val expectedJson2 = expectedJson.putNumber("tableId", 2)
-//    
-////      test <- sendRequest("GET", c, getTable, "/tables/1")
-////      test2 <- sendRequest("GET", c, getTable, "/tables/2")
-//    
-//    fail("not implemented")
-//  }
+  @Test
+  def getLinkColumn(): Unit = okTest {
+    val getColumn = Json.obj("action" -> "getColumn", "tableId" -> 1, "columnId" -> 3)
+    val expectedJson = Json.obj("columnId" -> 3, "columnName" -> "Test Link 1", "type" -> "link")
+    
+    for {
+      (c, tables) <- setupTables()
+      _ <- sendRequest("POST", c, postLinkCol, "/tables/1/columns")
+      test <- sendRequest("GET", c, getColumn, "/tables/1/columns/3")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
 
   @Test
   def createLinkColumn(): Unit = okTest {
-    val postLinkCol = Json.obj("action" -> "createColumn", "type" -> "link", "tableId" -> 1, "columnName" -> "Test Link 1", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)
+    
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "columnType" -> "link", "toTable" -> 2, "toColumn" -> 1)
     
     for {
@@ -45,9 +39,8 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def fillSingleLinkCell(): Unit = okTest {
-    val postLinkCol = Json.obj("action" -> "createColumn", "type" -> "link", "tableId" -> 1, "columnName" -> "Test Link 1", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)
     val fillLinkCellJson = Json.obj("action" -> "fillCell", "type" -> "link", "tableId" -> 1, "columnId" -> 3, "rowId" -> 1, "value" -> Json.arr(1,1))
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "rowId" -> 1, "value" -> Json.arr("Test Fill 1"))
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "rowId" -> 1, "value" -> Json.arr(Json.obj("id" -> 1,"value" -> "Test Fill 1")))
     
     for {
       (c, tables) <- setupTables()

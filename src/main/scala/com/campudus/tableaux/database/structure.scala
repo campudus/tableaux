@@ -4,8 +4,9 @@ import com.campudus.tableaux.database.TableStructure._
 import org.vertx.scala.core.VertxExecutionContext
 import org.vertx.scala.core.json.{ Json, JsonArray }
 import org.vertx.scala.platform.Verticle
-
 import scala.concurrent.Future
+import scala.util.Success
+import scala.util.Failure
 
 sealed trait ColumnType[A] {
   type Value = A
@@ -19,39 +20,39 @@ sealed trait ColumnType[A] {
   def table: Table
 }
 
-sealed trait LinkType extends ColumnType[Link] {
-  def to: ColumnType[_]
+sealed trait LinkType[A] extends ColumnType[Link[A]] {
+  def to: ColumnValue[A]
 }
 
-case class StringColumn(table: Table, id: IdType, name: String) extends ColumnType[String] {
+sealed trait ColumnValue[A] extends ColumnType[A]
+
+case class StringColumn(table: Table, id: IdType, name: String) extends ColumnValue[String] {
   val dbType = "text"
 }
 
-case class NumberColumn(table: Table, id: IdType, name: String) extends ColumnType[Number] {
+case class NumberColumn(table: Table, id: IdType, name: String) extends ColumnValue[Number] {
   val dbType = "numeric"
 }
 
-case class LinkColumn(table: Table, id: IdType, to: ColumnType[_], name: String) extends LinkType {
+case class LinkColumn[A](table: Table, id: IdType, to: ColumnValue[A], name: String) extends LinkType[A] {
   val dbType = "link"
-
-  def withNewTo(toCol: ColumnType[_]): LinkColumn = copy(to = toCol)
 }
 
 object Mapper {
-  def ctype(s: String): ((Table, IdType, String) => ColumnType[_], String) = s match {
-    case "text"    => (StringColumn.apply, "text")
-    case "numeric" => (NumberColumn.apply, "numeric")
-    case "link"    => (LinkColumn.apply(_, _, null, _), "link")
+  def ctype(s: String): (Option[(Table, IdType, String) => ColumnValue[_]], String) = s match {
+    case "text"    => (Some(StringColumn.apply), "text")
+    case "numeric" => (Some(NumberColumn.apply), "numeric")
+    case "link"    => (None, "link")
   }
 
-  def getApply(s: String): (Table, IdType, String) => ColumnType[_] = ctype(s)._1
+  def getApply(s: String): (Table, IdType, String) => ColumnValue[_] = ctype(s)._1.get
 
   def getDatabaseType(s: String): String = ctype(s)._2
 }
 
 case class Cell[A, B <: ColumnType[A]](column: B, rowId: IdType, value: A)
 
-case class Link(value: Seq[_])
+case class Link[A](value: Seq[(IdType, A)])
 
 case class Table(id: IdType, name: String)
 
@@ -228,13 +229,13 @@ class ColumnStructure(transaction: DatabaseConnection) {
     _ <- t.commit()
   } yield j
 
-  def getToColumn(column: LinkType): Future[JsonArray] = for {
+  def getToColumn(tableId: IdType, columnId: IdType): Future[JsonArray] = for {
     t <- transaction.begin()
     (t, result) <- t.query("""
                               |SELECT table_id, column_id
                               |  FROM system_columns
                               |  WHERE table_id != ? AND column_id != ? 
-                              |  ORDER BY column_id""".stripMargin, Json.arr(column.table.id, column.id))
+                              |  ORDER BY column_id""".stripMargin, Json.arr(tableId, columnId))
     j <- Future.successful {
       result.getArray("results").get[JsonArray](0)
     }
@@ -293,23 +294,23 @@ class CellStructure(transaction: DatabaseConnection) {
   def updateLink(column: ColumnType[_], values: (IdType, IdType)): Future[Unit] = for {
     t <- transaction.begin()
     (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(column.table.id, column.id))
-    linkId <- Future.successful{
+    linkId <- Future.successful {
       result.getArray("results").get[JsonArray](0).get[IdType](0)
     }
     (t, _) <- t.query(s"INSERT INTO link_table_$linkId VALUES (?, ?)", Json.arr(values._1, values._2))
     _ <- t.commit()
   } yield ()
 
-  def getLinkValues(column: LinkType, rowId: IdType): Future[JsonArray] = for {
+  def getLinkValues(column: LinkType[_], rowId: IdType): Future[JsonArray] = for {
     t <- transaction.begin()
     (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(column.table.id, column.id))
     linkId <- Future.successful(result.getArray("results").get[JsonArray](0).get[IdType](0))
     (t, result) <- t.query("SELECT table_id_1, table_id_2, column_id_1, column_id_2 FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
-    (id1, id2) <- Future.successful{
+    (id1, id2) <- Future.successful {
       val res = result.getArray("results").get[JsonArray](0)
       val linkTo2 = (res.get[IdType](1), res.get[IdType](3))
-      
-      if(linkTo2 == (column.to.table.id, column.to.id)) ("id_1", "id_2") else ("id_2", "id_1")
+
+      if (linkTo2 == (column.to.table.id, column.to.id)) ("id_1", "id_2") else ("id_2", "id_1")
     }
     (t, result) <- t.query(s"""
                      |SELECT STRING_AGG(user_table_${column.to.table.id}.column_${column.to.id}, ', ') FROM user_table_${column.table.id} 
@@ -342,17 +343,17 @@ class Tableaux(verticle: Verticle) {
     _ <- tableStruc.delete(id)
   } yield ()
 
-  def addColumn(tableId: IdType, name: String, columnType: String): Future[ColumnType[_]] = for {
+  def addColumn(tableId: IdType, name: String, columnType: String): Future[ColumnValue[_]] = for {
     table <- getTable(tableId)
     (colApply, dbType) <- Future.successful {
       Mapper.ctype(columnType)
     }
     id <- columnStruc.insert(table.id, dbType, name)
-  } yield colApply(table, id, name)
+  } yield colApply.get.apply(table, id, name)
 
-  def addLinkColumn(tableId: IdType, name: String, fromColumn: IdType, toTable: IdType, toColumn: IdType): Future[LinkType] = for {
+  def addLinkColumn(tableId: IdType, name: String, fromColumn: IdType, toTable: IdType, toColumn: IdType): Future[LinkType[_]] = for {
     table <- getTable(tableId)
-    toCol <- getColumn(toTable, toColumn)
+    toCol <- getColumn(toTable, toColumn).asInstanceOf[Future[ColumnValue[_]]]
     id <- columnStruc.insertLink(tableId, name, fromColumn, toCol)
   } yield LinkColumn(table, id, toCol, name)
 
@@ -372,35 +373,38 @@ class Tableaux(verticle: Verticle) {
     _ <- cellStruc.update[A, B](cell)
   } yield cell
 
-  def insertLinkValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: (IdType, IdType)): Future[Cell[A, B]] = for {
-    linkColumn <- getColumn(tableId, columnId)
-    jsonResult <- columnStruc.getToColumn(linkColumn.asInstanceOf[LinkType])
-    (toTable, toColumn) <- Future.successful{
-      (jsonResult.get[Long](0), jsonResult.get[Long](1))
-    }
-    toCol <- getColumn(toTable, toColumn)
-    linkColumn <- Future.successful {
-      linkColumn.asInstanceOf[LinkColumn].withNewTo(toCol)
-    }
+  def insertLinkValue(tableId: IdType, columnId: IdType, rowId: IdType, value: (IdType, IdType)): Future[Cell[Link[_], ColumnType[Link[_]]]] = for {
+    linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkType[_]]]
     _ <- cellStruc.updateLink(linkColumn, value)
     jr <- cellStruc.getLinkValues(linkColumn, rowId)
-    v <- Future.successful{
+    v <- Future.successful {
       jr.get[JsonArray](0).get[String](0)
     }
-    cell <- Future.successful(Cell[A, B](linkColumn.asInstanceOf[B], rowId, Link(List(v)).asInstanceOf[A]))
-  } yield cell
+    cell <- Future.successful(Cell[Link[v.type], LinkType[v.type]](linkColumn.asInstanceOf[LinkType[v.type]], rowId, Link(List((value._2, v)))))
+  } yield cell.asInstanceOf[Cell[Link[_], ColumnType[Link[_]]]]
 
   def getTable(tableId: IdType): Future[Table] = for {
     json <- tableStruc.get(tableId)
   } yield Table(json.get[Long](0), json.get[String](1))
-
+  
   def getColumn(tableId: IdType, columnId: IdType): Future[ColumnType[_]] = for {
     table <- getTable(tableId)
     result <- columnStruc.get(table, columnId)
-    column <- Future.successful[ColumnType[_]] {
-      Mapper.getApply(result.get[String](2)).apply(table, result.get[IdType](0), result.get[String](1))
+    column <- Mapper.getDatabaseType(result.get[String](2)) match {
+      case "link" => getLinkColumn(table, result)
+      case _ => Future.successful(getValueColumn(table, result))
     }
-  } yield column
+  } yield column.asInstanceOf[ColumnType[_]]
+
+  private def getValueColumn(table: Table, result: JsonArray): ColumnValue[_] = Mapper.getApply(result.get[String](2)).apply(table, result.get[IdType](0), result.get[String](1))
+  
+  private def getLinkColumn(table: Table, result: JsonArray): Future[LinkType[_]] = for {
+    (columnId, columnName) <- Future.successful {
+      (result.get[IdType](0), result.get[String](1))
+    }
+    jsonResult <- columnStruc.getToColumn(table.id, columnId)
+    toCol <- getColumn(jsonResult.get[Long](0), jsonResult.get[Long](1)).asInstanceOf[Future[ColumnValue[_]]]
+  } yield LinkColumn(table, columnId, toCol, columnName)
 
   def getCompleteTable(tableId: IdType): Future[(Table, Seq[(ColumnType[_], Seq[Cell[_, _]])])] = for {
     table <- getTable(tableId)
