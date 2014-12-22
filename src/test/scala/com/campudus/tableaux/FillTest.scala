@@ -13,7 +13,7 @@ class FillTest extends TableauxTestBase {
   val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
   val createNumberColumnJson = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 1")
   val createStringColumnJson = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
-  
+
   @Test
   def fillSingleStringCell(): Unit = okTest {
     val c = createClient()

@@ -14,7 +14,7 @@ class GetTest extends TableauxTestBase {
   val postNumCol = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 2")
   val getColumn = Json.obj("action" -> "getColumn", "tableId" -> 1, "columnId" -> 1)
   val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
-  
+
   @Test
   def getEmptyTable(): Unit = okTest {
     val c = createClient()

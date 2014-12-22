@@ -19,7 +19,7 @@ sealed trait ColumnType[A] {
   def table: Table
 }
 
-sealed trait LinkType extends ColumnType[Link] { 
+sealed trait LinkType extends ColumnType[Link] {
   def to: ColumnType[_]
 }
 
@@ -33,13 +33,15 @@ case class NumberColumn(table: Table, id: IdType, name: String) extends ColumnTy
 
 case class LinkColumn(table: Table, id: IdType, to: ColumnType[_], name: String) extends LinkType {
   val dbType = "link"
+
+  def withNewTo(toCol: ColumnType[_]): LinkColumn = copy(to = toCol)
 }
 
 object Mapper {
   def ctype(s: String): ((Table, IdType, String) => ColumnType[_], String) = s match {
     case "text"    => (StringColumn.apply, "text")
     case "numeric" => (NumberColumn.apply, "numeric")
-    case "link"    => (NumberColumn.apply, "link")
+    case "link"    => (LinkColumn.apply(_, _, null, _), "link")
   }
 
   def getApply(s: String): (Table, IdType, String) => ColumnType[_] = ctype(s)._1
@@ -49,7 +51,7 @@ object Mapper {
 
 case class Cell[A, B <: ColumnType[A]](column: B, rowId: IdType, value: A)
 
-case class Link(value: Seq[IdType])
+case class Link(value: Seq[_])
 
 case class Table(id: IdType, name: String)
 
@@ -226,6 +228,19 @@ class ColumnStructure(transaction: DatabaseConnection) {
     _ <- t.commit()
   } yield j
 
+  def getToColumn(column: LinkType): Future[JsonArray] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query("""
+                              |SELECT table_id, column_id
+                              |  FROM system_columns
+                              |  WHERE table_id != ? AND column_id != ? 
+                              |  ORDER BY column_id""".stripMargin, Json.arr(column.table.id, column.id))
+    j <- Future.successful {
+      result.getArray("results").get[JsonArray](0)
+    }
+    _ <- t.commit()
+  } yield j
+
   def delete(tableId: IdType, columnId: IdType): Future[Unit] = for {
     t <- transaction.begin()
     (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId", Json.arr())
@@ -275,6 +290,38 @@ class CellStructure(transaction: DatabaseConnection) {
     _ <- t.commit()
   } yield ()
 
+  def updateLink(column: ColumnType[_], values: (IdType, IdType)): Future[Unit] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(column.table.id, column.id))
+    linkId <- Future.successful{
+      result.getArray("results").get[JsonArray](0).get[IdType](0)
+    }
+    (t, _) <- t.query(s"INSERT INTO link_table_$linkId VALUES (?, ?)", Json.arr(values._1, values._2))
+    _ <- t.commit()
+  } yield ()
+
+  def getLinkValues(column: LinkType, rowId: IdType): Future[JsonArray] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(column.table.id, column.id))
+    linkId <- Future.successful(result.getArray("results").get[JsonArray](0).get[IdType](0))
+    (t, result) <- t.query("SELECT table_id_1, table_id_2, column_id_1, column_id_2 FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
+    (id1, id2) <- Future.successful{
+      val res = result.getArray("results").get[JsonArray](0)
+      val linkTo2 = (res.get[IdType](1), res.get[IdType](3))
+      
+      if(linkTo2 == (column.to.table.id, column.to.id)) ("id_1", "id_2") else ("id_2", "id_1")
+    }
+    (t, result) <- t.query(s"""
+                     |SELECT STRING_AGG(user_table_${column.to.table.id}.column_${column.to.id}, ', ') FROM user_table_${column.table.id} 
+                     |  LEFT JOIN link_table_$linkId 
+                     |    ON user_table_${column.table.id}.id = link_table_${linkId}.$id1
+                     |  LEFT JOIN user_table_${column.to.table.id} 
+                     |    ON user_table_${column.to.table.id}.id = link_table_${linkId}.$id2
+                     |  WHERE user_table_${column.table.id}.id = ?
+                     |  GROUP BY user_table_${column.table.id}.id""".stripMargin, Json.arr(rowId))
+    j <- Future.successful(result.getArray("results"))
+    _ <- t.commit()
+  } yield j
 }
 
 class Tableaux(verticle: Verticle) {
@@ -318,13 +365,29 @@ class Tableaux(verticle: Verticle) {
   } yield id
 
   def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
-    table <- getTable(tableId)
     column <- getColumn(tableId, columnId)
-    value <- Future.apply(value.asInstanceOf[column.Value])
     cell <- Future.successful {
       Cell[A, B](column.asInstanceOf[B], rowId, value.asInstanceOf[A])
     }
     _ <- cellStruc.update[A, B](cell)
+  } yield cell
+
+  def insertLinkValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: (IdType, IdType)): Future[Cell[A, B]] = for {
+    linkColumn <- getColumn(tableId, columnId)
+    jsonResult <- columnStruc.getToColumn(linkColumn.asInstanceOf[LinkType])
+    (toTable, toColumn) <- Future.successful{
+      (jsonResult.get[Long](0), jsonResult.get[Long](1))
+    }
+    toCol <- getColumn(toTable, toColumn)
+    linkColumn <- Future.successful {
+      linkColumn.asInstanceOf[LinkColumn].withNewTo(toCol)
+    }
+    _ <- cellStruc.updateLink(linkColumn, value)
+    jr <- cellStruc.getLinkValues(linkColumn, rowId)
+    v <- Future.successful{
+      jr.get[JsonArray](0).get[String](0)
+    }
+    cell <- Future.successful(Cell[A, B](linkColumn.asInstanceOf[B], rowId, Link(List(v)).asInstanceOf[A]))
   } yield cell
 
   def getTable(tableId: IdType): Future[Table] = for {
