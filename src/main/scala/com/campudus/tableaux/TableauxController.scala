@@ -99,24 +99,23 @@ class TableauxController(verticle: Starter) {
     val columnType = json.getString("type")
     val dbType = Mapper.getDatabaseType(columnType)
 
-    val value = dbType match {
-      case "text"    => json.getString("value")
-      case "numeric" => json.getNumber("value")
-      case "link"    => 
+    val (fut, opt) = dbType match {
+      case "text"    => (tableaux.insertValue(tableId, columnId, rowId, json.getString("value")), None)
+      case "numeric" => (tableaux.insertValue(tableId, columnId, rowId, json.getNumber("value")), None)
+      case "link" =>
         val valueList = json.getArray("value").asScala.toList
-        (valueList(0).asInstanceOf[Number].longValue(), valueList(1).asInstanceOf[Number].longValue())
+        val value = (valueList(0).asInstanceOf[Number].longValue(), valueList(1).asInstanceOf[Number].longValue())
+        val fut = tableaux.insertLinkValue(tableId, columnId, rowId, value)
+        (fut, Some({ x: Link[_] =>
+          x.value map {
+            case (id, v) => Json.obj("id" -> id, "value" -> v)
+          }
+        }))
     }
 
-    verticle.logger.info(s"fillCell $tableId $columnId $rowId $columnType")
-
-    dbType match {
-      case "link" => tableaux.insertLinkValue(tableId, columnId, rowId, value.asInstanceOf[(Long, Long)]) map { cell =>
-        val value = cell.value.value map {case (id, v) => Json.obj("id" -> id, "value" -> v)}
-        Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> value))
-      }
-      case _ => tableaux.insertValue[value.type, ColumnType[value.type]](tableId, columnId, rowId, value) map { cell =>
-        Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> cell.value))
-      }
+    fut map { cell =>
+      val value = opt map { f => f(cell.value.asInstanceOf[Link[_]]) } getOrElse { cell.value }
+      Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> value))
     }
   }
 

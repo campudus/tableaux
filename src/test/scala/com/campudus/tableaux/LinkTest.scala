@@ -26,7 +26,6 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def createLinkColumn(): Unit = okTest {
-    
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "columnType" -> "link", "toTable" -> 2, "toColumn" -> 1)
     
     for {
