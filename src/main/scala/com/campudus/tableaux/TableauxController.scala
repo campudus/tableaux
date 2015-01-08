@@ -18,10 +18,20 @@ class TableauxController(verticle: Starter) {
     val tableId = json.getLong("tableId")
     val columnName = json.getString("columnName")
     val columnType = json.getString("type")
+
     val (colApply, dbType) = Mapper.ctype(columnType)
 
     verticle.logger.info(s"createColumn $tableId $columnName $columnType")
-    tableaux.addColumn(tableId, columnName, dbType) map { column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> dbType)) }
+    dbType match {
+      case "link" =>
+        val toTable = json.getLong("toTable")
+        val toColumn = json.getLong("toColumn")
+        val fromColumn = json.getLong("fromColumn")
+        tableaux.addLinkColumn(tableId, columnName, fromColumn, toTable, toColumn) map {
+          column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> column.dbType, "toTable" -> column.to.table.id, "toColumn" -> column.to.id))
+        }
+      case _ => tableaux.addColumn(tableId, columnName, dbType) map { column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> column.dbType)) }
+    }
   }
 
   def createTable(json: JsonObject): Future[Reply] = {
@@ -47,12 +57,12 @@ class TableauxController(verticle: Starter) {
       (table, columnList) <- tableaux.getCompleteTable(id) // (Table, Seq[(ColumnType[_], Seq[Cell[_, _]])])
     } yield {
       val columnsJson = columnList map { case (col, _) => Json.obj("id" -> col.id, "name" -> col.name) } // Seq[(ColumnType[_], Seq[Cell[_, _]])]
-      val fromColumnValueToRowValue = columnList flatMap { case (col, colValues) => colValues map { cell => Json.obj("id" -> cell.rowId, s"c${col.id}" -> cell.value) } } 
-      val rowsJson = fromColumnValueToRowValue.foldLeft(Seq[JsonObject]()) { (finalRowValues, rowValues) => 
+      val fromColumnValueToRowValue = columnList flatMap { case (col, colValues) => colValues map { cell => Json.obj("id" -> cell.rowId, s"c${col.id}" -> cell.value) } }
+      val rowsJson = fromColumnValueToRowValue.foldLeft(Seq[JsonObject]()) { (finalRowValues, rowValues) =>
         val helper = fromColumnValueToRowValue.filter { filterJs => filterJs.getLong("id") == rowValues.getLong("id") }.foldLeft(Json.obj()) { (js, filteredJs) => js.mergeIn(filteredJs) }
-        if(finalRowValues.contains(helper)) finalRowValues else finalRowValues :+ helper
-        } 
-      
+        if (finalRowValues.contains(helper)) finalRowValues else finalRowValues :+ helper
+      }
+
       Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> columnsJson, "rows" -> rowsJson))
     }
   }
@@ -81,20 +91,31 @@ class TableauxController(verticle: Starter) {
   }
 
   def fillCell(json: JsonObject): Future[Reply] = {
+    import scala.collection.JavaConverters._
+
     val tableId = json.getLong("tableId")
     val columnId = json.getLong("columnId")
     val rowId = json.getLong("rowId")
     val columnType = json.getString("type")
-    val (colApply, dbType) = Mapper.ctype(columnType)
+    val dbType = Mapper.getDatabaseType(columnType)
 
-    val value = dbType match {
-      case "text"    => json.getString("value")
-      case "numeric" => json.getNumber("value")
+    val (fut, opt) = dbType match {
+      case "text"    => (tableaux.insertValue(tableId, columnId, rowId, json.getString("value")), None)
+      case "numeric" => (tableaux.insertValue(tableId, columnId, rowId, json.getNumber("value")), None)
+      case "link" =>
+        val valueList = json.getArray("value").asScala.toList
+        val value = (valueList(0).asInstanceOf[Number].longValue(), valueList(1).asInstanceOf[Number].longValue())
+        val fut = tableaux.insertLinkValue(tableId, columnId, rowId, value)
+        (fut, Some({ x: Link[_] =>
+          x.value map {
+            case (id, v) => Json.obj("id" -> id, "value" -> v)
+          }
+        }))
     }
 
-    verticle.logger.info(s"fillRow $tableId $columnId $rowId $columnType")
-    tableaux.insertValue[value.type, ColumnType[value.type]](tableId, columnId, rowId, value) map { cell =>
-      Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> cell.value))
+    fut map { cell =>
+      val value = opt map { f => f(cell.value.asInstanceOf[Link[_]]) } getOrElse { cell.value }
+      Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> value))
     }
   }
 

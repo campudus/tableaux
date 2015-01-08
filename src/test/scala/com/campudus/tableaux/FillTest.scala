@@ -16,11 +16,11 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillSingleStringCell(): Unit = okTest {
+    val c = createClient()
     val fillStringCellJson = Json.obj("action" -> "fillCell", "type" -> "text", "tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> "Test Fill 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> "Test Fill 1")
 
     for {
-      c <- createClient()
       _ <- sendRequest("POST", c, createTableJson, "/tables")
       _ <- sendRequest("POST", c, createStringColumnJson, "/tables/1/columns")
       _ <- sendRequest("POST", c, createRowJson, "/tables/1/rows")
@@ -32,11 +32,11 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillSingleNumberCell(): Unit = okTest {
+    val c = createClient()
     val fillNumberCellJson = Json.obj("action" -> "fillCell", "type" -> "numeric", "tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
 
     for {
-      c <- createClient()
       _ <- sendRequest("POST", c, createTableJson, "/tables")
       _ <- sendRequest("POST", c, createNumberColumnJson, "/tables/1/columns")
       _ <- sendRequest("POST", c, createRowJson, "/tables/1/rows")
@@ -48,13 +48,13 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillTwoDifferentCell(): Unit = okTest {
+    val c = createClient()
     val fillNumberCellJson = Json.obj("action" -> "fillCell", "type" -> "numeric", "tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
     val fillStringCellJson = Json.obj("action" -> "fillCell", "type" -> "text", "tableId" -> 1, "columnId" -> 2, "rowId" -> 1, "value" -> "Test Fill 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
     val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "rowId" -> 1, "value" -> "Test Fill 1")
 
     for {
-      c <- createClient()
       _ <- sendRequest("POST", c, createTableJson, "/tables")
       _ <- sendRequest("POST", c, createNumberColumnJson, "/tables/1/columns")
       _ <- sendRequest("POST", c, createStringColumnJson, "/tables/1/columns")
