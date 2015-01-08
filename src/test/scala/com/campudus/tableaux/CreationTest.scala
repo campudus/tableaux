@@ -10,7 +10,7 @@ import org.vertx.scala.core.json.Json
 class CreationTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
-    
+
   @Test
   def createTable(): Unit = okTest {
     val c = createClient()
@@ -59,14 +59,14 @@ class CreationTest extends TableauxTestBase {
       assertEquals(expectedJson2, test2)
     }
   }
-  
+
   @Test
   def createRow(): Unit = okTest {
     val c = createClient()
     val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
     val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1)
     val expectedJson2 = Json.obj("tableId" -> 1, "rowId" -> 2)
-    
+
     for {
       t <- sendRequest("POST", c, createTableJson, "/tables")
       test1 <- sendRequest("POST", c, createRowJson, "/tables/1/rows")

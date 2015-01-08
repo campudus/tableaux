@@ -9,7 +9,7 @@ class DeleteTest extends TableauxTestBase {
   val createTableJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
   val delTableJson = Json.obj("action" -> "deleteTable", "tableId" -> 1)
   val createColumnJson = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Nr. 1")
-    
+
   @Test
   def deleteEmptyTable(): Unit = okTest {
     val c = createClient()
@@ -22,7 +22,7 @@ class DeleteTest extends TableauxTestBase {
       assertEquals(expectedJson, test)
     }
   }
-  
+
   @Test
   def deleteWithColumnTable(): Unit = okTest {
     val c = createClient()
@@ -51,7 +51,7 @@ class DeleteTest extends TableauxTestBase {
       assertEquals(expectedJson, test)
     }
   }
-  
+
 //  @Test
 //  def deleteRow(): Unit = {
 //    fail("not implemented")
