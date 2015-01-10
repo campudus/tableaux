@@ -5,9 +5,9 @@ import org.vertx.scala.core.FunctionConverters._
 import org.vertx.scala.core.buffer.Buffer
 import org.vertx.scala.core.http.HttpClientResponse
 import org.vertx.testtools.VertxAssert._
-
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
+import org.vertx.scala.core.json.Json
 
 class TableauxStaticsTest extends TableauxTestBase {
 
@@ -20,6 +20,17 @@ class TableauxStaticsTest extends TableauxTestBase {
       (expected, actual) <- p1.zip(p2)
     } yield {
       assertEquals(expected, actual)
+      testComplete()
+    }
+  }
+  
+  @Test
+  def setupDatabase(): Unit = {
+    val c = createClient()
+    for {
+      json <- sendRequest("POST", c, Json.obj(), "/reset")
+    } yield {
+      assertEquals(Json.obj(), json)
       testComplete()
     }
   }

@@ -13,8 +13,8 @@ class LinkTest extends TableauxTestBase {
   @Test
   def getLinkColumn(): Unit = okTest {
     val getColumn = Json.obj("action" -> "getColumn", "tableId" -> 1, "columnId" -> 3)
-    val expectedJson = Json.obj("columnId" -> 3, "columnName" -> "Test Link 1", "type" -> "link")
-    
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "columnName" -> "Test Link 1", "type" -> "link", "toTable" -> 2, "toColumn" -> 1)
+
     for {
       (c, tables) <- setupTables()
       _ <- sendRequest("POST", c, postLinkCol, "/tables/1/columns")
@@ -26,8 +26,8 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def createLinkColumn(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "columnType" -> "link", "toTable" -> 2, "toColumn" -> 1)
-    
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "columnName" -> "Test Link 1", "type" -> "link", "toTable" -> 2, "toColumn" -> 1)
+
     for {
       (c, tables) <- setupTables()
       test <- sendRequest("POST", c, postLinkCol, "/tables/1/columns")
@@ -38,12 +38,12 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def fillSingleLinkCell(): Unit = okTest {
-    val fillLinkCellJson = Json.obj("action" -> "fillCell", "type" -> "link", "tableId" -> 1, "columnId" -> 3, "rowId" -> 1, "value" -> Json.arr(1,1))
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "rowId" -> 1, "value" -> Json.arr(Json.obj("id" -> 1,"value" -> "Test Fill 1")))
-    
+    val fillLinkCellJson = Json.obj("action" -> "fillCell", "type" -> "link", "tableId" -> 1, "columnId" -> 3, "rowId" -> 1, "value" -> Json.arr(1, 1))
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "rowId" -> 1, "value" -> Json.arr(Json.obj("id" -> 1, "value" -> "Test Fill 1")))
+
     for {
       (c, tables) <- setupTables()
-      columnId <- sendRequest("POST", c, postLinkCol, "/tables/1/columns") map {_.getLong("columnId")}
+      columnId <- sendRequest("POST", c, postLinkCol, "/tables/1/columns") map { _.getLong("columnId") }
       test <- sendRequest("POST", c, fillLinkCellJson, s"/tables/1/columns/$columnId/rows/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -52,7 +52,7 @@ class LinkTest extends TableauxTestBase {
 
   private def setupTables(): Future[(HttpClient, Seq[Long])] = {
     val c = createClient()
-    
+
     for {
       id1 <- setupDefaultTable(c)
       id2 <- setupDefaultTable(c, "Test Table 2")
@@ -68,9 +68,9 @@ class LinkTest extends TableauxTestBase {
     val fillStringCellJson2 = Json.obj("action" -> "fillCell", "type" -> "text", "columnId" -> 1, "rowId" -> 2, "value" -> "Test Fill 2")
     val fillNumberCellJson = Json.obj("action" -> "fillCell", "type" -> "numeric", "columnId" -> 2, "rowId" -> 1, "value" -> 1)
     val fillNumberCellJson2 = Json.obj("action" -> "fillCell", "type" -> "numeric", "columnId" -> 2, "rowId" -> 2, "value" -> 2)
-    
+
     for {
-      tableId <- sendRequest("POST", c, postTable, "/tables") map {js => js.getLong("tableId")}
+      tableId <- sendRequest("POST", c, postTable, "/tables") map { js => js.getLong("tableId") }
       _ <- sendRequest("POST", c, postTextCol, s"/tables/$tableId/columns")
       _ <- sendRequest("POST", c, postNumCol, s"/tables/$tableId/columns")
       _ <- sendRequest("POST", c, createRowJson, s"/tables/$tableId/rows")

@@ -1,129 +1,90 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.database._
-import org.vertx.scala.core.json.JsonObject
-import org.vertx.scala.router.routing._
 import scala.concurrent.{ Promise, Future }
-import org.vertx.scala.core.http.HttpServerRequest
-import org.vertx.scala.core.json.Json
-import org.vertx.scala.core.VertxExecutionContext
-import org.vertx.scala.core.Vertx
-import org.vertx.scala.router.RouterException
+import org.vertx.scala.core.json.{ Json, JsonObject, JsonArray }
+import org.vertx.scala.mods.ScalaBusMod
+import org.vertx.scala.core.eventbus.Message
+import org.vertx.scala.mods.replies._
+import org.vertx.scala.platform.Verticle
 
-class TableauxController(verticle: Starter) {
-  implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
+class TableauxController(verticle: Verticle) {
+
   val tableaux = new Tableaux(verticle)
 
-  def createColumn(json: JsonObject): Future[Reply] = {
-    val tableId = json.getLong("tableId")
-    val columnName = json.getString("columnName")
-    val columnType = json.getString("type")
-
-    val (colApply, dbType) = Mapper.ctype(columnType)
-
-    verticle.logger.info(s"createColumn $tableId $columnName $columnType")
-    dbType match {
-      case "link" =>
-        val toTable = json.getLong("toTable")
-        val toColumn = json.getLong("toColumn")
-        val fromColumn = json.getLong("fromColumn")
-        tableaux.addLinkColumn(tableId, columnName, fromColumn, toTable, toColumn) map {
-          column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> column.dbType, "toTable" -> column.to.table.id, "toColumn" -> column.to.id))
-        }
-      case _ => tableaux.addColumn(tableId, columnName, dbType) map { column => Ok(Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "columnType" -> column.dbType)) }
-    }
+  def createColumn(tableId: Long, name: String, cType: String): Future[DomainObject] = {
+    checkIllegalArgument(List(tableId, name, cType))
+    verticle.logger.info(s"createColumn $tableId $name $cType")
+    tableaux.addColumn(tableId, name, cType)
   }
 
-  def createTable(json: JsonObject): Future[Reply] = {
-    val name = json.getString("tableName")
+  def createColumn(tableId: Long, name: String, cType: String, toTable: Long, toColumn: Long, fromColumn: Long): Future[DomainObject] = {
+    checkIllegalArgument(List(tableId, name, cType, toTable, toColumn, fromColumn))
+    verticle.logger.info(s"createColumn $tableId $name $cType")
+    tableaux.addLinkColumn(tableId, name, fromColumn, toTable, toColumn)
+  }
 
+  def createTable(name: String): Future[DomainObject] = {
+    checkIllegalArgument(List(name))
     verticle.logger.info(s"createTable $name")
-    tableaux.create(name) map { table => Ok(Json.obj("tableId" -> table.id)) }
+    tableaux.create(name)
   }
 
-  def createRow(json: JsonObject): Future[Reply] = {
-    val tableId = json.getLong("tableId")
-
+  def createRow(tableId: Long): Future[DomainObject] = {
+    checkIllegalArgument(List(tableId))
     verticle.logger.info(s"createRow $tableId")
-    tableaux.addRow(tableId) map { rowId => Ok(Json.obj("tableId" -> tableId, "rowId" -> rowId)) }
+    tableaux.addRow(tableId)
   }
 
-  def getTable(json: JsonObject): Future[Reply] = {
-    val id = json.getLong("tableId")
-
-    verticle.logger.info(s"getTable $id")
-
-    for {
-      (table, columnList) <- tableaux.getCompleteTable(id) // (Table, Seq[(ColumnType[_], Seq[Cell[_, _]])])
-    } yield {
-      val columnsJson = columnList map { case (col, _) => Json.obj("id" -> col.id, "name" -> col.name) } // Seq[(ColumnType[_], Seq[Cell[_, _]])]
-      val fromColumnValueToRowValue = columnList flatMap { case (col, colValues) => colValues map { cell => Json.obj("id" -> cell.rowId, s"c${col.id}" -> cell.value) } }
-      val rowsJson = fromColumnValueToRowValue.foldLeft(Seq[JsonObject]()) { (finalRowValues, rowValues) =>
-        val helper = fromColumnValueToRowValue.filter { filterJs => filterJs.getLong("id") == rowValues.getLong("id") }.foldLeft(Json.obj()) { (js, filteredJs) => js.mergeIn(filteredJs) }
-        if (finalRowValues.contains(helper)) finalRowValues else finalRowValues :+ helper
-      }
-
-      Ok(Json.obj("tableId" -> table.id, "tableName" -> table.name, "cols" -> columnsJson, "rows" -> rowsJson))
-    }
+  def getTable(tableId: Long): Future[DomainObject] = {
+    checkIllegalArgument(List(tableId))
+    verticle.logger.info(s"getTable $tableId")
+    tableaux.getCompleteTable(tableId)
   }
 
-  def getColumn(json: JsonObject): Future[Reply] = {
-    val tableId = json.getLong("tableId")
-    val columnId = json.getLong("columnId")
-
+  def getColumn(tableId: Long, columnId: Long): Future[DomainObject] = {
+    checkIllegalArgument(List(tableId, columnId))
     verticle.logger.info(s"getColumn $tableId $columnId")
-    tableaux.getColumn(tableId, columnId) map { column => Ok(Json.obj("columnId" -> column.id, "columnName" -> column.name, "type" -> column.dbType)) }
+    tableaux.getColumn(tableId, columnId)
   }
 
-  def deleteTable(json: JsonObject): Future[Reply] = {
-    val id = json.getLong("tableId")
-
-    verticle.logger.info(s"deleteTable $id")
-    tableaux.delete(id) map { _ => Ok(Json.obj()) }
+  def deleteTable(tableId: Long): Future[Unit] = {
+    checkIllegalArgument(List(tableId))
+    verticle.logger.info(s"deleteTable $tableId")
+    tableaux.delete(tableId)
   }
 
-  def deleteColumn(json: JsonObject): Future[Reply] = {
-    val tableId = json.getLong("tableId")
-    val columnId = json.getLong("columnId")
-
+  def deleteColumn(tableId: Long, columnId: Long): Future[Unit] = {
+    checkIllegalArgument(List(tableId, columnId))
     verticle.logger.info(s"deleteColumn $tableId $columnId")
-    tableaux.removeColumn(tableId, columnId) map { _ => Ok(Json.obj()) }
+    tableaux.removeColumn(tableId, columnId)
   }
 
-  def fillCell(json: JsonObject): Future[Reply] = {
+  def fillCell[A](tableId: Long, columnId: Long, rowId: Long, columnType: String, value: A): Future[DomainObject] = {
+    checkIllegalArgument(List(tableId, columnId, rowId, columnType, value))
     import scala.collection.JavaConverters._
 
-    val tableId = json.getLong("tableId")
-    val columnId = json.getLong("columnId")
-    val rowId = json.getLong("rowId")
-    val columnType = json.getString("type")
     val dbType = Mapper.getDatabaseType(columnType)
 
-    val (fut, opt) = dbType match {
-      case "text"    => (tableaux.insertValue(tableId, columnId, rowId, json.getString("value")), None)
-      case "numeric" => (tableaux.insertValue(tableId, columnId, rowId, json.getNumber("value")), None)
+    dbType match {
       case "link" =>
-        val valueList = json.getArray("value").asScala.toList
-        val value = (valueList(0).asInstanceOf[Number].longValue(), valueList(1).asInstanceOf[Number].longValue())
-        val fut = tableaux.insertLinkValue(tableId, columnId, rowId, value)
-        (fut, Some({ x: Link[_] =>
-          x.value map {
-            case (id, v) => Json.obj("id" -> id, "value" -> v)
-          }
-        }))
-    }
-
-    fut map { cell =>
-      val value = opt map { f => f(cell.value.asInstanceOf[Link[_]]) } getOrElse { cell.value }
-      Ok(Json.obj("tableId" -> cell.column.table.id, "columnId" -> cell.column.id, "rowId" -> cell.rowId, "value" -> value))
+        val valueList = value.asInstanceOf[JsonArray].asScala.toList.asInstanceOf[List[Number]]
+        val valueFromList = (valueList(0).longValue(), valueList(1).longValue())
+        tableaux.insertLinkValue(tableId, columnId, rowId, valueFromList)
+      case _ => tableaux.insertValue(tableId, columnId, rowId, value)
     }
   }
 
-  def getJson(req: HttpServerRequest): Future[JsonObject] = {
-    val p = Promise[JsonObject]
-    req.bodyHandler { buf =>
-      p.success(Json.fromObjectString(buf.toString()))
+  def resetDB(): Future[Unit] = {
+    verticle.logger.info("reset Database")
+    tableaux.resetDB()
+  }
+  
+  private def checkIllegalArgument(list: List[_]) = {
+    list foreach {
+      case null              => throw new IllegalArgumentException
+      case x: Long if x <= 0 => throw new IllegalArgumentException
+      case _                 =>
     }
-    p.future
   }
 }

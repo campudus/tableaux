@@ -14,8 +14,8 @@ class CreationTest extends TableauxTestBase {
   @Test
   def createTable(): Unit = okTest {
     val c = createClient()
-    val expectedJson = Json.obj("tableId" -> 1)
-    val expectedJson2 = Json.obj("tableId" -> 2)
+    val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1")
+    val expectedJson2 = Json.obj("tableId" -> 2, "tableName" -> "Test Nr. 1")
 
     for {
       test1 <- sendRequest("POST", c, createTableJson, "/tables")
@@ -30,8 +30,8 @@ class CreationTest extends TableauxTestBase {
   def createStringColumn(): Unit = okTest {
     val c = createClient()
     val jsonObj = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnType" -> "text")
-    val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "columnType" -> "text")
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnName" -> "Test Column 1", "type" -> "text")
+    val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "columnName" -> "Test Column 1", "type" -> "text")
 
     for {
       t <- sendRequest("POST", c, createTableJson, "/tables")
@@ -47,8 +47,8 @@ class CreationTest extends TableauxTestBase {
   def createNumberColumn(): Unit = okTest {
     val c = createClient()
     val jsonObj = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 1")
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnType" -> "numeric")
-    val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "columnType" -> "numeric")
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnName" -> "Test Column 1", "type" -> "numeric")
+    val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "columnName" -> "Test Column 1", "type" -> "numeric")
 
     for {
       t <- sendRequest("POST", c, createTableJson, "/tables")
