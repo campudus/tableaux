@@ -98,7 +98,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getStringColumn(): Unit = okTest {
-    val expectedJson = Json.obj("columnId" -> 1, "columnName" -> "Test Column 1", "type" -> "text")
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnName" -> "Test Column 1", "type" -> "text")
 
     for {
       c <- setupTables()
@@ -110,7 +110,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getNumberColumn(): Unit = okTest {
-    val expectedJson = Json.obj("columnId" -> 2, "columnName" -> "Test Column 2", "type" -> "numeric")
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 2, "columnName" -> "Test Column 2", "type" -> "numeric")
 
     for {
       c <- setupTables()
@@ -138,5 +138,5 @@ class GetTest extends TableauxTestBase {
       _ <- sendRequest("POST", c, fillNumberCellJson2, "/tables/1/columns/2/rows/2")
     } yield c
   }
-  
+
 }
