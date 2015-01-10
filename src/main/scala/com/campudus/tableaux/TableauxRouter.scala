@@ -3,7 +3,6 @@ package com.campudus.tableaux
 import com.campudus.tableaux.database.Mapper
 import org.vertx.scala.router.Router
 import org.vertx.scala.core.VertxAccess
-import org.vertx.scala.core.logging.Logger
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.router.routing._
 import scala.concurrent.{ Future, Promise }
@@ -51,14 +50,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Delete(tableIdColumnsId(tableId, columnId)) => getAsyncReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
   }
 
-  private def getAsyncReply(f: Future[_]): AsyncReply = {
-    AsyncReply {
-      f map {
-        case x: DomainObject => Ok(x.toJson)
-        case x: Unit         => Ok(Json.obj())
-      }
-    }
-  }
+  private def getAsyncReply(f: Future[DomainObject]): AsyncReply = AsyncReply { f map { d => Ok(d.toJson) } }
 
   private def getJson(req: HttpServerRequest): Future[JsonObject] = {
     val p = Promise[JsonObject]

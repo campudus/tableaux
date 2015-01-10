@@ -5,7 +5,6 @@ import org.vertx.scala.core.VertxExecutionContext
 import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
 import org.vertx.scala.platform.Verticle
 import scala.concurrent.Future
-import scala.util.{ Success, Failure }
 
 sealed trait DomainObject {
   def toJson: JsonObject
@@ -94,6 +93,10 @@ case class Row(table: Table, id: IdType) extends DomainObject {
   def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id)
 }
 
+case class EmptyObject() extends DomainObject {
+  def toJson: JsonObject = Json.obj()
+}
+
 class Tableaux(verticle: Verticle) {
   implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
 
@@ -105,18 +108,18 @@ class Tableaux(verticle: Verticle) {
   val cellStruc = new CellStructure(dbConnection)
   val rowStruc = new RowStructure(dbConnection)
 
-  def resetDB(): Future[Unit] = for {
+  def resetDB(): Future[EmptyObject] = for {
     _ <- systemStruc.deinstall()
     _ <- systemStruc.setup()
-  } yield ()
+  } yield EmptyObject()
 
   def create(name: String): Future[Table] = for {
     id <- tableStruc.create(name)
   } yield Table(id, name)
 
-  def delete(id: IdType): Future[Unit] = for {
+  def delete(id: IdType): Future[EmptyObject] = for {
     _ <- tableStruc.delete(id)
-  } yield ()
+  } yield EmptyObject()
 
   def addColumn(tableId: IdType, name: String, columnType: String): Future[ColumnValue[_]] = for {
     table <- getTable(tableId)
@@ -132,9 +135,9 @@ class Tableaux(verticle: Verticle) {
     id <- columnStruc.insertLink(tableId, name, fromColumn, toCol)
   } yield LinkColumn(table, id, toCol, name)
 
-  def removeColumn(tableId: IdType, columnId: IdType): Future[Unit] = for {
+  def removeColumn(tableId: IdType, columnId: IdType): Future[EmptyObject] = for {
     _ <- columnStruc.delete(tableId, columnId)
-  } yield ()
+  } yield EmptyObject()
 
   def addRow(tableId: IdType): Future[Row] = for {
     table <- getTable(tableId)

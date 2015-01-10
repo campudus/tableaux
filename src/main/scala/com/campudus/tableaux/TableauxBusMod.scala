@@ -2,7 +2,7 @@ package com.campudus.tableaux
 
 import org.vertx.scala.mods.ScalaBusMod
 import org.vertx.scala.core.eventbus.Message
-import org.vertx.scala.core.json.{ Json, JsonObject }
+import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.mods.replies._
 import org.vertx.scala.platform.Verticle
 import com.campudus.tableaux.database.Mapper
@@ -16,7 +16,7 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
 
   val controller = new TableauxController(verticle)
 
-  def receive(): (Message[JsonObject]) => PartialFunction[String, BusModReceiveEnd] = msg => {
+  def receive(): Message[JsonObject] => PartialFunction[String, BusModReceiveEnd] = msg => {
     case "reset"       => getAsyncReply(controller.resetDB())
     case "getTable"    => getAsyncReply(controller.getTable(msg.body().getLong("tableId")))
     case "getColumn"   => getAsyncReply(controller.getColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))
@@ -32,16 +32,9 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
     case "fillCell"     => getAsyncReply(controller.fillCell(msg.body().getLong("tableId"), msg.body().getLong("columnId"), msg.body().getLong("rowId"), msg.body().getString("type"), msg.body().getField("value")))
     case "deleteTable"  => getAsyncReply(controller.deleteTable(msg.body().getLong("tableId")))
     case "deleteColumn" => getAsyncReply(controller.deleteColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))
-    case _              => throw new IllegalArgumentException("false action")
+    case _              => throw new IllegalArgumentException("Unknown action")
   }
 
-  private def getAsyncReply(f: Future[_]): AsyncReply = {
-    AsyncReply {
-      f map {
-        case x: DomainObject => Ok(x.toJson)
-        case x: Unit         => Ok(Json.obj())
-      }
-    }
-  }
+  private def getAsyncReply(f: Future[DomainObject]): AsyncReply = AsyncReply { f map { d => Ok(d.toJson) } }
 
 }
