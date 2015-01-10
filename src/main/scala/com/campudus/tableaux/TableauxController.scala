@@ -87,8 +87,12 @@ class TableauxController(verticle: Verticle) {
 
   private def greaterZero(x: Long): ArgumentCheck = if (x > 0) OkArg else FailArg("Argument is not greater Zero")
 
-  private def checkIllegalArguments(args: ArgumentCheck*): Unit = args foreach {
-    case FailArg(ex) => throw new IllegalArgumentException(ex)
-    case OkArg       =>
+  private def checkIllegalArguments(args: ArgumentCheck*): Unit = {
+    val list: List[String] = args.foldLeft(List[String]()) {
+      case (l, FailArg(ex)) => ex :: l
+      case (l, OkArg)       => l
+    }
+
+    if (list.nonEmpty) throw new IllegalArgumentException(list.mkString("\n"))
   }
 }
