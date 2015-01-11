@@ -4,67 +4,62 @@ import com.campudus.tableaux.database._
 import scala.concurrent.Future
 import org.vertx.scala.core.json.JsonArray
 import org.vertx.scala.platform.Verticle
-
-sealed trait ArgumentCheck
-
-case object OkArg extends ArgumentCheck
-
-case class FailArg(message: String) extends ArgumentCheck
+import com.campudus.tableaux.ArgumentChecker._
 
 class TableauxController(verticle: Verticle) {
 
   val tableaux = new Tableaux(verticle)
 
   def createColumn(tableId: Long, name: String, cType: String): Future[DomainObject] = {
-    checkIllegalArguments(greaterZero(tableId), notNull(name), notNull(cType))
+    checkArguments(greaterZero(tableId), notNull(name), notNull(cType))
     verticle.logger.info(s"createColumn $tableId $name $cType")
     tableaux.addColumn(tableId, name, cType)
   }
 
   def createColumn(tableId: Long, name: String, cType: String, toTable: Long, toColumn: Long, fromColumn: Long): Future[DomainObject] = {
-    checkIllegalArguments(greaterZero(tableId), notNull(name), notNull(cType), greaterZero(toTable), greaterZero(toColumn), greaterZero(fromColumn))
+    checkArguments(greaterZero(tableId), notNull(name), notNull(cType), greaterZero(toTable), greaterZero(toColumn), greaterZero(fromColumn))
     verticle.logger.info(s"createColumn $tableId $name $cType")
     tableaux.addLinkColumn(tableId, name, fromColumn, toTable, toColumn)
   }
 
   def createTable(name: String): Future[DomainObject] = {
-    checkIllegalArguments(notNull(name))
+    checkArguments(notNull(name))
     verticle.logger.info(s"createTable $name")
     tableaux.create(name)
   }
 
   def createRow(tableId: Long): Future[DomainObject] = {
-    checkIllegalArguments(greaterZero(tableId))
+    checkArguments(greaterZero(tableId))
     verticle.logger.info(s"createRow $tableId")
     tableaux.addRow(tableId)
   }
 
   def getTable(tableId: Long): Future[DomainObject] = {
-    checkIllegalArguments(greaterZero(tableId))
+    checkArguments(greaterZero(tableId))
     verticle.logger.info(s"getTable $tableId")
     tableaux.getCompleteTable(tableId)
   }
 
   def getColumn(tableId: Long, columnId: Long): Future[DomainObject] = {
-    checkIllegalArguments(greaterZero(tableId), greaterZero(columnId))
+    checkArguments(greaterZero(tableId), greaterZero(columnId))
     verticle.logger.info(s"getColumn $tableId $columnId")
     tableaux.getColumn(tableId, columnId)
   }
 
   def deleteTable(tableId: Long): Future[DomainObject] = {
-    checkIllegalArguments(greaterZero(tableId))
+    checkArguments(greaterZero(tableId))
     verticle.logger.info(s"deleteTable $tableId")
     tableaux.delete(tableId)
   }
 
   def deleteColumn(tableId: Long, columnId: Long): Future[DomainObject] = {
-    checkIllegalArguments(greaterZero(tableId), greaterZero(columnId))
+    checkArguments(greaterZero(tableId), greaterZero(columnId))
     verticle.logger.info(s"deleteColumn $tableId $columnId")
     tableaux.removeColumn(tableId, columnId)
   }
 
   def fillCell[A](tableId: Long, columnId: Long, rowId: Long, columnType: String, value: A): Future[DomainObject] = {
-    checkIllegalArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(columnType), notNull(value))
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(columnType), notNull(value))
     import scala.collection.JavaConverters._
 
     val dbType = Mapper.getDatabaseType(columnType)
@@ -83,16 +78,4 @@ class TableauxController(verticle: Verticle) {
     tableaux.resetDB()
   }
 
-  private def notNull(x: Any): ArgumentCheck = if (x != null) OkArg else FailArg("Argument is null")
-
-  private def greaterZero(x: Long): ArgumentCheck = if (x > 0) OkArg else FailArg("Argument is not greater Zero")
-
-  private def checkIllegalArguments(args: ArgumentCheck*): Unit = {
-    val list: List[String] = args.foldLeft(List[String]()) {
-      case (l, FailArg(ex)) => ex :: l
-      case (l, OkArg)       => l
-    }
-
-    if (list.nonEmpty) throw new IllegalArgumentException(list.mkString("\n"))
-  }
 }
