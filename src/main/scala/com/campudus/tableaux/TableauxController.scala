@@ -58,6 +58,12 @@ class TableauxController(verticle: Verticle) {
     tableaux.removeColumn(tableId, columnId)
   }
 
+  def deleteRow(tableId: Long, rowId: Long): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    verticle.logger.info(s"deleteRow $tableId $rowId")
+    tableaux.deleteRow(tableId, rowId)
+  }
+
   def fillCell[A](tableId: Long, columnId: Long, rowId: Long, columnType: String, value: A): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(columnType), notNull(value))
     import scala.collection.JavaConverters._

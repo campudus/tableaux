@@ -121,6 +121,10 @@ class Tableaux(verticle: Verticle) {
     _ <- tableStruc.delete(id)
   } yield EmptyObject()
 
+  def deleteRow(tableId: IdType, rowId: IdType): Future[EmptyObject] = for {
+    _ <- rowStruc.delete(tableId, rowId)
+  } yield EmptyObject()
+
   def addColumn(tableId: IdType, name: String, columnType: String): Future[ColumnValue[_]] = for {
     table <- getTable(tableId)
     (colApply, dbType) <- Future.successful {

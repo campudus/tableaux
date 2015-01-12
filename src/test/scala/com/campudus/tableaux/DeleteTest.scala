@@ -52,9 +52,18 @@ class DeleteTest extends TableauxTestBase {
     }
   }
 
-//  @Test
-//  def deleteRow(): Unit = {
-//    fail("not implemented")
-//  }
+  @Test
+  def deleteRow(): Unit = okTest {
+    val c = createClient()
+    val expectedJson = Json.obj()
+
+    for {
+      _ <- sendRequest("POST", c, createTableJson, "/tables")
+      _ <- sendRequest("POST", c, Json.obj(), "/tables/1/rows")
+      test <- sendRequest("DELETE", c, Json.obj(), "/tables/1/rows/1")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
 
 }

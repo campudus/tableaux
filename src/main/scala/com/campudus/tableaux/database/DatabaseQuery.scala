@@ -228,6 +228,12 @@ class RowStructure(transaction: DatabaseConnection) {
     }
     _ <- t.commit()
   } yield j
+
+  def delete(tableId: IdType, rowId: IdType): Future[Unit] = for {
+    t <- transaction.begin()
+    (t, _) <- t.query(s"DELETE FROM user_table_$tableId  WHERE id = ?", Json.arr(rowId))
+    _ <- t.commit()
+  } yield ()
 }
 
 class CellStructure(transaction: DatabaseConnection) {

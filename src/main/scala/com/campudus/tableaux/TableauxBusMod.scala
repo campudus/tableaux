@@ -32,6 +32,7 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
     case "fillCell"     => getAsyncReply(controller.fillCell(msg.body().getLong("tableId"), msg.body().getLong("columnId"), msg.body().getLong("rowId"), msg.body().getString("type"), msg.body().getField("value")))
     case "deleteTable"  => getAsyncReply(controller.deleteTable(msg.body().getLong("tableId")))
     case "deleteColumn" => getAsyncReply(controller.deleteColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))
+    case "deleteRow"    => getAsyncReply(controller.deleteRow(msg.body().getLong("tableId"), msg.body().getLong("rowId")))
     case _              => throw new IllegalArgumentException("Unknown action")
   }
 
