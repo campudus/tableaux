@@ -89,8 +89,8 @@ case class CompleteTable(table: Table, columnList: Seq[(ColumnType[_], Seq[Cell[
   }
 }
 
-case class Row(table: Table, id: IdType) extends DomainObject {
-  def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id)
+case class Row(table: Table, id: IdType, value: Seq[_]) extends DomainObject {
+  def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id, "value" -> value)
 }
 
 case class EmptyObject() extends DomainObject {
@@ -146,7 +146,7 @@ class Tableaux(verticle: Verticle) {
   def addRow(tableId: IdType): Future[Row] = for {
     table <- getTable(tableId)
     id <- rowStruc.create(tableId)
-  } yield Row(table, id)
+  } yield Row(table, id, Seq())
 
   def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     column <- getColumn(tableId, columnId)
@@ -169,6 +169,17 @@ class Tableaux(verticle: Verticle) {
   def getTable(tableId: IdType): Future[Table] = for {
     json <- tableStruc.get(tableId)
   } yield Table(json.get[Long](0), json.get[String](1))
+
+  def getRow(tableId: IdType, rowId: IdType): Future[Row] = {
+    import scala.collection.JavaConverters._
+    for {
+      table <- getTable(tableId)
+      results <- rowStruc.get(tableId, rowId)
+      values <- Future.successful {
+        resultsInListOfList(results)
+      }
+    } yield Row(table, values(0).get[IdType](0), values(0).asScala.toSeq.drop(1))
+  }
 
   def getColumn(tableId: IdType, columnId: IdType): Future[ColumnType[_]] = for {
     table <- getTable(tableId)

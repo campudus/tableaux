@@ -119,6 +119,18 @@ class GetTest extends TableauxTestBase {
       assertEquals(expectedJson, test)
     }
   }
+  
+  @Test
+  def getRow(): Unit = okTest {
+    val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1, "value" -> Json.arr("Test Fill 1", 1))
+    
+    for {
+      c <- setupTables()
+      test <- sendRequest("GET", c, Json.obj(), "/tables/1/rows/1")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
 
   private def setupTables(): Future[HttpClient] = {
     val c = createClient()

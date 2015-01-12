@@ -29,6 +29,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Get("/")                                 => SendFile("index.html")
     case Get(tableId(tableId))                    => getAsyncReply(controller.getTable(tableId.toLong))
     case Get(tableIdColumnsId(tableId, columnId)) => getAsyncReply(controller.getColumn(tableId.toLong, columnId.toLong))
+    case Get(tableIdRowsId(tableId, rowId))       => getAsyncReply(controller.getRow(tableId.toLong, rowId.toLong))
     case Post("/reset")                           => getAsyncReply(controller.resetDB())
     case Post("/tables") => getAsyncReply {
       getJson(req) flatMap { json => controller.createTable(json.getString("tableName")) }
