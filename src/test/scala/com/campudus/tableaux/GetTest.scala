@@ -127,6 +127,21 @@ class GetTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def getCell(): Unit = okTest {
+    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> "Test Fill 1")
+    val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "rowId" -> 1, "value" -> 1)
+
+    for {
+      _ <- setupTables()
+      test <- sendRequest("GET", "/tables/1/columns/1/rows/1")
+      test2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
+    } yield {
+      assertEquals(expectedJson, test)
+      assertEquals(expectedJson2, test2)
+    }
+  }
+
   private def setupTables(): Future[Unit] = {
     val fillStringCellJson = Json.obj("type" -> "text", "value" -> "Test Fill 1")
     val fillStringCellJson2 = Json.obj("type" -> "text", "value" -> "Test Fill 2")

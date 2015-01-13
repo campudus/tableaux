@@ -185,6 +185,18 @@ class Tableaux(verticle: Verticle) {
     } yield Row(table, values(0).get[IdType](0), values(0).asScala.toSeq.drop(1))
   }
 
+  def getCell(tableId: IdType, columnId: IdType, rowId: IdType): Future[Cell[_, _]] = for {
+    column <- getColumn(tableId, columnId)
+    values <- (column match {
+      case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
+      case _                => cellStruc.getValue(tableId, columnId, rowId)
+    }) map { resultsInListOfList(_) }
+    value <- Future.successful {
+      import scala.collection.JavaConverters._
+      values(0).asScala.toList(0)
+    }
+  } yield Cell[value.type, ColumnType[value.type]](column.asInstanceOf[ColumnType[value.type]], rowId, value)
+
   def getColumn(tableId: IdType, columnId: IdType): Future[ColumnType[_]] = for {
     table <- getTable(tableId)
     result <- columnStruc.get(table, columnId)

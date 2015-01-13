@@ -52,6 +52,12 @@ class TableauxController(verticle: Verticle) {
     tableaux.getRow(tableId, rowId)
   }
 
+  def getCell(tableId: Long, columnId: Long, rowId: Long): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    verticle.logger.info(s"getCell $tableId $columnId $rowId")
+    tableaux.getCell(tableId, columnId, rowId)
+  }
+
   def deleteTable(tableId: Long): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
     verticle.logger.info(s"deleteTable $tableId")
