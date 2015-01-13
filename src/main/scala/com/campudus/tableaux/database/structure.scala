@@ -90,7 +90,7 @@ case class CompleteTable(table: Table, columnList: Seq[(ColumnType[_], Seq[Cell[
 }
 
 case class Row(table: Table, id: IdType, value: Seq[_]) extends DomainObject {
-  def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id, "value" -> value)
+  def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id, "values" -> value)
 }
 
 case class EmptyObject() extends DomainObject {

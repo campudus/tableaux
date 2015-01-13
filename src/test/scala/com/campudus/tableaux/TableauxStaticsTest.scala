@@ -5,8 +5,8 @@ import org.vertx.scala.core.FunctionConverters._
 import org.vertx.scala.core.buffer.Buffer
 import org.vertx.scala.core.http.HttpClientResponse
 import org.vertx.testtools.VertxAssert._
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ Future, Promise }
+import scala.util.{ Failure, Success, Try }
 import org.vertx.scala.core.json.Json
 
 class TableauxStaticsTest extends TableauxTestBase {
@@ -23,16 +23,13 @@ class TableauxStaticsTest extends TableauxTestBase {
       testComplete()
     }
   }
-  
+
   @Test
-  def setupDatabase(): Unit = {
-    val c = createClient()
-    for {
-      json <- sendRequest("POST", c, Json.obj(), "/reset")
-    } yield {
-      assertEquals(Json.obj(), json)
-      testComplete()
-    }
+  def setupDatabase(): Unit = for {
+    json <- sendRequest("POST", "/reset")
+  } yield {
+    assertEquals(Json.obj(), json)
+    testComplete()
   }
 
   private def readFile(): Future[String] = {
@@ -52,7 +49,7 @@ class TableauxStaticsTest extends TableauxTestBase {
     val p = Promise[String]()
     vertx.createHttpClient().setHost("localhost").setPort(8181).get("/", { resp: HttpClientResponse =>
       logger.info("Got a response: " + resp.statusCode())
-      resp.bodyHandler { buf => p.success(buf.toString())}
+      resp.bodyHandler { buf => p.success(buf.toString()) }
     }).end()
     p.future
   }

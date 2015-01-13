@@ -6,63 +6,49 @@ import org.vertx.scala.core.json.Json
 
 class DeleteTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
-  val delTableJson = Json.obj("action" -> "deleteTable", "tableId" -> 1)
-  val createColumnJson = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Nr. 1")
+  val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
+  val createColumnJson = Json.obj("type" -> "text", "columnName" -> "Test Nr. 1")
 
   @Test
   def deleteEmptyTable(): Unit = okTest {
-    val c = createClient()
-    val expectedJson = Json.obj()
-
     for {
-      _ <- sendRequest("POST", c, createTableJson, "/tables")
-      test <- sendRequest("DELETE", c, delTableJson, "/tables/1")
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      test <- sendRequest("DELETE", "/tables/1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertEquals(Json.obj(), test)
     }
   }
 
   @Test
   def deleteWithColumnTable(): Unit = okTest {
-    val c = createClient()
-    val expectedJson = Json.obj()
-
     for {
-      _ <- sendRequest("POST", c, createTableJson, "/tables")
-      _ <- sendRequest("POST", c, createColumnJson, "/tables/1/columns")
-      test <- sendRequest("DELETE", c, delTableJson, "/tables/1")
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequestWithJson("POST", createColumnJson, "/tables/1/columns")
+      test <- sendRequest("DELETE", "/tables/1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertEquals(Json.obj(), test)
     }
   }
 
   @Test
   def deleteColumn(): Unit = okTest {
-    val c = createClient()
-    val delJson = Json.obj("action" -> "deleteColumn", "tableId" -> 1, "columnId" -> 1)
-    val expectedJson = Json.obj()
-
     for {
-      _ <- sendRequest("POST", c, createTableJson, "/tables")
-      _ <- sendRequest("POST", c, createColumnJson, "/tables/1/columns")
-      test <- sendRequest("DELETE", c, delJson, "/tables/1/columns/1")
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequestWithJson("POST", createColumnJson, "/tables/1/columns")
+      test <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertEquals(Json.obj(), test)
     }
   }
 
   @Test
   def deleteRow(): Unit = okTest {
-    val c = createClient()
-    val expectedJson = Json.obj()
-
     for {
-      _ <- sendRequest("POST", c, createTableJson, "/tables")
-      _ <- sendRequest("POST", c, Json.obj(), "/tables/1/rows")
-      test <- sendRequest("DELETE", c, Json.obj(), "/tables/1/rows/1")
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST", "/tables/1/rows")
+      test <- sendRequest("DELETE", "/tables/1/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertEquals(Json.obj(), test)
     }
   }
 

@@ -9,17 +9,16 @@ import org.vertx.scala.core.json.Json
  */
 class CreationTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("action" -> "createTable", "tableName" -> "Test Nr. 1")
+  val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
 
   @Test
   def createTable(): Unit = okTest {
-    val c = createClient()
     val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1")
     val expectedJson2 = Json.obj("tableId" -> 2, "tableName" -> "Test Nr. 1")
 
     for {
-      test1 <- sendRequest("POST", c, createTableJson, "/tables")
-      test2 <- sendRequest("POST", c, createTableJson, "/tables")
+      test1 <- sendRequestWithJson("POST", createTableJson, "/tables")
+      test2 <- sendRequestWithJson("POST", createTableJson, "/tables")
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -28,15 +27,14 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createStringColumn(): Unit = okTest {
-    val c = createClient()
-    val jsonObj = Json.obj("action" -> "createColumn", "type" -> "text", "tableId" -> 1, "columnName" -> "Test Column 1")
+    val jsonObj = Json.obj("type" -> "text", "columnName" -> "Test Column 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnName" -> "Test Column 1", "type" -> "text")
     val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "columnName" -> "Test Column 1", "type" -> "text")
 
     for {
-      t <- sendRequest("POST", c, createTableJson, "/tables")
-      test1 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
-      test2 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
+      t <- sendRequestWithJson("POST", createTableJson, "/tables")
+      test1 <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
+      test2 <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -45,15 +43,14 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createNumberColumn(): Unit = okTest {
-    val c = createClient()
-    val jsonObj = Json.obj("action" -> "createColumn", "type" -> "numeric", "tableId" -> 1, "columnName" -> "Test Column 1")
+    val jsonObj = Json.obj("type" -> "numeric", "columnName" -> "Test Column 1")
     val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "columnName" -> "Test Column 1", "type" -> "numeric")
     val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "columnName" -> "Test Column 1", "type" -> "numeric")
 
     for {
-      t <- sendRequest("POST", c, createTableJson, "/tables")
-      test1 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
-      test2 <- sendRequest("POST", c, jsonObj, "/tables/1/columns")
+      t <- sendRequestWithJson("POST", createTableJson, "/tables")
+      test1 <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
+      test2 <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -62,15 +59,13 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createRow(): Unit = okTest {
-    val c = createClient()
-    val createRowJson = Json.obj("action" -> "createRow", "tableId" -> 1)
-    val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1)
-    val expectedJson2 = Json.obj("tableId" -> 1, "rowId" -> 2)
+    val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1, "values" -> Json.arr())
+    val expectedJson2 = Json.obj("tableId" -> 1, "rowId" -> 2, "values" -> Json.arr())
 
     for {
-      t <- sendRequest("POST", c, createTableJson, "/tables")
-      test1 <- sendRequest("POST", c, createRowJson, "/tables/1/rows")
-      test2 <- sendRequest("POST", c, createRowJson, "/tables/1/rows")
+      t <- sendRequestWithJson("POST", createTableJson, "/tables")
+      test1 <- sendRequest("POST", "/tables/1/rows")
+      test2 <- sendRequest("POST", "/tables/1/rows")
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
