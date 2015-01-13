@@ -146,7 +146,7 @@ class Tableaux(verticle: Verticle) {
   def addRow(tableId: IdType): Future[Row] = for {
     table <- getTable(tableId)
     id <- rowStruc.create(tableId)
-  } yield Row(table, id, Seq())
+  } yield Row(table, id, null)
 
   def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     column <- getColumn(tableId, columnId)

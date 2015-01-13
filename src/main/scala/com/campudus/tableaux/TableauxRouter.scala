@@ -53,7 +53,13 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Delete(tableIdRowsId(tableId, rowId))       => getAsyncReply(controller.deleteRow(tableId.toLong, rowId.toLong))
   }
 
-  private def getAsyncReply(f: Future[DomainObject]): AsyncReply = AsyncReply { f map { d => Ok(d.toJson) } }
+  private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
+    try {
+      f map { d => Ok(d.toJson) }
+    } catch {
+      case ex: Throwable => Future.failed(ex)
+    }
+  }
 
   private def getJson(req: HttpServerRequest): Future[JsonObject] = {
     val p = Promise[JsonObject]
