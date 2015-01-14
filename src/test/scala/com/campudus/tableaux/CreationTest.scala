@@ -59,8 +59,8 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createRow(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1, "values" -> null)
-    val expectedJson2 = Json.obj("tableId" -> 1, "rowId" -> 2, "values" -> null)
+    val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1)
+    val expectedJson2 = Json.obj("tableId" -> 1, "rowId" -> 2)
 
     for {
       t <- sendRequestWithJson("POST", createTableJson, "/tables")

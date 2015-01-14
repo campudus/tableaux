@@ -89,6 +89,10 @@ case class CompleteTable(table: Table, columnList: Seq[(ColumnType[_], Seq[Cell[
   }
 }
 
+case class RowIdentifier(table: Table, id: IdType) extends DomainObject {
+  def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id)
+}
+
 case class Row(table: Table, id: IdType, value: Seq[_]) extends DomainObject {
   def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id, "values" -> value)
 }
@@ -143,10 +147,10 @@ class Tableaux(verticle: Verticle) {
     _ <- columnStruc.delete(tableId, columnId)
   } yield EmptyObject()
 
-  def addRow(tableId: IdType): Future[Row] = for {
+  def addRow(tableId: IdType): Future[RowIdentifier] = for {
     table <- getTable(tableId)
     id <- rowStruc.create(tableId)
-  } yield Row(table, id, null)
+  } yield RowIdentifier(table, id)
 
   def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     column <- getColumn(tableId, columnId)
