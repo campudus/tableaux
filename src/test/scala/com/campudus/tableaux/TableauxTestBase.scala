@@ -9,6 +9,7 @@ import scala.concurrent.{ Promise, Future }
 import scala.util.{ Try, Failure, Success }
 import com.campudus.tableaux.database.SystemStructure
 import com.campudus.tableaux.database.DatabaseConnection
+import org.vertx.scala.core.buffer.Buffer
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
@@ -50,14 +51,24 @@ trait TableauxTestBase extends TestVerticle {
 
   def createClient(): HttpClient = vertx.createHttpClient().setHost("localhost").setPort(DEFAULT_PORT)
 
-  def sendRequest(method: String, client: HttpClient, jsonObj: JsonObject, path: String): Future[JsonObject] = {
+  def sendRequest(method: String, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]
-    client.request(method, path, { resp: HttpClientResponse =>
-      logger.info("Got a response: " + resp.statusCode())
-      resp.bodyHandler { buf =>
-        p.success(Json.fromObjectString(buf.toString))
-      }
+    httpClientRequest(method, path, { buf =>
+      p.success(Json.fromObjectString(buf.toString))
+    }).end()
+    p.future
+  }
+
+  def sendRequestWithJson(method: String, jsonObj: JsonObject, path: String): Future[JsonObject] = {
+    val p = Promise[JsonObject]
+    httpClientRequest(method, path, { buf =>
+      p.success(Json.fromObjectString(buf.toString))
     }).setChunked(true).write(jsonObj.encode()).end()
     p.future
   }
+
+  private def httpClientRequest(method: String, path: String, f: (Buffer => Unit)): HttpClientRequest = createClient().request(method, path, { resp: HttpClientResponse =>
+    logger.info("Got a response: " + resp.statusCode())
+    resp.bodyHandler { f }
+  })
 }

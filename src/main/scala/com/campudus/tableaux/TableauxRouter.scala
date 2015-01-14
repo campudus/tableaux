@@ -20,6 +20,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   //  val tableIdColumnsIdRow = "/tables/(\\d+)/columns/(\\d+)/row".r
   val tableIdColumnsId = "/tables/(\\d+)/columns/(\\d+)".r
   val tableIdColumns = "/tables/(\\d+)/columns".r
+  val tableIdRowsId = "/tables/(\\d+)/rows/(\\d+)".r
   val tableIdRows = "/tables/(\\d+)/rows".r
   val tableId = "/tables/(\\d+)".r
   val controller = new TableauxController(verticle)
@@ -28,6 +29,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Get("/")                                 => SendFile("index.html")
     case Get(tableId(tableId))                    => getAsyncReply(controller.getTable(tableId.toLong))
     case Get(tableIdColumnsId(tableId, columnId)) => getAsyncReply(controller.getColumn(tableId.toLong, columnId.toLong))
+    case Get(tableIdRowsId(tableId, rowId))       => getAsyncReply(controller.getRow(tableId.toLong, rowId.toLong))
     case Post("/reset")                           => getAsyncReply(controller.resetDB())
     case Post("/tables") => getAsyncReply {
       getJson(req) flatMap { json => controller.createTable(json.getString("tableName")) }
@@ -48,9 +50,16 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     }
     case Delete(tableId(tableId))                    => getAsyncReply(controller.deleteTable(tableId.toLong))
     case Delete(tableIdColumnsId(tableId, columnId)) => getAsyncReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
+    case Delete(tableIdRowsId(tableId, rowId))       => getAsyncReply(controller.deleteRow(tableId.toLong, rowId.toLong))
   }
 
-  private def getAsyncReply(f: Future[DomainObject]): AsyncReply = AsyncReply { f map { d => Ok(d.toJson) } }
+  private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
+    try {
+      f map { d => Ok(d.toJson) }
+    } catch {
+      case ex: Throwable => Future.failed(ex)
+    }
+  }
 
   private def getJson(req: HttpServerRequest): Future[JsonObject] = {
     val p = Promise[JsonObject]

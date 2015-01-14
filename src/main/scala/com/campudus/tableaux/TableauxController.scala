@@ -46,6 +46,12 @@ class TableauxController(verticle: Verticle) {
     tableaux.getColumn(tableId, columnId)
   }
 
+  def getRow(tableId: Long, rowId: Long): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    verticle.logger.info(s"getRow $tableId $rowId")
+    tableaux.getRow(tableId, rowId)
+  }
+
   def deleteTable(tableId: Long): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
     verticle.logger.info(s"deleteTable $tableId")
@@ -56,6 +62,12 @@ class TableauxController(verticle: Verticle) {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     verticle.logger.info(s"deleteColumn $tableId $columnId")
     tableaux.removeColumn(tableId, columnId)
+  }
+
+  def deleteRow(tableId: Long, rowId: Long): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    verticle.logger.info(s"deleteRow $tableId $rowId")
+    tableaux.deleteRow(tableId, rowId)
   }
 
   def fillCell[A](tableId: Long, columnId: Long, rowId: Long, columnType: String, value: A): Future[DomainObject] = {

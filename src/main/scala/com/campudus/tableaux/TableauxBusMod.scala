@@ -20,6 +20,7 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
     case "reset"       => getAsyncReply(controller.resetDB())
     case "getTable"    => getAsyncReply(controller.getTable(msg.body().getLong("tableId")))
     case "getColumn"   => getAsyncReply(controller.getColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))
+    case "getRow"      => getAsyncReply(controller.getRow(msg.body().getLong("tableId"), msg.body().getLong("rowId")))
     case "createTable" => getAsyncReply(controller.createTable(msg.body().getString("tableName")))
     case "createColumn" => getAsyncReply {
       val dbType = Mapper.getDatabaseType(msg.body().getString("type"))
@@ -32,6 +33,7 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
     case "fillCell"     => getAsyncReply(controller.fillCell(msg.body().getLong("tableId"), msg.body().getLong("columnId"), msg.body().getLong("rowId"), msg.body().getString("type"), msg.body().getField("value")))
     case "deleteTable"  => getAsyncReply(controller.deleteTable(msg.body().getLong("tableId")))
     case "deleteColumn" => getAsyncReply(controller.deleteColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))
+    case "deleteRow"    => getAsyncReply(controller.deleteRow(msg.body().getLong("tableId"), msg.body().getLong("rowId")))
     case _              => throw new IllegalArgumentException("Unknown action")
   }
 
