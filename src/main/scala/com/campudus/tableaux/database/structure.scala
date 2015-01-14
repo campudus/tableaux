@@ -103,6 +103,7 @@ case class EmptyObject() extends DomainObject {
 
 class Tableaux(verticle: Verticle) {
   implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
+  import scala.collection.JavaConverters._
 
   val vertx = verticle.vertx
   val dbConnection = new DatabaseConnection(verticle)
@@ -174,15 +175,24 @@ class Tableaux(verticle: Verticle) {
     json <- tableStruc.get(tableId)
   } yield Table(json.get[Long](0), json.get[String](1))
 
-  def getRow(tableId: IdType, rowId: IdType): Future[Row] = {
-    import scala.collection.JavaConverters._
-    for {
-      table <- getTable(tableId)
-      results <- rowStruc.get(tableId, rowId)
-      values <- Future.successful {
-        resultsInListOfList(results)
-      }
-    } yield Row(table, values(0).get[IdType](0), values(0).asScala.toSeq.drop(1))
+  def getRow(tableId: IdType, rowId: IdType): Future[Row] = for {
+    table <- getTable(tableId)
+    results <- rowStruc.get(tableId, rowId)
+    values <- Future.successful {
+      resultsInListOfList(results)
+    }
+  } yield Row(table, values(0).get[IdType](0), values(0).asScala.toSeq.drop(1))
+
+  def getCell(tableId: IdType, columnId: IdType, rowId: IdType): Future[Cell[_, _]] = for {
+    column <- getColumn(tableId, columnId)
+    x <- column match {
+      case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
+      case _                => cellStruc.getValue(tableId, columnId, rowId)
+    }
+  } yield {
+    val values = resultsInListOfList(x)
+    val value = values(0).asScala.toList(0)
+    Cell[value.type, ColumnType[value.type]](column.asInstanceOf[ColumnType[value.type]], rowId, value)
   }
 
   def getColumn(tableId: IdType, columnId: IdType): Future[ColumnType[_]] = for {
@@ -236,7 +246,6 @@ class Tableaux(verticle: Verticle) {
   }
 
   private def resultsInListOfList(results: JsonArray): Seq[JsonArray] = {
-    import scala.collection.JavaConverters._
     val listOfJsonArray = (for {
       elem <- results.iterator().asScala
     } yield {

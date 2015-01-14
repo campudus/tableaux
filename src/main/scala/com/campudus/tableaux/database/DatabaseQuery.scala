@@ -264,6 +264,13 @@ class CellStructure(transaction: DatabaseConnection) {
     _ <- t.commit()
   } yield ()
 
+  def getValue(tableId: IdType, columnId: IdType, rowId: IdType): Future[JsonArray] = for {
+    t <- transaction.begin()
+    (t, result) <- t.query(s"SELECT column_$columnId FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+    j <- Future.successful { result.getArray("results") }
+    _ <- t.commit()
+  } yield j
+
   def getLinkValues(column: LinkType[_], rowId: IdType): Future[JsonArray] = for {
     t <- transaction.begin()
     (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(column.table.id, column.id))

@@ -21,6 +21,7 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
     case "getTable"    => getAsyncReply(controller.getTable(msg.body().getLong("tableId")))
     case "getColumn"   => getAsyncReply(controller.getColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))
     case "getRow"      => getAsyncReply(controller.getRow(msg.body().getLong("tableId"), msg.body().getLong("rowId")))
+    case "getCell"     => getAsyncReply(controller.getCell(msg.body().getLong("tableId"), msg.body().getLong("columnId"), msg.body().getLong("rowId")))
     case "createTable" => getAsyncReply(controller.createTable(msg.body().getString("tableName")))
     case "createColumn" => getAsyncReply {
       val dbType = Mapper.getDatabaseType(msg.body().getString("type"))
