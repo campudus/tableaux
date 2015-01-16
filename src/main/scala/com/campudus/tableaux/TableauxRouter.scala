@@ -17,7 +17,6 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val logger = verticle.logger
 
   val tableIdColumnsIdRowsId = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
-  //  val tableIdColumnsIdRow = "/tables/(\\d+)/columns/(\\d+)/row".r
   val tableIdColumnsId = "/tables/(\\d+)/columns/(\\d+)".r
   val tableIdColumns = "/tables/(\\d+)/columns".r
   val tableIdRowsId = "/tables/(\\d+)/rows/(\\d+)".r
@@ -56,7 +55,10 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
 
   private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
     try {
-      f map { d => Ok(d.toJson) }
+      f map { d => Ok(d.toJson) } recover {
+        case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+        case ex: Throwable                                 => Error(RouterException("unknown error", ex, "errors.unknown", 500))
+      }
     } catch {
       case ex: Throwable => Future.failed(ex)
     }

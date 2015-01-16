@@ -49,26 +49,40 @@ trait TableauxTestBase extends TestVerticle {
     }
   }
 
+  def exceptionTest(f: => Future[_]): Unit = {
+    (try f catch {
+      case ex: Throwable => Future.failed(ex)
+    }) onComplete {
+      case Success(_) =>
+        logger.error("test should fail")
+        fail("got no exception")
+      case Failure(ex) => testComplete()
+
+    }
+  }
+
   def createClient(): HttpClient = vertx.createHttpClient().setHost("localhost").setPort(DEFAULT_PORT)
 
   def sendRequest(method: String, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]
-    httpClientRequest(method, path, { buf =>
-      p.success(Json.fromObjectString(buf.toString))
-    }).end()
+    httpClientRequest(method, path, p).end()
     p.future
   }
 
   def sendRequestWithJson(method: String, jsonObj: JsonObject, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]
-    httpClientRequest(method, path, { buf =>
-      p.success(Json.fromObjectString(buf.toString))
-    }).setChunked(true).write(jsonObj.encode()).end()
+    httpClientRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
     p.future
   }
 
-  private def httpClientRequest(method: String, path: String, f: (Buffer => Unit)): HttpClientRequest = createClient().request(method, path, { resp: HttpClientResponse =>
+  private def httpClientRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = createClient().request(method, path, { resp: HttpClientResponse =>
     logger.info("Got a response: " + resp.statusCode())
-    resp.bodyHandler { f }
+    resp.bodyHandler { buf =>
+      try {
+        p.success(Json.fromObjectString(buf.toString))
+      } catch {
+        case ex: Exception => p.failure(ex)
+      }
+    }
   })
 }
