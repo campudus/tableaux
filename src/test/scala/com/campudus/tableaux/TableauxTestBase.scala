@@ -50,14 +50,11 @@ trait TableauxTestBase extends TestVerticle {
   }
 
   def exceptionTest(f: => Future[_]): Unit = {
-    (try f catch {
-      case ex: Throwable => Future.failed(ex)
-    }) onComplete {
+    f onComplete {
       case Success(_) =>
         logger.error("test should fail")
         fail("got no exception")
       case Failure(ex) => testComplete()
-
     }
   }
 

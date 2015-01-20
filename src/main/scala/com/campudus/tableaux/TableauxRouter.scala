@@ -54,13 +54,9 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   }
 
   private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
-    try {
-      f map { d => Ok(d.toJson) } recover {
-        case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-        case ex: Throwable                                 => Error(RouterException("unknown error", ex, "errors.unknown", 500))
-      }
-    } catch {
-      case ex: Throwable => Future.failed(ex)
+    f map { d => Ok(d.toJson) } recover {
+      case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+      case ex: Throwable                                 => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }
 
