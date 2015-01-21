@@ -56,6 +56,8 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
     f map { d => Ok(d.toJson) } recover {
       case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+      case ex @ DatabaseException(message, id)           => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+      case ex @ NotFoundJsonException(message, id)       => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
       case ex: Throwable                                 => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }
@@ -63,7 +65,10 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   private def getJson(req: HttpServerRequest): Future[JsonObject] = {
     val p = Promise[JsonObject]
     req.bodyHandler { buf =>
-      p.success(Json.fromObjectString(buf.toString()))
+      buf.length() match {
+        case 0 => p.failure(NotFoundJsonException("Warning: No Json found", "json"))
+        case _ => p.success(Json.fromObjectString(buf.toString()))
+      }
     }
     p.future
   }
