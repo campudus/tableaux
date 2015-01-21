@@ -18,7 +18,7 @@ class TableauxController(verticle: Verticle) {
 
   def createColumn(tableId: Long, name: String, cType: String, toTable: Long, toColumn: Long, fromColumn: Long): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), notNull(name), notNull(cType), greaterZero(toTable), greaterZero(toColumn), greaterZero(fromColumn))
-    verticle.logger.info(s"createColumn $tableId $name $cType")
+    verticle.logger.info(s"createColumn $tableId $name $cType $toTable $toColumn $fromColumn")
     tableaux.addLinkColumn(tableId, name, fromColumn, toTable, toColumn)
   }
 
@@ -32,6 +32,12 @@ class TableauxController(verticle: Verticle) {
     checkArguments(greaterZero(tableId))
     verticle.logger.info(s"createRow $tableId")
     tableaux.addRow(tableId)
+  }
+
+  def createFullRow(tableId: Long, values: Seq[_]): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), notNull(values))
+    verticle.logger.info(s"createFullRow $tableId $values")
+    tableaux.addFullRow(tableId, values)
   }
 
   def getTable(tableId: Long): Future[DomainObject] = {
@@ -78,12 +84,11 @@ class TableauxController(verticle: Verticle) {
 
   def fillCell[A](tableId: Long, columnId: Long, rowId: Long, columnType: String, value: A): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(columnType), notNull(value))
-    import scala.collection.JavaConverters._
+    verticle.logger.info(s"fillCell $tableId $columnId $rowId $columnType $value")
 
-    val dbType = Mapper.getDatabaseType(columnType)
-
-    dbType match {
+    Mapper.getDatabaseType(columnType) match {
       case "link" =>
+        import scala.collection.JavaConverters._
         val valueList = value.asInstanceOf[JsonArray].asScala.toList.asInstanceOf[List[Number]]
         val valueFromList = (valueList(0).longValue(), valueList(1).longValue())
         tableaux.insertLinkValue(tableId, columnId, rowId, valueFromList)

@@ -10,6 +10,7 @@ import org.vertx.scala.router.RouterException
 import org.vertx.scala.core.json.{ Json, JsonObject }
 import scala.util.{ Success, Failure }
 import com.campudus.tableaux.database.DomainObject
+import org.vertx.scala.core.json.JsonArray
 
 class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val container = verticle.container
@@ -44,7 +45,16 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
         }
       } yield x
     }
-    case Post(tableIdRows(tableId)) => getAsyncReply(controller.createRow(tableId.toLong))
+    case Post(tableIdRows(tableId)) => getAsyncReply {
+      val p = Promise[DomainObject]
+      getJson(req).onComplete {
+        case Success(json) =>
+          import scala.collection.JavaConverters._
+          controller.createFullRow(tableId.toLong, json.getArray("values").asScala.toSeq) map { p.success(_) } recover { case ex => p.failure(ex) }
+        case Failure(_) => controller.createRow(tableId.toLong) map { p.success(_) } recover { case ex => p.failure(ex) }
+      }
+      p.future
+    }
     case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply {
       getJson(req) flatMap { json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getString("type"), json.getField("value")) }
     }

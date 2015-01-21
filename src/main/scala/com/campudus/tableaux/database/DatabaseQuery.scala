@@ -190,6 +190,11 @@ class RowStructure(connection: DatabaseConnection) {
     connection.singleQuery(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id", Json.arr())
   } map { insertNotNull(_).get[JsonArray](0).get[IdType](0) }
 
+  def createFull(tableId: IdType, values: Seq[_]): Future[IdType] = {
+    val v = values.foldLeft(Seq[String]())((s, _) => s :+ "?").mkString(", ")
+    connection.singleQuery(s"INSERT INTO user_table_$tableId VALUES (DEFAULT, $v) RETURNING id", values.foldLeft(Json.arr())((json, v) => json.add(v)))
+  } map { insertNotNull(_).get[JsonArray](0).get[IdType](0) }
+
   def get(tableId: IdType, rowId: IdType): Future[JsonArray] = {
     connection.singleQuery(s"SELECT * FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
   } map { selectNotNull(_) }
