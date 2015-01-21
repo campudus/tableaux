@@ -14,8 +14,6 @@ object ResultChecker {
 
   def insertNotNull(json: JsonObject): JsonArray = checkHelper(json, "INSERT 0", "inserted")
 
-  def dropNotNull(json: JsonObject): JsonArray = checkHelper(json, "DROP 0", "dropped")
-
   private def checkHelper(json: JsonObject, s: String, ex: String): JsonArray = {
     if (json.getString("message") == s) throw NotFoundInDatabaseException(s"Warning: Nothing $ex", ex) else json.getArray("results")
   }

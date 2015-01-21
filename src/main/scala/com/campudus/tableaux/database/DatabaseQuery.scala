@@ -90,9 +90,9 @@ class TableStructure(connection: DatabaseConnection) {
 
   def delete(tableId: IdType): Future[Unit] = for {
     t <- connection.begin()
-    (t, result) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId", Json.arr())
-    _ <- Future.successful(dropNotNull(result))
-    (t, _) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
+    (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId", Json.arr())
+    (t, result) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
+    _ <- Future.apply(deleteNotNull(result)) recoverWith { t.rollbackAndFail() }
     (t, _) <- t.query(s"DROP SEQUENCE system_columns_column_id_table_$tableId", Json.arr())
     _ <- t.commit()
   } yield ()
