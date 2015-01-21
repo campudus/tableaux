@@ -8,7 +8,7 @@ import org.vertx.scala.core.VertxExecutionContext
 import org.vertx.scala.core.eventbus.{ EventBus, Message }
 import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
 import org.vertx.scala.platform.Verticle
-import org.vertx.scala.core.AsyncResult
+import com.campudus.tableaux.DatabaseException
 
 class DatabaseConnection(verticle: Verticle) {
   val DEFAULT_TIMEOUT = 5000L
@@ -22,37 +22,45 @@ class DatabaseConnection(verticle: Verticle) {
     def query(query: String, values: JsonArray): Future[(Transaction, JsonObject)] = transactionHelper(Json.obj(
       "action" -> "prepared",
       "statement" -> query,
-      "values" -> values)) map { r => (Transaction(r), r.body()) }
+      "values" -> values)) flatMap { r => Future.apply(Transaction(r), checkForDatabaseError(r.body())) recoverWith rollbackAndFail() }
 
     def commit(): Future[Unit] = transactionHelper(Json.obj("action" -> "commit")) map { _ => () }
 
     def rollback(): Future[Unit] = transactionHelper(Json.obj("action" -> "rollback")) map { _ => () }
 
-    def recover(): PartialFunction[Throwable, Future[Transaction]] = {
-      case ex: Throwable => rollback() flatMap (_ => Future.failed[Transaction](ex))
+    def rollbackAndFail(): PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
+      case ex: Throwable => rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
     }
 
-    private def transactionHelper(jsonObj: JsonObject): Future[Message[JsonObject]] = {
+    private def transactionHelper(json: JsonObject): Future[Message[JsonObject]] = {
       val p = Promise[Message[JsonObject]]()
-      msg.replyWithTimeout(jsonObj, DEFAULT_TIMEOUT, {
-        case Success(rep) => p.success(rep)
-        case Failure(ex) =>
-          verticle.logger.error(s"fail in ${jsonObj.getString("action")}", ex)
-          p.failure(ex)
-      }: Try[Message[JsonObject]] => Unit)
+      msg.replyWithTimeout(json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
       p.future
     }
   }
 
-  def begin(): Future[Transaction] = {
-    val p = Promise[Transaction]()
-    eb.sendWithTimeout(address, Json.obj("action" -> "begin"), DEFAULT_TIMEOUT, {
-      case Success(rep) =>
-        p.success(Transaction(rep))
-      case Failure(ex) =>
-        verticle.logger.error("fail in begin", ex)
-        p.failure(ex)
-    }: Try[Message[JsonObject]] => Unit)
+  def singleQuery(query: String, values: JsonArray): Future[JsonObject] = sendHelper(Json.obj(
+    "action" -> "prepared",
+    "statement" -> query,
+    "values" -> values)) map { msg => checkForDatabaseError(msg.body()) } recoverWith { case ex => Future.failed[JsonObject](ex) }
+
+  def begin(): Future[Transaction] = sendHelper(Json.obj("action" -> "begin")) map { Transaction(_) }
+
+  private def sendHelper(json: JsonObject): Future[Message[JsonObject]] = {
+    val p = Promise[Message[JsonObject]]()
+    eb.sendWithTimeout(address, json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
     p.future
+  }
+
+  private def replyHandler(p: Promise[Message[JsonObject]], action: String): Try[Message[JsonObject]] => Unit = {
+    case Success(rep) => p.success(rep)
+    case Failure(ex) =>
+      verticle.logger.error(s"fail in $action", ex)
+      p.failure(ex)
+  }
+
+  private def checkForDatabaseError(json: JsonObject): JsonObject = json.getString("status") match {
+    case "ok"    => json
+    case "error" => throw DatabaseException(json.getString("message"), "error")
   }
 }

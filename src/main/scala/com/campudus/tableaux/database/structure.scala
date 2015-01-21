@@ -132,16 +132,14 @@ class Tableaux(verticle: Verticle) {
 
   def addColumn(tableId: IdType, name: String, columnType: String): Future[ColumnValue[_]] = for {
     table <- getTable(tableId)
-    (colApply, dbType) <- Future.successful {
-      Mapper.ctype(columnType)
-    }
+    (colApply, dbType) <- Future.successful(Mapper.ctype(columnType))
     id <- columnStruc.insert(table.id, dbType, name)
   } yield colApply.get.apply(table, id, name)
 
   def addLinkColumn(tableId: IdType, name: String, fromColumn: IdType, toTable: IdType, toColumn: IdType): Future[LinkType[_]] = for {
     table <- getTable(tableId)
     toCol <- getColumn(toTable, toColumn).asInstanceOf[Future[ColumnValue[_]]]
-    id <- columnStruc.insertLink(tableId, name, fromColumn, toCol)
+    id <- columnStruc.insertLink(tableId, name, fromColumn, toCol.table.id, toCol.id)
   } yield LinkColumn(table, id, toCol, name)
 
   def removeColumn(tableId: IdType, columnId: IdType): Future[EmptyObject] = for {
@@ -155,21 +153,15 @@ class Tableaux(verticle: Verticle) {
 
   def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     column <- getColumn(tableId, columnId)
-    cell <- Future.successful {
-      Cell[A, B](column.asInstanceOf[B], rowId, value.asInstanceOf[A])
-    }
-    _ <- cellStruc.update[A, B](cell)
-  } yield cell
+    _ <- cellStruc.update(tableId, columnId, rowId, value)
+  } yield Cell[A, B](column.asInstanceOf[B], rowId, value.asInstanceOf[A])
 
   def insertLinkValue(tableId: IdType, columnId: IdType, rowId: IdType, value: (IdType, IdType)): Future[Cell[Link[_], ColumnType[Link[_]]]] = for {
     linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkType[_]]]
-    _ <- cellStruc.updateLink(linkColumn, value)
-    jr <- cellStruc.getLinkValues(linkColumn, rowId)
-    v <- Future.successful {
-      jr.get[JsonArray](0).get[String](0)
-    }
-    cell <- Future.successful(Cell[Link[v.type], LinkType[v.type]](linkColumn.asInstanceOf[LinkType[v.type]], rowId, Link(List((value._2, v)))))
-  } yield cell.asInstanceOf[Cell[Link[_], ColumnType[Link[_]]]]
+    _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, value)
+    json <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
+    v <- Future.successful(json.get[JsonArray](0).get[String](0))
+  } yield Cell[Link[v.type], LinkType[v.type]](linkColumn.asInstanceOf[LinkType[v.type]], rowId, Link(List((value._2, v)))).asInstanceOf[Cell[Link[_], ColumnType[Link[_]]]]
 
   def getTable(tableId: IdType): Future[Table] = for {
     json <- tableStruc.get(tableId)
@@ -178,15 +170,13 @@ class Tableaux(verticle: Verticle) {
   def getRow(tableId: IdType, rowId: IdType): Future[Row] = for {
     table <- getTable(tableId)
     results <- rowStruc.get(tableId, rowId)
-    values <- Future.successful {
-      resultsInListOfList(results)
-    }
+    values <- Future.successful(resultsInListOfList(results))
   } yield Row(table, values(0).get[IdType](0), values(0).asScala.toSeq.drop(1))
 
   def getCell(tableId: IdType, columnId: IdType, rowId: IdType): Future[Cell[_, _]] = for {
     column <- getColumn(tableId, columnId)
     x <- column match {
-      case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
+      case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
       case _                => cellStruc.getValue(tableId, columnId, rowId)
     }
   } yield {
@@ -197,45 +187,39 @@ class Tableaux(verticle: Verticle) {
 
   def getColumn(tableId: IdType, columnId: IdType): Future[ColumnType[_]] = for {
     table <- getTable(tableId)
-    result <- columnStruc.get(table, columnId)
+    result <- columnStruc.get(table.id, columnId)
     column <- Mapper.getDatabaseType(result.get[String](2)) match {
       case "link" => getLinkColumn(table, result)
       case _      => Future.successful(getValueColumn(table, result))
     }
   } yield column.asInstanceOf[ColumnType[_]]
 
-  private def getValueColumn(table: Table, result: JsonArray): ColumnValue[_] = Mapper.getApply(result.get[String](2)).apply(table, result.get[IdType](0), result.get[String](1))
+  private def getValueColumn(table: Table, result: JsonArray): ColumnValue[_] = {
+    Mapper.getApply(result.get[String](2)).apply(table, result.get[IdType](0), result.get[String](1))
+  }
 
   private def getLinkColumn(table: Table, result: JsonArray): Future[LinkType[_]] = for {
-    (columnId, columnName) <- Future.successful {
-      (result.get[IdType](0), result.get[String](1))
-    }
-    jsonResult <- columnStruc.getToColumn(table.id, columnId)
-    toCol <- getColumn(jsonResult.get[Long](0), jsonResult.get[Long](1)).asInstanceOf[Future[ColumnValue[_]]]
+    (columnId, columnName) <- Future.successful((result.get[IdType](0), result.get[String](1)))
+    json <- columnStruc.getToColumn(table.id, columnId)
+    toCol <- getColumn(json.get[Long](0), json.get[Long](1)).asInstanceOf[Future[ColumnValue[_]]]
   } yield LinkColumn(table, columnId, toCol, columnName)
 
   def getCompleteTable(tableId: IdType): Future[CompleteTable] = for {
     table <- getTable(tableId)
-    cc <- getAllTableCells(table)
-  } yield CompleteTable(table, cc)
+    colList <- getAllTableCells(table)
+  } yield CompleteTable(table, colList)
 
   private def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = {
-    for {
-      results <- columnStruc.getAll(table)
-    } yield {
-      val listOfList = resultsInListOfList(results)
-      listOfList map { jsonRes =>
+    columnStruc.getAll(table.id) map {
+      resultsInListOfList(_) map { jsonRes =>
         Mapper.getApply(jsonRes.get(2)).apply(table, jsonRes.get(0), jsonRes.get(1))
       }
     }
   }
 
   private def getAllRowsFromColumn[A](column: ColumnType[A]): Future[Seq[Cell[A, ColumnType[A]]]] = {
-    for {
-      results <- rowStruc.getAllFromColumn(column)
-    } yield {
-      val listOfLists = resultsInListOfList(results)
-      listOfLists map { jsonRes =>
+    rowStruc.getAllFromColumn(column.table.id, column.id) map {
+      resultsInListOfList(_) map { jsonRes =>
         Cell[A, ColumnType[A]](column, jsonRes.get(0), jsonRes.get(1))
       }
     }
@@ -245,13 +229,6 @@ class Tableaux(verticle: Verticle) {
     getAllColumns(table) flatMap { seqColumn => Future.sequence(seqColumn map { column => getAllRowsFromColumn(column) map { seqCell => (column, seqCell) } }) }
   }
 
-  private def resultsInListOfList(results: JsonArray): Seq[JsonArray] = {
-    val listOfJsonArray = (for {
-      elem <- results.iterator().asScala
-    } yield {
-      elem.asInstanceOf[JsonArray]
-    }).toStream
-    listOfJsonArray
-  }
+  private def resultsInListOfList(results: JsonArray): Seq[JsonArray] = results.iterator().asScala.toSeq.asInstanceOf[Seq[JsonArray]]
 
 }
