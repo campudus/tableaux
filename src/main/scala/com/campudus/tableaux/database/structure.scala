@@ -151,10 +151,11 @@ class Tableaux(verticle: Verticle) {
     id <- rowStruc.create(tableId)
   } yield RowIdentifier(table, id)
 
-  def addFullRow(tableId: IdType, values: Seq[_]): Future[Row] = for {
+  def addFullRow(tableId: IdType, values: Seq[(IdType, _)]): Future[Row] = for {
     table <- getTable(tableId)
     id <- rowStruc.createFull(tableId, values)
-  } yield Row(table, id, values)
+    row <- getRow(table.id, id)
+  } yield row
 
   def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     column <- getColumn(tableId, columnId)

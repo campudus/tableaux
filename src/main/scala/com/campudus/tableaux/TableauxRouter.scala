@@ -46,14 +46,13 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       } yield x
     }
     case Post(tableIdRows(tableId)) => getAsyncReply {
-      val p = Promise[DomainObject]
-      getJson(req).onComplete {
-        case Success(json) =>
-          import scala.collection.JavaConverters._
-          controller.createFullRow(tableId.toLong, json.getArray("values").asScala.toSeq) map { p.success(_) } recover { case ex => p.failure(ex) }
-        case Failure(_) => controller.createRow(tableId.toLong) map { p.success(_) } recover { case ex => p.failure(ex) }
-      }
-      p.future
+      import scala.collection.JavaConverters._
+      for {
+        opt <- getJson(req) map { json =>
+          Some(json.getFieldNames.iterator().asScala.toSeq.foldLeft(Seq[(Long, _)]())((s, name) => s :+ (name.toLong, json.getField(name))))
+        } recover { case ex: NoJsonFoundException => None }
+        res <- controller.createRow(tableId.toLong, opt)
+      } yield res
     }
     case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply {
       getJson(req) flatMap { json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getString("type"), json.getField("value")) }
@@ -67,7 +66,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     f map { d => Ok(d.toJson) } recover {
       case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
       case ex @ DatabaseException(message, id)           => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-      case ex @ NotFoundJsonException(message, id)       => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+      case ex @ NoJsonFoundException(message, id)        => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
       case ex: Throwable                                 => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }
@@ -76,7 +75,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     val p = Promise[JsonObject]
     req.bodyHandler { buf =>
       buf.length() match {
-        case 0 => p.failure(NotFoundJsonException("Warning: No Json found", "json"))
+        case 0 => p.failure(NoJsonFoundException("Warning: No Json found", "json"))
         case _ => p.success(Json.fromObjectString(buf.toString()))
       }
     }

@@ -8,7 +8,7 @@ sealed trait CustomException extends Throwable {
   override def toString: String = s"${super.toString()}: $message"
 }
 
-case class NotFoundJsonException(message: String, id: String) extends CustomException
+case class NoJsonFoundException(message: String, id: String) extends CustomException
 
 case class NotFoundInDatabaseException(message: String, id: String) extends CustomException
 

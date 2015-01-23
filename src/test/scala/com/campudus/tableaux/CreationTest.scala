@@ -76,16 +76,20 @@ class CreationTest extends TableauxTestBase {
   def createFullRow(): Unit = okTest {
     val createStringColumn = Json.obj("type" -> "text", "columnName" -> "Test Column 1")
     val createNumberColumn = Json.obj("type" -> "numeric", "columnName" -> "Test Column 2")
-    val valuesRow = Json.obj("values" -> Json.arr("Test Field 1", 2))
-    val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1, "values" -> Json.arr("Test Field 1", 2))
+    val valuesRow = Json.obj("1" -> "Test Field 1", "2" -> 2)
+    val valuesOutofOrderRow = Json.obj("2" -> 10, "1" -> "Test Field 2")
+    val expectedJson1 = Json.obj("tableId" -> 1, "rowId" -> 1, "values" -> Json.arr("Test Field 1", 2))
+    val expectedJson2 = Json.obj("tableId" -> 1, "rowId" -> 2, "values" -> Json.arr("Test Field 2", 10))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequestWithJson("POST", createStringColumn, "/tables/1/columns")
       _ <- sendRequestWithJson("POST", createNumberColumn, "/tables/1/columns")
-      test <- sendRequestWithJson("POST", valuesRow, "/tables/1/rows")
+      test1 <- sendRequestWithJson("POST", valuesRow, "/tables/1/rows")
+      test2 <- sendRequestWithJson("POST", valuesOutofOrderRow, "/tables/1/rows")
     } yield {
-      assertEquals(expectedJson, test)
+      assertEquals(expectedJson1, test1)
+      assertEquals(expectedJson2, test2)
     }
   }
 

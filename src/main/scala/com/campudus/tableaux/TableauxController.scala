@@ -28,16 +28,17 @@ class TableauxController(verticle: Verticle) {
     tableaux.create(name)
   }
 
-  def createRow(tableId: Long): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    verticle.logger.info(s"createRow $tableId")
-    tableaux.addRow(tableId)
-  }
-
-  def createFullRow(tableId: Long, values: Seq[_]): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), notNull(values))
-    verticle.logger.info(s"createFullRow $tableId $values")
-    tableaux.addFullRow(tableId, values)
+  def createRow(tableId: Long, values: Option[Seq[(Long, _)]]): Future[DomainObject] = {
+    values match {
+      case Some(v) =>
+        checkArguments(greaterZero(tableId), notNull(v))
+        verticle.logger.info(s"createFullRow $tableId $values")
+        tableaux.addFullRow(tableId, v)
+      case None =>
+        checkArguments(greaterZero(tableId))
+        verticle.logger.info(s"createRow $tableId")
+        tableaux.addRow(tableId)
+    }
   }
 
   def getTable(tableId: Long): Future[DomainObject] = {
