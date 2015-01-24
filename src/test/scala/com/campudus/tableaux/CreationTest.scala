@@ -88,22 +88,4 @@ class CreationTest extends TableauxTestBase {
       assertEquals(expectedJson1, test)
     }
   }
-
-  @Test
-  def createFullRowWithOutOfOrderValues(): Unit = okTest {
-    val createStringColumn = Json.obj("type" -> "text", "columnName" -> "Test Column 1")
-    val createNumberColumn = Json.obj("type" -> "numeric", "columnName" -> "Test Column 2")
-    val valuesOutofOrderRow = Json.obj("2" -> 10, "1" -> "Test Field 2")
-    val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1, "values" -> Json.arr("Test Field 2", 10))
-
-    for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumn, "/tables/1/columns")
-      _ <- sendRequestWithJson("POST", createNumberColumn, "/tables/1/columns")
-      test <- sendRequestWithJson("POST", valuesOutofOrderRow, "/tables/1/rows")
-    } yield {
-      assertEquals(expectedJson, test)
-    }
-  }
-
 }

@@ -46,10 +46,9 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       } yield x
     }
     case Post(tableIdRows(tableId)) => getAsyncReply {
-      import scala.collection.JavaConverters._
       for {
         opt <- getJson(req) map { json =>
-          Some(json.getFieldNames.iterator().asScala.toSeq.foldLeft(Seq[(Long, _)]())((s, name) => s :+ (name.toLong, json.getField(name))))
+          Some(jsonToSeqOfTubles(json))
         } recover { case ex: NoJsonFoundException => None }
         res <- controller.createRow(tableId.toLong, opt)
       } yield res
@@ -80,5 +79,11 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       }
     }
     p.future
+  }
+
+  private def jsonToSeqOfTubles(json: JsonObject): Seq[(Long, _)] = {
+    import scala.collection.JavaConverters._
+    val seqNames = json.getFieldNames.iterator().asScala.toSeq
+    seqNames.foldLeft(Seq[(Long, _)]())((s, name) => s :+ (name.toLong, json.getField(name)))
   }
 }

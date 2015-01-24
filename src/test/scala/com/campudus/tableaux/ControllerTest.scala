@@ -31,7 +31,7 @@ class ControllerTest extends TestVerticle {
   @Test
   def checkCreateRowWithNullParameter(): Unit = {
     val controller = new TableauxController(this)
-    okTest(controller.createRow(0, Option(null)))
+    okTest(controller.createRow(0, Option(Seq())))
   }
 
   @Test
