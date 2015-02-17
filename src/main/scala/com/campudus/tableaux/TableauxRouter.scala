@@ -48,7 +48,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Post(tableIdRows(tableId)) => getAsyncReply {
       for {
         opt <- getJson(req) map { json =>
-          Some(jsonToSeqOfTubles(json))
+          Some(jsonToSeqOfRowsWithColumnIdAndValue(json))
         } recover { case ex: NoJsonFoundException => None }
         res <- controller.createRow(tableId.toLong, opt)
       } yield res
@@ -81,9 +81,20 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     p.future
   }
 
-  private def jsonToSeqOfTubles(json: JsonObject): Seq[(Long, _)] = {
+  private def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(Long, _)]] = {
     import scala.collection.JavaConverters._
-    val seqNames = json.getFieldNames.iterator().asScala.toSeq
-    seqNames.foldLeft(Seq[(Long, _)]())((s, name) => s :+ (name.toLong, json.getField(name)))
+    val columnIds = json.getArray("columnIds").asScala.toSeq.asInstanceOf[Seq[JsonArray]] map { array => array.asScala.toSeq.asInstanceOf[Seq[Int]] map { x => x.asInstanceOf[Long] } }
+    val values = json.getArray("values").asScala.toSeq.asInstanceOf[Seq[JsonArray]] map { array => array.asScala.toSeq }
+
+    var rows: Seq[Seq[(Long, _)]] = Seq()
+
+    for (i <- 0 until columnIds.length) {
+      var columnIdsAndValues: Seq[(Long, _)] = Seq()
+      for (j <- 0 until columnIds(i).length) {
+        columnIdsAndValues = columnIdsAndValues :+ (columnIds(i)(j), values(i)(j))
+      }
+      rows = rows :+ columnIdsAndValues
+    }
+    rows
   }
 }

@@ -5,6 +5,7 @@ import org.vertx.scala.core.VertxExecutionContext
 import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
 import org.vertx.scala.platform.Verticle
 import scala.concurrent.Future
+import scala.concurrent.Promise
 
 sealed trait DomainObject {
   def toJson: JsonObject
@@ -97,6 +98,12 @@ case class Row(table: Table, id: IdType, values: Seq[_]) extends DomainObject {
   def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id, "values" -> values)
 }
 
+case class RowSeq(rows: Seq[Row]) extends DomainObject {
+  def toJson: JsonObject = Json.obj("rows" -> (rows map {
+    r => r.toJson
+  }))
+}
+
 case class EmptyObject() extends DomainObject {
   def toJson: JsonObject = Json.obj()
 }
@@ -151,11 +158,11 @@ class Tableaux(verticle: Verticle) {
     id <- rowStruc.create(tableId)
   } yield RowIdentifier(table, id)
 
-  def addFullRow(tableId: IdType, values: Seq[(IdType, _)]): Future[Row] = for {
+  def addFullRows(tableId: IdType, values: Seq[Seq[(IdType, _)]]): Future[RowSeq] = for {
     table <- getTable(tableId)
-    id <- rowStruc.createFull(tableId, values)
-    row <- getRow(table.id, id)
-  } yield row
+    ids <- Future.sequence(values map { id => rowStruc.createFull(table.id, id) })
+    row <- Future.sequence(ids map { id => getRow(table.id, id) })
+  } yield RowSeq(row)
 
   def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     column <- getColumn(tableId, columnId)
@@ -235,6 +242,6 @@ class Tableaux(verticle: Verticle) {
     getAllColumns(table) flatMap { seqColumn => Future.sequence(seqColumn map { column => getAllRowsFromColumn(column) map { seqCell => (column, seqCell) } }) }
   }
 
-  private def resultsInListOfList(results: JsonArray): Seq[JsonArray] = results.iterator().asScala.toSeq.asInstanceOf[Seq[JsonArray]]
+  private def resultsInListOfList(results: JsonArray): Seq[JsonArray] = results.asScala.toSeq.asInstanceOf[Seq[JsonArray]]
 
 }
