@@ -30,7 +30,7 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
         case _      => controller.createColumn(msg.body().getLong("tableId"), msg.body().getString("columnName"), dbType)
       }
     }
-    case "createRow"    => getAsyncReply(controller.createRow(msg.body().getLong("tableId")))
+    case "createRow"    => getAsyncReply(controller.createRow(msg.body().getLong("tableId"), Option(msg.body().getField("values"))))
     case "fillCell"     => getAsyncReply(controller.fillCell(msg.body().getLong("tableId"), msg.body().getLong("columnId"), msg.body().getLong("rowId"), msg.body().getString("type"), msg.body().getField("value")))
     case "deleteTable"  => getAsyncReply(controller.deleteTable(msg.body().getLong("tableId")))
     case "deleteColumn" => getAsyncReply(controller.deleteColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))

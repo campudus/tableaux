@@ -15,10 +15,12 @@ object ArgumentChecker {
 
   def greaterZero(x: Long): ArgumentCheck = if (x > 0) OkArg else FailArg(s"Argument $x is not greater than zero")
 
+  def notEmpty(x: Seq[_]): ArgumentCheck = if (!x.isEmpty) OkArg else FailArg("Argument is emtpy")
+
   def checkArguments(args: ArgumentCheck*): Unit = {
     val failedArgs: Vector[String] = args.zipWithIndex.foldLeft(Vector[String]()) {
       case (v, (FailArg(ex), idx)) => v :+ s"($idx) $ex"
-      case (v, (OkArg, idx)) => v
+      case (v, (OkArg, idx))       => v
     }
 
     if (failedArgs.nonEmpty) throw new IllegalArgumentException(failedArgs.mkString("\n"))

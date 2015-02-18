@@ -18,7 +18,7 @@ class TableauxController(verticle: Verticle) {
 
   def createColumn(tableId: Long, name: String, cType: String, toTable: Long, toColumn: Long, fromColumn: Long): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), notNull(name), notNull(cType), greaterZero(toTable), greaterZero(toColumn), greaterZero(fromColumn))
-    verticle.logger.info(s"createColumn $tableId $name $cType")
+    verticle.logger.info(s"createColumn $tableId $name $cType $toTable $toColumn $fromColumn")
     tableaux.addLinkColumn(tableId, name, fromColumn, toTable, toColumn)
   }
 
@@ -28,10 +28,17 @@ class TableauxController(verticle: Verticle) {
     tableaux.create(name)
   }
 
-  def createRow(tableId: Long): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    verticle.logger.info(s"createRow $tableId")
-    tableaux.addRow(tableId)
+  def createRow(tableId: Long, values: Option[Seq[Seq[(Long, _)]]]): Future[DomainObject] = {
+    values match {
+      case Some(seq) =>
+        checkArguments(greaterZero(tableId), notEmpty(seq))
+        verticle.logger.info(s"createFullRow $tableId $values")
+        tableaux.addFullRows(tableId, seq)
+      case None =>
+        checkArguments(greaterZero(tableId))
+        verticle.logger.info(s"createRow $tableId")
+        tableaux.addRow(tableId)
+    }
   }
 
   def getTable(tableId: Long): Future[DomainObject] = {
@@ -78,12 +85,11 @@ class TableauxController(verticle: Verticle) {
 
   def fillCell[A](tableId: Long, columnId: Long, rowId: Long, columnType: String, value: A): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(columnType), notNull(value))
-    import scala.collection.JavaConverters._
+    verticle.logger.info(s"fillCell $tableId $columnId $rowId $columnType $value")
 
-    val dbType = Mapper.getDatabaseType(columnType)
-
-    dbType match {
+    Mapper.getDatabaseType(columnType) match {
       case "link" =>
+        import scala.collection.JavaConverters._
         val valueList = value.asInstanceOf[JsonArray].asScala.toList.asInstanceOf[List[Number]]
         val valueFromList = (valueList(0).longValue(), valueList(1).longValue())
         tableaux.insertLinkValue(tableId, columnId, rowId, valueFromList)

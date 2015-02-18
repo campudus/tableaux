@@ -10,6 +10,7 @@ import org.vertx.scala.router.RouterException
 import org.vertx.scala.core.json.{ Json, JsonObject }
 import scala.util.{ Success, Failure }
 import com.campudus.tableaux.database.DomainObject
+import org.vertx.scala.core.json.JsonArray
 
 class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val container = verticle.container
@@ -44,7 +45,14 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
         }
       } yield x
     }
-    case Post(tableIdRows(tableId)) => getAsyncReply(controller.createRow(tableId.toLong))
+    case Post(tableIdRows(tableId)) => getAsyncReply {
+      for {
+        opt <- getJson(req) map { json =>
+          Some(jsonToSeqOfRowsWithColumnIdAndValue(json))
+        } recover { case ex: NoJsonFoundException => None }
+        res <- controller.createRow(tableId.toLong, opt)
+      } yield res
+    }
     case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply {
       getJson(req) flatMap { json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getString("type"), json.getField("value")) }
     }
@@ -57,7 +65,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     f map { d => Ok(d.toJson) } recover {
       case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
       case ex @ DatabaseException(message, id)           => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-      case ex @ NotFoundJsonException(message, id)       => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+      case ex @ NoJsonFoundException(message, id)        => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
       case ex: Throwable                                 => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }
@@ -66,10 +74,27 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     val p = Promise[JsonObject]
     req.bodyHandler { buf =>
       buf.length() match {
-        case 0 => p.failure(NotFoundJsonException("Warning: No Json found", "json"))
+        case 0 => p.failure(NoJsonFoundException("Warning: No Json found", "json"))
         case _ => p.success(Json.fromObjectString(buf.toString()))
       }
     }
     p.future
+  }
+
+  private def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(Long, _)]] = {
+    import scala.collection.JavaConverters._
+    val columnIds = json.getArray("columnIds").asScala.toSeq.asInstanceOf[Seq[JsonArray]] map { array => array.asScala.toSeq.asInstanceOf[Seq[Int]] map { x => x.asInstanceOf[Long] } }
+    val values = json.getArray("values").asScala.toSeq.asInstanceOf[Seq[JsonArray]] map { array => array.asScala.toSeq }
+
+    var rows: Seq[Seq[(Long, _)]] = Seq()
+
+    for (i <- 0 until columnIds.length) {
+      var columnIdsAndValues: Seq[(Long, _)] = Seq()
+      for (j <- 0 until columnIds(i).length) {
+        columnIdsAndValues = columnIdsAndValues :+ (columnIds(i)(j), values(i)(j))
+      }
+      rows = rows :+ columnIdsAndValues
+    }
+    rows
   }
 }
