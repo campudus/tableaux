@@ -5,7 +5,6 @@ import org.vertx.scala.core.VertxExecutionContext
 import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
 import org.vertx.scala.platform.Verticle
 import scala.concurrent.Future
-import scala.concurrent.Promise
 
 sealed trait DomainObject {
   def toJson: JsonObject
@@ -99,9 +98,7 @@ case class Row(table: Table, id: IdType, values: Seq[_]) extends DomainObject {
 }
 
 case class RowSeq(rows: Seq[Row]) extends DomainObject {
-  def toJson: JsonObject = Json.obj("rows" -> (rows map {
-    r => r.toJson
-  }))
+  def toJson: JsonObject = Json.obj("tableId" -> rows(0).table.id, "rows" -> (rows map { r => Json.obj("rowId" -> r.id, "values" -> r.values) }))
 }
 
 case class EmptyObject() extends DomainObject {
