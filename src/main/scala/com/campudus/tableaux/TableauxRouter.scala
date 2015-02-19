@@ -33,7 +33,18 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Get(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
     case Post("/reset") => getAsyncReply(controller.resetDB())
     case Post("/tables") => getAsyncReply {
-      getJson(req) flatMap { json => controller.createTable(json.getString("tableName")) }
+      import scala.collection.JavaConverters._
+      getJson(req) flatMap { json =>
+        if (json.getFieldNames.asScala.toSeq.contains("cols")) {
+          if (json.getFieldNames.asScala.toSeq.contains("rows")) {
+            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json.getObject("cols")), jsonToSeqOfRowsWithColumnIdAndValue(json.getObject("rows")))
+          } else {
+            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json.getObject("cols")), Seq())
+          }
+        } else {
+          controller.createTable(json.getString("tableName"))
+        }
+      }
     }
     case Post(tableIdColumns(tableId)) => getAsyncReply {
       for {
@@ -71,6 +82,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       case ex @ DatabaseException(message, id) => Error(RouterException(message, ex, s"errors.database.$id", 500))
       case ex @ NoJsonFoundException(message, id) => Error(RouterException(message, ex, s"errors.json.$id", 400))
       case ex @ NotEnoughArgumentsException(message, id) => Error(RouterException(message, ex, s"error.json.$id", 400))
+      case ex @ InvalidJsonException(message, id) => Error(RouterException(message, ex, s"error.json.$id", 400))
       case ex: Throwable => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }

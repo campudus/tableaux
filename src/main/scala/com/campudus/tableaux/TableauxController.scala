@@ -25,7 +25,13 @@ class TableauxController(verticle: Verticle) {
   def createTable(name: String): Future[DomainObject] = {
     checkArguments(notNull(name))
     verticle.logger.info(s"createTable $name")
-    tableaux.create(name)
+    tableaux.createTable(name)
+  }
+
+  def createTable(name: String, columnsNameAndType: Seq[(String, String)], rowsWithColumnsIdAndValue: Seq[Seq[(Long, _)]]): Future[DomainObject] = {
+    checkArguments(notNull(name))
+    verticle.logger.info(s"createTable $name $columnsNameAndType $rowsWithColumnsIdAndValue")
+    tableaux.createCompleteTable(name, columnsNameAndType, rowsWithColumnsIdAndValue)
   }
 
   def createRow(tableId: Long, values: Option[Seq[Seq[(Long, _)]]]): Future[DomainObject] = {
@@ -68,7 +74,7 @@ class TableauxController(verticle: Verticle) {
   def deleteTable(tableId: Long): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
     verticle.logger.info(s"deleteTable $tableId")
-    tableaux.delete(tableId)
+    tableaux.deleteTable(tableId)
   }
 
   def deleteColumn(tableId: Long, columnId: Long): Future[DomainObject] = {

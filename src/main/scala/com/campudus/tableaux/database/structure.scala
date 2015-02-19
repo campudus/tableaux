@@ -127,11 +127,18 @@ class Tableaux(verticle: Verticle) {
     _ <- systemStruc.setup()
   } yield EmptyObject()
 
-  def create(name: String): Future[Table] = for {
+  def createTable(name: String): Future[Table] = for {
     id <- tableStruc.create(name)
   } yield Table(id, name)
 
-  def delete(id: IdType): Future[EmptyObject] = for {
+  def createCompleteTable(name: String, columnsNameAndType: Seq[(String, String)], rowsWithColumnsIdAndValue: Seq[Seq[(Long, _)]]): Future[CompleteTable] = for {
+    table <- createTable(name)
+    _ <- addColumn(table.id, columnsNameAndType)
+    _ <- addFullRows(table.id, rowsWithColumnsIdAndValue)
+    completeTable <- getCompleteTable(table.id)
+  } yield completeTable
+
+  def deleteTable(id: IdType): Future[EmptyObject] = for {
     _ <- tableStruc.delete(id)
   } yield EmptyObject()
 

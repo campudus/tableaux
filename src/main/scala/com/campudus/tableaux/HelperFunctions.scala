@@ -1,45 +1,85 @@
 package com.campudus.tableaux
 
 import org.vertx.scala.core.json.{ JsonObject, JsonArray }
-import com.campudus.tableaux.database.Mapper
+import scala.collection.JavaConverters._
+import scala.util.Try
+
+sealed trait Matcher {
+  def matchTo[T](name: String, value: T): Any
+}
+
+case object NumberMatcher extends Matcher {
+  def matchTo[T](name: String, value: T): Long = value match {
+    case v: Number => v.longValue()
+    case other => throw InvalidJsonException(s"Warning: $name should be numbers, but got ${other.getClass}", "invalid")
+  }
+}
+
+case object StringMatcher extends Matcher {
+  def matchTo[T](name: String, value: T): String = value match {
+    case v: String => v
+    case other => throw InvalidJsonException(s"Warning: $name Should be string, but got ${other.getClass}", "invalid")
+  }
+}
+
+case object AnyMatcher extends Matcher {
+  def matchTo[T](name: String, value: T): Any = value match {
+    case v: Number => v.longValue()
+    case v: String => v
+    case other => throw InvalidJsonException(s"Warning: $name should not be ${other.getClass}", "invalid")
+  }
+}
+
+sealed trait Converter {
+  def convert[T](name: String, matcher: => Matcher, value: T): Any
+}
+
+case object RowConverter extends Converter {
+  def convert[T](name: String, matcher: => Matcher, value: T): Seq[_] = {
+    val a = Try(Option(value.asInstanceOf[JsonArray]).get).getOrElse(throw InvalidJsonException(s"Warning: $name are not in a JSON array", "array")).asScala.toSeq
+    if (a.isEmpty) throw InvalidJsonException(s"Warning: $name is empty", "empty")
+    a map { matcher.matchTo(name, _) }
+  }
+}
+
+case object ColumnConverter extends Converter {
+  def convert[T](name: String, matcher: => Matcher, value: T): Any = {
+    matcher.matchTo(name, value)
+  }
+}
 
 object HelperFunctions {
 
-  def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(Long, _)]] = {
-    import scala.collection.JavaConverters._
-
-    try {
-      val columnIds = json.getArray("columnIds").asScala.toSeq.asInstanceOf[Seq[JsonArray]] map { array => array.asScala.toSeq.asInstanceOf[Seq[Int]] map { x => x.asInstanceOf[Long] } }
-      val values = json.getArray("values").asScala.toSeq.asInstanceOf[Seq[JsonArray]] map { array => array.asScala.toSeq }
-
-      if (!isSameLengthAndNotEmpty(columnIds, values)) throw NotEnoughArgumentsException("Warning: Not enough Arguments", "arguments")
-
-      (0 until columnIds.length) map { i => (0 until columnIds(i).length) map { j => (columnIds(i)(j), values(i)(j)) } }
-    } catch {
-      case _: Throwable => throw NotEnoughArgumentsException("Warning: Not enough Arguments", "arguments")
-    }
-  }
-
   def jsonToSeqOfColumnNameAndType(json: JsonObject): Seq[(String, String)] = {
-    import scala.collection.JavaConverters._
+    jsonToSeq(json, "columnName", "type", StringMatcher, StringMatcher, ColumnConverter).asInstanceOf[Seq[(String, String)]]
+  }
 
-    try {
-      val columnName = json.getArray("columnName").asScala.toSeq.asInstanceOf[Seq[String]]
-      val columnType = json.getArray("type").asScala.toSeq.asInstanceOf[Seq[String]] map { Mapper.getDatabaseType(_) }
+  def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(Long, _)]] = {
+    jsonToSeq(json, "columnIds", "values", NumberMatcher, AnyMatcher, RowConverter).asInstanceOf[Seq[Seq[(Long, _)]]]
+  }
 
-      if (!isSameLengthAndNotEmpty(columnName, columnType)) throw NotEnoughArgumentsException("Warning: Not enough Arguments", "arguments")
+  private def jsonToSeq(json: JsonObject, firstName: String, secondName: String, firstMatcher: => Matcher, secondMatcher: => Matcher, converter: => Converter): Seq[_] = {
+    val firstSeq = jsonToSeqHelper(json, firstName, firstMatcher, converter)
+    val secondSeq = jsonToSeqHelper(json, secondName, secondMatcher, converter)
+    val zippedSeq = firstSeq.zip(secondSeq)
 
-      (0 until columnName.length) map { i => (columnName(i), columnType(i)) }
-    } catch {
-      case _: Throwable => throw NotEnoughArgumentsException("Warning: Not enough Arguments", "arguments")
+    matchSizes(firstSeq, secondSeq, firstName, secondName)
+
+    zippedSeq map {
+      case (f: Seq[_], s: Seq[_]) =>
+        matchSizes(f, s, firstName, secondName)
+        f.zip(s)
+      case s => s
     }
   }
 
-  private def isSameLengthAndNotEmpty[A](firstSeq: Seq[A], secondSeq: Seq[A]): Boolean = firstSeq.head match {
-    case s: Seq[_] => !((0 until firstSeq.length) map {
-      i => isSameLengthAndNotEmpty(firstSeq(i).asInstanceOf[Seq[A]], secondSeq(i).asInstanceOf[Seq[A]])
-    }).asInstanceOf[Seq[Boolean]].contains(false)
-    case _ => firstSeq.length == secondSeq.length && !firstSeq.isEmpty && !secondSeq.isEmpty
+  private def jsonToSeqHelper(json: JsonObject, name: String, matcher: => Matcher, converter: => Converter): Seq[_] = {
+    val jsonArray = Try(Option(json.getArray(name)).get).getOrElse(throw InvalidJsonException(s"Warning: $name is null", "null")).asScala.toSeq
+    if (jsonArray.isEmpty) throw InvalidJsonException(s"Warning: $name is empty", "empty")
+    jsonArray.map(converter.convert(name, matcher, _))
   }
 
+  private def matchSizes(firstSeq: Seq[_], secondSeq: Seq[_], firstName: String, secondName: String): Unit = {
+    if (firstSeq.size != secondSeq.size) throw NotEnoughArgumentsException(s"Warning: $firstName and $secondName size doesn't match", "arguments")
+  }
 }

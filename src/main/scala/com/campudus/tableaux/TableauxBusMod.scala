@@ -23,7 +23,14 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
     case "getColumn" => getAsyncReply(controller.getColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))
     case "getRow" => getAsyncReply(controller.getRow(msg.body().getLong("tableId"), msg.body().getLong("rowId")))
     case "getCell" => getAsyncReply(controller.getCell(msg.body().getLong("tableId"), msg.body().getLong("columnId"), msg.body().getLong("rowId")))
-    case "createTable" => getAsyncReply(controller.createTable(msg.body().getString("tableName")))
+    case "createTable" => getAsyncReply {
+      import scala.collection.JavaConverters._
+      if (msg.body().getFieldNames.asScala.toSeq.contains("cols")) {
+        controller.createTable(msg.body().getString("tableName"), jsonToSeqOfColumnNameAndType(msg.body().getObject("cols")), jsonToSeqOfRowsWithColumnIdAndValue(msg.body().getObject("rows")))
+      } else {
+        controller.createTable(msg.body().getString("tableName"))
+      }
+    }
     case "createColumn" => getAsyncReply {
       val dbType = Mapper.getDatabaseType(msg.body().getString("type"))
       dbType match {
@@ -45,6 +52,7 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
       case ex @ DatabaseException(message, id) => Error(message, s"errors.database.$id")
       case ex @ NoJsonFoundException(message, id) => Error(message, s"errors.json.$id")
       case ex @ NotEnoughArgumentsException(message, id) => Error(message, s"errors.json.$id")
+      case ex @ InvalidJsonException(message, id) => Error(message, s"error.json.$id")
       case ex: Throwable => Error("unknown error", "errors.unknown")
     }
   }
