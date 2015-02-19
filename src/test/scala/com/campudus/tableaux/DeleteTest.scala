@@ -7,7 +7,7 @@ import org.vertx.scala.core.json.Json
 class DeleteTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
-  val createColumnJson = Json.obj("type" -> "text", "columnName" -> "Test Nr. 1")
+  val createColumnJson = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
 
   @Test
   def deleteEmptyTable(): Unit = okTest {

@@ -10,10 +10,10 @@ class TableauxController(verticle: Verticle) {
 
   val tableaux = new Tableaux(verticle)
 
-  def createColumn(tableId: Long, name: String, cType: String): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), notNull(name), notNull(cType))
-    verticle.logger.info(s"createColumn $tableId $name $cType")
-    tableaux.addColumn(tableId, name, cType)
+  def createColumn(tableId: Long, namesAndTypes: Seq[(String, String)]): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId))
+    verticle.logger.info(s"createColumn $tableId $namesAndTypes")
+    tableaux.addColumn(tableId, namesAndTypes)
   }
 
   def createColumn(tableId: Long, name: String, cType: String, toTable: Long, toColumn: Long, fromColumn: Long): Future[DomainObject] = {

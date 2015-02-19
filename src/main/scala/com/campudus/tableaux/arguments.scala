@@ -17,6 +17,8 @@ object ArgumentChecker {
 
   def notEmpty(x: Seq[_]): ArgumentCheck = if (!x.isEmpty) OkArg else FailArg("Argument is emtpy")
 
+  //def checkSeq(x: Seq[(Long, Any)]): Seq[ArgumentCheck] = x.foldLeft(Seq[ArgumentCheck]()) { (s, t) => s :+ greaterZero(t._1) } :+ x map { case (_, v) => notNull(v) }
+
   def checkArguments(args: ArgumentCheck*): Unit = {
     val failedArgs: Vector[String] = args.zipWithIndex.foldLeft(Vector[String]()) {
       case (v, (FailArg(ex), idx)) => v :+ s"($idx) $ex"
