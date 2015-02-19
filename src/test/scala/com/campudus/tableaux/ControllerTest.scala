@@ -25,13 +25,43 @@ class ControllerTest extends TestVerticle {
   @Test
   def checkCreateColumnWithNullParameter(): Unit = {
     val controller = new TableauxController(this)
-    okTest(controller.createColumn(0, null))
+    okTest(controller.createColumn(0, Seq()))
+  }
+
+  @Test
+  def checkCreateColumnWithNullName(): Unit = {
+    val controller = new TableauxController(this)
+    okTest(controller.createColumn(0, Seq((null, ""))))
+  }
+
+  @Test
+  def checkCreateColumnWithNullType(): Unit = {
+    val controller = new TableauxController(this)
+    okTest(controller.createColumn(0, Seq(("", null))))
   }
 
   @Test
   def checkCreateRowWithNullParameter(): Unit = {
     val controller = new TableauxController(this)
     okTest(controller.createRow(0, Option(Seq())))
+  }
+
+  @Test
+  def checkCreateRowWithNullSeq(): Unit = {
+    val controller = new TableauxController(this)
+    okTest(controller.createRow(0, Option(Seq(Seq()))))
+  }
+
+  @Test
+  def checkCreateRowWithNullId: Unit = {
+    val controller = new TableauxController(this)
+    okTest(controller.createRow(0, Option(Seq(Seq((0, ""))))))
+  }
+
+  @Test
+  def checkCreateRowWithNullValue: Unit = {
+    val controller = new TableauxController(this)
+    okTest(controller.createRow(0, Option(Seq(Seq((1, null))))))
   }
 
   @Test
@@ -67,7 +97,7 @@ class ControllerTest extends TestVerticle {
   private def okTest(f: => Future[_]): Unit = {
     try f map { _ => fail("should not work with null values") } catch {
       case ex: IllegalArgumentException => testComplete()
-      case _: Throwable                 => fail("should get an InvalidArgumentException")
+      case _: Throwable => fail("should get an InvalidArgumentException")
     }
   }
 

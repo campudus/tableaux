@@ -41,7 +41,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
         dbType <- Future.successful(Mapper.getDatabaseType(json.getArray("type").get[String](0)))
         x <- dbType match {
           case "link" => controller.createColumn(tableId.toLong, json.getString("columnName"), dbType, json.getLong("toTable"), json.getLong("toColumn"), json.getLong("fromColumn"))
-          case _      => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json))
+          case _ => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json))
         }
       } yield x
     }
@@ -58,17 +58,17 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
         json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, Mapper.getDatabaseType(json.getString("type")), json.getField("value"))
       }
     }
-    case Delete(tableId(tableId))                    => getAsyncReply(controller.deleteTable(tableId.toLong))
+    case Delete(tableId(tableId)) => getAsyncReply(controller.deleteTable(tableId.toLong))
     case Delete(tableIdColumnsId(tableId, columnId)) => getAsyncReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
-    case Delete(tableIdRowsId(tableId, rowId))       => getAsyncReply(controller.deleteRow(tableId.toLong, rowId.toLong))
+    case Delete(tableIdRowsId(tableId, rowId)) => getAsyncReply(controller.deleteRow(tableId.toLong, rowId.toLong))
   }
 
   private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
     f map { d => Ok(d.toJson) } recover {
       case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-      case ex @ DatabaseException(message, id)           => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-      case ex @ NoJsonFoundException(message, id)        => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-      case ex: Throwable                                 => Error(RouterException("unknown error", ex, "errors.unknown", 500))
+      case ex @ DatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+      case ex @ NoJsonFoundException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+      case ex: Throwable => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }
 

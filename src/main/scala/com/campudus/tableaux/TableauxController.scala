@@ -11,7 +11,7 @@ class TableauxController(verticle: Verticle) {
   val tableaux = new Tableaux(verticle)
 
   def createColumn(tableId: Long, namesAndTypes: Seq[(String, String)]): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
+    checkArguments(greaterZero(tableId) +: checkSeq(namesAndTypes): _*)
     verticle.logger.info(s"createColumn $tableId $namesAndTypes")
     tableaux.addColumn(tableId, namesAndTypes)
   }
@@ -31,7 +31,7 @@ class TableauxController(verticle: Verticle) {
   def createRow(tableId: Long, values: Option[Seq[Seq[(Long, _)]]]): Future[DomainObject] = {
     values match {
       case Some(seq) =>
-        checkArguments(greaterZero(tableId), notEmpty(seq))
+        checkArguments(greaterZero(tableId) +: checkSeq(seq): _*)
         verticle.logger.info(s"createFullRow $tableId $values")
         tableaux.addFullRows(tableId, seq)
       case None =>
