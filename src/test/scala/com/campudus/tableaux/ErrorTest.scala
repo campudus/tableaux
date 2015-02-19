@@ -118,6 +118,26 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
+  def createMultipleColumnsWithEmptyTypeJson(): Unit = exceptionTest {
+    val jsonObj = Json.obj("type" -> Json.arr(), "columnName" -> Json.arr("Test Column 1", "Test Column 2"))
+
+    for {
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
+    } yield ()
+  }
+
+  @Test
+  def createMultipleColumnsWithEmptyColNameJson(): Unit = exceptionTest {
+    val jsonObj = Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> Json.arr())
+
+    for {
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
+    } yield ()
+  }
+
+  @Test
   def createMultipleFullRowsWithoutColIdJson(): Unit = exceptionTest {
     val valuesRow = Json.obj("columnIds" -> null, "values" -> Json.arr(Json.arr("Test Field 1", 2)))
 
@@ -132,6 +152,30 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createMultipleFullRowsWithoutValueJson(): Unit = exceptionTest {
     val valuesRow = Json.obj("columnIds" -> Json.arr(Json.arr(1, 2)), "values" -> null)
+
+    for {
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+      _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
+      test <- sendRequestWithJson("POST", valuesRow, "/tables/1/rows")
+    } yield ()
+  }
+
+  @Test
+  def createMultipleFullRowsWithEmptyColIdJson(): Unit = exceptionTest {
+    val valuesRow = Json.obj("columnIds" -> Json.arr(), "values" -> Json.arr(Json.arr("Test Field 1", 2)))
+
+    for {
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+      _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
+      test <- sendRequestWithJson("POST", valuesRow, "/tables/1/rows")
+    } yield ()
+  }
+
+  @Test
+  def createMultipleFullRowsWithEmptyValueJson(): Unit = exceptionTest {
+    val valuesRow = Json.obj("columnIds" -> Json.arr(Json.arr(1, 2)), "values" -> Json.arr())
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")

@@ -68,6 +68,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
       case ex @ DatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
       case ex @ NoJsonFoundException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
+      case ex @ NotEnoughArgumentsException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
       case ex: Throwable => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }

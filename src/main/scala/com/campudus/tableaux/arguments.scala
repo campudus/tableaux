@@ -15,8 +15,6 @@ object ArgumentChecker {
 
   def greaterZero(x: Long): ArgumentCheck = if (x > 0) OkArg else FailArg(s"Argument $x is not greater than zero")
 
-  def notEmpty(x: Seq[_]): ArgumentCheck = if (!x.isEmpty) OkArg else FailArg("Argument is emtpy")
-
   def checkSeq(x: Seq[_]): Seq[ArgumentCheck] = x flatMap { matcher(_) }
 
   private def matcher(x: Any): Seq[ArgumentCheck] = x match {
