@@ -22,7 +22,7 @@ class DatabaseConnection(verticle: Verticle) {
     def query(query: String, values: JsonArray): Future[(Transaction, JsonObject)] = transactionHelper(Json.obj(
       "action" -> "prepared",
       "statement" -> query,
-      "values" -> values)) flatMap { r => Future.apply(Transaction(r), checkForDatabaseError(r.body())) recoverWith rollbackAndFail() }
+      "values" -> values)) flatMap { r => Future.apply(Transaction(r), checkForDatabaseError(r.body())) recoverWith { case ex => Future.failed(ex) } } //rollbackAndFail() }
 
     def commit(): Future[Unit] = transactionHelper(Json.obj("action" -> "commit")) map { _ => () }
 
@@ -60,7 +60,7 @@ class DatabaseConnection(verticle: Verticle) {
   }
 
   private def checkForDatabaseError(json: JsonObject): JsonObject = json.getString("status") match {
-    case "ok"    => json
-    case "error" => throw DatabaseException(json.getString("message"), "error")
+    case "ok" => json
+    case "error" => throw DatabaseException(json.getString("message"), "unknown")
   }
 }

@@ -10,6 +10,9 @@ import scala.util.{ Try, Failure, Success }
 import com.campudus.tableaux.database.SystemStructure
 import com.campudus.tableaux.database.DatabaseConnection
 import org.vertx.scala.core.buffer.Buffer
+import org.vertx.scala.router.RouterException
+
+case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
@@ -49,12 +52,17 @@ trait TableauxTestBase extends TestVerticle {
     }
   }
 
-  def exceptionTest(f: => Future[_]): Unit = {
+  def exceptionTest(id: String)(f: => Future[_]): Unit = {
     f onComplete {
       case Success(_) =>
         logger.error("test should fail")
         fail("got no exception")
-      case Failure(ex) => testComplete()
+      case Failure(ex: TestCustomException) =>
+        assertEquals(id, ex.id)
+        testComplete()
+      case Failure(ex) =>
+        logger.error(s"test should fail with RouterException")
+        fail("got wrong exception")
     }
   }
 
@@ -74,11 +82,17 @@ trait TableauxTestBase extends TestVerticle {
 
   private def httpClientRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = createClient().request(method, path, { resp: HttpClientResponse =>
     logger.info("Got a response: " + resp.statusCode())
+
     resp.bodyHandler { buf =>
-      try {
-        p.success(Json.fromObjectString(buf.toString))
-      } catch {
-        case ex: Exception => p.failure(ex)
+      logger.info("response: " + buf.toString())
+      if (resp.statusCode() != 200) {
+        p.failure(TestCustomException(buf.toString(), resp.statusMessage(), resp.statusCode()))
+      } else {
+        try {
+          p.success(Json.fromObjectString(buf.toString))
+        } catch {
+          case ex: Exception => p.failure(ex)
+        }
       }
     }
   })

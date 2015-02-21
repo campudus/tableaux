@@ -41,10 +41,10 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
 
   private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
     f map { d => Ok(d.toJson) } recover {
-      case ex @ NotFoundInDatabaseException(message, id) => Error(message, s"errors.not-found.$id")
-      case ex @ DatabaseException(message, id) => Error(message, s"errors.not-found.$id")
-      case ex @ NoJsonFoundException(message, id) => Error(message, s"errors.not-found.$id")
-      case ex @ NotEnoughArgumentsException(message, id) => Error(message, s"errors.not-found.$id")
+      case ex @ NotFoundInDatabaseException(message, id) => Error(message, s"errors.database.$id")
+      case ex @ DatabaseException(message, id) => Error(message, s"errors.database.$id")
+      case ex @ NoJsonFoundException(message, id) => Error(message, s"errors.json.$id")
+      case ex @ NotEnoughArgumentsException(message, id) => Error(message, s"errors.json.$id")
       case ex: Throwable => Error("unknown error", "errors.unknown")
     }
   }
