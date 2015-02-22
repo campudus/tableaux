@@ -35,8 +35,27 @@ class ArgumentCheckerTest {
   }
 
   @Test
+  def checkValidSeq(): Unit = {
+    assertEquals(Seq(OkArg), checkSeq(Seq(123)))
+    assertEquals(Seq(OkArg), checkSeq(Seq("abc")))
+    assertEquals(Seq(OkArg), checkSeq(Seq("")))
+    assertEquals(Seq(OkArg), checkSeq(Seq(Seq(123))))
+    assertEquals(Seq(OkArg, OkArg), checkSeq(Seq(123, 123)))
+    assertEquals(Seq(OkArg, OkArg), checkSeq(Seq(Seq(123), Seq(123))))
+  }
+
+  @Test
+  def checkInvalidSeq(): Unit = {
+    assertEquals(Seq(FailArg("Argument -1 is not greater than zero")), checkSeq(Seq(-1.toLong)))
+    assertEquals(Seq(FailArg("Argument 0 is not greater than zero")), checkSeq(Seq(0.toLong)))
+    assertEquals(Seq(FailArg(s"Argument ${Long.MinValue} is not greater than zero")), checkSeq(Seq(Long.MinValue)))
+    assertEquals(Seq(FailArg("Argument is null")), checkSeq(Seq(null)))
+  }
+
+  @Test
   def checkValidArguments(): Unit = {
     checkArguments(notNull(123), greaterZero(1), greaterZero(2), notNull("foo"))
+    checkArguments(checkSeq(Seq(123, "Test")): _*)
   }
 
   @Test

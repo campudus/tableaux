@@ -10,8 +10,8 @@ import org.vertx.scala.core.json.Json
 class FillTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
-  val createNumberColumnJson = Json.obj("type" -> "numeric", "columnName" -> "Test Column 1")
-  val createStringColumnJson = Json.obj("type" -> "text", "columnName" -> "Test Column 1")
+  val createStringColumnJson = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
+  val createNumberColumnJson = Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 2"))
 
   @Test
   def fillSingleStringCell(): Unit = okTest {

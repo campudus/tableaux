@@ -44,23 +44,28 @@ case class LinkColumn[A](table: Table, id: IdType, to: ColumnValue[A], name: Str
   val dbType = "link"
 }
 
+case class ColumnValueSeq(columns: Seq[ColumnValue[_]]) extends DomainObject {
+  def toJson: JsonObject = Json.obj("tableId" -> columns(0).table.id, "cols" ->
+    (columns map { col => Json.obj("columnId" -> col.id, "columnName" -> col.name, "type" -> col.dbType) }))
+}
+
 object Mapper {
-  def ctype(s: String): (Option[(Table, IdType, String) => ColumnValue[_]], String) = s match {
-    case "text"    => (Some(StringColumn.apply), "text")
+  def columnType(s: String): (Option[(Table, IdType, String) => ColumnValue[_]], String) = s match {
+    case "text" => (Some(StringColumn.apply), "text")
     case "numeric" => (Some(NumberColumn.apply), "numeric")
-    case "link"    => (None, "link")
+    case "link" => (None, "link")
   }
 
-  def getApply(s: String): (Table, IdType, String) => ColumnValue[_] = ctype(s)._1.get
+  def getApply(s: String): (Table, IdType, String) => ColumnValue[_] = columnType(s)._1.get
 
-  def getDatabaseType(s: String): String = ctype(s)._2
+  def getDatabaseType(s: String): String = columnType(s)._2
 }
 
 case class Cell[A, B <: ColumnType[A]](column: B, rowId: IdType, value: A) extends DomainObject {
   def toJson: JsonObject = {
     val v = value match {
       case link: Link[A] => link.toJson
-      case _             => value
+      case _ => value
     }
     Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "rowId" -> rowId, "value" -> v)
   }
@@ -134,11 +139,12 @@ class Tableaux(verticle: Verticle) {
     _ <- rowStruc.delete(tableId, rowId)
   } yield EmptyObject()
 
-  def addColumn(tableId: IdType, name: String, columnType: String): Future[ColumnValue[_]] = for {
+  def addColumn(tableId: IdType, namesAndTypes: Seq[(String, String)]): Future[ColumnValueSeq] = for {
     table <- getTable(tableId)
-    (colApply, dbType) <- Future.successful(Mapper.ctype(columnType))
-    id <- columnStruc.insert(table.id, dbType, name)
-  } yield colApply.get.apply(table, id, name)
+    seqNameColApplyType <- Future.successful(namesAndTypes map { case (n, t) => (n, Mapper.columnType(t)) })
+    ids <- Future.sequence(seqNameColApplyType map { case (colName, (_, dbType)) => columnStruc.insert(table.id, dbType, colName) })
+    cols <- Future.successful((0 until ids.length) map { i => seqNameColApplyType(i)._2._1.get.apply(table, ids(i), seqNameColApplyType(i)._1) })
+  } yield ColumnValueSeq(cols)
 
   def addLinkColumn(tableId: IdType, name: String, fromColumn: IdType, toTable: IdType, toColumn: IdType): Future[LinkType[_]] = for {
     table <- getTable(tableId)
@@ -187,7 +193,7 @@ class Tableaux(verticle: Verticle) {
     column <- getColumn(tableId, columnId)
     x <- column match {
       case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
-      case _                => cellStruc.getValue(tableId, columnId, rowId)
+      case _ => cellStruc.getValue(tableId, columnId, rowId)
     }
   } yield {
     val values = resultsInListOfList(x)
@@ -200,7 +206,7 @@ class Tableaux(verticle: Verticle) {
     result <- columnStruc.get(table.id, columnId)
     column <- Mapper.getDatabaseType(result.get[String](2)) match {
       case "link" => getLinkColumn(table, result)
-      case _      => Future.successful(getValueColumn(table, result))
+      case _ => Future.successful(getValueColumn(table, result))
     }
   } yield column.asInstanceOf[ColumnType[_]]
 

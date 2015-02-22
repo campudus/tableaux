@@ -9,8 +9,8 @@ import org.vertx.scala.core.http.HttpClient
 class GetTest extends TableauxTestBase {
 
   val postTable = Json.obj("tableName" -> "Test Nr. 1")
-  val postTextCol = Json.obj("type" -> "text", "columnName" -> "Test Column 1")
-  val postNumCol = Json.obj("type" -> "numeric", "columnName" -> "Test Column 2")
+  val postTextCol = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
+  val postNumCol = Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 2"))
 
   @Test
   def getEmptyTable(): Unit = okTest {

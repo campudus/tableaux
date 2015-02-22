@@ -13,3 +13,5 @@ case class NoJsonFoundException(message: String, id: String) extends CustomExcep
 case class NotFoundInDatabaseException(message: String, id: String) extends CustomException
 
 case class DatabaseException(message: String, id: String) extends CustomException
+
+case class NotEnoughArgumentsException(message: String, id: String) extends CustomException

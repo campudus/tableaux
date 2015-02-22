@@ -7,10 +7,10 @@ import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.router.routing._
 import scala.concurrent.{ Future, Promise }
 import org.vertx.scala.router.RouterException
-import org.vertx.scala.core.json.{ Json, JsonObject }
+import org.vertx.scala.core.json.{ Json, JsonObject, JsonArray }
 import scala.util.{ Success, Failure }
 import com.campudus.tableaux.database.DomainObject
-import org.vertx.scala.core.json.JsonArray
+import com.campudus.tableaux.HelperFunctions._
 
 class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val container = verticle.container
@@ -38,10 +38,12 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Post(tableIdColumns(tableId)) => getAsyncReply {
       for {
         json <- getJson(req)
-        dbType <- Future.successful(Mapper.getDatabaseType(json.getString("type")))
+        dbType <- Future.apply(Mapper.getDatabaseType(json.getArray("type").get[String](0))) recoverWith {
+          case _ => Future.failed(NotEnoughArgumentsException("Warning: Not enough Arguments", "arguments"))
+        }
         x <- dbType match {
           case "link" => controller.createColumn(tableId.toLong, json.getString("columnName"), dbType, json.getLong("toTable"), json.getLong("toColumn"), json.getLong("fromColumn"))
-          case _      => controller.createColumn(tableId.toLong, json.getString("columnName"), dbType)
+          case _ => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json))
         }
       } yield x
     }
@@ -54,19 +56,22 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       } yield res
     }
     case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply {
-      getJson(req) flatMap { json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getString("type"), json.getField("value")) }
+      getJson(req) flatMap {
+        json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, Mapper.getDatabaseType(json.getString("type")), json.getField("value"))
+      }
     }
-    case Delete(tableId(tableId))                    => getAsyncReply(controller.deleteTable(tableId.toLong))
+    case Delete(tableId(tableId)) => getAsyncReply(controller.deleteTable(tableId.toLong))
     case Delete(tableIdColumnsId(tableId, columnId)) => getAsyncReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
-    case Delete(tableIdRowsId(tableId, rowId))       => getAsyncReply(controller.deleteRow(tableId.toLong, rowId.toLong))
+    case Delete(tableIdRowsId(tableId, rowId)) => getAsyncReply(controller.deleteRow(tableId.toLong, rowId.toLong))
   }
 
   private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
     f map { d => Ok(d.toJson) } recover {
-      case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-      case ex @ DatabaseException(message, id)           => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-      case ex @ NoJsonFoundException(message, id)        => Error(RouterException(message, ex, s"errors.not-found.$id", 404))
-      case ex: Throwable                                 => Error(RouterException("unknown error", ex, "errors.unknown", 500))
+      case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.database.$id", 404))
+      case ex @ DatabaseException(message, id) => Error(RouterException(message, ex, s"errors.database.$id", 500))
+      case ex @ NoJsonFoundException(message, id) => Error(RouterException(message, ex, s"errors.json.$id", 400))
+      case ex @ NotEnoughArgumentsException(message, id) => Error(RouterException(message, ex, s"error.json.$id", 400))
+      case ex: Throwable => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }
 
@@ -74,27 +79,10 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     val p = Promise[JsonObject]
     req.bodyHandler { buf =>
       buf.length() match {
-        case 0 => p.failure(NoJsonFoundException("Warning: No Json found", "json"))
+        case 0 => p.failure(NoJsonFoundException("Warning: No Json found", "not-found"))
         case _ => p.success(Json.fromObjectString(buf.toString()))
       }
     }
     p.future
-  }
-
-  private def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(Long, _)]] = {
-    import scala.collection.JavaConverters._
-    val columnIds = json.getArray("columnIds").asScala.toSeq.asInstanceOf[Seq[JsonArray]] map { array => array.asScala.toSeq.asInstanceOf[Seq[Int]] map { x => x.asInstanceOf[Long] } }
-    val values = json.getArray("values").asScala.toSeq.asInstanceOf[Seq[JsonArray]] map { array => array.asScala.toSeq }
-
-    var rows: Seq[Seq[(Long, _)]] = Seq()
-
-    for (i <- 0 until columnIds.length) {
-      var columnIdsAndValues: Seq[(Long, _)] = Seq()
-      for (j <- 0 until columnIds(i).length) {
-        columnIdsAndValues = columnIdsAndValues :+ (columnIds(i)(j), values(i)(j))
-      }
-      rows = rows :+ columnIdsAndValues
-    }
-    rows
   }
 }

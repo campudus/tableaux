@@ -8,7 +8,7 @@ import org.vertx.scala.core.http.HttpClient
 
 class LinkTest extends TableauxTestBase {
 
-  val postLinkCol = Json.obj("type" -> "link", "columnName" -> "Test Link 1", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)
+  val postLinkCol = Json.obj("type" -> Json.arr("link"), "columnName" -> "Test Link 1", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)
 
   @Test
   def getLinkColumn(): Unit = okTest {
@@ -56,8 +56,8 @@ class LinkTest extends TableauxTestBase {
 
   private def setupDefaultTable(name: String = "Test Table 1"): Future[Long] = {
     val postTable = Json.obj("tableName" -> name)
-    val postTextCol = Json.obj("type" -> "text", "columnName" -> "Test Column 1")
-    val postNumCol = Json.obj("type" -> "numeric", "columnName" -> "Test Column 2")
+    val postTextCol = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
+    val postNumCol = Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 2"))
     val fillStringCellJson = Json.obj("type" -> "text", "value" -> "Test Fill 1")
     val fillStringCellJson2 = Json.obj("type" -> "text", "value" -> "Test Fill 2")
     val fillNumberCellJson = Json.obj("type" -> "numeric", "value" -> 1)

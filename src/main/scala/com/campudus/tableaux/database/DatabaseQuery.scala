@@ -78,7 +78,7 @@ class TableStructure(connection: DatabaseConnection) {
   def create(name: String): Future[IdType] = for {
     t <- connection.begin()
     (t, result) <- t.query("INSERT INTO system_table (user_table_name) VALUES (?) RETURNING table_id", Json.arr(name))
-    id <- Future.successful(insertNotNull(result).get[JsonArray](0).get[Long](0))
+    id <- Future.apply(insertNotNull(result).get[JsonArray](0).get[Long](0))
     (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))", Json.arr())
     (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id", Json.arr())
     _ <- t.commit()
