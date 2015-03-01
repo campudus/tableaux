@@ -11,6 +11,7 @@ import org.vertx.scala.core.json.{ Json, JsonObject, JsonArray }
 import scala.util.{ Success, Failure }
 import com.campudus.tableaux.database.DomainObject
 import com.campudus.tableaux.HelperFunctions._
+import com.campudus.tableaux.database._
 
 class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val container = verticle.container
@@ -49,11 +50,9 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Post(tableIdColumns(tableId)) => getAsyncReply {
       for {
         json <- getJson(req)
-        dbType <- Future.apply(Mapper.getDatabaseType(json.getArray("type").get[String](0))) recoverWith {
-          case _ => Future.failed(NotEnoughArgumentsException("Warning: Not enough Arguments", "arguments"))
-        }
-        x <- dbType match {
-          case "link" => controller.createColumn(tableId.toLong, json.getString("columnName"), dbType, json.getLong("toTable"), json.getLong("toColumn"), json.getLong("fromColumn"))
+        dbType <- Future.apply(checkTypes(json))
+        x <- dbType.head match {
+          case LinkType => controller.createColumn(tableId.toLong, json.getString("columnName"), dbType.head, json.getLong("toTable"), json.getLong("toColumn"), json.getLong("fromColumn"))
           case _ => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json))
         }
       } yield x

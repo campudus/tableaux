@@ -101,13 +101,13 @@ class TableStructure(connection: DatabaseConnection) {
 class ColumnStructure(connection: DatabaseConnection) {
   implicit val executionContext = connection.executionContext
 
-  def insert(tableId: IdType, dbType: String, name: String): Future[IdType] = for {
+  def insert(tableId: IdType, dbType: TableauxDbType, name: String): Future[IdType] = for {
     t <- connection.begin()
     (t, result) <- t.query(s"""
                      |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering)
                      |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, currval('system_columns_column_id_table_$tableId'))
                      |  RETURNING column_id""".stripMargin,
-      Json.arr(tableId, dbType, name))
+      Json.arr(tableId, dbType.toString, name))
     id <- Future.successful(insertNotNull(result).get[JsonArray](0).get[Long](0))
     (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_$id $dbType", Json.arr())
     _ <- t.commit()

@@ -7,6 +7,7 @@ import scala.util.Try
 import scala.concurrent.Future
 import scala.util.Success
 import scala.util.Failure
+import com.campudus.tableaux.database.TextType
 
 class ControllerTest extends TestVerticle {
 
@@ -31,7 +32,7 @@ class ControllerTest extends TestVerticle {
   @Test
   def checkCreateColumnWithNullName(): Unit = {
     val controller = new TableauxController(this)
-    illegalArgumentTest(controller.createColumn(0, Seq((null, ""))))
+    illegalArgumentTest(controller.createColumn(0, Seq((null, TextType))))
   }
 
   @Test

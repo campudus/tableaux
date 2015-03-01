@@ -8,64 +8,60 @@ class ArgumentCheckerTest {
 
   @Test
   def checkValidNotNull(): Unit = {
-    assertEquals(OkArg, notNull(123))
-    assertEquals(OkArg, notNull("abc"))
-    assertEquals(OkArg, notNull(""))
-    assertEquals(OkArg, notNull(0))
-    assertEquals(OkArg, notNull(Nil))
+    assertEquals(OkArg(123), notNull(123, ""))
+    assertEquals(OkArg("abc"), notNull("abc", ""))
+    assertEquals(OkArg(""), notNull("", ""))
+    assertEquals(OkArg(0), notNull(0, ""))
+    assertEquals(OkArg(Nil), notNull(Nil, ""))
   }
 
   @Test
   def checkInvalidNotNull(): Unit = {
-    assertEquals(FailArg("Argument is null"), notNull(null))
+    assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), notNull(null, "test"))
   }
 
   @Test
   def checkValidGreaterZero(): Unit = {
-    assertEquals(OkArg, greaterZero(123))
-    assertEquals(OkArg, greaterZero(1))
-    assertEquals(OkArg, greaterZero(Long.MaxValue))
+    assertEquals(OkArg(123), greaterZero(123))
+    assertEquals(OkArg(1), greaterZero(1))
+    assertEquals(OkArg(Long.MaxValue), greaterZero(Long.MaxValue))
   }
 
   @Test
   def checkInvalidGreaterZero(): Unit = {
-    assertEquals(FailArg("Argument -1 is not greater than zero"), greaterZero(-1))
-    assertEquals(FailArg("Argument 0 is not greater than zero"), greaterZero(0))
-    assertEquals(FailArg(s"Argument ${Long.MinValue} is not greater than zero"), greaterZero(Long.MinValue))
+    assertEquals(FailArg(InvalidJsonException("Argument -1 is not greater than zero", "invalid")), greaterZero(-1))
+    assertEquals(FailArg(InvalidJsonException("Argument 0 is not greater than zero", "invalid")), greaterZero(0))
+    assertEquals(FailArg(InvalidJsonException(s"Argument ${Long.MinValue} is not greater than zero", "invalid")), greaterZero(Long.MinValue))
   }
 
   @Test
-  def checkValidSeq(): Unit = {
-    assertEquals(Seq(OkArg), checkSeq(Seq(123)))
-    assertEquals(Seq(OkArg), checkSeq(Seq("abc")))
-    assertEquals(Seq(OkArg), checkSeq(Seq("")))
-    assertEquals(Seq(OkArg), checkSeq(Seq(Seq(123))))
-    assertEquals(Seq(OkArg, OkArg), checkSeq(Seq(123, 123)))
-    assertEquals(Seq(OkArg, OkArg), checkSeq(Seq(Seq(123), Seq(123))))
+  def checkValidNonEmpty(): Unit = {
+    assertEquals(OkArg(Seq(123)), nonEmpty(Seq(123), "test"))
+    assertEquals(OkArg(Seq("abc")), nonEmpty(Seq("abc"), "test"))
+    assertEquals(OkArg(Seq("")), nonEmpty(Seq(""), "test"))
+    assertEquals(OkArg(Seq(Seq(123))), nonEmpty(Seq(Seq(123)), "test"))
+    assertEquals(OkArg(Seq(123, 123)), nonEmpty(Seq(123, 123), "test"))
+    assertEquals(OkArg(Seq(Seq(123), Seq(123))), nonEmpty(Seq(Seq(123), Seq(123)), "test"))
   }
 
   @Test
-  def checkInvalidSeq(): Unit = {
-    assertEquals(Seq(FailArg("Argument -1 is not greater than zero")), checkSeq(Seq(-1.toLong)))
-    assertEquals(Seq(FailArg("Argument 0 is not greater than zero")), checkSeq(Seq(0.toLong)))
-    assertEquals(Seq(FailArg(s"Argument ${Long.MinValue} is not greater than zero")), checkSeq(Seq(Long.MinValue)))
-    assertEquals(Seq(FailArg("Argument is null")), checkSeq(Seq(null)))
+  def checkInvalidNonEmpty(): Unit = {
+    assertEquals(FailArg(InvalidJsonException("Warning: test is empty.", "empty")), nonEmpty(Seq(), "test"))
   }
 
   @Test
   def checkValidArguments(): Unit = {
-    checkArguments(notNull(123), greaterZero(1), greaterZero(2), notNull("foo"))
-    checkArguments(checkSeq(Seq(123, "Test")): _*)
+    checkArguments(notNull(123, "test"), greaterZero(1), greaterZero(2), notNull("foo", "test"), nonEmpty(Seq(123), "test"))
   }
 
   @Test
   def checkInvalidArguments(): Unit = {
     try {
-      checkArguments(notNull(null), greaterZero(1), greaterZero(-4), notNull("foo"))
+      checkArguments(notNull(null, "test"), greaterZero(1), greaterZero(-4), notNull("foo", "test"))
       fail("Should throw an exception")
     } catch {
       case ex: IllegalArgumentException =>
-        assertEquals("(0) Argument is null\n(2) Argument -4 is not greater than zero", ex.getMessage)
+        assertEquals("(0) Warning: test is null\n(2) Argument -4 is not greater than zero", ex.getMessage)
       case _: Throwable => fail("Should throw an IllegalArgumentException")
     }
   }

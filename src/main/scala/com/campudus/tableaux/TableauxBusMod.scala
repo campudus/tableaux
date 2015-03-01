@@ -9,6 +9,7 @@ import com.campudus.tableaux.database.Mapper
 import scala.concurrent.Future
 import com.campudus.tableaux.database.DomainObject
 import com.campudus.tableaux.HelperFunctions._
+import com.campudus.tableaux.database._
 
 class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
   val container = verticle.container
@@ -34,12 +35,12 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
     case "createColumn" => getAsyncReply {
       val dbType = Mapper.getDatabaseType(msg.body().getString("type"))
       dbType match {
-        case "link" => controller.createColumn(msg.body().getLong("tableId"), msg.body().getString("columnName"), dbType, msg.body().getLong("toTable"), msg.body().getLong("toColumn"), msg.body().getLong("fromColumn"))
+        case LinkType => controller.createColumn(msg.body().getLong("tableId"), msg.body().getString("columnName"), dbType, msg.body().getLong("toTable"), msg.body().getLong("toColumn"), msg.body().getLong("fromColumn"))
         case _ => controller.createColumn(msg.body().getLong("tableId"), jsonToSeqOfColumnNameAndType(msg.body()))
       }
     }
     case "createRow" => getAsyncReply(controller.createRow(msg.body().getLong("tableId"), Option(jsonToSeqOfRowsWithColumnIdAndValue(msg.body()))))
-    case "fillCell" => getAsyncReply(controller.fillCell(msg.body().getLong("tableId"), msg.body().getLong("columnId"), msg.body().getLong("rowId"), msg.body().getString("type"), msg.body().getField("value")))
+    case "fillCell" => getAsyncReply(controller.fillCell(msg.body().getLong("tableId"), msg.body().getLong("columnId"), msg.body().getLong("rowId"), Mapper.getDatabaseType(msg.body().getString("type")), msg.body().getField("value")))
     case "deleteTable" => getAsyncReply(controller.deleteTable(msg.body().getLong("tableId")))
     case "deleteColumn" => getAsyncReply(controller.deleteColumn(msg.body().getLong("tableId"), msg.body().getLong("columnId")))
     case "deleteRow" => getAsyncReply(controller.deleteRow(msg.body().getLong("tableId"), msg.body().getLong("rowId")))

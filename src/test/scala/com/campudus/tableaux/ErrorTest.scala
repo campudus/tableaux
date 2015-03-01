@@ -23,6 +23,7 @@ class ErrorTest extends TableauxTestBase {
   val errorJsonNull = "error.json.null"
   val errorJsonArray = "error.json.array"
   val errorJsonEmpty = "error.json.empty"
+  val errorJsonLink = "error.json.link"
   val notFound = "NOT FOUND"
 
   @Test
@@ -110,13 +111,22 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def createMultipleColumnsWithoutTypeJson(): Unit = multipleColumnHelper(errorJsonArguments, Json.obj("type" -> null, "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+  def createMultipleColumnsWithoutTypeJson(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("type" -> null, "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
 
   @Test
   def createMultipleColumnsWithoutColNameJson(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> null))
 
   @Test
-  def createMultipleColumnsWithEmptyTypeJson(): Unit = multipleColumnHelper(errorJsonArguments, Json.obj("type" -> Json.arr(), "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+  def createMultipleColumnsWithInvalidTypeJson(): Unit = multipleColumnHelper(errorJsonArray, Json.obj("type" -> 1, "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+
+  @Test
+  def createMultipleColumnsWithInvalidColNameJson(): Unit = multipleColumnHelper(errorJsonArray, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> 1))
+
+  @Test
+  def createMultipleColumnsWithNoStringColNameJson(): Unit = multipleColumnHelper(errorJsonInvalid, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> Json.arr(1, "Test Column 2")))
+
+  @Test
+  def createMultipleColumnsWithEmptyTypeJson(): Unit = multipleColumnHelper(errorJsonEmpty, Json.obj("type" -> Json.arr(), "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
 
   @Test
   def createMultipleColumnsWithEmptyColNameJson(): Unit = multipleColumnHelper(errorJsonEmpty, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> Json.arr()))
@@ -126,6 +136,12 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createMultipleColumnsWithMoreColNames(): Unit = multipleColumnHelper(errorJsonArguments, Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+
+  @Test
+  def createMultipleColumnsWithStartingNormalType(): Unit = multipleColumnHelper(errorJsonLink, Json.obj("type" -> Json.arr("numeric", "link", "link"), "columnName" -> Json.arr("Test Column 1", "Test Column 2", "Test Column 3")))
+
+  @Test
+  def createMultipleColumnsWithStartingLinkType(): Unit = multipleColumnHelper(errorJsonLink, Json.obj("type" -> Json.arr("link", "text", "text"), "columnName" -> Json.arr("Test Column 1", "Test Column 2", "Test Column 3")))
 
   private def multipleColumnHelper(error: String, json: JsonObject): Unit = exceptionTest(error) {
     for {
