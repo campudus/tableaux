@@ -15,3 +15,5 @@ case class NotFoundInDatabaseException(message: String, id: String) extends Cust
 case class DatabaseException(message: String, id: String) extends CustomException
 
 case class NotEnoughArgumentsException(message: String, id: String) extends CustomException
+
+case class InvalidJsonException(message: String, id: String) extends CustomException

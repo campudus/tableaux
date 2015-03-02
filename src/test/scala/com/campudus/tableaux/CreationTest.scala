@@ -118,4 +118,72 @@ class CreationTest extends TableauxTestBase {
       assertEquals(expectedJson1, test)
     }
   }
+
+  @Test
+  def createCompleteTable(): Unit = okTest {
+    val createCompleteTableJson = Json.obj(
+      "tableName" -> "Test Nr. 1",
+      "cols" -> Json.obj(
+        "type" -> Json.arr("text", "numeric"),
+        "columnName" -> Json.arr("Test Column 1", "Test Column 2")),
+      "rows" -> Json.obj(
+        "columnIds" -> Json.arr(Json.arr(1, 2), Json.arr(1, 2)),
+        "values" -> Json.arr(Json.arr("Test Fill 1", 1), Json.arr("Test Fill 2", 2))))
+
+    val expectedJson = Json.obj(
+      "tableId" -> 1,
+      "tableName" -> "Test Nr. 1",
+      "cols" -> Json.arr(
+        Json.obj("id" -> 1, "name" -> "Test Column 1"),
+        Json.obj("id" -> 2, "name" -> "Test Column 2")),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 1, "c1" -> "Test Fill 1", "c2" -> 1),
+        Json.obj("id" -> 2, "c1" -> "Test Fill 2", "c2" -> 2)))
+
+    for {
+      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
+
+  @Test
+  def createCompleteTableWithoutCols(): Unit = okTest {
+    val createCompleteTableJson = Json.obj(
+      "tableName" -> "Test Nr. 1",
+      "rows" -> Json.obj(
+        "columnIds" -> Json.arr(Json.arr(1, 2), Json.arr(1, 2)),
+        "values" -> Json.arr(Json.arr("Test Fill 1", 1), Json.arr("Test Fill 2", 2))))
+
+    val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1")
+
+    for {
+      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
+
+  @Test
+  def createCompleteTableWithoutRows(): Unit = okTest {
+    val createCompleteTableJson = Json.obj(
+      "tableName" -> "Test Nr. 1",
+      "cols" -> Json.obj(
+        "type" -> Json.arr("text", "numeric"),
+        "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+
+    val expectedJson = Json.obj(
+      "tableId" -> 1,
+      "tableName" -> "Test Nr. 1",
+      "cols" -> Json.arr(
+        Json.obj("id" -> 1, "name" -> "Test Column 1"),
+        Json.obj("id" -> 2, "name" -> "Test Column 2")),
+      "rows" -> Json.arr())
+
+    for {
+      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
 }

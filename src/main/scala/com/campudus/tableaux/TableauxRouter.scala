@@ -11,6 +11,7 @@ import org.vertx.scala.core.json.{ Json, JsonObject, JsonArray }
 import scala.util.{ Success, Failure }
 import com.campudus.tableaux.database.DomainObject
 import com.campudus.tableaux.HelperFunctions._
+import com.campudus.tableaux.database._
 
 class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val container = verticle.container
@@ -33,16 +34,25 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Get(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
     case Post("/reset") => getAsyncReply(controller.resetDB())
     case Post("/tables") => getAsyncReply {
-      getJson(req) flatMap { json => controller.createTable(json.getString("tableName")) }
+      import scala.collection.JavaConverters._
+      getJson(req) flatMap { json =>
+        if (json.getFieldNames.asScala.toSeq.contains("cols")) {
+          if (json.getFieldNames.asScala.toSeq.contains("rows")) {
+            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json.getObject("cols")), jsonToSeqOfRowsWithColumnIdAndValue(json.getObject("rows")))
+          } else {
+            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json.getObject("cols")), Seq())
+          }
+        } else {
+          controller.createTable(json.getString("tableName"))
+        }
+      }
     }
     case Post(tableIdColumns(tableId)) => getAsyncReply {
       for {
         json <- getJson(req)
-        dbType <- Future.apply(Mapper.getDatabaseType(json.getArray("type").get[String](0))) recoverWith {
-          case _ => Future.failed(NotEnoughArgumentsException("Warning: Not enough Arguments", "arguments"))
-        }
-        x <- dbType match {
-          case "link" => controller.createColumn(tableId.toLong, json.getString("columnName"), dbType, json.getLong("toTable"), json.getLong("toColumn"), json.getLong("fromColumn"))
+        dbType <- Future.apply(checkTypes(json))
+        x <- dbType.head match {
+          case LinkType => controller.createColumn(tableId.toLong, json.getString("columnName"), dbType.head, json.getLong("toTable"), json.getLong("toColumn"), json.getLong("fromColumn"))
           case _ => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json))
         }
       } yield x
@@ -71,6 +81,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
       case ex @ DatabaseException(message, id) => Error(RouterException(message, ex, s"errors.database.$id", 500))
       case ex @ NoJsonFoundException(message, id) => Error(RouterException(message, ex, s"errors.json.$id", 400))
       case ex @ NotEnoughArgumentsException(message, id) => Error(RouterException(message, ex, s"error.json.$id", 400))
+      case ex @ InvalidJsonException(message, id) => Error(RouterException(message, ex, s"error.json.$id", 400))
       case ex: Throwable => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }
