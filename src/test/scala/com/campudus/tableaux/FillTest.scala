@@ -10,13 +10,13 @@ import org.vertx.scala.core.json.Json
 class FillTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
-  val createStringColumnJson = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
-  val createNumberColumnJson = Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 2"))
+  val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+  val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
   @Test
   def fillSingleStringCell(): Unit = okTest {
-    val fillStringCellJson = Json.obj("type" -> "text", "value" -> "Test Fill 1")
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> "Test Fill 1")
+    val fillStringCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+    val expectedJson = Json.obj("status" -> "ok")
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -30,8 +30,8 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillSingleNumberCell(): Unit = okTest {
-    val fillNumberCellJson = Json.obj("type" -> "numeric", "value" -> 101)
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
+    val fillNumberCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> 101)))
+    val expectedJson = Json.obj("status" -> "ok")
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -45,10 +45,10 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillTwoDifferentCell(): Unit = okTest {
-    val fillNumberCellJson = Json.obj("type" -> "numeric", "value" -> 101)
-    val fillStringCellJson = Json.obj("type" -> "text", "value" -> "Test Fill 1")
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> 101)
-    val expectedJson2 = Json.obj("tableId" -> 1, "columnId" -> 2, "rowId" -> 1, "value" -> "Test Fill 1")
+    val fillNumberCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> 101)))
+    val fillStringCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+    val expectedJson = Json.obj("status" -> "ok")
+    val expectedJson2 = Json.obj("status" -> "ok")
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")

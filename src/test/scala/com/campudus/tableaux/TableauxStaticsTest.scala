@@ -28,7 +28,7 @@ class TableauxStaticsTest extends TableauxTestBase {
   def setupDatabase(): Unit = for {
     json <- sendRequest("POST", "/reset")
   } yield {
-    assertEquals(Json.obj(), json)
+    assertEquals(Json.obj("status" -> "ok"), json)
     testComplete()
   }
 

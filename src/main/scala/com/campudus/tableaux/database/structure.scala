@@ -6,8 +6,26 @@ import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
 import org.vertx.scala.platform.Verticle
 import scala.concurrent.Future
 
+sealed trait ReturnType
+
+case object GetReturn extends ReturnType
+
+case object PostReturn extends ReturnType
+
+case object DeleteReturn extends ReturnType
+
 sealed trait DomainObject {
-  def toJson: JsonObject
+  def getJson: JsonObject
+
+  def postJson: JsonObject
+
+  def deleteJson: JsonObject = Json.obj()
+
+  def toJson(reType: ReturnType): JsonObject = reType match {
+    case GetReturn => getJson
+    case PostReturn => postJson
+    case DeleteReturn => deleteJson
+  }
 }
 
 sealed trait ColumnType[A] extends DomainObject {
@@ -21,32 +39,44 @@ sealed trait ColumnType[A] extends DomainObject {
 
   def table: Table
 
-  def toJson: JsonObject = Json.obj("tableId" -> table.id, "columnId" -> id, "columnName" -> name, "type" -> dbType)
+  def ordering: Ordering
+
+  def getJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "name" -> name, "kind" -> dbType, "ordering" -> ordering)))
+
+  def postJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
 }
 
 sealed trait LinkColumnType[A] extends ColumnType[Link[A]] {
   def to: ColumnValue[A]
 
-  override def toJson: JsonObject = super.toJson.mergeIn(Json.obj("toTable" -> to.table.id, "toColumn" -> to.id))
+  override def getJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "name" -> name, "kind" -> dbType, "toTable" -> to.table.id, "toColumn" -> to.id, "ordering" -> ordering)))
+
+  override def postJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
 }
 
 sealed trait ColumnValue[A] extends ColumnType[A]
 
-case class StringColumn(table: Table, id: IdType, name: String) extends ColumnValue[String] {
+case class StringColumn(table: Table, id: IdType, name: String, ordering: Ordering) extends ColumnValue[String] {
   val dbType = "text"
 }
 
-case class NumberColumn(table: Table, id: IdType, name: String) extends ColumnValue[Number] {
+case class NumberColumn(table: Table, id: IdType, name: String, ordering: Ordering) extends ColumnValue[Number] {
   val dbType = "numeric"
 }
 
-case class LinkColumn[A](table: Table, id: IdType, to: ColumnValue[A], name: String) extends LinkColumnType[A] {
+case class LinkColumn[A](table: Table, id: IdType, to: ColumnValue[A], name: String, ordering: Ordering) extends LinkColumnType[A] {
   val dbType = "link"
 }
 
-case class ColumnValueSeq(columns: Seq[ColumnValue[_]]) extends DomainObject {
-  def toJson: JsonObject = Json.obj("tableId" -> columns(0).table.id, "cols" ->
-    (columns map { col => Json.obj("columnId" -> col.id, "columnName" -> col.name, "type" -> col.dbType) }))
+case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
+  def getJson: JsonObject = Json.obj("tableId" -> columns(0).table.id, "columns" ->
+    (columns map { col =>
+      col match {
+        case c: LinkColumnType[_] => Json.obj("id" -> c.id, "name" -> c.name, "kind" -> c.dbType, "toTable" -> c.to.table.id, "toColumn" -> c.to.id, "ordering" -> c.ordering)
+        case c: ColumnValue[_] => Json.obj("id" -> c.id, "name" -> c.name, "kind" -> c.dbType, "ordering" -> c.ordering)
+      }
+    }))
+  def postJson: JsonObject = Json.obj("columns" -> (columns map { col => Json.obj("id" -> col.id, "ordering" -> col.ordering) }))
 }
 
 sealed trait TableauxDbType
@@ -64,13 +94,13 @@ case object LinkType extends TableauxDbType {
 }
 
 object Mapper {
-  def columnType(s: TableauxDbType): (Option[(Table, IdType, String) => ColumnValue[_]], TableauxDbType) = s match {
+  def columnType(s: TableauxDbType): (Option[(Table, IdType, String, Ordering) => ColumnValue[_]], TableauxDbType) = s match {
     case TextType => (Some(StringColumn.apply), TextType)
     case NumericType => (Some(NumberColumn.apply), NumericType)
     case LinkType => (None, LinkType)
   }
 
-  def getApply(s: TableauxDbType): (Table, IdType, String) => ColumnValue[_] = columnType(s)._1.get
+  def getApply(s: TableauxDbType): (Table, IdType, String, Ordering) => ColumnValue[_] = columnType(s)._1.get
 
   def getDatabaseType(s: String): TableauxDbType = s match {
     case "text" => TextType
@@ -80,13 +110,15 @@ object Mapper {
 }
 
 case class Cell[A, B <: ColumnType[A]](column: B, rowId: IdType, value: A) extends DomainObject {
-  def toJson: JsonObject = {
+  def getJson: JsonObject = {
     val v = value match {
       case link: Link[A] => link.toJson
       case _ => value
     }
-    Json.obj("tableId" -> column.table.id, "columnId" -> column.id, "rowId" -> rowId, "value" -> v)
+    Json.obj("rows" -> Json.arr(Json.obj("value" -> v)))
   }
+
+  def postJson: JsonObject = Json.obj()
 }
 
 case class Link[A](value: Seq[(IdType, A)]) {
@@ -96,36 +128,39 @@ case class Link[A](value: Seq[(IdType, A)]) {
 }
 
 case class Table(id: IdType, name: String) extends DomainObject {
-  def toJson: JsonObject = Json.obj("tableId" -> id, "tableName" -> name)
+  def getJson: JsonObject = Json.obj("tableId" -> id, "tableName" -> name)
+
+  def postJson: JsonObject = Json.obj("tableId" -> id)
 }
 
-case class CompleteTable(table: Table, columnList: Seq[(ColumnType[_], Seq[Cell[_, _]])]) extends DomainObject {
-  def toJson: JsonObject = {
-    val columnsJson = columnList map { case (col, _) => Json.obj("id" -> col.id, "name" -> col.name) }
-    val fromColumnValueToRowValue = columnList flatMap { case (col, colValues) => colValues map { cell => Json.obj("id" -> cell.rowId, s"c${col.id}" -> cell.value) } }
-    val rowsJson = fromColumnValueToRowValue.foldLeft(Seq[JsonObject]()) { (finalRowValues, rowValues) =>
-      val helper = fromColumnValueToRowValue.filter { filterJs => filterJs.getLong("id") == rowValues.getLong("id") }.foldLeft(Json.obj()) { (js, filteredJs) => js.mergeIn(filteredJs) }
-      if (finalRowValues.contains(helper)) finalRowValues else finalRowValues :+ helper
-    }
+case class CompleteTable(table: Table, columnList: Seq[ColumnType[_]], rowList: RowSeq) extends DomainObject {
+  def getJson: JsonObject = table.getJson.mergeIn(Json.obj("columns" -> (columnList map { _.getJson.getArray("columns").get[JsonObject](0) }))).mergeIn(rowList.getJson)
 
-    table.toJson.mergeIn(Json.obj("cols" -> columnsJson, "rows" -> rowsJson))
-  }
+  def postJson: JsonObject = table.postJson.mergeIn(Json.obj("columns" -> (columnList map { _.postJson.getArray("columns").get[JsonObject](0) }))).mergeIn(rowList.postJson)
 }
 
 case class RowIdentifier(table: Table, id: IdType) extends DomainObject {
-  def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id)
+  def getJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id)))
+
+  def postJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id)))
 }
 
 case class Row(table: Table, id: IdType, values: Seq[_]) extends DomainObject {
-  def toJson: JsonObject = Json.obj("tableId" -> table.id, "rowId" -> id, "values" -> values)
+  def getJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id, "values" -> values)))
+
+  def postJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id)))
 }
 
 case class RowSeq(rows: Seq[Row]) extends DomainObject {
-  def toJson: JsonObject = Json.obj("tableId" -> rows(0).table.id, "rows" -> (rows map { r => Json.obj("rowId" -> r.id, "values" -> r.values) }))
+  def getJson: JsonObject = Json.obj("rows" -> (rows map { r => Json.obj("id" -> r.id, "values" -> r.values) }))
+
+  def postJson: JsonObject = Json.obj("rows" -> (rows map { r => Json.obj("id" -> r.id) }))
 }
 
 case class EmptyObject() extends DomainObject {
-  def toJson: JsonObject = Json.obj()
+  def getJson: JsonObject = Json.obj()
+
+  def postJson: JsonObject = Json.obj()
 }
 
 class Tableaux(verticle: Verticle) {
@@ -149,10 +184,17 @@ class Tableaux(verticle: Verticle) {
     id <- tableStruc.create(name)
   } yield Table(id, name)
 
-  def createCompleteTable(name: String, columnsNameAndType: Seq[(String, TableauxDbType)], rowsWithColumnsIdAndValue: Seq[Seq[(Long, _)]]): Future[CompleteTable] = for {
+  def createCompleteTable(name: String, columnsNameAndType: Seq[(String, TableauxDbType, Option[(IdType, IdType, IdType)])], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = for {
     table <- createTable(name)
-    _ <- addColumn(table.id, columnsNameAndType)
-    _ <- addFullRows(table.id, rowsWithColumnsIdAndValue)
+    columnIds <- addColumn(table.id, columnsNameAndType) map { colSeq => colSeq.columns map { col => col.id } }
+    rowsWithColumnIdAndValue <- Future.successful {
+      if (rowsValues.isEmpty) {
+        Seq()
+      } else {
+        rowsValues map { columnIds.zip(_) }
+      }
+    }
+    _ <- addFullRows(table.id, rowsWithColumnIdAndValue)
     completeTable <- getCompleteTable(table.id)
   } yield completeTable
 
@@ -164,22 +206,30 @@ class Tableaux(verticle: Verticle) {
     _ <- rowStruc.delete(tableId, rowId)
   } yield EmptyObject()
 
-  def addColumn(tableId: IdType, namesAndTypes: Seq[(String, TableauxDbType)]): Future[ColumnValueSeq] = for {
-    table <- getTable(tableId)
-    seqNameColApplyType <- Future.successful(namesAndTypes map { case (n, t) => (n, Mapper.columnType(t)) })
-    ids <- Future.sequence {
-      for {
-        (colName, (_, dbType)) <- seqNameColApplyType
-      } yield columnStruc.insert(table.id, dbType, colName) // FIXME random error due to race?
+  def addColumn(tableId: IdType, columns: Seq[(String, TableauxDbType, Option[(IdType, IdType, IdType)])]): Future[ColumnSeq] = for {
+    cols <- Future.sequence { //FIXME random error due to race?
+      columns map {
+        case (name, dbType, opt) =>
+          dbType match {
+            case LinkType =>
+              val (toTable, toColumn, fromColumn) = opt.get
+              addLinkColumn(tableId, name, fromColumn, toTable, toColumn)
+            case _ => addValueColumn(tableId, name, dbType)
+          }
+      }
     }
-    cols <- Future.successful((0 until ids.length) map { i => seqNameColApplyType(i)._2._1.get.apply(table, ids(i), seqNameColApplyType(i)._1) })
-  } yield ColumnValueSeq(cols)
+  } yield ColumnSeq(cols)
+
+  def addValueColumn(tableId: IdType, name: String, columnType: TableauxDbType): Future[ColumnValue[_]] = for {
+    table <- getTable(tableId)
+    (id, ordering) <- columnStruc.insert(table.id, columnType, name)
+  } yield Mapper.getApply(columnType).apply(table, id, name, ordering)
 
   def addLinkColumn(tableId: IdType, name: String, fromColumn: IdType, toTable: IdType, toColumn: IdType): Future[LinkColumnType[_]] = for {
     table <- getTable(tableId)
     toCol <- getColumn(toTable, toColumn).asInstanceOf[Future[ColumnValue[_]]]
-    id <- columnStruc.insertLink(tableId, name, fromColumn, toCol.table.id, toCol.id)
-  } yield LinkColumn(table, id, toCol, name)
+    (id, ordering) <- columnStruc.insertLink(tableId, name, fromColumn, toCol.table.id, toCol.id)
+  } yield LinkColumn(table, id, toCol, name, ordering)
 
   def removeColumn(tableId: IdType, columnId: IdType): Future[EmptyObject] = for {
     _ <- columnStruc.delete(tableId, columnId)
@@ -200,7 +250,19 @@ class Tableaux(verticle: Verticle) {
     row <- Future.sequence(ids map { id => getRow(table.id, id) })
   } yield RowSeq(row)
 
-  def insertValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
+  def insertValue[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[_, _]] = for {
+    column <- getColumn(tableId, columnId)
+    cell <- column match {
+      case _: LinkColumnType[_] =>
+        import scala.collection.JavaConverters._
+        val valueList = value.asInstanceOf[JsonArray].asScala.toList.asInstanceOf[List[Number]]
+        val valueFromList = (valueList(0).longValue(), valueList(1).longValue())
+        insertLinkValue(tableId, columnId, rowId, valueFromList)
+      case _ => insertNormalValue(tableId, columnId, rowId, value)
+    }
+  } yield cell
+
+  def insertNormalValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     column <- getColumn(tableId, columnId)
     _ <- cellStruc.update(tableId, columnId, rowId, value)
   } yield Cell[A, B](column.asInstanceOf[B], rowId, value.asInstanceOf[A])
@@ -208,76 +270,60 @@ class Tableaux(verticle: Verticle) {
   def insertLinkValue(tableId: IdType, columnId: IdType, rowId: IdType, value: (IdType, IdType)): Future[Cell[Link[_], ColumnType[Link[_]]]] = for {
     linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumnType[_]]]
     _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, value)
-    json <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
-    v <- Future.successful(json.get[JsonArray](0).get[String](0))
+    v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
   } yield Cell[Link[v.type], LinkColumnType[v.type]](linkColumn.asInstanceOf[LinkColumnType[v.type]], rowId, Link(List((value._2, v)))).asInstanceOf[Cell[Link[_], ColumnType[Link[_]]]]
 
   def getTable(tableId: IdType): Future[Table] = for {
-    json <- tableStruc.get(tableId)
-  } yield Table(json.get[Long](0), json.get[String](1))
+    (id, name) <- tableStruc.get(tableId)
+  } yield Table(id, name)
 
   def getRow(tableId: IdType, rowId: IdType): Future[Row] = for {
     table <- getTable(tableId)
-    results <- rowStruc.get(tableId, rowId)
-    values <- Future.successful(resultsInListOfList(results))
-  } yield Row(table, values(0).get[IdType](0), values(0).asScala.toSeq.drop(1))
+    (id, seqOfValues) <- rowStruc.get(tableId, rowId)
+  } yield Row(table, id, seqOfValues)
 
   def getCell(tableId: IdType, columnId: IdType, rowId: IdType): Future[Cell[_, _]] = for {
     column <- getColumn(tableId, columnId)
-    x <- column match {
+    value <- column match {
       case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
       case _ => cellStruc.getValue(tableId, columnId, rowId)
     }
   } yield {
-    val values = resultsInListOfList(x)
-    val value = values(0).asScala.toList(0)
     Cell[value.type, ColumnType[value.type]](column.asInstanceOf[ColumnType[value.type]], rowId, value)
   }
 
   def getColumn(tableId: IdType, columnId: IdType): Future[ColumnType[_]] = for {
     table <- getTable(tableId)
-    result <- columnStruc.get(table.id, columnId)
-    column <- Mapper.getDatabaseType(result.get[String](2)) match {
-      case LinkType => getLinkColumn(table, result)
-      case _ => Future.successful(getValueColumn(table, result))
+    (columnId, columnName, columnKind, ordering) <- columnStruc.get(table.id, columnId)
+    column <- columnKind match {
+      case LinkType => getLinkColumn(table, columnId, columnName, ordering)
+      case kind => Future.successful(getValueColumn(table, columnId, columnName, kind, ordering))
     }
   } yield column.asInstanceOf[ColumnType[_]]
 
-  private def getValueColumn(table: Table, result: JsonArray): ColumnValue[_] = {
-    Mapper.getApply(Mapper.getDatabaseType(result.get[String](2))).apply(table, result.get[IdType](0), result.get[String](1))
+  private def getValueColumn(table: Table, columnId: IdType, columnName: String, columnKind: TableauxDbType, ordering: Ordering): ColumnValue[_] = {
+    Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)
   }
 
-  private def getLinkColumn(table: Table, result: JsonArray): Future[LinkColumnType[_]] = for {
-    (columnId, columnName) <- Future.successful((result.get[IdType](0), result.get[String](1)))
-    json <- columnStruc.getToColumn(table.id, columnId)
-    toCol <- getColumn(json.get[Long](0), json.get[Long](1)).asInstanceOf[Future[ColumnValue[_]]]
-  } yield LinkColumn(table, columnId, toCol, columnName)
+  private def getLinkColumn(table: Table, columnId: IdType, columnName: String, ordering: Ordering): Future[LinkColumnType[_]] = for {
+    (tableId, toColumnId) <- columnStruc.getToColumn(table.id, columnId)
+    toCol <- getColumn(tableId, toColumnId).asInstanceOf[Future[ColumnValue[_]]]
+  } yield LinkColumn(table, columnId, toCol, columnName, ordering)
 
   def getCompleteTable(tableId: IdType): Future[CompleteTable] = for {
     table <- getTable(tableId)
-    colList <- getAllTableCells(table)
-  } yield CompleteTable(table, colList)
+    colList <- getAllColumns(table)
+    rowList <- getAllRows(table)
+  } yield CompleteTable(table, colList, rowList)
 
-  private def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = {
-    columnStruc.getAll(table.id) map {
-      resultsInListOfList(_) map { jsonRes =>
-        Mapper.getApply(Mapper.getDatabaseType(jsonRes.get(2))).apply(table, jsonRes.get(0), jsonRes.get(1))
-      }
-    }
+  private def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = for {
+    allColumns <- columnStruc.getAll(table.id)
+  } yield allColumns map {
+    case (columnId, columnName, columnKind, ordering) =>
+      Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)
   }
 
-  private def getAllRowsFromColumn[A](column: ColumnType[A]): Future[Seq[Cell[A, ColumnType[A]]]] = {
-    rowStruc.getAllFromColumn(column.table.id, column.id) map {
-      resultsInListOfList(_) map { jsonRes =>
-        Cell[A, ColumnType[A]](column, jsonRes.get(0), jsonRes.get(1))
-      }
-    }
-  }
-
-  private def getAllTableCells(table: Table): Future[Seq[(ColumnType[_], Seq[Cell[_, _]])]] = {
-    getAllColumns(table) flatMap { seqColumn => Future.sequence(seqColumn map { column => getAllRowsFromColumn(column) map { seqCell => (column, seqCell) } }) }
-  }
-
-  private def resultsInListOfList(results: JsonArray): Seq[JsonArray] = results.asScala.toSeq.asInstanceOf[Seq[JsonArray]]
-
+  private def getAllRows(table: Table): Future[RowSeq] = for {
+    allRows <- rowStruc.getAll(table.id)
+  } yield RowSeq(allRows map { case (rowId, values) => Row(table, rowId, values) })
 }

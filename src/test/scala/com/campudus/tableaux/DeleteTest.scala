@@ -7,7 +7,8 @@ import org.vertx.scala.core.json.Json
 class DeleteTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
-  val createColumnJson = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
+  val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+  val expectedJson = Json.obj("status" -> "ok")
 
   @Test
   def deleteEmptyTable(): Unit = okTest {
@@ -15,18 +16,18 @@ class DeleteTest extends TableauxTestBase {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       test <- sendRequest("DELETE", "/tables/1")
     } yield {
-      assertEquals(Json.obj(), test)
+      assertEquals(expectedJson, test)
     }
   }
 
   @Test
-  def deleteWithColumnTable(): Unit = okTest {
+  def deleteTableWithColumn(): Unit = okTest {
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createColumnJson, "/tables/1/columns")
+      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
       test <- sendRequest("DELETE", "/tables/1")
     } yield {
-      assertEquals(Json.obj(), test)
+      assertEquals(expectedJson, test)
     }
   }
 
@@ -34,10 +35,10 @@ class DeleteTest extends TableauxTestBase {
   def deleteColumn(): Unit = okTest {
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createColumnJson, "/tables/1/columns")
+      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
       test <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield {
-      assertEquals(Json.obj(), test)
+      assertEquals(expectedJson, test)
     }
   }
 
@@ -48,7 +49,7 @@ class DeleteTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables/1/rows")
       test <- sendRequest("DELETE", "/tables/1/rows/1")
     } yield {
-      assertEquals(Json.obj(), test)
+      assertEquals(expectedJson, test)
     }
   }
 

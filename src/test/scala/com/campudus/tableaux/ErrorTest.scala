@@ -9,9 +9,9 @@ import com.campudus.tableaux.database.DatabaseConnection
 class ErrorTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
-  val createStringColumnJson = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
-  val createNumberColumnJson = Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 2"))
-  val fillCellJson = Json.obj("type" -> "text", "value" -> "Test Fill 1")
+  val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+  val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+  val fillCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
 
   val errorJsonNotFound = "errors.json.not-found"
   val errorDatabaseDelete = "errors.database.delete"
@@ -22,6 +22,7 @@ class ErrorTest extends TableauxTestBase {
   val errorJsonInvalid = "error.json.invalid"
   val errorJsonNull = "error.json.null"
   val errorJsonArray = "error.json.array"
+  val errorJsonObject = "error.json.object"
   val errorJsonEmpty = "error.json.empty"
   val errorJsonLink = "error.json.link"
   val notFound = "NOT FOUND"
@@ -111,37 +112,76 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def createMultipleColumnsWithoutTypeJson(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("type" -> null, "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+  def fillCellWithNullCells(): Unit = cellHelper(errorJsonNull, Json.obj("cells" -> null))
 
   @Test
-  def createMultipleColumnsWithoutColNameJson(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> null))
+  def fillCellWithEmptyJson(): Unit = cellHelper(errorJsonEmpty, Json.obj("cells" -> Json.arr()))
 
   @Test
-  def createMultipleColumnsWithInvalidTypeJson(): Unit = multipleColumnHelper(errorJsonArray, Json.obj("type" -> 1, "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+  def fillCellWithInvalidJsonObject(): Unit = cellHelper(errorJsonObject, Json.obj("cells" -> Json.arr(1)))
 
   @Test
-  def createMultipleColumnsWithInvalidColNameJson(): Unit = multipleColumnHelper(errorJsonArray, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> 1))
+  def fillCellWithNullValues(): Unit = cellHelper(errorJsonNull, Json.obj("cells" -> Json.arr(Json.obj())))
+
+  private def cellHelper(error: String, json: JsonObject): Unit = exceptionTest(error) {
+    for {
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables/1/rows")
+      _ <- sendRequestWithJson("POST", json, "/tables/1/columns/1/rows/1")
+    } yield ()
+  }
 
   @Test
-  def createMultipleColumnsWithNoStringColNameJson(): Unit = multipleColumnHelper(errorJsonInvalid, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> Json.arr(1, "Test Column 2")))
+  def createMultipleColumnsWithoutColumnsJson(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> null))
 
   @Test
-  def createMultipleColumnsWithEmptyTypeJson(): Unit = multipleColumnHelper(errorJsonEmpty, Json.obj("type" -> Json.arr(), "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+  def createMultipleColumnsWithEmptyJson(): Unit = multipleColumnHelper(errorJsonEmpty, Json.obj("columns" -> Json.arr()))
 
   @Test
-  def createMultipleColumnsWithEmptyColNameJson(): Unit = multipleColumnHelper(errorJsonEmpty, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> Json.arr()))
+  def createMultipleColumnsWithoutTypeJson(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(Json.obj("kind" -> null, "name" -> "Test Column 1"))))
 
   @Test
-  def createMultipleColumnsWithMoreTypes(): Unit = multipleColumnHelper(errorJsonArguments, Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> Json.arr("Test Column 1")))
+  def createMultipleColumnsWithoutColNameJson(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> null))))
 
   @Test
-  def createMultipleColumnsWithMoreColNames(): Unit = multipleColumnHelper(errorJsonArguments, Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+  def createMultipleColumnsWithInvalidJsonObjects(): Unit = multipleColumnHelper(errorJsonObject, Json.obj("columns" -> Json.arr(1, "text")))
 
   @Test
-  def createMultipleColumnsWithStartingNormalType(): Unit = multipleColumnHelper(errorJsonLink, Json.obj("type" -> Json.arr("numeric", "link", "link"), "columnName" -> Json.arr("Test Column 1", "Test Column 2", "Test Column 3")))
+  def createMultipleColumnsWithInvalidKindJson(): Unit = multipleColumnHelper(errorJsonInvalid, Json.obj("columns" -> Json.arr(Json.obj("kind" -> 1, "name" -> "Test Column 1"))))
 
   @Test
-  def createMultipleColumnsWithStartingLinkType(): Unit = multipleColumnHelper(errorJsonLink, Json.obj("type" -> Json.arr("link", "text", "text"), "columnName" -> Json.arr("Test Column 1", "Test Column 2", "Test Column 3")))
+  def createMultipleColumnsWithNoStringColNameJson(): Unit = multipleColumnHelper(errorJsonInvalid, Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> 1))))
+
+  @Test
+  def createMultipleColumnsWithoutTypes(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Column 1"))))
+
+  @Test
+  def createMultipleColumnsWithMoreColNames(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text"))))
+
+  @Test
+  def createMultipleColumnsWithStartingNormalType(): Unit = multipleColumnHelper(errorJsonLink, Json.obj("columns" -> Json.arr(
+    Json.obj("kind" -> "text", "name" -> "Test Column 1"),
+    Json.obj("kind" -> "link", "name" -> "Test Column 2", "toTable" -> 1, "toColumn" -> 1, "fromColumn" -> 1),
+    Json.obj("kind" -> "link", "name" -> "Test Column 3", "toTable" -> 1, "toColumn" -> 1, "fromColumn" -> 1))))
+
+  @Test
+  def createMultipleColumnsWithStartingLinkType(): Unit = multipleColumnHelper(errorJsonLink, Json.obj("columns" -> Json.arr(
+    Json.obj("kind" -> "link", "name" -> "Test Column 1", "toTable" -> 1, "toColumn" -> 1, "fromColumn" -> 1),
+    Json.obj("kind" -> "text", "name" -> "Test Column 2"),
+    Json.obj("kind" -> "text", "name" -> "Test Column 3"))))
+
+  @Test
+  def createMultipleLinkColumnsWithoutToTable(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(
+    Json.obj("kind" -> "link", "name" -> "Test Column 1", "toColumn" -> 1, "fromColumn" -> 1))))
+
+  @Test
+  def createMultipleLinkColumnsWithoutToColumn(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(
+    Json.obj("kind" -> "link", "name" -> "Test Column 1", "toTable" -> 1, "fromColumn" -> 1))))
+
+  @Test
+  def createMultipleLinkColumnsWithoutFromColumn(): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(
+    Json.obj("kind" -> "link", "name" -> "Test Column 1", "toTable" -> 1, "toColumn" -> 1))))
 
   private def multipleColumnHelper(error: String, json: JsonObject): Unit = exceptionTest(error) {
     for {
@@ -151,37 +191,52 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def createMultipleFullRowsWithoutColIdJson(): Unit = multipleRowHelper(errorJsonNull, Json.obj("columnIds" -> null, "values" -> Json.arr(Json.arr("Test Field 1", 2))))
+  def createMultipleFullRowsWithoutColIdJson(): Unit = multipleRowHelper(errorJsonNull,
+    Json.obj("columns" -> null, "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)))))
 
   @Test
-  def createMultipleFullRowsWithoutValueJson(): Unit = multipleRowHelper(errorJsonNull, Json.obj("columnIds" -> Json.arr(Json.arr(1, 2)), "values" -> null))
+  def createMultipleFullRowsWithoutValueJson(): Unit = multipleRowHelper(errorJsonNull,
+    Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> null))))
 
   @Test
-  def createMultipleFullRowsWithEmptyColIdJson(): Unit = multipleRowHelper(errorJsonEmpty, Json.obj("columnIds" -> Json.arr(), "values" -> Json.arr(Json.arr("Test Field 1", 2))))
+  def createMultipleFullRowsWithEmptyColIdJson(): Unit = multipleRowHelper(errorJsonEmpty,
+    Json.obj("columns" -> Json.arr(), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)))))
 
   @Test
-  def createMultipleFullRowsWithEmptyValueJson(): Unit = multipleRowHelper(errorJsonEmpty, Json.obj("columnIds" -> Json.arr(Json.arr(1, 2)), "values" -> Json.arr()))
+  def createMultipleFullRowsWithEmptyValueJson(): Unit = multipleRowHelper(errorJsonEmpty,
+    Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr()))))
 
   @Test
-  def createMultipleFullRowsWithMoreColIds(): Unit = multipleRowHelper(errorJsonArguments, Json.obj("columnIds" -> Json.arr(Json.arr(1, 2)), "values" -> Json.arr(Json.arr("Test Field 1"))))
+  def createMultipleFullRowsWithMoreColIds(): Unit = multipleRowHelper(errorJsonArguments,
+    Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1")))))
 
   @Test
-  def createMultipleFullRowsWithMoreValues(): Unit = multipleRowHelper(errorJsonArguments, Json.obj("columnIds" -> Json.arr(Json.arr(1)), "values" -> Json.arr(Json.arr("Test Field 1", 2))))
+  def createMultipleFullRowsWithMoreValues(): Unit = multipleRowHelper(errorJsonArguments,
+    Json.obj("columns" -> Json.arr(Json.obj("id" -> 1)), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)))))
 
   @Test
-  def createMultipleFullRowsWithInvalidColIdJson(): Unit = multipleRowHelper(errorJsonArray, Json.obj("columnIds" -> Json.arr(1), "values" -> Json.arr(Json.arr("Test Field 1", 2))))
+  def createMultipleFullRowsWithInvalidColIdJson(): Unit = multipleRowHelper(errorJsonObject,
+    Json.obj("columns" -> Json.arr(1, 2), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)))))
 
   @Test
-  def createMultipleFullRowsWithInvalidValueJson(): Unit = multipleRowHelper(errorJsonArray, Json.obj("columnIds" -> Json.arr(Json.arr(1, 2)), "values" -> Json.arr("Test Field 1")))
+  def createMultipleFullRowsWithInvalidValueJson(): Unit = multipleRowHelper(errorJsonObject,
+    Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr("Test Field 1", 2)))
 
   @Test
-  def createMultipleFullRowsWithEmptyColIdJsonArray(): Unit = multipleRowHelper(errorJsonEmpty, Json.obj("columnIds" -> Json.arr(Json.arr()), "values" -> Json.arr(Json.arr("Test Field 1", 2))))
+  def createMultipleFullRowsWithEmptyColIdJsonArray(): Unit = multipleRowHelper(errorJsonEmpty,
+    Json.obj("columns" -> Json.arr(), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)))))
 
   @Test
-  def createMultipleFullRowsWithEmptyValueJsonArray(): Unit = multipleRowHelper(errorJsonEmpty, Json.obj("columnIds" -> Json.arr(Json.arr(1, 2)), "values" -> Json.arr(Json.arr())))
+  def createMultipleFullRowsWithEmptyValueJsonArray(): Unit = multipleRowHelper(errorJsonEmpty,
+    Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr()))))
 
   @Test
-  def createMultipleFullRowsWithStringColIdJson(): Unit = multipleRowHelper(errorJsonInvalid, Json.obj("columnIds" -> Json.arr(Json.arr("1", 2)), "values" -> Json.arr(Json.arr("Test Field 1", 2))))
+  def createMultipleFullRowsWithEmptyRowsJsonArray(): Unit = multipleRowHelper(errorJsonEmpty,
+    Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr()))
+
+  @Test
+  def createMultipleFullRowsWithStringColIdJson(): Unit = multipleRowHelper(errorJsonInvalid,
+    Json.obj("columns" -> Json.arr(Json.obj("id" -> "1"), Json.obj("id" -> "2")), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)))))
 
   private def multipleRowHelper(error: String, json: JsonObject): Unit = exceptionTest(error) {
     for {
@@ -196,10 +251,9 @@ class ErrorTest extends TableauxTestBase {
   def createCompleteTableWithNullCols(): Unit = exceptionTest(errorJsonNull) {
     val createCompleteTableJson = Json.obj(
       "tableName" -> "Test Nr. 1",
-      "cols" -> null,
-      "rows" -> Json.obj(
-        "columnIds" -> Json.arr(Json.arr(1, 2), Json.arr(1, 2)),
-        "values" -> Json.arr(Json.arr("Test Fill 1", 1), Json.arr("Test Fill 2", 2))))
+      "columns" -> null,
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("Test Field 1", 2))))
 
     sendRequestWithJson("POST", createCompleteTableJson, "/tables")
   }
@@ -208,9 +262,9 @@ class ErrorTest extends TableauxTestBase {
   def createCompleteTableWithNullRows(): Unit = exceptionTest(errorJsonNull) {
     val createCompleteTableJson = Json.obj(
       "tableName" -> "Test Nr. 1",
-      "cols" -> Json.obj(
-        "type" -> Json.arr("text", "numeric"),
-        "columnName" -> Json.arr("Test Column 1", "Test Column 2")),
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
+        Json.obj("kind" -> "text", "name" -> "Test Column 2")),
       "rows" -> null)
 
     sendRequestWithJson("POST", createCompleteTableJson, "/tables")

@@ -10,13 +10,13 @@ import org.vertx.scala.core.json.Json
 class CreationTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
-  val createStringColumnJson = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
-  val createNumberColumnJson = Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 2"))
+  val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+  val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
   @Test
   def createTable(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1")
-    val expectedJson2 = Json.obj("tableId" -> 2, "tableName" -> "Test Nr. 1")
+    val expectedJson = Json.obj("status" -> "ok", "tableId" -> 1)
+    val expectedJson2 = Json.obj("status" -> "ok", "tableId" -> 2)
 
     for {
       test1 <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -29,8 +29,8 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createStringColumn(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "cols" -> Json.arr(Json.obj("columnId" -> 1, "columnName" -> "Test Column 1", "type" -> "text")))
-    val expectedJson2 = Json.obj("tableId" -> 1, "cols" -> Json.arr(Json.obj("columnId" -> 2, "columnName" -> "Test Column 1", "type" -> "text")))
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -44,8 +44,8 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createNumberColumn(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "cols" -> Json.arr(Json.obj("columnId" -> 1, "columnName" -> "Test Column 2", "type" -> "numeric")))
-    val expectedJson2 = Json.obj("tableId" -> 1, "cols" -> Json.arr(Json.obj("columnId" -> 2, "columnName" -> "Test Column 2", "type" -> "numeric")))
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -59,10 +59,12 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createMultipleColumns(): Unit = okTest {
-    val jsonObj = Json.obj("type" -> Json.arr("numeric", "text"), "columnName" -> Json.arr("Test Column 1", "Test Column 2"))
-    val expectedJson = Json.obj("tableId" -> 1, "cols" -> Json.arr(
-      Json.obj("columnId" -> 1, "columnName" -> "Test Column 1", "type" -> "numeric"),
-      Json.obj("columnId" -> 2, "columnName" -> "Test Column 2", "type" -> "text")))
+    val jsonObj = Json.obj("columns" -> Json.arr(
+      Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
+      Json.obj("kind" -> "text", "name" -> "Test Column 2")))
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
+      Json.obj("id" -> 1, "ordering" -> 1),
+      Json.obj("id" -> 2, "ordering" -> 2)))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -74,8 +76,8 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createRow(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "rowId" -> 1)
-    val expectedJson2 = Json.obj("tableId" -> 1, "rowId" -> 2)
+    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1)))
+    val expectedJson2 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 2)))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -89,8 +91,8 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createFullRow(): Unit = okTest {
-    val valuesRow = Json.obj("columnIds" -> Json.arr(Json.arr(1, 2)), "values" -> Json.arr(Json.arr("Test Field 1", 2)))
-    val expectedJson1 = Json.obj("tableId" -> 1, "rows" -> Json.arr(Json.obj("rowId" -> 1, "values" -> Json.arr("Test Field 1", 2))))
+    val valuesRow = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2))))
+    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1)))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -98,16 +100,15 @@ class CreationTest extends TableauxTestBase {
       _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
       test <- sendRequestWithJson("POST", valuesRow, "/tables/1/rows")
     } yield {
-      assertEquals(expectedJson1, test)
+      assertEquals(expectedJson, test)
     }
   }
 
   @Test
   def createMultipleFullRows(): Unit = okTest {
-    val valuesRow = Json.obj("columnIds" -> Json.arr(Json.arr(1, 2), Json.arr(1, 2)), "values" -> Json.arr(Json.arr("Test Field 1", 2), Json.arr("Test Field 2", 5)))
-    val expectedJson1 = Json.obj("tableId" -> 1, "rows" -> Json.arr(
-      Json.obj("rowId" -> 1, "values" -> Json.arr("Test Field 1", 2)),
-      Json.obj("rowId" -> 2, "values" -> Json.arr("Test Field 2", 5))))
+    val valuesRow = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)), Json.obj("values" -> Json.arr("Test Field 2", 5))))
+    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -115,7 +116,7 @@ class CreationTest extends TableauxTestBase {
       _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
       test <- sendRequestWithJson("POST", valuesRow, "/tables/1/rows")
     } yield {
-      assertEquals(expectedJson1, test)
+      assertEquals(expectedJson, test)
     }
   }
 
@@ -123,22 +124,22 @@ class CreationTest extends TableauxTestBase {
   def createCompleteTable(): Unit = okTest {
     val createCompleteTableJson = Json.obj(
       "tableName" -> "Test Nr. 1",
-      "cols" -> Json.obj(
-        "type" -> Json.arr("text", "numeric"),
-        "columnName" -> Json.arr("Test Column 1", "Test Column 2")),
-      "rows" -> Json.obj(
-        "columnIds" -> Json.arr(Json.arr(1, 2), Json.arr(1, 2)),
-        "values" -> Json.arr(Json.arr("Test Fill 1", 1), Json.arr("Test Fill 2", 2))))
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "Test Column 1"),
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 2")),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("Test Field 1", 1)),
+        Json.obj("values" -> Json.arr("Test Field 2", 2))))
 
     val expectedJson = Json.obj(
+      "status" -> "ok",
       "tableId" -> 1,
-      "tableName" -> "Test Nr. 1",
-      "cols" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Test Column 1"),
-        Json.obj("id" -> 2, "name" -> "Test Column 2")),
+      "columns" -> Json.arr(
+        Json.obj("id" -> 1, "ordering" -> 1),
+        Json.obj("id" -> 2, "ordering" -> 2)),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "c1" -> "Test Fill 1", "c2" -> 1),
-        Json.obj("id" -> 2, "c1" -> "Test Fill 2", "c2" -> 2)))
+        Json.obj("id" -> 1),
+        Json.obj("id" -> 2)))
 
     for {
       test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
@@ -151,11 +152,11 @@ class CreationTest extends TableauxTestBase {
   def createCompleteTableWithoutCols(): Unit = okTest {
     val createCompleteTableJson = Json.obj(
       "tableName" -> "Test Nr. 1",
-      "rows" -> Json.obj(
-        "columnIds" -> Json.arr(Json.arr(1, 2), Json.arr(1, 2)),
-        "values" -> Json.arr(Json.arr("Test Fill 1", 1), Json.arr("Test Fill 2", 2))))
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("Test Field 1", 1)),
+        Json.obj("values" -> Json.arr("Test Field 2", 2))))
 
-    val expectedJson = Json.obj("tableId" -> 1, "tableName" -> "Test Nr. 1")
+    val expectedJson = Json.obj("status" -> "ok", "tableId" -> 1)
 
     for {
       test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
@@ -168,16 +169,16 @@ class CreationTest extends TableauxTestBase {
   def createCompleteTableWithoutRows(): Unit = okTest {
     val createCompleteTableJson = Json.obj(
       "tableName" -> "Test Nr. 1",
-      "cols" -> Json.obj(
-        "type" -> Json.arr("text", "numeric"),
-        "columnName" -> Json.arr("Test Column 1", "Test Column 2")))
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "Test Column 1"),
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
     val expectedJson = Json.obj(
+      "status" -> "ok",
       "tableId" -> 1,
-      "tableName" -> "Test Nr. 1",
-      "cols" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Test Column 1"),
-        Json.obj("id" -> 2, "name" -> "Test Column 2")),
+      "columns" -> Json.arr(
+        Json.obj("id" -> 1, "ordering" -> 1),
+        Json.obj("id" -> 2, "ordering" -> 2)),
       "rows" -> Json.arr())
 
     for {

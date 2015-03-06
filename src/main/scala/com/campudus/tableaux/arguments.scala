@@ -29,7 +29,7 @@ object ArgumentChecker {
     if (x != null) OkArg(x) else FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
   } catch {
     case npe: NullPointerException => FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
-    case cce: ClassCastException => FailArg(InvalidJsonException(s"Warning: Should be a JsonArray", "array"))
+    case cce: ClassCastException => FailArg(InvalidJsonException(s"Warning: $name should not be ${name.getClass}", "invalid"))
   }
 
   def greaterZero(x: Long): ArgumentCheck[Long] = if (x > 0) OkArg(x) else FailArg(InvalidJsonException(s"Argument $x is not greater than zero", "invalid"))
