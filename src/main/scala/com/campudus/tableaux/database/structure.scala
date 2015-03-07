@@ -10,20 +10,20 @@ sealed trait ReturnType
 
 case object GetReturn extends ReturnType
 
-case object PostReturn extends ReturnType
+case object SetReturn extends ReturnType
 
 case object DeleteReturn extends ReturnType
 
 sealed trait DomainObject {
   def getJson: JsonObject
 
-  def postJson: JsonObject
+  def setJson: JsonObject
 
   def deleteJson: JsonObject = Json.obj()
 
   def toJson(reType: ReturnType): JsonObject = reType match {
     case GetReturn => getJson
-    case PostReturn => postJson
+    case SetReturn => setJson
     case DeleteReturn => deleteJson
   }
 }
@@ -43,7 +43,7 @@ sealed trait ColumnType[A] extends DomainObject {
 
   def getJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "name" -> name, "kind" -> dbType, "ordering" -> ordering)))
 
-  def postJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
+  def setJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
 }
 
 sealed trait LinkColumnType[A] extends ColumnType[Link[A]] {
@@ -51,7 +51,7 @@ sealed trait LinkColumnType[A] extends ColumnType[Link[A]] {
 
   override def getJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "name" -> name, "kind" -> dbType, "toTable" -> to.table.id, "toColumn" -> to.id, "ordering" -> ordering)))
 
-  override def postJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
+  override def setJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
 }
 
 sealed trait ColumnValue[A] extends ColumnType[A]
@@ -76,7 +76,7 @@ case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
         case c: ColumnValue[_] => Json.obj("id" -> c.id, "name" -> c.name, "kind" -> c.dbType, "ordering" -> c.ordering)
       }
     }))
-  def postJson: JsonObject = Json.obj("columns" -> (columns map { col => Json.obj("id" -> col.id, "ordering" -> col.ordering) }))
+  def setJson: JsonObject = Json.obj("columns" -> (columns map { col => Json.obj("id" -> col.id, "ordering" -> col.ordering) }))
 }
 
 sealed trait TableauxDbType
@@ -118,7 +118,7 @@ case class Cell[A, B <: ColumnType[A]](column: B, rowId: IdType, value: A) exten
     Json.obj("rows" -> Json.arr(Json.obj("value" -> v)))
   }
 
-  def postJson: JsonObject = Json.obj()
+  def setJson: JsonObject = Json.obj()
 }
 
 case class Link[A](value: Seq[(IdType, A)]) {
@@ -130,37 +130,37 @@ case class Link[A](value: Seq[(IdType, A)]) {
 case class Table(id: IdType, name: String) extends DomainObject {
   def getJson: JsonObject = Json.obj("tableId" -> id, "tableName" -> name)
 
-  def postJson: JsonObject = Json.obj("tableId" -> id)
+  def setJson: JsonObject = Json.obj("tableId" -> id)
 }
 
 case class CompleteTable(table: Table, columnList: Seq[ColumnType[_]], rowList: RowSeq) extends DomainObject {
   def getJson: JsonObject = table.getJson.mergeIn(Json.obj("columns" -> (columnList map { _.getJson.getArray("columns").get[JsonObject](0) }))).mergeIn(rowList.getJson)
 
-  def postJson: JsonObject = table.postJson.mergeIn(Json.obj("columns" -> (columnList map { _.postJson.getArray("columns").get[JsonObject](0) }))).mergeIn(rowList.postJson)
+  def setJson: JsonObject = table.setJson.mergeIn(Json.obj("columns" -> (columnList map { (_.setJson.getArray("columns").get[JsonObject](0)) }))).mergeIn(rowList.setJson)
 }
 
 case class RowIdentifier(table: Table, id: IdType) extends DomainObject {
   def getJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id)))
 
-  def postJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id)))
+  def setJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id)))
 }
 
 case class Row(table: Table, id: IdType, values: Seq[_]) extends DomainObject {
   def getJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id, "values" -> values)))
 
-  def postJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id)))
+  def setJson: JsonObject = Json.obj("rows" -> Json.arr(Json.obj("id" -> id)))
 }
 
 case class RowSeq(rows: Seq[Row]) extends DomainObject {
   def getJson: JsonObject = Json.obj("rows" -> (rows map { r => Json.obj("id" -> r.id, "values" -> r.values) }))
 
-  def postJson: JsonObject = Json.obj("rows" -> (rows map { r => Json.obj("id" -> r.id) }))
+  def setJson: JsonObject = Json.obj("rows" -> (rows map { r => Json.obj("id" -> r.id) }))
 }
 
 case class EmptyObject() extends DomainObject {
   def getJson: JsonObject = Json.obj()
 
-  def postJson: JsonObject = Json.obj()
+  def setJson: JsonObject = Json.obj()
 }
 
 class Tableaux(verticle: Verticle) {

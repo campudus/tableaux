@@ -96,21 +96,15 @@ object HelperFunctions {
 
   private def matchForLinkTypes[A](seq: Seq[(String, TableauxDbType, A)]): ArgumentCheck[Seq[(String, TableauxDbType, A)]] = {
     sequence(seq map {
-      case (name, dbType, opt) =>
-        dbType match {
-          case LinkType => OkArg(name, dbType, opt)
-          case _ => FailArg[(String, TableauxDbType, A)](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
-        }
+      case (name, LinkType, opt) => OkArg[(String, TableauxDbType, A)](name, LinkType, opt)
+      case (_, dbType, _) => FailArg[(String, TableauxDbType, A)](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
     })
   }
 
   private def matchForNormalTypes[A](seq: Seq[(String, TableauxDbType, A)]): ArgumentCheck[Seq[(String, TableauxDbType, A)]] = {
     sequence(seq map {
-      case (name, dbType, opt) =>
-        dbType match {
-          case LinkType => FailArg[(String, TableauxDbType, A)](InvalidJsonException(s"Warning: $dbType is a Link, but should be a normal Type", "link"))
-          case _ => OkArg(name, dbType, opt)
-        }
+      case (_, LinkType, _) => FailArg[(String, TableauxDbType, A)](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
+      case (name, dbType, opt) => OkArg(name, dbType, opt)
     })
   }
 

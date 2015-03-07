@@ -33,8 +33,8 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Get(tableIdColumnsId(tableId, columnId)) => getAsyncReply(GetReturn)(controller.getColumn(tableId.toLong, columnId.toLong))
     case Get(tableIdRowsId(tableId, rowId)) => getAsyncReply(GetReturn)(controller.getRow(tableId.toLong, rowId.toLong))
     case Get(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(GetReturn)(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
-    case Post("/reset") => getAsyncReply(PostReturn)(controller.resetDB())
-    case Post("/tables") => getAsyncReply(PostReturn) {
+    case Post("/reset") => getAsyncReply(SetReturn)(controller.resetDB())
+    case Post("/tables") => getAsyncReply(SetReturn) {
       import scala.collection.JavaConverters._
       getJson(req) flatMap { json =>
         if (json.getFieldNames.asScala.toSeq.contains("columns")) {
@@ -48,15 +48,15 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
         }
       }
     }
-    case Post(tableIdColumns(tableId)) => getAsyncReply(PostReturn) {
+    case Post(tableIdColumns(tableId)) => getAsyncReply(SetReturn) {
       getJson(req) flatMap (json => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json)))
     }
-    case Post(tableIdRows(tableId)) => getAsyncReply(PostReturn) {
+    case Post(tableIdRows(tableId)) => getAsyncReply(SetReturn) {
       getJson(req) flatMap (json => controller.createRow(tableId.toLong, Some(jsonToSeqOfRowsWithColumnIdAndValue(json)))) recoverWith {
         case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
       }
     }
-    case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(PostReturn) {
+    case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(SetReturn) {
       getJson(req) flatMap {
         json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, jsonToValues(json))
       }

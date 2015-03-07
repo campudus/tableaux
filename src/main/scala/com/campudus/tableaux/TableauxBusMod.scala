@@ -18,12 +18,12 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
   val controller = new TableauxController(verticle)
 
   def receive(): Message[JsonObject] => PartialFunction[String, BusModReceiveEnd] = msg => {
-    case "reset" => getAsyncReply(PostReturn)(controller.resetDB())
+    case "reset" => getAsyncReply(SetReturn)(controller.resetDB())
     case "getTable" => getAsyncReply(GetReturn)(controller.getTable(getInfo[Long](msg, "tableId")))
     case "getColumn" => getAsyncReply(GetReturn)(controller.getColumn(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "columns")))
     case "getRow" => getAsyncReply(GetReturn)(controller.getRow(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "rows")))
     case "getCell" => getAsyncReply(GetReturn)(controller.getCell(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "columns"), getInfo[Long](msg, "rows")))
-    case "createTable" => getAsyncReply(PostReturn) {
+    case "createTable" => getAsyncReply(SetReturn) {
       import scala.collection.JavaConverters._
       if (msg.body().getFieldNames.asScala.toSeq.contains("columns")) {
         if (msg.body().getFieldNames.asScala.toSeq.contains("rows")) {
@@ -35,11 +35,11 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
         controller.createTable(getInfo[String](msg, "tableName"))
       }
     }
-    case "createColumn" => getAsyncReply(PostReturn) {
+    case "createColumn" => getAsyncReply(SetReturn) {
       controller.createColumn(getInfo[Long](msg, "tableId"), jsonToSeqOfColumnNameAndType(msg.body()))
     }
-    case "createRow" => getAsyncReply(PostReturn)(controller.createRow(getInfo[Long](msg, "tableId"), Option(jsonToSeqOfRowsWithColumnIdAndValue(msg.body()))))
-    case "fillCell" => getAsyncReply(PostReturn)(controller.fillCell(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "column"), getInfo[Long](msg, "row"), jsonToValues(msg.body())))
+    case "createRow" => getAsyncReply(SetReturn)(controller.createRow(getInfo[Long](msg, "tableId"), Option(jsonToSeqOfRowsWithColumnIdAndValue(msg.body()))))
+    case "fillCell" => getAsyncReply(SetReturn)(controller.fillCell(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "column"), getInfo[Long](msg, "row"), jsonToValues(msg.body())))
     case "deleteTable" => getAsyncReply(DeleteReturn)(controller.deleteTable(getInfo[Long](msg, "tableId")))
     case "deleteColumn" => getAsyncReply(DeleteReturn)(controller.deleteColumn(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "columns")))
     case "deleteRow" => getAsyncReply(DeleteReturn)(controller.deleteRow(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "rows")))
