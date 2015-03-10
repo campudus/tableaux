@@ -6,15 +6,22 @@ import com.campudus.tableaux.NotFoundInDatabaseException
 
 object ResultChecker {
 
-  def getJsonArray(json: JsonObject): JsonArray = json.getArray("results")
+  def getSeqOfJsonArray(json: JsonObject): Seq[JsonArray] = {
+    jsonArrayToSeq(json.getArray("results"))
+  }
 
-  def deleteNotNull(json: JsonObject): JsonArray = checkHelper(json, "DELETE 0", "delete")
+  def jsonArrayToSeq[A](json: JsonArray): Seq[A] = {
+    import scala.collection.JavaConverters._
+    json.asScala.toSeq.asInstanceOf[Seq[A]]
+  }
 
-  def selectNotNull(json: JsonObject): JsonArray = checkHelper(json, "SELECT 0", "select")
+  def deleteNotNull(json: JsonObject): Seq[JsonArray] = checkHelper(json, "DELETE 0", "delete")
 
-  def insertNotNull(json: JsonObject): JsonArray = checkHelper(json, "INSERT 0", "insert")
+  def selectNotNull(json: JsonObject): Seq[JsonArray] = checkHelper(json, "SELECT 0", "select")
 
-  private def checkHelper(json: JsonObject, s: String, ex: String): JsonArray = {
-    if (json.getString("message") == s) throw NotFoundInDatabaseException(s"Warning: $ex query failed", ex) else json.getArray("results")
+  def insertNotNull(json: JsonObject): Seq[JsonArray] = checkHelper(json, "INSERT 0", "insert")
+
+  private def checkHelper(json: JsonObject, s: String, ex: String): Seq[JsonArray] = {
+    if (json.getString("message") == s) throw NotFoundInDatabaseException(s"Warning: $ex query failed", ex) else getSeqOfJsonArray(json)
   }
 }

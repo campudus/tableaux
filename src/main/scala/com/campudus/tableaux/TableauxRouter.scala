@@ -12,6 +12,7 @@ import scala.util.{ Success, Failure }
 import com.campudus.tableaux.database.DomainObject
 import com.campudus.tableaux.HelperFunctions._
 import com.campudus.tableaux.database._
+import scala.util.Try
 
 class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val container = verticle.container
@@ -28,55 +29,45 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
 
   def routes(implicit req: HttpServerRequest): PartialFunction[RouteMatch, Reply] = {
     case Get("/") => SendFile("index.html")
-    case Get(tableId(tableId)) => getAsyncReply(controller.getTable(tableId.toLong))
-    case Get(tableIdColumnsId(tableId, columnId)) => getAsyncReply(controller.getColumn(tableId.toLong, columnId.toLong))
-    case Get(tableIdRowsId(tableId, rowId)) => getAsyncReply(controller.getRow(tableId.toLong, rowId.toLong))
-    case Get(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
-    case Post("/reset") => getAsyncReply(controller.resetDB())
-    case Post("/tables") => getAsyncReply {
+    case Get(tableId(tableId)) => getAsyncReply(GetReturn)(controller.getTable(tableId.toLong))
+    case Get(tableIdColumnsId(tableId, columnId)) => getAsyncReply(GetReturn)(controller.getColumn(tableId.toLong, columnId.toLong))
+    case Get(tableIdRowsId(tableId, rowId)) => getAsyncReply(GetReturn)(controller.getRow(tableId.toLong, rowId.toLong))
+    case Get(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(GetReturn)(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
+    case Post("/reset") => getAsyncReply(SetReturn)(controller.resetDB())
+    case Post("/tables") => getAsyncReply(SetReturn) {
       import scala.collection.JavaConverters._
       getJson(req) flatMap { json =>
-        if (json.getFieldNames.asScala.toSeq.contains("cols")) {
+        if (json.getFieldNames.asScala.toSeq.contains("columns")) {
           if (json.getFieldNames.asScala.toSeq.contains("rows")) {
-            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json.getObject("cols")), jsonToSeqOfRowsWithColumnIdAndValue(json.getObject("rows")))
+            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
           } else {
-            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json.getObject("cols")), Seq())
+            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json), Seq())
           }
         } else {
           controller.createTable(json.getString("tableName"))
         }
       }
     }
-    case Post(tableIdColumns(tableId)) => getAsyncReply {
-      for {
-        json <- getJson(req)
-        dbType <- Future.apply(checkTypes(json))
-        x <- dbType.head match {
-          case LinkType => controller.createColumn(tableId.toLong, json.getString("columnName"), dbType.head, json.getLong("toTable"), json.getLong("toColumn"), json.getLong("fromColumn"))
-          case _ => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json))
-        }
-      } yield x
+    case Post(tableIdColumns(tableId)) => getAsyncReply(SetReturn) {
+      getJson(req) flatMap (json => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json)))
     }
-    case Post(tableIdRows(tableId)) => getAsyncReply {
-      for {
-        opt <- getJson(req) map { json =>
-          Some(jsonToSeqOfRowsWithColumnIdAndValue(json))
-        } recover { case ex: NoJsonFoundException => None }
-        res <- controller.createRow(tableId.toLong, opt)
-      } yield res
-    }
-    case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply {
-      getJson(req) flatMap {
-        json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, Mapper.getDatabaseType(json.getString("type")), json.getField("value"))
+    case Post(tableIdRows(tableId)) => getAsyncReply(SetReturn) {
+      getJson(req) flatMap (json => controller.createRow(tableId.toLong, Some(jsonToSeqOfRowsWithColumnIdAndValue(json)))) recoverWith {
+        case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
       }
     }
-    case Delete(tableId(tableId)) => getAsyncReply(controller.deleteTable(tableId.toLong))
-    case Delete(tableIdColumnsId(tableId, columnId)) => getAsyncReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
-    case Delete(tableIdRowsId(tableId, rowId)) => getAsyncReply(controller.deleteRow(tableId.toLong, rowId.toLong))
+    case Post(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(SetReturn) {
+      getJson(req) flatMap {
+        json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, jsonToValues(json))
+      }
+    }
+    case Delete(tableId(tableId)) => getAsyncReply(DeleteReturn)(controller.deleteTable(tableId.toLong))
+    case Delete(tableIdColumnsId(tableId, columnId)) => getAsyncReply(DeleteReturn)(controller.deleteColumn(tableId.toLong, columnId.toLong))
+    case Delete(tableIdRowsId(tableId, rowId)) => getAsyncReply(DeleteReturn)(controller.deleteRow(tableId.toLong, rowId.toLong))
   }
 
-  private def getAsyncReply(f: => Future[DomainObject]): AsyncReply = AsyncReply {
-    f map { d => Ok(d.toJson) } recover {
+  private def getAsyncReply(reType: ReturnType)(f: => Future[DomainObject]): AsyncReply = AsyncReply {
+    f map { d => Ok(Json.obj("status" -> "ok").mergeIn(d.toJson(reType))) } recover {
       case ex @ NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.database.$id", 404))
       case ex @ DatabaseException(message, id) => Error(RouterException(message, ex, s"errors.database.$id", 500))
       case ex @ NoJsonFoundException(message, id) => Error(RouterException(message, ex, s"errors.json.$id", 400))

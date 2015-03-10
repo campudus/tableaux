@@ -3,6 +3,7 @@ package com.campudus.tableaux
 import org.vertx.scala.core.json.{ JsonObject, JsonArray }
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.Tableaux._
 
 object HelperFunctions {
 
@@ -11,97 +12,108 @@ object HelperFunctions {
     sequence(array.asScala.toList.map(notNull(_, "some array value").flatMap(castElement[A])))
   }
 
-  private def asCastedLong(seq: Seq[Int]): ArgumentCheck[Seq[Long]] = {
-    tryMap((x: Seq[Int]) => x.map(_.longValue()), InvalidJsonException(s"Warning: ColumnIds should be Numbers", "invalid"))(seq)
-  }
-
   private def checkNotNullArray(json: JsonObject, field: String): ArgumentCheck[JsonArray] = notNull(json.getArray(field), field)
 
-  private def checkForString(seq: Seq[String]): ArgumentCheck[Seq[String]] = {
-    tryMap((y: Seq[String]) => y map { x: String => x }, InvalidJsonException(s"Warning: ColumnNames should be Strings", "invalid"))(seq)
+  private def checkForJsonObject(seq: Seq[JsonObject]): ArgumentCheck[Seq[JsonObject]] = {
+    tryMap((y: Seq[JsonObject]) => y map { x: JsonObject => x }, InvalidJsonException(s"Warning: Columns should be in JsonObjects", "object"))(seq)
   }
 
-  def toTableauxType(list: Seq[String]): ArgumentCheck[Seq[TableauxDbType]] = {
-    sequence(list map (tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))))
+  def toTableauxType(kind: String): ArgumentCheck[TableauxDbType] = {
+    tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))(kind)
   }
 
-  def jsonToSeqOfColumnNameAndType(json: JsonObject): Seq[(String, TableauxDbType)] = {
-    (for {
-      names <- checkNotNullArray(json, "columnName")
-      types <- checkNotNullArray(json, "type")
-      namesAsStringList <- asCastedList[String](names)
-      typesAsStringList <- asCastedList[String](types)
-      namesList <- nonEmpty(namesAsStringList, "columnName")
-      checkedNameList <- checkForString(namesList)
-      typesList <- nonEmpty(typesAsStringList, "type")
-      realTypes <- toTableauxType(typesList)
-      zippedList <- checkSameLengthsAndZip(checkedNameList, realTypes)
-    } yield zippedList).get
+  private def getLinkInformation(json: JsonObject): ArgumentCheck[Option[LinkConnections]] = for {
+    toTable <- notNull(json.getLong("toTable"), "toTable")
+    toColumn <- notNull(json.getLong("toColumn"), "toColumn")
+    fromColumn <- notNull(json.getLong("fromColumn"), "fromColumn")
+  } yield Some(toTable, toColumn, fromColumn)
+
+  private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = for {
+    tuples <- sequence(seq map {
+      json =>
+        for {
+          name <- notNull(json.getString("name"), "name")
+          kind <- notNull(json.getString("kind"), "kind")
+          dbType <- toTableauxType(kind)
+          opt <- dbType match {
+            case LinkType => getLinkInformation(json)
+            case _ => OkArg[Option[LinkConnections]](None)
+          }
+        } yield (name, dbType, opt)
+    })
+    checkedDbTypes <- matchForNormalOrLinkTypes(tuples)
+  } yield checkedDbTypes
+
+  def jsonToSeqOfColumnNameAndType(json: JsonObject): Seq[(String, TableauxDbType, Option[LinkConnections])] = (for {
+    columns <- checkNotNullArray(json, "columns")
+    columnsAsJsonObjectList <- asCastedList[JsonObject](columns)
+    columnList <- nonEmpty(columnsAsJsonObjectList, "columns")
+    checkedColumnList <- checkForJsonObject(columnList)
+    seqOfTuples <- checkAndGetColumnInfo(checkedColumnList)
+  } yield seqOfTuples).get
+
+  def jsonToSeqOfRowsWithValue(json: JsonObject): Seq[Seq[_]] = (for {
+    rows <- checkNotNullArray(json, "rows")
+    rowsAsJsonObjectList <- asCastedList[JsonObject](rows)
+    rowList <- nonEmpty(rowsAsJsonObjectList, "rows")
+    checkedRowList <- checkForJsonObject(rowList)
+    result <- sequence(checkedRowList map toValueSeq)
+  } yield result).get
+
+  def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(IdType, _)]] = (for {
+    rows <- checkNotNullArray(json, "rows")
+    columns <- checkNotNullArray(json, "columns")
+    rowsAsJsonObjectList <- asCastedList[JsonObject](rows)
+    columnsAsJsonObjectList <- asCastedList[JsonObject](columns)
+    rowList <- nonEmpty(rowsAsJsonObjectList, "rows")
+    columnList <- nonEmpty(columnsAsJsonObjectList, "columns")
+    checkedRowList <- checkForJsonObject(rowList)
+    checkedColumnList <- checkForJsonObject(columnList)
+    realIdTypes <- toIdTypes(checkedColumnList)
+    result <- checkSeq(checkedRowList, realIdTypes)
+  } yield result).get
+
+  private def toIdTypes(seq: Seq[JsonObject]): ArgumentCheck[Seq[IdType]] = {
+    sequence(seq map { json => notNull(json.getNumber("id").longValue(), "id") })
   }
 
-  def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(Long, _)]] = {
-    (for {
-      columnIds <- checkNotNullArray(json, "columnIds")
-      values <- checkNotNullArray(json, "values")
-      namesAsJsonArrayList <- asCastedList[JsonArray](columnIds)
-      typesAsJsonArrayList <- asCastedList[JsonArray](values)
-      columnIdsList <- nonEmpty(namesAsJsonArrayList, "columnIds")
-      valuesList <- nonEmpty(typesAsJsonArrayList, "values")
-      zippedList <- checkSameLengthsAndZip(columnIdsList, valuesList)
-      result <- checkSeq(zippedList)
-    } yield result).get
+  private def checkSeq(seqOfRows: Seq[JsonObject], seqOfColumnIds: Seq[IdType]): ArgumentCheck[Seq[Seq[(IdType, _)]]] = {
+    sequence(seqOfRows map { toValueSeq(_) flatMap (checkSameLengthsAndZip(seqOfColumnIds, _).asInstanceOf[ArgumentCheck[Seq[(IdType, _)]]]) })
   }
 
-  private def checkSeq(seq: Seq[(JsonArray, JsonArray)]): ArgumentCheck[Seq[Seq[(Long, _)]]] = {
-    sequence(seq map { x => jsonArraysToSeq(x) })
-  }
+  private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[_]] = for {
+    values <- checkNotNullArray(json, "values")
+    valueAsAnyList <- asCastedList[Any](values)
+    valueList <- nonEmpty(valueAsAnyList, "values")
+  } yield valueList
 
-  private def jsonArraysToSeq(json: (JsonArray, JsonArray)): ArgumentCheck[Seq[(Long, _)]] = {
-    for {
-      columnIds <- notNull(json._1, "columnIds")
-      values <- notNull(json._2, "values")
-      colIdsAsIntList <- asCastedList[Int](columnIds)
-      colIdsAsLongList <- asCastedLong(colIdsAsIntList)
-      valueAsAnyList <- asCastedList[Any](values)
-      colIdList <- nonEmpty(colIdsAsLongList, "columnIds")
-      valueList <- nonEmpty(valueAsAnyList, "values")
-      zippedList <- checkSameLengthsAndZip(colIdList, valueList)
-    } yield zippedList
-  }
-
-  def checkTypes(json: JsonObject): Seq[TableauxDbType] = {
-    (for {
-      types <- checkNotNullArray(json, "type")
-      typesAsStringList <- asCastedList[String](types)
-      typesList <- nonEmpty(typesAsStringList, "type")
-      realTypes <- toTableauxType(typesList)
-      checkedTypes <- matchForNormalOrLinkTypes(realTypes)
-    } yield checkedTypes).get
-  }
-
-  private def matchForNormalOrLinkTypes(seq: Seq[TableauxDbType]): ArgumentCheck[Seq[TableauxDbType]] = {
+  private def matchForNormalOrLinkTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
     seq.head match {
-      case LinkType => matchForLinkTypes(seq)
+      case (_, LinkType, _) => matchForLinkTypes(seq)
       case _ => matchForNormalTypes(seq)
     }
   }
 
-  private def matchForLinkTypes(seq: Seq[TableauxDbType]): ArgumentCheck[Seq[TableauxDbType]] = {
-    sequence(seq map { dbType =>
-      dbType match {
-        case LinkType => OkArg(dbType)
-        case _ => FailArg[TableauxDbType](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
-      }
+  private def matchForLinkTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
+    sequence(seq map {
+      case (name, LinkType, opt) => OkArg[(String, TableauxDbType, Option[LinkConnections])](name, LinkType, opt)
+      case (_, dbType, _) => FailArg[(String, TableauxDbType, Option[LinkConnections])](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
     })
   }
 
-  private def matchForNormalTypes(seq: Seq[TableauxDbType]): ArgumentCheck[Seq[TableauxDbType]] = {
-    sequence(seq map { dbType =>
-      dbType match {
-        case LinkType => FailArg[TableauxDbType](InvalidJsonException(s"Warning: $dbType is a Link, but should be a normal Type", "link"))
-        case _ => OkArg(dbType)
-      }
+  private def matchForNormalTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
+    sequence(seq map {
+      case (_, LinkType, _) => FailArg[(String, TableauxDbType, Option[LinkConnections])](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
+      case (name, dbType, opt) => OkArg(name, dbType, opt)
     })
   }
+
+  def jsonToValues(json: JsonObject): Any = (for {
+    cells <- checkNotNullArray(json, "cells")
+    cellsAsJsonObjectList <- asCastedList[JsonObject](cells)
+    cellList <- nonEmpty(cellsAsJsonObjectList, "cells")
+    checkedCellList <- checkForJsonObject(cellList)
+    value <- notNull(checkedCellList(0).getField[Any]("value"), "value")
+  } yield value).get
 
 }

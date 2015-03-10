@@ -5,14 +5,15 @@ import org.vertx.testtools.VertxAssert._
 import scala.concurrent.Future
 import org.vertx.scala.core.json.Json
 import org.vertx.scala.core.http.HttpClient
+import org.vertx.scala.core.json.JsonObject
 
 class LinkTest extends TableauxTestBase {
 
-  val postLinkCol = Json.obj("type" -> Json.arr("link"), "columnName" -> "Test Link 1", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)
+  val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
 
   @Test
   def getLinkColumn(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "columnName" -> "Test Link 1", "type" -> "link", "toTable" -> 2, "toColumn" -> 1)
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "toColumn" -> 1, "ordering" -> 3)))
 
     for {
       tables <- setupTables()
@@ -25,7 +26,7 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def createLinkColumn(): Unit = okTest {
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "columnName" -> "Test Link 1", "type" -> "link", "toTable" -> 2, "toColumn" -> 1)
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
 
     for {
       tables <- setupTables()
@@ -37,12 +38,12 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def fillSingleLinkCell(): Unit = okTest {
-    val fillLinkCellJson = Json.obj("type" -> "link", "value" -> Json.arr(1, 1))
-    val expectedJson = Json.obj("tableId" -> 1, "columnId" -> 3, "rowId" -> 1, "value" -> Json.arr(Json.obj("id" -> 1, "value" -> "Test Fill 1")))
+    val fillLinkCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> Json.arr(1, 1))))
+    val expectedJson = Json.obj("status" -> "ok")
 
     for {
       tables <- setupTables()
-      columnId <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns") map { _.getLong("columnId") }
+      columnId <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns") map { _.getArray("columns").get[JsonObject](0).getLong("id") }
       test <- sendRequestWithJson("POST", fillLinkCellJson, s"/tables/1/columns/$columnId/rows/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -56,17 +57,17 @@ class LinkTest extends TableauxTestBase {
 
   private def setupDefaultTable(name: String = "Test Table 1"): Future[Long] = {
     val postTable = Json.obj("tableName" -> name)
-    val postTextCol = Json.obj("type" -> Json.arr("text"), "columnName" -> Json.arr("Test Column 1"))
-    val postNumCol = Json.obj("type" -> Json.arr("numeric"), "columnName" -> Json.arr("Test Column 2"))
-    val fillStringCellJson = Json.obj("type" -> "text", "value" -> "Test Fill 1")
-    val fillStringCellJson2 = Json.obj("type" -> "text", "value" -> "Test Fill 2")
-    val fillNumberCellJson = Json.obj("type" -> "numeric", "value" -> 1)
-    val fillNumberCellJson2 = Json.obj("type" -> "numeric", "value" -> 2)
+    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+    val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+    val fillStringCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+    val fillStringCellJson2 = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 2")))
+    val fillNumberCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> 1)))
+    val fillNumberCellJson2 = Json.obj("cells" -> Json.arr(Json.obj("value" -> 2)))
 
     for {
       tableId <- sendRequestWithJson("POST", postTable, "/tables") map { js => js.getLong("tableId") }
-      _ <- sendRequestWithJson("POST", postTextCol, s"/tables/$tableId/columns")
-      _ <- sendRequestWithJson("POST", postNumCol, s"/tables/$tableId/columns")
+      _ <- sendRequestWithJson("POST", createStringColumnJson, s"/tables/$tableId/columns")
+      _ <- sendRequestWithJson("POST", createNumberColumnJson, s"/tables/$tableId/columns")
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequestWithJson("POST", fillStringCellJson, s"/tables/$tableId/columns/1/rows/1")
