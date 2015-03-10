@@ -3,7 +3,7 @@ package com.campudus.tableaux
 import org.vertx.scala.core.json.{ JsonObject, JsonArray }
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.TableStructure._
+import com.campudus.tableaux.database.Tableaux._
 
 object HelperFunctions {
 
@@ -22,34 +22,34 @@ object HelperFunctions {
     tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))(kind)
   }
 
-  private def getLinkInformation(json: JsonObject): ArgumentCheck[Option[(IdType, IdType, IdType)]] = for {
+  private def getLinkInformation(json: JsonObject): ArgumentCheck[Option[LinkConnections]] = for {
     toTable <- notNull(json.getLong("toTable"), "toTable")
     toColumn <- notNull(json.getLong("toColumn"), "toColumn")
     fromColumn <- notNull(json.getLong("fromColumn"), "fromColumn")
   } yield Some(toTable, toColumn, fromColumn)
 
-  private def seqOfJsonObjectsToTuples(seq: Seq[JsonObject]): ArgumentCheck[Seq[(String, TableauxDbType, Option[(IdType, IdType, IdType)])]] = for {
+  private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = for {
     tuples <- sequence(seq map {
       json =>
         for {
           name <- notNull(json.getString("name"), "name")
           kind <- notNull(json.getString("kind"), "kind")
           dbType <- toTableauxType(kind)
-          opt <- (dbType match {
+          opt <- dbType match {
             case LinkType => getLinkInformation(json)
-            case _ => OkArg(None)
-          }).asInstanceOf[ArgumentCheck[Option[(IdType, IdType, IdType)]]]
+            case _ => OkArg[Option[LinkConnections]](None)
+          }
         } yield (name, dbType, opt)
     })
     checkedDbTypes <- matchForNormalOrLinkTypes(tuples)
   } yield checkedDbTypes
 
-  def jsonToSeqOfColumnNameAndType(json: JsonObject): Seq[(String, TableauxDbType, Option[(IdType, IdType, IdType)])] = (for {
+  def jsonToSeqOfColumnNameAndType(json: JsonObject): Seq[(String, TableauxDbType, Option[LinkConnections])] = (for {
     columns <- checkNotNullArray(json, "columns")
     columnsAsJsonObjectList <- asCastedList[JsonObject](columns)
     columnList <- nonEmpty(columnsAsJsonObjectList, "columns")
     checkedColumnList <- checkForJsonObject(columnList)
-    seqOfTuples <- seqOfJsonObjectsToTuples(checkedColumnList)
+    seqOfTuples <- checkAndGetColumnInfo(checkedColumnList)
   } yield seqOfTuples).get
 
   def jsonToSeqOfRowsWithValue(json: JsonObject): Seq[Seq[_]] = (for {
@@ -87,23 +87,23 @@ object HelperFunctions {
     valueList <- nonEmpty(valueAsAnyList, "values")
   } yield valueList
 
-  private def matchForNormalOrLinkTypes[A](seq: Seq[(String, TableauxDbType, A)]): ArgumentCheck[Seq[(String, TableauxDbType, A)]] = {
+  private def matchForNormalOrLinkTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
     seq.head match {
       case (_, LinkType, _) => matchForLinkTypes(seq)
       case _ => matchForNormalTypes(seq)
     }
   }
 
-  private def matchForLinkTypes[A](seq: Seq[(String, TableauxDbType, A)]): ArgumentCheck[Seq[(String, TableauxDbType, A)]] = {
+  private def matchForLinkTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
     sequence(seq map {
-      case (name, LinkType, opt) => OkArg[(String, TableauxDbType, A)](name, LinkType, opt)
-      case (_, dbType, _) => FailArg[(String, TableauxDbType, A)](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
+      case (name, LinkType, opt) => OkArg[(String, TableauxDbType, Option[LinkConnections])](name, LinkType, opt)
+      case (_, dbType, _) => FailArg[(String, TableauxDbType, Option[LinkConnections])](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
     })
   }
 
-  private def matchForNormalTypes[A](seq: Seq[(String, TableauxDbType, A)]): ArgumentCheck[Seq[(String, TableauxDbType, A)]] = {
+  private def matchForNormalTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
     sequence(seq map {
-      case (_, LinkType, _) => FailArg[(String, TableauxDbType, A)](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
+      case (_, LinkType, _) => FailArg[(String, TableauxDbType, Option[LinkConnections])](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
       case (name, dbType, opt) => OkArg(name, dbType, opt)
     })
   }

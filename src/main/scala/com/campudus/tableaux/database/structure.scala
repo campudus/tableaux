@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database
 
-import com.campudus.tableaux.database.TableStructure._
+import com.campudus.tableaux.database.Tableaux._
 import org.vertx.scala.core.VertxExecutionContext
 import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
 import org.vertx.scala.platform.Verticle
@@ -163,6 +163,12 @@ case class EmptyObject() extends DomainObject {
   def setJson: JsonObject = Json.obj()
 }
 
+object Tableaux {
+  type IdType = Long
+  type Ordering = Long
+  type LinkConnections = (IdType, IdType, IdType)
+}
+
 class Tableaux(verticle: Verticle) {
   implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
   import scala.collection.JavaConverters._
@@ -184,7 +190,7 @@ class Tableaux(verticle: Verticle) {
     id <- tableStruc.create(name)
   } yield Table(id, name)
 
-  def createCompleteTable(name: String, columnsNameAndType: Seq[(String, TableauxDbType, Option[(IdType, IdType, IdType)])], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = for {
+  def createCompleteTable(name: String, columnsNameAndType: Seq[(String, TableauxDbType, Option[LinkConnections])], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = for {
     table <- createTable(name)
     columnIds <- addColumn(table.id, columnsNameAndType) map { colSeq => colSeq.columns map { col => col.id } }
     rowsWithColumnIdAndValue <- Future.successful {
@@ -206,7 +212,7 @@ class Tableaux(verticle: Verticle) {
     _ <- rowStruc.delete(tableId, rowId)
   } yield EmptyObject()
 
-  def addColumn(tableId: IdType, columns: Seq[(String, TableauxDbType, Option[(IdType, IdType, IdType)])]): Future[ColumnSeq] = for {
+  def addColumn(tableId: IdType, columns: Seq[(String, TableauxDbType, Option[LinkConnections])]): Future[ColumnSeq] = for {
     cols <- Future.sequence { //FIXME random error due to race?
       columns map {
         case (name, dbType, opt) =>

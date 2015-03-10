@@ -1,16 +1,9 @@
 package com.campudus.tableaux.database
 
 import scala.concurrent.Future
-import org.vertx.scala.core.json.{ JsonArray, Json }
-import com.campudus.tableaux.database.TableStructure._
-import org.vertx.java.core.json.JsonObject
-import com.campudus.tableaux.NotFoundInDatabaseException
+import org.vertx.scala.core.json.{ JsonObject, JsonArray, Json }
+import com.campudus.tableaux.database.Tableaux._
 import com.campudus.tableaux.database.ResultChecker._
-
-object TableStructure {
-  type IdType = Long
-  type Ordering = Long
-}
 
 class SystemStructure(connection: DatabaseConnection) {
   implicit val executionContext = connection.executionContext

@@ -5,13 +5,13 @@ import scala.concurrent.Future
 import org.vertx.scala.core.json.JsonArray
 import org.vertx.scala.platform.Verticle
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.database.TableStructure.IdType
+import com.campudus.tableaux.database.Tableaux._
 
 class TableauxController(verticle: Verticle) {
 
   val tableaux = new Tableaux(verticle)
 
-  def createColumn(tableId: => IdType, columns: => Seq[(String, TableauxDbType, Option[(IdType, IdType, IdType)])]): Future[DomainObject] = {
+  def createColumn(tableId: => IdType, columns: => Seq[(String, TableauxDbType, Option[LinkConnections])]): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
     verticle.logger.info(s"createColumn $tableId $columns")
     tableaux.addColumn(tableId, columns)
@@ -23,7 +23,7 @@ class TableauxController(verticle: Verticle) {
     tableaux.createTable(name)
   }
 
-  def createTable(name: String, columns: => Seq[(String, TableauxDbType, Option[(IdType, IdType, IdType)])], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
+  def createTable(name: String, columns: => Seq[(String, TableauxDbType, Option[LinkConnections])], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
     checkArguments(notNull(name, "name"), nonEmpty(columns, "columns"))
     verticle.logger.info(s"createTable $name columns $rowsValues")
     tableaux.createCompleteTable(name, columns, rowsValues)
