@@ -12,7 +12,6 @@ import scala.util.{ Success, Failure }
 import com.campudus.tableaux.database.DomainObject
 import com.campudus.tableaux.HelperFunctions._
 import com.campudus.tableaux.database._
-import scala.util.Try
 
 class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
   val container = verticle.container
@@ -35,10 +34,9 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
     case Get(tableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(GetReturn)(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
     case Post("/reset") => getAsyncReply(SetReturn)(controller.resetDB())
     case Post("/tables") => getAsyncReply(SetReturn) {
-      import scala.collection.JavaConverters._
       getJson(req) flatMap { json =>
-        if (json.getFieldNames.asScala.toSeq.contains("columns")) {
-          if (json.getFieldNames.asScala.toSeq.contains("rows")) {
+        if (json.getFieldNames.contains("columns")) {
+          if (json.getFieldNames.contains("rows")) {
             controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
           } else {
             controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json), Seq())
@@ -61,9 +59,17 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
         json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, jsonToValues(json))
       }
     }
-    case Delete(tableId(tableId)) => getAsyncReply(DeleteReturn)(controller.deleteTable(tableId.toLong))
-    case Delete(tableIdColumnsId(tableId, columnId)) => getAsyncReply(DeleteReturn)(controller.deleteColumn(tableId.toLong, columnId.toLong))
-    case Delete(tableIdRowsId(tableId, rowId)) => getAsyncReply(DeleteReturn)(controller.deleteRow(tableId.toLong, rowId.toLong))
+    case Post(tableId(tableId)) => getAsyncReply(EmptyReturn)(getJson(req) flatMap (json => controller.changeTableName(tableId.toLong, json.getString("tableName"))))
+    case Post(tableIdColumnsId(tableId, columnId)) => getAsyncReply(EmptyReturn) {
+      getJson(req) flatMap {
+        json =>
+          val (optName, optOrd, optKind) = getColumnChanges(json)
+          controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind)
+      }
+    }
+    case Delete(tableId(tableId)) => getAsyncReply(EmptyReturn)(controller.deleteTable(tableId.toLong))
+    case Delete(tableIdColumnsId(tableId, columnId)) => getAsyncReply(EmptyReturn)(controller.deleteColumn(tableId.toLong, columnId.toLong))
+    case Delete(tableIdRowsId(tableId, rowId)) => getAsyncReply(EmptyReturn)(controller.deleteRow(tableId.toLong, rowId.toLong))
   }
 
   private def getAsyncReply(reType: ReturnType)(f: => Future[DomainObject]): AsyncReply = AsyncReply {

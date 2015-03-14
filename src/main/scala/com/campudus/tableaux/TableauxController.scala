@@ -2,7 +2,6 @@ package com.campudus.tableaux
 
 import com.campudus.tableaux.database._
 import scala.concurrent.Future
-import org.vertx.scala.core.json.JsonArray
 import org.vertx.scala.platform.Verticle
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database.Tableaux._
@@ -11,22 +10,22 @@ class TableauxController(verticle: Verticle) {
 
   val tableaux = new Tableaux(verticle)
 
-  def createColumn(tableId: => IdType, columns: => Seq[(String, TableauxDbType, Option[LinkConnections])]): Future[DomainObject] = {
+  def createColumn(tableId: => IdType, columns: => Seq[(String, TableauxDbType, Option[Ordering], Option[LinkConnections])]): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
     verticle.logger.info(s"createColumn $tableId $columns")
-    tableaux.addColumn(tableId, columns)
+    tableaux.addColumns(tableId, columns)
   }
 
-  def createTable(name: String): Future[DomainObject] = {
-    checkArguments(notNull(name, "name"))
-    verticle.logger.info(s"createTable $name")
-    tableaux.createTable(name)
+  def createTable(tableName: String): Future[DomainObject] = {
+    checkArguments(notNull(tableName, "TableName"))
+    verticle.logger.info(s"createTable $tableName")
+    tableaux.createTable(tableName)
   }
 
-  def createTable(name: String, columns: => Seq[(String, TableauxDbType, Option[LinkConnections])], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
-    checkArguments(notNull(name, "name"), nonEmpty(columns, "columns"))
-    verticle.logger.info(s"createTable $name columns $rowsValues")
-    tableaux.createCompleteTable(name, columns, rowsValues)
+  def createTable(tableName: String, columns: => Seq[(String, TableauxDbType, Option[Ordering], Option[LinkConnections])], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
+    checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
+    verticle.logger.info(s"createTable $tableName columns $rowsValues")
+    tableaux.createCompleteTable(tableName, columns, rowsValues)
   }
 
   def createRow(tableId: IdType, values: Option[Seq[Seq[(IdType, _)]]]): Future[DomainObject] = {
@@ -93,6 +92,18 @@ class TableauxController(verticle: Verticle) {
   def resetDB(): Future[DomainObject] = {
     verticle.logger.info("Reset database")
     tableaux.resetDB()
+  }
+
+  def changeTableName(tableId: IdType, tableName: String): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), notNull(tableName, "TableName"))
+    verticle.logger.info(s"changeTableName $tableId $tableName")
+    tableaux.changeTableName(tableId, tableName)
+  }
+
+  def changeColumn(tableId: IdType, columnId: IdType, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId))
+    verticle.logger.info(s"changeColumnName $tableId $columnId $columnName $ordering")
+    tableaux.changeColumn(tableId, columnId, columnName, ordering, kind)
   }
 
 }

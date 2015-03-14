@@ -40,9 +40,14 @@ class TableauxBusMod(verticle: Verticle) extends ScalaBusMod {
     }
     case "createRow" => getAsyncReply(SetReturn)(controller.createRow(getInfo[Long](msg, "tableId"), Option(jsonToSeqOfRowsWithColumnIdAndValue(msg.body()))))
     case "fillCell" => getAsyncReply(SetReturn)(controller.fillCell(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "column"), getInfo[Long](msg, "row"), jsonToValues(msg.body())))
-    case "deleteTable" => getAsyncReply(DeleteReturn)(controller.deleteTable(getInfo[Long](msg, "tableId")))
-    case "deleteColumn" => getAsyncReply(DeleteReturn)(controller.deleteColumn(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "columns")))
-    case "deleteRow" => getAsyncReply(DeleteReturn)(controller.deleteRow(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "rows")))
+    case "changeTableName" => getAsyncReply(EmptyReturn)(controller.changeTableName(getInfo[Long](msg, "tableId"), getInfo[String](msg, "tableName")))
+    case "changeColumn" => getAsyncReply(EmptyReturn) {
+      val (optName, optOrd, optKind) = getColumnChanges(msg.body())
+      controller.changeColumn(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "column"), optName, optOrd, optKind)
+    }
+    case "deleteTable" => getAsyncReply(EmptyReturn)(controller.deleteTable(getInfo[Long](msg, "tableId")))
+    case "deleteColumn" => getAsyncReply(EmptyReturn)(controller.deleteColumn(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "columns")))
+    case "deleteRow" => getAsyncReply(EmptyReturn)(controller.deleteRow(getInfo[Long](msg, "tableId"), getInfo[Long](msg, "rows")))
     case _ => throw new IllegalArgumentException("Unknown action")
   }
 

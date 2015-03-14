@@ -20,7 +20,7 @@ class ControllerTest extends TestVerticle {
   @Test
   def checkCreateLinkColumnWithNullParameter(): Unit = {
     val controller = new TableauxController(this)
-    illegalArgumentTest(controller.createColumn(0, Seq((null, null, None))))
+    illegalArgumentTest(controller.createColumn(0, Seq((null, null, null, None))))
   }
 
   @Test
@@ -32,13 +32,13 @@ class ControllerTest extends TestVerticle {
   @Test
   def checkCreateColumnWithNullName(): Unit = {
     val controller = new TableauxController(this)
-    illegalArgumentTest(controller.createColumn(0, Seq((null, TextType, None))))
+    illegalArgumentTest(controller.createColumn(0, Seq((null, TextType, None, None))))
   }
 
   @Test
   def checkCreateColumnWithNullType(): Unit = {
     val controller = new TableauxController(this)
-    illegalArgumentTest(controller.createColumn(0, Seq(("", null, None))))
+    illegalArgumentTest(controller.createColumn(0, Seq(("", null, None, None))))
   }
 
   @Test
