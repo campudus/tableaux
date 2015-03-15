@@ -6,6 +6,8 @@ import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
 import org.vertx.scala.platform.Verticle
 import scala.concurrent.Future
 
+case class CreateColumn(name: String, kind: TableauxDbType, ordering: Option[Ordering], linkConnections: Option[LinkConnections])
+
 sealed trait ReturnType
 
 case object GetReturn extends ReturnType
@@ -190,7 +192,7 @@ class Tableaux(verticle: Verticle) {
     id <- tableStruc.create(name)
   } yield Table(id, name)
 
-  def createCompleteTable(name: String, columnsNameAndType: Seq[(String, TableauxDbType, Option[Ordering], Option[LinkConnections])], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = for {
+  def createCompleteTable(name: String, columnsNameAndType: Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = for {
     table <- createTable(name)
     columnIds <- addColumns(table.id, columnsNameAndType) map { colSeq => colSeq.columns map { col => col.id } }
     rowsWithColumnIdAndValue <- Future.successful {
@@ -212,16 +214,13 @@ class Tableaux(verticle: Verticle) {
     _ <- rowStruc.delete(tableId, rowId)
   } yield EmptyObject()
 
-  def addColumns(tableId: IdType, columns: Seq[(String, TableauxDbType, Option[Ordering], Option[LinkConnections])]): Future[ColumnSeq] = for {
+  def addColumns(tableId: IdType, columns: Seq[CreateColumn]): Future[ColumnSeq] = for {
     cols <- Future.sequence { //FIXME random error due to race?
       columns map {
-        case (name, dbType, optOrd, opt) =>
-          dbType match {
-            case LinkType =>
-              val (toTable, toColumn, fromColumn) = opt.get
-              addLinkColumn(tableId, name, fromColumn, toTable, toColumn, optOrd)
-            case _ => addValueColumn(tableId, name, dbType, optOrd)
-          }
+        case CreateColumn(name, LinkType, optOrd, Some((toTable, toColumn, fromColumn))) =>
+          addLinkColumn(tableId, name, fromColumn, toTable, toColumn, optOrd)
+        case CreateColumn(name, dbType, optOrd, optLink) =>
+          addValueColumn(tableId, name, dbType, optOrd)
       }
     }
   } yield ColumnSeq(cols)
@@ -336,18 +335,7 @@ class Tableaux(verticle: Verticle) {
   } yield Table(tableId, tableName)
 
   def changeColumn(tableId: IdType, columnId: IdType, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[ColumnType[_]] = for {
-    _ <- columnName match {
-      case Some(name) => columnStruc.changeName(tableId, columnId, name)
-      case None => Future.successful()
-    }
-    _ <- ordering match {
-      case Some(ord) => columnStruc.changeOrdering(tableId, columnId, ord)
-      case None => Future.successful()
-    }
-    _ <- kind match {
-      case Some(k) => columnStruc.changeKind(tableId, columnId, k)
-      case None => Future.successful()
-    }
+    _ <- columnStruc.change(tableId, columnId, columnName, ordering, kind)
     column <- getColumn(tableId, columnId)
   } yield column
 }

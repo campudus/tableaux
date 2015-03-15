@@ -10,7 +10,7 @@ class TableauxController(verticle: Verticle) {
 
   val tableaux = new Tableaux(verticle)
 
-  def createColumn(tableId: => IdType, columns: => Seq[(String, TableauxDbType, Option[Ordering], Option[LinkConnections])]): Future[DomainObject] = {
+  def createColumn(tableId: => IdType, columns: => Seq[CreateColumn]): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
     verticle.logger.info(s"createColumn $tableId $columns")
     tableaux.addColumns(tableId, columns)
@@ -22,7 +22,7 @@ class TableauxController(verticle: Verticle) {
     tableaux.createTable(tableName)
   }
 
-  def createTable(tableName: String, columns: => Seq[(String, TableauxDbType, Option[Ordering], Option[LinkConnections])], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
+  def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     verticle.logger.info(s"createTable $tableName columns $rowsValues")
     tableaux.createCompleteTable(tableName, columns, rowsValues)
@@ -102,7 +102,7 @@ class TableauxController(verticle: Verticle) {
 
   def changeColumn(tableId: IdType, columnId: IdType, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
-    verticle.logger.info(s"changeColumnName $tableId $columnId $columnName $ordering")
+    verticle.logger.info(s"changeColumn $tableId $columnId $columnName $ordering $kind")
     tableaux.changeColumn(tableId, columnId, columnName, ordering, kind)
   }
 

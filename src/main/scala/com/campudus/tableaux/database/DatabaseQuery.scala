@@ -211,20 +211,24 @@ class ColumnStructure(connection: DatabaseConnection) {
     _ <- t.commit()
   } yield ()
 
-  def changeName(tableId: IdType, columnId: IdType, columnName: String): Future[Unit] = {
-    connection.singleQuery(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?", Json.arr(columnName, tableId, columnId))
-  } map (_ => ())
-
-  def changeOrdering(tableId: IdType, columnId: IdType, ordering: Ordering): Future[Unit] = {
-    connection.singleQuery(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?", Json.arr(ordering, tableId, columnId))
-  } map (_ => ())
-
-  def changeKind(tableId: IdType, columnId: IdType, kind: TableauxDbType): Future[Unit] = for {
+  def change(tableId: IdType, columnId: IdType, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[Unit] = for {
     t <- connection.begin()
-    (t, _) <- t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?", Json.arr(kind.toString(), tableId, columnId))
-    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${kind.toString} USING column_$columnId::${kind.toString}", Json.arr())
+    (t, result1) <- optionToValidFuture(columnName, t, { name: String => t.query(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?", Json.arr(name, tableId, columnId)) })
+    (t, result2) <- optionToValidFuture(ordering, t, { ord: Ordering => t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?", Json.arr(ord, tableId, columnId)) })
+    (t, result3) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?", Json.arr(k.toString(), tableId, columnId)) })
+    (t, result4) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toString} USING column_$columnId::${k.toString}", Json.arr()) })
+    _ <- Future.apply(checkResults(Seq(result1, result2, result3, result4))) recoverWith t.rollbackAndFail()
     _ <- t.commit()
   } yield ()
+
+  private def checkResults(seq: Seq[JsonObject]): Seq[JsonArray] = seq flatMap {
+    json => if (json.containsField("message")) updateNotNull(json) else Seq(Json.arr())
+  }
+
+  private def optionToValidFuture[A](opt: Option[A], trans: connection.Transaction, someCase: A => Future[(connection.Transaction, JsonObject)]): Future[(connection.Transaction, JsonObject)] = opt match {
+    case Some(x) => someCase(x)
+    case None => Future.successful(trans, Json.obj())
+  }
 }
 
 class RowStructure(connection: DatabaseConnection) {
