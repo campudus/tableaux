@@ -217,15 +217,15 @@ class ColumnStructure(connection: DatabaseConnection) {
     (t, result2) <- optionToValidFuture(ordering, t, { ord: Ordering => t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?", Json.arr(ord, tableId, columnId)) })
     (t, result3) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?", Json.arr(k.toString(), tableId, columnId)) })
     (t, _) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toString} USING column_$columnId::${k.toString}", Json.arr()) })
-    _ <- Future.apply(checkResults(Seq(result1, result2, result3))) recoverWith t.rollbackAndFail()
+    _ <- Future.apply(checkUpdateResults(Seq(result1, result2, result3))) recoverWith t.rollbackAndFail()
     _ <- t.commit()
   } yield ()
 
-  private def checkResults(seq: Seq[JsonObject]): Seq[JsonArray] = seq flatMap {
-    json => if (json.containsField("message")) updateNotNull(json) else Seq(Json.arr())
+  private def checkUpdateResults(seq: Seq[JsonObject]): Unit = seq map {
+    json => if (json.containsField("message")) updateNotNull(json)
   }
 
-  private def optionToValidFuture[A](opt: Option[A], trans: connection.Transaction, someCase: A => Future[(connection.Transaction, JsonObject)]): Future[(connection.Transaction, JsonObject)] = opt match {
+  private def optionToValidFuture[A, B](opt: Option[A], trans: B, someCase: A => Future[(B, JsonObject)]): Future[(B, JsonObject)] = opt match {
     case Some(x) => someCase(x)
     case None => Future.successful(trans, Json.obj())
   }
