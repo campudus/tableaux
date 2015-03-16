@@ -215,13 +215,11 @@ class Tableaux(verticle: Verticle) {
   } yield EmptyObject()
 
   def addColumns(tableId: IdType, columns: Seq[CreateColumn]): Future[ColumnSeq] = for {
-    cols <- Future.sequence { //FIXME random error due to race?
-      columns map {
-        case CreateColumn(name, LinkType, optOrd, Some((toTable, toColumn, fromColumn))) =>
-          addLinkColumn(tableId, name, fromColumn, toTable, toColumn, optOrd)
-        case CreateColumn(name, dbType, optOrd, optLink) =>
-          addValueColumn(tableId, name, dbType, optOrd)
-      }
+    cols <- serialiseFutures(columns) {
+      case CreateColumn(name, LinkType, optOrd, Some((toTable, toColumn, fromColumn))) =>
+        addLinkColumn(tableId, name, fromColumn, toTable, toColumn, optOrd)
+      case CreateColumn(name, dbType, optOrd, optLink) =>
+        addValueColumn(tableId, name, dbType, optOrd)
     }
   } yield ColumnSeq(cols)
 
@@ -247,13 +245,15 @@ class Tableaux(verticle: Verticle) {
 
   def addFullRows(tableId: IdType, values: Seq[Seq[(IdType, _)]]): Future[RowSeq] = for {
     table <- getTable(tableId)
-    ids <- Future.sequence {
-      for {
-        tup <- values
-      } yield rowStruc.createFull(table.id, tup) // FIXME random error due to race?
-    }
-    row <- Future.sequence(ids map { id => getRow(table.id, id) })
+    ids <- serialiseFutures(values)(rowStruc.createFull(table.id, _))
+    row <- serialiseFutures(ids)(getRow(table.id, _))
   } yield RowSeq(row)
+
+  private def serialiseFutures[A, B](seq: Seq[A])(fn: A => Future[B]): Future[Seq[B]] = {
+    seq.foldLeft(Future(Seq.empty[B])) {
+      (lastFuture, next) => lastFuture flatMap { preResults => fn(next) map { preResults :+ _ } }
+    }
+  }
 
   def insertValue[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[_, _]] = for {
     column <- getColumn(tableId, columnId)
