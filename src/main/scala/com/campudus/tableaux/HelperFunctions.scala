@@ -4,6 +4,7 @@ import org.vertx.scala.core.json.{ JsonObject, JsonArray }
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.Tableaux._
+import scala.util.Try
 
 object HelperFunctions {
 
@@ -28,7 +29,7 @@ object HelperFunctions {
     fromColumn <- notNull(json.getLong("fromColumn"), "fromColumn")
   } yield Some(toTable, toColumn, fromColumn)
 
-  private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = for {
+  private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[CreateColumn]] = for {
     tuples <- sequence(seq map {
       json =>
         for {
@@ -39,12 +40,15 @@ object HelperFunctions {
             case LinkType => getLinkInformation(json)
             case _ => OkArg[Option[LinkConnections]](None)
           }
-        } yield (name, dbType, opt)
+        } yield {
+          val optOrd = Try(json.getNumber("ordering").longValue()).toOption
+          CreateColumn(name, dbType, optOrd, opt)
+        }
     })
     checkedDbTypes <- matchForNormalOrLinkTypes(tuples)
   } yield checkedDbTypes
 
-  def jsonToSeqOfColumnNameAndType(json: JsonObject): Seq[(String, TableauxDbType, Option[LinkConnections])] = (for {
+  def jsonToSeqOfColumnNameAndType(json: JsonObject): Seq[CreateColumn] = (for {
     columns <- checkNotNullArray(json, "columns")
     columnsAsJsonObjectList <- asCastedList[JsonObject](columns)
     columnList <- nonEmpty(columnsAsJsonObjectList, "columns")
@@ -87,24 +91,24 @@ object HelperFunctions {
     valueList <- nonEmpty(valueAsAnyList, "values")
   } yield valueList
 
-  private def matchForNormalOrLinkTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
-    seq.head match {
-      case (_, LinkType, _) => matchForLinkTypes(seq)
+  private def matchForNormalOrLinkTypes(seq: Seq[CreateColumn]): ArgumentCheck[Seq[CreateColumn]] = {
+    seq.head.kind match {
+      case LinkType => matchForLinkTypes(seq)
       case _ => matchForNormalTypes(seq)
     }
   }
 
-  private def matchForLinkTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
+  private def matchForLinkTypes(seq: Seq[CreateColumn]): ArgumentCheck[Seq[CreateColumn]] = {
     sequence(seq map {
-      case (name, LinkType, opt) => OkArg[(String, TableauxDbType, Option[LinkConnections])](name, LinkType, opt)
-      case (_, dbType, _) => FailArg[(String, TableauxDbType, Option[LinkConnections])](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
+      case cc @ CreateColumn(_, LinkType, _, _) => OkArg(cc)
+      case cc @ CreateColumn(_, dbType, _, _) => FailArg[CreateColumn](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
     })
   }
 
-  private def matchForNormalTypes(seq: Seq[(String, TableauxDbType, Option[LinkConnections])]): ArgumentCheck[Seq[(String, TableauxDbType, Option[LinkConnections])]] = {
+  private def matchForNormalTypes(seq: Seq[CreateColumn]): ArgumentCheck[Seq[CreateColumn]] = {
     sequence(seq map {
-      case (_, LinkType, _) => FailArg[(String, TableauxDbType, Option[LinkConnections])](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
-      case (name, dbType, opt) => OkArg(name, dbType, opt)
+      case cc @ CreateColumn(_, LinkType, _, _) => FailArg[CreateColumn](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
+      case cc => OkArg(cc)
     })
   }
 
@@ -115,5 +119,12 @@ object HelperFunctions {
     checkedCellList <- checkForJsonObject(cellList)
     value <- notNull(checkedCellList(0).getField[Any]("value"), "value")
   } yield value).get
+
+  def getColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType]) = {
+    val name = Try(notNull(json.getString("name"), "name").get).toOption
+    val ord = Try(json.getNumber("ordering").longValue()).toOption
+    val kind = Try(toTableauxType(json.getString("kind")).get).toOption
+    (name, ord, kind)
+  }
 
 }

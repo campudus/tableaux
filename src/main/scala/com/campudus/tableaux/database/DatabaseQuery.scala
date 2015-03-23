@@ -93,24 +93,35 @@ class TableStructure(connection: DatabaseConnection) {
     (t, _) <- t.query(s"DROP SEQUENCE system_columns_column_id_table_$tableId", Json.arr())
     _ <- t.commit()
   } yield ()
+
+  def changeName(tableId: IdType, name: String): Future[Unit] = {
+    connection.singleQuery(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
+  } map (_ => ())
 }
 
 class ColumnStructure(connection: DatabaseConnection) {
   implicit val executionContext = connection.executionContext
 
-  def insert(tableId: IdType, dbType: TableauxDbType, name: String): Future[(IdType, Ordering)] = for {
+  def insert(tableId: IdType, dbType: TableauxDbType, name: String, ordering: Option[Ordering]): Future[(IdType, Ordering)] = for {
     t <- connection.begin()
-    (t, result) <- t.query(s"""
+    (t, result) <- ordering match {
+      case None => t.query(s"""
                      |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering)
                      |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, currval('system_columns_column_id_table_$tableId'))
                      |  RETURNING column_id, ordering""".stripMargin,
-      Json.arr(tableId, dbType.toString, name))
+        Json.arr(tableId, dbType.toString, name))
+      case Some(ord) => t.query(s"""
+                     |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering)
+                     |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, ?)
+                     |  RETURNING column_id, ordering""".stripMargin,
+        Json.arr(tableId, dbType.toString, name, ord))
+    }
     result <- Future.successful(insertNotNull(result)(0))
     (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[IdType](0)} $dbType", Json.arr())
     _ <- t.commit()
   } yield (result.get[IdType](0), result.get[Ordering](1))
 
-  def insertLink(tableId: IdType, name: String, fromColumnId: IdType, toTableId: IdType, toColumnId: IdType): Future[(IdType, Ordering)] = for {
+  def insertLink(tableId: IdType, name: String, fromColumnId: IdType, toTableId: IdType, toColumnId: IdType, ordering: Option[Ordering]): Future[(IdType, Ordering)] = for {
     t <- connection.begin()
     (t, result) <- t.query(s"""INSERT INTO system_link_table (table_id_1, table_id_2, column_id_1, column_id_2) VALUES (?, ?, ?, ?) RETURNING link_id""".stripMargin,
       Json.arr(tableId, toTableId, fromColumnId, toColumnId))
@@ -124,7 +135,8 @@ class ColumnStructure(connection: DatabaseConnection) {
                     |  currval('system_columns_column_id_table_$toTableId'), 
                     |  ?)""".stripMargin,
       Json.arr(toTableId, name, linkId))
-    (t, result) <- t.query(s"""
+    (t, result) <- ordering match {
+      case None => t.query(s"""
                     |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
                     |  ?, 
                     |  nextval('system_columns_column_id_table_$tableId'), 
@@ -133,7 +145,18 @@ class ColumnStructure(connection: DatabaseConnection) {
                     |  currval('system_columns_column_id_table_$tableId'), 
                     |  ?
                     |) RETURNING column_id, ordering""".stripMargin,
-      Json.arr(tableId, name, linkId))
+        Json.arr(tableId, name, linkId))
+      case Some(ord) => t.query(s"""
+                    |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
+                    |  ?, 
+                    |  nextval('system_columns_column_id_table_$tableId'), 
+                    |  'link',
+                    |  ?, 
+                    |  ?, 
+                    |  ?
+                    |) RETURNING column_id, ordering""".stripMargin,
+        Json.arr(tableId, name, ord, linkId))
+    }
     (t, _) <- t.query(s"""
                     |CREATE TABLE link_table_$linkId (
                     |  id_1 bigint, 
@@ -187,6 +210,25 @@ class ColumnStructure(connection: DatabaseConnection) {
     _ <- Future.apply(deleteNotNull(result)) recoverWith t.rollbackAndFail()
     _ <- t.commit()
   } yield ()
+
+  def change(tableId: IdType, columnId: IdType, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[Unit] = for {
+    t <- connection.begin()
+    (t, result1) <- optionToValidFuture(columnName, t, { name: String => t.query(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?", Json.arr(name, tableId, columnId)) })
+    (t, result2) <- optionToValidFuture(ordering, t, { ord: Ordering => t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?", Json.arr(ord, tableId, columnId)) })
+    (t, result3) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?", Json.arr(k.toString(), tableId, columnId)) })
+    (t, _) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toString} USING column_$columnId::${k.toString}", Json.arr()) })
+    _ <- Future.apply(checkUpdateResults(Seq(result1, result2, result3))) recoverWith t.rollbackAndFail()
+    _ <- t.commit()
+  } yield ()
+
+  private def checkUpdateResults(seq: Seq[JsonObject]): Unit = seq map {
+    json => if (json.containsField("message")) updateNotNull(json)
+  }
+
+  private def optionToValidFuture[A, B](opt: Option[A], trans: B, someCase: A => Future[(B, JsonObject)]): Future[(B, JsonObject)] = opt match {
+    case Some(x) => someCase(x)
+    case None => Future.successful(trans, Json.obj())
+  }
 }
 
 class RowStructure(connection: DatabaseConnection) {
@@ -237,11 +279,11 @@ class CellStructure(connection: DatabaseConnection) {
     _ <- t.commit()
   } yield ()
 
-  def getValue(tableId: IdType, columnId: IdType, rowId: IdType): Future[AnyRef] = {
+  def getValue(tableId: IdType, columnId: IdType, rowId: IdType): Future[Any] = {
     connection.singleQuery(s"SELECT column_$columnId FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
-  } map { selectNotNull(_)(0).get[AnyRef](0) }
+  } map { selectNotNull(_)(0).get[Any](0) }
 
-  def getLinkValues(tableId: IdType, linkColumnId: IdType, rowId: IdType, toTableId: IdType, toColumnId: IdType): Future[AnyRef] = for {
+  def getLinkValues(tableId: IdType, linkColumnId: IdType, rowId: IdType, toTableId: IdType, toColumnId: IdType): Future[Any] = for {
     t <- connection.begin()
     (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, linkColumnId))
     linkId <- Future.successful(selectNotNull(result)(0).get[IdType](0))
@@ -261,5 +303,5 @@ class CellStructure(connection: DatabaseConnection) {
                      |  WHERE user_table_$tableId.id = ?
                      |  GROUP BY user_table_$tableId.id""".stripMargin, Json.arr(rowId))
     _ <- t.commit()
-  } yield selectNotNull(result)(0).get[AnyRef](0)
+  } yield selectNotNull(result)(0).get[Any](0)
 }

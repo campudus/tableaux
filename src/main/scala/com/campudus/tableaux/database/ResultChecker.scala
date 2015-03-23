@@ -21,6 +21,8 @@ object ResultChecker {
 
   def insertNotNull(json: JsonObject): Seq[JsonArray] = checkHelper(json, "INSERT 0", "insert")
 
+  def updateNotNull(json: JsonObject): Seq[JsonArray] = checkHelper(json, "UPDATE 0", "update")
+
   private def checkHelper(json: JsonObject, s: String, ex: String): Seq[JsonArray] = {
     if (json.getString("message") == s) throw NotFoundInDatabaseException(s"Warning: $ex query failed", ex) else getSeqOfJsonArray(json)
   }

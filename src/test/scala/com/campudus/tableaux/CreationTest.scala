@@ -75,6 +75,23 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
+  def createMultipleColumnsWithOrdering(): Unit = okTest {
+    val jsonObj = Json.obj("columns" -> Json.arr(
+      Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "ordering" -> 2),
+      Json.obj("kind" -> "text", "name" -> "Test Column 2", "ordering" -> 1)))
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
+      Json.obj("id" -> 1, "ordering" -> 2),
+      Json.obj("id" -> 2, "ordering" -> 1)))
+
+    for {
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      test <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
+
+  @Test
   def createRow(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1)))
     val expectedJson2 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 2)))
@@ -137,6 +154,34 @@ class CreationTest extends TableauxTestBase {
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "ordering" -> 1),
         Json.obj("id" -> 2, "ordering" -> 2)),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 1),
+        Json.obj("id" -> 2)))
+
+    for {
+      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
+
+  @Test
+  def createCompleteTableWithOrdering(): Unit = okTest {
+    val createCompleteTableJson = Json.obj(
+      "tableName" -> "Test Nr. 1",
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "Test Column 1", "ordering" -> 2),
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 2", "ordering" -> 1)),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("Test Field 1", 1)),
+        Json.obj("values" -> Json.arr("Test Field 2", 2))))
+
+    val expectedJson = Json.obj(
+      "status" -> "ok",
+      "tableId" -> 1,
+      "columns" -> Json.arr(
+        Json.obj("id" -> 1, "ordering" -> 2),
+        Json.obj("id" -> 2, "ordering" -> 1)),
       "rows" -> Json.arr(
         Json.obj("id" -> 1),
         Json.obj("id" -> 2)))
