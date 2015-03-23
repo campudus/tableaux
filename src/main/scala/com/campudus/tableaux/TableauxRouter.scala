@@ -28,6 +28,7 @@ class TableauxRouter(verticle: Starter) extends Router with VertxAccess {
 
   def routes(implicit req: HttpServerRequest): PartialFunction[RouteMatch, Reply] = {
     case Get("/") => SendFile("index.html")
+    case Get("/tables") => getAsyncReply(GetReturn)(controller.getAllTables())
     case Get(tableId(tableId)) => getAsyncReply(GetReturn)(controller.getTable(tableId.toLong))
     case Get(tableIdColumnsId(tableId, columnId)) => getAsyncReply(GetReturn)(controller.getColumn(tableId.toLong, columnId.toLong))
     case Get(tableIdRowsId(tableId, rowId)) => getAsyncReply(GetReturn)(controller.getRow(tableId.toLong, rowId.toLong))

@@ -135,6 +135,12 @@ case class Table(id: IdType, name: String) extends DomainObject {
   def setJson: JsonObject = Json.obj("tableId" -> id)
 }
 
+case class TableSeq(tables: Seq[Table]) extends DomainObject {
+  def getJson: JsonObject = Json.obj("tables" -> (tables map { t => Json.obj("id" -> t.id, "name" -> t.name) }))
+
+  def setJson: JsonObject = Json.obj("tables" -> (tables map { t => Json.obj("id" -> t.id, "name" -> t.name) }))
+}
+
 case class CompleteTable(table: Table, columnList: Seq[ColumnType[_]], rowList: RowSeq) extends DomainObject {
   def getJson: JsonObject = table.getJson.mergeIn(Json.obj("columns" -> (columnList map { _.getJson.getArray("columns").get[JsonObject](0) }))).mergeIn(rowList.getJson)
 
@@ -277,6 +283,12 @@ class Tableaux(verticle: Verticle) {
     _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, value)
     v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
   } yield Cell(linkColumn, rowId, Link(List((value._2, v))))
+
+  def getAllTables(): Future[TableSeq] = for {
+    seqOfTableInformation <- tableStruc.getAll()
+  } yield {
+    TableSeq(seqOfTableInformation map { case (id, name) => Table(id, name) })
+  }
 
   def getTable(tableId: IdType): Future[Table] = for {
     (id, name) <- tableStruc.get(tableId)
