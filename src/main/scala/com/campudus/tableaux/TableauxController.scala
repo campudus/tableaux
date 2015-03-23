@@ -10,6 +10,11 @@ class TableauxController(verticle: Verticle) {
 
   val tableaux = new Tableaux(verticle)
 
+  def getAllTables(): Future[DomainObject] = {
+    verticle.logger.info("getAllTables")
+    tableaux.getAllTables()
+  }
+
   def createColumn(tableId: => IdType, columns: => Seq[CreateColumn]): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
     verticle.logger.info(s"createColumn $tableId $columns")

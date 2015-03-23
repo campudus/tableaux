@@ -78,6 +78,10 @@ class TableStructure(connection: DatabaseConnection) {
     _ <- t.commit()
   } yield id
 
+  def getAll(): Future[Seq[(IdType, String)]] = {
+    connection.singleQuery("SELECT table_id, user_table_name FROM system_table", Json.arr())
+  } map { r => getSeqOfJsonArray(r) map { arr => (arr.get[IdType](0), arr.get[String](1)) } }
+
   def get(tableId: IdType): Future[(IdType, String)] = {
     connection.singleQuery("SELECT table_id, user_table_name FROM system_table WHERE table_id = ?", Json.arr(tableId))
   } map { r =>
