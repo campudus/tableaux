@@ -1,15 +1,17 @@
-.project
-.cache
-.classpath
+# Tableaux specific
+conf.json
+
+# IDEA specific
 .idea/
 *.iml
 
+# Scala specific
 *.class
 *.log
 
-# sbt specific
-.cache/
-.history/
+# SBT specific
+.cache
+.history
 .lib/
 dist/*
 target/
@@ -21,3 +23,7 @@ project/plugins/project/
 # Scala-IDE specific
 .scala_dependencies
 .worksheet
+
+# Eclipse specific
+.project
+.classpath

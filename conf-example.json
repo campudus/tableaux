@@ -2,12 +2,12 @@
   "port": 8080,
 
   "database": {
-    "address" : "huzibuzi.contentgorilla",
+    "address" : "campudus.asyncdb",
     "connection" : "PostgreSQL",
     "host" : "localhost",
     "port" : 5432,
     "username" : "postgres",
-    "password" : "test",
-    "database" : "test"
+    "password" : "secret",
+    "database" : "tableaux"
   }
 }
