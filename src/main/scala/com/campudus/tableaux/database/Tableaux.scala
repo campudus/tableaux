@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database
 
+import com.campudus.tableaux.database.structure._
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.core.json._
 import org.vertx.scala.platform.Verticle

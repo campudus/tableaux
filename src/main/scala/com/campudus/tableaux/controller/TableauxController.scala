@@ -3,6 +3,7 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database.Tableaux._
 import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.structure.{TableauxDbType, CreateColumn}
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.platform.Verticle
 

@@ -1,5 +1,6 @@
 package com.campudus.tableaux.router
 
+import com.campudus.tableaux.database.structure.{EmptyReturn, SetReturn, GetReturn}
 import com.campudus.tableaux.helper.HelperFunctions
 import HelperFunctions._
 import com.campudus.tableaux.NoJsonFoundException

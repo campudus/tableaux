@@ -2,6 +2,7 @@ package com.campudus.tableaux
 
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.Tableaux._
+import com.campudus.tableaux.database.structure.{TextType, CreateColumn}
 import org.junit.Test
 import org.vertx.scala.core.json.{Json, JsonObject}
 import org.vertx.testtools.VertxAssert._
@@ -11,7 +12,7 @@ import scala.util.Try
 import scala.concurrent.Future
 import scala.util.Success
 import scala.util.Failure
-import com.campudus.tableaux.database.{DatabaseConnection, TextType, CreateColumn}
+import com.campudus.tableaux.database.DatabaseConnection
 
 class ControllerTest extends TestVerticle {
 

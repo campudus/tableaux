@@ -2,6 +2,7 @@ package com.campudus.tableaux.bus
 
 import com.campudus.tableaux._
 import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.database.structure.{ReturnType, EmptyReturn, GetReturn, SetReturn}
 import com.campudus.tableaux.database.{DomainObject, _}
 import com.campudus.tableaux.helper.HelperFunctions._
 import com.campudus.tableaux.helper.{HelperFunctions, StandardVerticle}

@@ -1,5 +1,7 @@
 package com.campudus.tableaux.database
 
+import com.campudus.tableaux.database.structure.{Mapper, TableauxDbType}
+
 import scala.concurrent.Future
 import org.vertx.scala.core.json.{ JsonObject, Json }
 import com.campudus.tableaux.database.Tableaux._
