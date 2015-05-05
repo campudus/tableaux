@@ -49,12 +49,12 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def getNoExistingTable(): Unit = exceptionTest(notFound) {
+  def tryGetNoExistingTable(): Unit = exceptionTest(notFound) {
     sendRequest("GET", "/tables/1")
   }
 
   @Test
-  def getNoExistingColumn(): Unit = exceptionTest(notFound) {
+  def tryGetNoExistingColumn(): Unit = exceptionTest(notFound) {
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequest("GET", "/tables/1/columns/1")
@@ -62,7 +62,7 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def getNoExistingCell(): Unit = exceptionTest(notFound) {
+  def tryGetNoExistingCell(): Unit = exceptionTest(notFound) {
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
@@ -71,7 +71,7 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def getNoExistingRow(): Unit = exceptionTest(notFound) {
+  def tryGetNoExistingRow(): Unit = exceptionTest(notFound) {
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequest("GET", "/tables/1/rows/1")
@@ -80,7 +80,7 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createTableWithNoExistingSystemTables(): Unit = exceptionTest(errorDatabaseUnknown) {
-    val transaction = new DatabaseConnection(this)
+    val transaction = new DatabaseConnection(this, databaseAddress)
     val system = new SystemStructure(transaction)
     for {
       _ <- system.deinstall()

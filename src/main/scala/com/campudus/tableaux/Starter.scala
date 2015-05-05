@@ -1,32 +1,49 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.router.TableauxRouter
 import org.vertx.scala.core.FunctionConverters._
 import org.vertx.scala.core.http.HttpServer
-import org.vertx.scala.core.json.Json
-import org.vertx.scala.platform.Verticle
+import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.platform.{Container, Verticle}
 
 import scala.concurrent.{Future, Promise}
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class Starter extends Verticle {
 
   val DEFAULT_PORT = 8181
-  val config = Json.obj("username" -> "postgres", "password" -> "admin")
+  val DEFAULT_DATABASE_ADDRESS = "campudus.asyncdb"
 
   override def start(p: Promise[Unit]): Unit = {
-    val modDeploy = Promise[Unit]()
-    container.deployModule("io.vertx~mod-mysql-postgresql_2.11~0.3.1", config, 1, {
-      case Success(id) => modDeploy.success()
-      case Failure(ex) => modDeploy.failure(ex)
-    }: Try[String] => Unit)
+    val port = container.config().getInteger("port", DEFAULT_PORT)
 
-    val serverFuture = deployHttpServer(container.config().getInteger("port", DEFAULT_PORT))
-    p.completeWith(Future.sequence(List(modDeploy.future, serverFuture)).map(_ => ()))
+    val databaseConfig = container.config().getObject("database", Json.obj())
+    val validatorConfig = container.config().getObject("validator", Json.obj())
+
+    val databaseAddress = databaseConfig.getString("address", DEFAULT_DATABASE_ADDRESS)
+
+    for {
+      _ <- deployMod(container, "io.vertx~mod-mysql-postgresql_2.11~0.3.1", databaseConfig, 1)
+      _ <- deployMod(container, "com.campudus~vertx-tiny-validator4~1.0.0", validatorConfig, 1)
+      _ <- deployHttpServer(port, databaseAddress)
+    } yield {
+      p.success()
+    }
   }
 
-  def deployHttpServer(port: Int): Future[HttpServer] = {
+  def deployMod(container: Container, modName: String, config: JsonObject, instances: Int): Future[String] = {
+    val p = Promise[String]()
+    container.deployModule(modName, config, instances, {
+      case Success(deploymentId) => p.success(deploymentId)
+      case Failure(x) => p.failure(x)
+    }: Try[String] => Unit)
+    p.future
+  }
+
+  def deployHttpServer(port: Int, databaseAddress: String): Future[HttpServer] = {
     val p = Promise[HttpServer]()
-    vertx.createHttpServer().requestHandler(new TableauxRouter(this)).listen(port, {
+    val r = new TableauxRouter(this, databaseAddress)
+    vertx.createHttpServer().requestHandler(r).listen(port, {
       case Success(srv) => p.success(srv)
       case Failure(ex) => p.failure(ex)
     }: Try[HttpServer] => Unit)

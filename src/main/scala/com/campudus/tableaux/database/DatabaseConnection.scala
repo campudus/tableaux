@@ -1,21 +1,17 @@
 package com.campudus.tableaux.database
 
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.{ Failure, Success, Try }
-import org.vertx.scala.core.FunctionConverters._
-import org.vertx.scala.core.VertxExecutionContext
-import org.vertx.scala.core.eventbus.{ EventBus, Message }
-import org.vertx.scala.core.json.{ Json, JsonArray, JsonObject }
-import org.vertx.scala.platform.Verticle
 import com.campudus.tableaux.DatabaseException
+import com.campudus.tableaux.helper.StandardVerticle
+import org.vertx.scala.core.eventbus.Message
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import org.vertx.scala.platform.Verticle
+import org.vertx.scala.core.FunctionConverters._
 
-class DatabaseConnection(verticle: Verticle) {
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success, Try}
+
+class DatabaseConnection(val verticle: Verticle, val databaseAddress: String) extends StandardVerticle {
   val DEFAULT_TIMEOUT = 5000L
-  val address = "campudus.asyncdb"
-  val eb = verticle.vertx.eventBus
-
-  implicit val executionContext = VertxExecutionContext.fromVertxAccess(verticle)
 
   case class Transaction(msg: Message[JsonObject]) {
 
@@ -44,11 +40,11 @@ class DatabaseConnection(verticle: Verticle) {
     "statement" -> query,
     "values" -> values)) map { msg => checkForDatabaseError(msg.body()) } recoverWith { case ex => Future.failed[JsonObject](ex) }
 
-  def begin(): Future[Transaction] = sendHelper(Json.obj("action" -> "begin")) map { Transaction(_) }
+  def begin(): Future[Transaction] = sendHelper(Json.obj("action" -> "begin")) map { Transaction }
 
   private def sendHelper(json: JsonObject): Future[Message[JsonObject]] = {
     val p = Promise[Message[JsonObject]]()
-    eb.sendWithTimeout(address, json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
+    vertx.eventBus.sendWithTimeout(databaseAddress, json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
     p.future
   }
 
