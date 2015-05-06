@@ -16,7 +16,5 @@ object TableauxConfig {
 }
 
 trait TableauxConfig extends StandardVerticle {
-  override val verticle: Verticle
-
   val databaseAddress: String
 }
