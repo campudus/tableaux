@@ -196,7 +196,7 @@ trait VertxProject extends Build {
     IO.createDirectory(dir)
   }
 
-  private def copyDirectory(source: File, target: File)(implicit log: Logger): Unit = {
+  def copyDirectory(source: File, target: File)(implicit log: Logger): Unit = {
     log.debug(s"Copy $source to $target")
     IO.copyDirectory(source, target, overwrite = true)
   }
