@@ -4,6 +4,10 @@ import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.core.json.JsonArray
 import com.campudus.tableaux.NotFoundInDatabaseException
 
+/**
+ * Checks if database result changed
+ * something or not.
+ */
 object ResultChecker {
 
   def getSeqOfJsonArray(json: JsonObject): Seq[JsonArray] = {
@@ -23,9 +27,9 @@ object ResultChecker {
 
   def updateNotNull(json: JsonObject): Seq[JsonArray] = checkHelper(json, "UPDATE 0", "update")
 
-  private def checkHelper(json: JsonObject, s: String, ex: String): Seq[JsonArray] = {
-    if (json.getString("message") == s) {
-      throw NotFoundInDatabaseException(s"Warning: $ex query failed", ex)
+  private def checkHelper(json: JsonObject, message: String, queryType: String): Seq[JsonArray] = {
+    if (json.getString("message") == message) {
+      throw NotFoundInDatabaseException(s"Warning: $message query failed", queryType)
     } else {
       getSeqOfJsonArray(json)
     }
