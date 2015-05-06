@@ -1,0 +1,29 @@
+{
+  "tableName" : "Bundesländer Deutschlands",
+  "columns" : [ {
+    "kind" : "text",
+    "name" : "Land",
+    "ordering" : 1
+  }, {
+    "kind" : "text",
+    "name" : "Hauptstadt",
+    "ordering" : 2
+  }, {
+    "kind" : "numeric",
+    "name" : "Fläche in km²",
+    "ordering" : 3
+  }, {
+    "kind" : "numeric",
+    "name" : "Einwohner",
+    "ordering" : 4
+  } ],
+  "rows" : [ {
+    "values" : [ "Baden-Württemberg", "Stuttgart", 35751, 10631278 ]
+  }, {
+    "values" : [ "Bayern", "München", 70550, 12604244 ]
+  }, {
+    "values" : [ "Berlin", "Berlin", 892, 3440991 ]
+  }, {
+    "values" : [ "Brandenburg", "Potsdam", 29655, 2449193 ]
+  } ]
+}
