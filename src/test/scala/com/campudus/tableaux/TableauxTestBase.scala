@@ -2,6 +2,7 @@ package com.campudus.tableaux
 
 
 import org.vertx.scala.core.FunctionConverters._
+import org.vertx.scala.core.buffer.Buffer
 import org.vertx.scala.core.json._
 import org.vertx.scala.testtools.TestVerticle
 import org.vertx.testtools.VertxAssert._
@@ -19,17 +20,18 @@ case class TestCustomException(message: String, id: String, statusCode: Int) ext
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
  */
 trait TableauxTestBase extends TestVerticle {
-  val DEFAULT_PORT = 8181
 
   lazy val config: JsonObject = jsonFromFile("../conf.json")
-  lazy val databaseAddress: String = config.getObject("database", Json.obj()).getString("address", "campudus.asyncdb")
+  lazy val port: Int = config.getInteger("port", Starter.DEFAULT_PORT)
+  lazy val databaseAddress: String = config.getObject("database", Json.obj()).getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
 
-  private def readJsonFile(f: String): String = Source.fromFile(s"$f").getLines().mkString
+  private def readJsonFile(f: String): String = Source.fromFile(f).getLines().mkString
   private def jsonFromFile(f: String): JsonObject = Json.fromObjectString(readJsonFile(f))
-  
+
   override def asyncBefore(): Future[Unit] = {
     val transaction = new DatabaseConnection(this, databaseAddress)
     val system = new SystemStructure(transaction)
+
     for {
       _ <- deployModule(config)
       _ <- system.deinstall()
@@ -74,7 +76,7 @@ trait TableauxTestBase extends TestVerticle {
   }
 
   def createClient(): HttpClient = {
-    vertx.createHttpClient().setHost("localhost").setPort(config.getInteger("port", DEFAULT_PORT))
+    vertx.createHttpClient().setHost("localhost").setPort(port)
   }
 
   def sendRequest(method: String, path: String): Future[JsonObject] = {

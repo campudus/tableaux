@@ -9,18 +9,20 @@ import org.vertx.scala.platform.{Container, Verticle}
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-class Starter extends Verticle {
-
+object Starter {
   val DEFAULT_PORT = 8181
   val DEFAULT_DATABASE_ADDRESS = "campudus.asyncdb"
+}
+
+class Starter extends Verticle {
 
   override def start(p: Promise[Unit]): Unit = {
-    val port = container.config().getInteger("port", DEFAULT_PORT)
+    val port = container.config().getInteger("port", Starter.DEFAULT_PORT)
 
     val databaseConfig = container.config().getObject("database", Json.obj())
     val validatorConfig = container.config().getObject("validator", Json.obj())
 
-    val databaseAddress = databaseConfig.getString("address", DEFAULT_DATABASE_ADDRESS)
+    val databaseAddress = databaseConfig.getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
 
     for {
       _ <- deployMod(container, "io.vertx~mod-mysql-postgresql_2.11~0.3.1", databaseConfig, 1)
