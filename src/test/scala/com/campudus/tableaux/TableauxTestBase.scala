@@ -1,6 +1,7 @@
 package com.campudus.tableaux
 
 
+import com.campudus.tableaux.database.model.SystemModel
 import org.vertx.scala.core.FunctionConverters._
 import org.vertx.scala.core.buffer.Buffer
 import org.vertx.scala.core.json._
@@ -9,9 +10,7 @@ import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.http._
 import scala.concurrent.{ Promise, Future }
 import scala.io.Source
-import java.io.File
 import scala.util.{ Try, Failure, Success }
-import com.campudus.tableaux.database.SystemStructure
 import com.campudus.tableaux.database.DatabaseConnection
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable
@@ -29,8 +28,9 @@ trait TableauxTestBase extends TestVerticle {
   private def jsonFromFile(f: String): JsonObject = Json.fromObjectString(readJsonFile(f))
 
   override def asyncBefore(): Future[Unit] = {
-    val dbConnection = new DatabaseConnection(this, databaseAddress)
-    val system = new SystemStructure(dbConnection)
+    val tableauxConfig = TableauxConfig(this, databaseAddress)
+    val dbConnection = DatabaseConnection(tableauxConfig)
+    val system = SystemModel(dbConnection)
 
     for {
       _ <- deployModule(config)

@@ -1,32 +1,28 @@
-package com.campudus.tableaux.database
+package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.structure._
-import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.core.json._
-import org.vertx.scala.platform.Verticle
 
 import scala.concurrent.Future
 
-object Tableaux {
+object TableauxModel {
   type IdType = Long
   type Ordering = Long
   type LinkConnection = (IdType, IdType, IdType)
+
+  def apply(connection: DatabaseConnection): TableauxModel = {
+    new TableauxModel(connection)
+  }
 }
 
-class Tableaux(val verticle: Verticle, val database: DatabaseConnection) extends DatabaseAccess with StandardVerticle {
+class TableauxModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+  import TableauxModel._
 
-  import Tableaux._
-
-  val systemStruc = new SystemStructure(database)
-  val tableStruc = new TableStructure(database)
-  val columnStruc = new ColumnStructure(database)
-  val cellStruc = new CellStructure(database)
-  val rowStruc = new RowStructure(database)
-
-  def resetDB(): Future[EmptyObject] = for {
-    _ <- systemStruc.deinstall()
-    _ <- systemStruc.setup()
-  } yield EmptyObject()
+  val tableStruc = new TableStructure(connection)
+  val columnStruc = new ColumnStructure(connection)
+  val cellStruc = new CellStructure(connection)
+  val rowStruc = new RowStructure(connection)
 
   def createTable(name: String): Future[Table] = for {
     id <- tableStruc.create(name)

@@ -3,8 +3,8 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.database.structure.{EmptyReturn, SetReturn, GetReturn}
 import com.campudus.tableaux.helper.HelperFunctions
 import HelperFunctions._
-import com.campudus.tableaux.NoJsonFoundException
-import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.{TableauxConfig, NoJsonFoundException}
+import com.campudus.tableaux.controller.{SystemController, TableauxController}
 import com.campudus.tableaux.database._
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.platform.Verticle
@@ -12,7 +12,14 @@ import org.vertx.scala.router.routing._
 
 import scala.util.matching.Regex
 
-class TableauxRouter(val verticle: Verticle, val databaseAddress: String) extends BaseRouter with DatabaseAccess {
+object TableauxRouter {
+  def apply(config: TableauxConfig, controllerCurry: (TableauxConfig) => TableauxController): TableauxRouter = {
+    new TableauxRouter(config, controllerCurry(config))
+  }
+}
+
+class TableauxRouter(override val config: TableauxConfig, val controller: TableauxController) extends BaseRouter {
+
   val TableIdColumnsIdRowsId: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
   val TableIdColumnsId: Regex = "/tables/(\\d+)/columns/(\\d+)".r
   val TableIdColumns: Regex = "/tables/(\\d+)/columns".r
@@ -20,23 +27,7 @@ class TableauxRouter(val verticle: Verticle, val databaseAddress: String) extend
   val TableIdRows: Regex = "/tables/(\\d+)/rows".r
   val TableId: Regex = "/tables/(\\d+)".r
 
-  val database = new DatabaseConnection(verticle, databaseAddress)
-  val controller = new TableauxController(verticle, database)
-
-  val demoRouter = new DemoRouter(verticle, database)
-
-  override def routes(implicit request: HttpServerRequest):  Routing = {
-    index orElse
-      demoRouter.routes orElse
-      this.myRoutes
-  }
-
-  def index(implicit request: HttpServerRequest): Routing = {
-    case Get("/") => SendFile("index.html")
-    case Get("/index.html") => SendFile("index.html")
-  }
-
-  def myRoutes(implicit req: HttpServerRequest): Routing = {
+  override def routes(implicit req: HttpServerRequest):  Routing = {
     case Get("/tables") => asyncGetReply(controller.getAllTables())
     case Get(TableId(tableId)) => asyncGetReply(controller.getTable(tableId.toLong))
     case Get(TableIdColumnsId(tableId, columnId)) => asyncGetReply(controller.getColumn(tableId.toLong, columnId.toLong))

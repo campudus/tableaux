@@ -1,6 +1,7 @@
 package com.campudus.tableaux.database.structure
 
-import com.campudus.tableaux.database.Tableaux._
+import com.campudus.tableaux.database.model.TableauxModel
+import TableauxModel._
 
 sealed trait TableauxDbType
 

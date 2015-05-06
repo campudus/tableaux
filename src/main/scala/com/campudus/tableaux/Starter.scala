@@ -1,10 +1,12 @@
 package com.campudus.tableaux
 
-import com.campudus.tableaux.router.TableauxRouter
+import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.router.RouterRegistry
 import org.vertx.scala.core.FunctionConverters._
 import org.vertx.scala.core.http.HttpServer
 import org.vertx.scala.core.json.{Json, JsonObject}
 import org.vertx.scala.platform.{Container, Verticle}
+import org.vertx.scala.router.Router
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -15,14 +17,15 @@ object Starter {
 }
 
 class Starter extends Verticle {
+  import Starter._
 
   override def start(p: Promise[Unit]): Unit = {
-    val port = container.config().getInteger("port", Starter.DEFAULT_PORT)
+    val port = container.config().getInteger("port", DEFAULT_PORT)
 
     val databaseConfig = container.config().getObject("database", Json.obj())
     val validatorConfig = container.config().getObject("validator", Json.obj())
 
-    val databaseAddress = databaseConfig.getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
+    val databaseAddress = databaseConfig.getString("address", DEFAULT_DATABASE_ADDRESS)
 
     for {
       _ <- deployMod(container, "io.vertx~mod-mysql-postgresql_2.11~0.3.1", databaseConfig, 1)
@@ -44,11 +47,17 @@ class Starter extends Verticle {
 
   def deployHttpServer(port: Int, databaseAddress: String): Future[HttpServer] = {
     val p = Promise[HttpServer]()
-    val r = new TableauxRouter(this, databaseAddress)
-    vertx.createHttpServer().requestHandler(r).listen(port, {
-      case Success(srv) => p.success(srv)
+
+    val config = TableauxConfig(this, databaseAddress)
+    val dbConnection = DatabaseConnection(config)
+    val router = RouterRegistry(config, dbConnection)
+
+    vertx.createHttpServer().requestHandler(router).listen(port, {
+      case Success(srv) =>
+        p.success(srv)
       case Failure(ex) => p.failure(ex)
     }: Try[HttpServer] => Unit)
+
     p.future
   }
 }

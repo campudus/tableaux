@@ -1,76 +1,17 @@
 package com.campudus.tableaux.database
 
+import com.campudus.tableaux.database.model.TableauxModel
 import com.campudus.tableaux.database.structure.{Mapper, TableauxDbType}
 
 import scala.concurrent.Future
 import org.vertx.scala.core.json.{ JsonObject, Json }
-import com.campudus.tableaux.database.Tableaux._
+import TableauxModel._
 import com.campudus.tableaux.database.ResultChecker._
 
 trait DatabaseQuery {
   protected[this] val connection: DatabaseConnection
 
   implicit val executionContext = connection.executionContext
-}
-
-class SystemStructure(protected val connection: DatabaseConnection) extends DatabaseQuery {
-
-  def deinstall(): Future[Unit] = for {
-    t <- connection.begin()
-    (t, _) <- t.query("DROP SCHEMA public CASCADE", Json.arr())
-    (t, _) <- t.query("CREATE SCHEMA public", Json.arr())
-    _ <- t.commit()
-  } yield ()
-
-  def setup(): Future[Unit] = for {
-    t <- connection.begin()
-    (t, _) <- t.query(s"""
-                     |CREATE TABLE system_table (
-                     |  table_id BIGSERIAL,
-                     |  user_table_name VARCHAR(255) NOT NULL,
-                     |  PRIMARY KEY(table_id)
-                     |)""".stripMargin,
-      Json.arr())
-    (t, _) <- t.query(s"""
-                     |CREATE TABLE system_columns(
-                     |  table_id BIGINT,
-                     |  column_id BIGINT,
-                     |  column_type VARCHAR(255) NOT NULL,
-                     |  user_column_name VARCHAR(255) NOT NULL,
-                     |  ordering BIGINT NOT NULL,
-                     |  link_id BIGINT,
-                     |
-                     |  PRIMARY KEY(table_id, column_id),
-                     |  FOREIGN KEY(table_id)
-                     |  REFERENCES system_table(table_id)
-                     |  ON DELETE CASCADE
-                     |)""".stripMargin,
-      Json.arr())
-    (t, _) <- t.query(s"""
-                     |CREATE TABLE system_link_table(
-                     |  link_id BIGSERIAL,
-                     |  table_id_1 BIGINT,
-                     |  table_id_2 BIGINT,
-                     |  column_id_1 BIGINT,
-                     |  column_id_2 BIGINT,
-                     |
-                     |  PRIMARY KEY(link_id),
-                     |  FOREIGN KEY(table_id_1, column_id_1)
-                     |  REFERENCES system_columns(table_id, column_id)
-                     |  ON DELETE CASCADE,
-                     |  FOREIGN KEY(table_id_2, column_id_2)
-                     |  REFERENCES system_columns(table_id, column_id)
-                     |  ON DELETE CASCADE
-                     |)""".stripMargin,
-      Json.arr())
-    (t, _) <- t.query(s"""
-                     |ALTER TABLE system_columns
-                     |  ADD FOREIGN KEY(link_id)
-                     |  REFERENCES system_link_table(link_id)
-                     |  ON DELETE CASCADE""".stripMargin,
-      Json.arr())
-    _ <- t.commit()
-  } yield ()
 }
 
 class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {

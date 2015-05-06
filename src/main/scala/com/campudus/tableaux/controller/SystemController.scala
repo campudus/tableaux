@@ -1,31 +1,31 @@
 package com.campudus.tableaux.controller
 
-/**
- * Controller for resetting the database.
- * Mostly this is need for Demo & Test data.
- */
-
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.structure.CreateColumn
+import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.database.structure.{DomainObject, EmptyObject, CreateColumn}
+import com.campudus.tableaux.database.model.{TableauxModel, SystemModel}
 import com.campudus.tableaux.helper.HelperFunctions._
-import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.core.buffer.Buffer
 import org.vertx.scala.core.json._
-import org.vertx.scala.platform.Verticle
 
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{Promise, Future}
+import scala.util.{Try, Failure, Success}
 
-class DemoController(val verticle: Verticle, val database: DatabaseConnection) extends DatabaseAccess with StandardVerticle {
+object SystemController {
+  def apply(config: TableauxConfig, repository: SystemModel, tableauxModel: TableauxModel): SystemController = {
+    new SystemController(config, repository, tableauxModel)
+  }
+}
 
-  lazy val tableaux = new Tableaux(verticle, database)
-
+class SystemController(override val config: TableauxConfig, override protected val repository: SystemModel, protected val tableauxModel: TableauxModel) extends Controller[SystemModel] {
   val fileProps = """^(.+[\\/])*(.+)\.(.+)$""".r
 
   def resetDB(): Future[DomainObject] = {
     logger.info("Reset database")
-    tableaux.resetDB()
+    for {
+      _ <- repository.deinstall()
+      _ <- repository.setup()
+    } yield EmptyObject()
   }
 
   def createDemoTables(): Future[DomainObject] = {
@@ -84,6 +84,6 @@ class DemoController(val verticle: Verticle, val database: DatabaseConnection) e
   private def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     logger.info(s"createTable $tableName columns $rowsValues")
-    tableaux.createCompleteTable(tableName, columns, rowsValues)
+    tableauxModel.createCompleteTable(tableName, columns, rowsValues)
   }
 }

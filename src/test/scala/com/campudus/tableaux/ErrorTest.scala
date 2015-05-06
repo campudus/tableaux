@@ -1,9 +1,9 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.database.model.SystemModel
 import org.junit.Test
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.json.{ Json, JsonObject }
-import com.campudus.tableaux.database.SystemStructure
 import com.campudus.tableaux.database.DatabaseConnection
 
 class ErrorTest extends TableauxTestBase {
@@ -80,8 +80,10 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createTableWithNoExistingSystemTables(): Unit = exceptionTest(errorDatabaseUnknown) {
-    val dbConnection = new DatabaseConnection(this, databaseAddress)
-    val system = new SystemStructure(dbConnection)
+    val tableauxConfig = TableauxConfig(this, databaseAddress)
+    val dbConnection = DatabaseConnection(tableauxConfig)
+    val system = SystemModel(dbConnection)
+
     for {
       _ <- system.deinstall()
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")

@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database.structure
 
-import com.campudus.tableaux.database.DomainObject
-import com.campudus.tableaux.database.Tableaux._
+import com.campudus.tableaux.database.model.TableauxModel
+import TableauxModel._
 import org.vertx.scala.core.json._
 
 case class CreateColumn(name: String, kind: TableauxDbType, ordering: Option[Ordering], linkConnections: Option[LinkConnection])

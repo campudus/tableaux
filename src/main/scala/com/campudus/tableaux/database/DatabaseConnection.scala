@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database
 
-import com.campudus.tableaux.DatabaseException
+import com.campudus.tableaux.{TableauxConfig, DatabaseException}
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
@@ -10,8 +10,18 @@ import org.vertx.scala.core.FunctionConverters._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-class DatabaseConnection(val verticle: Verticle, val databaseAddress: String) extends StandardVerticle {
+object DatabaseConnection {
   val DEFAULT_TIMEOUT = 5000L
+
+  def apply(config: TableauxConfig): DatabaseConnection = {
+    new DatabaseConnection(config)
+  }
+}
+
+class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
+  import DatabaseConnection._
+
+  override val verticle: Verticle = config.verticle
 
   case class Transaction(msg: Message[JsonObject]) {
 
@@ -44,7 +54,7 @@ class DatabaseConnection(val verticle: Verticle, val databaseAddress: String) ex
 
   private def sendHelper(json: JsonObject): Future[Message[JsonObject]] = {
     val p = Promise[Message[JsonObject]]()
-    vertx.eventBus.sendWithTimeout(databaseAddress, json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
+    vertx.eventBus.sendWithTimeout(config.databaseAddress, json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
     p.future
   }
 
