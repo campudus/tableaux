@@ -29,8 +29,8 @@ trait TableauxTestBase extends TestVerticle {
   private def jsonFromFile(f: String): JsonObject = Json.fromObjectString(readJsonFile(f))
 
   override def asyncBefore(): Future[Unit] = {
-    val transaction = new DatabaseConnection(this, databaseAddress)
-    val system = new SystemStructure(transaction)
+    val dbConnection = new DatabaseConnection(this, databaseAddress)
+    val system = new SystemStructure(dbConnection)
 
     for {
       _ <- deployModule(config)

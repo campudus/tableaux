@@ -14,6 +14,7 @@ object Tableaux {
 }
 
 class Tableaux(val verticle: Verticle, val database: DatabaseConnection) extends DatabaseAccess with StandardVerticle {
+
   import Tableaux._
 
   val systemStruc = new SystemStructure(database)
@@ -38,7 +39,9 @@ class Tableaux(val verticle: Verticle, val database: DatabaseConnection) extends
       if (rowsValues.isEmpty) {
         Seq()
       } else {
-        rowsValues map { columnIds.zip(_) }
+        rowsValues map {
+          columnIds.zip(_)
+        }
       }
     }
     _ <- addFullRows(table.id, rowsWithColumnIdAndValue)
@@ -90,7 +93,11 @@ class Tableaux(val verticle: Verticle, val database: DatabaseConnection) extends
 
   private def serialiseFutures[A, B](seq: Seq[A])(fn: A => Future[B]): Future[Seq[B]] = {
     seq.foldLeft(Future(Seq.empty[B])) {
-      (lastFuture, next) => lastFuture flatMap { preResults => fn(next) map { preResults :+ _ } }
+      (lastFuture, next) => lastFuture flatMap { preResults =>
+        fn(next) map {
+          preResults :+ _
+        }
+      }
     }
   }
 
@@ -120,8 +127,8 @@ class Tableaux(val verticle: Verticle, val database: DatabaseConnection) extends
   def getAllTables(): Future[TableSeq] = for {
     seqOfTableInformation <- tableStruc.getAll
   } yield {
-      TableSeq(seqOfTableInformation map { case (id, name) => Table(id, name) })
-    }
+    TableSeq(seqOfTableInformation map { case (id, name) => Table(id, name) })
+  }
 
   def getTable(tableId: IdType): Future[Table] = for {
     (id, name) <- tableStruc.get(tableId)
@@ -167,9 +174,9 @@ class Tableaux(val verticle: Verticle, val database: DatabaseConnection) extends
   private def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = for {
     allColumns <- columnStruc.getAll(table.id)
   } yield allColumns map {
-      case (columnId, columnName, columnKind, ordering) =>
-        Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)
-    }
+    case (columnId, columnName, columnKind, ordering) =>
+      Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)
+  }
 
   private def getAllRows(table: Table): Future[RowSeq] = for {
     allRows <- rowStruc.getAll(table.id)
