@@ -6,7 +6,7 @@ import com.campudus.tableaux.database.DomainObject
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.core.json._
-import org.vertx.scala.router.routing.{Header, AsyncReply, Error, Ok}
+import org.vertx.scala.router.routing.{AsyncReply, Error, Ok}
 import org.vertx.scala.router.{Router, RouterException}
 
 import scala.concurrent.{Future, Promise}

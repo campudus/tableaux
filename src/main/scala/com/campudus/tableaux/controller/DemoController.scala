@@ -31,22 +31,16 @@ class DemoController(val verticle: Verticle, val database: DatabaseConnection) e
   def createDemoTables(): Future[DomainObject] = {
     for {
       _ <- writeDemoData(readDemoData())
-      emptyObject <- Future.successful(EmptyObject())
-    } yield emptyObject
+    } yield EmptyObject()
   }
 
-  private def writeDemoData(demoData: Future[Seq[JsonObject]]): Future[DomainObject] = {
-    val p = Promise[DomainObject]()
-
-    //TODO It works but I'm not sure if it's nice
-    demoData.map { data =>
-      data.map { table =>
+  private def writeDemoData(demoData: Future[Seq[JsonObject]]): Future[Seq[DomainObject]] = {
+    demoData.flatMap { data =>
+      val foo = data.map { table =>
         createTable(table.getString("tableName"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithValue(table))
-        p.success(EmptyObject())
       }
+      Future.sequence(foo)
     }
-
-    p.future
   }
 
   private def readDemoData(): Future[Seq[JsonObject]] = {
