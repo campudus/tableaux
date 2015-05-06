@@ -12,7 +12,7 @@ class DemoRouter(val verticle: Verticle, val database: DatabaseConnection) exten
   val controller = new DemoController(verticle, database)
 
   override def routes(implicit req: HttpServerRequest): Routing = {
-    case Post("/reset") => getAsyncReply(SetReturn)(controller.resetDB())
-    case Post("/resetDemo") => getAsyncReply(SetReturn)(controller.createDemoTables())
+    case Post("/reset") => asyncSetReply(controller.resetDB())
+    case Post("/resetDemo") => asyncSetReply(controller.createDemoTables())
   }
 }

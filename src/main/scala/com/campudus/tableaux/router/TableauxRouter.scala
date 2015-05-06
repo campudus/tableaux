@@ -37,13 +37,13 @@ class TableauxRouter(val verticle: Verticle, val databaseAddress: String) extend
   }
 
   def myRoutes(implicit req: HttpServerRequest): Routing = {
-    case Get("/tables") => getAsyncReply(GetReturn)(controller.getAllTables())
-    case Get(TableId(tableId)) => getAsyncReply(GetReturn)(controller.getTable(tableId.toLong))
-    case Get(TableIdColumnsId(tableId, columnId)) => getAsyncReply(GetReturn)(controller.getColumn(tableId.toLong, columnId.toLong))
-    case Get(TableIdRowsId(tableId, rowId)) => getAsyncReply(GetReturn)(controller.getRow(tableId.toLong, rowId.toLong))
-    case Get(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(GetReturn)(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
+    case Get("/tables") => asyncGetReply(controller.getAllTables())
+    case Get(TableId(tableId)) => asyncGetReply(controller.getTable(tableId.toLong))
+    case Get(TableIdColumnsId(tableId, columnId)) => asyncGetReply(controller.getColumn(tableId.toLong, columnId.toLong))
+    case Get(TableIdRowsId(tableId, rowId)) => asyncGetReply(controller.getRow(tableId.toLong, rowId.toLong))
+    case Get(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => asyncGetReply(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
 
-    case Post("/tables") => getAsyncReply(SetReturn) {
+    case Post("/tables") => asyncSetReply {
       getJson(req) flatMap { json =>
         if (json.getFieldNames.contains("columns")) {
           if (json.getFieldNames.contains("rows")) {
@@ -56,21 +56,21 @@ class TableauxRouter(val verticle: Verticle, val databaseAddress: String) extend
         }
       }
     }
-    case Post(TableIdColumns(tableId)) => getAsyncReply(SetReturn) {
+    case Post(TableIdColumns(tableId)) => asyncSetReply {
       getJson(req) flatMap (json => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json)))
     }
-    case Post(TableIdRows(tableId)) => getAsyncReply(SetReturn) {
+    case Post(TableIdRows(tableId)) => asyncSetReply {
       getJson(req) flatMap (json => controller.createRow(tableId.toLong, Some(jsonToSeqOfRowsWithColumnIdAndValue(json)))) recoverWith {
         case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
       }
     }
-    case Post(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => getAsyncReply(SetReturn) {
+    case Post(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => asyncSetReply {
       getJson(req) flatMap {
         json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, jsonToValues(json))
       }
     }
-    case Post(TableId(tableId)) => getAsyncReply(EmptyReturn)(getJson(req) flatMap (json => controller.changeTableName(tableId.toLong, json.getString("tableName"))))
-    case Post(TableIdColumnsId(tableId, columnId)) => getAsyncReply(EmptyReturn) {
+    case Post(TableId(tableId)) => asyncEmptyReply(getJson(req) flatMap (json => controller.changeTableName(tableId.toLong, json.getString("tableName"))))
+    case Post(TableIdColumnsId(tableId, columnId)) => asyncEmptyReply {
       getJson(req) flatMap {
         json =>
           val (optName, optOrd, optKind) = getColumnChanges(json)
@@ -78,8 +78,8 @@ class TableauxRouter(val verticle: Verticle, val databaseAddress: String) extend
       }
     }
 
-    case Delete(TableId(tableId)) => getAsyncReply(EmptyReturn)(controller.deleteTable(tableId.toLong))
-    case Delete(TableIdColumnsId(tableId, columnId)) => getAsyncReply(EmptyReturn)(controller.deleteColumn(tableId.toLong, columnId.toLong))
-    case Delete(TableIdRowsId(tableId, rowId)) => getAsyncReply(EmptyReturn)(controller.deleteRow(tableId.toLong, rowId.toLong))
+    case Delete(TableId(tableId)) => asyncEmptyReply(controller.deleteTable(tableId.toLong))
+    case Delete(TableIdColumnsId(tableId, columnId)) => asyncEmptyReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
+    case Delete(TableIdRowsId(tableId, rowId)) => asyncEmptyReply(controller.deleteRow(tableId.toLong, rowId.toLong))
   }
 }

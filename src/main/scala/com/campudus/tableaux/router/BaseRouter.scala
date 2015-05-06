@@ -1,7 +1,7 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux._
-import com.campudus.tableaux.database.structure.ReturnType
+import com.campudus.tableaux.database.structure.{GetReturn, EmptyReturn, SetReturn, ReturnType}
 import com.campudus.tableaux.database.DomainObject
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.core.http.HttpServerRequest
@@ -13,7 +13,11 @@ import scala.concurrent.{Future, Promise}
 
 trait BaseRouter extends Router with StandardVerticle {
 
-  def getAsyncReply(reType: ReturnType)(f: => Future[DomainObject]): AsyncReply = AsyncReply {
+  val asyncSetReply = asyncReply(SetReturn) _
+  val asyncGetReply = asyncReply(GetReturn) _
+  val asyncEmptyReply = asyncReply(EmptyReturn) _
+  
+  def asyncReply(reType: ReturnType)(f: => Future[DomainObject]): AsyncReply = AsyncReply {
     f map { d => Ok(Json.obj("status" -> "ok").mergeIn(d.toJson(reType))) } recover {
       case ex@NotFoundInDatabaseException(message, id) => Error(RouterException(message, ex, s"errors.database.$id", 404))
       case ex@DatabaseException(message, id) => Error(RouterException(message, ex, s"errors.database.$id", 500))
