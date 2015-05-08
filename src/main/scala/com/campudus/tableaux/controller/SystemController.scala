@@ -2,14 +2,13 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
-import com.campudus.tableaux.database.structure.{DomainObject, EmptyObject, CreateColumn}
-import com.campudus.tableaux.database.model.{TableauxModel, SystemModel}
+import com.campudus.tableaux.database.model.{SystemModel, TableauxModel}
+import com.campudus.tableaux.database.structure.{CreateColumn, DomainObject, EmptyObject}
+import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.helper.HelperFunctions._
-import org.vertx.scala.core.buffer.Buffer
 import org.vertx.scala.core.json._
 
-import scala.concurrent.{Promise, Future}
-import scala.util.{Try, Failure, Success}
+import scala.concurrent.Future
 
 object SystemController {
   def apply(config: TableauxConfig, repository: SystemModel, tableauxModel: TableauxModel): SystemController = {
@@ -29,6 +28,7 @@ class SystemController(override val config: TableauxConfig, override protected v
   }
 
   def createDemoTables(): Future[DomainObject] = {
+    logger.info("Create demo tables")
     for {
       _ <- writeDemoData(readDemoData())
     } yield EmptyObject()
@@ -44,41 +44,13 @@ class SystemController(override val config: TableauxConfig, override protected v
   }
 
   private def readDemoData(): Future[Seq[JsonObject]] = {
-    readDir("../resources/demodata/", ".*\\.json") flatMap { fileNames =>
-      Future.sequence((fileNames map { file =>
-        readFile(file)
-      }).toSeq)
+    FileUtils(verticle).readDir("../resources/demodata/", ".*\\.json") flatMap { fileNames =>
+      Future.sequence(
+        (fileNames map { file =>
+          FileUtils(verticle).readJsonFile(file)
+        }).toSeq
+      )
     }
-  }
-
-  private def readDir(dir: String, filter: String): Future[Array[String]] = {
-    import org.vertx.scala.core.FunctionConverters._
-
-    val p = Promise[Array[String]]()
-
-    vertx.fileSystem.readDir(dir, filter, {
-      case Success(files) => p.success(files)
-      case Failure(ex) =>
-        logger.info("Failed reading schema directory")
-        p.failure(ex)
-    }: Try[Array[String]] => Unit)
-
-    p.future
-  }
-
-  private def readFile(fileName: String): Future[JsonObject] = {
-    import org.vertx.scala.core.FunctionConverters._
-
-    val p = Promise[JsonObject]()
-
-    vertx.fileSystem.readFile(fileName, {
-      case Success(b) => p.success(Json.fromObjectString(b.toString()))
-      case Failure(ex) =>
-        logger.info("Failed reading schema file")
-        p.failure(ex)
-    }: Try[Buffer] => Unit)
-
-    p.future
   }
 
   private def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
