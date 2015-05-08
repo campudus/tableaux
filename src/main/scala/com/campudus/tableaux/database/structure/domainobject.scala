@@ -7,9 +7,21 @@ trait DomainObject {
 
   def setJson: JsonObject
 
-  def emptyJson: JsonObject = Json.obj()
+  /**
+   * Returns an empty JsonObject. It's used
+   * as response for all requests which don't
+   * need a response body.
+   *
+   * @return empty JsonObject
+   */
+  final def emptyJson: JsonObject = Json.obj()
 
-  def toJson(reType: ReturnType): JsonObject = reType match {
+  /**
+   *
+   * @param returnType get, set or empty {@see ReturnType}
+   * @return
+   */
+  def toJson(returnType: ReturnType): JsonObject = returnType match {
     case GetReturn => getJson
     case SetReturn => setJson
     case EmptyReturn => emptyJson
