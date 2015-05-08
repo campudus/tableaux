@@ -51,15 +51,46 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def fillSingleLinkCell(): Unit = okTest {
-    val fillLinkCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> Json.arr(1, 1))))
+    val valuesRow = { c: String =>
+      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2))))
+    }
+
+    val fillLinkCellJson = { c: Integer =>
+      Json.obj("cells" -> Json.arr(Json.obj("value" -> Json.arr(1, c))))
+    }
+
     val expectedJson = Json.obj("status" -> "ok")
 
     for {
       tables <- setupTables()
+      // create link column
       columnId <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns") map { _.getArray("columns").get[JsonObject](0).getLong("id") }
-      test <- sendRequestWithJson("POST", fillLinkCellJson, s"/tables/1/columns/$columnId/rows/1")
+      // add row 1 to table 2
+      rowId1 <- sendRequestWithJson("POST", valuesRow("Lala"), "/tables/2/rows") map { _.getArray("rows").get[JsonObject](0).getInteger("id")}
+      // add row 2 to table 2
+      rowId2 <- sendRequestWithJson("POST", valuesRow("Lulu"), "/tables/2/rows") map { _.getArray("rows").get[JsonObject](0).getInteger("id")}
+      // add link 1
+      addLink1 <- sendRequestWithJson("POST", fillLinkCellJson(rowId1), s"/tables/1/columns/$columnId/rows/1")
+      // add link 2
+      addLink2 <- sendRequestWithJson("POST", fillLinkCellJson(rowId2), s"/tables/1/columns/$columnId/rows/1")
+      // get link value (so it's a value from table 2 shown in table 1)
+      linkValue <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertEquals(expectedJson, addLink1)
+      assertEquals(expectedJson, addLink2)
+
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "rows" -> Json.arr(
+          Json.obj("value" -> Json.arr(
+              Json.obj("id" -> rowId1, "value" -> "Lala"),
+              Json.obj("id" -> rowId2, "value" -> "Lulu")
+            )
+          )
+        )
+      )
+
+      assertEquals(expectedJson2.getArray("rows").get[JsonObject](0).getArray("value"), linkValue.getArray("rows").get[JsonObject](0).getArray("value"))
     }
   }
 
