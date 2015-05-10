@@ -33,6 +33,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Get(TableIdColumnsId(tableId, columnId)) => asyncGetReply(controller.getColumn(tableId.toLong, columnId.toLong))
     case Get(TableIdRowsId(tableId, rowId)) => asyncGetReply(controller.getRow(tableId.toLong, rowId.toLong))
     case Get(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => asyncGetReply(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
+    case Get(TableIdColumns(tableId)) => asyncGetReply(controller.getColumns(tableId.toLong))
 
     case Post("/tables") => asyncSetReply {
       getJson(req) flatMap { json =>

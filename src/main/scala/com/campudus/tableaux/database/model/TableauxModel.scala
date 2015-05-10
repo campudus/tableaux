@@ -152,6 +152,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield column
 
+  def getColumns(tableId: IdType): Future[ColumnSeq] = for {
+    table <- getTable(tableId)
+    columns <- getAllColumns(table)
+  } yield ColumnSeq(columns)
+
   private def getValueColumn(table: Table, columnId: IdType, columnName: String, columnKind: TableauxDbType, ordering: Ordering): ColumnValue[_] = {
     Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)
   }

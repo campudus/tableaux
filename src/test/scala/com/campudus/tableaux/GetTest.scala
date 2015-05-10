@@ -89,17 +89,32 @@ class GetTest extends TableauxTestBase {
     }
   }
 
-    @Test
-    def getAllTables(): Unit = okTest {
+  @Test
+  def getAllTables(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "tables" -> Json.arr(
-    Json.obj("id" -> 1, "name" -> "Test Table 1"),
-    Json.obj("id" -> 2, "name" -> "Test Table 2")
+      Json.obj("id" -> 1, "name" -> "Test Table 1"),
+      Json.obj("id" -> 2, "name" -> "Test Table 2")
     ))
 
     for {
       _ <- setupDefaultTable("Test Table 1")
       _ <- setupDefaultTable("Test Table 2")
       test <- sendRequest("GET", "/tables")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
+
+  @Test
+  def getColumns(): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "tableId" -> 1, "columns" -> Json.arr(
+      Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1),
+      Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2)
+    ))
+
+    for {
+      _ <- setupDefaultTable()
+      test <- sendRequest("GET", "/tables/1/columns")
     } yield {
       assertEquals(expectedJson, test)
     }
