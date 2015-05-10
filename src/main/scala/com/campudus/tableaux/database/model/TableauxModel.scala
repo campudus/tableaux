@@ -135,6 +135,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     (id, seqOfValues) <- rowStruc.get(tableId, rowId)
   } yield Row(table, id, seqOfValues)
 
+  def getRows(tableId: IdType): Future[RowSeq] = for {
+    table <- getTable(tableId)
+    rows <- getAllRows(table)
+  } yield rows
+
   def getCell(tableId: IdType, columnId: IdType, rowId: IdType): Future[Cell[_, _]] = for {
     column <- getColumn(tableId, columnId)
     value <- column match {
