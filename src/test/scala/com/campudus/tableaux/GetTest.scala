@@ -107,7 +107,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getColumns(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "tableId" -> 1, "columns" -> Json.arr(
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
       Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1),
       Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2)
     ))
