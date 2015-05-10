@@ -47,7 +47,7 @@ case class LinkColumn[A](table: Table, id: IdType, to: ColumnValue[A], name: Str
 }
 
 case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
-  def getJson: JsonObject = Json.obj("tableId" -> columns.head.table.id, "columns" ->
+  def getJson: JsonObject = Json.obj("columns" ->
     (columns map {
       case c: LinkColumnType[_] => Json.obj("id" -> c.id, "name" -> c.name, "kind" -> c.dbType, "toTable" -> c.to.table.id, "toColumn" -> c.to.id, "ordering" -> c.ordering)
       case c: ColumnValue[_] => Json.obj("id" -> c.id, "name" -> c.name, "kind" -> c.dbType, "ordering" -> c.ordering)

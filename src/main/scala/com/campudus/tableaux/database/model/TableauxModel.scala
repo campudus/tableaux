@@ -135,6 +135,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     (id, seqOfValues) <- rowStruc.get(tableId, rowId)
   } yield Row(table, id, seqOfValues)
 
+  def getRows(tableId: IdType): Future[RowSeq] = for {
+    table <- getTable(tableId)
+    rows <- getAllRows(table)
+  } yield rows
+
   def getCell(tableId: IdType, columnId: IdType, rowId: IdType): Future[Cell[_, _]] = for {
     column <- getColumn(tableId, columnId)
     value <- column match {
@@ -151,6 +156,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       case kind => Future.successful(getValueColumn(table, columnId, columnName, kind, ordering))
     }
   } yield column
+
+  def getColumns(tableId: IdType): Future[ColumnSeq] = for {
+    table <- getTable(tableId)
+    columns <- getAllColumns(table)
+  } yield ColumnSeq(columns)
 
   private def getValueColumn(table: Table, columnId: IdType, columnName: String, columnKind: TableauxDbType, ordering: Ordering): ColumnValue[_] = {
     Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)

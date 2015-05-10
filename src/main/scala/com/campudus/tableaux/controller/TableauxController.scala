@@ -68,10 +68,22 @@ class TableauxController(override val config: TableauxConfig, override protected
     repository.getColumn(tableId, columnId)
   }
 
+  def getColumns(tableId: IdType): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId))
+    logger.info(s"getColumns $tableId")
+    repository.getColumns(tableId)
+  }
+
   def getRow(tableId: IdType, rowId: IdType): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"getRow $tableId $rowId")
     repository.getRow(tableId, rowId)
+  }
+
+  def getRows(tableId: IdType): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId))
+    logger.info(s"getRows $tableId")
+    repository.getRows(tableId)
   }
 
   def getCell(tableId: IdType, columnId: IdType, rowId: IdType): Future[DomainObject] = {
