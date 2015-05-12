@@ -194,21 +194,27 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     connection.singleQuery(s"INSERT INTO user_table_$tableId ($columns) VALUES ($qm) RETURNING id", Json.arr(v: _*))
   } map { insertNotNull(_).head.get[IdType](0) }
 
-  def get(tableId: IdType, rowId: IdType): Future[(IdType, Seq[AnyRef])] = {
-    connection.singleQuery(s"SELECT * FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
-  } map { x =>
-    val seq = jsonArrayToSeq(selectNotNull(x).head)
-    (seq.head, seq.drop(1))
+  def get(tableId: IdType, rowId: IdType, columns: Seq[ColumnType[_]]): Future[(IdType, Seq[AnyRef])] = {
+    val projectionStr = generateProjection(columns)
+    val result = connection.singleQuery(s"SELECT $projectionStr FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+
+    result map { x =>
+      val seq = jsonArrayToSeq(selectNotNull(x).head)
+      (seq.head, seq.drop(1))
+    }
   }
 
-  def getAll(tableId: IdType, columns: Seq[ColumnType[_]]): Future[Seq[(IdType, Seq[AnyRef])]] = {
+  private def generateProjection(columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
       case c: LinkColumn[_] => "NULL"
       case c: ColumnType[_] => s"column_${c.id}"
     }
 
-    val projectionStr = s"id, ${projection.mkString(",")}"
+    s"id, ${projection.mkString(",")}"
+  }
 
+  def getAll(tableId: IdType, columns: Seq[ColumnType[_]]): Future[Seq[(IdType, Seq[AnyRef])]] = {
+    val projectionStr = generateProjection(columns)
     val result = connection.singleQuery(s"SELECT $projectionStr FROM user_table_$tableId ORDER BY id", Json.arr())
 
     result map { x =>

@@ -130,10 +130,19 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     (id, name) <- tableStruc.get(tableId)
   } yield Table(id, name)
 
-  def getRow(tableId: IdType, rowId: IdType): Future[Row] = for {
-    table <- getTable(tableId)
-    (id, seqOfValues) <- rowStruc.get(tableId, rowId)
-  } yield Row(table, id, seqOfValues)
+  def getRow(tableId: IdType, rowId: IdType): Future[Row] = {
+    for {
+      table <- getTable(tableId)
+      allColumns <- getAllColumns(table)
+      (rowId, values) <- rowStruc.get(tableId, rowId, allColumns)
+      mergedValues <- {
+        Future.sequence(allColumns map {
+          case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
+          case c: ColumnType[_] => Future.successful(values.toList(c.id.toInt - 1))
+        })
+      }
+    } yield Row(table, rowId, mergedValues)
+  }
 
   def getRows(tableId: IdType): Future[RowSeq] = for {
     table <- getTable(tableId)
