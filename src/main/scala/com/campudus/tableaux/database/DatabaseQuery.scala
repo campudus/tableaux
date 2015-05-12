@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database
 
 import com.campudus.tableaux.database.model.TableauxModel
-import com.campudus.tableaux.database.structure.{Mapper, TableauxDbType}
+import com.campudus.tableaux.database.structure.{LinkColumn, ColumnType, Mapper, TableauxDbType}
 
 import scala.concurrent.Future
 import org.vertx.scala.core.json.{ JsonObject, Json }
@@ -201,11 +201,20 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     (seq.head, seq.drop(1))
   }
 
-  def getAll(tableId: IdType): Future[Seq[(IdType, Seq[AnyRef])]] = {
-    connection.singleQuery(s"SELECT * FROM user_table_$tableId ORDER BY id", Json.arr())
-  } map { x =>
-    val seq = getSeqOfJsonArray(x) map { jsonArrayToSeq }
-    seq map { s => (s.head, s.drop(1)) }
+  def getAll(tableId: IdType, columns: Seq[ColumnType[_]]): Future[Seq[(IdType, Seq[AnyRef])]] = {
+    val projection = columns map {
+      case c: LinkColumn[_] => "NULL"
+      case c: ColumnType[_] => s"column_${c.id}"
+    }
+
+    val projectionStr = s"id, ${projection.mkString(",")}"
+
+    val result = connection.singleQuery(s"SELECT $projectionStr FROM user_table_$tableId ORDER BY id", Json.arr())
+
+    result map { x =>
+      val seq = getSeqOfJsonArray(x) map { jsonArrayToSeq }
+      seq map { s => (s.head, s.drop(1)) }
+    }
   }
 
   def delete(tableId: IdType, rowId: IdType): Future[Unit] = {

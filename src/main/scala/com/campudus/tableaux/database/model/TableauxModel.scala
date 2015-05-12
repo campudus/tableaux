@@ -213,32 +213,24 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   private def getAllRows(table: Table): Future[RowSeq] = {
     for {
-      linkColumns <- getLinkColumns(table)
-      allRows <- rowStruc.getAll(table.id)
+      allColumns <- getAllColumns(table)
+      allRows <- rowStruc.getAll(table.id, allColumns)
       rowSeq <- {
-        /* TODO Refactor */
-        val mappedRows = allRows map {
-          case (rowId, values) => {
-            val linkValues = linkColumns map {
-              c =>
-                val linkValue = cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
-                linkValue
-            }
-            val seqLinkValues = Future.sequence(linkValues)
-            val mappedValuesAndLinkValues = seqLinkValues.map(s => values ++ s)
-            (rowId, mappedValuesAndLinkValues)
-          }
+        val mergedRows = allRows map {
+          case (rowId, values) =>
+            val mergedValues = Future.sequence(allColumns map {
+              case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
+              case c: ColumnType[_] => Future.successful(values(c.id.toInt - 1))
+            })
+
+            (rowId, mergedValues)
         }
 
-        val foo = mappedRows map {
-          case (rowId, values) => {
-            values.map(values => Row(table, rowId, values))
-          }
+        val rows = mergedRows map {
+          case (rowId, values) => values.map(Row(table, rowId, _))
         }
 
-        val l = Future.sequence(foo)
-        val rowSeq = l.map(l => RowSeq(l))
-        rowSeq
+        Future.sequence(rows).map(seq => RowSeq(seq))
       }
     } yield rowSeq
   }
