@@ -17,7 +17,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 
 class ControllerTest extends TestVerticle {
 
-  lazy val config: JsonObject = jsonFromFile("../conf.json")
+  lazy val config: JsonObject = jsonFromFile("../conf-test.json")
   lazy val databaseAddress: String = config.getObject("database", Json.obj()).getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
 
   private def readJsonFile(f: String): String = Source.fromFile(f).getLines().mkString

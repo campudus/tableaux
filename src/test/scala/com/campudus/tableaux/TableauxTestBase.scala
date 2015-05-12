@@ -20,7 +20,7 @@ case class TestCustomException(message: String, id: String, statusCode: Int) ext
  */
 trait TableauxTestBase extends TestVerticle {
 
-  lazy val config: JsonObject = jsonFromFile("../conf.json")
+  lazy val config: JsonObject = jsonFromFile("../conf-test.json")
   lazy val port: Int = config.getInteger("port", Starter.DEFAULT_PORT)
   lazy val databaseAddress: String = config.getObject("database", Json.obj()).getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
 
