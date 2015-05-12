@@ -177,16 +177,70 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     rowList <- getAllRows(table)
   } yield CompleteTable(table, colList, rowList)
 
-  private def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = for {
-    allColumns <- columnStruc.getAll(table.id)
-  } yield allColumns map {
-    case (columnId, columnName, columnKind, ordering) =>
-      Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)
+  private def getAllColumns(table: Table): Future[Seq[ColumnType[_]]] = {
+    for {
+      columnSeq <- columnStruc.getAll(table.id)
+      allColumns <- {
+        Future.sequence({
+          for {
+            (columnId, columnName, columnKind, ordering) <- columnSeq
+          } yield {
+            columnKind match {
+              case LinkType => getLinkColumn(table, columnId, columnName, ordering)
+              case kind => Future.successful(getValueColumn(table, columnId, columnName, columnKind, ordering))
+            }
+          }
+        })
+      }
+    } yield allColumns
   }
 
-  private def getAllRows(table: Table): Future[RowSeq] = for {
-    allRows <- rowStruc.getAll(table.id)
-  } yield RowSeq(allRows map { case (rowId, values) => Row(table, rowId, values) })
+  private def getLinkColumns(table: Table): Future[Seq[LinkColumnType[_]]] = {
+    for {
+      columnSeq <- columnStruc.getAll(table.id)
+      filteredLinkColumns <- {
+        Future.sequence({
+          for {
+            (columnId, columnName, columnKind, ordering) <- columnSeq if columnKind == LinkType
+          } yield {
+            getLinkColumn(table, columnId, columnName, ordering)
+          }
+        })
+      }
+    } yield filteredLinkColumns
+  }
+
+  private def getAllRows(table: Table): Future[RowSeq] = {
+    for {
+      linkColumns <- getLinkColumns(table)
+      allRows <- rowStruc.getAll(table.id)
+      rowSeq <- {
+        /* TODO Refactor */
+        val mappedRows = allRows map {
+          case (rowId, values) => {
+            val linkValues = linkColumns map {
+              c =>
+                val linkValue = cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
+                linkValue
+            }
+            val seqLinkValues = Future.sequence(linkValues)
+            val mappedValuesAndLinkValues = seqLinkValues.map(s => values ++ s)
+            (rowId, mappedValuesAndLinkValues)
+          }
+        }
+
+        val foo = mappedRows map {
+          case (rowId, values) => {
+            values.map(values => Row(table, rowId, values))
+          }
+        }
+
+        val l = Future.sequence(foo)
+        val rowSeq = l.map(l => RowSeq(l))
+        rowSeq
+      }
+    } yield rowSeq
+  }
 
   def changeTableName(tableId: IdType, tableName: String): Future[Table] = for {
     _ <- tableStruc.changeName(tableId, tableName)
