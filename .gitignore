@@ -1,5 +1,6 @@
 # Tableaux specific
 conf.json
+conf-test.json
 
 # IDEA specific
 .idea/
