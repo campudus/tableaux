@@ -181,7 +181,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     for {
       columnSeq <- columnStruc.getAll(table.id)
       allColumns <- {
-        Future.sequence({
+        val columns: Future[Seq[ColumnType[_]]] = Future.sequence({
           for {
             (columnId, columnName, columnKind, ordering) <- columnSeq
           } yield {
@@ -191,6 +191,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             }
           }
         })
+        columns
       }
     } yield allColumns
   }
