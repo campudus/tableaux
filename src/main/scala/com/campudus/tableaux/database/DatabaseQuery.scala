@@ -210,7 +210,11 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
       case c: ColumnType[_] => s"column_${c.id}"
     }
 
-    s"id, ${projection.mkString(",")}"
+    if (projection.nonEmpty) {
+      s"id, ${projection.mkString(",")}"
+    } else {
+      s"id"
+    }
   }
 
   def getAll(tableId: IdType, columns: Seq[ColumnType[_]]): Future[Seq[(IdType, Seq[AnyRef])]] = {
