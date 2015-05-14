@@ -40,12 +40,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       getJson(req) flatMap { json =>
         if (json.getFieldNames.contains("columns")) {
           if (json.getFieldNames.contains("rows")) {
-            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
+            controller.createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
           } else {
-            controller.createTable(json.getString("tableName"), jsonToSeqOfColumnNameAndType(json), Seq())
+            controller.createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), Seq())
           }
         } else {
-          controller.createTable(json.getString("tableName"))
+          controller.createTable(json.getString("name"))
         }
       }
     }
@@ -62,7 +62,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, jsonToValues(json))
       }
     }
-    case Post(TableId(tableId)) => asyncEmptyReply(getJson(req) flatMap (json => controller.changeTableName(tableId.toLong, json.getString("tableName"))))
+    case Post(TableId(tableId)) => asyncEmptyReply(getJson(req) flatMap (json => controller.changeTableName(tableId.toLong, json.getString("name"))))
     case Post(TableIdColumnsId(tableId, columnId)) => asyncEmptyReply {
       getJson(req) flatMap {
         json =>

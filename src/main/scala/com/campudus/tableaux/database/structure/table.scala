@@ -5,9 +5,9 @@ import TableauxModel._
 import org.vertx.scala.core.json._
 
 case class Table(id: IdType, name: String) extends DomainObject {
-  def getJson: JsonObject = Json.obj("tableId" -> id, "tableName" -> name)
+  def getJson: JsonObject = Json.obj("id" -> id, "name" -> name)
 
-  def setJson: JsonObject = Json.obj("tableId" -> id)
+  def setJson: JsonObject = Json.obj("id" -> id)
 }
 
 case class TableSeq(tables: Seq[Table]) extends DomainObject {

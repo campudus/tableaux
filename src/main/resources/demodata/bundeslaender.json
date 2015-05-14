@@ -1,5 +1,5 @@
 {
-  "tableName" : "Bundesländer Deutschlands",
+  "name" : "Bundesländer Deutschlands",
   "columns" : [ {
     "kind" : "text",
     "name" : "Land",
