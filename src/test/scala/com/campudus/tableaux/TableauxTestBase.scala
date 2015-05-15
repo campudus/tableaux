@@ -109,7 +109,7 @@ trait TableauxTestBase extends TestVerticle {
   })
 
   def setupDefaultTable(name: String = "Test Table 1"): Future[Long] = {
-    val postTable = Json.obj("tableName" -> name)
+    val postTable = Json.obj("name" -> name)
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
     val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
     val fillStringCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
@@ -118,7 +118,7 @@ trait TableauxTestBase extends TestVerticle {
     val fillNumberCellJson2 = Json.obj("cells" -> Json.arr(Json.obj("value" -> 2)))
 
     for {
-      tableId <- sendRequestWithJson("POST", postTable, "/tables") map { js => js.getLong("tableId") }
+      tableId <- sendRequestWithJson("POST", postTable, "/tables") map { js => js.getLong("id") }
       _ <- sendRequestWithJson("POST", createStringColumnJson, s"/tables/$tableId/columns")
       _ <- sendRequestWithJson("POST", createNumberColumnJson, s"/tables/$tableId/columns")
       _ <- sendRequest("POST", s"/tables/$tableId/rows")

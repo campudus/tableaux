@@ -8,13 +8,18 @@ import org.vertx.scala.core.http.HttpClient
 
 class GetTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("tableName" -> "Test Table 1")
+  val createTableJson = Json.obj("name" -> "Test Table 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
   @Test
   def getEmptyTable(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "tableId" -> 1, "tableName" -> "Test Table 1", "columns" -> Json.arr(), "rows" -> Json.arr())
+    val expectedJson = Json.obj(
+      "status" -> "ok",
+      "id" -> 1,
+      "name" -> "Test Table 1",
+      "columns" -> Json.arr(),
+      "rows" -> Json.arr())
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -28,8 +33,8 @@ class GetTest extends TableauxTestBase {
   def getWithColumnTable(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
-      "tableId" -> 1,
-      "tableName" -> "Test Table 1",
+      "id" -> 1,
+      "name" -> "Test Table 1",
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2)),
@@ -49,8 +54,8 @@ class GetTest extends TableauxTestBase {
   def getWithColumnAndRowTable(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
-      "tableId" -> 1,
-      "tableName" -> "Test Table 1",
+      "id" -> 1,
+      "name" -> "Test Table 1",
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2)),
@@ -72,8 +77,8 @@ class GetTest extends TableauxTestBase {
   def getFullTable(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
-      "tableId" -> 1,
-      "tableName" -> "Test Table 1",
+      "id" -> 1,
+      "name" -> "Test Table 1",
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2)),

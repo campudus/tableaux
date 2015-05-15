@@ -37,7 +37,7 @@ class SystemController(override val config: TableauxConfig, override protected v
   private def writeDemoData(demoData: Future[Seq[JsonObject]]): Future[Seq[DomainObject]] = {
     demoData.flatMap { data =>
       val foo = data.map { table =>
-        createTable(table.getString("tableName"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithValue(table))
+        createTable(table.getString("name"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithValue(table))
       }
       Future.sequence(foo)
     }

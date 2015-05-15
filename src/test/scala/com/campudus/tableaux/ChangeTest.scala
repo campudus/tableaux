@@ -10,7 +10,7 @@ class ChangeTest extends TableauxTestBase {
 
   @Test
   def changeTableName(): Unit = okTest {
-    val postJson = Json.obj("tableName" -> "New testname")
+    val postJson = Json.obj("name" -> "New testname")
     val expectedString = "New testname"
 
     for {
@@ -19,7 +19,7 @@ class ChangeTest extends TableauxTestBase {
       test2 <- sendRequest("GET", "/tables/1")
     } yield {
       assertEquals(expectedJson, test)
-      assertEquals(expectedString, test2.getString("tableName"))
+      assertEquals(expectedString, test2.getString("name"))
     }
   }
 

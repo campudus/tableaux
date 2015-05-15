@@ -1,5 +1,5 @@
 {
-  "tableName" : "Regierungsbezirke Bayern",
+  "name" : "Regierungsbezirke Bayern",
   "columns" : [ {
     "kind" : "text",
     "name" : "Regierungsbezirk",

@@ -9,14 +9,14 @@ import org.vertx.scala.core.json.Json
  */
 class CreationTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
+  val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
   @Test
   def createTable(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "tableId" -> 1)
-    val expectedJson2 = Json.obj("status" -> "ok", "tableId" -> 2)
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 1)
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2)
 
     for {
       test1 <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -140,7 +140,7 @@ class CreationTest extends TableauxTestBase {
   @Test
   def createCompleteTable(): Unit = okTest {
     val createCompleteTableJson = Json.obj(
-      "tableName" -> "Test Nr. 1",
+      "name" -> "Test Nr. 1",
       "columns" -> Json.arr(
         Json.obj("kind" -> "text", "name" -> "Test Column 1"),
         Json.obj("kind" -> "numeric", "name" -> "Test Column 2")),
@@ -150,7 +150,7 @@ class CreationTest extends TableauxTestBase {
 
     val expectedJson = Json.obj(
       "status" -> "ok",
-      "tableId" -> 1,
+      "id" -> 1,
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "ordering" -> 1),
         Json.obj("id" -> 2, "ordering" -> 2)),
@@ -168,7 +168,7 @@ class CreationTest extends TableauxTestBase {
   @Test
   def createCompleteTableWithOrdering(): Unit = okTest {
     val createCompleteTableJson = Json.obj(
-      "tableName" -> "Test Nr. 1",
+      "name" -> "Test Nr. 1",
       "columns" -> Json.arr(
         Json.obj("kind" -> "text", "name" -> "Test Column 1", "ordering" -> 2),
         Json.obj("kind" -> "numeric", "name" -> "Test Column 2", "ordering" -> 1)),
@@ -178,7 +178,7 @@ class CreationTest extends TableauxTestBase {
 
     val expectedJson = Json.obj(
       "status" -> "ok",
-      "tableId" -> 1,
+      "id" -> 1,
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "ordering" -> 2),
         Json.obj("id" -> 2, "ordering" -> 1)),
@@ -196,12 +196,12 @@ class CreationTest extends TableauxTestBase {
   @Test
   def createCompleteTableWithoutCols(): Unit = okTest {
     val createCompleteTableJson = Json.obj(
-      "tableName" -> "Test Nr. 1",
+      "name" -> "Test Nr. 1",
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("Test Field 1", 1)),
         Json.obj("values" -> Json.arr("Test Field 2", 2))))
 
-    val expectedJson = Json.obj("status" -> "ok", "tableId" -> 1)
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 1)
 
     for {
       test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
@@ -213,14 +213,14 @@ class CreationTest extends TableauxTestBase {
   @Test
   def createCompleteTableWithoutRows(): Unit = okTest {
     val createCompleteTableJson = Json.obj(
-      "tableName" -> "Test Nr. 1",
+      "name" -> "Test Nr. 1",
       "columns" -> Json.arr(
         Json.obj("kind" -> "text", "name" -> "Test Column 1"),
         Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
     val expectedJson = Json.obj(
       "status" -> "ok",
-      "tableId" -> 1,
+      "id" -> 1,
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "ordering" -> 1),
         Json.obj("id" -> 2, "ordering" -> 2)),

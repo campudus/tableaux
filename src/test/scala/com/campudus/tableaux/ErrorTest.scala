@@ -8,7 +8,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 
 class ErrorTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
+  val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
   val fillCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
@@ -252,7 +252,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createCompleteTableWithNullCols(): Unit = exceptionTest(errorJsonNull) {
     val createCompleteTableJson = Json.obj(
-      "tableName" -> "Test Nr. 1",
+      "name" -> "Test Nr. 1",
       "columns" -> null,
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("Test Field 1", 2))))
@@ -263,7 +263,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createCompleteTableWithNullRows(): Unit = exceptionTest(errorJsonNull) {
     val createCompleteTableJson = Json.obj(
-      "tableName" -> "Test Nr. 1",
+      "name" -> "Test Nr. 1",
       "columns" -> Json.arr(
         Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
         Json.obj("kind" -> "text", "name" -> "Test Column 2")),
