@@ -175,10 +175,14 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)
   }
 
-  private def getLinkColumn(table: Table, columnId: IdType, columnName: String, ordering: Ordering): Future[LinkColumnType[_]] = for {
-    (tableId, toColumnId) <- columnStruc.getToColumn(table.id, columnId)
-    toCol <- getColumn(tableId, toColumnId).asInstanceOf[Future[ColumnValue[_]]]
-  } yield LinkColumn(table, columnId, toCol, columnName, ordering)
+  private def getLinkColumn(fromTable: Table, linkColumnId: IdType, columnName: String, ordering: Ordering): Future[LinkColumnType[_]] = {
+    for {
+      (toTableId, toColumnId) <- columnStruc.getToColumn(fromTable.id, linkColumnId)
+      toCol <- getColumn(toTableId, toColumnId).asInstanceOf[Future[ColumnValue[_]]]
+    } yield {
+      LinkColumn(fromTable, linkColumnId, toCol, columnName, ordering)
+    }
+  }
 
   def getCompleteTable(tableId: IdType): Future[CompleteTable] = for {
     table <- getTable(tableId)

@@ -142,15 +142,27 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     connection.singleQuery("SELECT column_id, user_column_name, column_type, ordering FROM system_columns WHERE table_id = ? ORDER BY column_id", Json.arr(tableId))
   } map { getSeqOfJsonArray(_) map { arr => (arr.get[IdType](0), arr.get[String](1), Mapper.getDatabaseType(arr.get[String](2)), arr.get[Ordering](3)) } }
 
-  def getToColumn(tableId: IdType, columnId: IdType): Future[(IdType, IdType)] = for {
-    result <- connection.singleQuery("""
-                              |SELECT table_id, column_id
-                              |  FROM system_columns
-                              |  WHERE table_id != ? AND column_id != ? 
-                              |  ORDER BY column_id""".stripMargin, Json.arr(tableId, columnId))
-  } yield {
-    val json = selectNotNull(result).head
-    (json.get[IdType](0), json.get[IdType](1))
+  def getToColumn(tableId: IdType, columnId: IdType): Future[(IdType, IdType)] = {
+    for {
+      result <- connection.singleQuery("""
+                                         |SELECT table_id_1, table_id_2, column_id_1, column_id_2
+                                         |  FROM system_link_table
+                                         |  WHERE link_id = (
+                                         |    SELECT link_id
+                                         |    FROM system_columns
+                                         |    WHERE table_id = ? AND column_id = ?
+                                         |  )""".stripMargin, Json.arr(tableId, columnId))
+      (toTableId, toColumnId) <- Future.successful {
+        val res = selectNotNull(result).head
+
+        /* we need this because links can go both ways */
+        if (tableId == res.get[IdType](0)) {
+          (res.get[IdType](1), res.get[IdType](3))
+        } else {
+          (res.get[IdType](0), res.get[IdType](2))
+        }
+      }
+    } yield (toTableId, toColumnId)
   }
 
   def delete(tableId: IdType, columnId: IdType): Future[Unit] = for {
@@ -264,11 +276,11 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
       }
       (t, result) <- t.query(s"""
         |SELECT user_table_$toTableId.id, user_table_$toTableId.column_$toColumnId FROM user_table_$tableId
-        |   JOIN link_table_$linkId
+        |  JOIN link_table_$linkId
         |    ON user_table_$tableId.id = link_table_$linkId.$id1
-        |   JOIN user_table_$toTableId
+        |  JOIN user_table_$toTableId
         |    ON user_table_$toTableId.id = link_table_$linkId.$id2
-        |  WHERE user_table_$tableId.id = ?""".stripMargin, Json.arr(rowId))
+        |WHERE user_table_$tableId.id = ?""".stripMargin, Json.arr(rowId))
       _ <- t.commit()
     } yield {
       /* TODO Perhaps use Optional instead of emptyObj */
