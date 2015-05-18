@@ -3,7 +3,7 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.model.{SystemModel, TableauxModel}
-import com.campudus.tableaux.database.structure.{CreateColumn, DomainObject, EmptyObject}
+import com.campudus.tableaux.database.structure.{CompleteTable, CreateColumn, DomainObject, EmptyObject}
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.helper.HelperFunctions._
 import org.vertx.scala.core.json._
@@ -30,11 +30,22 @@ class SystemController(override val config: TableauxConfig, override protected v
   def createDemoTables(): Future[DomainObject] = {
     logger.info("Create demo tables")
     for {
-      _ <- writeDemoData(readDemoData())
+      tableIds <- writeDemoData(readDemoData())
+      linkId <- tableauxModel.addLinkColumn(1, "Bundesland", 1, 2, 1, Some(5))
+      //Bayern
+      _ <- tableauxModel.insertLinkValue(2, 5, 1, (2,1))
+      _ <- tableauxModel.insertLinkValue(2, 5, 2, (2,2))
+      _ <- tableauxModel.insertLinkValue(2, 5, 3, (2,3))
+      _ <- tableauxModel.insertLinkValue(2, 5, 4, (2,4))
+      //Baden-Wuerttemberg
+      _ <- tableauxModel.insertLinkValue(2, 5, 1, (1,5))
+      _ <- tableauxModel.insertLinkValue(2, 5, 2, (1,6))
+      _ <- tableauxModel.insertLinkValue(2, 5, 3, (1,7))
+      _ <- tableauxModel.insertLinkValue(2, 5, 4, (1,8))
     } yield EmptyObject()
   }
 
-  private def writeDemoData(demoData: Future[Seq[JsonObject]]): Future[Seq[DomainObject]] = {
+  private def writeDemoData(demoData: Future[Seq[JsonObject]]): Future[Seq[CompleteTable]] = {
     demoData.flatMap { data =>
       val foo = data.map { table =>
         createTable(table.getString("name"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithValue(table))
@@ -53,7 +64,7 @@ class SystemController(override val config: TableauxConfig, override protected v
     }
   }
 
-  private def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
+  private def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     logger.info(s"createTable $tableName columns $rowsValues")
     tableauxModel.createCompleteTable(tableName, columns, rowsValues)
