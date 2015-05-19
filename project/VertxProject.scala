@@ -51,7 +51,7 @@ trait VertxProject extends Build {
   )
 
   lazy val vertxSettings: Seq[Setting[_]] = baseSettings ++ Seq(
-    libraryDependencies := Seq(
+    libraryDependencies ++= Seq(
       "io.vertx" % "vertx-core" % vertxVersion % "provided",
       "io.vertx" % "vertx-platform" % vertxVersion % "provided"
     ) ++ module.scalaVersion.map(_ => "io.vertx" %% "lang-scala" % vertxScalaVersion % "provided").toList,
@@ -76,8 +76,12 @@ trait VertxProject extends Build {
   ) ++ module.scalaVersion.map { _ =>
     resourceGenerators in Compile += Def.task {
       val file = (resourceManaged in Compile).value / "langs.properties"
-      val contents = s"scala=io.vertx~lang-scala_${getMajor(scalaVersion.value)}~$vertxScalaVersion:org.vertx.scala.platform.impl.ScalaVerticleFactory\n.scala=scala\n"
-      IO.write(file, contents, StandardCharsets.UTF_8)
+
+      val scala = s"scala=io.vertx~lang-scala_${getMajor(scalaVersion.value)}~$vertxScalaVersion:org.vertx.scala.platform.impl.ScalaVerticleFactory\n.scala=scala\n"
+      IO.write(file, scala, StandardCharsets.UTF_8)
+      val javascript = s"rhino=io.vertx~lang-rhino~2.1.1:org.vertx.java.platform.impl.RhinoVerticleFactory\n.js=rhino\n"
+      IO.append(file, javascript, StandardCharsets.UTF_8)
+
       Seq(file)
     }.taskValue
   }.toList ++ Seq(
@@ -192,7 +196,7 @@ trait VertxProject extends Build {
     IO.createDirectory(dir)
   }
 
-  private def copyDirectory(source: File, target: File)(implicit log: Logger): Unit = {
+  def copyDirectory(source: File, target: File)(implicit log: Logger): Unit = {
     log.debug(s"Copy $source to $target")
     IO.copyDirectory(source, target, overwrite = true)
   }

@@ -1,0 +1,13 @@
+{
+  "port": 8080,
+
+  "database": {
+    "address" : "campudus.asyncdb",
+    "connection" : "PostgreSQL",
+    "host" : "localhost",
+    "port" : 5432,
+    "username" : "postgres",
+    "password" : "secret",
+    "database" : "tableaux"
+  }
+}

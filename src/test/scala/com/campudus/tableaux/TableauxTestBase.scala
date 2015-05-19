@@ -1,16 +1,17 @@
 package com.campudus.tableaux
 
+
+import com.campudus.tableaux.database.model.SystemModel
 import org.vertx.scala.core.FunctionConverters._
-import org.vertx.scala.core.json.{ Json, JsonObject }
+import org.vertx.scala.core.buffer.Buffer
+import org.vertx.scala.core.json._
 import org.vertx.scala.testtools.TestVerticle
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.http._
 import scala.concurrent.{ Promise, Future }
+import scala.io.Source
 import scala.util.{ Try, Failure, Success }
-import com.campudus.tableaux.database.SystemStructure
 import com.campudus.tableaux.database.DatabaseConnection
-import org.vertx.scala.core.buffer.Buffer
-import org.vertx.scala.router.RouterException
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable
 
@@ -18,21 +19,29 @@ case class TestCustomException(message: String, id: String, statusCode: Int) ext
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
  */
 trait TableauxTestBase extends TestVerticle {
-  val DEFAULT_PORT = 8181
+
+  lazy val config: JsonObject = jsonFromFile("../conf-test.json")
+  lazy val port: Int = config.getInteger("port", Starter.DEFAULT_PORT)
+  lazy val databaseAddress: String = config.getObject("database", Json.obj()).getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
+
+  private def readJsonFile(f: String): String = Source.fromFile(f).getLines().mkString
+  private def jsonFromFile(f: String): JsonObject = Json.fromObjectString(readJsonFile(f))
 
   override def asyncBefore(): Future[Unit] = {
-    val transaction = new DatabaseConnection(this)
-    val system = new SystemStructure(transaction)
+    val tableauxConfig = TableauxConfig(this, databaseAddress)
+    val dbConnection = DatabaseConnection(tableauxConfig)
+    val system = SystemModel(dbConnection)
+
     for {
-      _ <- deployModule()
+      _ <- deployModule(config)
       _ <- system.deinstall()
       _ <- system.setup()
     } yield ()
   }
 
-  def deployModule(): Future[Unit] = {
+  def deployModule(config: JsonObject): Future[Unit] = {
     val p = Promise[Unit]()
-    container.deployModule(System.getProperty("vertx.modulename"), Json.obj(), 1, {
+    container.deployModule(System.getProperty("vertx.modulename"), config, 1, {
       case Success(id) => p.success()
       case Failure(ex) =>
         logger.error("could not deploy", ex)
@@ -66,16 +75,18 @@ trait TableauxTestBase extends TestVerticle {
     }
   }
 
-  def createClient(): HttpClient = vertx.createHttpClient().setHost("localhost").setPort(DEFAULT_PORT)
+  def createClient(): HttpClient = {
+    vertx.createHttpClient().setHost("localhost").setPort(port)
+  }
 
   def sendRequest(method: String, path: String): Future[JsonObject] = {
-    val p = Promise[JsonObject]
+    val p = Promise[JsonObject]()
     httpClientRequest(method, path, p).end()
     p.future
   }
 
   def sendRequestWithJson(method: String, jsonObj: JsonObject, path: String): Future[JsonObject] = {
-    val p = Promise[JsonObject]
+    val p = Promise[JsonObject]()
     httpClientRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
     p.future
   }
@@ -89,7 +100,7 @@ trait TableauxTestBase extends TestVerticle {
         p.failure(TestCustomException(buf.toString(), resp.statusMessage(), resp.statusCode()))
       } else {
         try {
-          p.success(Json.fromObjectString(buf.toString))
+          p.success(Json.fromObjectString(buf.toString()))
         } catch {
           case ex: Exception => p.failure(ex)
         }
@@ -98,7 +109,7 @@ trait TableauxTestBase extends TestVerticle {
   })
 
   def setupDefaultTable(name: String = "Test Table 1"): Future[Long] = {
-    val postTable = Json.obj("tableName" -> name)
+    val postTable = Json.obj("name" -> name)
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
     val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
     val fillStringCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
@@ -107,7 +118,7 @@ trait TableauxTestBase extends TestVerticle {
     val fillNumberCellJson2 = Json.obj("cells" -> Json.arr(Json.obj("value" -> 2)))
 
     for {
-      tableId <- sendRequestWithJson("POST", postTable, "/tables") map { js => js.getLong("tableId") }
+      tableId <- sendRequestWithJson("POST", postTable, "/tables") map { js => js.getLong("id") }
       _ <- sendRequestWithJson("POST", createStringColumnJson, s"/tables/$tableId/columns")
       _ <- sendRequestWithJson("POST", createNumberColumnJson, s"/tables/$tableId/columns")
       _ <- sendRequest("POST", s"/tables/$tableId/rows")

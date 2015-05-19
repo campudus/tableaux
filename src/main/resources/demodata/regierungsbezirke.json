@@ -1,0 +1,39 @@
+{
+  "name" : "Regierungsbezirke",
+  "columns" : [ {
+    "kind" : "text",
+    "name" : "Regierungsbezirk",
+    "ordering" : 1
+  }, {
+    "kind" : "text",
+    "name" : "Hauptstadt",
+    "ordering" : 2
+  }, {
+    "kind" : "numeric",
+    "name" : "Einwohner",
+    "ordering" : 3
+  }, {
+    "kind" : "numeric",
+    "name" : "Fläche in km²",
+    "ordering" : 4
+  } ],
+  "rows" : [ {
+    "values" : [ "Oberbayern", "München", 4469342, 17530.21 ]
+  }, {
+    "values" : [ "Niederbayern", "Landshut", 1189153, 10328.65 ]
+  }, {
+    "values" : [ "Oberpfalz", "Regensburg", 1077991, 9690.19 ]
+  }, {
+    "values" : [ "Oberfranken", "Bayreuth", 1056365, 7231.49 ]
+  },
+
+    {
+    "values" : [ "Tübingen", "Tübingen", 1809373, 8918 ]
+  }, {
+    "values" : [ "Karlsruhe", "Karlsruhe", 2740279, 6919 ]
+  }, {
+    "values" : [ "Stuttgart", "Stuttgart", 3947568, 10558 ]
+  }, {
+    "values" : [ "Freiburg", "Freiburg", 2198970, 9347 ]
+  } ]
+}

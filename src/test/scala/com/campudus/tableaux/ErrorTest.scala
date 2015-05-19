@@ -1,14 +1,14 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.database.model.SystemModel
 import org.junit.Test
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.json.{ Json, JsonObject }
-import com.campudus.tableaux.database.SystemStructure
 import com.campudus.tableaux.database.DatabaseConnection
 
 class ErrorTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("tableName" -> "Test Nr. 1")
+  val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
   val fillCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
@@ -49,12 +49,12 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def getNoExistingTable(): Unit = exceptionTest(notFound) {
+  def retrieveNoExistingTable(): Unit = exceptionTest(notFound) {
     sendRequest("GET", "/tables/1")
   }
 
   @Test
-  def getNoExistingColumn(): Unit = exceptionTest(notFound) {
+  def retrieveNoExistingColumn(): Unit = exceptionTest(notFound) {
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequest("GET", "/tables/1/columns/1")
@@ -62,7 +62,7 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def getNoExistingCell(): Unit = exceptionTest(notFound) {
+  def retrieveNoExistingCell(): Unit = exceptionTest(notFound) {
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
@@ -71,7 +71,7 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def getNoExistingRow(): Unit = exceptionTest(notFound) {
+  def retrieveNoExistingRow(): Unit = exceptionTest(notFound) {
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequest("GET", "/tables/1/rows/1")
@@ -80,8 +80,10 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createTableWithNoExistingSystemTables(): Unit = exceptionTest(errorDatabaseUnknown) {
-    val transaction = new DatabaseConnection(this)
-    val system = new SystemStructure(transaction)
+    val tableauxConfig = TableauxConfig(this, databaseAddress)
+    val dbConnection = DatabaseConnection(tableauxConfig)
+    val system = SystemModel(dbConnection)
+
     for {
       _ <- system.deinstall()
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -250,7 +252,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createCompleteTableWithNullCols(): Unit = exceptionTest(errorJsonNull) {
     val createCompleteTableJson = Json.obj(
-      "tableName" -> "Test Nr. 1",
+      "name" -> "Test Nr. 1",
       "columns" -> null,
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("Test Field 1", 2))))
@@ -261,7 +263,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createCompleteTableWithNullRows(): Unit = exceptionTest(errorJsonNull) {
     val createCompleteTableJson = Json.obj(
-      "tableName" -> "Test Nr. 1",
+      "name" -> "Test Nr. 1",
       "columns" -> Json.arr(
         Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
         Json.obj("kind" -> "text", "name" -> "Test Column 2")),

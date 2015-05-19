@@ -47,7 +47,7 @@ class TableauxStaticsTest extends TableauxTestBase {
 
   private def httpGetIndex(): Future[String] = {
     val p = Promise[String]()
-    vertx.createHttpClient().setHost("localhost").setPort(8181).get("/", { resp: HttpClientResponse =>
+    createClient().get("/", { resp: HttpClientResponse =>
       logger.info("Got a response: " + resp.statusCode())
       resp.bodyHandler { buf => p.success(buf.toString()) }
     }).end()
