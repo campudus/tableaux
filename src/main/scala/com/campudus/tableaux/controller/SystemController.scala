@@ -6,6 +6,7 @@ import com.campudus.tableaux.database.model.{SystemModel, TableauxModel}
 import com.campudus.tableaux.database.structure.{CompleteTable, CreateColumn, DomainObject, EmptyObject}
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.helper.HelperFunctions._
+import org.vertx.java.core.json.JsonObject
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -29,39 +30,48 @@ class SystemController(override val config: TableauxConfig, override protected v
 
   def createDemoTables(): Future[DomainObject] = {
     logger.info("Create demo tables")
+
+    val getId = { o: JsonObject =>
+      o.getLong("id")
+    }
+
     for {
-      tableIds <- writeDemoData(readDemoData())
-      linkId <- tableauxModel.addLinkColumn(1, "Bundesland", 1, 2, 1, Some(5))
-      //Bayern
-      _ <- tableauxModel.insertLinkValue(2, 5, 1, (2,1))
-      _ <- tableauxModel.insertLinkValue(2, 5, 2, (2,2))
-      _ <- tableauxModel.insertLinkValue(2, 5, 3, (2,3))
-      _ <- tableauxModel.insertLinkValue(2, 5, 4, (2,4))
-      //Baden-Wuerttemberg
-      _ <- tableauxModel.insertLinkValue(2, 5, 1, (1,5))
-      _ <- tableauxModel.insertLinkValue(2, 5, 2, (1,6))
-      _ <- tableauxModel.insertLinkValue(2, 5, 3, (1,7))
-      _ <- tableauxModel.insertLinkValue(2, 5, 4, (1,8))
+      bl <- writeDemoData(readDemoData("bundeslaender"))
+      rb <- writeDemoData(readDemoData("regierungsbezirke"))
+
+      // Add link column Bundeslaender(Land) <> Regierungsbezirke(Regierungsbezirk)
+      linkColumn <- tableauxModel.addLinkColumn(
+        tableId = getId(bl.getJson),
+        name = "Bundesland",
+        fromColumn = 1,
+        toTable = getId(rb.getJson),
+        toColumn = 1,
+        ordering = None
+      )
+
+      // Bayern 2nd row
+      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 1, (2,1))
+      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 2, (2,2))
+      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 3, (2,3))
+      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 4, (2,4))
+
+      //Baden-Wuerttemberg 1st row
+      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 5, (1,5))
+      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 6, (1,6))
+      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 6, (1,7))
+      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 8, (1,8))
     } yield EmptyObject()
   }
 
-  private def writeDemoData(demoData: Future[Seq[JsonObject]]): Future[Seq[CompleteTable]] = {
-    demoData.flatMap { data =>
-      val foo = data.map { table =>
-        createTable(table.getString("name"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithValue(table))
-      }
-      Future.sequence(foo)
-    }
+  private def writeDemoData(demoData: Future[JsonObject]): Future[CompleteTable] = {
+    for {
+      table <- demoData
+      completeTable <- createTable(table.getString("name"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithValue(table))
+    } yield completeTable
   }
 
-  private def readDemoData(): Future[Seq[JsonObject]] = {
-    FileUtils(verticle).readDir("../resources/demodata/", ".*\\.json") flatMap { fileNames =>
-      Future.sequence(
-        (fileNames map { file =>
-          FileUtils(verticle).readJsonFile(file)
-        }).toSeq
-      )
-    }
+  private def readDemoData(name: String): Future[JsonObject] = {
+    return FileUtils(verticle).readJsonFile(s"../resources/demodata/$name.json")
   }
 
   private def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = {
