@@ -27,9 +27,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   val TableIdRows: Regex = "/tables/(\\d+)/rows".r
   val TableId: Regex = "/tables/(\\d+)".r
 
+  val TableIdComplete: Regex = "/completetable/(\\d+)".r
+
   override def routes(implicit req: HttpServerRequest):  Routing = {
     case Get("/tables") => asyncGetReply(controller.getAllTables())
     case Get(TableId(tableId)) => asyncGetReply(controller.getTable(tableId.toLong))
+    case Get(TableIdComplete(tableId)) => asyncGetReply(controller.getCompleteTable(tableId.toLong))
     case Get(TableIdColumns(tableId)) => asyncGetReply(controller.getColumns(tableId.toLong))
     case Get(TableIdColumnsId(tableId, columnId)) => asyncGetReply(controller.getColumn(tableId.toLong, columnId.toLong))
     case Get(TableIdRows(tableId)) => asyncGetReply(controller.getRows(tableId.toLong))

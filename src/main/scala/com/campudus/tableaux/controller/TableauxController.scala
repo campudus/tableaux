@@ -59,6 +59,12 @@ class TableauxController(override val config: TableauxConfig, override protected
   def getTable(tableId: IdType): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
     verticle.logger.info(s"getTable $tableId")
+    repository.getTable(tableId)
+  }
+
+  def getCompleteTable(tableId: IdType): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId))
+    verticle.logger.info(s"getTable $tableId")
     repository.getCompleteTable(tableId)
   }
 
