@@ -283,17 +283,12 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
         |WHERE user_table_$tableId.id = ?""".stripMargin, Json.arr(rowId))
       _ <- t.commit()
     } yield {
-      /* TODO Perhaps use Optional instead of emptyObj */
-      if (result.getInteger("rows") == 0) {
-        Seq(Json.emptyObj())
-      } else {
-        import ResultChecker._
-        getSeqOfJsonArray(result) map {
-          row =>
-            val id = row.get[Any](0)
-            val value = row.get[Any](1)
-            Json.obj("id" -> id, "value" -> value)
-        }
+      import ResultChecker._
+      getSeqOfJsonArray(result) map {
+        row =>
+          val id = row.get[Any](0)
+          val value = row.get[Any](1)
+          Json.obj("id" -> id, "value" -> value)
       }
     }
   }

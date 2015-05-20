@@ -229,6 +229,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       allColumns <- getAllColumns(table)
       allRows <- rowStruc.getAll(table.id, allColumns)
       rowSeq <- {
+        // TODO foreach row every link column is map and the link value is fetched!
+        // TODO think about something with a better performance!
         val mergedRows = allRows map {
           case (rowId, values) =>
             val mergedValues = Future.sequence(allColumns map {
