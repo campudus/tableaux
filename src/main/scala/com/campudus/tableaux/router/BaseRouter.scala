@@ -18,9 +18,9 @@ trait BaseRouter extends Router with StandardVerticle {
 
   override val verticle: Verticle = config.verticle
 
-  def asyncSetReply = asyncReply(SetReturn) _
-  def asyncGetReply = asyncReply(GetReturn) _
-  def asyncEmptyReply = asyncReply(EmptyReturn) _
+  def asyncSetReply: (Future[DomainObject]) => AsyncReply = asyncReply(SetReturn)(_)
+  def asyncGetReply: (Future[DomainObject]) => AsyncReply = asyncReply(GetReturn)(_)
+  def asyncEmptyReply: (Future[DomainObject]) => AsyncReply = asyncReply(EmptyReturn)(_)
 
   def asyncReply(reType: ReturnType)(f: => Future[DomainObject]): AsyncReply = AsyncReply {
     f map { d => Ok(Json.obj("status" -> "ok").mergeIn(d.toJson(reType))) } recover {
