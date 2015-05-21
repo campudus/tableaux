@@ -14,6 +14,26 @@ class FillTest extends TableauxTestBase {
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
   @Test
+  def fillSingleCellWithNull(): Unit = okTest {
+    val fillStringCellJson = Json.obj("value" -> null)
+
+    val expectedJson = Json.obj("status" -> "ok")
+
+    val expectedCell = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> null)))
+
+    for {
+      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables/1/rows")
+      fillResult <- sendRequestWithJson("POST", fillStringCellJson, "/tables/1/columns/1/rows/1")
+      cellResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
+    } yield {
+      assertEquals(expectedJson, fillResult)
+      assertEquals(expectedCell, cellResult)
+    }
+  }
+
+  @Test
   def fillSingleStringCell(): Unit = okTest {
     val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
 
