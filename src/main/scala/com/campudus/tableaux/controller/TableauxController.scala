@@ -117,7 +117,7 @@ class TableauxController(override val config: TableauxConfig, override protected
   }
 
   def fillCell[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(value, "value"))
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"fillCell $tableId $columnId $rowId $value")
     repository.insertValue(tableId, columnId, rowId, value)
   }
