@@ -61,8 +61,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       }
     }
     case Post(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => asyncSetReply {
-      getJson(req) flatMap {
-        json => controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, jsonToValues(json))
+      getJson(req) flatMap { json =>
+        controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getField("value"))
       }
     }
     case Post(TableId(tableId)) => asyncEmptyReply(getJson(req) flatMap (json => controller.changeTableName(tableId.toLong, json.getString("name"))))

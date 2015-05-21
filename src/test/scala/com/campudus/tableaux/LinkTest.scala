@@ -55,7 +55,7 @@ class LinkTest extends TableauxTestBase {
     }
 
     val fillLinkCellJson = { c: Integer =>
-      Json.obj("cells" -> Json.arr(Json.obj("value" -> Json.arr(1, c))))
+      Json.obj("value" -> Json.arr(1, c))
     }
 
     val expectedJson = Json.obj("status" -> "ok")
@@ -124,7 +124,7 @@ class LinkTest extends TableauxTestBase {
     )
 
     val fillLinkCellJson = { (from: Integer, to: Integer) =>
-      Json.obj("cells" -> Json.arr(Json.obj("value" -> Json.arr(from, to))))
+      Json.obj("value" -> Json.arr(from, to))
     }
 
     for {
