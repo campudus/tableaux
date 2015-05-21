@@ -17,7 +17,10 @@ object SystemController {
   }
 }
 
-class SystemController(override val config: TableauxConfig, override protected val repository: SystemModel, protected val tableauxModel: TableauxModel) extends Controller[SystemModel] {
+class SystemController(override val config: TableauxConfig,
+                       override protected val repository: SystemModel,
+                       protected val tableauxModel: TableauxModel) extends Controller[SystemModel] {
+
   val fileProps = """^(.+[\\/])*(.+)\.(.+)$""".r
 
   def resetDB(): Future[DomainObject] = {
@@ -71,7 +74,7 @@ class SystemController(override val config: TableauxConfig, override protected v
   }
 
   private def readDemoData(name: String): Future[JsonObject] = {
-    return FileUtils(verticle).readJsonFile(s"../resources/demodata/$name.json")
+    FileUtils(verticle).readJsonFile(s"../resources/demodata/$name.json")
   }
 
   private def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = {

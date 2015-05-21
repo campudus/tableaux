@@ -15,7 +15,8 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillSingleStringCell(): Unit = okTest {
-    val fillStringCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+    val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
+
     val expectedJson = Json.obj("status" -> "ok")
 
     for {
@@ -30,7 +31,8 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillSingleNumberCell(): Unit = okTest {
-    val fillNumberCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> 101)))
+    val fillNumberCellJson = Json.obj("value" -> 101)
+
     val expectedJson = Json.obj("status" -> "ok")
 
     for {
@@ -45,8 +47,9 @@ class FillTest extends TableauxTestBase {
 
   @Test
   def fillTwoDifferentCell(): Unit = okTest {
-    val fillNumberCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> 101)))
-    val fillStringCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+    val fillNumberCellJson = Json.obj("value" -> 101)
+    val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
+
     val expectedJson = Json.obj("status" -> "ok")
     val expectedJson2 = Json.obj("status" -> "ok")
 
@@ -62,10 +65,4 @@ class FillTest extends TableauxTestBase {
       assertEquals(expectedJson2, test2)
     }
   }
-
-  //  @Test
-  //  def fillCompleteRow(): Unit = {
-  //    fail("not implemented")
-  //  }
-
 }

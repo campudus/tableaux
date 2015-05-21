@@ -128,7 +128,12 @@ class TableauxController(override val config: TableauxConfig, override protected
     repository.changeTableName(tableId, tableName)
   }
 
-  def changeColumn(tableId: IdType, columnId: IdType, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[DomainObject] = {
+  def changeColumn(tableId: IdType,
+                   columnId: IdType,
+                   columnName: Option[String],
+                   ordering: Option[Ordering],
+                   kind: Option[TableauxDbType]): Future[DomainObject] = {
+
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     logger.info(s"changeColumn $tableId $columnId $columnName $ordering $kind")
     repository.changeColumn(tableId, columnId, columnName, ordering, kind)

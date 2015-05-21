@@ -11,7 +11,7 @@ class LinkTest extends TableauxTestBase {
   val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
 
   @Test
-  def getLinkColumn(): Unit = okTest {
+  def retrieveLinkColumn(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "toColumn" -> 1, "ordering" -> 3)))
 
     for {
@@ -49,13 +49,13 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
-  def fillSingleLinkCell(): Unit = okTest {
+  def fillAndRetrieveLinkCell(): Unit = okTest {
     val valuesRow = { c: String =>
       Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2))))
     }
 
     val fillLinkCellJson = { c: Integer =>
-      Json.obj("cells" -> Json.arr(Json.obj("value" -> Json.arr(1, c))))
+      Json.obj("value" -> Json.arr(1, c))
     }
 
     val expectedJson = Json.obj("status" -> "ok")
@@ -124,7 +124,7 @@ class LinkTest extends TableauxTestBase {
     )
 
     val fillLinkCellJson = { (from: Integer, to: Integer) =>
-      Json.obj("cells" -> Json.arr(Json.obj("value" -> Json.arr(from, to))))
+      Json.obj("value" -> Json.arr(from, to))
     }
 
     for {
@@ -206,6 +206,51 @@ class LinkTest extends TableauxTestBase {
       assertEquals(expectedJsonForResult1, linkValueForTable1)
 
       assertEquals(expectedJsonForResult2, linkValueForTable2)
+    }
+  }
+
+  @Test
+  def retrieveEmptyLinkValue(): Unit = okTest {
+    val linkColumn = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "fromColumn" -> 1,
+          "toTable" -> 2,
+          "toColumn" -> 2
+        )
+      )
+    )
+
+    for {
+      // setup two tables
+      tables <- setupTables()
+
+      // create link column
+      linkColumnId <- sendRequestWithJson("POST", linkColumn, "/tables/1/columns") map {
+        _.getArray("columns").get[JsonObject](0).getLong("id")
+      }
+
+      // add empty row
+      emptyRow <- sendRequest("POST", "/tables/1/rows") map {
+        _.getArray("rows").get[JsonObject](0).getInteger("id")
+      }
+
+      // get empty link values
+      emptyLinkValue <- sendRequest("GET", s"/tables/1/rows/$emptyRow")
+    } yield {
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "rows" -> Json.arr(
+          Json.obj(
+            "id" -> emptyRow,
+            "values" -> Json.arr(null, null, Json.arr())
+          )
+        )
+      )
+
+      assertEquals(expectedJson, emptyLinkValue)
     }
   }
 

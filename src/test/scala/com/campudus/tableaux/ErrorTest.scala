@@ -11,7 +11,7 @@ class ErrorTest extends TableauxTestBase {
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
-  val fillCellJson = Json.obj("cells" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+  val fillCellJson = Json.obj("value" -> "Test Fill 1")
 
   val errorJsonNotFound = "errors.json.not-found"
   val errorDatabaseDelete = "errors.database.delete"
@@ -111,27 +111,6 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createTableWithoutJson(): Unit = exceptionTest(errorJsonNotFound) {
     sendRequest("POST", "/tables")
-  }
-
-  @Test
-  def fillCellWithNullCells(): Unit = cellHelper(errorJsonNull, Json.obj("cells" -> null))
-
-  @Test
-  def fillCellWithEmptyJson(): Unit = cellHelper(errorJsonEmpty, Json.obj("cells" -> Json.arr()))
-
-  @Test
-  def fillCellWithInvalidJsonObject(): Unit = cellHelper(errorJsonObject, Json.obj("cells" -> Json.arr(1)))
-
-  @Test
-  def fillCellWithNullValues(): Unit = cellHelper(errorJsonNull, Json.obj("cells" -> Json.arr(Json.obj())))
-
-  private def cellHelper(error: String, json: JsonObject): Unit = exceptionTest(error) {
-    for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
-      _ <- sendRequest("POST", "/tables/1/rows")
-      _ <- sendRequestWithJson("POST", json, "/tables/1/columns/1/rows/1")
-    } yield ()
   }
 
   @Test
