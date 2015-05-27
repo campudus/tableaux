@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database
 
+import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.{TableauxConfig, DatabaseException}
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.core.eventbus.Message
@@ -9,6 +10,30 @@ import org.vertx.scala.core.FunctionConverters._
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
+
+trait DatabaseQuery {
+  protected[this] val connection: DatabaseConnection
+
+  implicit val executionContext = connection.executionContext
+}
+
+trait DatabaseHandler[O <: DomainObject, ID] extends DatabaseQuery {
+  def add(o: O): Future[O]
+
+  def retrieve(rowNum: Int): Future[O]
+
+  def retrieveById(id: ID): Future[O]
+
+  def retrieveAll(): Future[Seq[O]]
+
+  def update(o: O): Future[Int]
+
+  def delete(o: O): Future[O]
+
+  def deleteById(id: ID): Future[O]
+
+  def size(): Future[Int]
+}
 
 object DatabaseConnection {
   val DEFAULT_TIMEOUT = 5000L
@@ -22,6 +47,8 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
   import DatabaseConnection._
 
   override val verticle: Verticle = config.verticle
+
+  type TransFunc[+A] = Transaction => Future[(Transaction, A)]
 
   case class Transaction(msg: Message[JsonObject]) {
 
@@ -51,6 +78,14 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
     "values" -> values)) map { msg => checkForDatabaseError(msg.body()) } recoverWith { case ex => Future.failed[JsonObject](ex) }
 
   def begin(): Future[Transaction] = sendHelper(Json.obj("action" -> "begin")) map { Transaction }
+
+  def transactional[A](stuff: TransFunc[A]): Future[A] = {
+    for {
+      transaction <- begin()
+      (transaction, result) <- stuff(transaction)
+      _ <- transaction.commit()
+    } yield result
+  }
 
   private def sendHelper(json: JsonObject): Future[Message[JsonObject]] = {
     val p = Promise[Message[JsonObject]]()
