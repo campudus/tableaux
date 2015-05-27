@@ -1,4 +1,4 @@
-package com.campudus.tableaux.database.structure
+package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel
 import TableauxModel._

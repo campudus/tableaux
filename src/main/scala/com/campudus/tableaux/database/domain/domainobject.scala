@@ -1,5 +1,6 @@
-package com.campudus.tableaux.database.structure
+package com.campudus.tableaux.database.domain
 
+import com.campudus.tableaux.database.{EmptyReturn, SetReturn, GetReturn, ReturnType}
 import org.vertx.scala.core.json._
 
 trait DomainObject {
