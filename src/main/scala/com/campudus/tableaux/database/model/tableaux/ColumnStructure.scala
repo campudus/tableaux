@@ -1,16 +1,12 @@
 package com.campudus.tableaux.database.model.tableaux
 
-import com.campudus.tableaux.helper.ResultChecker
-import ResultChecker._
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.{DatabaseConnection, Mapper, TableauxDbType}
+import com.campudus.tableaux.database.{DatabaseQuery, DatabaseConnection, Mapper, TableauxDbType}
+import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 
-/**
- * Created by alexandervetter on 27.05.15.
- */
 class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def insert(tableId: IdType, dbType: TableauxDbType, name: String, ordering: Option[Ordering]): Future[(IdType, Ordering)] = for {

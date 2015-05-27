@@ -1,7 +1,8 @@
 package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.structure._
+import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.tableaux.{TableStructure, RowStructure, ColumnStructure, CellStructure}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future

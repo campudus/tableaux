@@ -1,17 +1,13 @@
 package com.campudus.tableaux.database.model.tableaux
 
-import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.helper.ResultChecker
-import ResultChecker._
 import com.campudus.tableaux.database.domain.{ColumnType, LinkColumn}
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
+import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
-/**
- * Created by alexandervetter on 27.05.15.
- */
 class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def create(tableId: IdType): Future[IdType] = {

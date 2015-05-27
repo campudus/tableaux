@@ -3,7 +3,7 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.model.{SystemModel, TableauxModel}
-import com.campudus.tableaux.database.structure.{CompleteTable, CreateColumn, DomainObject, EmptyObject}
+import com.campudus.tableaux.database.domain.{CompleteTable, CreateColumn, DomainObject, EmptyObject}
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.helper.HelperFunctions._
 import org.vertx.java.core.json.JsonObject

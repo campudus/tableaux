@@ -6,7 +6,7 @@ import com.campudus.tableaux.database.model.{TableauxModel, SystemModel}
 import TableauxModel._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.SystemModel
-import com.campudus.tableaux.database.structure.{DomainObject, TableauxDbType, CreateColumn}
+import com.campudus.tableaux.database.domain.{DomainObject, CreateColumn}
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.platform.Verticle
 

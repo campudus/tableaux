@@ -1,4 +1,4 @@
-package com.campudus.tableaux.database.structure
+package com.campudus.tableaux.database
 
 sealed trait ReturnType
 

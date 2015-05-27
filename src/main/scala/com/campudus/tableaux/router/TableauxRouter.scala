@@ -1,13 +1,9 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.database.structure.{EmptyReturn, SetReturn, GetReturn}
-import com.campudus.tableaux.helper.HelperFunctions
-import HelperFunctions._
-import com.campudus.tableaux.{TableauxConfig, NoJsonFoundException}
-import com.campudus.tableaux.controller.{SystemController, TableauxController}
-import com.campudus.tableaux.database._
+import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.helper.HelperFunctions._
+import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
 import org.vertx.scala.core.http.HttpServerRequest
-import org.vertx.scala.platform.Verticle
 import org.vertx.scala.router.routing._
 
 import scala.util.matching.Regex
