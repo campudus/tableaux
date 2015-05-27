@@ -5,7 +5,7 @@ import com.campudus.tableaux.database.model.TableauxModel
 import TableauxModel.{IdType, LinkConnection}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.TableauxModel
-import com.campudus.tableaux.database.structure.{Mapper, TableauxDbType, LinkType, CreateColumn}
+import com.campudus.tableaux.database.domain.CreateColumn
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 import TableauxModel.Ordering
@@ -132,5 +132,4 @@ object HelperFunctions {
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     (name, ord, kind)
   }
-
 }
