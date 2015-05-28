@@ -62,17 +62,38 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
       Json.arr())
 
     (t, _) <- t.query(s"""
-                         |CREATE TABLE file(
-                         |  uuid VARCHAR(255) NOT NULL,
+                         |CREATE TABLE folder(
+                         |  id BIGSERIAL NOT NULL,
                          |  name VARCHAR(255) NOT NULL,
-                         |  mime_type VARCHAR(255) NOT NULL,
-                         |  file_type VARCHAR(255) NOT NULL,
-                         |  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                         |  description VARCHAR(255) NOT NULL,
+                         |  idparent BIGINT NULL,
+                         |  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
                          |  updated_at TIMESTAMP WITHOUT TIME ZONE,
                          |
-                         |  PRIMARY KEY(uuid)
+                         |  PRIMARY KEY(id),
+                         |  FOREIGN KEY(idparent)
+                         |  REFERENCES folder(id) MATCH SIMPLE
+                         |  ON UPDATE NO ACTION ON DELETE NO ACTION
                          |)""".stripMargin,
       Json.arr())
+
+    (t, _) <- t.query(s"""
+                         |CREATE TABLE file(
+                         |  uuid UUID NOT NULL,
+                         |  name VARCHAR(255) NOT NULL,
+                         |  description VARCHAR(255) NOT NULL,
+                         |  mime_type VARCHAR(255) NOT NULL,
+                         |  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                         |  updated_at TIMESTAMP WITHOUT TIME ZONE,
+                         |  idfolder BIGINT,
+                         |
+                         |  PRIMARY KEY(uuid),
+                         |  FOREIGN KEY(idfolder)
+                         |  REFERENCES folder(id) MATCH SIMPLE
+                         |  ON UPDATE NO ACTION ON DELETE NO ACTION
+                         |)""".stripMargin,
+      Json.arr())
+
     (t, _) <- t.query(s"""
                          |ALTER TABLE system_columns
                          |  ADD FOREIGN KEY(link_id)

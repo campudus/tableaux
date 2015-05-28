@@ -3,9 +3,11 @@ package com.campudus.tableaux.database.model
 import java.util.UUID
 
 import com.campudus.tableaux.database.domain.File
+import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseHandler}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.joda.time.DateTime
+import org.vertx.java.core.json.JsonArray
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
@@ -26,20 +28,21 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
       s"""INSERT INTO $table (
                               |uuid,
                               |name,
+                              |description,
                               |mime_type,
-                              |file_type,
+                              |idfolder,
                               |created_at,
-                              |updated_at) VALUES (?,?,?,?,CURRENT_TIMESTAMP,NULL) RETURNING created_at""".stripMargin
+                              |updated_at) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP,NULL) RETURNING created_at""".stripMargin
 
     connection.transactional { t =>
       for {
-        (t, result) <- t.query(insert, Json.arr(uuid.toString, o.name, o.mimeType, o.fileType))
+        (t, result) <- t.query(insert, Json.arr(uuid.toString, o.name, o.description, o.mimeType, o.folder.orNull))
       } yield {
         val inserted = insertNotNull(result).head
 
         val createdAt = DateTime.parse(inserted.get[String](0))
 
-        (t, File(Some(uuid), o.name, o.mimeType, o.fileType, Some(createdAt), None))
+        (t, File(Some(uuid), o.name, o.description, o.mimeType, o.folder, Some(createdAt), None))
       }
     }
   }
@@ -49,8 +52,9 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
       s"""SELECT
          |uuid,
          |name,
+         |description,
          |mime_type,
-         |file_type,
+         |idfolder,
          |created_at,
          |updated_at FROM $table WHERE uuid = ?""".stripMargin
 
@@ -58,14 +62,28 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
       result <- connection.singleQuery(select, Json.arr(id.toString))
       resultArr <- Future.apply(selectNotNull(result))
     } yield {
-      File(
-        resultArr.head.get[String](0), //uuid
-        resultArr.head.get[String](1), //name
-        resultArr.head.get[String](2), //mime_type
-        resultArr.head.get[String](3), //file_type
-        resultArr.head.get[String](4), //created_at
-        resultArr.head.get[String](5) //updated_at
-      )
+      resultArr.head
+    }
+  }
+
+  implicit def convertJsonArrayToFile(arr: JsonArray): File = {
+    File(
+      arr.get[String](0), //uuid
+      arr.get[String](1), //name
+      arr.get[String](2), //description
+      arr.get[String](3), //mime_type
+      arr.get[Long](4),   //idfolder
+      arr.get[String](5), //created_at
+      arr.get[String](6) //updated_at
+    )
+  }
+
+  implicit def convertLongToFolderId(id: Long): Option[FolderId] = {
+    //TODO not cool!
+    if (id == 0) {
+      None
+    } else {
+      Some(id.toLong)
     }
   }
 
@@ -84,20 +102,22 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   override def update(o: File): Future[File] = {
     val update =
       s"""UPDATE $table SET
-         |name = ?,
-         |mime_type = ?,
-         |file_type = ?,
-         |updated_at = CURRENT_TIMESTAMP WHERE uuid = ? RETURNING created_at, updated_at""".stripMargin
+                         |name = ?,
+                         |description = ?,
+                         |mime_type = ?,
+                         |idfolder = ?,
+                         |updated_at = CURRENT_TIMESTAMP WHERE uuid = ? RETURNING created_at, updated_at""".stripMargin
 
     for {
-      result <- connection.singleQuery(update, Json.arr(o.name, o.mimeType, o.fileType, o.uuid.get.toString))
+      result <- connection.singleQuery(update, Json.arr(o.name, o.description, o.mimeType, o.folder.orNull, o.uuid.get.toString))
       resultArr <- Future.apply(updateNotNull(result))
     } yield {
       File(
         o.uuid, //uuid
         o.name, //name
+        o.description, //description
         o.mimeType, //mime_type
-        o.fileType, //file_type
+        o.folder,
         resultArr.head.get[String](0), //created_at
         resultArr.head.get[String](1) //updated_at
       )
@@ -120,8 +140,9 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
       s"""SELECT
          |uuid,
          |name,
+         |description,
          |mime_type,
-         |file_type,
+         |idfolder,
          |created_at,
          |updated_at FROM $table""".stripMargin
 
@@ -130,14 +151,28 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
       resultArr <- Future.apply(selectNotNull(result))
     } yield {
       resultArr.map { row =>
-        File(
-          row.get[String](0), //uuid
-          row.get[String](1), //name
-          row.get[String](2), //mime_type
-          row.get[String](3), //file_type
-          row.get[String](4), //created_at
-          row.get[String](5) //updated_at
-        )
+        convertJsonArrayToFile(row)
+      }
+    }
+  }
+
+  def retrieveFromFolder(folder: FolderId): Future[Seq[File]] = {
+    val select =
+      s"""SELECT
+         |uuid,
+         |name,
+         |description,
+         |mime_type,
+         |idfolder,
+         |created_at,
+         |updated_at FROM $table WHERE idfolder = ?""".stripMargin
+
+    for {
+      result <- connection.singleQuery(select, Json.arr(folder))
+      resultArr <- Future.apply(getSeqOfJsonArray(result))
+    } yield {
+      resultArr.map { row =>
+        convertJsonArrayToFile(row)
       }
     }
   }
