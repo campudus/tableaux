@@ -60,6 +60,19 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |  ON DELETE CASCADE
                          |)""".stripMargin,
       Json.arr())
+
+    (t, _) <- t.query(s"""
+                         |CREATE TABLE file(
+                         |  uuid VARCHAR(255) NOT NULL,
+                         |  name VARCHAR(255) NOT NULL,
+                         |  mime_type VARCHAR(255) NOT NULL,
+                         |  file_type VARCHAR(255) NOT NULL,
+                         |  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                         |  updated_at TIMESTAMP WITHOUT TIME ZONE,
+                         |
+                         |  PRIMARY KEY(uuid)
+                         |)""".stripMargin,
+      Json.arr())
     (t, _) <- t.query(s"""
                          |ALTER TABLE system_columns
                          |  ADD FOREIGN KEY(link_id)
