@@ -6,7 +6,6 @@ import org.vertx.scala.core.FunctionConverters._
 import org.vertx.scala.core.http.HttpServer
 import org.vertx.scala.core.json.{Json, JsonObject}
 import org.vertx.scala.platform.{Container, Verticle}
-import org.vertx.scala.router.Router
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -48,7 +47,12 @@ class Starter extends Verticle {
   def deployHttpServer(port: Int, databaseAddress: String): Future[HttpServer] = {
     val p = Promise[HttpServer]()
 
-    val config = TableauxConfig(this, databaseAddress)
+    val config = TableauxConfig(
+      vert = this,
+      addr = databaseAddress,
+      pwd = "",
+      upload = ""
+    )
     val dbConnection = DatabaseConnection(config)
     val router = RouterRegistry(config, dbConnection)
 

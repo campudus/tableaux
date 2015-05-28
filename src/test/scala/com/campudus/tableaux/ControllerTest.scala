@@ -6,6 +6,7 @@ import TableauxModel._
 import com.campudus.tableaux.database.domain.CreateColumn
 import org.junit.Test
 import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.platform.Verticle
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.testtools.TestVerticle
 import scala.io.Source
@@ -15,16 +16,11 @@ import scala.util.Success
 import scala.util.Failure
 import com.campudus.tableaux.database.{TextType, DatabaseConnection}
 
-class ControllerTest extends TestVerticle {
+class ControllerTest extends TestVerticle with TestConfig {
 
-  lazy val config: JsonObject = jsonFromFile("../conf-test.json")
-  lazy val databaseAddress: String = config.getObject("database", Json.obj()).getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
+  override val verticle = this
 
-  private def readJsonFile(f: String): String = Source.fromFile(f).getLines().mkString
-  private def jsonFromFile(f: String): JsonObject = Json.fromObjectString(readJsonFile(f))
-  
   def createTableauxController(): TableauxController = {
-    val tableauxConfig = TableauxConfig(this, databaseAddress)
     val dbConnection = DatabaseConnection(tableauxConfig)
     val model = TableauxModel(dbConnection)
     

@@ -18,17 +18,11 @@ case class TestCustomException(message: String, id: String, statusCode: Int) ext
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
  */
-trait TableauxTestBase extends TestVerticle {
+trait TableauxTestBase extends TestVerticle with TestConfig {
 
-  lazy val config: JsonObject = jsonFromFile("../conf-test.json")
-  lazy val port: Int = config.getInteger("port", Starter.DEFAULT_PORT)
-  lazy val databaseAddress: String = config.getObject("database", Json.obj()).getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
-
-  private def readJsonFile(f: String): String = Source.fromFile(f).getLines().mkString
-  private def jsonFromFile(f: String): JsonObject = Json.fromObjectString(readJsonFile(f))
+  override val verticle = this
 
   override def asyncBefore(): Future[Unit] = {
-    val tableauxConfig = TableauxConfig(this, databaseAddress)
     val dbConnection = DatabaseConnection(tableauxConfig)
     val system = SystemModel(dbConnection)
 
