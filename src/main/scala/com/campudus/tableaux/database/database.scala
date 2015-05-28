@@ -20,19 +20,17 @@ trait DatabaseQuery {
 trait DatabaseHandler[O <: DomainObject, ID] extends DatabaseQuery {
   def add(o: O): Future[O]
 
-  def retrieve(rowNum: Int): Future[O]
-
-  def retrieveById(id: ID): Future[O]
+  def retrieve(id: ID): Future[O]
 
   def retrieveAll(): Future[Seq[O]]
 
-  def update(o: O): Future[Int]
+  def update(o: O): Future[O]
 
-  def delete(o: O): Future[O]
+  def delete(o: O): Future[Unit]
 
-  def deleteById(id: ID): Future[O]
+  def deleteById(id: ID): Future[Unit]
 
-  def size(): Future[Int]
+  def size(): Future[Long]
 }
 
 object DatabaseConnection {
