@@ -38,14 +38,17 @@ class FillTest extends TableauxTestBase {
     val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
 
     val expectedJson = Json.obj("status" -> "ok")
+    val expectedGet = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
       _ <- sendRequest("POST", "/tables/1/rows")
       test <- sendRequestWithJson("POST", fillStringCellJson, "/tables/1/columns/1/rows/1")
+      getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
       assertEquals(expectedJson, test)
+      assertEquals(expectedGet, getResult)
     }
   }
 
@@ -54,14 +57,17 @@ class FillTest extends TableauxTestBase {
     val fillNumberCellJson = Json.obj("value" -> 101)
 
     val expectedJson = Json.obj("status" -> "ok")
+    val expectedGet = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> 101)))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
       _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
       _ <- sendRequest("POST", "/tables/1/rows")
       test <- sendRequestWithJson("POST", fillNumberCellJson, "/tables/1/columns/1/rows/1")
+      getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
       assertEquals(expectedJson, test)
+      assertEquals(expectedGet, getResult)
     }
   }
 
@@ -72,6 +78,8 @@ class FillTest extends TableauxTestBase {
 
     val expectedJson = Json.obj("status" -> "ok")
     val expectedJson2 = Json.obj("status" -> "ok")
+    val expectedGet1 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> 101)))
+    val expectedGet2 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -80,9 +88,13 @@ class FillTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables/1/rows")
       test1 <- sendRequestWithJson("POST", fillNumberCellJson, "/tables/1/columns/1/rows/1")
       test2 <- sendRequestWithJson("POST", fillStringCellJson, "/tables/1/columns/2/rows/1")
+      getResult1 <- sendRequest("GET", "/tables/1/columns/1/rows/1")
+      getResult2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
+      assertEquals(expectedGet1, getResult1)
+      assertEquals(expectedGet2, getResult2)
     }
   }
 }
