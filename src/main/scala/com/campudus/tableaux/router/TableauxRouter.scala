@@ -56,11 +56,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
       }
     }
-    case Post(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => asyncSetReply {
-      getJson(req) flatMap { json =>
-        controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getField("value"))
-      }
-    }
+    case Post(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => setCellValue(req, tableId, columnId, rowId)
+    case Put(TableIdColumnsIdRowsId(tableId, columnId, rowId)) => setCellValue(req, tableId, columnId, rowId)
     case Post(TableId(tableId)) => asyncEmptyReply(getJson(req) flatMap (json => controller.changeTableName(tableId.toLong, json.getString("name"))))
     case Post(TableIdColumnsId(tableId, columnId)) => asyncEmptyReply {
       getJson(req) flatMap {
@@ -73,5 +70,11 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Delete(TableId(tableId)) => asyncEmptyReply(controller.deleteTable(tableId.toLong))
     case Delete(TableIdColumnsId(tableId, columnId)) => asyncEmptyReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
     case Delete(TableIdRowsId(tableId, rowId)) => asyncEmptyReply(controller.deleteRow(tableId.toLong, rowId.toLong))
+  }
+
+  private def setCellValue(req: HttpServerRequest, tableId: String, columnId: String, rowId: String) = asyncSetReply {
+    getJson(req) flatMap { json =>
+      controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getField("value"))
+    }
   }
 }

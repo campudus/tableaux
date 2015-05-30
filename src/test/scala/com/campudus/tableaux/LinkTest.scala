@@ -50,30 +50,31 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def fillAndRetrieveLinkCell(): Unit = okTest {
-    val valuesRow = { c: String =>
-      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2))))
-    }
+    def valuesRow(c: String) =
+      Json.obj(
+        "columns" -> Json.arr(
+          Json.obj("id" -> 1),
+          Json.obj("id" -> 2)
+        ),
+        "rows" -> Json.arr(
+          Json.obj("values" -> Json.arr(c, 2))
+        ))
 
-    val fillLinkCellJson = { c: Integer =>
-      Json.obj("value" -> Json.arr(1, c))
-    }
+    def fillLinkCellJson(c: Integer) = Json.obj("value" -> Json.obj("from" -> 1, "to" -> c))
 
     val expectedJson = Json.obj("status" -> "ok")
 
     for {
       tables <- setupTables()
       // create link column
-      columnId <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns") map {
-        _.getArray("columns").get[JsonObject](0).getLong("id")
-      }
+      postResult <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns")
+      columnId <- Future.apply(postResult.getArray("columns").get[JsonObject](0).getLong("id"))
       // add row 1 to table 2
-      rowId1 <- sendRequestWithJson("POST", valuesRow("Lala"), "/tables/2/rows") map {
-        _.getArray("rows").get[JsonObject](0).getInteger("id")
-      }
+      postResult <- sendRequestWithJson("POST", valuesRow("Lala"), "/tables/2/rows")
+      rowId1 <- Future.apply(postResult.getArray("rows").get[JsonObject](0).getInteger("id"))
       // add row 2 to table 2
-      rowId2 <- sendRequestWithJson("POST", valuesRow("Lulu"), "/tables/2/rows") map {
-        _.getArray("rows").get[JsonObject](0).getInteger("id")
-      }
+      postResult <- sendRequestWithJson("POST", valuesRow("Lulu"), "/tables/2/rows")
+      rowId2 <- Future.apply(postResult.getArray("rows").get[JsonObject](0).getInteger("id"))
       // add link 1
       addLink1 <- sendRequestWithJson("POST", fillLinkCellJson(rowId1), s"/tables/1/columns/$columnId/rows/1")
       // add link 2
@@ -102,12 +103,10 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def retrieveLinkValuesFromLinkedTable(): Unit = okTest {
-    val valuesRow = { c: String =>
-      Json.obj(
-        "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2)))
-      )
-    }
+    def valuesRow(c: String) = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2)))
+    )
 
     val expectedJsonOk = Json.obj("status" -> "ok")
 
@@ -123,35 +122,26 @@ class LinkTest extends TableauxTestBase {
       )
     )
 
-    val fillLinkCellJson = { (from: Integer, to: Integer) =>
-      Json.obj("value" -> Json.arr(from, to))
-    }
+    def fillLinkCellJson(from: Number, to: Number) = Json.obj("value" -> Json.obj("from" -> from, "to" -> to))
+
+    def addRow(tableId: Long, values: JsonObject): Future[Number] = for {
+      res <- sendRequestWithJson("POST", values, s"/tables/$tableId/rows")
+      table1RowId1 <- Future.apply(res.getArray("rows").get[JsonObject](0).getNumber("id"))
+    } yield table1RowId1
 
     for {
-      // setup two tables
+    // setup two tables
       tables <- setupTables()
 
       // create link column
-      linkColumnId <- sendRequestWithJson("POST", linkColumn, "/tables/1/columns") map {
-        _.getArray("columns").get[JsonObject](0).getLong("id")
-      }
+      res <- sendRequestWithJson("POST", linkColumn, "/tables/1/columns")
+      linkColumnId <- Future.apply(res.getArray("columns").get[JsonObject](0).getNumber("id"))
 
-      // add row 1 to table 1
-      table1RowId1 <- sendRequestWithJson("POST", valuesRow("table1RowId1"), "/tables/1/rows") map {
-        _.getArray("rows").get[JsonObject](0).getInteger("id")
-      }
-      // add row 2 to table 1
-      table1RowId2 <- sendRequestWithJson("POST", valuesRow("table1RowId2"), "/tables/1/rows") map {
-        _.getArray("rows").get[JsonObject](0).getInteger("id")
-      }
-      // add row 1 to table 2
-      table2RowId1 <- sendRequestWithJson("POST", valuesRow("table2RowId1"), "/tables/2/rows") map {
-        _.getArray("rows").get[JsonObject](0).getInteger("id")
-      }
-      // add row 2 to table 2
-      table2RowId2 <- sendRequestWithJson("POST", valuesRow("table2RowId2"), "/tables/2/rows") map {
-        _.getArray("rows").get[JsonObject](0).getInteger("id")
-      }
+      // add rows to tables
+      table1RowId1 <- addRow(1, valuesRow("table1RowId1"))
+      table1RowId2 <- addRow(1, valuesRow("table1RowId2"))
+      table2RowId1 <- addRow(2, valuesRow("table2RowId1"))
+      table2RowId2 <- addRow(2, valuesRow("table2RowId2"))
 
       // add link 1 (table 1 to table 2)
       addLink1 <- sendRequestWithJson("POST", fillLinkCellJson(table1RowId1, table2RowId1), s"/tables/1/columns/$linkColumnId/rows/$table1RowId1")
@@ -209,6 +199,124 @@ class LinkTest extends TableauxTestBase {
     }
   }
 
+  private def setupTablesWithEmptyLinks(): Future[Number] = {
+    val linkColumn = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "fromColumn" -> 1,
+          "toTable" -> 2,
+          "toColumn" -> 1
+        )
+      )
+    )
+
+    def addRow(tableId: Long, values: JsonObject): Future[Number] = for {
+      res <- sendRequestWithJson("POST", values, s"/tables/$tableId/rows")
+      table1RowId1 <- Future.apply(res.getArray("rows").get[JsonObject](0).getNumber("id"))
+    } yield table1RowId1
+
+    def valuesRow(c: String) = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2)))
+    )
+
+    for {
+    // setup two tables
+      tables <- setupTables()
+
+      // create link column
+      res <- sendRequestWithJson("POST", linkColumn, "/tables/1/columns")
+      linkColumnId <- Future.apply(res.getArray("columns").get[JsonObject](0).getNumber("id"))
+
+      // add rows to tables
+      table1RowId1 <- addRow(1, valuesRow("table1RowId1"))
+      table1RowId2 <- addRow(1, valuesRow("table1RowId2"))
+      table2RowId1 <- addRow(2, valuesRow("table2RowId1"))
+      table2RowId2 <- addRow(2, valuesRow("table2RowId2"))
+    } yield linkColumnId
+  }
+
+  @Test
+  def putLinkValues(): Unit = okTest {
+
+    val putLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr(1, 2)))
+
+    for {
+    // setup two tables
+      linkColumnId <- setupTablesWithEmptyLinks()
+
+      resPut <- sendRequestWithJson("PUT", putLinks, s"/tables/1/columns/$linkColumnId/rows/1")
+      // check first table for the link (links to t2, r1 and t2, r2)
+      resGet1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+      // check first table for the link (links to nothing)
+      resGet2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
+      // check second table for the link (links to t1, r1)
+      resGet3 <- sendRequest("GET", s"/tables/2/columns/$linkColumnId/rows/1")
+      // check second table for the link (links to t1, r1)
+      resGet4 <- sendRequest("GET", s"/tables/2/columns/$linkColumnId/rows/2")
+    } yield {
+      val expected1 = Json.obj("status" -> "ok", "rows" -> Json.arr(
+        Json.obj("value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table2row1"),
+          Json.obj("id" -> 2, "value" -> "table2row2")
+        ))))
+      val expected2 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> Json.arr())))
+      val expected3 = Json.obj("status" -> "ok", "rows" -> Json.arr(
+        Json.obj("value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table1row1")
+        ))))
+      val expected4 = Json.obj("status" -> "ok", "rows" -> Json.arr(
+        Json.obj("value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table1row1")
+        ))))
+
+      assertEquals(Json.obj("status" -> "ok"), resPut)
+      assertEquals(expected1, resGet1)
+      assertEquals(expected2, resGet2)
+      assertEquals(expected3, resGet3)
+      assertEquals(expected4, resGet4)
+    }
+  }
+
+  @Test
+  def invalidPutLinkValueToMissing(): Unit = {
+    // Should contain a "to" value
+    invalidJsonForLink(Json.obj("value" -> Json.obj("from" -> 1)))
+  }
+
+  @Test
+  def invalidPutLinkValueToString(): Unit = {
+    // Should contain a "to" value that is an integer
+    invalidJsonForLink(Json.obj("value" -> Json.obj("from" -> 1, "to" -> "hello")))
+  }
+
+  @Test
+  def invalidPutLinkValueFromMissing(): Unit = {
+    // Should contain a "from" value that is an integer
+    invalidJsonForLink(Json.obj("value" -> Json.obj("to" -> 1)))
+  }
+
+  @Test
+  def invalidPutLinkValueFromString(): Unit = {
+    // Should contain a "from" value that is an integer
+    invalidJsonForLink(Json.obj("value" -> Json.obj("from" -> "hello", "to" -> 1)))
+  }
+
+  @Test
+  def invalidPutLinkValuesStrings(): Unit = {
+    // Should contain values that is an integer
+    invalidJsonForLink(Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr("hello"))))
+  }
+
+  private def invalidJsonForLink(input: JsonObject) = exceptionTest("error.json.link-value") {
+    for {
+      linkColumnId <- setupTablesWithEmptyLinks()
+      resPut <- sendRequestWithJson("PUT", input, s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield resPut
+  }
+
   @Test
   def retrieveEmptyLinkValue(): Unit = okTest {
     val linkColumn = Json.obj(
@@ -224,7 +332,7 @@ class LinkTest extends TableauxTestBase {
     )
 
     for {
-      // setup two tables
+    // setup two tables
       tables <- setupTables()
 
       // create link column
@@ -256,6 +364,6 @@ class LinkTest extends TableauxTestBase {
 
   private def setupTables(): Future[Seq[Long]] = for {
     id1 <- setupDefaultTable()
-    id2 <- setupDefaultTable("Test Table 2")
+    id2 <- setupDefaultTable("Test Table 2", 2)
   } yield List(id1, id2)
 }

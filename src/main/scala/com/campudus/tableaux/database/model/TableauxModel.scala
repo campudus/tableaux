@@ -1,11 +1,13 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.{InvalidJsonException, ArgumentChecker}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{TableStructure, RowStructure, ColumnStructure, CellStructure}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+import scala.util.Try
 
 object TableauxModel {
   type IdType = Long
@@ -18,6 +20,7 @@ object TableauxModel {
 }
 
 class TableauxModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+
   import TableauxModel._
 
   val tableStruc = new TableStructure(connection)
@@ -100,13 +103,23 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def insertValue[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[_, _]] = for {
     column <- getColumn(tableId, columnId)
-    cell <- column match {
-      case _: LinkColumnType[_] =>
-        import scala.collection.JavaConverters._
-        val valueList = value.asInstanceOf[JsonArray].asScala.toList.asInstanceOf[List[Number]]
-        val valueFromList = (valueList.head.longValue(), valueList(1).longValue())
-        insertLinkValue(tableId, columnId, rowId, valueFromList)
-      case _ => insertNormalValue(tableId, columnId, rowId, value)
+    cell <- {
+      val x: Future[Cell[_, _]] = column match {
+        case linkColumn: LinkColumnType[_] =>
+          Try(value.asInstanceOf[JsonObject]).flatMap { v =>
+            import ArgumentChecker._
+            import collection.JavaConverters._
+            for {
+              from <- Try(checked(hasNumber("from", v)).longValue())
+              tos <- Try(Left(checked(hasNumber("to", v)).longValue())).orElse(
+                Try(Right(checked(hasArray("values", v)).asScala.map(_.asInstanceOf[Number].longValue()).toSeq)))
+            } yield handleLinkValues(tableId, columnId, rowId, from, tos)
+          }.getOrElse {
+            Future.failed(InvalidJsonException(s"A link column expects a JSON object with from and to values, but got $value", "link-value"))
+          }
+        case _ => insertNormalValue(tableId, columnId, rowId, value)
+      }
+      x
     }
   } yield cell
 
@@ -115,17 +128,29 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     _ <- cellStruc.update(tableId, columnId, rowId, value)
   } yield Cell(column.asInstanceOf[B], rowId, value)
 
-  def insertLinkValue(tableId: IdType, columnId: IdType, rowId: IdType, value: (IdType, IdType)): Future[Cell[Link[Any], LinkColumnType[Any]]] = for {
+  def handleLinkValues(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, tos: Either[IdType, Seq[IdType]]): Future[Cell[Link[Any], LinkColumnType[Any]]] =
+    tos match {
+      case Left(to) => addLinkValue(tableId, columnId, rowId, from, to)
+      case Right(toList) => insertLinkValues(tableId, columnId, rowId, from, toList)
+    }
+
+  def insertLinkValues(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, tos: Seq[IdType]): Future[Cell[Link[Any], LinkColumnType[Any]]] = for {
     linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumnType[Any]]]
-    _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, value)
+    _ <- cellStruc.putLinks(linkColumn.table.id, linkColumn.id, from, tos)
     v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
-  } yield Cell(linkColumn, rowId, Link(List((value._2, v))))
+  } yield Cell(linkColumn, rowId, Link(linkColumn.to.id, v))
+
+  def addLinkValue(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, to: IdType): Future[Cell[Link[Any], LinkColumnType[Any]]] = for {
+    linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumnType[Any]]]
+    _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, from, to)
+    v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
+  } yield Cell(linkColumn, rowId, Link(to, v))
 
   def getAllTables(): Future[TableSeq] = for {
     seqOfTableInformation <- tableStruc.getAll
   } yield {
-    TableSeq(seqOfTableInformation map { case (id, name) => Table(id, name) })
-  }
+      TableSeq(seqOfTableInformation map { case (id, name) => Table(id, name) })
+    }
 
   def getTable(tableId: IdType): Future[Table] = for {
     (id, name) <- tableStruc.get(tableId)

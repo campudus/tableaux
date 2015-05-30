@@ -53,16 +53,16 @@ class SystemController(override val config: TableauxConfig,
       )
 
       // Bayern 2nd row
-      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 1, (2,1))
-      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 2, (2,2))
-      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 3, (2,3))
-      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 4, (2,4))
+      _ <- tableauxModel.addLinkValue(getId(rb.getJson), linkColumn.id, 1, 2, 1)
+      _ <- tableauxModel.addLinkValue(getId(rb.getJson), linkColumn.id, 2, 2, 2)
+      _ <- tableauxModel.addLinkValue(getId(rb.getJson), linkColumn.id, 3, 2, 3)
+      _ <- tableauxModel.addLinkValue(getId(rb.getJson), linkColumn.id, 4, 2, 4)
 
       //Baden-Wuerttemberg 1st row
-      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 5, (1,5))
-      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 6, (1,6))
-      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 6, (1,7))
-      _ <- tableauxModel.insertLinkValue(getId(rb.getJson), linkColumn.id, 8, (1,8))
+      _ <- tableauxModel.addLinkValue(getId(rb.getJson), linkColumn.id, 5, 1, 5)
+      _ <- tableauxModel.addLinkValue(getId(rb.getJson), linkColumn.id, 6, 1, 6)
+      _ <- tableauxModel.addLinkValue(getId(rb.getJson), linkColumn.id, 6, 1, 7)
+      _ <- tableauxModel.addLinkValue(getId(rb.getJson), linkColumn.id, 8, 1, 8)
     } yield EmptyObject()
   }
 
