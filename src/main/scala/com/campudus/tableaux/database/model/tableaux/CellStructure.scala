@@ -32,7 +32,13 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
       (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, linkColumnId))
       linkId <- Future.successful(selectNotNull(result).head.get[IdType](0))
       (t, _) <- t.query(s"DELETE FROM link_table_$linkId", Json.arr())
-      (t, _) <- t.query(s"INSERT INTO link_table_$linkId VALUES $paramStr", Json.arr(params: _*))
+      (t, _) <- {
+        if (params.nonEmpty) {
+          t.query(s"INSERT INTO link_table_$linkId VALUES $paramStr", Json.arr(params: _*))
+        } else {
+          Future.successful((t, Json.emptyObj()))
+        }
+      }
       _ <- t.commit()
     } yield ()
   }

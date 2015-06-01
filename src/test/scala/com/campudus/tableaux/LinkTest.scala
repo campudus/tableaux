@@ -284,7 +284,7 @@ class LinkTest extends TableauxTestBase {
   def deleteAllLinkValues(): Unit = okTest {
     val putTwoLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr(1, 2)))
     val putOneLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr(1)))
-    val putZeroLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr(1)))
+    val putZeroLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr()))
 
     for {
       // setup two tables
@@ -299,7 +299,7 @@ class LinkTest extends TableauxTestBase {
       // check first table for the link (links to t2, r1)
       resGet2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
 
-      //remove link to t2, r2
+      //remove link to t2, r1
       resPut3 <- sendRequestWithJson("PUT", putZeroLinks, s"/tables/1/columns/$linkColumnId/rows/1")
       // check first table for the link (no link values anymore)
       resGet3 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
