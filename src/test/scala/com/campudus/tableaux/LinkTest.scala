@@ -281,6 +281,55 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
+  def deleteAllLinkValues(): Unit = okTest {
+    val putTwoLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr(1, 2)))
+    val putOneLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr(1)))
+    val putZeroLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr(1)))
+
+    for {
+      // setup two tables
+      linkColumnId <- setupTablesWithEmptyLinks()
+
+      resPut1 <- sendRequestWithJson("PUT", putTwoLinks, s"/tables/1/columns/$linkColumnId/rows/1")
+      // check first table for the link (links to t2, r1 and t2, r2)
+      resGet1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+
+      //remove link to t2, r2
+      resPut2 <- sendRequestWithJson("PUT", putOneLinks, s"/tables/1/columns/$linkColumnId/rows/1")
+      // check first table for the link (links to t2, r1)
+      resGet2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+
+      //remove link to t2, r2
+      resPut3 <- sendRequestWithJson("PUT", putZeroLinks, s"/tables/1/columns/$linkColumnId/rows/1")
+      // check first table for the link (no link values anymore)
+      resGet3 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      val expected1 = Json.obj("status" -> "ok", "rows" -> Json.arr(
+        Json.obj("value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table2row1"),
+          Json.obj("id" -> 2, "value" -> "table2row2")
+        ))))
+
+      val expected2 = Json.obj("status" -> "ok", "rows" -> Json.arr(
+        Json.obj("value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table2row1")
+        ))))
+
+      val expected3 = Json.obj("status" -> "ok", "rows" -> Json.arr(
+        Json.obj("value" -> Json.arr())
+      ))
+
+      assertEquals(Json.obj("status" -> "ok"), resPut1)
+      assertEquals(Json.obj("status" -> "ok"), resPut2)
+      assertEquals(Json.obj("status" -> "ok"), resPut3)
+
+      assertEquals(expected1, resGet1)
+      assertEquals(expected2, resGet2)
+      assertEquals(expected3, resGet3)
+    }
+  }
+
+  @Test
   def invalidPutLinkValueToMissing(): Unit = {
     // Should contain a "to" value
     invalidJsonForLink(Json.obj("value" -> Json.obj("from" -> 1)))
