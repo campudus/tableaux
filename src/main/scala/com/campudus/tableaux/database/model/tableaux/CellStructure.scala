@@ -14,13 +14,34 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     connection.singleQuery(s"UPDATE user_table_$tableId SET column_$columnId = ? WHERE id = ?", Json.arr(value, rowId))
   } map { _ => () }
 
-  def updateLink(tableId: IdType, linkColumnId: IdType, values: (IdType, IdType)): Future[Unit] = for {
+  def updateLink(tableId: IdType, linkColumnId: IdType, leftRow: IdType, rightRow: IdType): Future[Unit] = for {
     t <- connection.begin()
     (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, linkColumnId))
     linkId <- Future.successful(selectNotNull(result).head.get[IdType](0))
-    (t, _) <- t.query(s"INSERT INTO link_table_$linkId VALUES (?, ?)", Json.arr(values._1, values._2))
+    (t, _) <- t.query(s"INSERT INTO link_table_$linkId VALUES (?, ?)", Json.arr(leftRow, rightRow))
     _ <- t.commit()
   } yield ()
+
+  def putLinks(tableId: IdType, linkColumnId: IdType, from: IdType, tos: Seq[IdType]): Future[Unit] = {
+    val paramStr = tos.map(_ => "(?, ?)").mkString(", ")
+    val params = tos.flatMap(List(from, _))
+    connection.verticle.logger.info(s"params=${params.mkString(", ")}")
+
+    for {
+      t <- connection.begin()
+      (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, linkColumnId))
+      linkId <- Future.successful(selectNotNull(result).head.get[IdType](0))
+      (t, _) <- t.query(s"DELETE FROM link_table_$linkId", Json.arr())
+      (t, _) <- {
+        if (params.nonEmpty) {
+          t.query(s"INSERT INTO link_table_$linkId VALUES $paramStr", Json.arr(params: _*))
+        } else {
+          Future.successful((t, Json.emptyObj()))
+        }
+      }
+      _ <- t.commit()
+    } yield ()
+  }
 
   def getValue(tableId: IdType, columnId: IdType, rowId: IdType): Future[Any] = {
     connection.singleQuery(s"SELECT column_$columnId FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
