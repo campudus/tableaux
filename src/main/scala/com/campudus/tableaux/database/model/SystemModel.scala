@@ -81,11 +81,13 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |CREATE TABLE file(
                          |  uuid UUID NOT NULL,
                          |  name VARCHAR(255) NOT NULL,
-                         |  description VARCHAR(255) NOT NULL,
+                         |  description VARCHAR(255) NULL,
                          |  mime_type VARCHAR(255) NOT NULL,
                          |  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
                          |  updated_at TIMESTAMP WITHOUT TIME ZONE,
-                         |  idfolder BIGINT,
+                         |  idfolder BIGINT NULL,
+                         |  tmp BOOLEAN NOT NULL DEFAULT TRUE,
+                         |  filename VARCHAR(255) NOT NULL,
                          |
                          |  PRIMARY KEY(uuid),
                          |  FOREIGN KEY(idfolder)
