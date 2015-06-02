@@ -1,5 +1,7 @@
 {
   "port": 8080,
+  "uploadsDirectory": "uploads/",
+  "workingDirectory": "/?absolute path for now?/",
 
   "database": {
     "address" : "campudus.asyncdb",

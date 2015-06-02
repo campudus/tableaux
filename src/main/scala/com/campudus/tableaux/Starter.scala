@@ -19,17 +19,26 @@ class Starter extends Verticle {
   import Starter._
 
   override def start(p: Promise[Unit]): Unit = {
-    val port = container.config().getInteger("port", DEFAULT_PORT)
+    val config = container.config()
 
-    val databaseConfig = container.config().getObject("database", Json.obj())
-    val validatorConfig = container.config().getObject("validator", Json.obj())
+    val port = config.getInteger("port", DEFAULT_PORT)
+
+    val databaseConfig = config.getObject("database", Json.obj())
+    val validatorConfig = config.getObject("validator", Json.obj())
 
     val databaseAddress = databaseConfig.getString("address", DEFAULT_DATABASE_ADDRESS)
+
+    val tableauxConfig = TableauxConfig(
+      vert = this,
+      addr = databaseAddress,
+      pwd = config.getString("workingDirectory"),
+      upload = config.getString("uploadsDirectory")
+    )
 
     for {
       _ <- deployMod(container, "io.vertx~mod-mysql-postgresql_2.11~0.3.1", databaseConfig, 1)
       _ <- deployMod(container, "com.campudus~vertx-tiny-validator4~1.0.0", validatorConfig, 1)
-      _ <- deployHttpServer(port, databaseAddress)
+      _ <- deployHttpServer(port, tableauxConfig)
     } yield {
       p.success()
     }
@@ -44,17 +53,11 @@ class Starter extends Verticle {
     p.future
   }
 
-  def deployHttpServer(port: Int, databaseAddress: String): Future[HttpServer] = {
+  def deployHttpServer(port: Int, tableauxConfig: TableauxConfig): Future[HttpServer] = {
     val p = Promise[HttpServer]()
 
-    val config = TableauxConfig(
-      vert = this,
-      addr = databaseAddress,
-      pwd = "",
-      upload = ""
-    )
-    val dbConnection = DatabaseConnection(config)
-    val router = RouterRegistry(config, dbConnection)
+    val dbConnection = DatabaseConnection(tableauxConfig)
+    val router = RouterRegistry(tableauxConfig, dbConnection)
 
     vertx.createHttpServer().requestHandler(router).listen(port, {
       case Success(srv) =>

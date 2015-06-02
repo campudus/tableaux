@@ -9,13 +9,14 @@ object TableauxConfig {
       override val verticle = vert
       override val databaseAddress = addr
       override val workingDirectory = pwd
-      override val uploadDirectory = upload
+      override val uploadsDirectory = upload
     }
   }
 }
 
 trait TableauxConfig extends StandardVerticle {
   val databaseAddress: String
+
   val workingDirectory: String
-  val uploadDirectory: String
+  val uploadsDirectory: String
 }
