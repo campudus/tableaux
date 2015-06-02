@@ -1,17 +1,16 @@
 package com.campudus.tableaux
 
 
+import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
 import org.vertx.scala.core.FunctionConverters._
-import org.vertx.scala.core.buffer.Buffer
+import org.vertx.scala.core.http._
 import org.vertx.scala.core.json._
 import org.vertx.scala.testtools.TestVerticle
 import org.vertx.testtools.VertxAssert._
-import org.vertx.scala.core.http._
-import scala.concurrent.{ Promise, Future }
-import scala.io.Source
-import scala.util.{ Try, Failure, Success }
-import com.campudus.tableaux.database.DatabaseConnection
+
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable
 
@@ -75,21 +74,18 @@ trait TableauxTestBase extends TestVerticle with TestConfig {
 
   def sendRequest(method: String, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpClientRequest(method, path, p).end()
+    httpJsonRequest(method, path, p).end()
     p.future
   }
 
   def sendRequestWithJson(method: String, jsonObj: JsonObject, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpClientRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
+    httpJsonRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
     p.future
   }
 
-  private def httpClientRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = createClient().request(method, path, { resp: HttpClientResponse =>
-    logger.info("Got a response: " + resp.statusCode())
-
+  def jsonResponse(p: Promise[JsonObject]): HttpClientResponse => Unit = { resp: HttpClientResponse =>
     resp.bodyHandler { buf =>
-      logger.info("response: " + buf.toString())
       if (resp.statusCode() != 200) {
         p.failure(TestCustomException(buf.toString(), resp.statusMessage(), resp.statusCode()))
       } else {
@@ -100,7 +96,18 @@ trait TableauxTestBase extends TestVerticle with TestConfig {
         }
       }
     }
-  })
+  }
+
+  private def httpJsonRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = {
+    httpRequest(method, path, jsonResponse(p))
+  }
+
+  def httpRequest(method: String, path: String, responseHandler: HttpClientResponse => Unit): HttpClientRequest = {
+    val client = createClient()
+      .exceptionHandler({ x => fail("Vertx HttpClient failed: " + x.getMessage) })
+
+    client.request(method, path, responseHandler)
+  }
 
   def setupDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[Long] = {
     val postTable = Json.obj("name" -> name)
