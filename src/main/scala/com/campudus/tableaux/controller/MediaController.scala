@@ -1,5 +1,6 @@
 package com.campudus.tableaux.controller
 
+import java.util
 import java.util.UUID
 
 import com.campudus.tableaux.TableauxConfig
@@ -11,6 +12,7 @@ import com.campudus.tableaux.router.UploadAction
 
 import scala.concurrent.{Promise, Future}
 import scala.reflect.io.Path
+import scala.util.Failure
 
 object MediaController {
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
@@ -48,8 +50,9 @@ class MediaController(override val config: TableauxConfig,
 
     val filePath = uploadsDirectory / Path(s"$uuid.$ext")
 
-    // TODO perhaps I should use vertx.filesystem here
-    filePath.parent.createDirectory()
+    vertx.fileSystem.mkdir(s"$uploadsDirectory", { asyncResult =>
+      // ignore for now
+    })
 
     upload.exceptionHandler({ ex: Throwable =>
       logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
@@ -77,8 +80,9 @@ class MediaController(override val config: TableauxConfig,
   def retrieveFile(uuid: UUID): Future[(ExtendedFile, Path)] = {
     fileModel.retrieve(uuid) map { f =>
       val ext = Path(f.filename).extension
-      val path = uploadsDirectory / Path(s"${f.uuid.get}.$ext")
-      (ExtendedFile(f), path)
+      val filePath = uploadsDirectory / Path(s"$uuid.$ext")
+
+      (ExtendedFile(f), filePath)
     }
   }
 

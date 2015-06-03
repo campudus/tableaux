@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
-import com.campudus.tableaux.database.domain.{ExtendedFile, DomainObject}
+import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.core.json.JsonObject
@@ -100,8 +100,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         val name = json.getString("name")
         val description = json.getString("description")
         val folder: Option[FolderId] = retrieveNullableField(json)("folder")
-
-        logger.info(s"PUT THIS SHIT! $name $description $folder")
 
         controller.changeFile(UUID.fromString(uuid), name, description, folder)
       }

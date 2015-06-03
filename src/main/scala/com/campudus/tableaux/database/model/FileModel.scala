@@ -111,7 +111,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |idfolder = ?,
           |updated_at = CURRENT_TIMESTAMP,
           |tmp = FALSE
-          |WHERE uuid = ? RETURNING mime_type, created_at, updated_at""".stripMargin
+          |WHERE uuid = ? RETURNING mime_type, filename, created_at, updated_at""".stripMargin
 
     for {
       result <- connection.singleQuery(update, Json.arr(o.name, o.description, o.folder.orNull, o.uuid.get.toString))
@@ -122,10 +122,10 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
         o.name,
         o.description,
         resultArr.head.get[String](0), //mime_type
-        o.filename,
+        resultArr.head.get[String](1), //filename
         o.folder,
-        resultArr.head.get[String](1), //created_at
-        resultArr.head.get[String](2) //updated_at
+        resultArr.head.get[String](2), //created_at
+        resultArr.head.get[String](3) //updated_at
       )
     }
   }
