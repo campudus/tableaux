@@ -168,6 +168,47 @@ class MediaTest extends TableauxTestBase {
     } yield request
   }
 
+  @Test
+  def deleteFolderRecursively(): Unit = okTest {
+    val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
+    val mimetype = "image/jpeg"
+
+    implicit def convertStringToOptionalInt(i: String): Option[Int] = {
+      Option(i.toInt)
+    }
+
+    def createFolderPutJson(parent: Option[Int] = None): JsonObject = {
+      Json.obj("name" -> "Test Folder", "description" -> "Test Description", "parent" -> parent.orNull)
+    }
+
+    def createFilePutJson(folder: String): JsonObject = {
+      Json.obj("name" -> "Test File", "description" -> "Test Description", "folder" -> folder)
+    }
+
+    for {
+      folder1 <- sendRequestWithJson("POST", createFolderPutJson(), s"/folders").map(s => s.getString("id"))
+      folder2 <- sendRequestWithJson("POST", createFolderPutJson(), s"/folders").map(s => s.getString("id"))
+
+      folder11 <- sendRequestWithJson("POST", createFolderPutJson(folder1), s"/folders").map(s => s.getString("id"))
+      folder12 <- sendRequestWithJson("POST", createFolderPutJson(folder1), s"/folders").map(s => s.getString("id"))
+
+      folder21 <- sendRequestWithJson("POST", createFolderPutJson(folder2), s"/folders").map(s => s.getString("id"))
+      folder22 <- sendRequestWithJson("POST", createFolderPutJson(folder2), s"/folders").map(s => s.getString("id"))
+
+      file1 <- uploadFile(file, mimetype).map(f => f.getString("uuid"))
+      puttedFile1 <- sendRequestWithJson("PUT", createFilePutJson(folder11), s"/files/$file1")
+
+      file2 <- uploadFile(file, mimetype).map(f => f.getString("uuid"))
+      puttedFile2 <- sendRequestWithJson("PUT", createFilePutJson(folder21), s"/files/$file2")
+
+      deleteFolder1 <- sendRequest("DELETE", s"/folders/$folder1")
+      deleteFolder2 <- sendRequest("DELETE", s"/folders/$folder2")
+    } yield {
+      assertEquals(folder1.toString, deleteFolder1.getString("id"))
+      assertEquals(folder2.toString, deleteFolder2.getString("id"))
+    }
+  }
+
   private def uploadFile(file: String, mimeType: String): Future[JsonObject] = {
     val filePath = getClass.getResource(file).toURI.getPath
     val fileName = file.substring(file.lastIndexOf("/") + 1)

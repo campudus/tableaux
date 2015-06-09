@@ -58,6 +58,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         controller.changeFolder(id.toLong, name, description, parent)
       }
     })
+    case Delete(FolderId(id)) => asyncSetReply({controller.deleteFolder(id.toLong)})
 
     case Post("/files") => asyncSetReply({
       val p = Promise[DomainObject]()

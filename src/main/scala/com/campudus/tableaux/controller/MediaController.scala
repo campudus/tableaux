@@ -44,6 +44,35 @@ class MediaController(override val config: TableauxConfig,
     repository.update(Folder(Some(id), name, description, parent, None, None))
   }
 
+  def deleteFolder(id: FolderId): Future[Folder] = {
+    for {
+      folder <- repository.retrieve(id)
+
+      // delete files
+      _ <- deleteFilesOfFolder(id)
+
+      // delete subfolders
+      _ <- deleteSubfolders(id)
+
+      // delete the folder finally
+      _ <- repository.delete(folder)
+    } yield folder
+  }
+
+  private def deleteSubfolders(id: FolderId): Future[Unit] = {
+    for {
+      folders <- repository.retrieveSubfolders(id)
+      _ <- Future.sequence(folders.map(f => deleteFolder(f.id.get)))
+    } yield ()
+  }
+
+  private def deleteFilesOfFolder(id: FolderId): Future[Unit] = {
+    for {
+      files <- fileModel.retrieveFromFolder(id)
+      _ <- Future.sequence(files.map(f => deleteFile(f.uuid.get)))
+    } yield ()
+  }
+
   def uploadFile(upload: UploadAction): Future[TemporaryFile] = promisify { p: Promise[TemporaryFile] =>
     val uuid = UUID.randomUUID()
     val ext = Path(upload.fileName).extension
