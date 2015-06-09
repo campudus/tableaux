@@ -26,7 +26,6 @@ trait VertxProject extends Build {
   lazy val fatJar = TaskKey[Unit]("fat-jar", "Creates a fat jar file for deployment on the Server")
   lazy val runnableModule = TaskKey[Unit]("runnable-module", "The module is ready to use here")
   lazy val runMod = TaskKey[Unit]("run-mod", "runs the module")
-  lazy val copyMainResources = TaskKey[Unit]("copy-schemas-from-core", "Copy the resources from main into the resources directory")
 
   def customSettings: Seq[Setting[_]] = Seq.empty
 
@@ -54,16 +53,26 @@ trait VertxProject extends Build {
   lazy val vertxSettings: Seq[Setting[_]] = baseSettings ++ Seq(
     libraryDependencies ++= Seq(
       "io.vertx" % "vertx-core" % vertxVersion % "provided",
-      "io.vertx" % "vertx-platform" % vertxVersion % "provided"
+      "io.vertx" % "vertx-platform" % vertxVersion % "provided",
+
+      "io.vertx" % "testtools" % "2.0.3-final" % "test",
+      "org.hamcrest" % "hamcrest-library" % "1.3" % "test",
+      "com.novocode" % "junit-interface" % "0.10" % "test"
     ) ++ module.scalaVersion.map(_ => "io.vertx" %% "lang-scala" % vertxScalaVersion % "provided").toList,
+
     libraryDependencies ++= dependencies,
+
+    // Add hazelcast to fatJar only
     libraryDependencies in fatJar += "io.vertx" % "vertx-hazelcast" % vertxVersion,
 
     // Fork JVM to allow Scala in-flight compilation tests to load the Scala interpreter
     fork in Test := true,
-    // Vert.x tests are not designed to run in paralell
+
+    // Vert.x tests are not designed to run in parallel
     parallelExecution in Test := false,
+
     baseDirectory in Test := target.value,
+
     // debug
     javaOptions in Test += "-Ddebug.basedir=" + baseDirectory.value,
     javaOptions in Test += "-Ddebug.target=" + target.value,
@@ -114,10 +123,8 @@ trait VertxProject extends Build {
     runModTask,
     pullInDepsTask,
     fatJarTask,
-    copyMainResourcesTask,
 
     copyMod <<= copyMod dependsOn (copyResources in Compile),
-    copyMod <<= copyMod dependsOn copyMainResources,
 
     runMod <<= runMod dependsOn copyMod,
     zipMod <<= zipMod dependsOn copyMod,
@@ -147,11 +154,16 @@ trait VertxProject extends Build {
     createDirectory(moduleDir)
     copyDirectory((classDirectory in Compile).value, moduleDir)
 
+    //
+    // Copy all dependencies into lib directory
+    //
     val libDir = moduleDir / "lib"
     createDirectory(libDir)
+
     // Get the runtime classpath to get all dependencies except provided ones
     val classpath = (managedClasspath in Runtime).value
 
+    // Ignore scala-library (fatJar can't be executed if it's included)
     classpath filter { e => !e.data.name.contains("scala-library")} foreach { classpathEntry =>
       copyClasspathFile(classpathEntry, libDir)
     }
@@ -210,11 +222,6 @@ trait VertxProject extends Build {
     toError(r.run("org.vertx.java.platform.impl.cli.Starter", cp.map(_.data), args, log))
   }
 
-  lazy val copyMainResourcesTask = copyMainResources := {
-    implicit val log = streams.value.log
-    copyDirectory((resourceDirectory in Compile).value / "", target.value / "mods" / "resources")
-  }
-
   private def getMajor(version: String): String = version.substring(0, version.lastIndexOf('.'))
 
   private def createDirectory(dir: File)(implicit log: Logger): Unit = {
@@ -222,7 +229,7 @@ trait VertxProject extends Build {
     IO.createDirectory(dir)
   }
 
-  def copyDirectory(source: File, target: File)(implicit log: Logger): Unit = {
+  private def copyDirectory(source: File, target: File)(implicit log: Logger): Unit = {
     log.debug(s"Copy $source to $target")
     IO.copyDirectory(source, target, overwrite = true)
   }

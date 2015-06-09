@@ -9,12 +9,7 @@ object TableauxBuild extends VertxProject {
   override lazy val customSettings = Seq(
     libraryDependencies ++= Seq(
       "joda-time" % "joda-time" % "2.8",
-
-      "io.vertx" %% "mod-mysql-postgresql" % "0.3.1" % "provided",
-
-      "io.vertx" % "testtools" % "2.0.3-final" % "test",
-      "org.hamcrest" % "hamcrest-library" % "1.3" % "test",
-      "com.novocode" % "junit-interface" % "0.10" % "test"
+      "io.vertx" %% "mod-mysql-postgresql" % "0.3.1" % "provided"
     )
   )
 }

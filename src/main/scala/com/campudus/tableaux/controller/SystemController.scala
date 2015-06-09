@@ -74,7 +74,7 @@ class SystemController(override val config: TableauxConfig,
   }
 
   private def readDemoData(name: String): Future[JsonObject] = {
-    FileUtils(verticle).readJsonFile(s"../resources/demodata/$name.json")
+    FileUtils(verticle).readJsonFile(s"demodata/$name.json")
   }
 
   private def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = {
