@@ -30,15 +30,19 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  @Ignore
-  def testModel(): Unit = okTest {
+  def testFileModel(): Unit = okTest {
     val file = File("lulu", "lala", "llu")
 
     for {
       model <- Future.successful(createFileModel())
 
-      insertedFile1 <- model.add(file)
-      insertedFile2 <- model.add(file)
+      tempFile1 <- model.add(file)
+      tempFile2 <- model.add(file)
+
+      sizeAfterAdd <- model.size()
+
+      insertedFile1 <- model.update(tempFile1)
+      insertedFile2 <- model.update(tempFile2)
 
       retrievedFile <- model.retrieve(insertedFile1.uuid.get)
       updatedFile <- model.update(File(retrievedFile.uuid.get, "blub", "flab", "test"))
@@ -46,12 +50,17 @@ class MediaTest extends TableauxTestBase {
       allFiles <- model.retrieveAll()
 
       size <- model.size()
+
       _ <- model.delete(insertedFile1)
-      sizeAfterDelete <- model.size()
+
+      sizeAfterDeleteOne <- model.size()
     } yield {
+      assertEquals(0, sizeAfterAdd)
+
       assertEquals(insertedFile1, retrievedFile)
 
-      assert(retrievedFile.updatedAt.isEmpty)
+      assert(retrievedFile.updatedAt.isDefined)
+
       assert(updatedFile.createdAt.isDefined)
       assert(updatedFile.updatedAt.isDefined)
 
@@ -60,13 +69,12 @@ class MediaTest extends TableauxTestBase {
       assertEquals(2, allFiles.toList.size)
 
       assertEquals(2, size)
-      assertEquals(1, sizeAfterDelete)
+      assertEquals(1, sizeAfterDeleteOne)
     }
   }
 
   @Test
-  @Ignore
-  def testFolder(): Unit = okTest {
+  def testFolderModel(): Unit = okTest {
     val folder = Folder(None, name = "hallo", description = "Test", None, None, None)
 
     for {
