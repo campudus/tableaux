@@ -1,8 +1,10 @@
 package com.campudus.tableaux.database
 
 import com.campudus.tableaux.database.domain.DomainObject
+import com.campudus.tableaux.database.model.FolderModel._
 import com.campudus.tableaux.{TableauxConfig, DatabaseException}
 import com.campudus.tableaux.helper.StandardVerticle
+import org.joda.time.DateTime
 import org.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 import org.vertx.scala.platform.Verticle
@@ -17,7 +19,18 @@ trait DatabaseQuery {
   implicit val executionContext = connection.executionContext
 }
 
-trait DatabaseHandler[O <: DomainObject, ID] extends DatabaseQuery {
+trait DatabaseHelper {
+  implicit def convertLongToFolderId(id: Long): Option[FolderId] = {
+    //TODO still, not cool!
+    Option(id).filter(_ != 0)
+  }
+
+  implicit def convertStringToDateTime(str: String): Option[DateTime] = {
+    Option(str).map(DateTime.parse)
+  }
+}
+
+trait DatabaseHandler[O <: DomainObject, ID] extends DatabaseQuery with DatabaseHelper {
   def add(o: O): Future[O]
 
   def retrieve(id: ID): Future[O]
@@ -69,6 +82,11 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
       p.future
     }
   }
+
+  def singleQuery(query: String): Future[JsonObject] = sendHelper(Json.obj(
+    "action" -> "raw",
+    "command" -> query
+  )) map { msg => checkForDatabaseError(msg.body()) } recoverWith {case ex => Future.failed[JsonObject](ex)}
 
   def singleQuery(query: String, values: JsonArray): Future[JsonObject] = sendHelper(Json.obj(
     "action" -> "prepared",

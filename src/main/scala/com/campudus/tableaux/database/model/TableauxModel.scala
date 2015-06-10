@@ -146,11 +146,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
   } yield Cell(linkColumn, rowId, Link(to, v))
 
-  def getAllTables(): Future[TableSeq] = for {
-    seqOfTableInformation <- tableStruc.getAll
-  } yield {
+  def getAllTables(): Future[TableSeq] = {
+    for {
+      seqOfTableInformation <- tableStruc.getAll
+    } yield {
       TableSeq(seqOfTableInformation map { case (id, name) => Table(id, name) })
     }
+  }
 
   def getTable(tableId: IdType): Future[Table] = for {
     (id, name) <- tableStruc.get(tableId)

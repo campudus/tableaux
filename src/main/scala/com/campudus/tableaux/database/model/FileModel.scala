@@ -82,25 +82,8 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     )
   }
 
-  implicit def convertLongToFolderId(id: Long): Option[FolderId] = {
-    //TODO not cool!
-    if (id == 0) {
-      None
-    } else {
-      Some(id.toLong)
-    }
-  }
-
   implicit def convertStringToUUID(str: String): Option[UUID] = {
     Some(UUID.fromString(str))
-  }
-
-  implicit def convertStringToDateTime(str: String): Option[DateTime] = {
-    if (str == null) {
-      None
-    } else {
-      Option(DateTime.parse(str))
-    }
   }
 
   override def update(o: File): Future[File] = {
@@ -115,7 +98,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
     for {
       result <- connection.singleQuery(update, Json.arr(o.name, o.description, o.folder.orNull, o.uuid.get.toString))
-      resultArr <- Future.apply(updateNotNull(result))
+      resultArr <- Future(updateNotNull(result))
     } yield {
       File(
         o.uuid,
@@ -135,7 +118,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
     for {
       result <- connection.singleQuery(select, Json.emptyArr())
-      resultArr <- Future.apply(selectNotNull(result))
+      resultArr <- Future(selectNotNull(result))
     } yield {
       resultArr.head.get[Long](0)
     }
@@ -155,11 +138,9 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
     for {
       result <- connection.singleQuery(select, Json.emptyArr())
-      resultArr <- Future.apply(selectNotNull(result))
+      resultArr <- Future(selectNotNull(result))
     } yield {
-      resultArr.map { row =>
-        convertJsonArrayToFile(row)
-      }
+      resultArr.map(convertJsonArrayToFile)
     }
   }
 
@@ -177,11 +158,9 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
     for {
       result <- connection.singleQuery(select, Json.arr(folder))
-      resultArr <- Future.apply(getSeqOfJsonArray(result))
+      resultArr <- Future(getSeqOfJsonArray(result))
     } yield {
-      resultArr.map { row =>
-        convertJsonArrayToFile(row)
-      }
+      resultArr.map(convertJsonArrayToFile)
     }
   }
 
@@ -194,7 +173,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
     for {
       result <- connection.singleQuery(delete, Json.arr(id.toString))
-      resultArr <- Future.apply(deleteNotNull(result))
+      resultArr <- Future(deleteNotNull(result))
     } yield ()
   }
 }

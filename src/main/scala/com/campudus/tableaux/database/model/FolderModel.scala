@@ -43,7 +43,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     }
   }
 
-  implicit def convertJsonArrayToFolder(arr: JsonArray): Folder = {
+  def convertJsonArrayToFolder(arr: JsonArray): Folder = {
     Folder(
       arr.get[FolderId](0), //id
       arr.get[String](1),   //name
@@ -52,23 +52,6 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
       arr.get[String](4),   //created_at
       arr.get[String](5)    //updated_at
     )
-  }
-
-  implicit def convertLongToFolderId(id: Long): Option[FolderId] = {
-    //TODO not cool!
-    if (id == 0) {
-      None
-    } else {
-      Some(id.toLong)
-    }
-  }
-
-  implicit def convertStringToDateTime(str: String): Option[DateTime] = {
-    if (str == null) {
-      None
-    } else {
-      Option(DateTime.parse(str))
-    }
   }
 
   override def update(o: Folder): Future[Folder] = {
@@ -81,7 +64,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
     for {
       result <- connection.singleQuery(update, Json.arr(o.name, o.description, o.parent.orNull, o.id.get.toString))
-      resultArr <- Future.apply(updateNotNull(result))
+      resultArr <- Future(updateNotNull(result))
     } yield {
       Folder(
         o.id,
@@ -99,7 +82,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
     for {
       result <- connection.singleQuery(select, Json.emptyArr())
-      resultArr <- Future.apply(selectNotNull(result))
+      resultArr <- Future(selectNotNull(result))
     } yield {
       resultArr.head.get[Long](0)
     }
@@ -119,9 +102,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
       result <- connection.singleQuery(select, Json.emptyArr())
       resultArr <- Future(getSeqOfJsonArray(result))
     } yield {
-      resultArr.map { row =>
-        convertJsonArrayToFolder(row)
-      }
+      resultArr.map(convertJsonArrayToFolder)
     }
   }
 
@@ -139,9 +120,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
       result <- connection.singleQuery(select, Json.arr(id))
       resultArr <- Future(getSeqOfJsonArray(result))
     } yield {
-      resultArr.map { row =>
-        convertJsonArrayToFolder(row)
-      }
+      resultArr.map(convertJsonArrayToFolder)
     }
   }
 
@@ -161,9 +140,9 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
     for {
       result <- connection.singleQuery(select, Json.arr(id.toString))
-      resultArr <- Future.apply(selectNotNull(result))
+      resultArr <- Future(selectNotNull(result))
     } yield {
-      resultArr.head
+      convertJsonArrayToFolder(resultArr.head)
     }
   }
 
@@ -172,7 +151,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
     for {
       result <- connection.singleQuery(delete, Json.arr(id.toString))
-      resultArr <- Future.apply(deleteNotNull(result))
+      resultArr <- Future(deleteNotNull(result))
     } yield ()
   }
 }

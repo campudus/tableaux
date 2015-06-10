@@ -43,11 +43,7 @@ case class File(uuid: Option[UUID],
   override def setJson: JsonObject = getJson
 
   def optionToString[A](option: Option[A]): String = {
-    if (option.isEmpty) {
-      null
-    } else {
-      option.get.toString
-    }
+    option.map(_.toString).orNull
   }
 }
 
