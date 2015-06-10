@@ -26,6 +26,7 @@ trait VertxProject extends Build {
   lazy val fatJar = TaskKey[Unit]("fat-jar", "Creates a fat jar file for deployment on the Server")
   lazy val runnableModule = TaskKey[Unit]("runnable-module", "The module is ready to use here")
   lazy val runMod = TaskKey[Unit]("run-mod", "runs the module")
+  lazy val copyLibDependencies = TaskKey[Unit]("copy-lib-dependencies", "Copy all runtime classpath dependencies")
 
   def customSettings: Seq[Setting[_]] = Seq.empty
 
@@ -123,8 +124,9 @@ trait VertxProject extends Build {
     runModTask,
     pullInDepsTask,
     fatJarTask,
+    copyLibDependenciesTask,
 
-    copyMod <<= copyMod dependsOn (copyResources in Compile),
+    copyMod <<= copyMod dependsOn ((copyResources in Compile), copyLibDependencies),
 
     runMod <<= runMod dependsOn copyMod,
     zipMod <<= zipMod dependsOn copyMod,
@@ -149,17 +151,24 @@ trait VertxProject extends Build {
 
   lazy val copyModTask = copyMod := {
     implicit val log = streams.value.log
+
     val (moduleName, moduleDir) = moduleInfo.value
+
     log.info("Create module " + moduleName)
+
     createDirectory(moduleDir)
     copyDirectory((classDirectory in Compile).value, moduleDir)
-
-    copyDependencies(moduleDir)
 
     moduleDir
   }
 
-  def copyDependencies(moduleDir: sbt.File): Unit = {
+  lazy val copyLibDependenciesTask = copyLibDependencies := {
+    implicit val log = streams.value.log
+
+    val moduleDir = moduleInfo.value._2
+
+    log.info("Copy all runtime classpath dependencies")
+
     val libDir = moduleDir / "lib"
     createDirectory(libDir)
 
