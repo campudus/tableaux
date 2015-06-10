@@ -12,7 +12,7 @@ import com.campudus.tableaux.router.UploadAction
 
 import scala.concurrent.{Promise, Future}
 import scala.reflect.io.Path
-import scala.util.Failure
+import scala.util.{Success, Failure}
 
 object MediaController {
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
@@ -48,11 +48,8 @@ class MediaController(override val config: TableauxConfig,
     for {
       folder <- repository.retrieve(id)
 
-      // delete files
-      _ <- deleteFilesOfFolder(id)
-
-      // delete subfolders
-      _ <- deleteSubfolders(id)
+      // delete files & subfolders
+      _ <- deleteFilesOfFolder(id).zip(deleteSubfolders(id))
 
       // delete the folder finally
       _ <- repository.delete(folder)
@@ -78,10 +75,6 @@ class MediaController(override val config: TableauxConfig,
     val ext = Path(upload.fileName).extension
 
     val filePath = uploadsDirectory / Path(s"$uuid.$ext")
-
-    vertx.fileSystem.mkdir(s"$uploadsDirectory", { asyncResult =>
-      // ignore for now
-    })
 
     upload.exceptionHandler({ ex: Throwable =>
       logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)

@@ -1,6 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.helper.FutureUtils
 import com.campudus.tableaux.router.RouterRegistry
 import org.vertx.scala.core.FunctionConverters._
 import org.vertx.scala.core.http.HttpServer
@@ -8,6 +9,7 @@ import org.vertx.scala.core.json.{Json, JsonObject}
 import org.vertx.scala.platform.{Container, Verticle}
 
 import scala.concurrent.{Future, Promise}
+import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
 object Starter {
@@ -16,6 +18,8 @@ object Starter {
 }
 
 class Starter extends Verticle {
+
+  import FutureUtils._
   import Starter._
 
   override def start(p: Promise[Unit]): Unit = {
@@ -36,21 +40,32 @@ class Starter extends Verticle {
     )
 
     for {
+      _ <- createUploadsDirectory(tableauxConfig)
+
       _ <- deployMod(container, "io.vertx~mod-mysql-postgresql_2.11~0.3.1", databaseConfig, 1)
       _ <- deployMod(container, "com.campudus~vertx-tiny-validator4~1.0.0", validatorConfig, 1)
+
       _ <- deployHttpServer(port, tableauxConfig)
     } yield {
       p.success()
     }
   }
 
-  def deployMod(container: Container, modName: String, config: JsonObject, instances: Int): Future[String] = {
-    val p = Promise[String]()
-    container.deployModule(modName, config, instances, {
-      case Success(deploymentId) => p.success(deploymentId)
-      case Failure(x) => p.failure(x)
-    }: Try[String] => Unit)
-    p.future
+  def createUploadsDirectory(config: TableauxConfig): Future[Unit] = promisify { p: Promise[Unit] =>
+    val uploadsDirectory = Path(s"${config.workingDirectory}/${config.uploadsDirectory}")
+
+    vertx.fileSystem.mkdir(s"$uploadsDirectory", { asyncResult =>
+      p.success()
+    })
+  }
+
+  def deployMod(container: Container, modName: String, config: JsonObject, instances: Int): Future[String] = promisify {
+    p: Promise[String] =>
+
+      container.deployModule(modName, config, instances, {
+        case Success(deploymentId) => p.success(deploymentId)
+        case Failure(x) => p.failure(x)
+      }: Try[String] => Unit)
   }
 
   def deployHttpServer(port: Int, tableauxConfig: TableauxConfig): Future[HttpServer] = {
