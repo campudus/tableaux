@@ -11,19 +11,19 @@ import scala.concurrent.Future
 class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def create(tableId: IdType): Future[IdType] = {
-    connection.singleQuery(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id", Json.arr())
+    connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id")
   } map { insertNotNull(_).head.get[IdType](0) }
 
   def createFull(tableId: IdType, values: Seq[(IdType, _)]): Future[IdType] = {
     val qm = values.foldLeft(Seq[String]())((s, _) => s :+ "?").mkString(", ")
     val columns = values.foldLeft(Seq[String]())((s, tup) => s :+ s"column_${tup._1}").mkString(", ")
     val v = values.foldLeft(Seq[Any]())((s, tup) => s :+ tup._2)
-    connection.singleQuery(s"INSERT INTO user_table_$tableId ($columns) VALUES ($qm) RETURNING id", Json.arr(v: _*))
+    connection.query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($qm) RETURNING id", Json.arr(v: _*))
   } map { insertNotNull(_).head.get[IdType](0) }
 
   def get(tableId: IdType, rowId: IdType, columns: Seq[ColumnType[_]]): Future[(IdType, Seq[AnyRef])] = {
     val projectionStr = generateProjection(columns)
-    val result = connection.singleQuery(s"SELECT $projectionStr FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+    val result = connection.query(s"SELECT $projectionStr FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
 
     result map { x =>
       val seq = jsonArrayToSeq(selectNotNull(x).head)
@@ -46,7 +46,7 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def getAll(tableId: IdType, columns: Seq[ColumnType[_]]): Future[Seq[(IdType, Seq[AnyRef])]] = {
     val projectionStr = generateProjection(columns)
-    val result = connection.singleQuery(s"SELECT $projectionStr FROM user_table_$tableId ORDER BY id", Json.arr())
+    val result = connection.query(s"SELECT $projectionStr FROM user_table_$tableId ORDER BY id")
 
     result map { x =>
       val seq = getSeqOfJsonArray(x) map { jsonArrayToSeq }
@@ -55,6 +55,6 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def delete(tableId: IdType, rowId: IdType): Future[Unit] = {
-    connection.singleQuery(s"DELETE FROM user_table_$tableId  WHERE id = ?", Json.arr(rowId))
+    connection.query(s"DELETE FROM user_table_$tableId  WHERE id = ?", Json.arr(rowId))
   } map { deleteNotNull(_) }
 }

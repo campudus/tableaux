@@ -63,7 +63,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
                          |updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING created_at, updated_at""".stripMargin
 
     for {
-      result <- connection.singleQuery(update, Json.arr(o.name, o.description, o.parent.orNull, o.id.get.toString))
+      result <- connection.query(update, Json.arr(o.name, o.description, o.parent.orNull, o.id.get.toString))
       resultArr <- Future(updateNotNull(result))
     } yield {
       Folder(
@@ -81,7 +81,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     val select = s"SELECT COUNT(*) FROM $table"
 
     for {
-      result <- connection.singleQuery(select, Json.emptyArr())
+      result <- connection.query(select)
       resultArr <- Future(selectNotNull(result))
     } yield {
       resultArr.head.get[Long](0)
@@ -99,7 +99,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
          |updated_at FROM $table""".stripMargin
 
     for {
-      result <- connection.singleQuery(select, Json.emptyArr())
+      result <- connection.query(select)
       resultArr <- Future(getSeqOfJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFolder)
@@ -117,7 +117,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
          |updated_at FROM $table WHERE idparent = ?""".stripMargin
 
     for {
-      result <- connection.singleQuery(select, Json.arr(id))
+      result <- connection.query(select, Json.arr(id))
       resultArr <- Future(getSeqOfJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFolder)
@@ -139,7 +139,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
          |updated_at FROM $table WHERE id = ?""".stripMargin
 
     for {
-      result <- connection.singleQuery(select, Json.arr(id.toString))
+      result <- connection.query(select, Json.arr(id.toString))
       resultArr <- Future(selectNotNull(result))
     } yield {
       convertJsonArrayToFolder(resultArr.head)
@@ -150,7 +150,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     val delete = s"DELETE FROM $table WHERE id = ?"
 
     for {
-      result <- connection.singleQuery(delete, Json.arr(id.toString))
+      result <- connection.query(delete, Json.arr(id.toString))
       resultArr <- Future(deleteNotNull(result))
     } yield ()
   }

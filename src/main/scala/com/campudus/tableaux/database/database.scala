@@ -63,6 +63,10 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
 
   case class Transaction(msg: Message[JsonObject]) {
 
+    def query(stmt: String): Future[(Transaction, JsonObject)] = transactionHelper(Json.obj(
+      "action" -> "raw",
+      "command" -> stmt)) flatMap { r => Future.apply(Transaction(r), checkForDatabaseError(r.body())) recoverWith Transaction(r).rollbackAndFail() }
+
     def query(query: String, values: JsonArray): Future[(Transaction, JsonObject)] = transactionHelper(Json.obj(
       "action" -> "prepared",
       "statement" -> query,
@@ -83,15 +87,15 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
     }
   }
 
-  def singleQuery(query: String): Future[JsonObject] = sendHelper(Json.obj(
+  def query(stmt: String): Future[JsonObject] = sendHelper(Json.obj(
     "action" -> "raw",
-    "command" -> query
+    "command" -> stmt
   )) map { msg => checkForDatabaseError(msg.body()) } recoverWith {case ex => Future.failed[JsonObject](ex)}
 
-  def singleQuery(query: String, values: JsonArray): Future[JsonObject] = sendHelper(Json.obj(
+  def query(stmt: String, parameter: JsonArray): Future[JsonObject] = sendHelper(Json.obj(
     "action" -> "prepared",
-    "statement" -> query,
-    "values" -> values)) map { msg => checkForDatabaseError(msg.body()) } recoverWith { case ex => Future.failed[JsonObject](ex) }
+    "statement" -> stmt,
+    "values" -> parameter)) map { msg => checkForDatabaseError(msg.body()) } recoverWith { case ex => Future.failed[JsonObject](ex) }
 
   def begin(): Future[Transaction] = sendHelper(Json.obj("action" -> "begin")) map { Transaction }
 

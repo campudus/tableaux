@@ -14,8 +14,8 @@ object SystemModel {
 class SystemModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
   def deinstall(): Future[Unit] = for {
     t <- connection.begin()
-    (t, _) <- t.query("DROP SCHEMA public CASCADE", Json.arr())
-    (t, _) <- t.query("CREATE SCHEMA public", Json.arr())
+    (t, _) <- t.query("DROP SCHEMA public CASCADE")
+    (t, _) <- t.query("CREATE SCHEMA public")
     _ <- t.commit()
   } yield ()
 
@@ -26,8 +26,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |  table_id BIGSERIAL,
                          |  user_table_name VARCHAR(255) NOT NULL,
                          |  PRIMARY KEY(table_id)
-                         |)""".stripMargin,
-      Json.arr())
+                         |)""".stripMargin)
     (t, _) <- t.query(s"""
                          |CREATE TABLE system_columns(
                          |  table_id BIGINT,
@@ -41,8 +40,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |  FOREIGN KEY(table_id)
                          |  REFERENCES system_table(table_id)
                          |  ON DELETE CASCADE
-                         |)""".stripMargin,
-      Json.arr())
+                         |)""".stripMargin)
     (t, _) <- t.query(s"""
                          |CREATE TABLE system_link_table(
                          |  link_id BIGSERIAL,
@@ -58,8 +56,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |  FOREIGN KEY(table_id_2, column_id_2)
                          |  REFERENCES system_columns(table_id, column_id)
                          |  ON DELETE CASCADE
-                         |)""".stripMargin,
-      Json.arr())
+                         |)""".stripMargin)
 
     (t, _) <- t.query(s"""
                          |CREATE TABLE folder(
@@ -74,8 +71,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |  FOREIGN KEY(idparent)
                          |  REFERENCES folder(id) MATCH SIMPLE
                          |  ON UPDATE NO ACTION ON DELETE NO ACTION
-                         |)""".stripMargin,
-      Json.arr())
+                         |)""".stripMargin)
 
     (t, _) <- t.query(s"""
                          |CREATE TABLE file(
@@ -93,15 +89,13 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |  FOREIGN KEY(idfolder)
                          |  REFERENCES folder(id) MATCH SIMPLE
                          |  ON UPDATE NO ACTION ON DELETE NO ACTION
-                         |)""".stripMargin,
-      Json.arr())
+                         |)""".stripMargin)
 
     (t, _) <- t.query(s"""
                          |ALTER TABLE system_columns
                          |  ADD FOREIGN KEY(link_id)
                          |  REFERENCES system_link_table(link_id)
-                         |  ON DELETE CASCADE""".stripMargin,
-      Json.arr())
+                         |  ON DELETE CASCADE""".stripMargin)
     _ <- t.commit()
   } yield ()
 }

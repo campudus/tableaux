@@ -24,7 +24,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
         Json.arr(tableId, dbType.toString, name, ord))
     }
     result <- Future.successful(insertNotNull(result).head)
-    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[IdType](0)} $dbType", Json.arr())
+    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[IdType](0)} $dbType")
     _ <- t.commit()
   } yield (result.get[IdType](0), result.get[Ordering](1))
 
@@ -77,7 +77,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
                     |    FOREIGN KEY(id_2)
                     |    REFERENCES user_table_$toTableId (id)
                     |    ON DELETE CASCADE
-                    |)""".stripMargin, Json.arr())
+                    |)""".stripMargin)
     _ <- t.commit()
   } yield {
     val json = insertNotNull(result).head
@@ -85,7 +85,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
   }
 
   def get(tableId: IdType, columnId: IdType): Future[(IdType, String, TableauxDbType, Ordering)] = for {
-    result <- connection.singleQuery("""
+    result <- connection.query("""
                               |SELECT column_id, user_column_name, column_type, ordering
                               |  FROM system_columns
                               |  WHERE table_id = ? AND column_id = ?
@@ -96,12 +96,12 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
   }
 
   def getAll(tableId: IdType): Future[Seq[(IdType, String, TableauxDbType, Ordering)]] = {
-    connection.singleQuery("SELECT column_id, user_column_name, column_type, ordering FROM system_columns WHERE table_id = ? ORDER BY column_id", Json.arr(tableId))
+    connection.query("SELECT column_id, user_column_name, column_type, ordering FROM system_columns WHERE table_id = ? ORDER BY column_id", Json.arr(tableId))
   } map { getSeqOfJsonArray(_) map { arr => (arr.get[IdType](0), arr.get[String](1), Mapper.getDatabaseType(arr.get[String](2)), arr.get[Ordering](3)) } }
 
   def getToColumn(tableId: IdType, columnId: IdType): Future[(IdType, IdType)] = {
     for {
-      result <- connection.singleQuery("""
+      result <- connection.query("""
                                          |SELECT table_id_1, table_id_2, column_id_1, column_id_2
                                          |  FROM system_link_table
                                          |  WHERE link_id = (
@@ -124,7 +124,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
 
   def delete(tableId: IdType, columnId: IdType): Future[Unit] = for {
     t <- connection.begin()
-    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId", Json.arr())
+    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId")
     (t, result) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
     _ <- Future.apply(deleteNotNull(result)) recoverWith t.rollbackAndFail()
     _ <- t.commit()
@@ -135,7 +135,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     (t, result1) <- optionToValidFuture(columnName, t, { name: String => t.query(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?", Json.arr(name, tableId, columnId)) })
     (t, result2) <- optionToValidFuture(ordering, t, { ord: Ordering => t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?", Json.arr(ord, tableId, columnId)) })
     (t, result3) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?", Json.arr(k.toString, tableId, columnId)) })
-    (t, _) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toString} USING column_$columnId::${k.toString}", Json.arr()) })
+    (t, _) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toString} USING column_$columnId::${k.toString}") })
     _ <- Future.apply(checkUpdateResults(Seq(result1, result2, result3))) recoverWith t.rollbackAndFail()
     _ <- t.commit()
   } yield ()

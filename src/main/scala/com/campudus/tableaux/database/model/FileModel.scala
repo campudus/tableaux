@@ -39,7 +39,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |created_at) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP) RETURNING created_at""".stripMargin
 
     for {
-      result <- connection.singleQuery(insert, Json.arr(uuid.toString, o.name, o.description, o.mimeType, o.filename, o.folder.orNull))
+      result <- connection.query(insert, Json.arr(uuid.toString, o.name, o.description, o.mimeType, o.filename, o.folder.orNull))
       resultArr <- Future(insertNotNull(result).head)
     } yield {
       val createdAt = DateTime.parse(resultArr.get[String](0))
@@ -62,7 +62,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |uuid = ? AND tmp = FALSE""".stripMargin
 
     for {
-      result <- connection.singleQuery(select, Json.arr(id.toString))
+      result <- connection.query(select, Json.arr(id.toString))
       resultArr <- Future(selectNotNull(result))
     } yield {
       convertJsonArrayToFile(resultArr.head)
@@ -97,7 +97,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |WHERE uuid = ? RETURNING mime_type, filename, created_at, updated_at""".stripMargin
 
     for {
-      result <- connection.singleQuery(update, Json.arr(o.name, o.description, o.folder.orNull, o.uuid.get.toString))
+      result <- connection.query(update, Json.arr(o.name, o.description, o.folder.orNull, o.uuid.get.toString))
       resultArr <- Future(updateNotNull(result))
     } yield {
       File(
@@ -117,7 +117,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     val select = s"SELECT COUNT(*) FROM $table WHERE tmp = FALSE"
 
     for {
-      result <- connection.singleQuery(select, Json.emptyArr())
+      result <- connection.query(select)
       resultArr <- Future(selectNotNull(result))
     } yield {
       resultArr.head.get[Long](0)
@@ -137,7 +137,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |updated_at FROM $table WHERE tmp = FALSE""".stripMargin
 
     for {
-      result <- connection.singleQuery(select, Json.emptyArr())
+      result <- connection.query(select)
       resultArr <- Future(selectNotNull(result))
     } yield {
       resultArr.map(convertJsonArrayToFile)
@@ -157,7 +157,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |updated_at FROM $table WHERE idfolder = ? AND tmp = FALSE""".stripMargin
 
     for {
-      result <- connection.singleQuery(select, Json.arr(folder))
+      result <- connection.query(select, Json.arr(folder))
       resultArr <- Future(getSeqOfJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFile)
@@ -172,7 +172,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     val delete = s"DELETE FROM $table WHERE uuid = ?"
 
     for {
-      result <- connection.singleQuery(delete, Json.arr(id.toString))
+      result <- connection.query(delete, Json.arr(id.toString))
       resultArr <- Future(deleteNotNull(result))
     } yield ()
   }
