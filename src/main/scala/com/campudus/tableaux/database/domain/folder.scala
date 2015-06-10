@@ -27,14 +27,6 @@ case class Folder(id: Option[FolderId],
   )
 
   override def setJson: JsonObject = getJson
-
-  def optionToString[A](option: Option[A]): String = {
-    if (option.isEmpty) {
-      null
-    } else {
-      option.get.toString
-    }
-  }
 }
 
 case class ExtendedFolder(folder: Folder,

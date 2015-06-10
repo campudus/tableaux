@@ -154,9 +154,12 @@ trait VertxProject extends Build {
     createDirectory(moduleDir)
     copyDirectory((classDirectory in Compile).value, moduleDir)
 
-    //
-    // Copy all dependencies into lib directory
-    //
+    copyDependencies(moduleDir)
+
+    moduleDir
+  }
+
+  def copyDependencies(moduleDir: sbt.File): Unit = {
     val libDir = moduleDir / "lib"
     createDirectory(libDir)
 
@@ -164,11 +167,9 @@ trait VertxProject extends Build {
     val classpath = (managedClasspath in Runtime).value
 
     // Ignore scala-library (fatJar can't be executed if it's included)
-    classpath filter { e => !e.data.name.contains("scala-library")} foreach { classpathEntry =>
+    classpath filter { e => !e.data.name.contains("scala-library") } foreach { classpathEntry =>
       copyClasspathFile(classpathEntry, libDir)
     }
-
-    moduleDir
   }
 
   lazy val zipModTask = zipMod := {

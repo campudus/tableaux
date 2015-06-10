@@ -3,7 +3,13 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database.{EmptyReturn, SetReturn, GetReturn, ReturnType}
 import org.vertx.scala.core.json._
 
-trait DomainObject {
+trait DomainObjectHelper {
+  def optionToString[A](option: Option[A]): String = {
+    option.map(_.toString).orNull
+  }
+}
+
+trait DomainObject extends DomainObjectHelper {
   def getJson: JsonObject
 
   def setJson: JsonObject

@@ -41,10 +41,6 @@ case class File(uuid: Option[UUID],
   )
 
   override def setJson: JsonObject = getJson
-
-  def optionToString[A](option: Option[A]): String = {
-    option.map(_.toString).orNull
-  }
 }
 
 case class TemporaryFile(file: File) extends DomainObject {
