@@ -15,7 +15,7 @@ class LinkTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "toColumn" -> 1, "ordering" -> 3)))
 
     for {
-      tables <- setupTables()
+      tables <- setupTwoTables()
       _ <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns")
       test <- sendRequest("GET", "/tables/1/columns/3")
     } yield {
@@ -28,7 +28,7 @@ class LinkTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
 
     for {
-      tables <- setupTables()
+      tables <- setupTwoTables()
       test <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns")
     } yield {
       assertEquals(expectedJson, test)
@@ -41,7 +41,7 @@ class LinkTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 5)))
 
     for {
-      tables <- setupTables()
+      tables <- setupTwoTables()
       test <- sendRequestWithJson("POST", postLinkColWithOrd, "/tables/1/columns")
     } yield {
       assertEquals(expectedJson, test)
@@ -65,7 +65,7 @@ class LinkTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok")
 
     for {
-      tables <- setupTables()
+      tables <- setupTwoTables()
       // create link column
       postResult <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns")
       columnId <- Future.apply(postResult.getArray("columns").get[JsonObject](0).getLong("id"))
@@ -130,8 +130,7 @@ class LinkTest extends TableauxTestBase {
     } yield table1RowId1
 
     for {
-    // setup two tables
-      tables <- setupTables()
+      tables <- setupTwoTables()
 
       // create link column
       res <- sendRequestWithJson("POST", linkColumn, "/tables/1/columns")
@@ -199,7 +198,7 @@ class LinkTest extends TableauxTestBase {
     }
   }
 
-  private def setupTablesWithEmptyLinks(): Future[Number] = {
+  private def setupTwoTablesWithEmptyLinks(): Future[Number] = {
     val linkColumn = Json.obj(
       "columns" -> Json.arr(
         Json.obj(
@@ -223,8 +222,7 @@ class LinkTest extends TableauxTestBase {
     )
 
     for {
-    // setup two tables
-      tables <- setupTables()
+      tables <- setupTwoTables()
 
       // create link column
       res <- sendRequestWithJson("POST", linkColumn, "/tables/1/columns")
@@ -244,8 +242,7 @@ class LinkTest extends TableauxTestBase {
     val putLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr(1, 2)))
 
     for {
-    // setup two tables
-      linkColumnId <- setupTablesWithEmptyLinks()
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
 
       resPut <- sendRequestWithJson("PUT", putLinks, s"/tables/1/columns/$linkColumnId/rows/1")
       // check first table for the link (links to t2, r1 and t2, r2)
@@ -287,8 +284,7 @@ class LinkTest extends TableauxTestBase {
     val putZeroLinks = Json.obj("value" -> Json.obj("from" -> 1, "values" -> Json.arr()))
 
     for {
-      // setup two tables
-      linkColumnId <- setupTablesWithEmptyLinks()
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
 
       resPut1 <- sendRequestWithJson("PUT", putTwoLinks, s"/tables/1/columns/$linkColumnId/rows/1")
       // check first table for the link (links to t2, r1 and t2, r2)
@@ -361,7 +357,7 @@ class LinkTest extends TableauxTestBase {
 
   private def invalidJsonForLink(input: JsonObject) = exceptionTest("error.json.link-value") {
     for {
-      linkColumnId <- setupTablesWithEmptyLinks()
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
       resPut <- sendRequestWithJson("PUT", input, s"/tables/1/columns/$linkColumnId/rows/1")
     } yield resPut
   }
@@ -381,8 +377,7 @@ class LinkTest extends TableauxTestBase {
     )
 
     for {
-    // setup two tables
-      tables <- setupTables()
+      tables <- setupTwoTables()
 
       // create link column
       linkColumnId <- sendRequestWithJson("POST", linkColumn, "/tables/1/columns") map {
@@ -411,7 +406,7 @@ class LinkTest extends TableauxTestBase {
     }
   }
 
-  private def setupTables(): Future[Seq[Long]] = for {
+  private def setupTwoTables(): Future[Seq[Long]] = for {
     id1 <- setupDefaultTable()
     id2 <- setupDefaultTable("Test Table 2", 2)
   } yield List(id1, id2)
