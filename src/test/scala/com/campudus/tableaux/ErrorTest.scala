@@ -80,7 +80,6 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createTableWithNoExistingSystemTables(): Unit = exceptionTest(errorDatabaseUnknown) {
-    val tableauxConfig = TableauxConfig(this, databaseAddress)
     val dbConnection = DatabaseConnection(tableauxConfig)
     val system = SystemModel(dbConnection)
 

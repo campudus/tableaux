@@ -1,8 +1,8 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux._
-import com.campudus.tableaux.controller.Controller
-import com.campudus.tableaux.database.structure._
+import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType, SetReturn}
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.core.json._

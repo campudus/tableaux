@@ -1,8 +1,7 @@
-package com.campudus.tableaux.database
+package com.campudus.tableaux.helper
 
-import org.vertx.scala.core.json.JsonObject
-import org.vertx.scala.core.json.JsonArray
 import com.campudus.tableaux.NotFoundInDatabaseException
+import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
 /**
  * Checks if database result changed

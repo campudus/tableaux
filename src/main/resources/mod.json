@@ -1,15 +1,29 @@
 {
+  "main": "scala:com.campudus.tableaux.Starter",
 
-  // Scala verticle
-  "main":"scala:com.campudus.tableaux.Starter",
+  "includes": "io.vertx~lang-scala_2.11~1.1.0-M1,io.vertx~lang-rhino~2.1.1",
+  "deploys": "io.vertx~mod-mysql-postgresql_2.11~0.3.1,com.campudus~vertx-tiny-validator4~1.0.0",
 
-  // mandatory fields
-  "description":"Import and export tables",
-  "licenses": ["The Apache Software License Version 2.0"],
-  "author": "Campudus",
+  "description": "Import and export tables",
 
-  // Optional fields
-  "developers": ["Joern Bernhardt", "Sascha Schmidt"],
-  "keywords": ["tables", "storage", "relational", "database"],
+  "licenses": [
+    "The Apache Software License Version 2.0"
+  ],
+
+  "author": "Campudus GmbH",
+
+  "developers": [
+    "Joern Bernhardt",
+    "Sascha Schmidt",
+    "Alexander Vetter"
+  ],
+
+  "keywords": [
+    "tables",
+    "storage",
+    "relational",
+    "database"
+  ],
+
   "homepage": "https://github.com/campudus/tableaux"
 }

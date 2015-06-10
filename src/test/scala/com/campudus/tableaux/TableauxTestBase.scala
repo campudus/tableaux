@@ -1,34 +1,27 @@
 package com.campudus.tableaux
 
 
+import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
 import org.vertx.scala.core.FunctionConverters._
-import org.vertx.scala.core.buffer.Buffer
+import org.vertx.scala.core.http._
 import org.vertx.scala.core.json._
 import org.vertx.scala.testtools.TestVerticle
 import org.vertx.testtools.VertxAssert._
-import org.vertx.scala.core.http._
-import scala.concurrent.{ Promise, Future }
-import scala.io.Source
-import scala.util.{ Try, Failure, Success }
-import com.campudus.tableaux.database.DatabaseConnection
+
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
  */
-trait TableauxTestBase extends TestVerticle {
+trait TableauxTestBase extends TestVerticle with TestConfig {
 
-  lazy val config: JsonObject = jsonFromFile("../conf-test.json")
-  lazy val port: Int = config.getInteger("port", Starter.DEFAULT_PORT)
-  lazy val databaseAddress: String = config.getObject("database", Json.obj()).getString("address", Starter.DEFAULT_DATABASE_ADDRESS)
-
-  private def readJsonFile(f: String): String = Source.fromFile(f).getLines().mkString
-  private def jsonFromFile(f: String): JsonObject = Json.fromObjectString(readJsonFile(f))
+  override val verticle = this
 
   override def asyncBefore(): Future[Unit] = {
-    val tableauxConfig = TableauxConfig(this, databaseAddress)
     val dbConnection = DatabaseConnection(tableauxConfig)
     val system = SystemModel(dbConnection)
 
@@ -81,21 +74,18 @@ trait TableauxTestBase extends TestVerticle {
 
   def sendRequest(method: String, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpClientRequest(method, path, p).end()
+    httpJsonRequest(method, path, p).end()
     p.future
   }
 
   def sendRequestWithJson(method: String, jsonObj: JsonObject, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpClientRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
+    httpJsonRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
     p.future
   }
 
-  private def httpClientRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = createClient().request(method, path, { resp: HttpClientResponse =>
-    logger.info("Got a response: " + resp.statusCode())
-
+  def jsonResponse(p: Promise[JsonObject]): HttpClientResponse => Unit = { resp: HttpClientResponse =>
     resp.bodyHandler { buf =>
-      logger.info("response: " + buf.toString())
       if (resp.statusCode() != 200) {
         p.failure(TestCustomException(buf.toString(), resp.statusMessage(), resp.statusCode()))
       } else {
@@ -106,14 +96,25 @@ trait TableauxTestBase extends TestVerticle {
         }
       }
     }
-  })
+  }
 
-  def setupDefaultTable(name: String = "Test Table 1"): Future[Long] = {
+  private def httpJsonRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = {
+    httpRequest(method, path, jsonResponse(p))
+  }
+
+  def httpRequest(method: String, path: String, responseHandler: HttpClientResponse => Unit): HttpClientRequest = {
+    val client = createClient()
+      .exceptionHandler({ x => fail("Vertx HttpClient failed: " + x.getMessage) })
+
+    client.request(method, path, responseHandler)
+  }
+
+  def setupDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[Long] = {
     val postTable = Json.obj("name" -> name)
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
     val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
-    val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
-    val fillStringCellJson2 = Json.obj("value" -> "Test Fill 2")
+    val fillStringCellJson = Json.obj("value" -> s"table${tableNum}row1")
+    val fillStringCellJson2 = Json.obj("value" -> s"table${tableNum}row2")
     val fillNumberCellJson = Json.obj("value" -> 1)
     val fillNumberCellJson2 = Json.obj("value" -> 2)
 

@@ -2,9 +2,12 @@
 <html>
 <head>
 <meta charset="ISO-8859-1">
-<title>Insert title here</title>
+<title>Upload File</title>
 </head>
 <body>
-hello.
+<form method="POST" action="http://localhost:8181/files" enctype="multipart/form-data">
+    <input type="file" id="file" name="file" /><br/>
+    <input type="submit" value="Send"/>
+</form>
 </body>
 </html>

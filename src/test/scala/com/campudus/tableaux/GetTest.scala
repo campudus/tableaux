@@ -83,8 +83,8 @@ class GetTest extends TableauxTestBase {
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2)),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr("Test Fill 1", 1)),
-        Json.obj("id" -> 2, "values" -> Json.arr("Test Fill 2", 2))))
+        Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
+        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))))
 
     for {
       _ <- setupDefaultTable()
@@ -167,7 +167,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getRow(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1, "values" -> Json.arr("Test Fill 1", 1))))
+    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1))))
 
     for {
       _ <- setupDefaultTable()
@@ -180,8 +180,8 @@ class GetTest extends TableauxTestBase {
   @Test
   def getRows(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(
-      Json.obj("id" -> 1, "values" -> Json.arr("Test Fill 1", 1)),
-      Json.obj("id" -> 2, "values" -> Json.arr("Test Fill 2", 2))
+      Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
+      Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
     ))
 
     for {
@@ -194,7 +194,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getCell(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> "table1row1")))
     val expectedJson2 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> 1)))
 
     for {

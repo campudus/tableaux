@@ -1,22 +1,30 @@
 package com.campudus.tableaux
 
+import org.vertx.scala.core.json.{JsonArray, JsonObject}
+
 import scala.util.Try
 
 sealed trait ArgumentCheck[A] {
   def map[B](f: A => B): ArgumentCheck[B]
+
   def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B]
+
   def get: A
 }
 
 case class OkArg[A](value: A) extends ArgumentCheck[A] {
   def map[B](f: A => B): ArgumentCheck[B] = OkArg(f(value))
+
   def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B] = f(value)
+
   def get: A = value
 }
 
 case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
   def map[B](f: A => B): ArgumentCheck[B] = FailArg(ex)
+
   def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B] = FailArg(ex)
+
   def get: A = throw ex
 }
 
@@ -37,6 +45,10 @@ object ArgumentChecker {
   def nonEmpty[A](seq: Seq[A], name: String): ArgumentCheck[Seq[A]] = {
     if (seq.nonEmpty) OkArg(seq) else FailArg(InvalidJsonException(s"Warning: $name is empty.", "empty"))
   }
+
+  def hasArray(arr: String, value: JsonObject): ArgumentCheck[JsonArray] = notNull(value.getArray(arr), arr)
+
+  def hasNumber(num: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getNumber(num), num)
 
   def castElement[A](elem: Any): ArgumentCheck[A] = {
     tryMap((x: Any) => x.asInstanceOf[A], InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid"))(elem)
@@ -61,11 +73,13 @@ object ArgumentChecker {
 
   def checkArguments(args: ArgumentCheck[_]*): Unit = {
     val failedArgs: Vector[String] = args.zipWithIndex.foldLeft(Vector[String]()) {
-      case (v, (FailArg(ex), idx)) => v :+ s"($idx) ${ex.message}"
-      case (v, (OkArg(x), idx)) => v
+      case (errors, (FailArg(ex), idx)) => errors :+ s"($idx) ${ex.message}"
+      case (errors, (OkArg(x), idx)) => errors
     }
 
     if (failedArgs.nonEmpty) throw new IllegalArgumentException(failedArgs.mkString("\n"))
   }
 
+  def checked[A](arg1: ArgumentCheck[A]): A = arg1.get
+  def checked[A, B](arg1: ArgumentCheck[A], arg2: ArgumentCheck[B]): (A, B) = (arg1.get, arg2.get)
 }

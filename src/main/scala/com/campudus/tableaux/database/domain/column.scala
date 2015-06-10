@@ -1,5 +1,6 @@
-package com.campudus.tableaux.database.structure
+package com.campudus.tableaux.database.domain
 
+import com.campudus.tableaux.database.TableauxDbType
 import com.campudus.tableaux.database.model.TableauxModel
 import TableauxModel._
 import org.vertx.scala.core.json._

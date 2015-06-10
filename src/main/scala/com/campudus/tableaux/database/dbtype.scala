@@ -1,7 +1,7 @@
-package com.campudus.tableaux.database.structure
+package com.campudus.tableaux.database
 
-import com.campudus.tableaux.database.model.TableauxModel
-import TableauxModel._
+import com.campudus.tableaux.database.domain.{Table, ColumnValue, StringColumn, NumberColumn}
+import com.campudus.tableaux.database.model.TableauxModel._
 
 sealed trait TableauxDbType
 

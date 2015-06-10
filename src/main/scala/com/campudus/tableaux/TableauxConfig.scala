@@ -3,18 +3,20 @@ package com.campudus.tableaux
 import com.campudus.tableaux.helper.StandardVerticle
 import org.vertx.scala.platform.Verticle
 
-/**
- * Created by alexandervetter on 06.05.15.
- */
 object TableauxConfig {
-  def apply(vert: Verticle, addr: String): TableauxConfig = {
+  def apply(vert: Verticle, addr: String, pwd: String, upload: String): TableauxConfig = {
     new TableauxConfig {
-      override val verticle: Verticle = vert
-      override val databaseAddress: String = addr
+      override val verticle = vert
+      override val databaseAddress = addr
+      override val workingDirectory = pwd
+      override val uploadsDirectory = upload
     }
   }
 }
 
 trait TableauxConfig extends StandardVerticle {
   val databaseAddress: String
+
+  val workingDirectory: String
+  val uploadsDirectory: String
 }
