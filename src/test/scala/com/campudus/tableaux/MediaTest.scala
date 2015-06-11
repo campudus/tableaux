@@ -6,7 +6,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{File, Folder}
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.helper.FutureUtils
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import org.vertx.java.core.json.JsonObject
 import org.vertx.scala.core.http.HttpClientRequest
 import org.vertx.scala.core.json.Json
@@ -108,6 +108,18 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
+  def retrieveRootFolder(): Unit = okTest {
+
+    for {
+      rootFolder <- sendRequest("GET", "/folders")
+    } yield {
+      assertEquals("0", rootFolder.getString("id"))
+      assertEquals("Root", rootFolder.getString("name"))
+      assertNull(rootFolder.getString("parent"))
+    }
+  }
+
+  @Test
   def uploadFileWithNonAsciiCharacterName(): Unit = okTest {
     val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
@@ -133,7 +145,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def retreiveFile(): Unit = okTest {
+  def retrieveFile(): Unit = okTest {
     val fileName = "Scr$en Shot.pdf"
     val file = s"/com/campudus/tableaux/uploads/$fileName"
     val mimetype = "application/pdf"
@@ -150,9 +162,7 @@ class MediaTest extends TableauxTestBase {
 
         val url = s"/files/${uploadResponse.getString("uuid")}/" + URLEncoder.encode(fileName, "UTF-8")
 
-        logger.info(s"Load file ${url.toString}")
-
-        val req = httpRequest("GET", url.toString, {
+        httpRequest("GET", url.toString, {
           resp =>
             assertEquals(200, resp.statusCode())
 
@@ -161,14 +171,10 @@ class MediaTest extends TableauxTestBase {
 
             resp.bodyHandler { buf =>
               assertEquals("Should get the same size back as the file really is", size, buf.length())
-
-              testComplete()
               p.success()
             }
         }).exceptionHandler({ ext =>
           fail(ext.toString)
-
-          testComplete()
           p.failure(ext)
         }).end()
       }
