@@ -69,9 +69,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       case CreateSimpleColumn(name, kind, ordering) =>
         addValueColumn(tableId, name, kind, ordering)
 
-      case CreateLinkColumn(name, ordering, None) => ???
-
-      case CreateLinkColumn(name, ordering, Some((toTable, toColumn, fromColumn))) =>
+      case CreateLinkColumn(name, ordering, (toTable, toColumn, fromColumn)) =>
         addLinkColumn(tableId, name, fromColumn, toTable, toColumn, ordering)
 
       case CreateAttachmentColumn(name, ordering) =>
@@ -79,14 +77,14 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield ColumnSeq(cols)
 
-  def addValueColumn(tableId: IdType, name: String, columnType: TableauxDbType, ordering: Option[Ordering]): Future[ColumnValue[_]] = for {
+  def addValueColumn(tableId: IdType, name: String, columnType: TableauxDbType, ordering: Option[Ordering]): Future[SimpleValueColumn[_]] = for {
     table <- getTable(tableId)
     (id, ordering) <- columnStruc.insert(table.id, columnType, name, ordering)
-  } yield Mapper.getApply(columnType).apply(table, id, name, ordering)
+  } yield Mapper(columnType).apply(table, id, name, ordering)
 
-  def addLinkColumn(tableId: IdType, name: String, fromColumn: IdType, toTable: IdType, toColumn: IdType, ordering: Option[Ordering]): Future[LinkColumnType[_]] = for {
+  def addLinkColumn(tableId: IdType, name: String, fromColumn: IdType, toTable: IdType, toColumn: IdType, ordering: Option[Ordering]): Future[LinkColumn[_]] = for {
     table <- getTable(tableId)
-    toCol <- getColumn(toTable, toColumn).asInstanceOf[Future[ColumnValue[_]]]
+    toCol <- getColumn(toTable, toColumn).asInstanceOf[Future[SimpleValueColumn[_]]]
     (id, ordering) <- columnStruc.insertLink(tableId, name, fromColumn, toCol.table.id, toCol.id, ordering)
   } yield LinkColumn(table, id, toCol, name, ordering)
 
@@ -124,7 +122,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     column <- getColumn(tableId, columnId)
     cell <- {
       val x: Future[Cell[_, _]] = column match {
-        case linkColumn: LinkColumnType[_] =>
+        case linkColumn: LinkColumn[_] =>
           Try(value.asInstanceOf[JsonObject]).flatMap { v =>
             import ArgumentChecker._
             import collection.JavaConverters._
@@ -147,20 +145,20 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     _ <- cellStruc.update(tableId, columnId, rowId, value)
   } yield Cell(column.asInstanceOf[B], rowId, value)
 
-  def handleLinkValues(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, tos: Either[IdType, Seq[IdType]]): Future[Cell[Link[Any], LinkColumnType[Any]]] =
+  def handleLinkValues(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, tos: Either[IdType, Seq[IdType]]): Future[Cell[Link[Any], LinkColumn[Any]]] =
     tos match {
       case Left(to) => addLinkValue(tableId, columnId, rowId, from, to)
       case Right(toList) => insertLinkValues(tableId, columnId, rowId, from, toList)
     }
 
-  def insertLinkValues(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, tos: Seq[IdType]): Future[Cell[Link[Any], LinkColumnType[Any]]] = for {
-    linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumnType[Any]]]
+  def insertLinkValues(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, tos: Seq[IdType]): Future[Cell[Link[Any], LinkColumn[Any]]] = for {
+    linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
     _ <- cellStruc.putLinks(linkColumn.table.id, linkColumn.id, from, tos)
     v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
   } yield Cell(linkColumn, rowId, Link(linkColumn.to.id, v))
 
-  def addLinkValue(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, to: IdType): Future[Cell[Link[Any], LinkColumnType[Any]]] = for {
-    linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumnType[Any]]]
+  def addLinkValue(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, to: IdType): Future[Cell[Link[Any], LinkColumn[Any]]] = for {
+    linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
     _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, from, to)
     v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
   } yield Cell(linkColumn, rowId, Link(to, v))
@@ -218,14 +216,14 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     columns <- getAllColumns(table)
   } yield ColumnSeq(columns)
 
-  private def getValueColumn(table: Table, columnId: IdType, columnName: String, columnKind: TableauxDbType, ordering: Ordering): ColumnValue[_] = {
-    Mapper.getApply(columnKind).apply(table, columnId, columnName, ordering)
+  private def getValueColumn(table: Table, columnId: IdType, columnName: String, columnKind: TableauxDbType, ordering: Ordering): SimpleValueColumn[_] = {
+    Mapper(columnKind).apply(table, columnId, columnName, ordering)
   }
 
-  private def getLinkColumn(fromTable: Table, linkColumnId: IdType, columnName: String, ordering: Ordering): Future[LinkColumnType[_]] = {
+  private def getLinkColumn(fromTable: Table, linkColumnId: IdType, columnName: String, ordering: Ordering): Future[LinkColumn[_]] = {
     for {
       (toTableId, toColumnId) <- columnStruc.getToColumn(fromTable.id, linkColumnId)
-      toCol <- getColumn(toTableId, toColumnId).asInstanceOf[Future[ColumnValue[_]]]
+      toCol <- getColumn(toTableId, toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
     } yield {
       LinkColumn(fromTable, linkColumnId, toCol, columnName, ordering)
     }
@@ -256,7 +254,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield allColumns
   }
 
-  private def getLinkColumns(table: Table): Future[Seq[LinkColumnType[_]]] = {
+  private def getLinkColumns(table: Table): Future[Seq[LinkColumn[_]]] = {
     for {
       columnSeq <- columnStruc.getAll(table.id)
       filteredLinkColumns <- {

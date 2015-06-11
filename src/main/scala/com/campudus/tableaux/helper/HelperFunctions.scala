@@ -29,11 +29,11 @@ object HelperFunctions {
     tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))(kind)
   }
 
-  private def getLinkInformation(json: JsonObject): ArgumentCheck[Option[LinkConnection]] = for {
+  private def getLinkInformation(json: JsonObject): ArgumentCheck[LinkConnection] = for {
     toTable <- notNull(json.getLong("toTable"): IdType, "toTable")
     toColumn <- notNull(json.getLong("toColumn"): IdType, "toColumn")
     fromColumn <- notNull(json.getLong("fromColumn"): IdType, "fromColumn")
-  } yield Option(toTable, toColumn, fromColumn)
+  } yield (toTable, toColumn, fromColumn)
 
   private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[CreateColumn]] = for {
     tuples <- sequence(seq map {
