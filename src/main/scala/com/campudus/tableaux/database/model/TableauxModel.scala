@@ -11,8 +11,16 @@ import scala.util.Try
 
 object TableauxModel {
   type IdType = Long
+
+  type TableId = IdType
+  type ColumnId = IdType
+
   type Ordering = Long
-  type LinkConnection = (IdType, IdType, IdType)
+
+  /**
+   * (ToTable, ToColumn, FromColumn)
+   */
+  type LinkConnection = (TableId, ColumnId, ColumnId)
 
   def apply(connection: DatabaseConnection): TableauxModel = {
     new TableauxModel(connection)
@@ -58,10 +66,16 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def addColumns(tableId: IdType, columns: Seq[CreateColumn]): Future[ColumnSeq] = for {
     cols <- serialiseFutures(columns) {
-      case CreateColumn(name, LinkType, optOrd, Some((toTable, toColumn, fromColumn))) =>
-        addLinkColumn(tableId, name, fromColumn, toTable, toColumn, optOrd)
-      case CreateColumn(name, dbType, optOrd, optLink) =>
-        addValueColumn(tableId, name, dbType, optOrd)
+      case CreateSimpleColumn(name, kind, ordering) =>
+        addValueColumn(tableId, name, kind, ordering)
+
+      case CreateLinkColumn(name, ordering, None) => ???
+
+      case CreateLinkColumn(name, ordering, Some((toTable, toColumn, fromColumn))) =>
+        addLinkColumn(tableId, name, fromColumn, toTable, toColumn, ordering)
+
+      case CreateAttachmentColumn(name, ordering) =>
+        addAttachmentColumn(tableId, name, ordering)
     }
   } yield ColumnSeq(cols)
 
@@ -75,6 +89,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     toCol <- getColumn(toTable, toColumn).asInstanceOf[Future[ColumnValue[_]]]
     (id, ordering) <- columnStruc.insertLink(tableId, name, fromColumn, toCol.table.id, toCol.id, ordering)
   } yield LinkColumn(table, id, toCol, name, ordering)
+
+  def addAttachmentColumn(tableId: IdType, name: String, ordering: Option[Ordering]): Future[AttachmentColumn] = for {
+    table <- getTable(tableId)
+    (id, ordering) <- columnStruc.insertAttachment(table.id, name, ordering)
+  } yield AttachmentColumn(table, id, name, ordering)
 
   def removeColumn(tableId: IdType, columnId: IdType): Future[EmptyObject] = for {
     _ <- columnStruc.delete(tableId, columnId)

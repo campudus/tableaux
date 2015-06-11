@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database.model.tableaux
 
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.{DatabaseQuery, DatabaseConnection, Mapper, TableauxDbType}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
@@ -27,6 +27,28 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[IdType](0)} $dbType")
     _ <- t.commit()
   } yield (result.get[IdType](0), result.get[Ordering](1))
+
+  def insertAttachment(tableId: IdType, name: String, ordering: Option[Ordering]): Future[(IdType, Ordering)] = {
+    val dbType = AttachmentType
+
+    def insert(values: String) = {
+      s"INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering) $values RETURNING column_id, ordering"
+    }
+
+    connection.transactional { t =>
+      for {
+        (t, result) <- ordering match {
+          case None =>
+            t.query(insert(s"VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, currval('system_columns_column_id_table_$tableId'))"),
+              Json.arr(tableId, dbType.toString, name))
+          case Some(ord) =>
+            t.query(insert(s"VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, ?)"),
+              Json.arr(tableId, dbType.toString, name, ord))
+        }
+        result <- Future.successful(insertNotNull(result).head)
+      } yield (t, (result.get[IdType](0), result.get[Ordering](1)))
+    }
+  }
 
   def insertLink(tableId: IdType, name: String, fromColumnId: IdType, toTableId: IdType, toColumnId: IdType, ordering: Option[Ordering]): Future[(IdType, Ordering)] = for {
     t <- connection.begin()

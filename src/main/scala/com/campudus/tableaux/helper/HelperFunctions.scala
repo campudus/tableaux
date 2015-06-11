@@ -5,7 +5,7 @@ import com.campudus.tableaux.database.model.TableauxModel
 import TableauxModel.{IdType, LinkConnection}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.TableauxModel
-import com.campudus.tableaux.database.domain.CreateColumn
+import com.campudus.tableaux.database.domain.{CreateAttachmentColumn, CreateSimpleColumn, CreateLinkColumn, CreateColumn}
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 import TableauxModel.Ordering
@@ -41,14 +41,23 @@ object HelperFunctions {
         for {
           name <- notNull(json.getString("name"), "name")
           kind <- notNull(json.getString("kind"), "kind")
+
           dbType <- toTableauxType(kind)
-          opt <- dbType match {
-            case LinkType => getLinkInformation(json)
-            case _ => OkArg[Option[LinkConnection]](None)
-          }
         } yield {
-          val optOrd = Try(json.getNumber("ordering").longValue()).toOption
-          CreateColumn(name, dbType, optOrd, opt)
+          val ordering = Try(json.getNumber("ordering").longValue()).toOption
+
+          dbType match {
+            case AttachmentType => {
+              CreateAttachmentColumn(name, ordering)
+            }
+            case LinkType => {
+              val linkConnections = getLinkInformation(json).get
+              CreateLinkColumn(name, ordering, linkConnections)
+            }
+            case _ => {
+              CreateSimpleColumn(name, dbType, ordering)
+            }
+          }
         }
     })
     checkedDbTypes <- matchForNormalOrLinkTypes(tuples)
@@ -105,17 +114,17 @@ object HelperFunctions {
   }
 
   private def matchForLinkTypes(seq: Seq[CreateColumn]): ArgumentCheck[Seq[CreateColumn]] = {
-    sequence(seq map {
-      case cc @ CreateColumn(_, LinkType, _, _) => OkArg(cc)
-      case cc @ CreateColumn(_, dbType, _, _) => FailArg[CreateColumn](InvalidJsonException(s"Warning: $dbType is not a LinkType", "link"))
-    })
+    sequence(seq map { column => column.kind match {
+      case LinkType => OkArg(column)
+      case _ => FailArg[CreateColumn](InvalidJsonException(s"Warning: ${column.kind} is not a LinkType", "link"))
+    }})
   }
 
   private def matchForNormalTypes(seq: Seq[CreateColumn]): ArgumentCheck[Seq[CreateColumn]] = {
-    sequence(seq map {
-      case cc @ CreateColumn(_, LinkType, _, _) => FailArg[CreateColumn](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
-      case cc => OkArg(cc)
-    })
+    sequence(seq map { column => column.kind match {
+      case LinkType => FailArg[CreateColumn](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
+      case _ => OkArg(column)
+    }})
   }
 
   def jsonToValues(json: JsonObject): Any = (for {
