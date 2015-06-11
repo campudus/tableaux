@@ -40,20 +40,21 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
   override def routes(implicit req: HttpServerRequest): Routing = {
     case Post("/folders") => asyncSetReply({
-      getJson(req) flatMap { json =>
+      getJson(req) flatMap { implicit json =>
         val name = json.getString("name")
         val description = json.getString("description")
-        val parent = retrieveNullableField(json)("parent")
+        val parent = getNullableField("parent")
 
         controller.addNewFolder(name, description, parent)
       }
     })
+    case Get("/folders") => asyncGetReply(controller.retrieveRootFolder())
     case Get(FolderId(id)) => asyncGetReply(controller.retrieveFolder(id.toLong))
     case Put(FolderId(id)) => asyncSetReply({
-      getJson(req) flatMap { json =>
+      getJson(req) flatMap { implicit json =>
         val name = json.getString("name")
         val description = json.getString("description")
-        val parent = retrieveNullableField(json)("parent")
+        val parent = getNullableField("parent")
 
         controller.changeFolder(id.toLong, name, description, parent)
       }
@@ -97,10 +98,10 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       } yield Header("Content-type", file.file.mimeType, SendFile(path.toString())))
     }
     case Put(FileId(uuid)) => asyncSetReply({
-      getJson(req) flatMap { json =>
+      getJson(req) flatMap { implicit json =>
         val name = json.getString("name")
         val description = json.getString("description")
-        val folder: Option[FolderId] = retrieveNullableField(json)("folder")
+        val folder = getNullableField("folder")
 
         controller.changeFile(UUID.fromString(uuid), name, description, folder)
       }
@@ -110,7 +111,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     })
   }
 
-  def retrieveNullableField[A](json: JsonObject)(field: String): Option[A] = {
+  def getNullableField[A](field: String)(implicit json: JsonObject): Option[A] = {
     Option(json.getField[A](field))
   }
 }

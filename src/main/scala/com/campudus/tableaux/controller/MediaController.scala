@@ -28,11 +28,30 @@ class MediaController(override val config: TableauxConfig,
 
   lazy val uploadsDirectory = Path(s"${config.workingDirectory}/${config.uploadsDirectory}")
 
+  /**
+   * Alias for None which represents
+   * the root folder (which doesn't
+   * really exist)
+   */
+  val root = None
+
+  val rootFolder = Folder(None, "root", "", None, None, None)
+
   def retrieveFolder(id: FolderId): Future[ExtendedFolder] = {
     for {
       folder <- repository.retrieve(id)
-      subfolders <- repository.retrieveSubfolders(id)
-      files <- fileModel.retrieveFromFolder(id)
+      extended <- retrieveExtendedFolder(folder)
+    } yield extended
+  }
+
+  def retrieveRootFolder(): Future[ExtendedFolder] = {
+    retrieveExtendedFolder(rootFolder)
+  }
+
+  private def retrieveExtendedFolder(folder: Folder): Future[ExtendedFolder]  = {
+    for {
+      subfolders <- repository.retrieveSubfolders(folder.id)
+      files <- fileModel.retrieveFromFolder(folder.id)
     } yield ExtendedFolder(folder, subfolders, files)
   }
 
@@ -58,14 +77,14 @@ class MediaController(override val config: TableauxConfig,
 
   private def deleteSubfolders(id: FolderId): Future[Unit] = {
     for {
-      folders <- repository.retrieveSubfolders(id)
+      folders <- repository.retrieveSubfolders(Some(id))
       _ <- Future.sequence(folders.map(f => deleteFolder(f.id.get)))
     } yield ()
   }
 
   private def deleteFilesOfFolder(id: FolderId): Future[Unit] = {
     for {
-      files <- fileModel.retrieveFromFolder(id)
+      files <- fileModel.retrieveFromFolder(Some(id))
       _ <- Future.sequence(files.map(f => deleteFile(f.uuid.get)))
     } yield ()
   }
