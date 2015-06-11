@@ -217,6 +217,24 @@ class MediaTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def createAttachmentColumn(): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
+
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    for {
+      tableId <- setupDefaultTable()
+
+      column <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns")
+    } yield {
+      assertEquals(expectedJson, column)
+    }
+  }
+
   private def uploadFile(file: String, mimeType: String): Future[JsonObject] = {
     val filePath = getClass.getResource(file).toURI.getPath
     val fileName = file.substring(file.lastIndexOf("/") + 1)
