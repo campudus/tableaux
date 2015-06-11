@@ -20,11 +20,9 @@ case class CreateAttachmentColumn(name: String, ordering: Option[Ordering]) exte
 }
 
 sealed trait ColumnType[A] extends DomainObject {
-  type Value = A
-
   val dbType: String
 
-  val id: IdType
+  val id: ColumnId
 
   val name: String
 
@@ -32,43 +30,45 @@ sealed trait ColumnType[A] extends DomainObject {
 
   val ordering: Ordering
 
-  def getJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "name" -> name, "kind" -> dbType, "ordering" -> ordering)))
+  override def getJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "name" -> name, "kind" -> dbType, "ordering" -> ordering)))
 
-  def setJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
+  override def setJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
 }
 
 sealed trait LinkColumnType[A] extends ColumnType[Link[A]] {
   def to: ColumnValue[A]
 
   override def getJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "name" -> name, "kind" -> dbType, "toTable" -> to.table.id, "toColumn" -> to.id, "ordering" -> ordering)))
-
-  override def setJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "ordering" -> ordering)))
 }
 
 sealed trait ColumnValue[A] extends ColumnType[A]
 
-case class StringColumn(table: Table, id: IdType, name: String, ordering: Ordering) extends ColumnValue[String] {
-  val dbType = "text"
+case class StringColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends ColumnValue[String] {
+  override val dbType = "text"
 }
 
-case class NumberColumn(table: Table, id: IdType, name: String, ordering: Ordering) extends ColumnValue[Number] {
-  val dbType = "numeric"
+case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends ColumnValue[Number] {
+  override val dbType = "numeric"
 }
 
-case class LinkColumn[A](table: Table, id: IdType, to: ColumnValue[A], name: String, ordering: Ordering) extends LinkColumnType[A] {
-  val dbType = "link"
+case class LinkColumn[A](table: Table, id: ColumnId, to: ColumnValue[A], name: String, ordering: Ordering) extends LinkColumnType[A] {
+  override val dbType = "link"
 }
 
-case class AttachmentColumn(table: Table, id: IdType, name: String, ordering: Ordering) extends ColumnType[String] {
-  val dbType = "attachment"
+case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends ColumnValue[String] {
+  override val dbType = "attachment"
 }
 
 case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
   def getJson: JsonObject = Json.obj("columns" ->
     (columns map {
-      case c: LinkColumnType[_] => Json.obj("id" -> c.id, "name" -> c.name, "kind" -> c.dbType, "toTable" -> c.to.table.id, "toColumn" -> c.to.id, "ordering" -> c.ordering)
-      case c: ColumnValue[_] => Json.obj("id" -> c.id, "name" -> c.name, "kind" -> c.dbType, "ordering" -> c.ordering)
-      case c: AttachmentColumn => Json.obj("id" -> c.id, "name" -> c.name, "kind" -> c.dbType, "ordering" -> c.ordering)
+      col =>
+        col.getJson.getArray("columns").get[JsonObject](0)
     }))
-  def setJson: JsonObject = Json.obj("columns" -> (columns map { col => Json.obj("id" -> col.id, "ordering" -> col.ordering) }))
+
+  def setJson: JsonObject = Json.obj("columns" ->
+    (columns map {
+      col =>
+        col.setJson.getArray("columns").get[JsonObject](0)
+    }))
 }
