@@ -113,7 +113,7 @@ class MediaTest extends TableauxTestBase {
     for {
       rootFolder <- sendRequest("GET", "/folders")
     } yield {
-      assertEquals("0", rootFolder.getString("id"))
+      assertNull(rootFolder.getString("id"))
       assertEquals("Root", rootFolder.getString("name"))
       assertNull(rootFolder.getString("parent"))
     }
