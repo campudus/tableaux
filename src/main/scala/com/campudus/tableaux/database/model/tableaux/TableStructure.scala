@@ -9,27 +9,27 @@ import scala.concurrent.Future
 
 class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def create(name: String): Future[IdType] = for {
+  def create(name: String): Future[TableId] = for {
     t <- connection.begin()
     (t, result) <- t.query("INSERT INTO system_table (user_table_name) VALUES (?) RETURNING table_id", Json.arr(name))
-    id <- Future.apply(insertNotNull(result).head.get[Long](0))
+    id <- Future.apply(insertNotNull(result).head.get[TableId](0))
     (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
     (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
     _ <- t.commit()
   } yield id
 
-  def getAll(): Future[Seq[(IdType, String)]] = {
+  def retrieveAll(): Future[Seq[(TableId, String)]] = {
     connection.query("SELECT table_id, user_table_name FROM system_table")
   } map { r => getSeqOfJsonArray(r) map { arr => (arr.get[IdType](0), arr.get[String](1)) } }
 
-  def get(tableId: IdType): Future[(IdType, String)] = {
+  def retrieve(tableId: TableId): Future[(TableId, String)] = {
     connection.query("SELECT table_id, user_table_name FROM system_table WHERE table_id = ?", Json.arr(tableId))
   } map { r =>
     val json = selectNotNull(r).head
-    (json.get[IdType](0), json.get[String](1))
+    (json.get[TableId](0), json.get[String](1))
   }
 
-  def delete(tableId: IdType): Future[Unit] = for {
+  def delete(tableId: TableId): Future[Unit] = for {
     t <- connection.begin()
     (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId")
     (t, result) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
@@ -38,7 +38,7 @@ class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     _ <- t.commit()
   } yield ()
 
-  def changeName(tableId: IdType, name: String): Future[Unit] = {
+  def changeName(tableId: TableId, name: String): Future[Unit] = {
     connection.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
   } map (_ => ())
 }
