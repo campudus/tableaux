@@ -2,6 +2,7 @@ package com.campudus.tableaux.database
 
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.FolderModel._
+import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{TableauxConfig, DatabaseException}
 import com.campudus.tableaux.helper.StandardVerticle
 import org.joda.time.DateTime
@@ -19,7 +20,7 @@ trait DatabaseQuery {
   implicit val executionContext = connection.executionContext
 }
 
-trait DatabaseHelper {
+sealed trait DatabaseHelper {
   implicit def convertLongToFolderId(id: Long): Option[FolderId] = {
     //TODO still, not cool!
     Option(id).filter(_ != 0)
@@ -105,6 +106,15 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
       (transaction, result) <- stuff(transaction)
       _ <- transaction.commit()
     } yield result
+  }
+
+  def selectSingleLong(select: String, arr: JsonArray): Future[Long] = {
+    for {
+      result <- query(select)
+      resultArr <- Future(selectNotNull(result))
+    } yield {
+      resultArr.head.get[Long](0)
+    }
   }
 
   private def sendHelper(json: JsonObject): Future[Message[JsonObject]] = {
