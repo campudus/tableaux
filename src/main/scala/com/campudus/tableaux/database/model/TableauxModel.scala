@@ -226,8 +226,10 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     table <- getTable(tableId)
     (columnId, columnName, columnKind, ordering) <- columnStruc.get(table.id, columnId)
     column <- columnKind match {
+      case AttachmentType => getAttachmentColumn(table, columnId, columnName, ordering)
       case LinkType => getLinkColumn(table, columnId, columnName, ordering)
-      case kind => Future.successful(getValueColumn(table, columnId, columnName, kind, ordering))
+
+      case kind: TableauxDbType => getValueColumn(table, columnId, columnName, kind, ordering)
     }
   } yield column
 
@@ -236,8 +238,12 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     columns <- getAllColumns(table)
   } yield ColumnSeq(columns)
 
-  private def getValueColumn(table: Table, columnId: IdType, columnName: String, columnKind: TableauxDbType, ordering: Ordering): SimpleValueColumn[_] = {
-    Mapper(columnKind).apply(table, columnId, columnName, ordering)
+  private def getValueColumn(table: Table, columnId: IdType, columnName: String, columnKind: TableauxDbType, ordering: Ordering): Future[SimpleValueColumn[_]] = {
+    Future(Mapper(columnKind).apply(table, columnId, columnName, ordering))
+  }
+
+  private def getAttachmentColumn(table: Table, columnId: ColumnId, columnName: String, ordering: Ordering): Future[AttachmentColumn] = {
+    Future(AttachmentColumn(table, columnId, columnName, ordering))
   }
 
   private def getLinkColumn(fromTable: Table, linkColumnId: IdType, columnName: String, ordering: Ordering): Future[LinkColumn[_]] = {
@@ -261,11 +267,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       allColumns <- {
         val columns: Future[Seq[ColumnType[_]]] = Future.sequence({
           for {
-            (columnId, columnName, columnKind, ordering) <- columnSeq
+            (columnId, columnName, kind, ordering) <- columnSeq
           } yield {
-            columnKind match {
+            kind match {
+              case AttachmentType => getAttachmentColumn(table, columnId, columnName, ordering)
               case LinkType => getLinkColumn(table, columnId, columnName, ordering)
-              case kind => Future.successful(getValueColumn(table, columnId, columnName, columnKind, ordering))
+
+              case kind: TableauxDbType => getValueColumn(table, columnId, columnName, kind, ordering)
             }
           }
         })

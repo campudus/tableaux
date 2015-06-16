@@ -51,7 +51,7 @@ case class LinkColumn[A](table: Table, id: ColumnId, to: SimpleValueColumn[A], n
   override def getJson: JsonObject = Json.obj("columns" -> Json.arr(Json.obj("id" -> id, "name" -> name, "kind" -> kind.toString, "toTable" -> to.table.id, "toColumn" -> to.id, "ordering" -> ordering)))
 }
 
-case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[File] {
+case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends ColumnType[File] {
   override val kind = AttachmentType
 }
 

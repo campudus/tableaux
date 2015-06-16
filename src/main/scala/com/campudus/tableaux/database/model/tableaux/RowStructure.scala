@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.model.tableaux
 
-import com.campudus.tableaux.database.domain.{ColumnType, LinkColumn}
+import com.campudus.tableaux.database.domain.{SimpleValueColumn, ColumnType}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -33,8 +33,8 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def generateProjection(columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
-      case c: LinkColumn[_] => "NULL"
-      case c: ColumnType[_] => s"column_${c.id}"
+      case c: SimpleValueColumn[_] => s"column_${c.id}"
+      case _ => "NULL"
     }
 
     if (projection.nonEmpty) {

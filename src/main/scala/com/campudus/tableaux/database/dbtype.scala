@@ -30,9 +30,9 @@ object Mapper {
     dbType match {
       case TextType => (Some(StringColumn.apply), TextType)
       case NumericType => (Some(NumberColumn.apply), NumericType)
-      case AttachmentType => (Some(AttachmentColumn.apply), AttachmentType)
 
       // we can't handle this
+      case AttachmentType => (None, AttachmentType)
       case LinkType => (None, LinkType)
     }
   }
