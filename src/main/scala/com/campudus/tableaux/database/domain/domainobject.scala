@@ -4,6 +4,26 @@ import com.campudus.tableaux.database.{EmptyReturn, SetReturn, GetReturn, Return
 import org.vertx.scala.core.json._
 
 trait DomainObjectHelper {
+
+  def compatibilitySet[A]: A => Any = compatibility(SetReturn)(_)
+  def compatibilityGet[A]: A => Any = compatibility(GetReturn)(_)
+
+  private def compatibility[A](returnType: ReturnType)(value: A): Any = {
+    value match {
+      case s: Seq[_] => compatibilitySeq(returnType)(s)
+      case d: DomainObject => d.getJson
+      case _ => value
+    }
+  }
+
+  private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A]): Seq[_] = {
+    values map {
+      case s: Seq[_] => compatibilitySeq(returnType)(s)
+      case d: DomainObject => d.toJson(returnType)
+      case e => e
+    }
+  }
+
   def optionToString[A](option: Option[A]): String = {
     option.map(_.toString).orNull
   }
