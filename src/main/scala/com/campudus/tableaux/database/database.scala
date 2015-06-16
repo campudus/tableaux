@@ -83,7 +83,7 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
 
     private def transactionHelper(json: JsonObject): Future[Message[JsonObject]] = {
       val p = Promise[Message[JsonObject]]()
-      msg.replyWithTimeout(json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
+      msg.replyWithTimeout(json, DEFAULT_TIMEOUT, replyHandler(p, json))
       p.future
     }
   }
@@ -110,7 +110,7 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
 
   def selectSingleLong(select: String, arr: JsonArray): Future[Long] = {
     for {
-      result <- query(select)
+      result <- query(select, arr)
       resultArr <- Future(selectNotNull(result))
     } yield {
       resultArr.head.get[Long](0)
@@ -119,14 +119,14 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
 
   private def sendHelper(json: JsonObject): Future[Message[JsonObject]] = {
     val p = Promise[Message[JsonObject]]()
-    vertx.eventBus.sendWithTimeout(config.databaseAddress, json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
+    vertx.eventBus.sendWithTimeout(config.databaseAddress, json, DEFAULT_TIMEOUT, replyHandler(p, json))
     p.future
   }
 
-  private def replyHandler(p: Promise[Message[JsonObject]], action: String): Try[Message[JsonObject]] => Unit = {
+  private def replyHandler(p: Promise[Message[JsonObject]], json: JsonObject): Try[Message[JsonObject]] => Unit = {
     case Success(rep) => p.success(rep)
     case Failure(ex) =>
-      verticle.logger.error(s"fail in $action", ex)
+      verticle.logger.error(s"fail in ${json.getString("action")}: ${json.encode()}", ex)
       p.failure(ex)
   }
 
