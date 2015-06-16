@@ -1,11 +1,12 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.database.{EmptyReturn, SetReturn, GetReturn, ReturnType}
+import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType, SetReturn}
 import org.vertx.scala.core.json._
 
 trait DomainObjectHelper {
 
   def compatibilitySet[A]: A => Any = compatibility(SetReturn)(_)
+
   def compatibilityGet[A]: A => Any = compatibility(GetReturn)(_)
 
   private def compatibility[A](returnType: ReturnType)(value: A): Any = {
@@ -44,11 +45,10 @@ trait DomainObject extends DomainObjectHelper {
   final def emptyJson: JsonObject = Json.obj()
 
   /**
-   *
-   * @param returnType get, set or empty {@see ReturnType}
+   * @param returnType get, set or empty
    * @return
    */
-  def toJson(returnType: ReturnType): JsonObject = returnType match {
+  final def toJson(returnType: ReturnType): JsonObject = returnType match {
     case GetReturn => getJson
     case SetReturn => setJson
     case EmptyReturn => emptyJson

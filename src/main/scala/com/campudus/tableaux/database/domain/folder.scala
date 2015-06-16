@@ -34,12 +34,10 @@ case class ExtendedFolder(folder: Folder,
                           files: Seq[File]) extends DomainObject {
   override def getJson: JsonObject = {
     val folderJson = folder.getJson
-    val subfoldersJson = subfolders.map(subfolder => subfolder.getJson)
-    val filesJson = files.map(file => file.getJson)
 
     folderJson.mergeIn(Json.obj(
-      "subfolders" -> subfoldersJson,
-      "files" -> filesJson
+      "subfolders" -> compatibilityGet(subfolders),
+      "files" -> compatibilityGet(files)
     ))
   }
 

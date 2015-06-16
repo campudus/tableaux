@@ -5,7 +5,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 
 sealed trait TableauxDbType {
   val name: String
-  
+
   override def toString: String = name
 }
 
@@ -39,7 +39,7 @@ object Mapper {
 
   def apply(dbType: TableauxDbType): (Table, ColumnId, String, Ordering) => SimpleValueColumn[_] = columnType(dbType)._1.get
 
-  def getDatabaseType(dbType: String): TableauxDbType ={
+  def getDatabaseType(dbType: String): TableauxDbType = {
     dbType match {
       case TextType.name => TextType
       case NumericType.name => NumericType
