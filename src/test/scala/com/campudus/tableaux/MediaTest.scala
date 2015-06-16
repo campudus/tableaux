@@ -241,6 +241,54 @@ class MediaTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def fillAndRetrieveAttachmentColumn(): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
+
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+
+    for {
+      tableId <- setupDefaultTable()
+
+      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map {
+        json =>
+          json.getArray("columns").get[JsonObject](0).getField[Int]("id")
+      }
+
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map {
+        json =>
+          json.getArray("rows").get[JsonObject](0).getField[Int]("id")
+      }
+
+      fileUuid <- uploadFile(file, mimetype) map {
+        _.getString("uuid")
+      }
+      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid")
+
+      // Add attachment
+      resultFill <- sendRequestWithJson("POST", Json.obj("value" -> fileUuid), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Retrieve attachment
+      resultRetrieve <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      assertEquals(3, columnId)
+
+      assertEquals(Json.obj("status" -> "ok"), resultFill)
+
+      assertEquals(fileUuid, resultRetrieve.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+    }
+  }
+
   private def uploadFile(file: String, mimeType: String): Future[JsonObject] = {
     val filePath = getClass.getResource(file).toURI.getPath
     val fileName = file.substring(file.lastIndexOf("/") + 1)
