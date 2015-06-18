@@ -242,7 +242,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def fillAndRetrieveAttachmentColumn(): Unit = okTest {
+  def fillAndRetrieveAttachmentCell(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
 
     val column = Json.obj("columns" -> Json.arr(Json.obj(
@@ -268,13 +268,11 @@ class MediaTest extends TableauxTestBase {
           json.getArray("rows").get[JsonObject](0).getField[Int]("id")
       }
 
-      fileUuid <- uploadFile(file, mimetype) map {
-        _.getString("uuid")
-      }
+      fileUuid <- uploadFile(file, mimetype) map (_.getString("uuid"))
       _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid")
 
       // Add attachment
-      resultFill <- sendRequestWithJson("POST", Json.obj("value" -> fileUuid), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultFill <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
       // Retrieve attachment
       resultRetrieve <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
@@ -286,6 +284,70 @@ class MediaTest extends TableauxTestBase {
       assertEquals(Json.obj("status" -> "ok"), resultFill)
 
       assertEquals(fileUuid, resultRetrieve.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+    }
+  }
+
+  @Test
+  def updateAttachmentColumn(): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
+
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+
+    for {
+      tableId <- setupDefaultTable()
+
+      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map {
+        json =>
+          json.getArray("columns").get[JsonObject](0).getField[Int]("id")
+      }
+
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map {
+        json =>
+          json.getArray("rows").get[JsonObject](0).getField[Int]("id")
+      }
+
+      fileUuid1 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid1")
+
+      fileUuid2 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid2")
+
+      // Add attachment
+      resultFill1 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultFill2 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Retrieve attachment after fill
+      resultRetrieveFill <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Update attachment
+      resultUpdate1 <- sendRequestWithJson("PUT", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultUpdate2 <- sendRequestWithJson("PUT", Json.obj("value" -> Json.obj("uuid" -> fileUuid2, "ordering" -> 1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Retrieve attachment after update
+      resultRetrieveUpdate <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid1")
+      _ <- sendRequest("DELETE", s"/files/$fileUuid2")
+    } yield {
+      assertEquals(3, columnId)
+
+      assertEquals(Json.obj("status" -> "ok"), resultFill1)
+      assertEquals(Json.obj("status" -> "ok"), resultFill2)
+
+      assertEquals(fileUuid1, resultRetrieveFill.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid2, resultRetrieveFill.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](1).getString("uuid"))
+
+      assertEquals(fileUuid2, resultRetrieveUpdate.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid1, resultRetrieveUpdate.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](1).getString("uuid"))
     }
   }
 
