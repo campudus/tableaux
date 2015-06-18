@@ -9,7 +9,7 @@ import com.campudus.tableaux.database.model.tableaux.{TableStructure, RowStructu
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
-import scala.util.Try
+import scala.util.{Success, Try}
 
 object TableauxModel {
   type IdType = Long
@@ -123,6 +123,15 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   }
 
+  def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_, _]] = for {
+  // TODO column should be passed on to insert methods
+    column <- getColumn(tableId, columnId)
+    cell <- column match {
+      case attachmentColumn: AttachmentColumn => updateAttachment(tableId, columnId, rowId, value)
+      case _ => insertValue(tableId, columnId, rowId, value)
+    }
+  } yield cell
+
   def insertValue[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[_, _]] = for {
     // TODO column should be passed on to insert methods
     column <- getColumn(tableId, columnId)
@@ -133,27 +142,46 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield cell
 
+  def insertAttachment[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[AttachmentFile, AttachmentColumn]] = {
+    handleAttachment(tableId, columnId, rowId, value, attachmentModel.add)
+  }
 
-  def insertAttachment[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[File, AttachmentColumn]] = {
-    Try(UUID.fromString(value.asInstanceOf[String])) map { v =>
+  def updateAttachment[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[AttachmentFile, AttachmentColumn]] = {
+    handleAttachment(tableId, columnId, rowId, value, attachmentModel.update)
+  }
+
+  private def handleAttachment[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A, fn: Attachment => Future[AttachmentFile]): Future[Cell[AttachmentFile, AttachmentColumn]] = {
+    import ArgumentChecker._
+
+    Try(value.asInstanceOf[JsonObject]) map { v =>
+      val uuid = notNull(v.getString("uuid"), "uuid").map(UUID.fromString).get
+      val ordering: Option[Ordering] = {
+        if (v.containsField("ordering")) {
+          Option(v.getLong("ordering"))
+        } else {
+          None
+        }
+      }
+
       for {
         column <- getColumn(tableId, columnId)
-        file <- attachmentModel.add(Attachment(tableId, columnId, rowId, v))
+        file <- fn(Attachment(tableId, columnId, rowId, uuid, ordering))
       } yield Cell(column.asInstanceOf[AttachmentColumn], rowId, file)
     } getOrElse {
       Future.failed(InvalidJsonException(s"A attachment value must be a UUID but got $value", "attachment-value"))
     }
   }
 
-  def insertNormalValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
+  private def insertNormalValue[A, B <: ColumnType[A]](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[A, B]] = for {
     column <- getColumn(tableId, columnId)
     _ <- cellStruc.update(tableId, columnId, rowId, value)
   } yield Cell(column.asInstanceOf[B], rowId, value)
 
-  def handleLinkValues[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[Link[Any], LinkColumn[Any]]] = {
+  private def handleLinkValues[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[Cell[Link[Any], LinkColumn[Any]]] = {
     Try(value.asInstanceOf[JsonObject]).flatMap { v =>
       import ArgumentChecker._
       import collection.JavaConverters._
+
       for {
         from <- Try(checked(hasNumber("from", v)).longValue())
         tos <- Try(Left(checked(hasNumber("to", v)).longValue())).orElse(
@@ -169,7 +197,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   }
 
-  def insertLinkValues(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, tos: Seq[IdType]): Future[Cell[Link[Any], LinkColumn[Any]]] = for {
+  private def insertLinkValues(tableId: IdType, columnId: IdType, rowId: IdType, from: IdType, tos: Seq[IdType]): Future[Cell[Link[Any], LinkColumn[Any]]] = for {
     linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
     _ <- cellStruc.putLinks(linkColumn.table.id, linkColumn.id, from, tos)
     v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)

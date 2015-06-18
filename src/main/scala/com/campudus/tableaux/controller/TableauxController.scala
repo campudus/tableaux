@@ -122,6 +122,12 @@ class TableauxController(override val config: TableauxConfig, override protected
     repository.insertValue(tableId, columnId, rowId, value)
   }
 
+  def updateCell[A](tableId: IdType, columnId: IdType, rowId: IdType, value: A): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    logger.info(s"updateCell $tableId $columnId $rowId $value")
+    repository.updateValue(tableId, columnId, rowId, value)
+  }
+
   def changeTableName(tableId: IdType, tableName: String): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), notNull(tableName, "TableName"))
     logger.info(s"changeTableName $tableId $tableName")
