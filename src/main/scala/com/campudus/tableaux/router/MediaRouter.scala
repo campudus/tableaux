@@ -29,11 +29,6 @@ object MediaRouter {
 }
 
 class MediaRouter(override val config: TableauxConfig, val controller: MediaController) extends BaseRouter {
-  /**
-   * Regex for a UUID Version 4
-   */
-  val uuidRegex: String = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
-
   val FolderId: Regex = "/folders/(\\d+)".r
   val FileId: Regex = s"/files/($uuidRegex)".r
   val FileIdStatic: Regex = s"/files/($uuidRegex)/.*".r

@@ -98,7 +98,7 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
     val delete = s"DELETE FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ? AND attachment_uuid = ?"
 
     for {
-      result <- connection.query(delete, Json.arr(a.tableId, a.columnId, a.rowId, a.uuid))
+      result <- connection.query(delete, Json.arr(a.tableId, a.columnId, a.rowId, a.uuid.toString))
       resultArr <- Future(deleteNotNull(result))
     } yield ()
   }

@@ -56,7 +56,7 @@ trait DomainObject extends DomainObjectHelper {
 }
 
 case class EmptyObject() extends DomainObject {
-  def getJson: JsonObject = Json.obj()
+  def getJson: JsonObject = Json.emptyObj()
 
-  def setJson: JsonObject = Json.obj()
+  def setJson: JsonObject = getJson
 }
