@@ -321,22 +321,28 @@ class MediaTest extends TableauxTestBase {
       fileUuid2 <- uploadFile(file, mimetype) map (_.getString("uuid"))
       _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid2")
 
-      // Add attachment
+      // Add attachments
       resultFill1 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
       resultFill2 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-      // Retrieve attachment after fill
+      // Retrieve attachments after fill
       resultRetrieveFill <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-      // Update attachment
+      // Update attachments
       resultUpdate1 <- sendRequestWithJson("PUT", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
       resultUpdate2 <- sendRequestWithJson("PUT", Json.obj("value" -> Json.obj("uuid" -> fileUuid2, "ordering" -> 1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-      // Retrieve attachment after update
+      // Retrieve attachments after update
       resultRetrieveUpdate <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-      _ <- sendRequest("DELETE", s"/files/$fileUuid1")
-      _ <- sendRequest("DELETE", s"/files/$fileUuid2")
+      // Delete attachment
+      _ <- sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId/attachment/$fileUuid2")
+
+      // Retrieve attachment after delete
+      resultRetrieveDelete <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      //_ <- sendRequest("DELETE", s"/files/$fileUuid1")
+      //_ <- sendRequest("DELETE", s"/files/$fileUuid2")
     } yield {
       assertEquals(3, columnId)
 
@@ -348,6 +354,8 @@ class MediaTest extends TableauxTestBase {
 
       assertEquals(fileUuid2, resultRetrieveUpdate.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
       assertEquals(fileUuid1, resultRetrieveUpdate.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](1).getString("uuid"))
+
+      assertEquals(fileUuid1, resultRetrieveDelete.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
     }
   }
 

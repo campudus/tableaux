@@ -1,14 +1,13 @@
 package com.campudus.tableaux.controller
 
+import java.util.UUID
+
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
-import com.campudus.tableaux.database.model.{TableauxModel, SystemModel}
+import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import TableauxModel._
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.model.SystemModel
-import com.campudus.tableaux.database.domain.{DomainObject, CreateColumn}
-import com.campudus.tableaux.helper.StandardVerticle
-import org.vertx.scala.platform.Verticle
+import com.campudus.tableaux.database.domain.{EmptyObject, DomainObject, CreateColumn}
 
 import scala.concurrent.Future
 
@@ -126,6 +125,17 @@ class TableauxController(override val config: TableauxConfig, override protected
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"updateCell $tableId $columnId $rowId $value")
     repository.updateValue(tableId, columnId, rowId, value)
+  }
+
+  def deleteAttachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: String): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(uuid, "uuid"))
+    logger.info(s"deleteAttachment $tableId $columnId $rowId $uuid")
+    //TODO introduce a Cell identifier with tableId, columnId and rowId
+    repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
+  }
+
+  private implicit def convertUnitToEmptyObject(unit: Future[Unit]): Future[EmptyObject] = {
+    unit map (s => EmptyObject())
   }
 
   def changeTableName(tableId: IdType, tableName: String): Future[DomainObject] = {
