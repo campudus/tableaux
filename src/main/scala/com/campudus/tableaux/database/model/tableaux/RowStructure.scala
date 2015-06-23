@@ -10,18 +10,18 @@ import scala.concurrent.Future
 
 class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def create(tableId: IdType): Future[IdType] = {
+  def create(tableId: TableId): Future[TableId] = {
     connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id")
-  } map { insertNotNull(_).head.get[IdType](0) }
+  } map { insertNotNull(_).head.get[TableId](0) }
 
-  def createFull(tableId: IdType, values: Seq[(IdType, _)]): Future[IdType] = {
+  def createFull(tableId: TableId, values: Seq[(ColumnId, _)]): Future[RowId] = {
     val qm = values.foldLeft(Seq[String]())((s, _) => s :+ "?").mkString(", ")
     val columns = values.foldLeft(Seq[String]())((s, tup) => s :+ s"column_${tup._1}").mkString(", ")
     val v = values.foldLeft(Seq[Any]())((s, tup) => s :+ tup._2)
     connection.query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($qm) RETURNING id", Json.arr(v: _*))
-  } map { insertNotNull(_).head.get[IdType](0) }
+  } map { insertNotNull(_).head.get[RowId](0) }
 
-  def get(tableId: IdType, rowId: IdType, columns: Seq[ColumnType[_]]): Future[(IdType, Seq[AnyRef])] = {
+  def get(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[AnyRef])] = {
     val projectionStr = generateProjection(columns)
     val result = connection.query(s"SELECT $projectionStr FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
 
@@ -44,7 +44,7 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def getAll(tableId: IdType, columns: Seq[ColumnType[_]]): Future[Seq[(IdType, Seq[AnyRef])]] = {
+  def getAll(tableId: TableId, columns: Seq[ColumnType[_]]): Future[Seq[(RowId, Seq[AnyRef])]] = {
     val projectionStr = generateProjection(columns)
     val result = connection.query(s"SELECT $projectionStr FROM user_table_$tableId ORDER BY id")
 
@@ -54,7 +54,7 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def delete(tableId: IdType, rowId: IdType): Future[Unit] = {
+  def delete(tableId: TableId, rowId: RowId): Future[Unit] = {
     connection.query(s"DELETE FROM user_table_$tableId  WHERE id = ?", Json.arr(rowId))
   } map { deleteNotNull(_) }
 }

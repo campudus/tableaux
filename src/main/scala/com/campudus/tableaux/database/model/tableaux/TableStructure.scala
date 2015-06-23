@@ -20,7 +20,7 @@ class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieveAll(): Future[Seq[(TableId, String)]] = {
     connection.query("SELECT table_id, user_table_name FROM system_table")
-  } map { r => getSeqOfJsonArray(r) map { arr => (arr.get[IdType](0), arr.get[String](1)) } }
+  } map { r => getSeqOfJsonArray(r) map { arr => (arr.get[TableId](0), arr.get[String](1)) } }
 
   def retrieve(tableId: TableId): Future[(TableId, String)] = {
     connection.query("SELECT table_id, user_table_name FROM system_table WHERE table_id = ?", Json.arr(tableId))

@@ -1,14 +1,11 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.database.model.TableauxModel
-import TableauxModel.{IdType, LinkConnection}
+import com.campudus.tableaux.database.model.TableauxModel.{TableId, ColumnId, LinkConnection, Ordering}
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.model.TableauxModel
 import com.campudus.tableaux.database.domain.{CreateAttachmentColumn, CreateSimpleColumn, CreateLinkColumn, CreateColumn}
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
-import TableauxModel.Ordering
 
 import scala.util.Try
 
@@ -30,9 +27,9 @@ object HelperFunctions {
   }
 
   private def getLinkInformation(json: JsonObject): ArgumentCheck[LinkConnection] = for {
-    toTable <- notNull(json.getLong("toTable"): IdType, "toTable")
-    toColumn <- notNull(json.getLong("toColumn"): IdType, "toColumn")
-    fromColumn <- notNull(json.getLong("fromColumn"): IdType, "fromColumn")
+    toTable <- notNull(json.getLong("toTable"): TableId, "toTable")
+    toColumn <- notNull(json.getLong("toColumn"): ColumnId, "toColumn")
+    fromColumn <- notNull(json.getLong("fromColumn"): ColumnId, "fromColumn")
   } yield (toTable, toColumn, fromColumn)
 
   private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[CreateColumn]] = for {
@@ -79,7 +76,7 @@ object HelperFunctions {
     result <- sequence(checkedRowList map toValueSeq)
   } yield result).get
 
-  def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(IdType, _)]] = (for {
+  def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(ColumnId, _)]] = (for {
     rows <- checkNotNullArray(json, "rows")
     columns <- checkNotNullArray(json, "columns")
     rowsAsJsonObjectList <- asCastedList[JsonObject](rows)
@@ -88,16 +85,20 @@ object HelperFunctions {
     columnList <- nonEmpty(columnsAsJsonObjectList, "columns")
     checkedRowList <- checkForJsonObject(rowList)
     checkedColumnList <- checkForJsonObject(columnList)
-    realIdTypes <- toIdTypes(checkedColumnList)
-    result <- checkSeq(checkedRowList, realIdTypes)
+    checkedColumnIdList <- toColumnIds(checkedColumnList)
+    result <- checkRowsAndColumns(checkedRowList, checkedColumnIdList)
   } yield result).get
 
-  private def toIdTypes(seq: Seq[JsonObject]): ArgumentCheck[Seq[IdType]] = {
-    sequence(seq map { json => notNull(json.getNumber("id").longValue(), "id") })
+  private def toColumnIds(columns: Seq[JsonObject]): ArgumentCheck[Seq[ColumnId]] = {
+    sequence(columns map { json => notNull(json.getNumber("id").longValue(), "id") })
   }
 
-  private def checkSeq(seqOfRows: Seq[JsonObject], seqOfColumnIds: Seq[IdType]): ArgumentCheck[Seq[Seq[(IdType, _)]]] = {
-    sequence(seqOfRows map { toValueSeq(_) flatMap (checkSameLengthsAndZip(seqOfColumnIds, _).asInstanceOf[ArgumentCheck[Seq[(IdType, _)]]]) })
+  private def checkRowsAndColumns(rows: Seq[JsonObject], columnIds: Seq[ColumnId]): ArgumentCheck[Seq[Seq[(ColumnId, _)]]] = {
+    sequence(rows map { row =>
+      toValueSeq(row) flatMap { rowValues =>
+        checkSameLengthsAndZip[ColumnId, Any](columnIds, rowValues)
+      }
+    })
   }
 
   private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[_]] = for {

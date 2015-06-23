@@ -72,13 +72,13 @@ class ControllerTest extends TestVerticle with TestConfig {
   @Test
   def checkCreateRowWithNullId(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createRow(0: IdType, Option(Seq(Seq((0: IdType, ""))))))
+    illegalArgumentTest(controller.createRow(0, Option(Seq(Seq((0: ColumnId, ""))))))
   }
 
   @Test
   def checkCreateRowWithNullValue(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createRow(0: IdType, Option(Seq(Seq((1: IdType, null))))))
+    illegalArgumentTest(controller.createRow(0, Option(Seq(Seq((1: ColumnId, null))))))
   }
 
   @Test
