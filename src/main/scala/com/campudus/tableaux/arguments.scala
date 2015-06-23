@@ -28,10 +28,6 @@ case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
   def get: A = throw ex
 }
 
-class RichBoolean(val b: Boolean) extends AnyVal {
-  final def option[A](a: => A): Option[A] = if (b) Some(a) else None
-}
-
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
  */
@@ -53,8 +49,6 @@ object ArgumentChecker {
   def hasArray(arr: String, value: JsonObject): ArgumentCheck[JsonArray] = notNull(value.getArray(arr), arr)
 
   def hasNumber(num: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getNumber(num), num)
-
-  implicit def booleanToRichBoolean[A](b: Boolean): RichBoolean = new RichBoolean(b);
 
   def castElement[A](elem: Any): ArgumentCheck[A] = {
     tryMap((x: Any) => x.asInstanceOf[A], InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid"))(elem)
