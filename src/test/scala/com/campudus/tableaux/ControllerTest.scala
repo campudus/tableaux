@@ -3,7 +3,7 @@ package com.campudus.tableaux
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.model.{SystemModel, TableauxModel}
 import TableauxModel._
-import com.campudus.tableaux.database.domain.CreateColumn
+import com.campudus.tableaux.database.domain.{CreateSimpleColumn, CreateColumn}
 import org.junit.Test
 import org.vertx.scala.core.json.{Json, JsonObject}
 import org.vertx.scala.platform.Verticle
@@ -36,7 +36,7 @@ class ControllerTest extends TestVerticle with TestConfig {
   @Test
   def checkCreateLinkColumnWithNullParameter(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createColumn(0, Seq(CreateColumn(null, null, null, None))))
+    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn(null, null, null))))
   }
 
   @Test
@@ -48,13 +48,13 @@ class ControllerTest extends TestVerticle with TestConfig {
   @Test
   def checkCreateColumnWithNullName(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createColumn(0, Seq(CreateColumn(null, TextType, None, None))))
+    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn(null, TextType, None))))
   }
 
   @Test
   def checkCreateColumnWithNullType(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createColumn(0, Seq(CreateColumn("", null, None, None))))
+    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn("", null, None))))
   }
 
   @Test
@@ -72,13 +72,13 @@ class ControllerTest extends TestVerticle with TestConfig {
   @Test
   def checkCreateRowWithNullId(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createRow(0: IdType, Option(Seq(Seq((0: IdType, ""))))))
+    illegalArgumentTest(controller.createRow(0, Option(Seq(Seq((0: ColumnId, ""))))))
   }
 
   @Test
   def checkCreateRowWithNullValue(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createRow(0: IdType, Option(Seq(Seq((1: IdType, null))))))
+    illegalArgumentTest(controller.createRow(0, Option(Seq(Seq((1: ColumnId, null))))))
   }
 
   @Test

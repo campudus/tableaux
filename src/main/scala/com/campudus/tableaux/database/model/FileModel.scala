@@ -144,8 +144,8 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     }
   }
 
-  def retrieveFromFolder(folder: FolderId): Future[Seq[File]] = {
-    val select =
+  def retrieveFromFolder(folder: Option[FolderId]): Future[Seq[File]] = {
+    def select(condition: String) =
       s"""SELECT
           |uuid,
           |name,
@@ -154,10 +154,13 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |filename,
           |idfolder,
           |created_at,
-          |updated_at FROM $table WHERE idfolder = ? AND tmp = FALSE""".stripMargin
+          |updated_at FROM $table WHERE $condition AND tmp = FALSE""".stripMargin
 
     for {
-      result <- connection.query(select, Json.arr(folder))
+      result <- folder match {
+        case None => connection.query(select("idfolder = null"))
+        case Some(id) => connection.query(select("idfolder = ?"), Json.arr(id.toString))
+      }
       resultArr <- Future(getSeqOfJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFile)

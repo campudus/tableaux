@@ -16,6 +16,11 @@ trait BaseRouter extends Router with StandardVerticle {
 
   val config: TableauxConfig
 
+  /**
+   * Regex for a UUID Version 4
+   */
+  val uuidRegex: String = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+
   override val verticle: Verticle = config.verticle
 
   def asyncSetReply: (Future[DomainObject]) => AsyncReply = asyncReply(SetReturn)(_)

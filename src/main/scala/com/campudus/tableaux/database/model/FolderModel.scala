@@ -106,18 +106,21 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     }
   }
 
-  def retrieveSubfolders(id: FolderId): Future[Seq[Folder]] = {
-    val select =
+  def retrieveSubfolders(folder: Option[FolderId]): Future[Seq[Folder]] = {
+    def select(condition: String) =
       s"""SELECT
          |id,
          |name,
          |description,
          |idparent,
          |created_at,
-         |updated_at FROM $table WHERE idparent = ?""".stripMargin
+         |updated_at FROM $table WHERE $condition""".stripMargin
 
     for {
-      result <- connection.query(select, Json.arr(id))
+      result <- folder match {
+        case None => connection.query(select("idparent = null"))
+        case Some(id) => connection.query(select("idparent = ?"), Json.arr(id.toString))
+      }
       resultArr <- Future(getSeqOfJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFolder)

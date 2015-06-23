@@ -81,5 +81,4 @@ object ArgumentChecker {
   }
 
   def checked[A](arg1: ArgumentCheck[A]): A = arg1.get
-  def checked[A, B](arg1: ArgumentCheck[A], arg2: ArgumentCheck[B]): (A, B) = (arg1.get, arg2.get)
 }

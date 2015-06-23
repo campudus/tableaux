@@ -1,34 +1,50 @@
 package com.campudus.tableaux.database
 
-import com.campudus.tableaux.database.domain.{Table, ColumnValue, StringColumn, NumberColumn}
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 
-sealed trait TableauxDbType
+sealed trait TableauxDbType {
+  val name: String
+
+  override def toString: String = name
+}
 
 case object TextType extends TableauxDbType {
-  override def toString: String = "text"
+  override val name = "text"
 }
 
 case object NumericType extends TableauxDbType {
-  override def toString: String = "numeric"
+  override val name = "numeric"
 }
 
 case object LinkType extends TableauxDbType {
-  override def toString: String = "link"
+  override val name = "link"
+}
+
+case object AttachmentType extends TableauxDbType {
+  override val name = "attachment"
 }
 
 object Mapper {
-  def columnType(s: TableauxDbType): (Option[(Table, IdType, String, Ordering) => ColumnValue[_]], TableauxDbType) = s match {
-    case TextType => (Some(StringColumn.apply), TextType)
-    case NumericType => (Some(NumberColumn.apply), NumericType)
-    case LinkType => (None, LinkType)
+  private def columnType(dbType: TableauxDbType): (Option[(Table, ColumnId, String, Ordering) => SimpleValueColumn[_]], TableauxDbType) = {
+    dbType match {
+      case TextType => (Some(StringColumn.apply), TextType)
+      case NumericType => (Some(NumberColumn.apply), NumericType)
+
+      // we can't handle this
+      case AttachmentType => (None, AttachmentType)
+      case LinkType => (None, LinkType)
+    }
   }
 
-  def getApply(s: TableauxDbType): (Table, IdType, String, Ordering) => ColumnValue[_] = columnType(s)._1.get
+  def apply(dbType: TableauxDbType): (Table, ColumnId, String, Ordering) => SimpleValueColumn[_] = columnType(dbType)._1.get
 
-  def getDatabaseType(s: String): TableauxDbType = s match {
-    case "text" => TextType
-    case "numeric" => NumericType
-    case "link" => LinkType
+  def getDatabaseType(dbType: String): TableauxDbType = {
+    dbType match {
+      case TextType.name => TextType
+      case NumericType.name => NumericType
+      case LinkType.name => LinkType
+      case AttachmentType.name => AttachmentType
+    }
   }
 }

@@ -228,7 +228,7 @@ trait VertxProject extends Build {
 
     System.setProperty("vertx.mods", (target.value / "mods").toString)
     System.setProperty("vertx.modulename", moduleName)
-    log.info(s"args=$args, cp=$cp")
+
     toError(r.run("org.vertx.java.platform.impl.cli.Starter", cp.map(_.data), args, log))
   }
 

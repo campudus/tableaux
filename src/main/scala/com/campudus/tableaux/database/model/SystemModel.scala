@@ -92,6 +92,29 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |)""".stripMargin)
 
     (t, _) <- t.query(s"""
+                         |CREATE TABLE system_attachment(
+                         |  table_id BIGINT NOT NULL,
+                         |  column_id BIGINT NOT NULL,
+                         |  row_id BIGINT NOT NULL,
+                         |  attachment_uuid UUID NOT NULL,
+                         |
+                         |  ordering BIGINT NOT NULL,
+                         |
+                         |  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                         |  updated_at TIMESTAMP WITHOUT TIME ZONE,
+                         |
+                         |  PRIMARY KEY(table_id, column_id, row_id, attachment_uuid),
+                         |
+                         |  FOREIGN KEY(table_id, column_id)
+                         |  REFERENCES system_columns(table_id, column_id)
+                         |  ON DELETE CASCADE,
+
+                         |  FOREIGN KEY(attachment_uuid)
+                         |  REFERENCES file(uuid) MATCH SIMPLE
+                         |  ON DELETE CASCADE
+                         |)""".stripMargin)
+
+    (t, _) <- t.query(s"""
                          |ALTER TABLE system_columns
                          |  ADD FOREIGN KEY(link_id)
                          |  REFERENCES system_link_table(link_id)

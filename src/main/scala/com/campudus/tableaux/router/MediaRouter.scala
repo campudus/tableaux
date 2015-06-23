@@ -29,31 +29,27 @@ object MediaRouter {
 }
 
 class MediaRouter(override val config: TableauxConfig, val controller: MediaController) extends BaseRouter {
-  /**
-   * Regex for a UUID Version 4
-   */
-  val uuidRegex: String = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
-
   val FolderId: Regex = "/folders/(\\d+)".r
   val FileId: Regex = s"/files/($uuidRegex)".r
   val FileIdStatic: Regex = s"/files/($uuidRegex)/.*".r
 
   override def routes(implicit req: HttpServerRequest): Routing = {
     case Post("/folders") => asyncSetReply({
-      getJson(req) flatMap { json =>
+      getJson(req) flatMap { implicit json =>
         val name = json.getString("name")
         val description = json.getString("description")
-        val parent = retrieveNullableField(json)("parent")
+        val parent = getNullableField("parent")
 
         controller.addNewFolder(name, description, parent)
       }
     })
+    case Get("/folders") => asyncGetReply(controller.retrieveRootFolder())
     case Get(FolderId(id)) => asyncGetReply(controller.retrieveFolder(id.toLong))
     case Put(FolderId(id)) => asyncSetReply({
-      getJson(req) flatMap { json =>
+      getJson(req) flatMap { implicit json =>
         val name = json.getString("name")
         val description = json.getString("description")
-        val parent = retrieveNullableField(json)("parent")
+        val parent = getNullableField("parent")
 
         controller.changeFolder(id.toLong, name, description, parent)
       }
@@ -97,10 +93,10 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       } yield Header("Content-type", file.file.mimeType, SendFile(path.toString())))
     }
     case Put(FileId(uuid)) => asyncSetReply({
-      getJson(req) flatMap { json =>
+      getJson(req) flatMap { implicit json =>
         val name = json.getString("name")
         val description = json.getString("description")
-        val folder: Option[FolderId] = retrieveNullableField(json)("folder")
+        val folder = getNullableField("folder")
 
         controller.changeFile(UUID.fromString(uuid), name, description, folder)
       }
@@ -110,7 +106,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     })
   }
 
-  def retrieveNullableField[A](json: JsonObject)(field: String): Option[A] = {
+  def getNullableField[A](field: String)(implicit json: JsonObject): Option[A] = {
     Option(json.getField[A](field))
   }
 }

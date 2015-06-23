@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database.model.tableaux
 
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.{DatabaseQuery, DatabaseConnection, Mapper, TableauxDbType}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
@@ -9,7 +9,7 @@ import scala.concurrent.Future
 
 class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def insert(tableId: IdType, dbType: TableauxDbType, name: String, ordering: Option[Ordering]): Future[(IdType, Ordering)] = for {
+  def insert(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = for {
     t <- connection.begin()
     (t, result) <- ordering match {
       case None => t.query(s"""
@@ -24,15 +24,37 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
         Json.arr(tableId, dbType.toString, name, ord))
     }
     result <- Future.successful(insertNotNull(result).head)
-    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[IdType](0)} $dbType")
+    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[ColumnId](0)} $dbType")
     _ <- t.commit()
-  } yield (result.get[IdType](0), result.get[Ordering](1))
+  } yield (result.get[ColumnId](0), result.get[Ordering](1))
 
-  def insertLink(tableId: IdType, name: String, fromColumnId: IdType, toTableId: IdType, toColumnId: IdType, ordering: Option[Ordering]): Future[(IdType, Ordering)] = for {
+  def insertAttachment(tableId: TableId, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+    val dbType = AttachmentType
+
+    def insert(values: String) = {
+      s"INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering) $values RETURNING column_id, ordering"
+    }
+
+    connection.transactional { t =>
+      for {
+        (t, result) <- ordering match {
+          case None =>
+            t.query(insert(s"VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, currval('system_columns_column_id_table_$tableId'))"),
+              Json.arr(tableId, dbType.toString, name))
+          case Some(ord) =>
+            t.query(insert(s"VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, ?)"),
+              Json.arr(tableId, dbType.toString, name, ord))
+        }
+        result <- Future.successful(insertNotNull(result).head)
+      } yield (t, (result.get[ColumnId](0), result.get[Ordering](1)))
+    }
+  }
+
+  def insertLink(tableId: TableId, name: String, fromColumnId: ColumnId, toTableId: TableId, toColumnId: ColumnId, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = for {
     t <- connection.begin()
     (t, result) <- t.query(s"""INSERT INTO system_link_table (table_id_1, table_id_2, column_id_1, column_id_2) VALUES (?, ?, ?, ?) RETURNING link_id""".stripMargin,
       Json.arr(tableId, toTableId, fromColumnId, toColumnId))
-    linkId <- Future.successful { insertNotNull(result).head.get[IdType](0) }
+    linkId <- Future.successful { insertNotNull(result).head.get[Long](0) }
     (t, _) <- t.query(s"""
                     |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
                     |  ?,
@@ -81,10 +103,10 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     _ <- t.commit()
   } yield {
     val json = insertNotNull(result).head
-    (json.get[IdType](0), json.get[Ordering](1))
+    (json.get[ColumnId](0), json.get[Ordering](1))
   }
 
-  def get(tableId: IdType, columnId: IdType): Future[(IdType, String, TableauxDbType, Ordering)] = for {
+  def get(tableId: TableId, columnId: ColumnId): Future[(ColumnId, String, TableauxDbType, Ordering)] = for {
     result <- connection.query("""
                               |SELECT column_id, user_column_name, column_type, ordering
                               |  FROM system_columns
@@ -92,14 +114,14 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
                               |  ORDER BY column_id""".stripMargin, Json.arr(tableId, columnId))
   } yield {
     val json = selectNotNull(result).head
-    (json.get[IdType](0), json.get[String](1), Mapper.getDatabaseType(json.get[String](2)), json.get[Ordering](3))
+    (json.get[ColumnId](0), json.get[String](1), Mapper.getDatabaseType(json.get[String](2)), json.get[Ordering](3))
   }
 
-  def getAll(tableId: IdType): Future[Seq[(IdType, String, TableauxDbType, Ordering)]] = {
+  def getAll(tableId: TableId): Future[Seq[(ColumnId, String, TableauxDbType, Ordering)]] = {
     connection.query("SELECT column_id, user_column_name, column_type, ordering FROM system_columns WHERE table_id = ? ORDER BY column_id", Json.arr(tableId))
-  } map { getSeqOfJsonArray(_) map { arr => (arr.get[IdType](0), arr.get[String](1), Mapper.getDatabaseType(arr.get[String](2)), arr.get[Ordering](3)) } }
+  } map { getSeqOfJsonArray(_) map { arr => (arr.get[ColumnId](0), arr.get[String](1), Mapper.getDatabaseType(arr.get[String](2)), arr.get[Ordering](3)) } }
 
-  def getToColumn(tableId: IdType, columnId: IdType): Future[(IdType, IdType)] = {
+  def getToColumn(tableId: TableId, columnId: ColumnId): Future[(TableId, ColumnId)] = {
     for {
       result <- connection.query("""
                                          |SELECT table_id_1, table_id_2, column_id_1, column_id_2
@@ -113,16 +135,16 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
         val res = selectNotNull(result).head
 
         /* we need this because links can go both ways */
-        if (tableId == res.get[IdType](0)) {
-          (res.get[IdType](1), res.get[IdType](3))
+        if (tableId == res.get[TableId](0)) {
+          (res.get[TableId](1), res.get[ColumnId](3))
         } else {
-          (res.get[IdType](0), res.get[IdType](2))
+          (res.get[TableId](0), res.get[ColumnId](2))
         }
       }
     } yield (toTableId, toColumnId)
   }
 
-  def delete(tableId: IdType, columnId: IdType): Future[Unit] = for {
+  def delete(tableId: TableId, columnId: ColumnId): Future[Unit] = for {
     t <- connection.begin()
     (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId")
     (t, result) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
@@ -130,7 +152,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     _ <- t.commit()
   } yield ()
 
-  def change(tableId: IdType, columnId: IdType, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[Unit] = for {
+  def change(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[Unit] = for {
     t <- connection.begin()
     (t, result1) <- optionToValidFuture(columnName, t, { name: String => t.query(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?", Json.arr(name, tableId, columnId)) })
     (t, result2) <- optionToValidFuture(ordering, t, { ord: Ordering => t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?", Json.arr(ord, tableId, columnId)) })

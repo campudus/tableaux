@@ -2,8 +2,9 @@ package com.campudus.tableaux.database
 
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.FolderModel._
-import com.campudus.tableaux.{TableauxConfig, DatabaseException}
+import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.StandardVerticle
+import com.campudus.tableaux.{DatabaseException, TableauxConfig}
 import org.joda.time.DateTime
 import org.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
@@ -19,7 +20,7 @@ trait DatabaseQuery {
   implicit val executionContext = connection.executionContext
 }
 
-trait DatabaseHelper {
+sealed trait DatabaseHelper {
   implicit def convertLongToFolderId(id: Long): Option[FolderId] = {
     //TODO still, not cool!
     Option(id).filter(_ != 0)
@@ -55,6 +56,7 @@ object DatabaseConnection {
 }
 
 class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
+
   import DatabaseConnection._
 
   override val verticle: Verticle = config.verticle
@@ -63,14 +65,24 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
 
   case class Transaction(msg: Message[JsonObject]) {
 
-    def query(stmt: String): Future[(Transaction, JsonObject)] = transactionHelper(Json.obj(
-      "action" -> "raw",
-      "command" -> stmt)) flatMap { r => Future.apply(Transaction(r), checkForDatabaseError(r.body())) recoverWith Transaction(r).rollbackAndFail() }
+    def query(stmt: String): Future[(Transaction, JsonObject)] = {
+      val command = Json.obj(
+        "action" -> "raw",
+        "command" -> stmt
+      )
 
-    def query(query: String, values: JsonArray): Future[(Transaction, JsonObject)] = transactionHelper(Json.obj(
-      "action" -> "prepared",
-      "statement" -> query,
-      "values" -> values)) flatMap { r => Future.apply(Transaction(r), checkForDatabaseError(r.body())) recoverWith Transaction(r).rollbackAndFail() }
+      queryHelper(command)
+    }
+
+    def query(stmt: String, values: JsonArray): Future[(Transaction, JsonObject)] = {
+      val command = Json.obj(
+        "action" -> "prepared",
+        "statement" -> stmt,
+        "values" -> values
+      )
+
+      queryHelper(command)
+    }
 
     def commit(): Future[Unit] = transactionHelper(Json.obj("action" -> "commit")) map { _ => () }
 
@@ -80,24 +92,39 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
       case ex: Throwable => rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
     }
 
+    private def queryHelper(command: JsonObject): Future[(Transaction, JsonObject)] = {
+      transactionHelper(command) flatMap { reply =>
+        val future = Future(Transaction(reply), checkForDatabaseError(command, reply.body()))
+        future recoverWith Transaction(reply).rollbackAndFail()
+        future
+      }
+    }
+
     private def transactionHelper(json: JsonObject): Future[Message[JsonObject]] = {
       val p = Promise[Message[JsonObject]]()
-      msg.replyWithTimeout(json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
+      msg.replyWithTimeout(json, DEFAULT_TIMEOUT, replyHandler(p, json))
       p.future
     }
   }
 
-  def query(stmt: String): Future[JsonObject] = sendHelper(Json.obj(
-    "action" -> "raw",
-    "command" -> stmt
-  )) map { msg => checkForDatabaseError(msg.body()) } recoverWith {case ex => Future.failed[JsonObject](ex)}
+  def query(stmt: String): Future[JsonObject] = {
+    val command = Json.obj(
+      "action" -> "raw",
+      "command" -> stmt
+    )
+    queryHelper(command)
+  }
 
-  def query(stmt: String, parameter: JsonArray): Future[JsonObject] = sendHelper(Json.obj(
-    "action" -> "prepared",
-    "statement" -> stmt,
-    "values" -> parameter)) map { msg => checkForDatabaseError(msg.body()) } recoverWith { case ex => Future.failed[JsonObject](ex) }
+  def query(stmt: String, parameter: JsonArray): Future[JsonObject] = {
+    val command = Json.obj(
+      "action" -> "prepared",
+      "statement" -> stmt,
+      "values" -> parameter
+    )
+    queryHelper(command)
+  }
 
-  def begin(): Future[Transaction] = sendHelper(Json.obj("action" -> "begin")) map { Transaction }
+  def begin(): Future[Transaction] = sendHelper(Json.obj("action" -> "begin")) map Transaction
 
   def transactional[A](stuff: TransFunc[A]): Future[A] = {
     for {
@@ -107,21 +134,34 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
     } yield result
   }
 
+  def selectSingleLong(select: String, arr: JsonArray): Future[Long] = {
+    for {
+      result <- query(select, arr)
+      resultArr <- Future(selectNotNull(result))
+    } yield {
+      resultArr.head.get[Long](0)
+    }
+  }
+
+  private def queryHelper(command: JsonObject): Future[JsonObject] = {
+    sendHelper(command) map { reply => checkForDatabaseError(command, reply.body()) } recoverWith { case ex => Future.failed[JsonObject](ex) }
+  }
+
   private def sendHelper(json: JsonObject): Future[Message[JsonObject]] = {
     val p = Promise[Message[JsonObject]]()
-    vertx.eventBus.sendWithTimeout(config.databaseAddress, json, DEFAULT_TIMEOUT, replyHandler(p, json.getString("action")))
+    vertx.eventBus.sendWithTimeout(config.databaseAddress, json, DEFAULT_TIMEOUT, replyHandler(p, json))
     p.future
   }
 
-  private def replyHandler(p: Promise[Message[JsonObject]], action: String): Try[Message[JsonObject]] => Unit = {
+  private def replyHandler(p: Promise[Message[JsonObject]], json: JsonObject): Try[Message[JsonObject]] => Unit = {
     case Success(rep) => p.success(rep)
     case Failure(ex) =>
-      verticle.logger.error(s"fail in $action", ex)
+      verticle.logger.error(s"fail in ${json.getString("action")}: ${json.encode()}", ex)
       p.failure(ex)
   }
 
-  private def checkForDatabaseError(json: JsonObject): JsonObject = json.getString("status") match {
-    case "ok" => json
-    case "error" => throw DatabaseException(json.getString("message"), "unknown")
+  private def checkForDatabaseError(command: JsonObject, reply: JsonObject): JsonObject = reply.getString("status") match {
+    case "ok" => reply
+    case "error" => throw DatabaseException(s"Statement ${command.encode()} failed. ${reply.getString("message")}", "unknown")
   }
 }

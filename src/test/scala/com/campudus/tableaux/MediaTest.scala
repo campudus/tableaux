@@ -6,7 +6,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{File, Folder}
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.helper.FutureUtils
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import org.vertx.java.core.json.JsonObject
 import org.vertx.scala.core.http.HttpClientRequest
 import org.vertx.scala.core.json.Json
@@ -108,6 +108,17 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
+  def retrieveRootFolder(): Unit = okTest {
+    for {
+      rootFolder <- sendRequest("GET", "/folders")
+    } yield {
+      assertNull(rootFolder.getString("id"))
+      assertEquals("root", rootFolder.getString("name"))
+      assertNull(rootFolder.getString("parent"))
+    }
+  }
+
+  @Test
   def uploadFileWithNonAsciiCharacterName(): Unit = okTest {
     val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
@@ -133,7 +144,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def retreiveFile(): Unit = okTest {
+  def retrieveFile(): Unit = okTest {
     val fileName = "Scr$en Shot.pdf"
     val file = s"/com/campudus/tableaux/uploads/$fileName"
     val mimetype = "application/pdf"
@@ -150,9 +161,7 @@ class MediaTest extends TableauxTestBase {
 
         val url = s"/files/${uploadResponse.getString("uuid")}/" + URLEncoder.encode(fileName, "UTF-8")
 
-        logger.info(s"Load file ${url.toString}")
-
-        val req = httpRequest("GET", url.toString, {
+        httpRequest("GET", url.toString, {
           resp =>
             assertEquals(200, resp.statusCode())
 
@@ -161,14 +170,10 @@ class MediaTest extends TableauxTestBase {
 
             resp.bodyHandler { buf =>
               assertEquals("Should get the same size back as the file really is", size, buf.length())
-
-              testComplete()
               p.success()
             }
         }).exceptionHandler({ ext =>
           fail(ext.toString)
-
-          testComplete()
           p.failure(ext)
         }).end()
       }
@@ -214,6 +219,126 @@ class MediaTest extends TableauxTestBase {
     } yield {
       assertEquals(folder1.toString, deleteFolder1.getString("id"))
       assertEquals(folder2.toString, deleteFolder2.getString("id"))
+    }
+  }
+
+  @Test
+  def createAttachmentColumn(): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
+
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    for {
+      tableId <- setupDefaultTable()
+
+      column <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns")
+    } yield {
+      assertEquals(expectedJson, column)
+    }
+  }
+
+  @Test
+  def fillAndRetrieveAttachmentCell(): Unit = okTest {
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+
+    for {
+      tableId <- setupDefaultTable()
+
+      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
+
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getArray("rows").get[JsonObject](0).getField[Int]("id"))
+
+      fileUuid <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid")
+
+      // Add attachment
+      resultFill <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Retrieve attachment
+      resultRetrieve <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      assertEquals(3, columnId)
+
+      assertEquals(Json.obj("status" -> "ok"), resultFill)
+
+      assertEquals(fileUuid, resultRetrieve.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+    }
+  }
+
+  @Test
+  def updateAttachmentColumn(): Unit = okTest {
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+
+    for {
+      tableId <- setupDefaultTable()
+
+      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
+
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getArray("rows").get[JsonObject](0).getField[Int]("id"))
+
+      fileUuid1 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid1")
+
+      fileUuid2 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid2")
+
+      // Add attachments
+      resultFill1 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultFill2 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Retrieve attachments after fill
+      resultRetrieveFill <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Update attachments
+      resultUpdate1 <- sendRequestWithJson("PUT", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultUpdate2 <- sendRequestWithJson("PUT", Json.obj("value" -> Json.obj("uuid" -> fileUuid2, "ordering" -> 1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Retrieve attachments after update
+      resultRetrieveUpdate <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Delete attachment
+      _ <- sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId/attachment/$fileUuid2")
+
+      // Retrieve attachment after delete
+      resultRetrieveDelete <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid1")
+      _ <- sendRequest("DELETE", s"/files/$fileUuid2")
+    } yield {
+      assertEquals(3, columnId)
+
+      assertEquals(Json.obj("status" -> "ok"), resultFill1)
+      assertEquals(Json.obj("status" -> "ok"), resultFill2)
+
+      assertEquals(fileUuid1, resultRetrieveFill.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid2, resultRetrieveFill.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](1).getString("uuid"))
+
+      assertEquals(fileUuid2, resultRetrieveUpdate.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid1, resultRetrieveUpdate.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](1).getString("uuid"))
+
+      assertEquals(fileUuid1, resultRetrieveDelete.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
     }
   }
 

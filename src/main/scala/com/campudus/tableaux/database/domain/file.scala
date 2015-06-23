@@ -52,7 +52,9 @@ case class TemporaryFile(file: File) extends DomainObject {
 
 case class ExtendedFile(file: File) extends DomainObject {
 
-  override def getJson: JsonObject = Json.obj("url" -> s"/files/${file.uuid.get}/${file.filename}").mergeIn(file.getJson)
+  override def getJson: JsonObject = Json.obj("url" -> getUrl).mergeIn(file.getJson)
 
   override def setJson: JsonObject = getJson
+
+  def getUrl: String = s"/files/${file.uuid.get}/${file.filename}"
 }
