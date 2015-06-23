@@ -68,12 +68,13 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
       }
 
       (t, result) <- t.query(s"""
-        |SELECT user_table_$toTableId.id, user_table_$toTableId.column_$toColumnId FROM user_table_$tableId
+        |SELECT to_table.id, to_table.column_$toColumnId
+        |  FROM user_table_$tableId AS from_table
         |  JOIN link_table_$linkId
-        |    ON user_table_$tableId.id = link_table_$linkId.$id1
-        |  JOIN user_table_$toTableId
-        |    ON user_table_$toTableId.id = link_table_$linkId.$id2
-        |WHERE user_table_$tableId.id = ?""".stripMargin, Json.arr(rowId))
+        |    ON from_table.id = link_table_$linkId.$id1
+        |  JOIN user_table_$toTableId AS to_table
+        |    ON to_table.id = link_table_$linkId.$id2
+        |WHERE from_table.id = ?""".stripMargin, Json.arr(rowId))
 
       _ <- t.commit()
     } yield {
