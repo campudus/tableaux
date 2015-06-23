@@ -16,13 +16,7 @@ case class Row(table: Table, id: RowId, values: Seq[_]) extends DomainObject {
 }
 
 case class RowSeq(rows: Seq[Row]) extends DomainObject {
-  def getJson: JsonObject = Json.obj("rows" -> (rows map {
-    row =>
-      row.getJson.getArray("rows").get[JsonObject](0)
-  }))
+  def getJson: JsonObject = Json.obj("rows" -> (rows map (_.getJson.getArray("rows").get[JsonObject](0))))
 
-  def setJson: JsonObject = Json.obj("rows" -> (rows map {
-    row =>
-      row.setJson.getArray("rows").get[JsonObject](0)
-  }))
+  def setJson: JsonObject = Json.obj("rows" -> (rows map (_.setJson.getArray("rows").get[JsonObject](0))))
 }

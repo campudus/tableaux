@@ -109,7 +109,6 @@ class MediaTest extends TableauxTestBase {
 
   @Test
   def retrieveRootFolder(): Unit = okTest {
-
     for {
       rootFolder <- sendRequest("GET", "/folders")
     } yield {
@@ -243,8 +242,6 @@ class MediaTest extends TableauxTestBase {
 
   @Test
   def fillAndRetrieveAttachmentCell(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
-
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
@@ -258,15 +255,9 @@ class MediaTest extends TableauxTestBase {
     for {
       tableId <- setupDefaultTable()
 
-      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map {
-        json =>
-          json.getArray("columns").get[JsonObject](0).getField[Int]("id")
-      }
+      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
 
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map {
-        json =>
-          json.getArray("rows").get[JsonObject](0).getField[Int]("id")
-      }
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getArray("rows").get[JsonObject](0).getField[Int]("id"))
 
       fileUuid <- uploadFile(file, mimetype) map (_.getString("uuid"))
       _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid")
@@ -289,8 +280,6 @@ class MediaTest extends TableauxTestBase {
 
   @Test
   def updateAttachmentColumn(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
-
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
@@ -305,15 +294,9 @@ class MediaTest extends TableauxTestBase {
     for {
       tableId <- setupDefaultTable()
 
-      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map {
-        json =>
-          json.getArray("columns").get[JsonObject](0).getField[Int]("id")
-      }
+      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
 
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map {
-        json =>
-          json.getArray("rows").get[JsonObject](0).getField[Int]("id")
-      }
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getArray("rows").get[JsonObject](0).getField[Int]("id"))
 
       fileUuid1 <- uploadFile(file, mimetype) map (_.getString("uuid"))
       _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid1")
@@ -341,8 +324,8 @@ class MediaTest extends TableauxTestBase {
       // Retrieve attachment after delete
       resultRetrieveDelete <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-      //_ <- sendRequest("DELETE", s"/files/$fileUuid1")
-      //_ <- sendRequest("DELETE", s"/files/$fileUuid2")
+      _ <- sendRequest("DELETE", s"/files/$fileUuid1")
+      _ <- sendRequest("DELETE", s"/files/$fileUuid2")
     } yield {
       assertEquals(3, columnId)
 
