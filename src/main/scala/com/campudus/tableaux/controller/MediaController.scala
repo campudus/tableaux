@@ -52,7 +52,8 @@ class MediaController(override val config: TableauxConfig,
     for {
       subfolders <- repository.retrieveSubfolders(folder.id)
       files <- fileModel.retrieveFromFolder(folder.id)
-    } yield ExtendedFolder(folder, subfolders, files)
+      extendedFiles <- Future(files map ExtendedFile)
+    } yield ExtendedFolder(folder, subfolders, extendedFiles)
   }
 
   def addNewFolder(name: String, description: String, parent: Option[FolderId]): Future[Folder] = {

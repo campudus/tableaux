@@ -31,7 +31,7 @@ case class Folder(id: Option[FolderId],
 
 case class ExtendedFolder(folder: Folder,
                           subfolders: Seq[Folder],
-                          files: Seq[File]) extends DomainObject {
+                          files: Seq[ExtendedFile]) extends DomainObject {
   override def getJson: JsonObject = {
     val folderJson = folder.getJson
 
