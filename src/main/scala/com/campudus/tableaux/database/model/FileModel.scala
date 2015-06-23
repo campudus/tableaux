@@ -158,7 +158,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
     for {
       result <- folder match {
-        case None => connection.query(select("idfolder = null"))
+        case None => connection.query(select("idfolder IS NULL"))
         case Some(id) => connection.query(select("idfolder = ?"), Json.arr(id.toString))
       }
       resultArr <- Future(getSeqOfJsonArray(result))
