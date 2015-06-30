@@ -1,0 +1,14 @@
+{
+  "port": 8181,
+  "uploadsDirectory": "uploads/",
+  "workingDirectory": "../",
+
+  "database": {
+    "address" : "campudus.asyncdb",
+    "connection" : "PostgreSQL",
+    "host" : "localhost",
+    "port" : 5432,
+    "username" : "postgres",
+    "database" : "travis_ci_test"
+  }
+}

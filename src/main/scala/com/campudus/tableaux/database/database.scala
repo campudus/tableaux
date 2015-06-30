@@ -93,11 +93,12 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
     }
 
     private def queryHelper(command: JsonObject): Future[(Transaction, JsonObject)] = {
-      transactionHelper(command) flatMap { reply =>
-        val future = Future(Transaction(reply), checkForDatabaseError(command, reply.body()))
-        future recoverWith Transaction(reply).rollbackAndFail()
-        future
-      }
+      for {
+        reply <- transactionHelper(command)
+        check <- Future(
+          Transaction(reply), checkForDatabaseError(command, reply.body())
+        ) recoverWith Transaction(reply).rollbackAndFail()
+      } yield check
     }
 
     private def transactionHelper(json: JsonObject): Future[Message[JsonObject]] = {
