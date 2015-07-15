@@ -5,6 +5,4 @@ import org.vertx.scala.core.json._
 
 case class Link[A](id: RowId, value: A) extends DomainObject {
   override def getJson: JsonObject = Json.obj("id" -> id, "value" -> value)
-
-  override def setJson: JsonObject = getJson
 }

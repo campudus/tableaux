@@ -135,12 +135,21 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
     } yield result
   }
 
-  def selectSingleLong(select: String, arr: JsonArray): Future[Long] = {
+  def selectSingleValue[A](select: String): Future[A] = {
+    for {
+      result <- query(select)
+      resultArr <- Future(selectNotNull(result))
+    } yield {
+      resultArr.head.get[A](0)
+    }
+  }
+
+  def selectSingleValue[A](select: String, arr: JsonArray): Future[A] = {
     for {
       result <- query(select, arr)
       resultArr <- Future(selectNotNull(result))
     } yield {
-      resultArr.head.get[Long](0)
+      resultArr.head.get[A](0)
     }
   }
 

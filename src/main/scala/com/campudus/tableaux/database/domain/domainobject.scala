@@ -12,7 +12,7 @@ trait DomainObjectHelper {
   private def compatibility[A](returnType: ReturnType)(value: A): Any = {
     value match {
       case s: Seq[_] => compatibilitySeq(returnType)(s)
-      case d: DomainObject => d.getJson
+      case d: DomainObject => d.toJson(returnType)
       case _ => value
     }
   }
@@ -33,7 +33,7 @@ trait DomainObjectHelper {
 trait DomainObject extends DomainObjectHelper {
   def getJson: JsonObject
 
-  def setJson: JsonObject
+  def setJson: JsonObject = getJson
 
   /**
    * Returns an empty JsonObject. It's used
@@ -56,7 +56,5 @@ trait DomainObject extends DomainObjectHelper {
 }
 
 case class EmptyObject() extends DomainObject {
-  def getJson: JsonObject = Json.emptyObj()
-
-  def setJson: JsonObject = getJson
+  override def getJson: JsonObject = Json.emptyObj()
 }

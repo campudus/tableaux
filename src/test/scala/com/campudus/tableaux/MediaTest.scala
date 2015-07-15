@@ -119,6 +119,26 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
+  def createAndRetrieveFolder(): Unit = okTest {
+    def createFolderPutJson(name: String): JsonObject = {
+      Json.obj("name" -> name, "description" -> "Test Description", "parent" -> null)
+    }
+
+    for {
+      folderId <- sendRequestWithJson("POST", createFolderPutJson("Test"), s"/folders").map(s => s.getString("id"))
+
+      folder <- sendRequest("GET", s"/folders/$folderId")
+
+      _ <- sendRequestWithJson("PUT", createFolderPutJson("Update"), s"/folders/$folderId").map(s => s.getString("id"))
+
+      updatedFolder <- sendRequest("GET", s"/folders/$folderId")
+    } yield {
+      assertEquals("Test", folder.getString("name"))
+      assertEquals("Update", updatedFolder.getString("name"))
+    }
+  }
+
+  @Test
   def uploadFileWithNonAsciiCharacterName(): Unit = okTest {
     val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
@@ -157,6 +177,8 @@ class MediaTest extends TableauxTestBase {
     for {
       uploadResponse <- uploadFile(file, mimetype)
       _ <- sendRequestWithJson("PUT", put, s"/files/${uploadResponse.getString("uuid")}")
+      file <- sendRequest("GET", s"/files/${uploadResponse.getString("uuid")}")
+
       request <- promisify { p: Promise[Unit] =>
 
         val url = s"/files/${uploadResponse.getString("uuid")}/" + URLEncoder.encode(fileName, "UTF-8")
@@ -178,7 +200,9 @@ class MediaTest extends TableauxTestBase {
         }).end()
       }
       _ <- sendRequest("DELETE", s"/files/${uploadResponse.getString("uuid")}")
-    } yield request
+    } yield {
+      assertEquals(put.getString("name"), file.getString("name"))
+    }
   }
 
   @Test
@@ -279,6 +303,30 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
+  def addAttachmentWithMalformedUUID(): Unit = exceptionTest("error.json.attachment-value") {
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+
+    for {
+      tableId <- setupDefaultTable()
+      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getArray("rows").get[JsonObject](0).getField[Int]("id"))
+
+      // Add attachment with malformed uuid
+      resultFill <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> "this-is-not-an-uuid")), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+    } yield {
+      resultFill
+    }
+  }
+
+  @Test
   def updateAttachmentColumn(): Unit = okTest {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
@@ -305,7 +353,7 @@ class MediaTest extends TableauxTestBase {
       _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid2")
 
       // Add attachments
-      resultFill1 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultFill1 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
       resultFill2 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
       // Retrieve attachments after fill

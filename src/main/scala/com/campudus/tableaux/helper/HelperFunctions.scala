@@ -128,14 +128,6 @@ object HelperFunctions {
     }})
   }
 
-  def jsonToValues(json: JsonObject): Any = (for {
-    cells <- checkNotNullArray(json, "cells")
-    cellsAsJsonObjectList <- asCastedList[JsonObject](cells)
-    cellList <- nonEmpty(cellsAsJsonObjectList, "cells")
-    checkedCellList <- checkForJsonObject(cellList)
-    value <- notNull(checkedCellList.head.getField[Any]("value"), "value")
-  } yield value).get
-
   def getColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType]) = {
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getNumber("ordering").longValue()).toOption

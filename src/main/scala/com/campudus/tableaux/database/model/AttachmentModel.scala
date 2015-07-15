@@ -13,10 +13,7 @@ import scala.concurrent.Future
 case class Attachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID, ordering: Option[Ordering])
 
 case class AttachmentFile(file: ExtendedFile, ordering: Ordering) extends DomainObject {
-
   override def getJson: JsonObject = Json.obj("ordering" -> ordering).mergeIn(file.getJson)
-
-  override def setJson: JsonObject = getJson
 }
 
 object AttachmentModel {
@@ -35,17 +32,7 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
 
     connection.transactional({ t =>
       for {
-        (t, ordering) <- a.ordering match {
-          case Some(i) => Future((t, i))
-          case None => {
-            for {
-              (t, result) <- t.query(s"SELECT COALESCE(MAX(ordering),0) + 1 FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?", Json.arr(a.tableId, a.columnId, a.rowId))
-              resultArr <- Future(selectNotNull(result))
-            } yield {
-              (t, resultArr.head.get[Long](0))
-            }
-          }
-        }
+        (t, ordering) <- retrieveOrdering(t, a)
         (t, _) <- t.query(insert, Json.arr(a.tableId, a.columnId, a.rowId, a.uuid.toString, ordering))
         file <- retrieveFile(a.uuid, ordering)
       } yield (t, file)
@@ -57,27 +44,33 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
 
     connection.transactional({ t =>
       for {
-        (t, ordering: Ordering) <- a.ordering match {
-          case Some(i: Ordering) => Future((t, i: Ordering))
-          case None => {
-            for {
-              (t, result) <- t.query(s"SELECT COALESCE(MAX(ordering),0) + 1 FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?", Json.arr(a.tableId, a.columnId, a.rowId))
-              resultArr <- Future(selectNotNull(result))
-            } yield {
-              (t, resultArr.head.get[Ordering](0))
-            }
-          }
-        }
+        (t, ordering: Ordering) <- retrieveOrdering(t, a)
         (t, _) <- t.query(update, Json.arr(ordering, a.tableId, a.columnId, a.rowId, a.uuid.toString))
         file <- retrieveFile(a.uuid, ordering)
       } yield (t, file)
     })
   }
 
+  private def retrieveOrdering(t: connection.Transaction, a: Attachment): Future[(connection.Transaction, Ordering)] = {
+    for {
+      (t, ordering: Ordering) <- a.ordering match {
+        case Some(i: Ordering) => Future((t, i: Ordering))
+        case None => {
+          for {
+            (t, result) <- t.query(s"SELECT COALESCE(MAX(ordering),0) + 1 FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?", Json.arr(a.tableId, a.columnId, a.rowId))
+            resultArr <- Future(selectNotNull(result))
+          } yield {
+            (t, resultArr.head.get[Ordering](0))
+          }
+        }
+      }
+    } yield (t, ordering)
+  }
+
   def size(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Long] = {
     val select = s"SELECT COUNT(*) FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?"
 
-    connection.selectSingleLong(select, Json.arr(tableId, columnId, rowId))
+    connection.selectSingleValue(select, Json.arr(tableId, columnId, rowId))
   }
 
   def retrieveAll(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Seq[AttachmentFile]] = {

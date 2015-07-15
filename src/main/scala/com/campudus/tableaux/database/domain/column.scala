@@ -42,13 +42,13 @@ case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: 
 }
 
 case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
-  def getJson: JsonObject = Json.obj("columns" ->
+  override def getJson: JsonObject = Json.obj("columns" ->
     (columns map {
       col =>
         col.getJson.getArray("columns").get[JsonObject](0)
     }))
 
-  def setJson: JsonObject = Json.obj("columns" ->
+  override def setJson: JsonObject = Json.obj("columns" ->
     (columns map {
       col =>
         col.setJson.getArray("columns").get[JsonObject](0)

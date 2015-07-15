@@ -25,8 +25,6 @@ case class Folder(id: Option[FolderId],
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )
-
-  override def setJson: JsonObject = getJson
 }
 
 case class ExtendedFolder(folder: Folder,
@@ -40,6 +38,4 @@ case class ExtendedFolder(folder: Folder,
       "files" -> compatibilityGet(files)
     ))
   }
-
-  override def setJson: JsonObject = getJson
 }

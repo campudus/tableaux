@@ -116,12 +116,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   override def size(): Future[Long] = {
     val select = s"SELECT COUNT(*) FROM $table WHERE tmp = FALSE"
 
-    for {
-      result <- connection.query(select)
-      resultArr <- Future(selectNotNull(result))
-    } yield {
-      resultArr.head.get[Long](0)
-    }
+    connection.selectSingleValue(select)
   }
 
   override def retrieveAll(): Future[Seq[File]] = {

@@ -39,22 +39,16 @@ case class File(uuid: Option[UUID],
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )
-
-  override def setJson: JsonObject = getJson
 }
 
 case class TemporaryFile(file: File) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj("tmp" -> true).mergeIn(file.getJson)
-
-  override def setJson: JsonObject = getJson
 }
 
 case class ExtendedFile(file: File) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj("url" -> getUrl).mergeIn(file.getJson)
-
-  override def setJson: JsonObject = getJson
 
   def getUrl: String = s"/files/${file.uuid.get}/${file.filename}"
 }
