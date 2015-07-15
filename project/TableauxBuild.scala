@@ -4,7 +4,7 @@ import sbt._
 import sbt.Keys._
 
 object TableauxBuild extends VertxProject {
-  val module = VertxModule("com.campudus", "tableaux", "0.1.0", "tables into sheets", Some("2.11.6"), Seq("2.11.6"))
+  val module = VertxModule("com.campudus", "tableaux", "0.1.0", "tables into sheets", Some("2.11.7"), Seq("2.11.7"))
 
   override lazy val customSettings = Seq(
     libraryDependencies ++= Seq(

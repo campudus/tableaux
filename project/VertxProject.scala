@@ -10,7 +10,7 @@ case class VertxModule(organization: String,
                        id: String,
                        version: String,
                        description: String,
-                       scalaVersion: Option[String] = Some("2.11.6"),
+                       scalaVersion: Option[String] = Some("2.11.7"),
                        crossScalaVersions: Seq[String] = Seq.empty)
 
 
