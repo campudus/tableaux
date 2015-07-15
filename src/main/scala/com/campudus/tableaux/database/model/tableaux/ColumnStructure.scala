@@ -9,128 +9,104 @@ import scala.concurrent.Future
 
 class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def insert(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = for {
-    t <- connection.begin()
-    (t, result) <- ordering match {
-      case None => t.query(s"""
-                     |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering)
-                     |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, currval('system_columns_column_id_table_$tableId'))
-                     |  RETURNING column_id, ordering""".stripMargin,
-        Json.arr(tableId, dbType.toString, name))
-      case Some(ord) => t.query(s"""
-                     |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering)
-                     |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, ?)
-                     |  RETURNING column_id, ordering""".stripMargin,
-        Json.arr(tableId, dbType.toString, name, ord))
-    }
-    result <- Future.successful(insertNotNull(result).head)
-    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[ColumnId](0)} $dbType")
-    _ <- t.commit()
-  } yield (result.get[ColumnId](0), result.get[Ordering](1))
-
-  def insertAttachment(tableId: TableId, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
-    val dbType = AttachmentType
-
-    def insert(values: String) = {
-      s"INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering) $values RETURNING column_id, ordering"
-    }
-
+  def insert(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
-        (t, result) <- ordering match {
-          case None =>
-            t.query(insert(s"VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, currval('system_columns_column_id_table_$tableId'))"),
-              Json.arr(tableId, dbType.toString, name))
-          case Some(ord) =>
-            t.query(insert(s"VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, ?)"),
-              Json.arr(tableId, dbType.toString, name, ord))
-        }
+        (t, result) <- insertSystemColumn(t, tableId, name, dbType, ordering, None)
+        result <- Future.successful(insertNotNull(result).head)
+
+        (t, _) <- t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[ColumnId](0)} $dbType")
+      } yield (t, (result.get[ColumnId](0), result.get[Ordering](1)))
+    }
+  }
+
+  def insertAttachment(tableId: TableId, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+    connection.transactional { t =>
+      for {
+        (t, result) <- insertSystemColumn(t, tableId, name, AttachmentType, ordering, None)
         result <- Future.successful(insertNotNull(result).head)
       } yield (t, (result.get[ColumnId](0), result.get[Ordering](1)))
     }
   }
 
-  def insertLink(tableId: TableId, name: String, fromColumnId: ColumnId, toTableId: TableId, toColumnId: ColumnId, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = for {
-    t <- connection.begin()
-    (t, result) <- t.query(s"""INSERT INTO system_link_table (table_id_1, table_id_2, column_id_1, column_id_2) VALUES (?, ?, ?, ?) RETURNING link_id""".stripMargin,
-      Json.arr(tableId, toTableId, fromColumnId, toColumnId))
-    linkId <- Future.successful { insertNotNull(result).head.get[Long](0) }
-    (t, _) <- t.query(s"""
-                    |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
-                    |  ?,
-                    |  nextval('system_columns_column_id_table_$toTableId'),
-                    |  'link',
-                    |  ?,
-                    |  currval('system_columns_column_id_table_$toTableId'),
-                    |  ?)""".stripMargin,
-      Json.arr(toTableId, name, linkId))
-    (t, result) <- ordering match {
-      case None => t.query(s"""
-                    |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
-                    |  ?,
-                    |  nextval('system_columns_column_id_table_$tableId'),
-                    |  'link',
-                    |  ?,
-                    |  currval('system_columns_column_id_table_$tableId'),
-                    |  ?
-                    |) RETURNING column_id, ordering""".stripMargin,
-        Json.arr(tableId, name, linkId))
-      case Some(ord) => t.query(s"""
-                    |INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
-                    |  ?,
-                    |  nextval('system_columns_column_id_table_$tableId'),
-                    |  'link',
-                    |  ?,
-                    |  ?,
-                    |  ?
-                    |) RETURNING column_id, ordering""".stripMargin,
-        Json.arr(tableId, name, ord, linkId))
+  def insertLink(tableId: TableId, name: String, fromColumnId: ColumnId, toTableId: TableId, toColumnId: ColumnId, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+    connection.transactional { t =>
+      for {
+        (t, result) <- t.query("INSERT INTO system_link_table (table_id_1, table_id_2, column_id_1, column_id_2) VALUES (?, ?, ?, ?) RETURNING link_id", Json.arr(tableId, toTableId, fromColumnId, toColumnId))
+        linkId <- Future(insertNotNull(result).head.get[Long](0))
+
+        // only add the two link column if tableId != toTableId
+        (t, _) <- {
+          if (tableId != toTableId) {
+            insertSystemColumn(t, toTableId, name, LinkType, None, Some(linkId))
+          } else {
+            Future((t, Json.emptyObj()))
+          }
+        }
+        (t, result) <- insertSystemColumn(t, tableId, name, LinkType, ordering, Some(linkId))
+
+        (t, _) <- t.query( s"""
+                              |CREATE TABLE link_table_$linkId (
+                              | id_1 bigint,
+                              | id_2 bigint,
+                              | PRIMARY KEY(id_1, id_2),
+                              | CONSTRAINT link_table_${linkId}_foreign_1
+                              |   FOREIGN KEY(id_1)
+                              |   REFERENCES user_table_$tableId (id)
+                              |   ON DELETE CASCADE,
+                              | CONSTRAINT link_table_${linkId}_foreign_2
+                              |   FOREIGN KEY(id_2)
+                              |   REFERENCES user_table_$toTableId (id)
+                              |   ON DELETE CASCADE
+                              |)""".stripMargin)
+      } yield {
+        val json = insertNotNull(result).head
+
+        (t, (json.get[ColumnId](0), json.get[Ordering](1)))
+      }
     }
-    (t, _) <- t.query(s"""
-                    |CREATE TABLE link_table_$linkId (
-                    |  id_1 bigint,
-                    |  id_2 bigint,
-                    |  PRIMARY KEY(id_1, id_2),
-                    |  CONSTRAINT link_table_${linkId}_foreign_1
-                    |    FOREIGN KEY(id_1)
-                    |    REFERENCES user_table_$tableId (id)
-                    |    ON DELETE CASCADE,
-                    |  CONSTRAINT link_table_${linkId}_foreign_2
-                    |    FOREIGN KEY(id_2)
-                    |    REFERENCES user_table_$toTableId (id)
-                    |    ON DELETE CASCADE
-                    |)""".stripMargin)
-    _ <- t.commit()
-  } yield {
-    val json = insertNotNull(result).head
-    (json.get[ColumnId](0), json.get[Ordering](1))
+  }
+
+  private def insertSystemColumn(t: connection.Transaction, tableId: TableId, name: String, kind: TableauxDbType, ordering: Option[Ordering], linkId: Option[Long]): Future[(connection.Transaction, JsonObject)] = {
+    def insertStatement(tableId: TableId, ordering: String) =
+      s"""INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id) VALUES (
+          | ?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?) RETURNING column_id, ordering""".stripMargin
+
+    for {
+      (t, result) <- ordering match {
+        case None => t.query(insertStatement(tableId, s"currval('system_columns_column_id_table_$tableId')"), Json.arr(tableId, kind.name, name, linkId.orNull))
+        case Some(ord) => t.query(insertStatement(tableId, "?"), Json.arr(tableId, kind.name, name, ord, linkId.orNull))
+      }
+    } yield (t, result)
   }
 
   def get(tableId: TableId, columnId: ColumnId): Future[(ColumnId, String, TableauxDbType, Ordering)] = for {
-    result <- connection.query("""
-                              |SELECT column_id, user_column_name, column_type, ordering
-                              |  FROM system_columns
-                              |  WHERE table_id = ? AND column_id = ?
-                              |  ORDER BY column_id""".stripMargin, Json.arr(tableId, columnId))
+    result <- connection.query( """
+                                  |SELECT column_id, user_column_name, column_type, ordering
+                                  |  FROM system_columns
+                                  |  WHERE table_id = ? AND column_id = ?
+                                  |  ORDER BY column_id""".stripMargin, Json.arr(tableId, columnId))
   } yield {
-    val json = selectNotNull(result).head
-    (json.get[ColumnId](0), json.get[String](1), Mapper.getDatabaseType(json.get[String](2)), json.get[Ordering](3))
-  }
+      val json = selectNotNull(result).head
+      (json.get[ColumnId](0), json.get[String](1), Mapper.getDatabaseType(json.get[String](2)), json.get[Ordering](3))
+    }
 
   def getAll(tableId: TableId): Future[Seq[(ColumnId, String, TableauxDbType, Ordering)]] = {
     connection.query("SELECT column_id, user_column_name, column_type, ordering FROM system_columns WHERE table_id = ? ORDER BY column_id", Json.arr(tableId))
-  } map { getSeqOfJsonArray(_) map { arr => (arr.get[ColumnId](0), arr.get[String](1), Mapper.getDatabaseType(arr.get[String](2)), arr.get[Ordering](3)) } }
+  } map {
+    getSeqOfJsonArray(_) map { arr => (arr.get[ColumnId](0), arr.get[String](1), Mapper.getDatabaseType(arr.get[String](2)), arr.get[Ordering](3)) }
+  }
 
   def getToColumn(tableId: TableId, columnId: ColumnId): Future[(TableId, ColumnId)] = {
     for {
-      result <- connection.query("""
-                                         |SELECT table_id_1, table_id_2, column_id_1, column_id_2
-                                         |  FROM system_link_table
-                                         |  WHERE link_id = (
-                                         |    SELECT link_id
-                                         |    FROM system_columns
-                                         |    WHERE table_id = ? AND column_id = ?
-                                         |  )""".stripMargin, Json.arr(tableId, columnId))
+      result <- connection.query( """
+                                    |SELECT table_id_1, table_id_2, column_id_1, column_id_2
+                                    |  FROM system_link_table
+                                    |  WHERE link_id = (
+                                    |    SELECT link_id
+                                    |    FROM system_columns
+                                    |    WHERE table_id = ? AND column_id = ?
+                                    |  )""".stripMargin, Json.arr(tableId, columnId))
       (toTableId, toColumnId) <- Future.successful {
         val res = selectNotNull(result).head
 
