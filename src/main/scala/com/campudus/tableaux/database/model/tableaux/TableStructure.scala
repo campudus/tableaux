@@ -9,14 +9,35 @@ import scala.concurrent.Future
 
 class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def create(name: String): Future[TableId] = for {
-    t <- connection.begin()
-    (t, result) <- t.query("INSERT INTO system_table (user_table_name) VALUES (?) RETURNING table_id", Json.arr(name))
-    id <- Future.apply(insertNotNull(result).head.get[TableId](0))
-    (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
-    (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
-    _ <- t.commit()
-  } yield id
+  def create(name: String): Future[TableId] = {
+    connection.transactional { t =>
+      for {
+        (t, result) <- t.query("INSERT INTO system_table (user_table_name) VALUES (?) RETURNING table_id", Json.arr(name))
+        id <- Future(insertNotNull(result).head.get[TableId](0))
+        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
+        t <- createLanguageTable(t, id)
+        (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
+      } yield (t, id)
+    }
+  }
+
+  private def createLanguageTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+    for {
+      (t, _) <- t.query(
+        s"""
+           | CREATE TABLE user_table_lang_$id (
+           |   id BIGSERIAL,
+           |   langtag VARCHAR(255),
+           |
+           |   PRIMARY KEY (id, langtag),
+           |
+           |   FOREIGN KEY(id)
+           |   REFERENCES user_table_$id(id)
+           |   ON DELETE CASCADE
+           | )
+         """.stripMargin)
+    } yield t
+  }
 
   def retrieveAll(): Future[Seq[(TableId, String)]] = {
     connection.query("SELECT table_id, user_table_name FROM system_table")
