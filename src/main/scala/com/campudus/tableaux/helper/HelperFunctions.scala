@@ -1,9 +1,9 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.database.model.TableauxModel.{TableId, ColumnId, LinkConnection, Ordering}
+import com.campudus.tableaux.database.model.TableauxModel.{TableId, ColumnId, Ordering}
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{CreateAttachmentColumn, CreateSimpleColumn, CreateLinkColumn, CreateColumn}
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
@@ -26,11 +26,15 @@ object HelperFunctions {
     tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))(kind)
   }
 
+  def toOption[A](value: => A): ArgumentCheck[Option[A]] = {
+    OkArg(Try(value).toOption)
+  }
+
   private def getLinkInformation(json: JsonObject): ArgumentCheck[LinkConnection] = for {
     toTable <- notNull(json.getLong("toTable"): TableId, "toTable")
     toColumn <- notNull(json.getLong("toColumn"): ColumnId, "toColumn")
     fromColumn <- notNull(json.getLong("fromColumn"): ColumnId, "fromColumn")
-  } yield (toTable, toColumn, fromColumn)
+  } yield LinkConnection(toTable, toColumn, fromColumn)
 
   private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[CreateColumn]] = for {
     tuples <- sequence(seq map {
@@ -42,18 +46,12 @@ object HelperFunctions {
           dbType <- toTableauxType(kind)
         } yield {
           val ordering = Try(json.getNumber("ordering").longValue()).toOption
+          val multi = json.getBoolean("multilanguage", false)
 
           dbType match {
-            case AttachmentType => {
-              CreateAttachmentColumn(name, ordering)
-            }
-            case LinkType => {
-              val linkConnections = getLinkInformation(json).get
-              CreateLinkColumn(name, ordering, linkConnections)
-            }
-            case _ => {
-              CreateSimpleColumn(name, dbType, ordering)
-            }
+            case AttachmentType => CreateAttachmentColumn(name, ordering)
+            case LinkType => CreateLinkColumn(name, ordering, getLinkInformation(json).get)
+            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multi))
           }
         }
     })

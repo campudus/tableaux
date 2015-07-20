@@ -35,6 +35,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |  user_column_name VARCHAR(255) NOT NULL,
                          |  ordering BIGINT NOT NULL,
                          |  link_id BIGINT,
+                         |  multilanguage BOOLEAN,
                          |
                          |  PRIMARY KEY(table_id, column_id),
                          |  FOREIGN KEY(table_id)

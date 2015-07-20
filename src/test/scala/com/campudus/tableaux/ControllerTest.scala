@@ -1,20 +1,14 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.database.model.{SystemModel, TableauxModel}
+import com.campudus.tableaux.database.model.TableauxModel
 import TableauxModel._
-import com.campudus.tableaux.database.domain.{CreateSimpleColumn, CreateColumn}
+import com.campudus.tableaux.database.domain.{CreateSimpleColumn}
 import org.junit.Test
-import org.vertx.scala.core.json.{Json, JsonObject}
-import org.vertx.scala.platform.Verticle
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.testtools.TestVerticle
-import scala.io.Source
-import scala.util.Try
 import scala.concurrent.Future
-import scala.util.Success
-import scala.util.Failure
-import com.campudus.tableaux.database.{TextType, DatabaseConnection}
+import com.campudus.tableaux.database.{SingleLanguage, TextType, DatabaseConnection}
 
 class ControllerTest extends TestVerticle with TestConfig {
 
@@ -36,7 +30,7 @@ class ControllerTest extends TestVerticle with TestConfig {
   @Test
   def checkCreateLinkColumnWithNullParameter(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn(null, null, null))))
+    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn(null, null, null, SingleLanguage))))
   }
 
   @Test
@@ -48,13 +42,13 @@ class ControllerTest extends TestVerticle with TestConfig {
   @Test
   def checkCreateColumnWithNullName(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn(null, TextType, None))))
+    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn(null, None, TextType, SingleLanguage))))
   }
 
   @Test
   def checkCreateColumnWithNullType(): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn("", null, None))))
+    illegalArgumentTest(controller.createColumn(0, Seq(CreateSimpleColumn("", None, null, SingleLanguage))))
   }
 
   @Test

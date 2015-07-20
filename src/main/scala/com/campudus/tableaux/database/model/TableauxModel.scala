@@ -18,11 +18,6 @@ object TableauxModel {
 
   type Ordering = Long
 
-  /**
-   * (ToTable, ToColumn, FromColumn)
-   */
-  type LinkConnection = (TableId, ColumnId, ColumnId)
-
   def apply(connection: DatabaseConnection): TableauxModel = {
     new TableauxModel(connection)
   }
@@ -69,26 +64,26 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def addColumns(tableId: TableId, columns: Seq[CreateColumn]): Future[ColumnSeq] = for {
     cols <- serialiseFutures(columns) {
-      case CreateSimpleColumn(name, kind, ordering) =>
-        addValueColumn(tableId, name, kind, ordering)
+      case CreateSimpleColumn(name, ordering, kind, languageType) =>
+        addValueColumn(tableId, name, kind, ordering, languageType)
 
-      case CreateLinkColumn(name, ordering, (toTable, toColumn, fromColumn)) =>
-        addLinkColumn(tableId, name, fromColumn, toTable, toColumn, ordering)
+      case CreateLinkColumn(name, ordering, linkConnection) =>
+        addLinkColumn(tableId, name, linkConnection, ordering)
 
       case CreateAttachmentColumn(name, ordering) =>
         addAttachmentColumn(tableId, name, ordering)
     }
   } yield ColumnSeq(cols)
 
-  def addValueColumn(tableId: TableId, name: String, columnType: TableauxDbType, ordering: Option[Ordering]): Future[SimpleValueColumn[_]] = for {
+  def addValueColumn(tableId: TableId, name: String, columnType: TableauxDbType, ordering: Option[Ordering], languageType: LanguageType): Future[ColumnType[_]] = for {
     table <- getTable(tableId)
-    (id, ordering) <- columnStruc.insert(table.id, columnType, name, ordering)
-  } yield Mapper(columnType).apply(table, id, name, ordering)
+    (id, ordering) <- columnStruc.insert(table.id, columnType, name, ordering, languageType)
+  } yield Mapper(languageType, columnType).apply(table, id, name, ordering)
 
-  def addLinkColumn(tableId: TableId, name: String, fromColumn: ColumnId, toTable: TableId, toColumn: ColumnId, ordering: Option[Ordering]): Future[LinkColumn[_]] = for {
+  def addLinkColumn(tableId: TableId, name: String, linkConnection: LinkConnection, ordering: Option[Ordering]): Future[LinkColumn[_]] = for {
     table <- getTable(tableId)
-    toCol <- getColumn(toTable, toColumn).asInstanceOf[Future[SimpleValueColumn[_]]]
-    (id, ordering) <- columnStruc.insertLink(tableId, name, fromColumn, toCol.table.id, toCol.id, ordering)
+    toCol <- getColumn(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
+    (id, ordering) <- columnStruc.insertLink(tableId, name, linkConnection.fromColumnId, toCol.table.id, toCol.id, ordering)
   } yield LinkColumn(table, id, toCol, name, ordering)
 
   def addAttachmentColumn(tableId: TableId, name: String, ordering: Option[Ordering]): Future[AttachmentColumn] = for {
@@ -228,6 +223,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         Future.sequence(allColumns map {
           case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
           case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
+          case c: MultiLanguageColumn[_] => Future.successful(values.toList(c.id.toInt - 1))
           case c: SimpleValueColumn[_] => Future.successful(values.toList(c.id.toInt - 1))
         })
       }
@@ -250,12 +246,12 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def getColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = for {
     table <- getTable(tableId)
-    (columnId, columnName, columnKind, ordering) <- columnStruc.get(table.id, columnId)
+    (columnId, columnName, columnKind, ordering, multilanguage) <- columnStruc.get(table.id, columnId)
     column <- columnKind match {
       case AttachmentType => getAttachmentColumn(table, columnId, columnName, ordering)
       case LinkType => getLinkColumn(table, columnId, columnName, ordering)
 
-      case kind: TableauxDbType => getValueColumn(table, columnId, columnName, kind, ordering)
+      case kind: TableauxDbType => getValueColumn(table, columnId, columnName, kind, ordering, multilanguage)
     }
   } yield column
 
@@ -264,8 +260,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     columns <- getAllColumns(table)
   } yield ColumnSeq(columns)
 
-  private def getValueColumn(table: Table, columnId: ColumnId, columnName: String, columnKind: TableauxDbType, ordering: Ordering): Future[SimpleValueColumn[_]] = {
-    Future(Mapper(columnKind).apply(table, columnId, columnName, ordering))
+  private def getValueColumn(table: Table, columnId: ColumnId, columnName: String, columnKind: TableauxDbType, ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
+    Future(Mapper(languageType, columnKind).apply(table, columnId, columnName, ordering))
   }
 
   private def getAttachmentColumn(table: Table, columnId: ColumnId, columnName: String, ordering: Ordering): Future[AttachmentColumn] = {
@@ -293,13 +289,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       allColumns <- {
         val columns: Future[Seq[ColumnType[_]]] = Future.sequence({
           for {
-            (columnId, columnName, kind, ordering) <- columnSeq
+            (columnId, columnName, kind, ordering, multilanguage) <- columnSeq
           } yield {
             kind match {
               case AttachmentType => getAttachmentColumn(table, columnId, columnName, ordering)
               case LinkType => getLinkColumn(table, columnId, columnName, ordering)
 
-              case kind: TableauxDbType => getValueColumn(table, columnId, columnName, kind, ordering)
+              case kind: TableauxDbType => getValueColumn(table, columnId, columnName, kind, ordering, multilanguage)
             }
           }
         })
@@ -314,7 +310,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       filteredLinkColumns <- {
         Future.sequence({
           for {
-            (columnId, columnName, columnKind, ordering) <- columnSeq if columnKind == LinkType
+            (columnId, columnName, columnKind, ordering, multilanguage) <- columnSeq if columnKind == LinkType
           } yield {
             getLinkColumn(table, columnId, columnName, ordering)
           }
@@ -336,6 +332,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
               case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
               case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
               case c: SimpleValueColumn[_] => Future.successful(values(c.id.toInt - 1))
+              case c: MultiLanguageColumn[_] => Future.successful(values(c.id.toInt - 1))
             })
 
             (rowId, mergedValues)

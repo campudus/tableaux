@@ -1,18 +1,23 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.{AttachmentType, LinkType, TableauxDbType}
+import com.campudus.tableaux.database._
 
 sealed trait CreateColumn {
+  val name: String
   val kind: TableauxDbType
+  val languageType: LanguageType
+  val ordering: Option[Ordering]
 }
 
-case class CreateSimpleColumn(name: String, kind: TableauxDbType, ordering: Option[Ordering]) extends CreateColumn
+case class CreateSimpleColumn(override val name: String, override val ordering: Option[Ordering], override val kind: TableauxDbType, override val languageType: LanguageType) extends CreateColumn
 
-case class CreateLinkColumn(name: String, ordering: Option[Ordering], linkConnection: LinkConnection) extends CreateColumn {
+case class CreateLinkColumn(override val name: String, override val ordering: Option[Ordering], linkConnection: LinkConnection) extends CreateColumn {
   override val kind = LinkType
+  override val languageType = SingleLanguage
 }
 
-case class CreateAttachmentColumn(name: String, ordering: Option[Ordering]) extends CreateColumn {
-  override val kind: TableauxDbType = AttachmentType
+case class CreateAttachmentColumn(override val name: String, override val ordering: Option[Ordering]) extends CreateColumn {
+  override val kind = AttachmentType
+  override val languageType = SingleLanguage
 }

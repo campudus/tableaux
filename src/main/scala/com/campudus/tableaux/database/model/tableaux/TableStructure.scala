@@ -50,14 +50,22 @@ class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     (json.get[TableId](0), json.get[String](1))
   }
 
-  def delete(tableId: TableId): Future[Unit] = for {
-    t <- connection.begin()
-    (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId")
-    (t, result) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
-    _ <- Future.apply(deleteNotNull(result)) recoverWith { t.rollbackAndFail() }
-    (t, _) <- t.query(s"DROP SEQUENCE system_columns_column_id_table_$tableId")
-    _ <- t.commit()
-  } yield ()
+  def delete(tableId: TableId): Future[Unit] = {
+    for {
+      t <- connection.begin()
+
+      (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_lang_$tableId")
+      (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId")
+
+      (t, result) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
+
+      _ <- Future(deleteNotNull(result)) recoverWith { t.rollbackAndFail() }
+
+      (t, _) <- t.query(s"DROP SEQUENCE system_columns_column_id_table_$tableId")
+
+      _ <- t.commit()
+    } yield ()
+  }
 
   def changeName(tableId: TableId, name: String): Future[Unit] = {
     connection.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))

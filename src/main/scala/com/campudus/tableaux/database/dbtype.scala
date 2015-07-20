@@ -25,22 +25,57 @@ case object AttachmentType extends TableauxDbType {
   override val name = "attachment"
 }
 
-object Mapper {
-  private def columnType(dbType: TableauxDbType): (Option[(Table, ColumnId, String, Ordering) => SimpleValueColumn[_]], TableauxDbType) = {
-    dbType match {
-      case TextType => (Some(StringColumn.apply), TextType)
-      case NumericType => (Some(NumberColumn.apply), NumericType)
+sealed trait LanguageType {
+  def toBoolean: Boolean
+}
 
-      // we can't handle this
-      case AttachmentType => (None, AttachmentType)
-      case LinkType => (None, LinkType)
+object LanguageType {
+  def apply(multilanguage: Boolean): LanguageType = {
+    if (multilanguage) {
+      MultiLanguage
+    } else {
+      SingleLanguage
+    }
+  }
+}
+
+case object SingleLanguage extends LanguageType {
+  override def toBoolean: Boolean = false
+}
+
+case object MultiLanguage extends LanguageType {
+  override def toBoolean: Boolean = true
+}
+
+object Mapper {
+  private def columnType(languageType: LanguageType, kind: TableauxDbType): Option[(Table, ColumnId, String, Ordering) => ColumnType[_]] = {
+    languageType match {
+      case SingleLanguage => kind match {
+        // primitive/simple types
+        case TextType => Some(TextColumn.apply)
+        case NumericType => Some(NumberColumn.apply)
+
+        // complex types
+        case AttachmentType => None
+        case LinkType => None
+      }
+
+      case MultiLanguage => kind match {
+        // primitive/simple types
+        case TextType => Some(MultiTextColumn.apply)
+        case NumericType => Some(MultiNumericColumn.apply)
+
+        // complex types
+        case AttachmentType => None
+        case LinkType => None
+      }
     }
   }
 
-  def apply(dbType: TableauxDbType): (Table, ColumnId, String, Ordering) => SimpleValueColumn[_] = columnType(dbType)._1.get
+  def apply(languageType: LanguageType, kind: TableauxDbType): (Table, ColumnId, String, Ordering) => ColumnType[_] = columnType(languageType, kind).get
 
-  def getDatabaseType(dbType: String): TableauxDbType = {
-    dbType match {
+  def getDatabaseType(kind: String): TableauxDbType = {
+    kind match {
       case TextType.name => TextType
       case NumericType.name => NumericType
       case LinkType.name => LinkType
