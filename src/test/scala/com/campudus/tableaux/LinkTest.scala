@@ -12,7 +12,7 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def retrieveLinkColumn(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "toColumn" -> 1, "ordering" -> 3)))
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 3, "name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "toColumn" -> 1, "ordering" -> 3)
 
     for {
       tables <- setupTwoTables()
