@@ -167,7 +167,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getRow(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1))))
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "values" -> Json.arr("table1row1", 1))
 
     for {
       _ <- setupDefaultTable()
@@ -194,8 +194,8 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getCell(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> "table1row1")))
-    val expectedJson2 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> 1)))
+    val expectedJson = Json.obj("status" -> "ok", "value" -> "table1row1")
+    val expectedJson2 = Json.obj("status" -> "ok", "value" -> 1)
 
     for {
       _ <- setupDefaultTable()

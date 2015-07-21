@@ -78,6 +78,13 @@ trait TableauxTestBase extends TestVerticle with TestConfig {
     p.future
   }
 
+  def sendRequest(method: String, path: String, jsonObj: JsonObject): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
+    p.future
+  }
+
+  @Deprecated
   def sendRequestWithJson(method: String, jsonObj: JsonObject, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
     httpJsonRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()

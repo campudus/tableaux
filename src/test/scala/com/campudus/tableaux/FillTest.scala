@@ -19,7 +19,7 @@ class FillTest extends TableauxTestBase {
 
     val expectedJson = Json.obj("status" -> "ok")
 
-    val expectedCell = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> null)))
+    val expectedCell = Json.obj("status" -> "ok", "value" -> null)
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -38,7 +38,7 @@ class FillTest extends TableauxTestBase {
     val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
 
     val expectedJson = Json.obj("status" -> "ok")
-    val expectedGet = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+    val expectedGet = Json.obj("status" -> "ok", "value" -> "Test Fill 1")
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -57,7 +57,7 @@ class FillTest extends TableauxTestBase {
     val fillNumberCellJson = Json.obj("value" -> 101)
 
     val expectedJson = Json.obj("status" -> "ok")
-    val expectedGet = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> 101)))
+    val expectedGet = Json.obj("status" -> "ok", "value" -> 101)
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
@@ -78,8 +78,8 @@ class FillTest extends TableauxTestBase {
 
     val expectedJson = Json.obj("status" -> "ok")
     val expectedJson2 = Json.obj("status" -> "ok")
-    val expectedGet1 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> 101)))
-    val expectedGet2 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("value" -> "Test Fill 1")))
+    val expectedGet1 = Json.obj("status" -> "ok", "value" -> 101)
+    val expectedGet2 = Json.obj("status" -> "ok", "value" -> "Test Fill 1")
 
     for {
       _ <- sendRequestWithJson("POST", createTableJson, "/tables")
