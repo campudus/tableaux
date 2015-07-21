@@ -7,6 +7,8 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
+import scala.collection.generic.CanBuildFrom
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 object HelperFunctions {
@@ -99,7 +101,19 @@ object HelperFunctions {
     })
   }
 
-  private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[_]] = for {
+  def toTupleSeq[A](json: JsonObject): Seq[(String, A)] = {
+    import scala.collection.JavaConverters._
+
+    val fields = json.getFieldNames.asScala.toSeq
+    fields.map(field => (field, json.getField[A](field)))
+  }
+
+  def serialiseFutures[A, B](seq: Seq[A])(fn: A => Future[B])(implicit executor: ExecutionContext): Future[Seq[B]] = {
+    val futures = seq.map(item => fn(item))
+    Future.sequence(futures)
+  }
+
+  private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[Any]] = for {
     values <- checkNotNullArray(json, "values")
     valueAsAnyList <- asCastedList[Any](values)
     valueList <- nonEmpty(valueAsAnyList, "values")

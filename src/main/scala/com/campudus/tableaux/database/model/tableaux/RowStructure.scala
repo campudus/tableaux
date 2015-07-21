@@ -2,6 +2,8 @@ package com.campudus.tableaux.database.model.tableaux
 
 import com.campudus.tableaux.database.domain.{SimpleValueColumn, ColumnType, MultiLanguageColumn}
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.HelperFunctions
+import HelperFunctions._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.Json
@@ -10,16 +12,36 @@ import scala.concurrent.Future
 
 class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def create(tableId: TableId): Future[TableId] = {
-    connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id")
-  } map { insertNotNull(_).head.get[TableId](0) }
+  def createEmpty(tableId: TableId): Future[RowId] = {
+    connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id") map { insertNotNull(_).head.get[RowId](0) }
+  }
 
-  def createFull(tableId: TableId, values: Seq[(ColumnId, _)]): Future[RowId] = {
-    val qm = values.foldLeft(Seq[String]())((s, _) => s :+ "?").mkString(", ")
-    val columns = values.foldLeft(Seq[String]())((s, tup) => s :+ s"column_${tup._1}").mkString(", ")
-    val v = values.foldLeft(Seq[Any]())((s, tup) => s :+ tup._2)
-    connection.query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($qm) RETURNING id", Json.arr(v: _*))
-  } map { insertNotNull(_).head.get[RowId](0) }
+  def createFull(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+    val placeholder = values.map(_ => "?").mkString(", ")
+    val columns = values.map { case (column: ColumnType[_], _) => s"column_${column.id}" }.mkString(", ")
+    val binds = values.map {case (_, value) => value }
+
+    {
+      connection.query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($placeholder) RETURNING id", Json.arr(binds: _*))
+    } map { insertNotNull(_).head.get[RowId](0) }
+  }
+
+  def createLanguageRows(tableId: TableId, rowId: RowId, values: Seq[(ColumnType[_], Seq[(String, _)])]): Future[Unit] = {
+    for {
+      _ <- serialiseFutures(values) {
+        value =>
+          val column = s"column_${value._1.id}"
+          val translations = value._2
+
+          val placeholder = translations.map(_ => "(?, ?, ?)").mkString(", ")
+          val binds = translations.flatMap(translation => Seq(rowId, translation._1, translation._2))
+
+          {
+            connection.query(s"INSERT INTO user_table_lang_$tableId (id, langtag, $column) VALUES $placeholder", Json.arr(binds: _*))
+          } map insertNotNull
+      }
+    } yield ()
+  }
 
   def get(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[AnyRef])] = {
     val projection = generateProjection(columns)
@@ -32,6 +54,28 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
       (seq.head, mapResultRow(columns, seq.drop(1)))
     }
   }
+
+  def getAll(tableId: TableId, columns: Seq[ColumnType[_]]): Future[Seq[(RowId, Seq[AnyRef])]] = {
+    val projection = generateProjection(columns)
+    val fromClause = generateFromClause(tableId)
+
+    val result = connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id")
+
+    result map { x =>
+      val seq = getSeqOfJsonArray(x) map jsonArrayToSeq
+
+      println(s"blub ${seq.toList}")
+
+      seq map { s =>
+        println(s"blub ${s.toList}")
+        (s.head, mapResultRow(columns, s.drop(1)))
+      }
+    }
+  }
+
+  def delete(tableId: TableId, rowId: RowId): Future[Unit] = {
+    connection.query(s"DELETE FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+  } map { deleteNotNull(_) }
 
   private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[AnyRef]): Seq[AnyRef] = {
     (columns, result).zipped map { (column: ColumnType[_], value: AnyRef) =>
@@ -59,20 +103,4 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
       s"ut.id"
     }
   }
-
-  def getAll(tableId: TableId, columns: Seq[ColumnType[_]]): Future[Seq[(RowId, Seq[AnyRef])]] = {
-    val projection = generateProjection(columns)
-    val fromClause = generateFromClause(tableId)
-
-    val result = connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id")
-
-    result map { x =>
-      val seq = getSeqOfJsonArray(x) map { jsonArrayToSeq }
-      seq map { s => (s.head, mapResultRow(columns, s.drop(1))) }
-    }
-  }
-
-  def delete(tableId: TableId, rowId: RowId): Future[Unit] = {
-    connection.query(s"DELETE FROM user_table_$tableId  WHERE id = ?", Json.arr(rowId))
-  } map { deleteNotNull(_) }
 }

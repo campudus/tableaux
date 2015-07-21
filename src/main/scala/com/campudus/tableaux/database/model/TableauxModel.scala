@@ -2,6 +2,8 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
+import com.campudus.tableaux.helper.HelperFunctions
+import HelperFunctions._
 import com.campudus.tableaux.{InvalidJsonException, ArgumentChecker}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
@@ -95,26 +97,48 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     _ <- columnStruc.delete(tableId, columnId)
   } yield EmptyObject()
 
-  def addRow(tableId: TableId): Future[RowIdentifier] = for {
+  def addRow(tableId: TableId): Future[Row] = for {
     table <- getTable(tableId)
-    id <- rowStruc.create(tableId)
-  } yield RowIdentifier(table, id)
+    id <- rowStruc.createEmpty(tableId)
+  } yield Row(table, id, Seq.empty)
 
-  def addFullRows(tableId: TableId, values: Seq[Seq[(ColumnId, _)]]): Future[RowSeq] = for {
+  def addFullRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
     table <- getTable(tableId)
-    ids <- serialiseFutures(values)(rowStruc.createFull(table.id, _))
+    columns <- getAllColumns(table)
+    ids <- serialiseFutures(rows) {
+      row =>
+        // replace ColumnId with ColumnType
+        val mappedRow = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
+
+        val singleValues = mappedRow.filter {
+          case (_: MultiLanguageColumn[_], _) => false
+          case (_, _) => true
+        }
+
+        val multiValues = mappedRow.filter {
+          case (_: MultiLanguageColumn[_], _) => true
+          case (_, _) => false
+        } map { case (column, value) =>
+          (column, toTupleSeq(value.asInstanceOf[JsonObject]))
+        }
+
+        for {
+          rowId <- if (singleValues.isEmpty) {
+            rowStruc.createEmpty(table.id)
+          } else {
+            rowStruc.createFull(table.id, singleValues)
+          }
+
+          _ <- if (multiValues.nonEmpty) {
+            rowStruc.createLanguageRows(table.id, rowId, multiValues)
+          } else {
+            Future()
+          }
+        } yield rowId
+    }
+
     row <- serialiseFutures(ids)(getRow(table.id, _))
   } yield RowSeq(row)
-
-  private def serialiseFutures[A, B](seq: Seq[A])(fn: A => Future[B]): Future[Seq[B]] = {
-    seq.foldLeft(Future(Seq.empty[B])) {
-      (lastFuture, next) => lastFuture flatMap { preResults =>
-        fn(next) map {
-          preResults :+ _
-        }
-      }
-    }
-  }
 
   def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_, _]] = for {
   // TODO column should be passed on to insert methods
@@ -241,6 +265,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
       case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
       case c: SimpleValueColumn[_] => cellStruc.getValue(c.table.id, c.id, rowId)
+      case c: MultiLanguageColumn[_] => cellStruc.getValue(c.table.id, c.id, rowId)
     }
   } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
 

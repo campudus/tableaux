@@ -124,6 +124,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
   def delete(tableId: TableId, columnId: ColumnId): Future[Unit] = for {
     t <- connection.begin()
     (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId")
+    (t, _) <- t.query(s"ALTER TABLE user_table_lang_$tableId DROP COLUMN IF EXISTS column_$columnId")
     (t, result) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
     _ <- Future.apply(deleteNotNull(result)) recoverWith t.rollbackAndFail()
     _ <- t.commit()
