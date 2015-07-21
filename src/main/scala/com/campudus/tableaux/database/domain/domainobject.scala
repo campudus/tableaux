@@ -53,6 +53,12 @@ trait DomainObject extends DomainObjectHelper {
     case SetReturn => setJson
     case EmptyReturn => emptyJson
   }
+
+  /**
+   * uses getJson to encode DomainObject as string
+   * @return string representation of domainobject
+   */
+  final override def toString: String = getJson.encode()
 }
 
 case class EmptyObject() extends DomainObject {
