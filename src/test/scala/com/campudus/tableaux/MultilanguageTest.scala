@@ -108,11 +108,11 @@ class MultilanguageTest extends TableauxTestBase {
       )
     )
 
-    val exceptedJson = Json.fromObjectString(
-      """
+    def exceptedJson(rowId: RowId) = Json.fromObjectString(
+      s"""
         |{
         |  "status" : "ok",
-        |  "id" : 1,
+        |  "id" : $rowId,
         |  "values" : [ {
         |    "de_DE" : "Hallo, Welt!",
         |    "en_US" : "Hello, World!"
@@ -123,7 +123,60 @@ class MultilanguageTest extends TableauxTestBase {
     for {
       (tableId, columnId) <- createTableWithMultilanguageColumn()
 
+      rowId1 <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow) map (_.getArray("rows").get[JsonObject](0).getLong("id"))
+      rowId2 <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow) map (_.getArray("rows").get[JsonObject](0).getLong("id"))
+      rowId3 <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow) map (_.getArray("rows").get[JsonObject](0).getLong("id"))
+
+      row1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId1")
+      row2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId2")
+      row3 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId3")
+    } yield {
+      assertEquals(exceptedJson(rowId1), row1)
+      assertEquals(exceptedJson(rowId2), row2)
+      assertEquals(exceptedJson(rowId3), row3)
+    }
+  }
+
+  @Test
+  def testSingleTranslation(): Unit = okTest {
+    val valuesRow = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1)),
+      "rows" -> Json.arr(
+        Json.obj("values" ->
+          Json.arr(
+            Json.obj(
+              "de_DE" -> "Hallo, Welt!",
+              "en_US" -> "Hello, World!"
+            )
+          )
+        )
+      )
+    )
+
+    val cellValue = Json.obj(
+      "value" -> Json.obj(
+        "en_US" -> "Hello, Cell!"
+      )
+    )
+
+    val exceptedJson = Json.fromObjectString(
+      """
+        |{
+        |  "status" : "ok",
+        |  "id" : 1,
+        |  "values" : [ {
+        |    "de_DE" : "Hallo, Welt!",
+        |    "en_US" : "Hello, Cell!"
+        |  } ]
+        |}
+      """.stripMargin)
+
+    for {
+      (tableId, columnId) <- createTableWithMultilanguageColumn()
+
       rowId <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow) map (_.getArray("rows").get[JsonObject](0).getLong("id"))
+
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", cellValue)
 
       row <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
     } yield {

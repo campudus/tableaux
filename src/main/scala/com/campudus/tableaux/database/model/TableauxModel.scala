@@ -130,7 +130,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
           }
 
           _ <- if (multiValues.nonEmpty) {
-            rowStruc.createLanguageRows(table.id, rowId, multiValues)
+            rowStruc.createTranslations(table.id, rowId, multiValues)
           } else {
             Future()
           }
@@ -161,10 +161,12 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   } yield cell
 
   def insertAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[AttachmentFile]] = {
+    // add attachment
     handleAttachment(tableId, columnId, rowId, value, attachmentModel.add)
   }
 
   def updateAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[AttachmentFile]] = {
+    // update attachment order
     handleAttachment(tableId, columnId, rowId, value, attachmentModel.update)
   }
 
@@ -193,7 +195,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   private def insertMultilanguageValues[A <: JsonObject](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
     for {
       column <- getColumn(tableId, columnId)
-      _ <- cellStruc.updateTranslation(column.table.id, column.id, rowId, toTupleSeq(value))
+      _ <- cellStruc.updateTranslations(column.table.id, column.id, rowId, toTupleSeq(value))
     } yield Cell(column, rowId, value)
   }
 
@@ -364,6 +366,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             val mergedValues = Future.sequence(allColumns map {
               case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
               case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
+
               case c: SimpleValueColumn[_] => Future.successful(values(c.id.toInt - 1))
               case c: MultiLanguageColumn[_] => Future.successful(values(c.id.toInt - 1))
             })

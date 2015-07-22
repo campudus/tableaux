@@ -26,19 +26,16 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     } map { insertNotNull(_).head.get[RowId](0) }
   }
 
-  def createLanguageRows(tableId: TableId, rowId: RowId, values: Seq[(ColumnType[_], Seq[(String, _)])]): Future[Unit] = {
+  def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(ColumnType[_], Seq[(String, _)])]): Future[Unit] = {
     for {
-      _ <- serialiseFutures(values) {
-        value =>
-          val column = s"column_${value._1.id}"
-          val translations = value._2
+      _ <- connection.transactional(values) { (t, _, value) =>
+        val column = s"column_${value._1.id}"
+        val translations = value._2
 
-          val placeholder = translations.map(_ => "(?, ?, ?)").mkString(", ")
-          val binds = translations.flatMap(translation => Seq(rowId, translation._1, translation._2))
+        val placeholder = translations.map(_ => "(?, ?, ?)").mkString(", ")
+        val binds = translations.flatMap(translation => Seq(rowId, translation._1, translation._2))
 
-          {
-            connection.query(s"INSERT INTO user_table_lang_$tableId (id, langtag, $column) VALUES $placeholder", Json.arr(binds: _*))
-          } map insertNotNull
+        t.query(s"INSERT INTO user_table_lang_$tableId (id, langtag, $column) VALUES $placeholder", Json.arr(binds: _*))
       }
     } yield ()
   }

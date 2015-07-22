@@ -127,12 +127,23 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
 
   def begin(): Future[Transaction] = sendHelper(Json.obj("action" -> "begin")) map Transaction
 
-  def transactional[A](stuff: TransFunc[A]): Future[A] = {
+  def transactional[A](fn: TransFunc[A]): Future[A] = {
     for {
       transaction <- begin()
-      (transaction, result) <- stuff(transaction)
+      (transaction, result) <- fn(transaction)
       _ <- transaction.commit()
     } yield result
+  }
+
+  def transactional[A](values: Seq[A])(fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]): Future[JsonObject] = {
+    transactional[JsonObject]({ transaction: Transaction =>
+      values.foldLeft(Future(transaction, Json.emptyObj())) { (result, value) =>
+        result.flatMap {
+          case (newTransaction, lastResult) =>
+            fn(newTransaction, lastResult, value)
+        }
+      }
+    })
   }
 
   def selectSingleValue[A](select: String): Future[A] = {

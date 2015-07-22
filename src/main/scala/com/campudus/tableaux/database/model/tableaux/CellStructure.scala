@@ -24,22 +24,18 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     _ <- t.commit()
   } yield ()
 
-  def updateTranslation(tableId: TableId, columnId: ColumnId, rowId: RowId, values: Seq[(String, _)]): Future[JsonObject] = {
+  def updateTranslations(tableId: TableId, columnId: ColumnId, rowId: RowId, values: Seq[(String, _)]): Future[JsonObject] = {
     val delete = s"DELETE FROM user_table_lang_$tableId WHERE id = ? AND langtag = ?"
     val insert = s"INSERT INTO user_table_lang_$tableId(id, langtag, column_$columnId) VALUES(?, ?, ?)"
 
-    connection.transactional[JsonObject]({ t =>
-      values.foldLeft(Future(t, Json.emptyObj())) {
-        (result, value) =>
-        result.flatMap {
-          case (t, obj) =>
-            t.query(delete, Json.arr(rowId, value._1)).flatMap {
-              case (t, obj) =>
-                t.query(insert, Json.arr(rowId, value._1, value._2))
-            }
-        }
+    connection.transactional(values) { (t, _, value) =>
+      // first, delete all translations
+      t.query(delete, Json.arr(rowId, value._1)).flatMap {
+        case (t, _) =>
+          // insert new translation
+          t.query(insert, Json.arr(rowId, value._1, value._2))
       }
-    })
+    }
   }
 
   def putLinks(tableId: TableId, linkColumnId: ColumnId, from: RowId, tos: Seq[RowId]): Future[Unit] = {
@@ -112,7 +108,6 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
 
       _ <- t.commit()
     } yield {
-      import ResultChecker._
       getSeqOfJsonArray(result) map {
         row =>
           val id = row.get[Any](0)
