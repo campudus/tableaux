@@ -5,6 +5,8 @@ import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
+import com.campudus.tableaux.helper.HelperFunctions
+import HelperFunctions._
 
 import scala.concurrent.Future
 
@@ -21,6 +23,24 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     (t, _) <- t.query(s"INSERT INTO link_table_$linkId VALUES (?, ?)", Json.arr(leftRow, rightRow))
     _ <- t.commit()
   } yield ()
+
+  def updateTranslation(tableId: TableId, columnId: ColumnId, rowId: RowId, values: Seq[(String, _)]): Future[JsonObject] = {
+    val delete = s"DELETE FROM user_table_lang_$tableId WHERE id = ? AND langtag = ?"
+    val insert = s"INSERT INTO user_table_lang_$tableId(id, langtag, column_$columnId) VALUES(?, ?, ?)"
+
+    connection.transactional[JsonObject]({ t =>
+      values.foldLeft(Future(t, Json.emptyObj())) {
+        (result, value) =>
+        result.flatMap {
+          case (t, obj) =>
+            t.query(delete, Json.arr(rowId, value._1)).flatMap {
+              case (t, obj) =>
+                t.query(insert, Json.arr(rowId, value._1, value._2))
+            }
+        }
+      }
+    })
+  }
 
   def putLinks(tableId: TableId, linkColumnId: ColumnId, from: RowId, tos: Seq[RowId]): Future[Unit] = {
     val paramStr = tos.map(_ => "(?, ?)").mkString(", ")
@@ -43,8 +63,22 @@ class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def getValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Any] = {
-    connection.query(s"SELECT column_$columnId FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
-  } map { selectNotNull(_).head.get[Any](0) }
+    connection.query(s"SELECT column_$columnId FROM user_table_$tableId WHERE id = ?", Json.arr(rowId)) map { selectNotNull(_).head.get[Any](0) }
+  }
+
+  def getTranslations(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[JsonObject] = {
+    {
+      connection.query(s"SELECT json_object_agg(DISTINCT COALESCE(langtag, 'de_DE'), column_$columnId) AS column_$columnId FROM user_table_lang_$tableId WHERE id = ? GROUP BY id", Json.arr(rowId))
+    } map { r =>
+      val result = getSeqOfJsonArray(r)
+
+      if (result.isEmpty) {
+        "{\"de_DE\": null}"
+      } else {
+        result.head.get[String](0)
+      }
+    } map { Json.fromObjectString }
+  }
 
   def getLinkValues(tableId: TableId, linkColumnId: ColumnId, rowId: RowId, toTableId: TableId, toColumnId: ColumnId): Future[Seq[JsonObject]] = {
     for {

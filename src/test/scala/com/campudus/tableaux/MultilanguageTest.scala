@@ -36,14 +36,11 @@ class MultilanguageTest extends TableauxTestBase {
   }
 
   @Test
-  @Ignore
   def testFillMultilanguageCell(): Unit = okTest {
     val cellValue = Json.obj(
-      "value" -> Json.arr(
-        Json.obj(
-          "de_DE" -> "Hallo, Welt!",
-          "en_US" -> "Hello, World!"
-        )
+      "value" -> Json.obj(
+        "de_DE" -> "Hallo, Welt!",
+        "en_US" -> "Hello, World!"
       )
     )
 
@@ -51,7 +48,6 @@ class MultilanguageTest extends TableauxTestBase {
       """
         |{
         |  "status" : "ok",
-        |  "id" : 1,
         |  "value" : {
         |    "de_DE" : "Hallo, Welt!",
         |    "en_US" : "Hello, World!"
@@ -66,9 +62,33 @@ class MultilanguageTest extends TableauxTestBase {
 
       _ <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", cellValue)
 
-      row <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      cell <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
     } yield {
-      assertEquals(exceptedJson, row)
+      assertEquals(exceptedJson, cell)
+    }
+  }
+
+  @Test
+  def testEmptyMultilanguageCell(): Unit = okTest {
+
+    val exceptedJson = Json.fromObjectString(
+      """
+        |{
+        |  "status" : "ok",
+        |  "value" : {
+        |    "de_DE" : null
+        |  }
+        |}
+      """.stripMargin)
+
+    for {
+      (tableId, columnId) <- createTableWithMultilanguageColumn()
+
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getLong("id"))
+
+      cell <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+    } yield {
+      assertEquals(exceptedJson, cell)
     }
   }
 

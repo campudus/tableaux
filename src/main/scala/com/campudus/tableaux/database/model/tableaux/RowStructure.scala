@@ -64,10 +64,7 @@ class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     result map { x =>
       val seq = getSeqOfJsonArray(x) map jsonArrayToSeq
 
-      println(s"blub ${seq.toList}")
-
       seq map { s =>
-        println(s"blub ${s.toList}")
         (s.head, mapResultRow(columns, s.drop(1)))
       }
     }

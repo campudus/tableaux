@@ -5,7 +5,7 @@ import com.campudus.tableaux.database.model.{AttachmentFile, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
-sealed trait ColumnType[A] extends DomainObject {
+sealed trait ColumnType[+A] extends DomainObject {
   val kind: TableauxDbType
 
   val id: ColumnId

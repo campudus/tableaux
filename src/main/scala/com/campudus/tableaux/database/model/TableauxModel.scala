@@ -140,7 +140,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     row <- serialiseFutures(ids)(getRow(table.id, _))
   } yield RowSeq(row)
 
-  def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_, _]] = for {
+  def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = for {
   // TODO column should be passed on to insert methods
     column <- getColumn(tableId, columnId)
     cell <- column match {
@@ -149,25 +149,26 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield cell
 
-  def insertValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_, _]] = for {
+  def insertValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = for {
     // TODO column should be passed on to insert methods
     column <- getColumn(tableId, columnId)
     cell <- column match {
-      case attachmentColumn: AttachmentColumn => insertAttachment(tableId, columnId, rowId, value)
-      case linkColumn: LinkColumn[_] => handleLinkValues(tableId, columnId, rowId, value)
-      case _ => insertNormalValue(tableId, columnId, rowId, value)
+      case column: AttachmentColumn => insertAttachment(tableId, columnId, rowId, value)
+      case column: LinkColumn[_] => handleLinkValues(tableId, columnId, rowId, value)
+      case column: MultiLanguageColumn[_] => insertMultilanguageValues(tableId, columnId, rowId, value.asInstanceOf[JsonObject])
+      case _ => insertSimpleValue(tableId, columnId, rowId, value)
     }
   } yield cell
 
-  def insertAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[AttachmentFile, AttachmentColumn]] = {
+  def insertAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[AttachmentFile]] = {
     handleAttachment(tableId, columnId, rowId, value, attachmentModel.add)
   }
 
-  def updateAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[AttachmentFile, AttachmentColumn]] = {
+  def updateAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[AttachmentFile]] = {
     handleAttachment(tableId, columnId, rowId, value, attachmentModel.update)
   }
 
-  private def handleAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, fn: Attachment => Future[AttachmentFile]): Future[Cell[AttachmentFile, AttachmentColumn]] = {
+  private def handleAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, fn: Attachment => Future[AttachmentFile]): Future[Cell[AttachmentFile]] = {
     import ArgumentChecker._
 
     Try(value.asInstanceOf[JsonObject]) map { v =>
@@ -189,12 +190,19 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   }
 
-  private def insertNormalValue[A, B <: ColumnType[A]](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[A, B]] = for {
+  private def insertMultilanguageValues[A <: JsonObject](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
+    for {
+      column <- getColumn(tableId, columnId)
+      _ <- cellStruc.updateTranslation(column.table.id, column.id, rowId, toTupleSeq(value))
+    } yield Cell(column, rowId, value)
+  }
+
+  private def insertSimpleValue[A, B <: ColumnType[A]](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[A]] = for {
     column <- getColumn(tableId, columnId)
     _ <- cellStruc.update(tableId, columnId, rowId, value)
   } yield Cell(column.asInstanceOf[B], rowId, value)
 
-  private def handleLinkValues[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Link[Any], LinkColumn[Any]]] = {
+  private def handleLinkValues[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Link[Any]]] = {
     Try(value.asInstanceOf[JsonObject]).flatMap { v =>
       import ArgumentChecker._
       import collection.JavaConverters._
@@ -214,13 +222,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   }
 
-  private def insertLinkValues(tableId: TableId, columnId: ColumnId, rowId: RowId, from: RowId, tos: Seq[RowId]): Future[Cell[Link[Any], LinkColumn[Any]]] = for {
+  private def insertLinkValues(tableId: TableId, columnId: ColumnId, rowId: RowId, from: RowId, tos: Seq[RowId]): Future[Cell[Link[Any]]] = for {
     linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
     _ <- cellStruc.putLinks(linkColumn.table.id, linkColumn.id, from, tos)
     v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
   } yield Cell(linkColumn, rowId, Link(linkColumn.to.id, v))
 
-  def addLinkValue(tableId: TableId, columnId: ColumnId, rowId: RowId, from: RowId, to: RowId): Future[Cell[Link[Any], LinkColumn[Any]]] = for {
+  def addLinkValue(tableId: TableId, columnId: ColumnId, rowId: RowId, from: RowId, to: RowId): Future[Cell[Link[Any]]] = for {
     linkColumn <- getColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
     _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, from, to)
     v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
@@ -259,13 +267,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     rows <- getAllRows(table)
   } yield rows
 
-  def getCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_, _]] = for {
+  def getCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = for {
     column <- getColumn(tableId, columnId)
     value <- column match {
       case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
       case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
       case c: SimpleValueColumn[_] => cellStruc.getValue(c.table.id, c.id, rowId)
-      case c: MultiLanguageColumn[_] => cellStruc.getValue(c.table.id, c.id, rowId)
+      case c: MultiLanguageColumn[_] => cellStruc.getTranslations(c.table.id, c.id, rowId)
     }
   } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
 
