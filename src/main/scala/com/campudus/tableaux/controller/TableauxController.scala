@@ -19,29 +19,6 @@ object TableauxController {
 
 class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel) extends Controller[TableauxModel] {
 
-  def getAllTables(): Future[DomainObject] = {
-    logger.info("getAllTables")
-    repository.getAllTables()
-  }
-
-  def createColumn(tableId: => TableId, columns: => Seq[CreateColumn]): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
-    logger.info(s"createColumn $tableId $columns")
-    repository.addColumns(tableId, columns)
-  }
-
-  def createTable(tableName: String): Future[DomainObject] = {
-    checkArguments(notNull(tableName, "TableName"))
-    logger.info(s"createTable $tableName")
-    repository.createTable(tableName)
-  }
-
-  def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
-    checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
-    logger.info(s"createTable $tableName columns $rowsValues")
-    repository.createCompleteTable(tableName, columns, rowsValues)
-  }
-
   def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {
     values match {
       case Some(seq) =>
@@ -53,30 +30,6 @@ class TableauxController(override val config: TableauxConfig, override protected
         logger.info(s"createRow $tableId")
         repository.addRow(tableId)
     }
-  }
-
-  def getTable(tableId: TableId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    verticle.logger.info(s"getTable $tableId")
-    repository.getTable(tableId)
-  }
-
-  def getCompleteTable(tableId: TableId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    verticle.logger.info(s"getTable $tableId")
-    repository.getCompleteTable(tableId)
-  }
-
-  def getColumn(tableId: TableId, columnId: ColumnId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"getColumn $tableId $columnId")
-    repository.getColumn(tableId, columnId)
-  }
-
-  def getColumns(tableId: TableId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    logger.info(s"getColumns $tableId")
-    repository.getColumns(tableId)
   }
 
   def getRow(tableId: TableId, rowId: TableId): Future[DomainObject] = {
@@ -95,18 +48,6 @@ class TableauxController(override val config: TableauxConfig, override protected
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"getCell $tableId $columnId $rowId")
     repository.getCell(tableId, columnId, rowId)
-  }
-
-  def deleteTable(tableId: TableId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    logger.info(s"deleteTable $tableId")
-    repository.deleteTable(tableId)
-  }
-
-  def deleteColumn(tableId: TableId, columnId: ColumnId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"deleteColumn $tableId $columnId")
-    repository.removeColumn(tableId, columnId)
   }
 
   def deleteRow(tableId: TableId, rowId: RowId): Future[DomainObject] = {
@@ -136,22 +77,5 @@ class TableauxController(override val config: TableauxConfig, override protected
 
   private implicit def convertUnitToEmptyObject(unit: Future[Unit]): Future[EmptyObject] = {
     unit map (s => EmptyObject())
-  }
-
-  def changeTableName(tableId: TableId, tableName: String): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), notNull(tableName, "TableName"))
-    logger.info(s"changeTableName $tableId $tableName")
-    repository.changeTableName(tableId, tableName)
-  }
-
-  def changeColumn(tableId: TableId,
-                   columnId: ColumnId,
-                   columnName: Option[String],
-                   ordering: Option[Ordering],
-                   kind: Option[TableauxDbType]): Future[DomainObject] = {
-
-    checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"changeColumn $tableId $columnId $columnName $ordering $kind")
-    repository.changeColumn(tableId, columnId, columnName, ordering, kind)
   }
 }

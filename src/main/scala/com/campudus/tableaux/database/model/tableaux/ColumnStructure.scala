@@ -1,6 +1,7 @@
 package com.campudus.tableaux.database.model.tableaux
 
 import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
@@ -32,7 +33,11 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     }
   }
 
-  def insertLink(tableId: TableId, name: String, fromColumnId: ColumnId, toTableId: TableId, toColumnId: ColumnId, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+  def insertLink(tableId: TableId, name: String, link: LinkConnection, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+    val fromColumnId = link.fromColumnId
+    val toTableId = link.toTableId
+    val toColumnId = link.toColumnId
+
     connection.transactional { t =>
       for {
         (t, result) <- t.query("INSERT INTO system_link_table (table_id_1, table_id_2, column_id_1, column_id_2) VALUES (?, ?, ?, ?) RETURNING link_id", Json.arr(tableId, toTableId, fromColumnId, toColumnId))
@@ -83,19 +88,62 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     } yield (t, result)
   }
 
-  def get(tableId: TableId, columnId: ColumnId): Future[(ColumnId, String, TableauxDbType, Ordering, LanguageType)] = {
+  def get(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
+    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage FROM system_columns WHERE table_id = ? AND column_id = ?"
     for {
-      result <- connection.query("SELECT column_id, user_column_name, column_type, ordering, multilanguage FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, columnId))
-    } yield {
-      val json = selectNotNull(result).head
-      (json.get[ColumnId](0), json.get[String](1), Mapper.getDatabaseType(json.get[String](2)), json.get[Ordering](3), LanguageType(json.get[Boolean](4)))
+      result <- {
+        val json = connection.query(select, Json.arr(tableId, columnId))
+        json.map(selectNotNull(_).head)
+      }
+      mappedColumn <- mapColumn(tableId, result.get[ColumnId](0), result.get[String](1), Mapper.getDatabaseType(result.get[String](2)), result.get[Ordering](3), LanguageType(result.get[Boolean](4)))
+    } yield mappedColumn
+  }
+
+  def getAll(tableId: TableId): Future[Seq[ColumnType[_]]] = {
+    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage FROM system_columns WHERE table_id = ? ORDER BY column_id"
+    for {
+      result <- connection.query(select, Json.arr(tableId))
+      mappedColumns <- {
+        val futures = getSeqOfJsonArray(result).map { arr =>
+          val columnId = arr.get[ColumnId](0)
+          val columnName = arr.get[String](1)
+          val kind = Mapper.getDatabaseType(arr.get[String](2))
+          val ordering = arr.get[Ordering](3)
+          val languageType = LanguageType(arr.get[Boolean](4))
+
+          mapColumn(tableId, columnId, columnName, kind, ordering, languageType)
+        }
+        Future.sequence(futures)
+      }
+    } yield mappedColumns
+  }
+
+  private def mapColumn(tableId: TableId, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
+    val table = Table(tableId, "")
+
+    kind match {
+      case AttachmentType => getAttachmentColumn(table, columnId, columnName, ordering)
+      case LinkType => getLinkColumn(table, columnId, columnName, ordering)
+
+      case kind: TableauxDbType => getValueColumn(table, columnId, columnName, kind, ordering, languageType)
     }
   }
 
-  def getAll(tableId: TableId): Future[Seq[(ColumnId, String, TableauxDbType, Ordering, LanguageType)]] = {
-    connection.query("SELECT column_id, user_column_name, column_type, ordering, multilanguage FROM system_columns WHERE table_id = ? ORDER BY column_id", Json.arr(tableId))
-  } map {
-    getSeqOfJsonArray(_) map { arr => (arr.get[ColumnId](0), arr.get[String](1), Mapper.getDatabaseType(arr.get[String](2)), arr.get[Ordering](3), LanguageType(arr.get[Boolean](4))) }
+  private def getValueColumn(table: Table, columnId: ColumnId, columnName: String, columnKind: TableauxDbType, ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
+    Future(Mapper(languageType, columnKind).apply(table, columnId, columnName, ordering))
+  }
+
+  private def getAttachmentColumn(table: Table, columnId: ColumnId, columnName: String, ordering: Ordering): Future[AttachmentColumn] = {
+    Future(AttachmentColumn(table, columnId, columnName, ordering))
+  }
+
+  private def getLinkColumn(fromTable: Table, linkColumnId: ColumnId, columnName: String, ordering: Ordering): Future[LinkColumn[_]] = {
+    for {
+      (toTableId, toColumnId) <- getToColumn(fromTable.id, linkColumnId)
+      toCol <- get(toTableId, toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
+    } yield {
+      LinkColumn(fromTable, linkColumnId, toCol, columnName, ordering)
+    }
   }
 
   def getToColumn(tableId: TableId, columnId: ColumnId): Future[(TableId, ColumnId)] = {

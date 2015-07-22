@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model.tableaux
 
+import com.campudus.tableaux.database.domain.Table
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -39,15 +40,15 @@ class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield t
   }
 
-  def retrieveAll(): Future[Seq[(TableId, String)]] = {
+  def retrieveAll(): Future[Seq[Table]] = {
     connection.query("SELECT table_id, user_table_name FROM system_table")
-  } map { r => getSeqOfJsonArray(r) map { arr => (arr.get[TableId](0), arr.get[String](1)) } }
+  } map { r => getSeqOfJsonArray(r) map { arr => Table(arr.get[TableId](0), arr.get[String](1)) } }
 
-  def retrieve(tableId: TableId): Future[(TableId, String)] = {
+  def retrieve(tableId: TableId): Future[Table] = {
     connection.query("SELECT table_id, user_table_name FROM system_table WHERE table_id = ?", Json.arr(tableId))
   } map { r =>
     val json = selectNotNull(r).head
-    (json.get[TableId](0), json.get[String](1))
+    Table(json.get[TableId](0), json.get[String](1))
   }
 
   def delete(tableId: TableId): Future[Unit] = {
