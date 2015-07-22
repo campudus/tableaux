@@ -1,11 +1,12 @@
 language: scala
 scala:
-- 2.11.7
+  - 2.11.7
 addons:
   postgresql: '9.4'
 before_script:
-- psql -c 'SHOW SERVER_VERSION;' -U postgres
-- psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
+  - psql -c 'SHOW SERVER_VERSION;' -U postgres
+  - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
+  - curl -L -o $HOME/.sbt/launchers/0.13.8/sbt-launch.jar http://dl.bintray.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.8/sbt-launch.jar
 script: sbt clean coverage test
 after_success: sbt coveralls
 env:
