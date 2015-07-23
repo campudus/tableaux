@@ -67,8 +67,8 @@ class SystemController(override val config: TableauxConfig,
 
   private def writeDemoData(demoData: Future[JsonObject]): Future[Table] = {
     for {
-      table <- demoData
-      table <- createTable(table.getString("name"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithColumnIdAndValue(table))
+      json <- demoData
+      table <- createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
     } yield table
   }
 
@@ -76,14 +76,24 @@ class SystemController(override val config: TableauxConfig,
     FileUtils(verticle).readJsonFile(s"demodata/$name.json")
   }
 
-  private def createTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[(ColumnId, Any)]]): Future[Table] = {
+  private def createTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]]): Future[Table] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     logger.info(s"createTable $tableName columns $rows")
 
     for {
       table <- structureModel.tableStruc.create(tableName)
       columns <- structureModel.columnStruc.createColumns(table, columns)
-      rows <- tableauxModel.addFullRows(table.id, rows)
+      columnIds <- Future(columns.map(_.id))
+      rowsWithColumnIdAndValue <- Future.successful {
+        if (rows.isEmpty) {
+          Seq()
+        } else {
+          rows map {
+            columnIds.zip(_)
+          }
+        }
+      }
+      _ <- tableauxModel.addFullRows(table.id, rowsWithColumnIdAndValue)
     } yield table
   }
 }
