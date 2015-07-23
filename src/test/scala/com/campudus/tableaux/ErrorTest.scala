@@ -235,7 +235,7 @@ class ErrorTest extends TableauxTestBase {
       "rows" -> Json.arr(
         Json.obj("values" -> Json.arr("Test Field 1", 2))))
 
-    sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+    sendRequest("POST", "/completetable", createCompleteTableJson)
   }
 
   @Test
@@ -247,6 +247,6 @@ class ErrorTest extends TableauxTestBase {
         Json.obj("kind" -> "text", "name" -> "Test Column 2")),
       "rows" -> null)
 
-    sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+    sendRequest("POST", "/completetable", createCompleteTableJson)
   }
 }

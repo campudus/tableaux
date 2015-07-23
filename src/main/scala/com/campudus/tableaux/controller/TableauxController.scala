@@ -7,7 +7,7 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import TableauxModel._
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{EmptyObject, DomainObject, CreateColumn}
+import com.campudus.tableaux.database.domain.{CompleteTable, EmptyObject, DomainObject, CreateColumn}
 
 import scala.concurrent.Future
 
@@ -71,8 +71,42 @@ class TableauxController(override val config: TableauxConfig, override protected
   def deleteAttachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: String): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(uuid, "uuid"))
     logger.info(s"deleteAttachment $tableId $columnId $rowId $uuid")
+
     //TODO introduce a Cell identifier with tableId, columnId and rowId
     repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
+  }
+
+  def getCompleteTable(tableId: TableId): Future[CompleteTable] = {
+    checkArguments(greaterZero(tableId))
+    verticle.logger.info(s"getTable $tableId")
+
+    for {
+      table <- repository.getTable(tableId)
+      colList <- repository.getAllColumns(table.id)
+      rowList <- repository.getAllRows(table)
+    } yield CompleteTable(table, colList, rowList)
+  }
+
+  def createTable(tableName: String, columns: Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = {
+    checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
+    logger.info(s"createTable $tableName columns $rowsValues")
+
+    for {
+      table <- repository.createTable(tableName)
+      columns <- repository.createColumns(table.id, columns)
+      columnIds <- Future(columns.map(_.id))
+      rowsWithColumnIdAndValue <- Future.successful {
+        if (rowsValues.isEmpty) {
+          Seq()
+        } else {
+          rowsValues map {
+            columnIds.zip(_)
+          }
+        }
+      }
+      _ <- repository.addFullRows(table.id, rowsWithColumnIdAndValue)
+      completeTable <- getCompleteTable(table.id)
+    } yield completeTable
   }
 
   private implicit def convertUnitToEmptyObject(unit: Future[Unit]): Future[EmptyObject] = {

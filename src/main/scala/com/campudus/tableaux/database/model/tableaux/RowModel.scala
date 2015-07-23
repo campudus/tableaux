@@ -10,7 +10,7 @@ import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
-class RowStructure(val connection: DatabaseConnection) extends DatabaseQuery {
+class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def createEmpty(tableId: TableId): Future[RowId] = {
     connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id") map { insertNotNull(_).head.get[RowId](0) }

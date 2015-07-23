@@ -1,6 +1,6 @@
 package com.campudus.tableaux
 
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.json.Json
 
@@ -159,7 +159,7 @@ class CreationTest extends TableauxTestBase {
         Json.obj("id" -> 2)))
 
     for {
-      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
       assertEquals(expectedJson, test)
     }
@@ -187,24 +187,7 @@ class CreationTest extends TableauxTestBase {
         Json.obj("id" -> 2)))
 
     for {
-      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
-    } yield {
-      assertEquals(expectedJson, test)
-    }
-  }
-
-  @Test
-  def createCompleteTableWithoutCols(): Unit = okTest {
-    val createCompleteTableJson = Json.obj(
-      "name" -> "Test Nr. 1",
-      "rows" -> Json.arr(
-        Json.obj("values" -> Json.arr("Test Field 1", 1)),
-        Json.obj("values" -> Json.arr("Test Field 2", 2))))
-
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 1)
-
-    for {
-      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
       assertEquals(expectedJson, test)
     }
@@ -227,7 +210,7 @@ class CreationTest extends TableauxTestBase {
       "rows" -> Json.arr())
 
     for {
-      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
       assertEquals(expectedJson, test)
     }

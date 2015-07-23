@@ -1,16 +1,42 @@
-package com.campudus.tableaux.database.model.tableaux
+package com.campudus.tableaux.database.model.structure
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.HelperFunctions._
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 
-class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery {
+class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def insert(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
+  def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = for {
+    columns <- serialiseFutures(createColumns) {
+      createColumn(table, _)
+    }
+  } yield columns
+  
+  def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
+    createColumn match {
+      case CreateSimpleColumn(name, ordering, kind, languageType) =>
+        createValueColumn(table.id,kind, name, ordering, languageType).map {
+          case (id, ordering) => Mapper(languageType, kind).apply(table, id, name, ordering)
+        }
+
+      case CreateLinkColumn(name, ordering, linkConnection) => for {
+        toCol <- retrieve(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]] 
+        (id, ordering) <- createLinkColumn(table.id, name, linkConnection, ordering)
+      } yield LinkColumn(table, id, toCol, name, ordering)
+
+      case CreateAttachmentColumn(name, ordering) =>
+        createAttachmentColumn(table.id, name, ordering).map {
+          case (id, ordering) => AttachmentColumn(table, id, name, ordering)
+        }
+    }
+  }
+  
+  def createValueColumn(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
         (t, result) <- insertSystemColumn(t, tableId, name, dbType, ordering, None, languageType)
@@ -24,7 +50,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     }
   }
 
-  def insertAttachment(tableId: TableId, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+  def createAttachmentColumn(tableId: TableId, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
         (t, result) <- insertSystemColumn(t, tableId, name, AttachmentType, ordering, None, SingleLanguage)
@@ -33,7 +59,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     }
   }
 
-  def insertLink(tableId: TableId, name: String, link: LinkConnection, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+  def createLinkColumn(tableId: TableId, name: String, link: LinkConnection, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
     val fromColumnId = link.fromColumnId
     val toTableId = link.toTableId
     val toColumnId = link.toColumnId
@@ -88,7 +114,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     } yield (t, result)
   }
 
-  def get(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
+  def retrieve(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
     val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage FROM system_columns WHERE table_id = ? AND column_id = ?"
     for {
       result <- {
@@ -99,7 +125,7 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     } yield mappedColumn
   }
 
-  def getAll(tableId: TableId): Future[Seq[ColumnType[_]]] = {
+  def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = {
     val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage FROM system_columns WHERE table_id = ? ORDER BY column_id"
     for {
       result <- connection.query(select, Json.arr(tableId))
@@ -122,31 +148,31 @@ class ColumnStructure(val connection: DatabaseConnection) extends DatabaseQuery 
     val table = Table(tableId, "")
 
     kind match {
-      case AttachmentType => getAttachmentColumn(table, columnId, columnName, ordering)
-      case LinkType => getLinkColumn(table, columnId, columnName, ordering)
+      case AttachmentType => mapAttachmentColumn(table, columnId, columnName, ordering)
+      case LinkType => mapLinkColumn(table, columnId, columnName, ordering)
 
-      case kind: TableauxDbType => getValueColumn(table, columnId, columnName, kind, ordering, languageType)
+      case kind: TableauxDbType => mapValueColumn(table, columnId, columnName, kind, ordering, languageType)
     }
   }
 
-  private def getValueColumn(table: Table, columnId: ColumnId, columnName: String, columnKind: TableauxDbType, ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
+  private def mapValueColumn(table: Table, columnId: ColumnId, columnName: String, columnKind: TableauxDbType, ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
     Future(Mapper(languageType, columnKind).apply(table, columnId, columnName, ordering))
   }
 
-  private def getAttachmentColumn(table: Table, columnId: ColumnId, columnName: String, ordering: Ordering): Future[AttachmentColumn] = {
+  private def mapAttachmentColumn(table: Table, columnId: ColumnId, columnName: String, ordering: Ordering): Future[AttachmentColumn] = {
     Future(AttachmentColumn(table, columnId, columnName, ordering))
   }
 
-  private def getLinkColumn(fromTable: Table, linkColumnId: ColumnId, columnName: String, ordering: Ordering): Future[LinkColumn[_]] = {
+  private def mapLinkColumn(fromTable: Table, linkColumnId: ColumnId, columnName: String, ordering: Ordering): Future[LinkColumn[_]] = {
     for {
       (toTableId, toColumnId) <- getToColumn(fromTable.id, linkColumnId)
-      toCol <- get(toTableId, toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
+      toCol <- retrieve(toTableId, toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
     } yield {
       LinkColumn(fromTable, linkColumnId, toCol, columnName, ordering)
     }
   }
 
-  def getToColumn(tableId: TableId, columnId: ColumnId): Future[(TableId, ColumnId)] = {
+  private def getToColumn(tableId: TableId, columnId: ColumnId): Future[(TableId, ColumnId)] = {
     for {
       result <- connection.query( """
                                     |SELECT table_id_1, table_id_2, column_id_1, column_id_2

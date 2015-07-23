@@ -16,20 +16,15 @@ object TableauxRouter {
 
 class TableauxRouter(override val config: TableauxConfig, val controller: TableauxController) extends BaseRouter {
 
-  val AttachmentOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/attachment/($uuidRegex)".r
+  private val AttachmentOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/attachment/($uuidRegex)".r
 
-  val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
-  
-  val Column: Regex = "/tables/(\\d+)/columns/(\\d+)".r
-  val Columns: Regex = "/tables/(\\d+)/columns".r
-  
-  val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
-  val Rows: Regex = "/tables/(\\d+)/rows".r
-  
-  val Table: Regex = "/tables/(\\d+)".r
-  val Tables: Regex = "/tables".r
+  private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
 
-  val CompleteTable: Regex = "/completetable/(\\d+)".r
+  private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
+  private val Rows: Regex = "/tables/(\\d+)/rows".r
+
+  private val CompleteTable: Regex = "/completetable".r
+  private val CompleteTableId: Regex = "/completetable/(\\d+)".r
 
   override def routes(implicit req: HttpServerRequest): Routing = {
     /**
@@ -46,6 +41,24 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
      * Get Cell
      */
     case Get(Cell(tableId, columnId, rowId)) => asyncGetReply(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
+
+    /**
+     * Get complete table
+     */
+    case Get(CompleteTableId(tableId)) => asyncGetReply(controller.getCompleteTable(tableId.toLong))
+
+    /**
+     * Create table with columns and rows
+     */
+    case Post(CompleteTable()) => asyncSetReply {
+      getJson(req) flatMap { json =>
+        if (json.getFieldNames.contains("rows")) {
+          controller.createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
+        } else {
+          controller.createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), Seq())
+        }
+      }
+    }
 
     /**
      * Create Row

@@ -10,7 +10,7 @@ import HelperFunctions._
 
 import scala.concurrent.Future
 
-class CellStructure(val connection: DatabaseConnection) extends DatabaseQuery {
+class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def update[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Unit] = {
     connection.query(s"UPDATE user_table_$tableId SET column_$columnId = ? WHERE id = ?", Json.arr(value, rowId))

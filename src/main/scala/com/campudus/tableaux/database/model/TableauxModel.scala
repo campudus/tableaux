@@ -2,12 +2,11 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
-import com.campudus.tableaux.helper.HelperFunctions
-import HelperFunctions._
-import com.campudus.tableaux.{InvalidJsonException, ArgumentChecker}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.tableaux.{RowStructure, CellStructure}
+import com.campudus.tableaux.database.model.tableaux.{CellModel, RowModel}
+import com.campudus.tableaux.helper.HelperFunctions._
+import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -29,22 +28,33 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   import TableauxModel._
 
-  val cellStruc = new CellStructure(connection)
-  val rowStruc = new RowStructure(connection)
+  val cellStruc = new CellModel(connection)
+  val rowStruc = new RowModel(connection)
 
   lazy val attachmentModel = AttachmentModel(connection)
-  lazy val structureModel = StructureModel(connection)
+  private lazy val structureModel = StructureModel(connection)
 
-  private def getTable(tableId: TableId): Future[Table] = {
+  def createTable(name: String): Future[Table] = {
+    structureModel.tableStruc.create(name)
+  }
+
+  def createColumns(tableId: TableId, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
+    for {
+      table <- getTable(tableId)
+      columns <- structureModel.columnStruc.createColumns(table, columns)
+    } yield columns
+  }
+
+  def getTable(tableId: TableId): Future[Table] = {
     structureModel.tableStruc.retrieve(tableId)
   }
 
-  private def getColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
-    structureModel.columnStruc.get(tableId, columnId)
+  def getColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
+    structureModel.columnStruc.retrieve(tableId, columnId)
   }
 
-  private def getAllColumns(tableId: TableId): Future[Seq[ColumnType[_]]] = {
-    structureModel.columnStruc.getAll(tableId)
+  def getAllColumns(tableId: TableId): Future[Seq[ColumnType[_]]] = {
+    structureModel.columnStruc.retrieveAll(tableId)
   }
 
   def deleteRow(tableId: TableId, rowId: RowId): Future[EmptyObject] = for {
@@ -86,7 +96,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
           _ <- if (multiValues.nonEmpty) {
             rowStruc.createTranslations(table.id, rowId, multiValues)
           } else {
-            Future()
+            Future(())
           }
         } yield rowId
     }
@@ -161,6 +171,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   private def handleLinkValues[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Link[Any]]] = {
     Try(value.asInstanceOf[JsonObject]).flatMap { v =>
       import ArgumentChecker._
+
       import collection.JavaConverters._
 
       for {
@@ -226,8 +237,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       allColumns <- getAllColumns(table.id)
       allRows <- rowStruc.getAll(table.id, allColumns)
       rowSeq <- {
-        // TODO foreach row every link column is map and the link value is fetched!
-        // TODO think about something with a better performance!
+        // TODO performance problem: foreach row every link column is map and the link value is fetched!
         val mergedRows = allRows map {
           case (rowId, values) =>
             val mergedValues = Future.sequence(allColumns map {

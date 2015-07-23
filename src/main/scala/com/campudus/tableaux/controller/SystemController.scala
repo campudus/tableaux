@@ -2,12 +2,12 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
-import com.campudus.tableaux.database.model.{SystemModel, TableauxModel, StructureModel}
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.TableauxModel.ColumnId
+import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.helper.HelperFunctions._
 import org.vertx.java.core.json.JsonObject
-import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 
@@ -23,8 +23,6 @@ class SystemController(override val config: TableauxConfig,
                        protected val structureModel: StructureModel) extends Controller[SystemModel] {
 
   val fileProps = """^(.+[\\/])*(.+)\.(.+)$""".r
-
-  val structureController = StructureController(config, structureModel)
 
   def resetDB(): Future[DomainObject] = {
     logger.info("Reset system structure")
@@ -44,12 +42,12 @@ class SystemController(override val config: TableauxConfig,
       rb <- writeDemoData(readDemoData("regierungsbezirke"))
 
       // Add link column Bundeslaender(Land) <> Regierungsbezirke(Regierungsbezirk)
-      linkColumn <- structureModel.columnStruc.insertLink(
-        tableId = getId(bl.getJson),
+      linkColumn <- structureModel.columnStruc.createLinkColumn(
+        tableId = bl.id,
         name = "Bundesland",
         LinkConnection(fromColumnId = 1,
-        toTableId = getId(rb.getJson),
-        toColumnId = 1),
+          toTableId = getId(rb.getJson),
+          toColumnId = 1),
         ordering = None
       )
 
@@ -67,20 +65,25 @@ class SystemController(override val config: TableauxConfig,
     } yield EmptyObject()
   }
 
-  private def writeDemoData(demoData: Future[JsonObject]): Future[CompleteTable] = {
+  private def writeDemoData(demoData: Future[JsonObject]): Future[Table] = {
     for {
       table <- demoData
-      completeTable <- createTable(table.getString("name"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithValue(table))
-    } yield completeTable
+      table <- createTable(table.getString("name"), jsonToSeqOfColumnNameAndType(table), jsonToSeqOfRowsWithColumnIdAndValue(table))
+    } yield table
   }
 
   private def readDemoData(name: String): Future[JsonObject] = {
     FileUtils(verticle).readJsonFile(s"demodata/$name.json")
   }
 
-  private def createTable(tableName: String, columns: Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = {
+  private def createTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[(ColumnId, Any)]]): Future[Table] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
-    logger.info(s"createTable $tableName columns $rowsValues")
-    structureController.createTable(tableName, columns, rowsValues)
+    logger.info(s"createTable $tableName columns $rows")
+
+    for {
+      table <- structureModel.tableStruc.create(tableName)
+      columns <- structureModel.columnStruc.createColumns(table, columns)
+      rows <- tableauxModel.addFullRows(table.id, rows)
+    } yield table
   }
 }

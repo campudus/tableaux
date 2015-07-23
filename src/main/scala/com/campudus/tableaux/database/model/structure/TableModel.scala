@@ -1,4 +1,4 @@
-package com.campudus.tableaux.database.model.tableaux
+package com.campudus.tableaux.database.model.structure
 
 import com.campudus.tableaux.database.domain.Table
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -8,9 +8,9 @@ import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
-class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
+class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def create(name: String): Future[TableId] = {
+  def create(name: String): Future[Table] = {
     connection.transactional { t =>
       for {
         (t, result) <- t.query("INSERT INTO system_table (user_table_name) VALUES (?) RETURNING table_id", Json.arr(name))
@@ -18,7 +18,7 @@ class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
-      } yield (t, id)
+      } yield (t, Table(id, name))
     }
   }
 
@@ -68,7 +68,7 @@ class TableStructure(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def changeName(tableId: TableId, name: String): Future[Unit] = {
+  def change(tableId: TableId, name: String): Future[Unit] = {
     connection.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
   } map (_ => ())
 }

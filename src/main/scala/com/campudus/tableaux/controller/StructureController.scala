@@ -6,7 +6,6 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.helper.HelperFunctions._
 
 import scala.concurrent.Future
 
@@ -21,94 +20,39 @@ class StructureController(override val config: TableauxConfig, override protecte
   lazy val tableStruc = repository.tableStruc
   lazy val columnStruc = repository.columnStruc
 
-  def getTable(tableId: TableId): Future[Table] = {
+  def retrieveTable(tableId: TableId): Future[Table] = {
     checkArguments(greaterZero(tableId))
     verticle.logger.info(s"getTable $tableId")
 
     tableStruc.retrieve(tableId)
   }
 
-  def getAllTables(): Future[TableSeq] = {
+  def retrieveTables(): Future[TableSeq] = {
     tableStruc.retrieveAll().map(TableSeq)
   }
 
-  def createColumn(tableId: TableId, columns: Seq[CreateColumn]): Future[ColumnSeq] = for {
-    cols <- serialiseFutures(columns) {
-      case CreateSimpleColumn(name, ordering, kind, languageType) =>
-        createValueColumn(tableId, name, kind, ordering, languageType)
-
-      case CreateLinkColumn(name, ordering, linkConnection) =>
-        createLinkColumn(tableId, name, linkConnection, ordering)
-
-      case CreateAttachmentColumn(name, ordering) =>
-        createAttachmentColumn(tableId, name, ordering)
-    }
-  } yield ColumnSeq(cols)
-
-  private def createValueColumn(tableId: TableId, name: String, columnType: TableauxDbType, ordering: Option[Ordering], languageType: LanguageType): Future[ColumnType[_]] = for {
-    table <- getTable(tableId)
-    (id, ordering) <- columnStruc.insert(table.id, columnType, name, ordering, languageType)
-  } yield Mapper(languageType, columnType).apply(table, id, name, ordering)
-
-  private def createLinkColumn(tableId: TableId, name: String, linkConnection: LinkConnection, ordering: Option[Ordering]): Future[LinkColumn[_]] = for {
-    table <- getTable(tableId)
-    toCol <- getColumn(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
-    (id, ordering) <- columnStruc.insertLink(tableId, name, linkConnection, ordering)
-  } yield LinkColumn(table, id, toCol, name, ordering)
-
-  private def createAttachmentColumn(tableId: TableId, name: String, ordering: Option[Ordering]): Future[AttachmentColumn] = for {
-    table <- getTable(tableId)
-    (id, ordering) <- columnStruc.insertAttachment(table.id, name, ordering)
-  } yield AttachmentColumn(table, id, name, ordering)
-
-
-  def getCompleteTable(tableId: TableId): Future[CompleteTable] = {
-    checkArguments(greaterZero(tableId))
-    verticle.logger.info(s"getTable $tableId")
-
+  def createColumns(tableId: TableId, columns: Seq[CreateColumn]): Future[ColumnSeq] = {
     for {
-      table <- getTable(tableId)
-      colList <- columnStruc.getAll(table.id)
-      rowList <- repository.tableauxModel.getAllRows(table)
-    } yield CompleteTable(table, colList, rowList)
+      table <- retrieveTable(tableId)
+      columns <- columnStruc.createColumns(table, columns)
+    } yield ColumnSeq(columns)
   }
 
-  def createTable(tableName: String, columns: Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[CompleteTable] = {
-    checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
-    logger.info(s"createTable $tableName columns $rowsValues")
-
-    for {
-      table <- createTable(tableName)
-      columnIds <- createColumn(table.id, columns) map { colSeq => colSeq.columns map { col => col.id } }
-      rowsWithColumnIdAndValue <- Future.successful {
-        if (rowsValues.isEmpty) {
-          Seq()
-        } else {
-          rowsValues map {
-            columnIds.zip(_)
-          }
-        }
-      }
-      _ <- repository.tableauxModel.addFullRows(table.id, rowsWithColumnIdAndValue)
-      completeTable <- getCompleteTable(table.id)
-    } yield completeTable
-  }
-
-  def getColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
+  def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     logger.info(s"getColumn $tableId $columnId")
 
     for {
-      column <- columnStruc.get(tableId, columnId)
+      column <- columnStruc.retrieve(tableId, columnId)
     } yield column
   }
 
-  def getColumns(tableId: TableId): Future[DomainObject] = {
+  def retrieveColumns(tableId: TableId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"getColumns $tableId")
 
     for {
-      columns <- columnStruc.getAll(tableId)
+      columns <- columnStruc.retrieveAll(tableId)
     } yield ColumnSeq(columns)
   }
 
@@ -116,9 +60,7 @@ class StructureController(override val config: TableauxConfig, override protecte
     checkArguments(notNull(tableName, "TableName"))
     logger.info(s"createTable $tableName")
 
-    for {
-      id <- tableStruc.create(tableName)
-    } yield Table(id, tableName)
+    tableStruc.create(tableName)
   }
 
   def deleteTable(tableId: TableId): Future[EmptyObject] = for {
@@ -129,12 +71,12 @@ class StructureController(override val config: TableauxConfig, override protecte
     _ <- columnStruc.delete(tableId, columnId)
   } yield EmptyObject()
 
-  def changeTableName(tableId: TableId, tableName: String): Future[Table] = {
+  def changeTable(tableId: TableId, tableName: String): Future[Table] = {
     checkArguments(greaterZero(tableId), notNull(tableName, "TableName"))
     logger.info(s"changeTableName $tableId $tableName")
 
     for {
-      _ <- tableStruc.changeName(tableId, tableName)
+      _ <- tableStruc.change(tableId, tableName)
     } yield Table(tableId, tableName)
   }
 
@@ -149,7 +91,7 @@ class StructureController(override val config: TableauxConfig, override protecte
 
     for {
       _ <- columnStruc.change(tableId, columnId, columnName, ordering, kind)
-      column <- getColumn(tableId, columnId)
+      column <- retrieveColumn(tableId, columnId)
     } yield column
   }
 }
