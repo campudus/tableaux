@@ -11,6 +11,7 @@ import org.vertx.scala.router.routing.{AsyncReply, Error, Ok}
 import org.vertx.scala.router.{Router, RouterException}
 
 import scala.concurrent.{Future, Promise}
+import scala.util.matching.Regex
 
 trait BaseRouter extends Router with StandardVerticle {
 

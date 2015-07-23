@@ -47,7 +47,7 @@ class Starter extends Verticle {
 
       _ <- deployHttpServer(port, tableauxConfig)
     } yield {
-      p.success()
+      p.success(())
     }
   }
 
@@ -55,7 +55,7 @@ class Starter extends Verticle {
     val uploadsDirectory = Path(s"${config.workingDirectory}/${config.uploadsDirectory}")
 
     vertx.fileSystem.mkdir(s"$uploadsDirectory", { asyncResult =>
-      p.success()
+      p.success(())
     })
   }
 

@@ -192,7 +192,7 @@ class MediaTest extends TableauxTestBase {
 
             resp.bodyHandler { buf =>
               assertEquals("Should get the same size back as the file really is", size, buf.length())
-              p.success()
+              p.success(())
             }
         }).exceptionHandler({ ext =>
           fail(ext.toString)

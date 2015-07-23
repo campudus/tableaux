@@ -135,7 +135,7 @@ class MediaController(override val config: TableauxConfig,
       _ <- {
         import FutureUtils._
         promisify({ p: Promise[Unit] =>
-          vertx.fileSystem.delete(path.toString(), {result => p.success()})
+          vertx.fileSystem.delete(path.toString(), {result => p.success(())})
         })
       }
     } yield {
