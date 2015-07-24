@@ -55,8 +55,8 @@ class Starter extends Verticle {
     val uploadsDirectory = Path(s"${config.workingDirectory}/${config.uploadsDirectory}")
 
     vertx.fileSystem.mkdir(s"$uploadsDirectory", {
-      case Success() => p.success(())
       case Failure(x) => p.failure(x)
+      case _ => p.success(())
     }: Try[Void] => Unit)
   }
 

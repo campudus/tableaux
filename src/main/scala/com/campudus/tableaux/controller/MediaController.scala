@@ -137,8 +137,8 @@ class MediaController(override val config: TableauxConfig,
 
         promisify({ p: Promise[Unit] =>
           vertx.fileSystem.delete(path.toString(), {
-            case Success() => p.success(())
             case Failure(x) => p.failure(x)
+            case _ => p.success(())
           }: Try[Void] => Unit)
         })
       }
