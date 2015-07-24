@@ -30,22 +30,22 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     /**
      * Get Rows
      */
-    case Get(Rows(tableId)) => asyncGetReply(controller.getRows(tableId.toLong))
+    case Get(Rows(tableId)) => asyncGetReply(controller.retrieveRows(tableId.toLong))
 
     /**
      * Get Row
      */
-    case Get(Row(tableId, rowId)) => asyncGetReply(controller.getRow(tableId.toLong, rowId.toLong))
+    case Get(Row(tableId, rowId)) => asyncGetReply(controller.retrieveRow(tableId.toLong, rowId.toLong))
 
     /**
      * Get Cell
      */
-    case Get(Cell(tableId, columnId, rowId)) => asyncGetReply(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
+    case Get(Cell(tableId, columnId, rowId)) => asyncGetReply(controller.retrieveCell(tableId.toLong, columnId.toLong, rowId.toLong))
 
     /**
      * Get complete table
      */
-    case Get(CompleteTableId(tableId)) => asyncGetReply(controller.getCompleteTable(tableId.toLong))
+    case Get(CompleteTableId(tableId)) => asyncGetReply(controller.retrieveCompleteTable(tableId.toLong))
 
     /**
      * Create table with columns and rows
@@ -53,9 +53,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Post(CompleteTable()) => asyncSetReply {
       getJson(req) flatMap { json =>
         if (json.getFieldNames.contains("rows")) {
-          controller.createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
+          controller.createCompleteTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
         } else {
-          controller.createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), Seq())
+          controller.createCompleteTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), Seq())
         }
       }
     }
