@@ -1,6 +1,5 @@
 package com.campudus.tableaux.controller
 
-import java.util
 import java.util.UUID
 
 import com.campudus.tableaux.TableauxConfig
@@ -9,10 +8,11 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.helper.FutureUtils
 import com.campudus.tableaux.router.UploadAction
+import org.vertx.scala.core.FunctionConverters._
 
 import scala.concurrent.{Promise, Future}
 import scala.reflect.io.Path
-import scala.util.{Success, Failure}
+import scala.util.{Try, Success, Failure}
 
 object MediaController {
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
@@ -134,8 +134,12 @@ class MediaController(override val config: TableauxConfig,
       _ <- fileModel.deleteById(uuid)
       _ <- {
         import FutureUtils._
+
         promisify({ p: Promise[Unit] =>
-          vertx.fileSystem.delete(path.toString(), {result => p.success(())})
+          vertx.fileSystem.delete(path.toString(), {
+            case Success() => p.success(())
+            case Failure(x) => p.failure(x)
+          }: Try[Void] => Unit)
         })
       }
     } yield {
