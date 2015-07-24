@@ -71,12 +71,12 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     _ <- rowStruc.delete(tableId, rowId)
   } yield EmptyObject()
 
-  def addRow(tableId: TableId): Future[Row] = for {
+  def createRow(tableId: TableId): Future[Row] = for {
     table <- retrieveTable(tableId)
     id <- rowStruc.createEmpty(tableId)
   } yield Row(table, id, Seq.empty)
 
-  def addFullRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
+  def createRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
     table <- retrieveTable(tableId)
     columns <- retrieveColumns(table.id)
     ids <- Future.sequence(rows.map({

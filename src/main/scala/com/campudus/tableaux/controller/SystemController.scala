@@ -3,7 +3,6 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.helper.HelperFunctions._
@@ -84,16 +83,8 @@ class SystemController(override val config: TableauxConfig,
       table <- structureModel.tableStruc.create(tableName)
       columns <- structureModel.columnStruc.createColumns(table, columns)
       columnIds <- Future(columns.map(_.id))
-      rowsWithColumnIdAndValue <- Future.successful {
-        if (rows.isEmpty) {
-          Seq()
-        } else {
-          rows map {
-            columnIds.zip(_)
-          }
-        }
-      }
-      _ <- tableauxModel.addFullRows(table.id, rowsWithColumnIdAndValue)
+      rowsWithColumnIdAndValue <- Future.successful(rows.map(columnIds.zip(_)))
+      _ <- tableauxModel.createRows(table.id, rowsWithColumnIdAndValue)
     } yield table
   }
 }

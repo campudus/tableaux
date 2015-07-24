@@ -8,11 +8,9 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.helper.FutureUtils
 import com.campudus.tableaux.router.UploadAction
-import org.vertx.scala.core.FunctionConverters._
 
-import scala.concurrent.{Promise, Future}
+import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
-import scala.util.{Try, Success, Failure}
 
 object MediaController {
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
@@ -48,7 +46,7 @@ class MediaController(override val config: TableauxConfig,
     retrieveExtendedFolder(rootFolder)
   }
 
-  private def retrieveExtendedFolder(folder: Folder): Future[ExtendedFolder]  = {
+  private def retrieveExtendedFolder(folder: Folder): Future[ExtendedFolder] = {
     for {
       subfolders <- repository.retrieveSubfolders(folder.id)
       files <- fileModel.retrieveFromFolder(folder.id)
@@ -136,10 +134,8 @@ class MediaController(override val config: TableauxConfig,
         import FutureUtils._
 
         promisify({ p: Promise[Unit] =>
-          vertx.fileSystem.delete(path.toString(), {
-            case Failure(x) => p.failure(x)
-            case _ => p.success(())
-          }: Try[Void] => Unit)
+          // succeed even if file doesn't exist
+          vertx.fileSystem.delete(path.toString(), { result => p.success(()) })
         })
       }
     } yield {

@@ -22,24 +22,24 @@ class TableauxController(override val config: TableauxConfig, override protected
     values match {
       case Some(seq) =>
         checkArguments(greaterZero(tableId), nonEmpty(seq, "rows"))
-        logger.info(s"createFullRow $tableId $values")
-        repository.addFullRows(tableId, seq)
+        logger.info(s"createRows $tableId $values")
+        repository.createRows(tableId, seq)
       case None =>
         checkArguments(greaterZero(tableId))
         logger.info(s"createRow $tableId")
-        repository.addRow(tableId)
+        repository.createRow(tableId)
     }
   }
 
   def retrieveRow(tableId: TableId, rowId: TableId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"getRow $tableId $rowId")
+    logger.info(s"retrieveRow $tableId $rowId")
     repository.retrieveRow(tableId, rowId)
   }
 
   def retrieveRows(tableId: TableId): Future[RowSeq] = {
     checkArguments(greaterZero(tableId))
-    logger.info(s"getRows $tableId")
+    logger.info(s"retrieveRows $tableId")
 
     for {
       table <- repository.retrieveTable(tableId)
@@ -49,7 +49,7 @@ class TableauxController(override val config: TableauxConfig, override protected
 
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: ColumnId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
-    logger.info(s"getCell $tableId $columnId $rowId")
+    logger.info(s"retrieveCell $tableId $columnId $rowId")
     repository.retrieveCell(tableId, columnId, rowId)
   }
 
@@ -83,7 +83,7 @@ class TableauxController(override val config: TableauxConfig, override protected
 
   def retrieveCompleteTable(tableId: TableId): Future[CompleteTable] = {
     checkArguments(greaterZero(tableId))
-    logger.info(s"getTable $tableId")
+    logger.info(s"retrieveCompleteTable $tableId")
 
     for {
       table <- repository.retrieveTable(tableId)
@@ -100,7 +100,7 @@ class TableauxController(override val config: TableauxConfig, override protected
       table <- repository.createTable(tableName)
       columns <- repository.createColumns(table.id, columns)
       columnIds <- Future(columns.map(_.id))
-      _ <- repository.addFullRows(table.id, rows.map(columnIds.zip(_)))
+      _ <- repository.createRows(table.id, rows.map(columnIds.zip(_)))
       completeTable <- retrieveCompleteTable(table.id)
     } yield completeTable
   }

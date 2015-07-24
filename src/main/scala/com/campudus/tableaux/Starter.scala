@@ -54,17 +54,15 @@ class Starter extends Verticle {
   def createUploadsDirectory(config: TableauxConfig): Future[Unit] = promisify { p: Promise[Unit] =>
     val uploadsDirectory = Path(s"${config.workingDirectory}/${config.uploadsDirectory}")
 
-    vertx.fileSystem.mkdir(s"$uploadsDirectory", {
-      case Failure(x) => p.failure(x)
-      case _ => p.success(())
-    }: Try[Void] => Unit)
+    // succeed also in error cause (directory already exists)
+    vertx.fileSystem.mkdir(s"$uploadsDirectory", { result => p.success() })
   }
 
   def deployMod(container: Container, modName: String, config: JsonObject, instances: Int): Future[String] = promisify { p: Promise[String] =>
-      container.deployModule(modName, config, instances, {
-        case Success(deploymentId) => p.success(deploymentId)
-        case Failure(x) => p.failure(x)
-      }: Try[String] => Unit)
+    container.deployModule(modName, config, instances, {
+      case Success(deploymentId) => p.success(deploymentId)
+      case Failure(x) => p.failure(x)
+    }: Try[String] => Unit)
   }
 
   def deployHttpServer(port: Int, tableauxConfig: TableauxConfig): Future[HttpServer] = promisify { p: Promise[HttpServer] =>
