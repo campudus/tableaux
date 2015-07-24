@@ -11,11 +11,7 @@ import scala.concurrent.Future
 
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = for {
-    columns <- serialiseFutures(createColumns) {
-      createColumn(table, _)
-    }
-  } yield columns
+  def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = Future.sequence(createColumns.map(createColumn(table, _)))
   
   def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
     createColumn match {

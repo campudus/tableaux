@@ -108,11 +108,6 @@ object HelperFunctions {
     fields.map(field => (field, json.getField[A](field)))
   }
 
-  def serialiseFutures[A, B](seq: Seq[A])(fn: A => Future[B])(implicit executor: ExecutionContext): Future[Seq[B]] = {
-    val futures = seq.map(item => fn(item))
-    Future.sequence(futures)
-  }
-
   private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[Any]] = for {
     values <- checkNotNullArray(json, "values")
     valueAsAnyList <- asCastedList[Any](values)
