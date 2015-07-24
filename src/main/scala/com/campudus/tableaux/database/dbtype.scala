@@ -30,8 +30,8 @@ sealed trait LanguageType {
 }
 
 object LanguageType {
-  def apply(multilanguage: Boolean): LanguageType = {
-    if (multilanguage) {
+  def apply(multiLanguage: Boolean): LanguageType = {
+    if (multiLanguage) {
       MultiLanguage
     } else {
       SingleLanguage

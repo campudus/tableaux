@@ -17,8 +17,8 @@ object StructureController {
 
 class StructureController(override val config: TableauxConfig, override protected val repository: StructureModel) extends Controller[StructureModel] {
 
-  lazy val tableStruc = repository.tableStruc
-  lazy val columnStruc = repository.columnStruc
+  val tableStruc = repository.tableStruc
+  val columnStruc = repository.columnStruc
 
   def retrieveTable(tableId: TableId): Future[Table] = {
     checkArguments(greaterZero(tableId))

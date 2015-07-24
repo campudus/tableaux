@@ -54,32 +54,26 @@ class Starter extends Verticle {
   def createUploadsDirectory(config: TableauxConfig): Future[Unit] = promisify { p: Promise[Unit] =>
     val uploadsDirectory = Path(s"${config.workingDirectory}/${config.uploadsDirectory}")
 
-    vertx.fileSystem.mkdir(s"$uploadsDirectory", { asyncResult =>
-      p.success(())
-    })
+    vertx.fileSystem.mkdir(s"$uploadsDirectory", {
+      case Success() => p.success(())
+      case Failure(x) => p.failure(x)
+    }: Try[Void] => Unit)
   }
 
-  def deployMod(container: Container, modName: String, config: JsonObject, instances: Int): Future[String] = promisify {
-    p: Promise[String] =>
-
+  def deployMod(container: Container, modName: String, config: JsonObject, instances: Int): Future[String] = promisify { p: Promise[String] =>
       container.deployModule(modName, config, instances, {
         case Success(deploymentId) => p.success(deploymentId)
         case Failure(x) => p.failure(x)
       }: Try[String] => Unit)
   }
 
-  def deployHttpServer(port: Int, tableauxConfig: TableauxConfig): Future[HttpServer] = {
-    val p = Promise[HttpServer]()
-
+  def deployHttpServer(port: Int, tableauxConfig: TableauxConfig): Future[HttpServer] = promisify { p: Promise[HttpServer] =>
     val dbConnection = DatabaseConnection(tableauxConfig)
     val router = RouterRegistry(tableauxConfig, dbConnection)
 
     vertx.createHttpServer().requestHandler(router).listen(port, {
-      case Success(srv) =>
-        p.success(srv)
-      case Failure(ex) => p.failure(ex)
+      case Success(server) => p.success(server)
+      case Failure(x) => p.failure(x)
     }: Try[HttpServer] => Unit)
-
-    p.future
   }
 }

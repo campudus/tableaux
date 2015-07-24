@@ -55,8 +55,8 @@ trait DomainObject extends DomainObjectHelper {
   }
 
   /**
-   * uses getJson to encode DomainObject as string
-   * @return string representation of domainobject
+   * Uses getJson to encode DomainObject as String
+   * @return String representation of DomainObject
    */
   final override def toString: String = getJson.encode()
 }
