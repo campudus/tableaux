@@ -7,15 +7,13 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
-import scala.collection.generic.CanBuildFrom
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 object HelperFunctions {
 
   private def asCastedList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     import scala.collection.JavaConverters._
-    sequence(array.asScala.toList.map(notNull(_, "some array value").flatMap(castElement[A])))
+    sequence(array.asScala.toList.map(notNull(_, "some array value").flatMap(tryCast[A])))
   }
 
   private def checkNotNullArray(json: JsonObject, field: String): ArgumentCheck[JsonArray] = notNull(json.getArray(field), field)
@@ -26,10 +24,6 @@ object HelperFunctions {
 
   def toTableauxType(kind: String): ArgumentCheck[TableauxDbType] = {
     tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))(kind)
-  }
-
-  def toOption[A](value: => A): ArgumentCheck[Option[A]] = {
-    OkArg(Try(value).toOption)
   }
 
   private def getLinkInformation(json: JsonObject): ArgumentCheck[LinkConnection] = for {
