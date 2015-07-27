@@ -16,7 +16,15 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   val ordering: Ordering
 
-  override def getJson: JsonObject = Json.obj("id" -> id, "name" -> name, "kind" -> kind.toString, "ordering" -> ordering)
+  val multilanguage: Boolean = false
+
+  override def getJson: JsonObject = Json.obj(
+    "id" -> id,
+    "ordering" -> ordering,
+    "name" -> name,
+    "kind" -> kind.toString,
+    "multilanguage" -> multilanguage
+  )
 
   override def setJson: JsonObject = Json.obj("id" -> id, "ordering" -> ordering)
 }
@@ -31,8 +39,8 @@ case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Orde
   override val kind = NumericType
 }
 
-sealed trait MultiLanguageColumn[A] extends ColumnType[A] {
-  override def getJson: JsonObject = super.getJson mergeIn Json.obj("multilanguage" -> true)
+sealed trait MultiLanguageColumn[A] extends SimpleValueColumn[A] {
+  override val multilanguage = true
 }
 
 case class MultiTextColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[String] {
@@ -46,7 +54,7 @@ case class MultiNumericColumn(table: Table, id: ColumnId, name: String, ordering
 case class LinkColumn[A](table: Table, id: ColumnId, to: SimpleValueColumn[A], name: String, ordering: Ordering) extends ColumnType[Link[A]] {
   override val kind = LinkType
 
-  override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.id)
+  override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.getJson)
 }
 
 case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends ColumnType[AttachmentFile] {

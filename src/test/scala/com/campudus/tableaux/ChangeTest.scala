@@ -71,11 +71,11 @@ class ChangeTest extends TableauxTestBase {
   @Test
   def changeColumn(): Unit = okTest {
     val postJson = Json.obj("name" -> "New testname", "ordering" -> 5, "kind" -> "text")
-    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5)
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5, "multilanguage" -> false)
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequestWithJson("POST", postJson, "/tables/1/columns/2")
+      test <- sendRequest("POST", "/tables/1/columns/2", postJson)
       test2 <- sendRequest("GET", "/tables/1/columns/2")
     } yield {
       assertEquals(expectedJson, test)

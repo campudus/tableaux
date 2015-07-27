@@ -12,11 +12,25 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def retrieveLinkColumn(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 3, "name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "toColumn" -> 1, "ordering" -> 3)
+    val expectedJson = Json.obj(
+      "status" -> "ok",
+      "id" -> 3,
+      "name" -> "Test Link 1",
+      "kind" -> "link",
+      "multilanguage" -> false,
+      "toTable" -> 2,
+      "toColumn" -> Json.obj(
+        "id" -> 1,
+        "ordering" -> 1,
+        "name" -> "Test Column 1",
+        "kind" -> "text",
+        "multilanguage" -> false
+      ),
+      "ordering" -> 3)
 
     for {
       tables <- setupTwoTables()
-      _ <- sendRequestWithJson("POST", postLinkCol, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables/1/columns", postLinkCol)
       test <- sendRequest("GET", "/tables/1/columns/3")
     } yield {
       assertEquals(expectedJson, test)

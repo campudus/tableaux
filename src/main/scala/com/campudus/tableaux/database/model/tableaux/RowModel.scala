@@ -86,8 +86,8 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def generateProjection(columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
-      case s: SimpleValueColumn[_] => s"column_${s.id}"
       case m: MultiLanguageColumn[_] => s"json_object_agg(DISTINCT COALESCE(utl.langtag, 'de_DE'), column_${m.id}) AS column_${m.id}"
+      case s: SimpleValueColumn[_] => s"column_${s.id}"
       case _ => "NULL"
     }
 

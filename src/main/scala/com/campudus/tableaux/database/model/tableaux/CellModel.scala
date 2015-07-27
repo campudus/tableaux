@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model.tableaux
 
+import com.campudus.tableaux.database.domain.{SimpleValueColumn, MultiLanguageColumn, LinkColumn, ColumnType}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker
@@ -76,7 +77,13 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } map { Json.fromObjectString }
   }
 
-  def getLinkValues(tableId: TableId, linkColumnId: ColumnId, rowId: RowId, toTableId: TableId, toColumnId: ColumnId): Future[Seq[JsonObject]] = {
+  def getLinkValues[A](linkColumn: LinkColumn[A], rowId: RowId): Future[Seq[JsonObject]] = {
+    val tableId = linkColumn.table.id
+    val linkColumnId = linkColumn.id
+
+    val toTableId = linkColumn.to.table.id
+    val toColumnId = linkColumn.to.id
+
     for {
       t <- connection.begin()
 
@@ -97,22 +104,38 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
         }
       }
 
-      (t, result) <- t.query(s"""
-        |SELECT to_table.id, to_table.column_$toColumnId
-        |  FROM user_table_$tableId AS from_table
-        |  JOIN link_table_$linkId
-        |    ON from_table.id = link_table_$linkId.$id1
-        |  JOIN user_table_$toTableId AS to_table
-        |    ON to_table.id = link_table_$linkId.$id2
-        |WHERE from_table.id = ?""".stripMargin, Json.arr(rowId))
+      (t, result) <- linkColumn.to match {
+        case c: MultiLanguageColumn[_] => t.query(s"""
+                                                     |SELECT to_table.id, json_object_agg(DISTINCT COALESCE(langtag, 'de_DE'), to_table_lang.column_$toColumnId) AS column_$toColumnId
+                                                     |  FROM user_table_$tableId AS from_table
+                                                     |  JOIN link_table_$linkId
+                                                     |    ON from_table.id = link_table_$linkId.$id1
+                                                     |  JOIN user_table_$toTableId AS to_table
+                                                     |    ON to_table.id = link_table_$linkId.$id2
+                                                     |  LEFT JOIN user_table_lang_$toTableId AS to_table_lang
+                                                     |    ON to_table.id = to_table_lang.id
+                                                     |WHERE from_table.id = ?
+                                                     |GROUP BY to_table.id""".stripMargin, Json.arr(rowId))
+        case c: SimpleValueColumn[_] => t.query(s"""
+                                                   |SELECT to_table.id, to_table.column_$toColumnId
+                                                   |  FROM user_table_$tableId AS from_table
+                                                   |  JOIN link_table_$linkId
+                                                   |    ON from_table.id = link_table_$linkId.$id1
+                                                   |  JOIN user_table_$toTableId AS to_table
+                                                   |    ON to_table.id = link_table_$linkId.$id2
+                                                   |WHERE from_table.id = ?""".stripMargin, Json.arr(rowId))
+      }
+
+
 
       _ <- t.commit()
     } yield {
       getSeqOfJsonArray(result) map {
         row =>
-          val id = row.get[Any](0)
-          val value = row.get[Any](1)
-          Json.obj("id" -> id, "value" -> value)
+          linkColumn.to match {
+            case c: MultiLanguageColumn[_] => Json.obj("id" -> row.get[Long](0), "value" -> Json.fromObjectString(row.get[String](1)))
+            case c: SimpleValueColumn[_] => Json.obj("id" -> row.get[Long](0), "value" -> row.get[A](1))
+          }
       }
     }
   }

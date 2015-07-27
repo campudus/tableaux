@@ -201,22 +201,23 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   private def insertLinkValues(tableId: TableId, columnId: ColumnId, rowId: RowId, from: RowId, tos: Seq[RowId]): Future[Cell[Link[Any]]] = for {
     linkColumn <- retrieveColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
     _ <- cellStruc.putLinks(linkColumn.table.id, linkColumn.id, from, tos)
-    v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
+    v <- cellStruc.getLinkValues(linkColumn, rowId)
   } yield Cell(linkColumn, rowId, Link(linkColumn.to.id, v))
 
   def addLinkValue(tableId: TableId, columnId: ColumnId, rowId: RowId, from: RowId, to: RowId): Future[Cell[Link[Any]]] = for {
     linkColumn <- retrieveColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
     _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, from, to)
-    v <- cellStruc.getLinkValues(linkColumn.table.id, linkColumn.id, rowId, linkColumn.to.table.id, linkColumn.to.id)
+    v <- cellStruc.getLinkValues(linkColumn, rowId)
   } yield Cell(linkColumn, rowId, Link(to, v))
 
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = for {
     column <- retrieveColumn(tableId, columnId)
     value <- column match {
       case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-      case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
-      case c: SimpleValueColumn[_] => cellStruc.getValue(c.table.id, c.id, rowId)
+      case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
+
       case c: MultiLanguageColumn[_] => cellStruc.getTranslations(c.table.id, c.id, rowId)
+      case c: SimpleValueColumn[_] => cellStruc.getValue(c.table.id, c.id, rowId)
     }
   } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
 
@@ -228,7 +229,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       mergedValues <- {
         Future.sequence(allColumns map {
           case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-          case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
+          case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
+
           case c: MultiLanguageColumn[_] => Future.successful(values.toList(c.id.toInt - 1))
           case c: SimpleValueColumn[_] => Future.successful(values.toList(c.id.toInt - 1))
         })
@@ -246,10 +248,10 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
           case (rowId, values) =>
             val mergedValues = Future.sequence(allColumns map {
               case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-              case c: LinkColumn[_] => cellStruc.getLinkValues(c.table.id, c.id, rowId, c.to.table.id, c.to.id)
+              case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
 
-              case c: SimpleValueColumn[_] => Future.successful(values(c.id.toInt - 1))
               case c: MultiLanguageColumn[_] => Future.successful(values(c.id.toInt - 1))
+              case c: SimpleValueColumn[_] => Future.successful(values(c.id.toInt - 1))
             })
 
             (rowId, mergedValues)
