@@ -16,7 +16,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
     createColumn match {
       case CreateSimpleColumn(name, ordering, kind, languageType) =>
-        createValueColumn(table.id,kind, name, ordering, languageType).map {
+        createValueColumn(table.id, kind, name, ordering, languageType).map {
           case (id, ordering) => Mapper(languageType, kind).apply(table, id, name, ordering)
         }
 
