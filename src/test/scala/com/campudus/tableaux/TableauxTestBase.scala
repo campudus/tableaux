@@ -86,9 +86,7 @@ trait TableauxTestBase extends TestVerticle with TestConfig {
 
   @Deprecated
   def sendRequestWithJson(method: String, jsonObj: JsonObject, path: String): Future[JsonObject] = {
-    val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
-    p.future
+    sendRequest(method, path, jsonObj)
   }
 
   def jsonResponse(p: Promise[JsonObject]): HttpClientResponse => Unit = { resp: HttpClientResponse =>
@@ -126,15 +124,15 @@ trait TableauxTestBase extends TestVerticle with TestConfig {
     val fillNumberCellJson2 = Json.obj("value" -> 2)
 
     for {
-      tableId <- sendRequestWithJson("POST", postTable, "/tables") map { js => js.getLong("id") }
-      _ <- sendRequestWithJson("POST", createStringColumnJson, s"/tables/$tableId/columns")
-      _ <- sendRequestWithJson("POST", createNumberColumnJson, s"/tables/$tableId/columns")
+      tableId <- sendRequest("POST", "/tables", postTable) map { js => js.getLong("id") }
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createStringColumnJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
-      _ <- sendRequestWithJson("POST", fillStringCellJson, s"/tables/$tableId/columns/1/rows/1")
-      _ <- sendRequestWithJson("POST", fillStringCellJson2, s"/tables/$tableId/columns/1/rows/2")
-      _ <- sendRequestWithJson("POST", fillNumberCellJson, s"/tables/$tableId/columns/2/rows/1")
-      _ <- sendRequestWithJson("POST", fillNumberCellJson2, s"/tables/$tableId/columns/2/rows/2")
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", fillStringCellJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/2", fillStringCellJson2)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/1", fillNumberCellJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/2", fillNumberCellJson2)
     } yield tableId
   }
 }
