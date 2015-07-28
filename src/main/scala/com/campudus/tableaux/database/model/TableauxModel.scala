@@ -5,7 +5,7 @@ import java.util.UUID
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CellModel, RowModel}
-import com.campudus.tableaux.helper.HelperFunctions._
+import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException}
 import org.vertx.scala.core.json._
 
@@ -93,7 +93,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
           case (_: MultiLanguageColumn[_], _) => true
           case (_, _) => false
         } map { case (column, value) =>
-          (column, toTupleSeq(value.asInstanceOf[JsonObject]))
+          (column, JsonUtils.toTupleSeq(value.asInstanceOf[JsonObject]))
         }
 
         for {
@@ -168,7 +168,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   private def insertMultiLanguageValues[A <: JsonObject](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(tableId, columnId)
-      _ <- cellStruc.updateTranslations(column.table.id, column.id, rowId, toTupleSeq(value))
+      _ <- cellStruc.updateTranslations(column.table.id, column.id, rowId, JsonUtils.toTupleSeq(value))
     } yield Cell(column, rowId, value)
   }
 

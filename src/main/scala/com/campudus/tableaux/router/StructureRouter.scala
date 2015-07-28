@@ -2,7 +2,7 @@ package com.campudus.tableaux.router
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.helper.HelperFunctions._
+import com.campudus.tableaux.helper.JsonUtils._
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.router.routing._
 
@@ -49,7 +49,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
      * Create Column
      */
     case Post(Columns(tableId)) => asyncSetReply {
-      getJson(req) flatMap (json => controller.createColumns(tableId.toLong, jsonToSeqOfColumnNameAndType(json)))
+      getJson(req) flatMap (json => controller.createColumns(tableId.toLong, toCreateColumnSeq(json)))
     }
 
     /**

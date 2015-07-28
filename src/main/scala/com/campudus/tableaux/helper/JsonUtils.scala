@@ -1,15 +1,15 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.database.model.TableauxModel.{TableId, ColumnId, Ordering}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, TableId}
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
 import scala.util.Try
 
-object HelperFunctions {
+object JsonUtils {
 
   private def asCastedList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     import scala.collection.JavaConverters._
@@ -32,7 +32,17 @@ object HelperFunctions {
     fromColumn <- notNull(json.getLong("fromColumn"): ColumnId, "fromColumn")
   } yield LinkConnection(toTable, toColumn, fromColumn)
 
-  private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[CreateColumn]] = for {
+  private def toJsonObjectSeq(field: String, json: JsonObject): ArgumentCheck[Seq[JsonObject]] = {
+    for {
+      columns <- checkNotNullArray(json, field)
+      columnsAsJsonObjectList <- asCastedList[JsonObject](columns)
+      columnList <- nonEmpty(columnsAsJsonObjectList, field)
+      checkedColumnList <- checkForJsonObject(columnList)
+    } yield checkedColumnList
+  }
+
+  def toCreateColumnSeq(json: JsonObject): Seq[CreateColumn] = (for {
+    seq <- toJsonObjectSeq("columns", json)
     tuples <- sequence(seq map {
       json =>
         for {
@@ -42,55 +52,37 @@ object HelperFunctions {
           dbType <- toTableauxType(kind)
         } yield {
           val ordering = Try(json.getNumber("ordering").longValue()).toOption
-          val multi = json.getBoolean("multilanguage", false)
+          val multilanguage = Try[Boolean](json.getBoolean("multilanguage")).getOrElse(false)
 
           dbType match {
             case AttachmentType => CreateAttachmentColumn(name, ordering)
             case LinkType => CreateLinkColumn(name, ordering, getLinkInformation(json).get)
-            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multi))
+            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage))
           }
         }
     })
     checkedDbTypes <- matchForNormalOrLinkTypes(tuples)
-  } yield checkedDbTypes
+  } yield checkedDbTypes).get
 
-  def jsonToSeqOfColumnNameAndType(json: JsonObject): Seq[CreateColumn] = (for {
-    columns <- checkNotNullArray(json, "columns")
-    columnsAsJsonObjectList <- asCastedList[JsonObject](columns)
-    columnList <- nonEmpty(columnsAsJsonObjectList, "columns")
-    checkedColumnList <- checkForJsonObject(columnList)
-    seqOfTuples <- checkAndGetColumnInfo(checkedColumnList)
-  } yield seqOfTuples).get
-
-  def jsonToSeqOfRowsWithValue(json: JsonObject): Seq[Seq[_]] = (for {
-    rows <- checkNotNullArray(json, "rows")
-    rowsAsJsonObjectList <- asCastedList[JsonObject](rows)
-    rowList <- nonEmpty(rowsAsJsonObjectList, "rows")
-    checkedRowList <- checkForJsonObject(rowList)
+  def toRowValueSeq(json: JsonObject): Seq[Seq[_]] = (for {
+    checkedRowList <- toJsonObjectSeq("rows", json)
     result <- sequence(checkedRowList map toValueSeq)
   } yield result).get
 
-  def jsonToSeqOfRowsWithColumnIdAndValue(json: JsonObject): Seq[Seq[(ColumnId, _)]] = (for {
-    rows <- checkNotNullArray(json, "rows")
-    columns <- checkNotNullArray(json, "columns")
-    rowsAsJsonObjectList <- asCastedList[JsonObject](rows)
-    columnsAsJsonObjectList <- asCastedList[JsonObject](columns)
-    rowList <- nonEmpty(rowsAsJsonObjectList, "rows")
-    columnList <- nonEmpty(columnsAsJsonObjectList, "columns")
-    checkedRowList <- checkForJsonObject(rowList)
-    checkedColumnList <- checkForJsonObject(columnList)
-    checkedColumnIdList <- toColumnIds(checkedColumnList)
-    result <- checkRowsAndColumns(checkedRowList, checkedColumnIdList)
+  def toColumnValueSeq(json: JsonObject): Seq[Seq[(ColumnId, _)]] = (for {
+    columns <- toJsonObjectSeq("columns", json).map(toColumnIdSeq)
+    rows <- toJsonObjectSeq("rows", json)
+    result <- mergeColumnWithValue(columns.get, rows)
   } yield result).get
 
-  private def toColumnIds(columns: Seq[JsonObject]): ArgumentCheck[Seq[ColumnId]] = {
-    sequence(columns map { json => notNull(json.getNumber("id").longValue(), "id") })
+  private def toColumnIdSeq(columns: Seq[JsonObject]): ArgumentCheck[Seq[ColumnId]] = {
+    sequence(columns.map(hasLong("id", _)))
   }
 
-  private def checkRowsAndColumns(rows: Seq[JsonObject], columnIds: Seq[ColumnId]): ArgumentCheck[Seq[Seq[(ColumnId, _)]]] = {
+  private def mergeColumnWithValue(columns: Seq[ColumnId], rows: Seq[JsonObject]): ArgumentCheck[Seq[Seq[(ColumnId, _)]]] = {
     sequence(rows map { row =>
-      toValueSeq(row) flatMap { rowValues =>
-        checkSameLengthsAndZip[ColumnId, Any](columnIds, rowValues)
+      toValueSeq(row) flatMap { values =>
+        checkSameLengthsAndZip[ColumnId, Any](columns, values)
       }
     })
   }
@@ -116,17 +108,21 @@ object HelperFunctions {
   }
 
   private def matchForLinkTypes(seq: Seq[CreateColumn]): ArgumentCheck[Seq[CreateColumn]] = {
-    sequence(seq map { column => column.kind match {
-      case LinkType => OkArg(column)
-      case _ => FailArg[CreateColumn](InvalidJsonException(s"Warning: ${column.kind} is not a LinkType", "link"))
-    }})
+    sequence(seq map { column =>
+      column.kind match {
+        case LinkType => OkArg(column)
+        case _ => FailArg[CreateColumn](InvalidJsonException(s"Warning: ${column.kind} is not a LinkType", "link"))
+      }
+    })
   }
 
   private def matchForNormalTypes(seq: Seq[CreateColumn]): ArgumentCheck[Seq[CreateColumn]] = {
-    sequence(seq map { column => column.kind match {
-      case LinkType => FailArg[CreateColumn](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
-      case _ => OkArg(column)
-    }})
+    sequence(seq map { column =>
+      column.kind match {
+        case LinkType => FailArg[CreateColumn](InvalidJsonException(s"Warning: Kind is a Link, but should be a normal Type", "link"))
+        case _ => OkArg(column)
+      }
+    })
   }
 
   def getColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType]) = {

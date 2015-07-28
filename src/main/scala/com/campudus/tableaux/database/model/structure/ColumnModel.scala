@@ -3,7 +3,6 @@ package com.campudus.tableaux.database.model.structure
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.helper.HelperFunctions._
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
@@ -12,7 +11,7 @@ import scala.concurrent.Future
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = Future.sequence(createColumns.map(createColumn(table, _)))
-  
+
   def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
     createColumn match {
       case CreateSimpleColumn(name, ordering, kind, languageType) =>
@@ -21,7 +20,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         }
 
       case CreateLinkColumn(name, ordering, linkConnection) => for {
-        toCol <- retrieve(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]] 
+        toCol <- retrieve(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
         (id, ordering) <- createLinkColumn(table.id, name, linkConnection, ordering)
       } yield LinkColumn(table, id, toCol, name, ordering)
 
@@ -31,7 +30,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         }
     }
   }
-  
+
   private def createValueColumn(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
@@ -77,17 +76,17 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
         (t, _) <- t.query( s"""
                               |CREATE TABLE link_table_$linkId (
-                              | id_1 bigint,
-                              | id_2 bigint,
-                              | PRIMARY KEY(id_1, id_2),
-                              | CONSTRAINT link_table_${linkId}_foreign_1
-                              |   FOREIGN KEY(id_1)
-                              |   REFERENCES user_table_$tableId (id)
-                              |   ON DELETE CASCADE,
-                              | CONSTRAINT link_table_${linkId}_foreign_2
-                              |   FOREIGN KEY(id_2)
-                              |   REFERENCES user_table_$toTableId (id)
-                              |   ON DELETE CASCADE
+                              |id_1 bigint,
+                              |id_2 bigint,
+                              |PRIMARY KEY(id_1, id_2),
+                              |CONSTRAINT link_table_${linkId}_foreign_1
+                              |  FOREIGN KEY(id_1)
+                              |  REFERENCES user_table_$tableId (id)
+                              |  ON DELETE CASCADE,
+                              |CONSTRAINT link_table_${linkId}_foreign_2
+                              |  FOREIGN KEY(id_2)
+                              |  REFERENCES user_table_$toTableId (id)
+                              |  ON DELETE CASCADE
                               |)""".stripMargin)
       } yield {
         val json = insertNotNull(result).head
@@ -100,7 +99,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   private def insertSystemColumn(t: connection.Transaction, tableId: TableId, name: String, kind: TableauxDbType, ordering: Option[Ordering], linkId: Option[Long], languageType: LanguageType): Future[(connection.Transaction, JsonObject)] = {
     def insertStatement(tableId: TableId, ordering: String) =
       s"""INSERT INTO system_columns (table_id, column_id, column_type, user_column_name, ordering, link_id, multilanguage) VALUES (
-          | ?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?) RETURNING column_id, ordering""".stripMargin
+          |?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?) RETURNING column_id, ordering""".stripMargin
 
     for {
       (t, result) <- ordering match {

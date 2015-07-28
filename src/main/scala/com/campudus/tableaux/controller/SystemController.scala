@@ -4,8 +4,7 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
-import com.campudus.tableaux.helper.FileUtils
-import com.campudus.tableaux.helper.HelperFunctions._
+import com.campudus.tableaux.helper.{FileUtils, JsonUtils}
 import org.vertx.java.core.json.JsonObject
 
 import scala.concurrent.Future
@@ -54,7 +53,7 @@ class SystemController(override val config: TableauxConfig,
   private def writeDemoData(demoData: Future[JsonObject]): Future[Table] = {
     for {
       json <- demoData
-      table <- createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
+      table <- createTable(json.getString("name"), JsonUtils.toCreateColumnSeq(json), JsonUtils.toRowValueSeq(json))
     } yield table
   }
 

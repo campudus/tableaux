@@ -1,9 +1,7 @@
 package com.campudus.tableaux.database.model.tableaux
 
-import com.campudus.tableaux.database.domain.{SimpleValueColumn, ColumnType, MultiLanguageColumn}
+import com.campudus.tableaux.database.domain.{ColumnType, MultiLanguageColumn, SimpleValueColumn}
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.helper.HelperFunctions
-import HelperFunctions._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.Json
@@ -23,7 +21,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   def createFull(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
     val placeholder = values.map(_ => "?").mkString(", ")
     val columns = values.map { case (column: ColumnType[_], _) => s"column_${column.id}" }.mkString(", ")
-    val binds = values.map {case (_, value) => value }
+    val binds = values.map { case (_, value) => value }
 
     for {
       result <- connection.query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($placeholder) RETURNING id", Json.arr(binds: _*))
