@@ -46,9 +46,11 @@ object ArgumentChecker {
     if (seq.nonEmpty) OkArg(seq) else FailArg(InvalidJsonException(s"Warning: $name is empty.", "empty"))
   }
 
-  def hasArray(arr: String, value: JsonObject): ArgumentCheck[JsonArray] = notNull(value.getArray(arr), arr)
+  def hasArray(field: String, value: JsonObject): ArgumentCheck[JsonArray] = notNull(value.getArray(field), field)
 
-  def hasNumber(num: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getNumber(num), num)
+  def hasNumber(field: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getNumber(field), field)
+
+  def hasLong(field: String, value: JsonObject): ArgumentCheck[Long] = notNull(value.getLong(field), field)
 
   def tryCast[A](elem: Any): ArgumentCheck[A] = {
     tryMap((x: Any) => x.asInstanceOf[A], InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid"))(elem)

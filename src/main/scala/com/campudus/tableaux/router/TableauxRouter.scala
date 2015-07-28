@@ -1,7 +1,7 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.helper.HelperFunctions._
+import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.router.routing._
@@ -53,9 +53,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Post(CompleteTable()) => asyncSetReply {
       getJson(req) flatMap { json =>
         if (json.getFieldNames.contains("rows")) {
-          controller.createCompleteTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
+          controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), toRowValueSeq(json))
         } else {
-          controller.createCompleteTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), Seq())
+          controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), Seq())
         }
       }
     }
@@ -64,7 +64,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
      * Create Row
      */
     case Post(Rows(tableId)) => asyncSetReply {
-      getJson(req) flatMap (json => controller.createRow(tableId.toLong, Some(jsonToSeqOfRowsWithColumnIdAndValue(json)))) recoverWith {
+      getJson(req) flatMap (json => controller.createRow(tableId.toLong, Some(toColumnValueSeq(json)))) recoverWith {
         case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
       }
     }
