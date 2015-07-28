@@ -1,9 +1,9 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.database.model.TableauxModel.{TableId, ColumnId, LinkConnection, Ordering}
+import com.campudus.tableaux.database.model.TableauxModel.{TableId, ColumnId, Ordering}
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{CreateAttachmentColumn, CreateSimpleColumn, CreateLinkColumn, CreateColumn}
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
@@ -13,7 +13,7 @@ object HelperFunctions {
 
   private def asCastedList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     import scala.collection.JavaConverters._
-    sequence(array.asScala.toList.map(notNull(_, "some array value").flatMap(castElement[A])))
+    sequence(array.asScala.toList.map(notNull(_, "some array value").flatMap(tryCast[A])))
   }
 
   private def checkNotNullArray(json: JsonObject, field: String): ArgumentCheck[JsonArray] = notNull(json.getArray(field), field)
@@ -30,7 +30,7 @@ object HelperFunctions {
     toTable <- notNull(json.getLong("toTable"): TableId, "toTable")
     toColumn <- notNull(json.getLong("toColumn"): ColumnId, "toColumn")
     fromColumn <- notNull(json.getLong("fromColumn"): ColumnId, "fromColumn")
-  } yield (toTable, toColumn, fromColumn)
+  } yield LinkConnection(toTable, toColumn, fromColumn)
 
   private def checkAndGetColumnInfo(seq: Seq[JsonObject]): ArgumentCheck[Seq[CreateColumn]] = for {
     tuples <- sequence(seq map {
@@ -42,18 +42,12 @@ object HelperFunctions {
           dbType <- toTableauxType(kind)
         } yield {
           val ordering = Try(json.getNumber("ordering").longValue()).toOption
+          val multi = json.getBoolean("multilanguage", false)
 
           dbType match {
-            case AttachmentType => {
-              CreateAttachmentColumn(name, ordering)
-            }
-            case LinkType => {
-              val linkConnections = getLinkInformation(json).get
-              CreateLinkColumn(name, ordering, linkConnections)
-            }
-            case _ => {
-              CreateSimpleColumn(name, dbType, ordering)
-            }
+            case AttachmentType => CreateAttachmentColumn(name, ordering)
+            case LinkType => CreateLinkColumn(name, ordering, getLinkInformation(json).get)
+            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multi))
           }
         }
     })
@@ -101,7 +95,14 @@ object HelperFunctions {
     })
   }
 
-  private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[_]] = for {
+  def toTupleSeq[A](json: JsonObject): Seq[(String, A)] = {
+    import scala.collection.JavaConverters._
+
+    val fields = json.getFieldNames.asScala.toSeq
+    fields.map(field => (field, json.getField[A](field)))
+  }
+
+  private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[Any]] = for {
     values <- checkNotNullArray(json, "values")
     valueAsAnyList <- asCastedList[Any](values)
     valueList <- nonEmpty(valueAsAnyList, "values")

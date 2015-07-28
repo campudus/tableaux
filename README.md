@@ -20,3 +20,11 @@ To execute the `fatJar` you can call it like this:
 ```
 $ java -jar tableaux_2.11-0.1.0-fat.jar -conf ../../conf.json`
 ```
+
+## Features
+
+### Relational data store
+
+### Multi-language
+
+### Revision control

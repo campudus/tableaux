@@ -16,53 +16,48 @@ object TableauxRouter {
 
 class TableauxRouter(override val config: TableauxConfig, val controller: TableauxController) extends BaseRouter {
 
-  val AttachmentOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/attachment/($uuidRegex)".r
+  private val AttachmentOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/attachment/($uuidRegex)".r
 
-  val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
-  
-  val Column: Regex = "/tables/(\\d+)/columns/(\\d+)".r
-  val Columns: Regex = "/tables/(\\d+)/columns".r
-  
-  val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
-  val Rows: Regex = "/tables/(\\d+)/rows".r
-  
-  val Table: Regex = "/tables/(\\d+)".r
-  val Tables: Regex = "/tables".r
+  private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
 
-  val CompleteTable: Regex = "/completetable/(\\d+)".r
+  private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
+  private val Rows: Regex = "/tables/(\\d+)/rows".r
+
+  private val CompleteTable: Regex = "/completetable".r
+  private val CompleteTableId: Regex = "/completetable/(\\d+)".r
 
   override def routes(implicit req: HttpServerRequest): Routing = {
-    case Get(Tables()) => asyncGetReply(controller.getAllTables())
-    case Get(Table(tableId)) => asyncGetReply(controller.getTable(tableId.toLong))
-    case Get(CompleteTable(tableId)) => asyncGetReply(controller.getCompleteTable(tableId.toLong))
-    case Get(Columns(tableId)) => asyncGetReply(controller.getColumns(tableId.toLong))
-    case Get(Column(tableId, columnId)) => asyncGetReply(controller.getColumn(tableId.toLong, columnId.toLong))
-    case Get(Rows(tableId)) => asyncGetReply(controller.getRows(tableId.toLong))
-    case Get(Row(tableId, rowId)) => asyncGetReply(controller.getRow(tableId.toLong, rowId.toLong))
-    case Get(Cell(tableId, columnId, rowId)) => asyncGetReply(controller.getCell(tableId.toLong, columnId.toLong, rowId.toLong))
+    /**
+     * Get Rows
+     */
+    case Get(Rows(tableId)) => asyncGetReply(controller.retrieveRows(tableId.toLong))
 
     /**
-     * Create Table
+     * Get Row
      */
-    case Post(Tables()) => asyncSetReply {
+    case Get(Row(tableId, rowId)) => asyncGetReply(controller.retrieveRow(tableId.toLong, rowId.toLong))
+
+    /**
+     * Get Cell
+     */
+    case Get(Cell(tableId, columnId, rowId)) => asyncGetReply(controller.retrieveCell(tableId.toLong, columnId.toLong, rowId.toLong))
+
+    /**
+     * Get complete table
+     */
+    case Get(CompleteTableId(tableId)) => asyncGetReply(controller.retrieveCompleteTable(tableId.toLong))
+
+    /**
+     * Create table with columns and rows
+     */
+    case Post(CompleteTable()) => asyncSetReply {
       getJson(req) flatMap { json =>
-        if (json.getFieldNames.contains("columns")) {
-          if (json.getFieldNames.contains("rows")) {
-            controller.createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
-          } else {
-            controller.createTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), Seq())
-          }
+        if (json.getFieldNames.contains("rows")) {
+          controller.createCompleteTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), jsonToSeqOfRowsWithValue(json))
         } else {
-          controller.createTable(json.getString("name"))
+          controller.createCompleteTable(json.getString("name"), jsonToSeqOfColumnNameAndType(json), Seq())
         }
       }
-    }
-
-    /**
-     * Create Column
-     */
-    case Post(Columns(tableId)) => asyncSetReply {
-      getJson(req) flatMap (json => controller.createColumn(tableId.toLong, jsonToSeqOfColumnNameAndType(json)))
     }
 
     /**
@@ -91,36 +86,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getField("value"))
       }
     }
-
-    /**
-     * Change Table
-     */
-    case Post(Table(tableId)) => asyncEmptyReply {
-      getJson(req) flatMap { json =>
-        controller.changeTableName(tableId.toLong, json.getString("name"))
-      }
-    }
-
-    /**
-     * Change Column
-     */
-    case Post(Column(tableId, columnId)) => asyncEmptyReply {
-      getJson(req) flatMap {
-        json =>
-          val (optName, optOrd, optKind) = getColumnChanges(json)
-          controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind)
-      }
-    }
-
-    /**
-     * Delete Table
-     */
-    case Delete(Table(tableId)) => asyncEmptyReply(controller.deleteTable(tableId.toLong))
-
-    /**
-     * Delete Column
-     */
-    case Delete(Column(tableId, columnId)) => asyncEmptyReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
 
     /**
      * Delete Row

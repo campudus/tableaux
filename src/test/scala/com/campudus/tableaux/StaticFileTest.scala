@@ -9,7 +9,7 @@ import scala.concurrent.{ Future, Promise }
 import scala.util.{ Failure, Success, Try }
 import org.vertx.scala.core.json.Json
 
-class TableauxStaticsTest extends TableauxTestBase {
+class StaticFileTest extends TableauxTestBase {
 
   @Test
   def checkIndexHtml(): Unit = {

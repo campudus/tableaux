@@ -34,7 +34,7 @@ class ChangeTest extends TableauxTestBase {
       test2 <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedJson, test)
-      assertEquals(expectedString, test2.getArray("columns").get[JsonObject](0).getString("name"))
+      assertEquals(expectedString, test2.getString("name"))
     }
   }
 
@@ -49,7 +49,7 @@ class ChangeTest extends TableauxTestBase {
       test2 <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedJson, test)
-      assertEquals(expectedOrdering, test2.getArray("columns").get[JsonObject](0).getNumber("ordering"))
+      assertEquals(expectedOrdering, test2.getNumber("ordering"))
     }
   }
 
@@ -64,18 +64,18 @@ class ChangeTest extends TableauxTestBase {
       test2 <- sendRequest("GET", "/tables/1/columns/2")
     } yield {
       assertEquals(expectedJson, test)
-      assertEquals(expectedKind, test2.getArray("columns").get[JsonObject](0).getString("kind"))
+      assertEquals(expectedKind, test2.getString("kind"))
     }
   }
 
   @Test
   def changeColumn(): Unit = okTest {
     val postJson = Json.obj("name" -> "New testname", "ordering" -> 5, "kind" -> "text")
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5)))
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5, "multilanguage" -> false)
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequestWithJson("POST", postJson, "/tables/1/columns/2")
+      test <- sendRequest("POST", "/tables/1/columns/2", postJson)
       test2 <- sendRequest("GET", "/tables/1/columns/2")
     } yield {
       assertEquals(expectedJson, test)

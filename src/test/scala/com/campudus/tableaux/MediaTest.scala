@@ -192,7 +192,7 @@ class MediaTest extends TableauxTestBase {
 
             resp.bodyHandler { buf =>
               assertEquals("Should get the same size back as the file really is", size, buf.length())
-              p.success()
+              p.success(())
             }
         }).exceptionHandler({ ext =>
           fail(ext.toString)
@@ -281,7 +281,7 @@ class MediaTest extends TableauxTestBase {
 
       columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
 
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getArray("rows").get[JsonObject](0).getField[Int]("id"))
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getField[Int]("id"))
 
       fileUuid <- uploadFile(file, mimetype) map (_.getString("uuid"))
       _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid")
@@ -298,7 +298,7 @@ class MediaTest extends TableauxTestBase {
 
       assertEquals(Json.obj("status" -> "ok"), resultFill)
 
-      assertEquals(fileUuid, resultRetrieve.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid, resultRetrieve.getArray("value").get[JsonObject](0).getString("uuid"))
     }
   }
 
@@ -317,7 +317,7 @@ class MediaTest extends TableauxTestBase {
     for {
       tableId <- setupDefaultTable()
       columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getArray("rows").get[JsonObject](0).getField[Int]("id"))
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getField[Int]("id"))
 
       // Add attachment with malformed uuid
       resultFill <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> "this-is-not-an-uuid")), s"/tables/$tableId/columns/$columnId/rows/$rowId")
@@ -344,7 +344,7 @@ class MediaTest extends TableauxTestBase {
 
       columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
 
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getArray("rows").get[JsonObject](0).getField[Int]("id"))
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getField[Int]("id"))
 
       fileUuid1 <- uploadFile(file, mimetype) map (_.getString("uuid"))
       _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid1")
@@ -380,13 +380,13 @@ class MediaTest extends TableauxTestBase {
       assertEquals(Json.obj("status" -> "ok"), resultFill1)
       assertEquals(Json.obj("status" -> "ok"), resultFill2)
 
-      assertEquals(fileUuid1, resultRetrieveFill.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
-      assertEquals(fileUuid2, resultRetrieveFill.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](1).getString("uuid"))
+      assertEquals(fileUuid1, resultRetrieveFill.getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid2, resultRetrieveFill.getArray("value").get[JsonObject](1).getString("uuid"))
 
-      assertEquals(fileUuid2, resultRetrieveUpdate.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
-      assertEquals(fileUuid1, resultRetrieveUpdate.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](1).getString("uuid"))
+      assertEquals(fileUuid2, resultRetrieveUpdate.getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid1, resultRetrieveUpdate.getArray("value").get[JsonObject](1).getString("uuid"))
 
-      assertEquals(fileUuid1, resultRetrieveDelete.getArray("rows").get[JsonObject](0).getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid1, resultRetrieveDelete.getArray("value").get[JsonObject](0).getString("uuid"))
     }
   }
 

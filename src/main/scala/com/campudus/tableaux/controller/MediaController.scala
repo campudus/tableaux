@@ -1,6 +1,5 @@
 package com.campudus.tableaux.controller
 
-import java.util
 import java.util.UUID
 
 import com.campudus.tableaux.TableauxConfig
@@ -10,9 +9,9 @@ import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.helper.FutureUtils
 import com.campudus.tableaux.router.UploadAction
 
-import scala.concurrent.{Promise, Future}
+import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 object MediaController {
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
@@ -48,7 +47,7 @@ class MediaController(override val config: TableauxConfig,
     retrieveExtendedFolder(rootFolder)
   }
 
-  private def retrieveExtendedFolder(folder: Folder): Future[ExtendedFolder]  = {
+  private def retrieveExtendedFolder(folder: Folder): Future[ExtendedFolder] = {
     for {
       subfolders <- repository.retrieveSubfolders(folder.id)
       files <- fileModel.retrieveFromFolder(folder.id)
@@ -134,8 +133,17 @@ class MediaController(override val config: TableauxConfig,
       _ <- fileModel.deleteById(uuid)
       _ <- {
         import FutureUtils._
+        import org.vertx.scala.core.FunctionConverters._
+
         promisify({ p: Promise[Unit] =>
-          vertx.fileSystem.delete(path.toString(), {result => p.success()})
+          // succeed even if file doesn't exist
+          vertx.fileSystem.delete(path.toString(), {
+            case Success(v) =>
+              p.success(())
+            case Failure(e) =>
+              logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
+              p.failure(e)
+          }: Try[Void] => Unit)
         })
       }
     } yield {

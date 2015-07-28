@@ -4,10 +4,9 @@ import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
-import TableauxModel._
-import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{EmptyObject, DomainObject, CreateColumn}
 
 import scala.concurrent.Future
 
@@ -19,94 +18,39 @@ object TableauxController {
 
 class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel) extends Controller[TableauxModel] {
 
-  def getAllTables(): Future[DomainObject] = {
-    logger.info("getAllTables")
-    repository.getAllTables()
-  }
-
-  def createColumn(tableId: => TableId, columns: => Seq[CreateColumn]): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
-    logger.info(s"createColumn $tableId $columns")
-    repository.addColumns(tableId, columns)
-  }
-
-  def createTable(tableName: String): Future[DomainObject] = {
-    checkArguments(notNull(tableName, "TableName"))
-    logger.info(s"createTable $tableName")
-    repository.createTable(tableName)
-  }
-
-  def createTable(tableName: String, columns: => Seq[CreateColumn], rowsValues: Seq[Seq[_]]): Future[DomainObject] = {
-    checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
-    logger.info(s"createTable $tableName columns $rowsValues")
-    repository.createCompleteTable(tableName, columns, rowsValues)
-  }
-
   def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {
     values match {
       case Some(seq) =>
         checkArguments(greaterZero(tableId), nonEmpty(seq, "rows"))
-        logger.info(s"createFullRow $tableId $values")
-        repository.addFullRows(tableId, seq)
+        logger.info(s"createRows $tableId $values")
+        repository.createRows(tableId, seq)
       case None =>
         checkArguments(greaterZero(tableId))
         logger.info(s"createRow $tableId")
-        repository.addRow(tableId)
+        repository.createRow(tableId)
     }
   }
 
-  def getTable(tableId: TableId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    verticle.logger.info(s"getTable $tableId")
-    repository.getTable(tableId)
-  }
-
-  def getCompleteTable(tableId: TableId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    verticle.logger.info(s"getTable $tableId")
-    repository.getCompleteTable(tableId)
-  }
-
-  def getColumn(tableId: TableId, columnId: ColumnId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"getColumn $tableId $columnId")
-    repository.getColumn(tableId, columnId)
-  }
-
-  def getColumns(tableId: TableId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    logger.info(s"getColumns $tableId")
-    repository.getColumns(tableId)
-  }
-
-  def getRow(tableId: TableId, rowId: TableId): Future[DomainObject] = {
+  def retrieveRow(tableId: TableId, rowId: TableId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"getRow $tableId $rowId")
-    repository.getRow(tableId, rowId)
+    logger.info(s"retrieveRow $tableId $rowId")
+    repository.retrieveRow(tableId, rowId)
   }
 
-  def getRows(tableId: TableId): Future[DomainObject] = {
+  def retrieveRows(tableId: TableId): Future[RowSeq] = {
     checkArguments(greaterZero(tableId))
-    logger.info(s"getRows $tableId")
-    repository.getRows(tableId)
+    logger.info(s"retrieveRows $tableId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      rows <- repository.retrieveRows(table)
+    } yield rows
   }
 
-  def getCell(tableId: TableId, columnId: ColumnId, rowId: ColumnId): Future[DomainObject] = {
+  def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: ColumnId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
-    logger.info(s"getCell $tableId $columnId $rowId")
-    repository.getCell(tableId, columnId, rowId)
-  }
-
-  def deleteTable(tableId: TableId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId))
-    logger.info(s"deleteTable $tableId")
-    repository.deleteTable(tableId)
-  }
-
-  def deleteColumn(tableId: TableId, columnId: ColumnId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"deleteColumn $tableId $columnId")
-    repository.removeColumn(tableId, columnId)
+    logger.info(s"retrieveCell $tableId $columnId $rowId")
+    repository.retrieveCell(tableId, columnId, rowId)
   }
 
   def deleteRow(tableId: TableId, rowId: RowId): Future[DomainObject] = {
@@ -127,31 +71,37 @@ class TableauxController(override val config: TableauxConfig, override protected
     repository.updateValue(tableId, columnId, rowId, value)
   }
 
-  def deleteAttachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: String): Future[DomainObject] = {
+  def deleteAttachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: String): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(uuid, "uuid"))
     logger.info(s"deleteAttachment $tableId $columnId $rowId $uuid")
+
     //TODO introduce a Cell identifier with tableId, columnId and rowId
-    repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
+    for {
+      _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
+    } yield EmptyObject()
   }
 
-  private implicit def convertUnitToEmptyObject(unit: Future[Unit]): Future[EmptyObject] = {
-    unit map (s => EmptyObject())
+  def retrieveCompleteTable(tableId: TableId): Future[CompleteTable] = {
+    checkArguments(greaterZero(tableId))
+    logger.info(s"retrieveCompleteTable $tableId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      colList <- repository.retrieveColumns(table.id)
+      rowList <- repository.retrieveRows(table)
+    } yield CompleteTable(table, colList, rowList)
   }
 
-  def changeTableName(tableId: TableId, tableName: String): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), notNull(tableName, "TableName"))
-    logger.info(s"changeTableName $tableId $tableName")
-    repository.changeTableName(tableId, tableName)
-  }
+  def createCompleteTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]]): Future[CompleteTable] = {
+    checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
+    logger.info(s"createTable $tableName columns $columns rows $rows")
 
-  def changeColumn(tableId: TableId,
-                   columnId: ColumnId,
-                   columnName: Option[String],
-                   ordering: Option[Ordering],
-                   kind: Option[TableauxDbType]): Future[DomainObject] = {
-
-    checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"changeColumn $tableId $columnId $columnName $ordering $kind")
-    repository.changeColumn(tableId, columnId, columnName, ordering, kind)
+    for {
+      table <- repository.createTable(tableName)
+      columns <- repository.createColumns(table.id, columns)
+      columnIds <- Future(columns.map(_.id))
+      _ <- repository.createRows(table.id, rows.map(columnIds.zip(_)))
+      completeTable <- retrieveCompleteTable(table.id)
+    } yield completeTable
   }
 }

@@ -1,8 +1,8 @@
 package com.campudus.tableaux
 
 import org.junit.Test
-import org.vertx.testtools.VertxAssert._
 import org.vertx.scala.core.json.Json
+import org.vertx.testtools.VertxAssert._
 
 /**
  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
@@ -19,8 +19,8 @@ class CreationTest extends TableauxTestBase {
     val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2)
 
     for {
-      test1 <- sendRequestWithJson("POST", createTableJson, "/tables")
-      test2 <- sendRequestWithJson("POST", createTableJson, "/tables")
+      test1 <- sendRequest("POST", "/tables", createTableJson)
+      test2 <- sendRequest("POST", "/tables", createTableJson)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -33,9 +33,9 @@ class CreationTest extends TableauxTestBase {
     val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      test1 <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
-      test2 <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      test2 <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -48,9 +48,9 @@ class CreationTest extends TableauxTestBase {
     val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      test1 <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
-      test2 <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      test2 <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -67,8 +67,8 @@ class CreationTest extends TableauxTestBase {
       Json.obj("id" -> 2, "ordering" -> 2)))
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      test <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      test <- sendRequest("POST", "/tables/1/columns", jsonObj)
     } yield {
       assertEquals(expectedJson, test)
     }
@@ -84,8 +84,8 @@ class CreationTest extends TableauxTestBase {
       Json.obj("id" -> 2, "ordering" -> 1)))
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      test <- sendRequestWithJson("POST", jsonObj, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      test <- sendRequest("POST", "/tables/1/columns", jsonObj)
     } yield {
       assertEquals(expectedJson, test)
     }
@@ -93,11 +93,11 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createRow(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1)))
-    val expectedJson2 = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 2)))
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 1)
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2)
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST", "/tables", createTableJson)
       test1 <- sendRequest("POST", "/tables/1/rows")
       test2 <- sendRequest("POST", "/tables/1/rows")
     } yield {
@@ -112,10 +112,10 @@ class CreationTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1)))
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
-      _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
-      test <- sendRequestWithJson("POST", valuesRow, "/tables/1/rows")
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      test <- sendRequest("POST", "/tables/1/rows", valuesRow)
     } yield {
       assertEquals(expectedJson, test)
     }
@@ -128,10 +128,10 @@ class CreationTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)))
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
-      _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
-      test <- sendRequestWithJson("POST", valuesRow, "/tables/1/rows")
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      test <- sendRequest("POST", "/tables/1/rows", valuesRow)
     } yield {
       assertEquals(expectedJson, test)
     }
@@ -159,7 +159,7 @@ class CreationTest extends TableauxTestBase {
         Json.obj("id" -> 2)))
 
     for {
-      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
       assertEquals(expectedJson, test)
     }
@@ -187,24 +187,7 @@ class CreationTest extends TableauxTestBase {
         Json.obj("id" -> 2)))
 
     for {
-      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
-    } yield {
-      assertEquals(expectedJson, test)
-    }
-  }
-
-  @Test
-  def createCompleteTableWithoutCols(): Unit = okTest {
-    val createCompleteTableJson = Json.obj(
-      "name" -> "Test Nr. 1",
-      "rows" -> Json.arr(
-        Json.obj("values" -> Json.arr("Test Field 1", 1)),
-        Json.obj("values" -> Json.arr("Test Field 2", 2))))
-
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 1)
-
-    for {
-      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
       assertEquals(expectedJson, test)
     }
@@ -227,7 +210,7 @@ class CreationTest extends TableauxTestBase {
       "rows" -> Json.arr())
 
     for {
-      test <- sendRequestWithJson("POST", createCompleteTableJson, "/tables")
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
       assertEquals(expectedJson, test)
     }

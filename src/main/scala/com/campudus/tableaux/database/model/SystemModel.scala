@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.database.domain.{EmptyObject, DomainObject}
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
-import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
@@ -12,6 +12,14 @@ object SystemModel {
 }
 
 class SystemModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+
+  def reset(): Future[DomainObject] = {
+    for {
+      _ <- deinstall()
+      _ <- setup()
+    } yield EmptyObject()
+  }
+
   def deinstall(): Future[Unit] = for {
     t <- connection.begin()
     (t, _) <- t.query("DROP SCHEMA public CASCADE")
@@ -35,6 +43,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
                          |  user_column_name VARCHAR(255) NOT NULL,
                          |  ordering BIGINT NOT NULL,
                          |  link_id BIGINT,
+                         |  multilanguage BOOLEAN,
                          |
                          |  PRIMARY KEY(table_id, column_id),
                          |  FOREIGN KEY(table_id)

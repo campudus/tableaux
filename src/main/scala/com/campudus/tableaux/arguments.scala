@@ -50,7 +50,7 @@ object ArgumentChecker {
 
   def hasNumber(num: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getNumber(num), num)
 
-  def castElement[A](elem: Any): ArgumentCheck[A] = {
+  def tryCast[A](elem: Any): ArgumentCheck[A] = {
     tryMap((x: Any) => x.asInstanceOf[A], InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid"))(elem)
   }
 
