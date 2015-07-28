@@ -32,7 +32,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
   
-  def createValueColumn(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
+  private def createValueColumn(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
         (t, result) <- insertSystemColumn(t, tableId, name, dbType, ordering, None, languageType)
@@ -46,7 +46,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def createAttachmentColumn(tableId: TableId, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+  private def createAttachmentColumn(tableId: TableId, name: String, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
         (t, result) <- insertSystemColumn(t, tableId, name, AttachmentType, ordering, None, SingleLanguage)
@@ -55,7 +55,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def createLinkColumn(tableId: TableId, name: String, link: LinkConnection, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+  private def createLinkColumn(tableId: TableId, name: String, link: LinkConnection, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
     val fromColumnId = link.fromColumnId
     val toTableId = link.toTableId
     val toColumnId = link.toColumnId

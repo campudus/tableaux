@@ -41,14 +41,22 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def retrieveAll(): Future[Seq[Table]] = {
-    connection.query("SELECT table_id, user_table_name FROM system_table")
-  } map { r => getSeqOfJsonArray(r) map { arr => Table(arr.get[TableId](0), arr.get[String](1)) } }
+    for {
+      result <- connection.query("SELECT table_id, user_table_name FROM system_table")
+    } yield {
+      getSeqOfJsonArray(result).map { row =>
+        Table(row.get[TableId](0), row.get[String](1))
+      }
+    }
+  }
 
   def retrieve(tableId: TableId): Future[Table] = {
-    connection.query("SELECT table_id, user_table_name FROM system_table WHERE table_id = ?", Json.arr(tableId))
-  } map { r =>
-    val json = selectNotNull(r).head
-    Table(json.get[TableId](0), json.get[String](1))
+    for {
+      result <- connection.query("SELECT table_id, user_table_name FROM system_table WHERE table_id = ?", Json.arr(tableId))
+    } yield {
+      val json = selectNotNull(result).head
+      Table(json.get[TableId](0), json.get[String](1))
+    }
   }
 
   def delete(tableId: TableId): Future[Unit] = {
@@ -60,7 +68,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       (t, result) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
 
-      _ <- Future(deleteNotNull(result)) recoverWith { t.rollbackAndFail() }
+      _ <- Future(deleteNotNull(result)).recoverWith(t.rollbackAndFail())
 
       (t, _) <- t.query(s"DROP SEQUENCE system_columns_column_id_table_$tableId")
 
@@ -69,6 +77,8 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def change(tableId: TableId, name: String): Future[Unit] = {
-    connection.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
-  } map (_ => ())
+    for {
+      result <- connection.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
+    } yield ()
+  }
 }

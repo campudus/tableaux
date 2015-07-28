@@ -13,7 +13,11 @@ import scala.concurrent.Future
 class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def createEmpty(tableId: TableId): Future[RowId] = {
-    connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id") map { insertNotNull(_).head.get[RowId](0) }
+    for {
+      result <- connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id")
+    } yield {
+      insertNotNull(result).head.get[RowId](0)
+    }
   }
 
   def createFull(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
@@ -21,9 +25,11 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val columns = values.map { case (column: ColumnType[_], _) => s"column_${column.id}" }.mkString(", ")
     val binds = values.map {case (_, value) => value }
 
-    {
-      connection.query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($placeholder) RETURNING id", Json.arr(binds: _*))
-    } map { insertNotNull(_).head.get[RowId](0) }
+    for {
+      result <- connection.query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($placeholder) RETURNING id", Json.arr(binds: _*))
+    } yield {
+      insertNotNull(result).head.get[RowId](0)
+    }
   }
 
   def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(ColumnType[_], Seq[(String, _)])]): Future[Unit] = {
@@ -44,11 +50,11 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
-    val result = connection.query(s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id", Json.arr(rowId))
-
-    result map { x =>
-      val seq = jsonArrayToSeq(selectNotNull(x).head)
-      (seq.head, mapResultRow(columns, seq.drop(1)))
+    for {
+      result <- connection.query(s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id", Json.arr(rowId))
+    } yield {
+      val row = jsonArrayToSeq(selectNotNull(result).head)
+      (row.head, mapResultRow(columns, row.drop(1)))
     }
   }
 
@@ -56,20 +62,22 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
-    val result = connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id")
-
-    result map { x =>
-      val seq = getSeqOfJsonArray(x) map jsonArrayToSeq
-
-      seq map { s =>
-        (s.head, mapResultRow(columns, s.drop(1)))
+    for {
+      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id")
+    } yield {
+      getSeqOfJsonArray(result).map(jsonArrayToSeq).map { row =>
+        (row.head, mapResultRow(columns, row.drop(1)))
       }
     }
   }
 
   def delete(tableId: TableId, rowId: RowId): Future[Unit] = {
-    connection.query(s"DELETE FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
-  } map { deleteNotNull(_) }
+    for {
+      result <- connection.query(s"DELETE FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+    } yield {
+      deleteNotNull(result)
+    }
+  }
 
   private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[AnyRef]): Seq[AnyRef] = {
     (columns, result).zipped map { (column: ColumnType[_], value: AnyRef) =>
