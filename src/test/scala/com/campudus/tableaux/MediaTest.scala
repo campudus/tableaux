@@ -125,11 +125,11 @@ class MediaTest extends TableauxTestBase {
     }
 
     for {
-      folderId <- sendRequestWithJson("POST", createFolderPutJson("Test"), s"/folders").map(s => s.getString("id"))
+      folderId <- sendRequest("POST", s"/folders", createFolderPutJson("Test")).map(_.getInteger("id"))
 
       folder <- sendRequest("GET", s"/folders/$folderId")
 
-      _ <- sendRequestWithJson("PUT", createFolderPutJson("Update"), s"/folders/$folderId").map(s => s.getString("id"))
+      _ <- sendRequest("PUT", s"/folders/$folderId", createFolderPutJson("Update")).map(_.getInteger("id"))
 
       updatedFolder <- sendRequest("GET", s"/folders/$folderId")
     } yield {
@@ -147,7 +147,7 @@ class MediaTest extends TableauxTestBase {
 
     for {
       uploadResponse <- uploadFile(file, mimetype)
-      puttedFile <- sendRequestWithJson("PUT", put, s"/files/${uploadResponse.getString("uuid")}")
+      puttedFile <- sendRequest("PUT", s"/files/${uploadResponse.getString("uuid")}", put)
       deletedFile <- sendRequest("DELETE", s"/files/${uploadResponse.getString("uuid")}")
     } yield {
       assertEquals(true, uploadResponse.getBoolean("tmp"))
@@ -176,7 +176,7 @@ class MediaTest extends TableauxTestBase {
 
     for {
       uploadResponse <- uploadFile(file, mimetype)
-      _ <- sendRequestWithJson("PUT", put, s"/files/${uploadResponse.getString("uuid")}")
+      _ <- sendRequest("PUT", s"/files/${uploadResponse.getString("uuid")}", put)
       file <- sendRequest("GET", s"/files/${uploadResponse.getString("uuid")}")
 
       request <- promisify { p: Promise[Unit] =>
@@ -210,39 +210,35 @@ class MediaTest extends TableauxTestBase {
     val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
 
-    implicit def convertStringToOptionalInt(i: String): Option[Int] = {
-      Option(i.toInt)
-    }
-
     def createFolderPutJson(parent: Option[Int] = None): JsonObject = {
       Json.obj("name" -> "Test Folder", "description" -> "Test Description", "parent" -> parent.orNull)
     }
 
-    def createFilePutJson(folder: String): JsonObject = {
+    def createFilePutJson(folder: Int): JsonObject = {
       Json.obj("name" -> "Test File", "description" -> "Test Description", "folder" -> folder)
     }
 
     for {
-      folder1 <- sendRequestWithJson("POST", createFolderPutJson(), s"/folders").map(s => s.getString("id"))
-      folder2 <- sendRequestWithJson("POST", createFolderPutJson(), s"/folders").map(s => s.getString("id"))
+      folder1 <- sendRequest("POST", s"/folders", createFolderPutJson()).map(_.getInteger("id"))
+      folder2 <- sendRequest("POST", s"/folders", createFolderPutJson()).map(_.getInteger("id"))
 
-      folder11 <- sendRequestWithJson("POST", createFolderPutJson(folder1), s"/folders").map(s => s.getString("id"))
-      folder12 <- sendRequestWithJson("POST", createFolderPutJson(folder1), s"/folders").map(s => s.getString("id"))
+      folder11 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder1))).map(_.getInteger("id"))
+      folder12 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder1))).map(_.getInteger("id"))
 
-      folder21 <- sendRequestWithJson("POST", createFolderPutJson(folder2), s"/folders").map(s => s.getString("id"))
-      folder22 <- sendRequestWithJson("POST", createFolderPutJson(folder2), s"/folders").map(s => s.getString("id"))
+      folder21 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder2))).map(_.getInteger("id"))
+      folder22 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder2))).map(_.getInteger("id"))
 
       file1 <- uploadFile(file, mimetype).map(f => f.getString("uuid"))
-      puttedFile1 <- sendRequestWithJson("PUT", createFilePutJson(folder11), s"/files/$file1")
+      puttedFile1 <- sendRequest("PUT", s"/files/$file1", createFilePutJson(folder11))
 
       file2 <- uploadFile(file, mimetype).map(f => f.getString("uuid"))
-      puttedFile2 <- sendRequestWithJson("PUT", createFilePutJson(folder21), s"/files/$file2")
+      puttedFile2 <- sendRequest("PUT", s"/files/$file2", createFilePutJson(folder21))
 
       deleteFolder1 <- sendRequest("DELETE", s"/folders/$folder1")
       deleteFolder2 <- sendRequest("DELETE", s"/folders/$folder2")
     } yield {
-      assertEquals(folder1.toString, deleteFolder1.getString("id"))
-      assertEquals(folder2.toString, deleteFolder2.getString("id"))
+      assertEquals(folder1, deleteFolder1.getInteger("id"))
+      assertEquals(folder2, deleteFolder2.getInteger("id"))
     }
   }
 
@@ -258,7 +254,7 @@ class MediaTest extends TableauxTestBase {
     for {
       tableId <- setupDefaultTable()
 
-      column <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns")
+      column <- sendRequest("POST", s"/tables/$tableId/columns", column)
     } yield {
       assertEquals(expectedJson, column)
     }
@@ -279,15 +275,15 @@ class MediaTest extends TableauxTestBase {
     for {
       tableId <- setupDefaultTable()
 
-      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
+      columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
 
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getField[Int]("id"))
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
       fileUuid <- uploadFile(file, mimetype) map (_.getString("uuid"))
-      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid")
+      _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
 
       // Add attachment
-      resultFill <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultFill <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid)))
 
       // Retrieve attachment
       resultRetrieve <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
@@ -316,11 +312,11 @@ class MediaTest extends TableauxTestBase {
 
     for {
       tableId <- setupDefaultTable()
-      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getField[Int]("id"))
+      columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
       // Add attachment with malformed uuid
-      resultFill <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> "this-is-not-an-uuid")), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultFill <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> "this-is-not-an-uuid")))
     } yield {
       resultFill
     }
@@ -342,26 +338,26 @@ class MediaTest extends TableauxTestBase {
     for {
       tableId <- setupDefaultTable()
 
-      columnId <- sendRequestWithJson("POST", column, s"/tables/$tableId/columns") map (_.getArray("columns").get[JsonObject](0).getField[Int]("id"))
+      columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
 
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getField[Int]("id"))
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
       fileUuid1 <- uploadFile(file, mimetype) map (_.getString("uuid"))
-      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid1")
+      _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
 
       fileUuid2 <- uploadFile(file, mimetype) map (_.getString("uuid"))
-      _ <- sendRequestWithJson("PUT", putFile, s"/files/$fileUuid2")
+      _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
 
       // Add attachments
-      resultFill1 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
-      resultFill2 <- sendRequestWithJson("POST", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultFill1 <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 1)))
+      resultFill2 <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
 
       // Retrieve attachments after fill
       resultRetrieveFill <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
       // Update attachments
-      resultUpdate1 <- sendRequestWithJson("PUT", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 2)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
-      resultUpdate2 <- sendRequestWithJson("PUT", Json.obj("value" -> Json.obj("uuid" -> fileUuid2, "ordering" -> 1)), s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      resultUpdate1 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 2)))
+      resultUpdate2 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid2, "ordering" -> 1)))
 
       // Retrieve attachments after update
       resultRetrieveUpdate <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
