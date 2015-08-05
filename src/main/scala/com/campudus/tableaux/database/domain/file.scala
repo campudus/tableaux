@@ -35,7 +35,7 @@ case class File(uuid: Option[UUID],
     "description" -> description,
     "mimeType" -> mimeType,
     "filename" -> filename,
-    "folder" -> optionToString(folder),
+    "folder" -> folder.orNull,
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )

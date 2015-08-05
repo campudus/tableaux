@@ -18,10 +18,10 @@ case class Folder(id: Option[FolderId],
                   updatedAt: Option[DateTime]) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
-    "id" -> optionToString(id),
+    "id" -> id.orNull,
     "name" -> name,
     "description" -> description,
-    "parent" -> optionToString(parent),
+    "parent" -> parent.orNull,
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )
