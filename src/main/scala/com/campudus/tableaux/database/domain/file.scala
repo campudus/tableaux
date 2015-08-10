@@ -43,7 +43,7 @@ case class File(uuid: Option[UUID],
 
 case class TemporaryFile(file: File) extends DomainObject {
 
-  override def getJson: JsonObject = Json.obj("tmp" -> true).mergeIn(file.getJson)
+  override def getJson: JsonObject = Json.obj("tmp" -> true).mergeIn(ExtendedFile(file).getJson)
 }
 
 case class ExtendedFile(file: File) extends DomainObject {

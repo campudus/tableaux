@@ -114,8 +114,8 @@ class MediaController(override val config: TableauxConfig,
     upload.streamToFile(filePath.toString())
   }
 
-  def changeFile(uuid: UUID, name: String, description: String, folder: Option[FolderId]): Future[File] = {
-    fileModel.update(File(Some(uuid), name, description, null, null, folder, None, None))
+  def changeFile(uuid: UUID, name: String, description: String, folder: Option[FolderId]): Future[ExtendedFile] = {
+    fileModel.update(File(Some(uuid), name, description, null, null, folder, None, None)).map(ExtendedFile)
   }
 
   def retrieveFile(uuid: UUID): Future[(ExtendedFile, Path)] = {
