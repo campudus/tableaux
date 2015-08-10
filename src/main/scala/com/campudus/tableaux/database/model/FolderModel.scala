@@ -91,7 +91,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
          |description,
          |idparent,
          |created_at,
-         |updated_at FROM $table""".stripMargin
+         |updated_at FROM $table ORDER BY id""".stripMargin
 
     for {
       result <- connection.query(select)
@@ -109,7 +109,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
          |description,
          |idparent,
          |created_at,
-         |updated_at FROM $table WHERE $condition""".stripMargin
+         |updated_at FROM $table WHERE $condition ORDER BY id""".stripMargin
 
     for {
       result <- folder match {
