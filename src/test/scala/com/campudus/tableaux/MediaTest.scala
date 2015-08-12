@@ -159,6 +159,8 @@ class MediaTest extends TableauxTestBase {
       assertEquals(put.getString("description"), puttedFile.getString("description"))
       assertEquals(uploadResponse.getString("filename"), puttedFile.getString("filename"))
 
+      // We need to remove url because DELETE doesn't return ExtendedFile
+      puttedFile.removeField("url")
       assertEquals(puttedFile, deletedFile)
     }
   }

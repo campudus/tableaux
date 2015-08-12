@@ -127,9 +127,18 @@ class MediaController(override val config: TableauxConfig,
     }
   }
 
+  private def retrieveFileEvenIfTmp(uuid: UUID): Future[(ExtendedFile, Path)] = {
+    fileModel.retrieve(uuid, withTmp = true) map { f =>
+      val ext = Path(f.filename).extension
+      val filePath = uploadsDirectory / Path(s"$uuid.$ext")
+
+      (ExtendedFile(f), filePath)
+    }
+  }
+
   def deleteFile(uuid: UUID): Future[File] = {
     for {
-      (file, path) <- retrieveFile(uuid)
+      (file, path) <- retrieveFileEvenIfTmp(uuid)
       _ <- fileModel.deleteById(uuid)
       _ <- {
         import FutureUtils._
@@ -141,8 +150,15 @@ class MediaController(override val config: TableauxConfig,
             case Success(v) =>
               p.success(())
             case Failure(e) =>
-              logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
-              p.failure(e)
+              vertx.fileSystem.exists(path.toString(), { result =>
+                if (result.result()) {
+                  logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
+                  p.failure(e)
+                } else {
+                  p.success(())
+                }
+              })
+
           }: Try[Void] => Unit)
         })
       }

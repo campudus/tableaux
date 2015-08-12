@@ -48,6 +48,10 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   }
 
   override def retrieve(id: UUID): Future[File] = {
+    retrieve(id, withTmp = false)
+  }
+
+  def retrieve(id: UUID, withTmp: Boolean): Future[File] = {
     val select =
       s"""SELECT
           |uuid,
@@ -59,10 +63,14 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |created_at,
           |updated_at
           |FROM $table WHERE
-          |uuid = ? AND tmp = FALSE""".stripMargin
+          |uuid = ?""".stripMargin
 
     for {
-      result <- connection.query(select, Json.arr(id.toString))
+      result <- if (withTmp) {
+        connection.query(select, Json.arr(id.toString))
+      } else {
+        connection.query(select + " AND tmp = FALSE", Json.arr(id.toString))
+      }
       resultArr <- Future(selectNotNull(result))
     } yield {
       convertJsonArrayToFile(resultArr.head)
