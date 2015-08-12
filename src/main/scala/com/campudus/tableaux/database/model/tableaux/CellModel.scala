@@ -25,16 +25,22 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
   } yield ()
 
   def updateTranslations(tableId: TableId, columnId: ColumnId, rowId: RowId, values: Seq[(String, _)]): Future[JsonObject] = {
-    val delete = s"DELETE FROM user_table_lang_$tableId WHERE id = ? AND langtag = ?"
+    val select = s"SELECT COUNT(id) FROM user_table_lang_$tableId WHERE id = ? AND langtag = ?"
     val insert = s"INSERT INTO user_table_lang_$tableId(id, langtag, column_$columnId) VALUES(?, ?, ?)"
+    val update = s"UPDATE user_table_lang_$tableId SET column_$columnId = ? WHERE id = ? AND langtag = ?"
 
     connection.transactional(values) { (t, _, value) =>
-      // first, delete all translations
-      t.query(delete, Json.arr(rowId, value._1)).flatMap {
-        case (t, _) =>
-          // insert new translation
+      for {
+        (t, count) <- t.query(select, Json.arr(rowId, value._1)).map({
+          case (t, json) =>
+            (t, selectNotNull(json).head.get[Long](0))
+        })
+        (t, result) <- if (count > 0) {
+          t.query(update, Json.arr(value._2, rowId, value._1))
+        } else {
           t.query(insert, Json.arr(rowId, value._1, value._2))
-      }
+        }
+      } yield (t, result)
     }
   }
 
