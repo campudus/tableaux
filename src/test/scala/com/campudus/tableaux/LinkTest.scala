@@ -135,7 +135,7 @@ class LinkTest extends TableauxTestBase {
     def fillLinkCellJson(from: Number, to: Number) = Json.obj("value" -> Json.obj("from" -> from, "to" -> to))
 
     def addRow(tableId: Long, values: JsonObject): Future[Number] = for {
-      res <- sendRequestWithJson("POST", values, s"/tables/$tableId/rows")
+      res <- sendRequest("POST", s"/tables/$tableId/rows", values)
       table1RowId1 <- Future.apply(res.getArray("rows").get[JsonObject](0).getNumber("id"))
     } yield table1RowId1
 
@@ -143,7 +143,7 @@ class LinkTest extends TableauxTestBase {
       tables <- setupTwoTables()
 
       // create link column
-      res <- sendRequestWithJson("POST", linkColumn, "/tables/1/columns")
+      res <- sendRequest("POST", "/tables/1/columns", linkColumn)
       linkColumnId <- Future.apply(res.getArray("columns").get[JsonObject](0).getNumber("id"))
 
       // add rows to tables
@@ -153,11 +153,9 @@ class LinkTest extends TableauxTestBase {
       table2RowId2 <- addRow(2, valuesRow("table2RowId2"))
 
       // add link 1 (table 1 to table 2)
-      addLink1 <- sendRequestWithJson("POST", fillLinkCellJson(table1RowId1, table2RowId1), s"/tables/1/columns/$linkColumnId/rows/$table1RowId1")
+      addLink1 <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/$table1RowId1", fillLinkCellJson(table1RowId1, table2RowId2))
       // add link 2
-      addLink2 <- sendRequestWithJson("POST", fillLinkCellJson(table1RowId1, table2RowId2), s"/tables/1/columns/$linkColumnId/rows/$table1RowId1")
-      // add link 3
-      addLink3 <- sendRequestWithJson("POST", fillLinkCellJson(table1RowId2, table2RowId1), s"/tables/2/columns/$linkColumnId/rows/$table2RowId1")
+      addLink2 <- sendRequest("POST", s"/tables/2/columns/$linkColumnId/rows/$table2RowId1", fillLinkCellJson(table2RowId1, table1RowId2))
 
       // get link values (so it's a value from table 2 shown in table 1)
       linkValueForTable1 <- sendRequest("GET", s"/tables/1/rows/$table1RowId1")
@@ -175,7 +173,6 @@ class LinkTest extends TableauxTestBase {
           "table1RowId1",
           2,
           Json.arr(
-            Json.obj("id" -> table2RowId1, "value" -> 2),
             Json.obj("id" -> table2RowId2, "value" -> 2)
           )
         )
@@ -188,7 +185,6 @@ class LinkTest extends TableauxTestBase {
           "table2RowId1",
           2,
           Json.arr(
-            Json.obj("id" -> table1RowId1, "value" -> "table1RowId1"),
             Json.obj("id" -> table1RowId2, "value" -> "table1RowId2")
           )
         )

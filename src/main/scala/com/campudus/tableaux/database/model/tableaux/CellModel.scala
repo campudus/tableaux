@@ -18,9 +18,10 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def updateLink(tableId: TableId, linkColumnId: ColumnId, leftRow: RowId, rightRow: RowId): Future[Unit] = for {
     t <- connection.begin()
-    (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, linkColumnId))
-    linkId <- Future.successful(selectNotNull(result).head.get[Long](0))
-    (t, _) <- t.query(s"INSERT INTO link_table_$linkId VALUES (?, ?)", Json.arr(leftRow, rightRow))
+
+    (t, linkId, id1, id2) <- getLinkInformation(t)(tableId, linkColumnId)
+
+    (t, _) <- t.query(s"INSERT INTO link_table_$linkId($id1, $id2) VALUES (?, ?)", Json.arr(leftRow, rightRow))
     _ <- t.commit()
   } yield ()
 
@@ -50,12 +51,13 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     for {
       t <- connection.begin()
-      (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, linkColumnId))
-      linkId <- Future.successful(selectNotNull(result).head.get[Long](0))
-      (t, _) <- t.query(s"DELETE FROM link_table_$linkId")
+
+      (t, linkId, id1, id2) <- getLinkInformation(t)(tableId, linkColumnId)
+
+      (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE $id1 = ?", Json.arr(from))
       (t, _) <- {
         if (params.nonEmpty) {
-          t.query(s"INSERT INTO link_table_$linkId VALUES $paramStr", Json.arr(params: _*))
+          t.query(s"INSERT INTO link_table_$linkId($id1, $id2) VALUES $paramStr", Json.arr(params: _*))
         } else {
           Future.successful((t, Json.emptyObj()))
         }
@@ -89,6 +91,29 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
+  private def getLinkInformation(t: connection.Transaction)(tableId: TableId, linkColumnId: ColumnId): Future[(connection.Transaction, Long, String, String)] = {
+    for {
+      (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, linkColumnId))
+
+      linkId <- Future.successful(selectNotNull(result).head.get[Long](0))
+
+      (t, result) <- t.query("SELECT table_id_1, table_id_2, column_id_1, column_id_2 FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
+
+      (id1, id2) <- Future.successful {
+        val res = selectNotNull(result).head
+
+        val table1 = res.get[TableId](0)
+
+        if (tableId == table1) {
+          ("id_1", "id_2")
+        } else {
+          ("id_2", "id_1")
+        }
+      }
+    } yield (t, linkId, id1, id2)
+  }
+
+
   def getLinkValues[A](linkColumn: LinkColumn[A], rowId: RowId): Future[Seq[JsonObject]] = {
     val tableId = linkColumn.table.id
     val linkColumnId = linkColumn.id
@@ -99,42 +124,27 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       t <- connection.begin()
 
-      (t, result) <- t.query("SELECT link_id FROM system_columns WHERE table_id = ? AND column_id = ?", Json.arr(tableId, linkColumnId))
-
-      linkId <- Future.successful(selectNotNull(result).head.get[Long](0))
-
-      (t, result) <- t.query("SELECT table_id_1, table_id_2, column_id_1, column_id_2 FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
-
-      (id1, id2) <- Future.successful {
-        val res = selectNotNull(result).head
-        val linkTo2 = (res.get[TableId](1), res.get[ColumnId](3))
-
-        if (linkTo2 == (toTableId, toColumnId)) {
-          ("id_1", "id_2")
-        } else {
-          ("id_2", "id_1")
-        }
-      }
+      (t, linkId, id1, id2) <- getLinkInformation(t)(tableId, linkColumnId)
 
       (t, result) <- linkColumn.to match {
         case c: MultiLanguageColumn[_] => t.query( s"""
                                                       |SELECT to_table.id, json_object_agg(DISTINCT COALESCE(langtag, 'de_DE'), to_table_lang.column_$toColumnId) AS column_$toColumnId
-                                                      | FROM user_table_$tableId AS from_table
-                                                      | JOIN link_table_$linkId
-                                                      |   ON from_table.id = link_table_$linkId.$id1
-                                                      | JOIN user_table_$toTableId AS to_table
-                                                      |   ON to_table.id = link_table_$linkId.$id2
-                                                      | LEFT JOIN user_table_lang_$toTableId AS to_table_lang
-                                                      |   ON to_table.id = to_table_lang.id
+                                                      |FROM user_table_$tableId AS from_table
+                                                      |JOIN link_table_$linkId
+                                                      |  ON from_table.id = link_table_$linkId.$id1
+                                                      |JOIN user_table_$toTableId AS to_table
+                                                      |  ON to_table.id = link_table_$linkId.$id2
+                                                      |LEFT JOIN user_table_lang_$toTableId AS to_table_lang
+                                                      |  ON to_table.id = to_table_lang.id
                                                       |WHERE from_table.id = ?
                                                       |GROUP BY to_table.id""".stripMargin, Json.arr(rowId))
         case c: SimpleValueColumn[_] => t.query( s"""
                                                     |SELECT to_table.id, to_table.column_$toColumnId
-                                                    | FROM user_table_$tableId AS from_table
-                                                    | JOIN link_table_$linkId
-                                                    |   ON from_table.id = link_table_$linkId.$id1
-                                                    | JOIN user_table_$toTableId AS to_table
-                                                    |   ON to_table.id = link_table_$linkId.$id2
+                                                    |FROM user_table_$tableId AS from_table
+                                                    |JOIN link_table_$linkId
+                                                    |  ON from_table.id = link_table_$linkId.$id1
+                                                    |JOIN user_table_$toTableId AS to_table
+                                                    |  ON to_table.id = link_table_$linkId.$id2
                                                     |WHERE from_table.id = ?""".stripMargin, Json.arr(rowId))
       }
 
