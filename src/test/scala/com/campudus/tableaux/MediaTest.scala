@@ -301,6 +301,61 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
+  def fillAndReplaceAndRetrieveAttachmentCell(): Unit = okTest {
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+
+    for {
+      tableId <- setupDefaultTable()
+
+      columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
+
+      fileUuid1 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
+      fileUuid2 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+      fileUuid3 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      _ <- sendRequest("PUT", s"/files/$fileUuid3", putFile)
+
+      // Add attachment
+      resultFill <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)))
+
+      // Retrieve attachment
+      resultRetrieve <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Replace with attachments
+      resultReplace <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr(Json.obj("uuid" -> fileUuid2, "ordering" -> 2), Json.obj("uuid" -> fileUuid3, "ordering" -> 1))))
+
+      // Retrieve attachments after replace
+      resultRetrieveAfterReplace <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid1")
+      _ <- sendRequest("DELETE", s"/files/$fileUuid2")
+      _ <- sendRequest("DELETE", s"/files/$fileUuid3")
+    } yield {
+      assertEquals(3, columnId)
+
+      assertEquals(Json.obj("status" -> "ok"), resultFill)
+
+      assertEquals(fileUuid1, resultRetrieve.getArray("value").get[JsonObject](0).getString("uuid"))
+
+      assertEquals(Json.obj("status" -> "ok"), resultReplace)
+
+      assertEquals(fileUuid2, resultRetrieveAfterReplace.getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid3, resultRetrieveAfterReplace.getArray("value").get[JsonObject](1).getString("uuid"))
+    }
+  }
+
+  @Test
   def addAttachmentWithMalformedUUID(): Unit = exceptionTest("errors.unknown") {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
