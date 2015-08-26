@@ -16,12 +16,12 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def updateLink(tableId: TableId, linkColumnId: ColumnId, leftRow: RowId, rightRow: RowId): Future[Unit] = for {
+  def updateLink(tableId: TableId, linkColumnId: ColumnId, fromId: RowId, toId: RowId): Future[Unit] = for {
     t <- connection.begin()
 
     (t, linkId, id1, id2) <- getLinkInformation(t)(tableId, linkColumnId)
 
-    (t, _) <- t.query(s"INSERT INTO link_table_$linkId($id1, $id2) VALUES (?, ?)", Json.arr(leftRow, rightRow))
+    (t, _) <- t.query(s"INSERT INTO link_table_$linkId($id1, $id2) VALUES (?, ?)", Json.arr(fromId, toId))
     _ <- t.commit()
   } yield ()
 
@@ -45,16 +45,16 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def putLinks(tableId: TableId, linkColumnId: ColumnId, from: RowId, tos: Seq[RowId]): Future[Unit] = {
-    val paramStr = tos.map(_ => "(?, ?)").mkString(", ")
-    val params = tos.flatMap(List(from, _))
+  def putLinks(tableId: TableId, linkColumnId: ColumnId, fromId: RowId, toIds: Seq[RowId]): Future[Unit] = {
+    val paramStr = toIds.map(_ => "(?, ?)").mkString(", ")
+    val params = toIds.flatMap(List(fromId, _))
 
     for {
       t <- connection.begin()
 
       (t, linkId, id1, id2) <- getLinkInformation(t)(tableId, linkColumnId)
 
-      (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE $id1 = ?", Json.arr(from))
+      (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE $id1 = ?", Json.arr(fromId))
       (t, _) <- {
         if (params.nonEmpty) {
           t.query(s"INSERT INTO link_table_$linkId($id1, $id2) VALUES $paramStr", Json.arr(params: _*))

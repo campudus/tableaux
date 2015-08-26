@@ -211,13 +211,12 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       import collection.JavaConverters._
 
       for {
-        from <- Try(checked(hasNumber("from", v)).longValue())
-        tos <- Try(Left(checked(hasNumber("to", v)).longValue())).orElse(
+        toIds <- Try(Left(checked(hasNumber("to", v)).longValue())).orElse(
           Try(Right(checked(hasArray("values", v)).asScala.map(_.asInstanceOf[Number].longValue()).toSeq)))
       } yield {
-        tos match {
-          case Left(to) => addLinkValue(tableId, columnId, rowId, from, to)
-          case Right(toList) => insertLinkValues(tableId, columnId, rowId, from, toList)
+        toIds match {
+          case Left(toId) => addLinkValue(tableId, columnId, rowId, toId)
+          case Right(toIds) => insertLinkValues(tableId, columnId, rowId, toIds)
         }
       }
     } getOrElse {
@@ -225,17 +224,17 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   }
 
-  private def insertLinkValues(tableId: TableId, columnId: ColumnId, rowId: RowId, from: RowId, tos: Seq[RowId]): Future[Cell[Link[Any]]] = for {
+  private def insertLinkValues(tableId: TableId, columnId: ColumnId, fromId: RowId, toIds: Seq[RowId]): Future[Cell[Link[Any]]] = for {
     linkColumn <- retrieveColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
-    _ <- cellStruc.putLinks(linkColumn.table.id, linkColumn.id, from, tos)
-    v <- cellStruc.getLinkValues(linkColumn, rowId)
-  } yield Cell(linkColumn, rowId, Link(linkColumn.to.id, v))
+    _ <- cellStruc.putLinks(linkColumn.table.id, linkColumn.id, fromId, toIds)
+    v <- cellStruc.getLinkValues(linkColumn, fromId)
+  } yield Cell(linkColumn, fromId, Link(linkColumn.to.id, v))
 
-  def addLinkValue(tableId: TableId, columnId: ColumnId, rowId: RowId, from: RowId, to: RowId): Future[Cell[Link[Any]]] = for {
+  def addLinkValue(tableId: TableId, columnId: ColumnId, fromId: RowId, toId: RowId): Future[Cell[Link[Any]]] = for {
     linkColumn <- retrieveColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
-    _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, from, to)
-    v <- cellStruc.getLinkValues(linkColumn, rowId)
-  } yield Cell(linkColumn, rowId, Link(to, v))
+    _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, fromId, toId)
+    v <- cellStruc.getLinkValues(linkColumn, fromId)
+  } yield Cell(linkColumn, fromId, Link(toId, v))
 
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = for {
     column <- retrieveColumn(tableId, columnId)
