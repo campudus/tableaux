@@ -80,13 +80,13 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
                               |id_2 bigint,
                               |PRIMARY KEY(id_1, id_2),
                               |CONSTRAINT link_table_${linkId}_foreign_1
-                              |  FOREIGN KEY(id_1)
-                              |  REFERENCES user_table_$tableId (id)
-                              |  ON DELETE CASCADE,
+                              | FOREIGN KEY(id_1)
+                              | REFERENCES user_table_$tableId (id)
+                              | ON DELETE CASCADE,
                               |CONSTRAINT link_table_${linkId}_foreign_2
-                              |  FOREIGN KEY(id_2)
-                              |  REFERENCES user_table_$toTableId (id)
-                              |  ON DELETE CASCADE
+                              | FOREIGN KEY(id_2)
+                              | REFERENCES user_table_$toTableId (id)
+                              | ON DELETE CASCADE
                               |)""".stripMargin)
       } yield {
         val json = insertNotNull(result).head
@@ -121,7 +121,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = {
-    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage FROM system_columns WHERE table_id = ? ORDER BY column_id"
+    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage FROM system_columns WHERE table_id = ? ORDER BY ordering, column_id"
     for {
       result <- connection.query(select, Json.arr(tableId))
       mappedColumns <- {

@@ -133,35 +133,62 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield cell
 
-  def insertAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[AttachmentFile]] = {
+  def insertAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
     // add attachment
     handleAttachment(tableId, columnId, rowId, value, attachmentModel.add)
   }
 
-  def updateAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[AttachmentFile]] = {
+  def updateAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
     // update attachment order
     handleAttachment(tableId, columnId, rowId, value, attachmentModel.update)
   }
 
-  private def handleAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, fn: Attachment => Future[AttachmentFile]): Future[Cell[AttachmentFile]] = {
+  private def handleAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, fn: Attachment => Future[AttachmentFile]): Future[Cell[Any]] = {
     import ArgumentChecker._
 
-    Try(value.asInstanceOf[JsonObject]) map { v =>
-      val uuid = notNull(v.getString("uuid"), "uuid").map(UUID.fromString).get
-      val ordering: Option[Ordering] = {
-        if (v.containsField("ordering")) {
-          Option(v.getLong("ordering"))
-        } else {
-          None
-        }
-      }
+    val v = Try(Left(value.asInstanceOf[JsonObject])).orElse(Try(Right(value.asInstanceOf[JsonArray]))).get
 
-      for {
-        column <- retrieveColumn(tableId, columnId)
-        file <- fn(Attachment(tableId, columnId, rowId, uuid, ordering))
-      } yield Cell(column.asInstanceOf[AttachmentColumn], rowId, file)
-    } getOrElse {
-      Future.failed(InvalidJsonException(s"A attachment value must be a UUID but got $value", "attachment-value"))
+    v match {
+      case Left(obj) =>
+        // single attachment
+        val uuid = notNull(obj.getString("uuid"), "uuid").map(UUID.fromString).get
+        val ordering: Option[Ordering] = {
+          if (obj.containsField("ordering")) {
+            Option(obj.getLong("ordering"))
+          } else {
+            None
+          }
+        }
+
+        for {
+          column <- retrieveColumn(tableId, columnId)
+          file <- fn(Attachment(tableId, columnId, rowId, uuid, ordering))
+        } yield Cell(column.asInstanceOf[AttachmentColumn], rowId, file)
+
+      case Right(arr) =>
+        // multiple attachments
+        val attachments = scala.collection.mutable.ListBuffer.empty[Attachment]
+
+        for (i <- 0 until arr.size()) {
+          val obj = arr.get[JsonObject](i)
+
+          val uuid = notNull(obj.getString("uuid"), "uuid").map(UUID.fromString).get
+          val ordering: Option[Ordering] = {
+            if (obj.containsField("ordering")) {
+              Option(obj.getLong("ordering"))
+            } else {
+              None
+            }
+          }
+
+          attachments += Attachment(tableId, columnId, rowId, uuid, ordering)
+        }
+
+        for {
+          column <- retrieveColumn(tableId, columnId)
+          file <- attachmentModel.replace(tableId, columnId, rowId, attachments)
+          cell <- retrieveCell(tableId, columnId, rowId)
+        } yield cell
     }
   }
 
@@ -240,25 +267,30 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def retrieveRows(table: Table): Future[RowSeq] = {
     for {
-      allColumns <- retrieveColumns(table.id)
-      allRows <- rowStruc.getAll(table.id, allColumns)
+      columns <- retrieveColumns(table.id)
+      allRows <- {
+        rowStruc.getAll(table.id, columns)
+      }
       rowSeq <- {
         // TODO performance problem: foreach row every link column is map and the link value is fetched!
         val mergedRows = allRows map {
-          case (rowId, values) =>
-            val mergedValues = Future.sequence(allColumns map {
-              case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-              case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
+          case (rowId, rawValues) =>
 
-              case c: MultiLanguageColumn[_] => Future.successful(values(c.id.toInt - 1))
-              case c: SimpleValueColumn[_] => Future.successful(values(c.id.toInt - 1))
+            val mergedValues = Future.sequence((columns, rawValues).zipped map {
+              case (c: AttachmentColumn, _) => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
+              case (c: LinkColumn[_], _) => cellStruc.getLinkValues(c, rowId)
+
+              case (c: MultiLanguageColumn[_], value) => Future(value)
+              case (c: SimpleValueColumn[_], value) => Future(value)
             })
 
             (rowId, mergedValues)
         }
 
         val rows = mergedRows map {
-          case (rowId, values) => values.map(Row(table, rowId, _))
+          case (rowId, mergedValues) => mergedValues.map({
+            Row(table, rowId, _)
+          })
         }
 
         Future.sequence(rows).map(seq => RowSeq(seq))

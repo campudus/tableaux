@@ -301,7 +301,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def addAttachmentWithMalformedUUID(): Unit = exceptionTest("error.json.attachment-value") {
+  def addAttachmentWithMalformedUUID(): Unit = exceptionTest("errors.unknown") {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"

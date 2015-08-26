@@ -180,8 +180,8 @@ class CreationTest extends TableauxTestBase {
       "status" -> "ok",
       "id" -> 1,
       "columns" -> Json.arr(
-        Json.obj("id" -> 1, "ordering" -> 2),
-        Json.obj("id" -> 2, "ordering" -> 1)),
+        Json.obj("id" -> 2, "ordering" -> 1),
+        Json.obj("id" -> 1, "ordering" -> 2)),
       "rows" -> Json.arr(
         Json.obj("id" -> 1),
         Json.obj("id" -> 2)))

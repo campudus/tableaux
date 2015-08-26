@@ -27,6 +27,30 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
 
   val table = "system_attachment"
 
+  def replace(tableId: TableId, columnId: ColumnId, rowId: RowId, attachments: Seq[Attachment]): Future[Unit] = {
+
+    val delete = s"DELETE FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?"
+    val insert = s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES(?, ?, ?, ?, ?)"
+
+    // Build insert parameters
+    val paramStr = attachments.map(_ => "(?, ?, ?, ?, ?)").mkString(", ")
+    val params = attachments.flatMap(attachment => List(attachment.tableId, attachment.columnId, attachment.rowId, attachment.uuid.toString, 0))
+    
+    connection.transactional({ t =>
+      for {
+        (t, _) <- t.query(delete, Json.arr(tableId, columnId, rowId))
+
+        (t, _) <- {
+          if (params.nonEmpty) {
+            t.query(s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr", Json.arr(params: _*))
+          } else {
+            Future.successful((t, Json.emptyObj()))
+          }
+        }
+      } yield (t, ())
+    })
+  }
+  
   def add(a: Attachment): Future[AttachmentFile] = {
     val insert = s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES(?, ?, ?, ?, ?)"
 
