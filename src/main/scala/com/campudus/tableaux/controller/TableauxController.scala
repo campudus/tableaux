@@ -37,13 +37,13 @@ class TableauxController(override val config: TableauxConfig, override protected
     repository.retrieveRow(tableId, rowId)
   }
 
-  def retrieveRows(tableId: TableId): Future[RowSeq] = {
+  def retrieveRows(tableId: TableId, pagination: Pagination): Future[RowSeq] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveRows $tableId")
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveRows(table)
+      rows <- repository.retrieveRows(table, pagination)
     } yield rows
   }
 
@@ -88,7 +88,7 @@ class TableauxController(override val config: TableauxConfig, override protected
     for {
       table <- repository.retrieveTable(tableId)
       colList <- repository.retrieveColumns(table.id)
-      rowList <- repository.retrieveRows(table)
+      rowList <- repository.retrieveRows(table, Pagination(None, None))
     } yield CompleteTable(table, colList, rowList)
   }
 
@@ -98,8 +98,7 @@ class TableauxController(override val config: TableauxConfig, override protected
 
     for {
       table <- repository.createTable(tableName)
-      columns <- repository.createColumns(table.id, columns)
-      columnIds <- Future(columns.map(_.id))
+      columnIds <- repository.createColumns(table.id, columns).map(_.map(_.id))
       _ <- repository.createRows(table.id, rows.map(columnIds.zip(_)))
       completeTable <- retrieveCompleteTable(table.id)
     } yield completeTable

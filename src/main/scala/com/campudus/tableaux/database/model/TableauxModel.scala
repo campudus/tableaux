@@ -251,7 +251,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     for {
       table <- retrieveTable(tableId)
       allColumns <- retrieveColumns(table.id)
-      (rowId, values) <- rowStruc.get(tableId, rowId, allColumns)
+      (rowId, values) <- rowStruc.retrieve(tableId, rowId, allColumns)
       mergedValues <- {
         Future.sequence(allColumns map {
           case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
@@ -264,15 +264,14 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield Row(table, rowId, mergedValues)
   }
 
-  def retrieveRows(table: Table): Future[RowSeq] = {
+  def retrieveRows(table: Table, pagination: Pagination): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table.id)
-      allRows <- {
-        rowStruc.getAll(table.id, columns)
-      }
+      rawRows <- rowStruc.retrieveAll(table.id, columns, pagination)
+      totalSize <- rowStruc.size(table.id)
       rowSeq <- {
         // TODO performance problem: foreach row every link column is map and the link value is fetched!
-        val mergedRows = allRows map {
+        val mergedRows = rawRows map {
           case (rowId, rawValues) =>
 
             val mergedValues = Future.sequence((columns, rawValues).zipped map {
@@ -292,7 +291,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
           })
         }
 
-        Future.sequence(rows).map(seq => RowSeq(seq))
+        Future.sequence(rows).map(seq => RowSeq(seq, Page(pagination, Some(totalSize))))
       }
     } yield rowSeq
   }
