@@ -3,8 +3,6 @@ package com.campudus.tableaux
 import org.junit.Test
 import org.vertx.scala.core.json.Json
 import org.vertx.testtools.VertxAssert._
-import scala.concurrent.Future
-import org.vertx.scala.core.http.HttpClient
 
 class GetTest extends TableauxTestBase {
 
@@ -19,10 +17,15 @@ class GetTest extends TableauxTestBase {
       "id" -> 1,
       "name" -> "Test Table 1",
       "columns" -> Json.arr(),
+      "page" -> Json.obj(
+        "offset" -> null,
+        "limit" -> null,
+        "totalSize" -> 0
+      ),
       "rows" -> Json.arr())
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST", "/tables", createTableJson)
       test <- sendRequest("GET", "/completetable/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -38,12 +41,17 @@ class GetTest extends TableauxTestBase {
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false)),
+      "page" -> Json.obj(
+        "offset" -> null,
+        "limit" -> null,
+        "totalSize" -> 0
+      ),
       "rows" -> Json.arr())
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
-      _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
       test <- sendRequest("GET", "/completetable/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -59,13 +67,18 @@ class GetTest extends TableauxTestBase {
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false)),
+      "page" -> Json.obj(
+        "offset" -> null,
+        "limit" -> null,
+        "totalSize" -> 1
+      ),
       "rows" -> Json.arr(
         Json.obj("id" -> 1, "values" -> Json.arr(null, null))))
 
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
-      _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
       _ <- sendRequest("POST", "/tables/1/rows")
       test <- sendRequest("GET", "/completetable/1")
     } yield {
@@ -82,6 +95,11 @@ class GetTest extends TableauxTestBase {
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false)),
+      "page" -> Json.obj(
+        "offset" -> null,
+        "limit" -> null,
+        "totalSize" -> 2
+      ),
       "rows" -> Json.arr(
         Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
         Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))))
@@ -179,10 +197,18 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def getRows(): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(
-      Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
-      Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
-    ))
+    val expectedJson = Json.obj(
+      "status" -> "ok",
+      "page" -> Json.obj(
+        "offset" -> null,
+        "limit" -> null,
+        "totalSize" -> 2
+      ),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
+        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
+      )
+    )
 
     for {
       _ <- setupDefaultTable()
