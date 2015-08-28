@@ -350,8 +350,8 @@ class MediaTest extends TableauxTestBase {
 
       assertEquals(Json.obj("status" -> "ok"), resultReplace)
 
-      assertEquals(fileUuid2, resultRetrieveAfterReplace.getArray("value").get[JsonObject](0).getString("uuid"))
-      assertEquals(fileUuid3, resultRetrieveAfterReplace.getArray("value").get[JsonObject](1).getString("uuid"))
+      assertEquals(fileUuid3, resultRetrieveAfterReplace.getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid2, resultRetrieveAfterReplace.getArray("value").get[JsonObject](1).getString("uuid"))
     }
   }
 
