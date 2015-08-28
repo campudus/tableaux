@@ -160,15 +160,6 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
     }
   }
 
-  def selectSingleValue[A](select: String, arr: JsonArray): Future[A] = {
-    for {
-      result <- query(select, arr)
-      resultArr <- Future(selectNotNull(result))
-    } yield {
-      resultArr.head.get[A](0)
-    }
-  }
-
   private def queryHelper(command: JsonObject): Future[JsonObject] = {
     sendHelper(command) map { reply => checkForDatabaseError(command, reply.body()) } recoverWith { case ex => Future.failed[JsonObject](ex) }
   }

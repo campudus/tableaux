@@ -105,12 +105,6 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
     } yield (t, ordering)
   }
 
-  def size(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Long] = {
-    val select = s"SELECT COUNT(*) FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?"
-
-    connection.selectSingleValue(select, Json.arr(tableId, columnId, rowId))
-  }
-
   def retrieveAll(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Seq[AttachmentFile]] = {
     val select = s"SELECT attachment_uuid, ordering FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ? ORDER BY ordering"
 
