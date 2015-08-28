@@ -135,13 +135,18 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
     } yield result
   }
 
-  def transactional[A](values: Seq[A])(fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]): Future[JsonObject] = {
-    transactional[JsonObject]({ transaction: Transaction =>
-      values.foldLeft(Future(transaction, Json.emptyObj())) { (result, value) =>
-        result.flatMap {
-          case (newTransaction, lastResult) =>
-            fn(newTransaction, lastResult, value)
-        }
+  def transactionalFoldLeft[A](values: Seq[A])(fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]): Future[JsonObject] = {
+    transactionalFoldLeft(values, Json.emptyObj())(fn)
+  }
+
+  def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(fn: (Transaction, B, A) => Future[(Transaction, B)]): Future[B] = {
+    transactional[B]({ transaction: Transaction =>
+      values.foldLeft(Future(transaction, fnStartValue)) {
+        (result, value) =>
+          result.flatMap {
+            case (newTransaction, lastResult) =>
+              fn(newTransaction, lastResult, value)
+          }
       }
     })
   }
