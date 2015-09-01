@@ -42,7 +42,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieveAll(): Future[Seq[Table]] = {
     for {
-      result <- connection.query("SELECT table_id, user_table_name FROM system_table")
+      result <- connection.query("SELECT table_id, user_table_name FROM system_table ORDER BY table_id")
     } yield {
       getSeqOfJsonArray(result).map { row =>
         Table(row.get[TableId](0), row.get[String](1))
