@@ -16,6 +16,7 @@ import scala.util.{Failure, Success, Try}
 
 object Starter {
   val DEFAULT_PORT = 8181
+  val DEFAULT_HOST = "0.0.0.0"
   val DEFAULT_DATABASE_ADDRESS = "campudus.asyncdb"
 }
 
@@ -28,6 +29,7 @@ class Starter extends Verticle {
     val config = container.config()
 
     val port = config.getInteger("port", DEFAULT_PORT)
+    val host = config.getString("host", DEFAULT_HOST)
 
     val databaseConfig = config.getObject("database", Json.obj())
     val validatorConfig = config.getObject("validator", Json.obj())
@@ -47,7 +49,7 @@ class Starter extends Verticle {
       _ <- deployMod(container, "io.vertx~mod-mysql-postgresql_2.11~0.3.1", databaseConfig, 1)
       _ <- deployMod(container, "com.campudus~vertx-tiny-validator4~1.0.0", validatorConfig, 1)
 
-      _ <- deployHttpServer(port, tableauxConfig)
+      _ <- deployHttpServer(port, host, tableauxConfig)
     } yield ())
       .map(_ => p.success(()))
       .recover({
@@ -77,11 +79,11 @@ class Starter extends Verticle {
     }: Try[String] => Unit)
   }
 
-  def deployHttpServer(port: Int, tableauxConfig: TableauxConfig): Future[HttpServer] = promisify { p: Promise[HttpServer] =>
+  def deployHttpServer(port: Int, host: String, tableauxConfig: TableauxConfig): Future[HttpServer] = promisify { p: Promise[HttpServer] =>
     val dbConnection = DatabaseConnection(tableauxConfig)
     val router = RouterRegistry(tableauxConfig, dbConnection)
 
-    vertx.createHttpServer().requestHandler(router).listen(port, {
+    vertx.createHttpServer().requestHandler(router).listen(port, host, {
       case Success(server) => p.success(server)
       case Failure(x) => p.failure(x)
     }: Try[HttpServer] => Unit)
