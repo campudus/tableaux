@@ -34,6 +34,7 @@ trait TableauxTestBase extends TestVerticle with TestConfig {
 
   def deployModule(config: JsonObject): Future[Unit] = {
     val p = Promise[Unit]()
+
     container.deployModule(System.getProperty("vertx.modulename"), config, 1, {
       case Success(id) => p.success(())
       case Failure(ex) =>

@@ -32,7 +32,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(ColumnType[_], Seq[(String, _)])]): Future[Unit] = {
     for {
-      _ <- connection.transactional(values) { (t, _, value) =>
+      _ <- connection.transactionalFoldLeft(values) { (t, _, value) =>
         val column = s"column_${value._1.id}"
         val translations = value._2
 

@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
-import com.campudus.tableaux.database.domain.{DomainObject, ExtendedFile, File}
+import com.campudus.tableaux.database.domain.{DomainObject, ExtendedFile}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, RowId, TableId}
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -34,13 +34,27 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
 
     // Build insert parameters
     val paramStr = attachments.map(_ => "(?, ?, ?, ?, ?)").mkString(", ")
-    val params = attachments.flatMap(attachment => List(attachment.tableId, attachment.columnId, attachment.rowId, attachment.uuid.toString, 0))
-    
+
     connection.transactional({ t =>
       for {
         (t, _) <- t.query(delete, Json.arr(tableId, columnId, rowId))
 
+        (_, changedAttachments) <- attachments.foldLeft(Future(0, Seq.empty[Attachment])) {
+          (lastResult, attachment) =>
+            lastResult.flatMap({
+              case (lastOrdering, seq) =>
+                val newOrdering = lastOrdering + 1
+                Future(newOrdering, seq :+ attachment.copy(ordering = Some(attachment.ordering.getOrElse(newOrdering))))
+            })
+        }
+
+        params <- Future({
+          changedAttachments.flatMap(attachment => List(attachment.tableId, attachment.columnId, attachment.rowId, attachment.uuid.toString, attachment.ordering.get))
+        })
+
         (t, _) <- {
+          connection.logger.info(s"params $params")
+
           if (params.nonEmpty) {
             t.query(s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr", Json.arr(params: _*))
           } else {
@@ -50,7 +64,7 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
       } yield (t, ())
     })
   }
-  
+
   def add(a: Attachment): Future[AttachmentFile] = {
     val insert = s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES(?, ?, ?, ?, ?)"
 
@@ -89,12 +103,6 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
         }
       }
     } yield (t, ordering)
-  }
-
-  def size(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Long] = {
-    val select = s"SELECT COUNT(*) FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?"
-
-    connection.selectSingleValue(select, Json.arr(tableId, columnId, rowId))
   }
 
   def retrieveAll(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Seq[AttachmentFile]] = {

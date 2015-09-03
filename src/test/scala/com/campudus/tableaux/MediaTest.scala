@@ -1,6 +1,8 @@
 package com.campudus.tableaux
 
 import java.net.URLEncoder
+import java.nio.file.FileSystems
+import java.util
 
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{File, Folder}
@@ -9,11 +11,13 @@ import com.campudus.tableaux.helper.FutureUtils
 import org.junit.Test
 import org.vertx.java.core.json.JsonObject
 import org.vertx.scala.core.http.HttpClientRequest
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{Json, JsonArray}
 import org.vertx.scala.core.streams.Pump
 import org.vertx.testtools.VertxAssert._
 
 import scala.concurrent.{Future, Promise}
+import scala.reflect.io.Path
+import scala.util.{Failure, Success, Try}
 
 class MediaTest extends TableauxTestBase {
 
@@ -245,6 +249,54 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
+  def deleteTmpFile(): Unit = okTest {
+    val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
+    val mimetype = "image/jpeg"
+
+    for {
+      tmpFile <- uploadFile(file, mimetype)
+      result <- sendRequest("DELETE", s"/files/${tmpFile.getString("uuid")}")
+    } yield {
+      assertEquals(tmpFile.getString("uuid"), result.getString("uuid"))
+    }
+  }
+
+  @Test
+  def deleteAlreadyDeletedTmpFile(): Unit = okTest {
+    val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
+    val mimetype = "image/jpeg"
+
+    for {
+      tmpFile <- uploadFile(file, mimetype)
+
+      _ <- {
+        val uploadsDirectory = Path(s"${tableauxConfig.workingDirectory}/${tableauxConfig.uploadsDirectory}")
+
+        // because we are ./target/
+        val dir = Path(s"./mods/uploads")
+        val path = dir / Path(s"${tmpFile.getString("uuid")}.jpg")
+
+        import FutureUtils._
+        import org.vertx.scala.core.FunctionConverters._
+
+        promisify({ p: Promise[Unit] =>
+          // delete tmp file
+          vertx.fileSystem.delete(path.toString(), {
+            case Success(v) =>
+              p.success(())
+            case Failure(e) =>
+              p.failure(e)
+          }: Try[Void] => Unit)
+        })
+      }
+
+      result <- sendRequest("DELETE", s"/files/${tmpFile.getString("uuid")}")
+    } yield {
+      assertEquals(tmpFile.getString("uuid"), result.getString("uuid"))
+    }
+  }
+
+  @Test
   def createAttachmentColumn(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
 
@@ -329,14 +381,26 @@ class MediaTest extends TableauxTestBase {
       // Add attachment
       resultFill <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)))
 
-      // Retrieve attachment
-      resultRetrieve <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      // Retrieve row with attachment
+      resultRetrieve <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
-      // Replace with attachments
+      // Replace with attachments (with order)
       resultReplace <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr(Json.obj("uuid" -> fileUuid2, "ordering" -> 2), Json.obj("uuid" -> fileUuid3, "ordering" -> 1))))
 
       // Retrieve attachments after replace
       resultRetrieveAfterReplace <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Replace with attachments (without order)
+      resultReplaceWithoutOrder <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr(Json.obj("uuid" -> fileUuid2), Json.obj("uuid" -> fileUuid3))))
+
+      // Retrieve attachments after replace
+      resultRetrieveAfterReplaceWithoutOrder <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Replace with no attachments
+      resultReplaceEmpty <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr()))
+
+      // Retrieve attachments after replace
+      resultRetrieveAfterReplaceEmpty <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
       _ <- sendRequest("DELETE", s"/files/$fileUuid1")
       _ <- sendRequest("DELETE", s"/files/$fileUuid2")
@@ -346,12 +410,21 @@ class MediaTest extends TableauxTestBase {
 
       assertEquals(Json.obj("status" -> "ok"), resultFill)
 
-      assertEquals(fileUuid1, resultRetrieve.getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid1, resultRetrieve.getArray("values").get[JsonArray](columnId - 1).get[JsonObject](0).getString("uuid"))
 
       assertEquals(Json.obj("status" -> "ok"), resultReplace)
 
-      assertEquals(fileUuid2, resultRetrieveAfterReplace.getArray("value").get[JsonObject](0).getString("uuid"))
-      assertEquals(fileUuid3, resultRetrieveAfterReplace.getArray("value").get[JsonObject](1).getString("uuid"))
+      assertEquals(fileUuid3, resultRetrieveAfterReplace.getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid2, resultRetrieveAfterReplace.getArray("value").get[JsonObject](1).getString("uuid"))
+
+      assertEquals(Json.obj("status" -> "ok"), resultReplaceWithoutOrder)
+
+      assertEquals(fileUuid2, resultRetrieveAfterReplaceWithoutOrder.getArray("value").get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid3, resultRetrieveAfterReplaceWithoutOrder.getArray("value").get[JsonObject](1).getString("uuid"))
+
+      assertEquals(Json.obj("status" -> "ok"), resultReplaceEmpty)
+
+      assertEquals(0, resultRetrieveAfterReplaceEmpty.getArray("value").size())
     }
   }
 

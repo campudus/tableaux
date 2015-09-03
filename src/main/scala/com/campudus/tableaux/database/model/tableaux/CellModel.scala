@@ -30,7 +30,7 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val insert = s"INSERT INTO user_table_lang_$tableId(id, langtag, column_$columnId) VALUES(?, ?, ?)"
     val update = s"UPDATE user_table_lang_$tableId SET column_$columnId = ? WHERE id = ? AND langtag = ?"
 
-    connection.transactional(values) { (t, _, value) =>
+    connection.transactionalFoldLeft(values) { (t, _, value) =>
       for {
         (t, count) <- t.query(select, Json.arr(rowId, value._1)).map({
           case (t, json) =>

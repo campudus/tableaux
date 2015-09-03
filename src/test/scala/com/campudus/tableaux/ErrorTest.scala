@@ -28,6 +28,11 @@ class ErrorTest extends TableauxTestBase {
   val notFound = "NOT FOUND"
 
   @Test
+  def requestWrongRoute(): Unit = exceptionTest(notFound) {
+    sendRequest("GET", "/wrong/route")
+  }
+
+  @Test
   def deleteNoExistingTable(): Unit = exceptionTest(notFound) {
     sendRequest("DELETE", "/tables/1")
   }

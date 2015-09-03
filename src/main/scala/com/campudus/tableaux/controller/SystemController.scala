@@ -34,7 +34,7 @@ class SystemController(override val config: TableauxConfig,
       rb <- writeDemoData(readDemoData("regierungsbezirke"))
 
       // Add link column Bundeslaender(Land) <> Regierungsbezirke(Regierungsbezirk)
-      linkColumn <- structureModel.columnStruc.createColumn(bl, CreateLinkColumn("Bundesland", None, LinkConnection(1, rb.id, 1)))
+      linkColumn <- structureModel.columnStruc.createColumn(bl, CreateLinkColumn("Bundesland", None, LinkConnection(rb.id, 1, 1)))
 
       // Bayern 2nd row
       _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 1, 2)
@@ -45,7 +45,7 @@ class SystemController(override val config: TableauxConfig,
       //Baden-Wuerttemberg 1st row
       _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 5, 1)
       _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 6, 1)
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 6, 1)
+      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 7, 1)
       _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 8, 1)
     } yield TableSeq(Seq(bl, rb))
   }
