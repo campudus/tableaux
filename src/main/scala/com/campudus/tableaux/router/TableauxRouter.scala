@@ -1,9 +1,11 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.database.domain.{Pagination, DomainObject}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
 import org.vertx.scala.core.http.HttpServerRequest
+import org.vertx.scala.core.json.{Json, JsonObject}
 import org.vertx.scala.router.routing._
 
 import scala.util.matching.Regex
@@ -30,7 +32,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     /**
      * Get Rows
      */
-    case Get(Rows(tableId)) => asyncGetReply(controller.retrieveRows(tableId.toLong))
+    case Get(Rows(tableId)) => asyncGetReply({
+      val limit = getParam("limit", req)
+      val offset = getParam("offset", req)
+
+      val pagination = Pagination(offset, limit)
+
+      controller.retrieveRows(tableId.toLong, pagination)
+    })
 
     /**
      * Get Row

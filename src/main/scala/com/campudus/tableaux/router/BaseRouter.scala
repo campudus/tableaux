@@ -49,4 +49,13 @@ trait BaseRouter extends Router with StandardVerticle {
     }
     p.future
   }
+
+  def getParam(name: String, request: HttpServerRequest): Option[Long] = {
+    request.params().find({
+      case (n, _) => name == n
+    }) match {
+      case Some((_, param)) => param.headOption.map(_.toLong)
+      case None => None
+    }
+  }
 }

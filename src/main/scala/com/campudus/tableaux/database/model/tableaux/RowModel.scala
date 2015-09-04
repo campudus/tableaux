@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.model.tableaux
 
-import com.campudus.tableaux.database.domain.{ColumnType, MultiLanguageColumn, SimpleValueColumn}
+import com.campudus.tableaux.database.domain.{Pagination, ColumnType, MultiLanguageColumn, SimpleValueColumn}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -44,7 +44,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def get(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[AnyRef])] = {
+  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[AnyRef])] = {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
@@ -56,17 +56,23 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def getAll(tableId: TableId, columns: Seq[ColumnType[_]]): Future[Seq[(RowId, Seq[AnyRef])]] = {
+  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, Seq[AnyRef])]] = {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
     for {
-      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id")
+      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
       getSeqOfJsonArray(result).map(jsonArrayToSeq).map { row =>
         (row.head, mapResultRow(columns, row.drop(1)))
       }
     }
+  }
+
+  def size(tableId: TableId): Future[Long] = {
+    val select = s"SELECT COUNT(*) FROM user_table_$tableId"
+
+    connection.selectSingleValue(select)
   }
 
   def delete(tableId: TableId, rowId: RowId): Future[Unit] = {
