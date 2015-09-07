@@ -17,3 +17,7 @@ case class DatabaseException(message: String, id: String) extends CustomExceptio
 case class NotEnoughArgumentsException(message: String, id: String) extends CustomException
 
 case class InvalidJsonException(message: String, id: String) extends CustomException
+
+case class InvalidNonceException(message: String, id: String = "error.nonce.invalid") extends CustomException
+
+case class NoNonceException(message: String, id: String = "error.nonce.none") extends CustomException

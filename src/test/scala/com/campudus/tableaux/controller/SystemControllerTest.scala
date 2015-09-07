@@ -66,4 +66,16 @@ class SystemControllerTest extends TableauxTestBase with TestConfig {
       assertEquals(expectedJson2, tablesResult)
     }
   }
+
+  @Test
+  def resetWithOutNonce(): Unit = exceptionTest("error.nonce.none") {
+    SystemRouter.nonce = null
+    sendRequest("POST", s"/reset")
+  }
+
+  @Test
+  def resetWithNonceButInvalidRequestNonce(): Unit = exceptionTest("error.nonce.invalid") {
+    val nonce = SystemRouter.generateNonce()
+    sendRequest("POST", s"/reset?nonce=asdf")
+  }
 }

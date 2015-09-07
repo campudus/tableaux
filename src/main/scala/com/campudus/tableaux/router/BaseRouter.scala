@@ -11,7 +11,6 @@ import org.vertx.scala.router.routing.{AsyncReply, Error, Ok}
 import org.vertx.scala.router.{Router, RouterException}
 
 import scala.concurrent.{Future, Promise}
-import scala.util.matching.Regex
 
 trait BaseRouter extends Router with StandardVerticle {
 
@@ -25,7 +24,9 @@ trait BaseRouter extends Router with StandardVerticle {
   override val verticle: Verticle = config.verticle
 
   def asyncSetReply: (Future[DomainObject]) => AsyncReply = asyncReply(SetReturn)(_)
+
   def asyncGetReply: (Future[DomainObject]) => AsyncReply = asyncReply(GetReturn)(_)
+
   def asyncEmptyReply: (Future[DomainObject]) => AsyncReply = asyncReply(EmptyReturn)(_)
 
   def asyncReply(reType: ReturnType)(f: => Future[DomainObject]): AsyncReply = AsyncReply {
@@ -35,6 +36,8 @@ trait BaseRouter extends Router with StandardVerticle {
       case ex@NoJsonFoundException(message, id) => Error(RouterException(message, ex, s"errors.json.$id", 400))
       case ex@NotEnoughArgumentsException(message, id) => Error(RouterException(message, ex, s"error.json.$id", 400))
       case ex@InvalidJsonException(message, id) => Error(RouterException(message, ex, s"error.json.$id", 400))
+      case ex@InvalidNonceException(message, id) => Error(RouterException(message, ex, id, 401))
+      case ex@NoNonceException(message, id) => Error(RouterException(message, ex, id, 500))
       case ex: Throwable => Error(RouterException("unknown error", ex, "errors.unknown", 500))
     }
   }
@@ -58,7 +61,7 @@ trait BaseRouter extends Router with StandardVerticle {
       case None => None
     }
   }
-  
+
   def getStringParam(name: String, request: HttpServerRequest): Option[String] = {
     request.params().find({
       case (n, _) => name == n

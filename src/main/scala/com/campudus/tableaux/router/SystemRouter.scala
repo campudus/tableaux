@@ -2,11 +2,12 @@ package com.campudus.tableaux.router
 
 import java.util.UUID
 
-import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.SystemController
+import com.campudus.tableaux.{InvalidNonceException, NoNonceException, TableauxConfig}
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.router.routing.{Get, Post}
 
+import scala.concurrent.Future
 import scala.util.Try
 
 object SystemRouter {
@@ -32,12 +33,16 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
 
   override def routes(implicit req: HttpServerRequest): Routing = {
     case Post("/reset") | Get("/reset") => asyncSetReply {
-      checkNonce
-      controller.resetDB()
+      for {
+        _ <- Future(checkNonce)
+        result <- controller.resetDB()
+      } yield result
     }
-    case Post("/resetDemo") | Get("/resetDemo") => {
-      checkNonce
-      asyncSetReply(controller.createDemoTables())
+    case Post("/resetDemo") | Get("/resetDemo") => asyncSetReply {
+      for {
+        _ <- Future(checkNonce)
+        result <- controller.createDemoTables()
+      } yield result
     }
   }
 
@@ -47,11 +52,11 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     if (SystemRouter.retrieveNonce().isEmpty) {
       SystemRouter.generateNonce()
       logger.info(s"Generated a new nonce: ${SystemRouter.nonce}")
-      throw new Exception("No nonce available. Generated new nonce.")
+      throw NoNonceException("No nonce available. Generated new nonce.")
     } else if (requestNonce.isEmpty || requestNonce.get != SystemRouter.retrieveNonce().get) {
       SystemRouter.generateNonce()
       logger.info(s"Generated a new nonce: ${SystemRouter.nonce}")
-      throw new Exception("Nonce can't be empty and must be valid. Generated new nonce.")
+      throw InvalidNonceException("Nonce can't be empty and must be valid. Generated new nonce.")
     }
 
     SystemRouter.nonce = null
