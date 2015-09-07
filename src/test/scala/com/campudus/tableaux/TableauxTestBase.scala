@@ -85,11 +85,6 @@ trait TableauxTestBase extends TestVerticle with TestConfig {
     p.future
   }
 
-  @Deprecated
-  def sendRequestWithJson(method: String, jsonObj: JsonObject, path: String): Future[JsonObject] = {
-    sendRequest(method, path, jsonObj)
-  }
-
   def jsonResponse(p: Promise[JsonObject]): HttpClientResponse => Unit = { resp: HttpClientResponse =>
     resp.bodyHandler { buf =>
       if (resp.statusCode() != 200) {

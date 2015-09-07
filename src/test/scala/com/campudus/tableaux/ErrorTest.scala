@@ -40,7 +40,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def deleteNoExistingColumn(): Unit = exceptionTest(notFound) {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
       _ <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield ()
   }
@@ -48,7 +48,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def deleteNoExistingRow(): Unit = exceptionTest(notFound) {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
       _ <- sendRequest("DELETE", "/tables/1/rows/1")
     } yield ()
   }
@@ -61,7 +61,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def retrieveNoExistingColumn(): Unit = exceptionTest(notFound) {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
       _ <- sendRequest("GET", "/tables/1/columns/1")
     } yield ()
   }
@@ -69,8 +69,8 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def retrieveNoExistingCell(): Unit = exceptionTest(notFound) {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
+      _ <- sendRequest("POST",  "/tables/1/columns",  createStringColumnJson)
       _ <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield ()
   }
@@ -78,7 +78,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def retrieveNoExistingRow(): Unit = exceptionTest(notFound) {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
       _ <- sendRequest("GET", "/tables/1/rows/1")
     } yield ()
   }
@@ -90,13 +90,13 @@ class ErrorTest extends TableauxTestBase {
 
     for {
       _ <- system.deinstall()
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
     } yield ()
   }
 
   @Test
   def createColumnWithNoExistingTable(): Unit = exceptionTest(notFound) {
-    sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+    sendRequest("POST",  "/tables/1/columns",  createStringColumnJson)
   }
 
   @Test
@@ -107,8 +107,8 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def fillNoExistingCell(): Unit = exceptionTest(notFound) {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", fillCellJson, "/tables/1/columns/1/rows/1")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
+      _ <- sendRequest("POST",  "/tables/1/columns/1/rows/1",  fillCellJson)
     } yield ()
   }
 
@@ -170,8 +170,8 @@ class ErrorTest extends TableauxTestBase {
 
   private def multipleColumnHelper(error: String, json: JsonObject): Unit = exceptionTest(error) {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", json, "/tables/1/columns")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
+      _ <- sendRequest("POST",  "/tables/1/columns",  json)
     } yield ()
   }
 
@@ -225,10 +225,10 @@ class ErrorTest extends TableauxTestBase {
 
   private def multipleRowHelper(error: String, json: JsonObject): Unit = exceptionTest(error) {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
-      _ <- sendRequestWithJson("POST", createNumberColumnJson, "/tables/1/columns")
-      _ <- sendRequestWithJson("POST", json, "/tables/1/rows")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
+      _ <- sendRequest("POST",  "/tables/1/columns",  createStringColumnJson)
+      _ <- sendRequest("POST",  "/tables/1/columns",  createNumberColumnJson)
+      _ <- sendRequest("POST",  "/tables/1/rows",  json)
     } yield ()
   }
 

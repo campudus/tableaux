@@ -13,7 +13,7 @@ class DeleteTest extends TableauxTestBase {
   @Test
   def deleteEmptyTable(): Unit = okTest {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
       test <- sendRequest("DELETE", "/tables/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -23,8 +23,8 @@ class DeleteTest extends TableauxTestBase {
   @Test
   def deleteTableWithColumn(): Unit = okTest {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
+      _ <- sendRequest("POST",  "/tables/1/columns",  createStringColumnJson)
       test <- sendRequest("DELETE", "/tables/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -34,8 +34,8 @@ class DeleteTest extends TableauxTestBase {
   @Test
   def deleteColumn(): Unit = okTest {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
-      _ <- sendRequestWithJson("POST", createStringColumnJson, "/tables/1/columns")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
+      _ <- sendRequest("POST",  "/tables/1/columns",  createStringColumnJson)
       test <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -45,7 +45,7 @@ class DeleteTest extends TableauxTestBase {
   @Test
   def deleteRow(): Unit = okTest {
     for {
-      _ <- sendRequestWithJson("POST", createTableJson, "/tables")
+      _ <- sendRequest("POST",  "/tables",  createTableJson)
       _ <- sendRequest("POST", "/tables/1/rows")
       test <- sendRequest("DELETE", "/tables/1/rows/1")
     } yield {

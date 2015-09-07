@@ -15,7 +15,7 @@ class ChangeTest extends TableauxTestBase {
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequestWithJson("POST", postJson, "/tables/1")
+      test <- sendRequest("POST",  "/tables/1",  postJson)
       test2 <- sendRequest("GET", "/tables/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -30,7 +30,7 @@ class ChangeTest extends TableauxTestBase {
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequestWithJson("POST", postJson, "/tables/1/columns/1")
+      test <- sendRequest("POST",  "/tables/1/columns/1",  postJson)
       test2 <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -45,7 +45,7 @@ class ChangeTest extends TableauxTestBase {
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequestWithJson("POST", postJson, "/tables/1/columns/1")
+      test <- sendRequest("POST",  "/tables/1/columns/1",  postJson)
       test2 <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -60,7 +60,7 @@ class ChangeTest extends TableauxTestBase {
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequestWithJson("POST", postJson, "/tables/1/columns/2")
+      test <- sendRequest("POST",  "/tables/1/columns/2",  postJson)
       test2 <- sendRequest("GET", "/tables/1/columns/2")
     } yield {
       assertEquals(expectedJson, test)
