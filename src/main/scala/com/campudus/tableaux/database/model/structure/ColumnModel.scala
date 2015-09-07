@@ -19,9 +19,9 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           case (id, ordering) => Mapper(languageType, kind).apply(table, id, name, ordering)
         }
 
-      case CreateLinkColumn(name, ordering, linkConnection) => for {
+      case CreateLinkColumn(name, ordering, linkConnection, toName) => for {
         toCol <- retrieve(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
-        (id, ordering) <- createLinkColumn(table.id, name, linkConnection, ordering)
+        (id, ordering) <- createLinkColumn(table, name, toName, linkConnection, ordering)
       } yield LinkColumn(table, id, toCol, name, ordering)
 
       case CreateAttachmentColumn(name, ordering) =>
@@ -54,7 +54,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createLinkColumn(tableId: TableId, name: String, link: LinkConnection, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+  private def createLinkColumn(table: Table, name: String, toName: Option[String], link: LinkConnection, ordering: Option[Ordering]): Future[(ColumnId, Ordering)] = {
+    val tableId = table.id
     val fromColumnId = link.fromColumnId
     val toTableId = link.toTableId
     val toColumnId = link.toColumnId
@@ -64,15 +65,17 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, result) <- t.query("INSERT INTO system_link_table (table_id_1, table_id_2, column_id_1, column_id_2) VALUES (?, ?, ?, ?) RETURNING link_id", Json.arr(tableId, toTableId, fromColumnId, toColumnId))
         linkId <- Future(insertNotNull(result).head.get[Long](0))
 
-        // only add the two link column if tableId != toTableId
+        // insert link column on source table
+        (t, result) <- insertSystemColumn(t, tableId, name, LinkType, ordering, Some(linkId), SingleLanguage)
+
+        // only add the second link column if tableId != toTableId
         (t, _) <- {
           if (tableId != toTableId) {
-            insertSystemColumn(t, toTableId, name, LinkType, None, Some(linkId), SingleLanguage)
+            insertSystemColumn(t, toTableId, toName.getOrElse(table.name), LinkType, None, Some(linkId), SingleLanguage)
           } else {
             Future((t, Json.emptyObj()))
           }
         }
-        (t, result) <- insertSystemColumn(t, tableId, name, LinkType, ordering, Some(linkId), SingleLanguage)
 
         (t, _) <- t.query( s"""
                               |CREATE TABLE link_table_$linkId (

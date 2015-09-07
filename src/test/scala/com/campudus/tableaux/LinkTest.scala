@@ -63,6 +63,33 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
+  def createLinkColumnWithToName(): Unit = okTest {
+    val postLinkColWithOrd = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "fromColumn" -> 1,
+          "toName" -> "Backlink",
+          "toTable" -> 2,
+          "toColumn" -> 1,
+          "ordering" -> 5
+        )
+      )
+    )
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 5)))
+
+    for {
+      tables <- setupTwoTables()
+      createLink <- sendRequest("POST",  "/tables/1/columns",  postLinkColWithOrd)
+      retrieveLinkColumn <- sendRequest("GET", s"/tables/2/columns/3")
+    } yield {
+      assertEquals(expectedJson, createLink)
+      assertEquals("Backlink", retrieveLinkColumn.getString("name"))
+    }
+  }
+
+  @Test
   def fillAndRetrieveLinkCell(): Unit = okTest {
     def valuesRow(c: String) =
       Json.obj(

@@ -12,7 +12,7 @@ sealed trait CreateColumn {
 
 case class CreateSimpleColumn(override val name: String, override val ordering: Option[Ordering], override val kind: TableauxDbType, override val languageType: LanguageType) extends CreateColumn
 
-case class CreateLinkColumn(override val name: String, override val ordering: Option[Ordering], linkConnection: LinkConnection) extends CreateColumn {
+case class CreateLinkColumn(override val name: String, override val ordering: Option[Ordering], linkConnection: LinkConnection, toName: Option[String]) extends CreateColumn {
   override val kind = LinkType
   override val languageType = SingleLanguage
 }

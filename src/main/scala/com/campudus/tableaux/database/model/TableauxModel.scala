@@ -29,7 +29,7 @@ object TableauxModel {
  * {@code TableauxController#retrieveCompleteTable}. Should only
  * be used by following delegate methods.
  */
-sealed trait StructureDelegateModel {
+sealed trait StructureDelegateModel extends DatabaseQuery {
 
   import TableauxModel._
 
@@ -42,7 +42,10 @@ sealed trait StructureDelegateModel {
   }
 
   def createColumns(tableId: TableId, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
-    structureModel.columnStruc.createColumns(Table(tableId, ""), columns)
+    for {
+      table <- retrieveTable(tableId)
+      result <- structureModel.columnStruc.createColumns(table, columns)
+    } yield result
   }
 
   def retrieveTable(tableId: TableId): Future[Table] = {
