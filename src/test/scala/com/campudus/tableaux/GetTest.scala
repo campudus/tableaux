@@ -11,7 +11,7 @@ class GetTest extends TableauxTestBase {
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
   @Test
-  def getEmptyTable(): Unit = okTest {
+  def retrieveEmptyTable(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -33,7 +33,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getWithColumnTable(): Unit = okTest {
+  def retrieveWithColumnTable(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -59,7 +59,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getWithColumnAndRowTable(): Unit = okTest {
+  def retrieveWithColumnAndRowTable(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -87,7 +87,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getFullTable(): Unit = okTest {
+  def retrieveFullTable(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -113,7 +113,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getTable(): Unit = okTest {
+  def retrieveTable(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -129,7 +129,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getAllTables(): Unit = okTest {
+  def retrieveAllTables(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "tables" -> Json.arr(
       Json.obj("id" -> 1, "name" -> "Test Table 1"),
       Json.obj("id" -> 2, "name" -> "Test Table 2")
@@ -145,7 +145,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getColumns(): Unit = okTest {
+  def retrieveColumns(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
       Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false),
       Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false)
@@ -160,7 +160,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getStringColumn(): Unit = okTest {
+  def retrieveStringColumn(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false)
 
     for {
@@ -172,7 +172,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getNumberColumn(): Unit = okTest {
+  def retrieveNumberColumn(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false)
 
     for {
@@ -184,7 +184,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getRow(): Unit = okTest {
+  def retrieveRow(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "values" -> Json.arr("table1row1", 1))
 
     for {
@@ -196,7 +196,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getRows(): Unit = okTest {
+  def retrieveRows(): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "page" -> Json.obj(
@@ -219,7 +219,29 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def getCell(): Unit = okTest {
+  def retrievePagedRows(): Unit = okTest {
+    val expectedJson = Json.obj(
+      "status" -> "ok",
+      "page" -> Json.obj(
+        "offset" -> 1,
+        "limit" -> 1,
+        "totalSize" -> 2
+      ),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
+      )
+    )
+
+    for {
+      _ <- setupDefaultTable()
+      test <- sendRequest("GET", "/tables/1/rows?offset=1&limit=1")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
+
+  @Test
+  def retrieveCell(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "value" -> "table1row1")
     val expectedJson2 = Json.obj("status" -> "ok", "value" -> 1)
 
