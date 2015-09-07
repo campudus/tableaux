@@ -33,8 +33,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
      * Get Rows
      */
     case Get(Rows(tableId)) => asyncGetReply({
-      val limit = getParam("limit", req)
-      val offset = getParam("offset", req)
+      val limit = getLongParam("limit", req)
+      val offset = getLongParam("offset", req)
 
       val pagination = Pagination(offset, limit)
 

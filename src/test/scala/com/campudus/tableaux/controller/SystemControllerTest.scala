@@ -1,15 +1,12 @@
 package com.campudus.tableaux.controller
 
-import com.campudus.tableaux.{TableauxTestBase, TestConfig}
-import com.campudus.tableaux.database.domain.CreateSimpleColumn
+import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
-import com.campudus.tableaux.database.{DatabaseConnection, SingleLanguage, TextType}
+import com.campudus.tableaux.router.SystemRouter
+import com.campudus.tableaux.{TableauxTestBase, TestConfig}
 import org.junit.Test
 import org.vertx.scala.core.json.Json
-import org.vertx.scala.testtools.TestVerticle
 import org.vertx.testtools.VertxAssert._
-
-import scala.concurrent.Future
 
 class SystemControllerTest extends TableauxTestBase with TestConfig {
 
@@ -27,8 +24,10 @@ class SystemControllerTest extends TableauxTestBase with TestConfig {
   def resetSystemTables(): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok")
 
+    val nonce = SystemRouter.generateNonce()
+
     for {
-      result <- sendRequest("POST", "/reset")
+      result <- sendRequest("POST", s"/reset?nonce=$nonce")
     } yield {
       assertEquals(expectedJson, result)
     }
@@ -53,8 +52,14 @@ class SystemControllerTest extends TableauxTestBase with TestConfig {
     )
 
     for {
-      _ <- sendRequest("POST", "/reset")
-      result <- sendRequest("POST", "/resetDemo")
+      _ <- {
+        val nonce = SystemRouter.generateNonce()
+        sendRequest("POST", s"/reset?nonce=$nonce")
+      }
+      result <- {
+        val nonce = SystemRouter.generateNonce()
+        sendRequest("POST", s"/resetDemo?nonce=$nonce")
+      }
       tablesResult <- sendRequest("GET", "/tables")
     } yield {
       assertEquals(expectedJson1, result)

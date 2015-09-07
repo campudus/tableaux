@@ -5,14 +5,14 @@ import org.vertx.scala.core.FunctionConverters._
 import org.vertx.scala.core.buffer.Buffer
 import org.vertx.scala.core.http.HttpClientResponse
 import org.vertx.testtools.VertxAssert._
-import scala.concurrent.{ Future, Promise }
-import scala.util.{ Failure, Success, Try }
-import org.vertx.scala.core.json.Json
+
+import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 class StaticFileTest extends TableauxTestBase {
 
   @Test
-  def checkIndexHtml(): Unit = {
+  def checkIndexHtml(): Unit = okTest {
     val p1 = readFile()
     val p2 = httpGetIndex()
 
@@ -20,16 +20,7 @@ class StaticFileTest extends TableauxTestBase {
       (expected, actual) <- p1.zip(p2)
     } yield {
       assertEquals(expected, actual)
-      testComplete()
     }
-  }
-
-  @Test
-  def setupDatabase(): Unit = for {
-    json <- sendRequest("POST", "/reset")
-  } yield {
-    assertEquals(Json.obj("status" -> "ok"), json)
-    testComplete()
   }
 
   private def readFile(): Future[String] = {
@@ -53,5 +44,4 @@ class StaticFileTest extends TableauxTestBase {
     }).end()
     p.future
   }
-
 }
