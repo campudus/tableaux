@@ -5,7 +5,6 @@ import java.util.UUID
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.DomainObject
-import com.campudus.tableaux.database.model.FolderModel.FolderId
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.router.RouterException
@@ -88,9 +87,14 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       controller.retrieveFile(UUID.fromString(uuid)) map { result => result._1 }
     })
     case Get(FileIdStatic(uuid)) => {
-      AsyncReply(for {
-        (file, path) <- controller.retrieveFile(UUID.fromString(uuid))
-      } yield Header("Content-type", file.file.mimeType, SendFile(path.toString())))
+      AsyncReply({
+        for {
+          (file, path) <- controller.retrieveFile(UUID.fromString(uuid))
+        } yield {
+          val absolute = config.workingDirectory.startsWith("/")
+          Header("Content-type", file.file.mimeType, SendFile(path.toString(), absolute))
+        }
+      })
     }
     case Put(FileId(uuid)) => asyncSetReply({
       getJson(req) flatMap { implicit json =>
