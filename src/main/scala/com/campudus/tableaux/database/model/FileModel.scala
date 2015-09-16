@@ -137,7 +137,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |filename,
           |idfolder,
           |created_at,
-          |updated_at FROM $table WHERE tmp = FALSE""".stripMargin
+          |updated_at FROM $table WHERE tmp = FALSE ORDER BY name""".stripMargin
 
     for {
       result <- connection.query(select)
@@ -157,7 +157,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |filename,
           |idfolder,
           |created_at,
-          |updated_at FROM $table WHERE $condition AND tmp = FALSE""".stripMargin
+          |updated_at FROM $table WHERE $condition AND tmp = FALSE ORDER BY name""".stripMargin
 
     for {
       result <- folder match {
