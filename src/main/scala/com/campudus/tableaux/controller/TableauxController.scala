@@ -47,6 +47,16 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield rows
   }
 
+  def retrieveRows(tableId: TableId, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
+    checkArguments(greaterZero(tableId))
+    logger.info(s"retrieveRows $tableId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      rows <- repository.retrieveRows(table, columnId, pagination)
+    } yield rows
+  }
+
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: ColumnId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"retrieveCell $tableId $columnId $rowId")

@@ -1,11 +1,10 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.database.domain.{Pagination, DomainObject}
+import com.campudus.tableaux.database.domain.Pagination
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
 import org.vertx.scala.core.http.HttpServerRequest
-import org.vertx.scala.core.json.{Json, JsonObject}
 import org.vertx.scala.router.routing._
 
 import scala.util.matching.Regex
@@ -24,6 +23,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
   private val Rows: Regex = "/tables/(\\d+)/rows".r
+  private val RowsOfColumn: Regex = "/tables/(\\d+)/columns/(\\d+)/rows".r
 
   private val CompleteTable: Regex = "/completetable".r
   private val CompleteTableId: Regex = "/completetable/(\\d+)".r
@@ -39,6 +39,18 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       val pagination = Pagination(offset, limit)
 
       controller.retrieveRows(tableId.toLong, pagination)
+    })
+
+    /**
+     * Get Rows
+     */
+    case Get(RowsOfColumn(tableId, columnId)) => asyncGetReply({
+      val limit = getLongParam("limit", req)
+      val offset = getLongParam("offset", req)
+
+      val pagination = Pagination(offset, limit)
+
+      controller.retrieveRows(tableId.toLong, columnId.toLong, pagination)
     })
 
     /**

@@ -272,30 +272,39 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       columns <- retrieveColumns(table.id)
       rawRows <- rowStruc.retrieveAll(table.id, columns, pagination)
       totalSize <- rowStruc.size(table.id)
-      rowSeq <- {
-        // TODO performance problem: foreach row every link column is map and the link value is fetched!
-        val mergedRows = rawRows map {
-          case (rowId, rawValues) =>
-
-            val mergedValues = Future.sequence((columns, rawValues).zipped map {
-              case (c: AttachmentColumn, _) => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-              case (c: LinkColumn[_], _) => cellStruc.getLinkValues(c, rowId)
-
-              case (c: MultiLanguageColumn[_], value) => Future(value)
-              case (c: SimpleValueColumn[_], value) => Future(value)
-            })
-
-            (rowId, mergedValues)
-        }
-
-        val rows = mergedRows map {
-          case (rowId, mergedValues) => mergedValues.map({
-            Row(table, rowId, _)
-          })
-        }
-
-        Future.sequence(rows).map(seq => RowSeq(seq, Page(pagination, Some(totalSize))))
-      }
+      rowSeq <- mapRawRows(table, columns, rawRows).map(seq => RowSeq(seq, Page(pagination, Some(totalSize))))
     } yield rowSeq
+  }
+
+  def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
+    for {
+      column <- retrieveColumn(table.id, columnId)
+      rawRows <- rowStruc.retrieveAll(table.id, Seq(column), pagination)
+      totalSize <- rowStruc.size(table.id)
+      rowSeq <- mapRawRows(table, Seq(column), rawRows).map(seq => RowSeq(seq, Page(pagination, Some(totalSize))))
+    } yield rowSeq
+  }
+
+  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[AnyRef])]): Future[Seq[Row]] = {
+    // TODO performance problem: foreach row every link column is map and the link value is fetched!
+    val mergedRows = rawRows map {
+      case (rowId, rawValues) =>
+
+        val mergedValues = Future.sequence((columns, rawValues).zipped map {
+          case (c: AttachmentColumn, _) => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
+          case (c: LinkColumn[_], _) => cellStruc.getLinkValues(c, rowId)
+
+          case (c: MultiLanguageColumn[_], value) => Future(value)
+          case (c: SimpleValueColumn[_], value) => Future(value)
+        })
+
+        (rowId, mergedValues)
+    }
+
+    val rows = mergedRows map {
+      case (rowId, mergedValues) => mergedValues.map(Row(table, rowId, _))
+    }
+
+    Future.sequence(rows)
   }
 }

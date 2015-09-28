@@ -254,4 +254,27 @@ class GetTest extends TableauxTestBase {
       assertEquals(expectedJson2, test2)
     }
   }
+
+  @Test
+  def retrieveRowsOfSpecificColumn(): Unit = okTest {
+    val expectedJson = Json.obj(
+      "status" -> "ok",
+      "page" -> Json.obj(
+        "offset" -> null,
+        "limit" -> null,
+        "totalSize" -> 2
+      ),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 1, "values" -> Json.arr(1)),
+        Json.obj("id" -> 2, "values" -> Json.arr(2))
+      )
+    )
+
+    for {
+      _ <- setupDefaultTable()
+      test <- sendRequest("GET", "/tables/1/columns/2/rows")
+    } yield {
+      assertEquals(expectedJson, test)
+    }
+  }
 }
