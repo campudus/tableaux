@@ -193,14 +193,61 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield (toTableId, toColumnId)
   }
 
-  def delete(tableId: TableId, columnId: ColumnId): Future[Unit] = for {
-    t <- connection.begin()
-    (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId")
-    (t, _) <- t.query(s"ALTER TABLE user_table_lang_$tableId DROP COLUMN IF EXISTS column_$columnId")
-    (t, result) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
-    _ <- Future.apply(deleteNotNull(result)) recoverWith t.rollbackAndFail()
-    _ <- t.commit()
-  } yield ()
+  def delete(tableId: TableId, columnId: ColumnId): Future[Unit] = {
+    for {
+      column <- retrieve(tableId, columnId)
+      _ <- {
+        column match {
+          case c: LinkColumn[_] => deleteLink(c)
+          case c: AttachmentColumn => deleteAttachment(c)
+          case c: ColumnType[_] => deleteSimpleColumn(c)
+        }
+      }
+    } yield ()
+  }
+
+  private def deleteLink(column: LinkColumn[_]): Future[Unit] = {
+    for {
+      t <- connection.begin()
+
+      (t, result) <- t.query("SELECT link_id FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
+      linkId <- Future(selectCheckSize(result, 1).head.get[Long](0)) recoverWith t.rollbackAndFail()
+
+      (t, result) <- t.query("DELETE FROM system_columns WHERE link_id = ?", Json.arr(linkId))
+      _ <- Future(deleteCheckSize(result, 2)) recoverWith t.rollbackAndFail()
+
+      (t, _) <- t.query(s"DROP TABLE IF EXISTS link_table_$linkId")
+
+      _ <- t.commit()
+    } yield ()
+  }
+
+  private def deleteAttachment(column: AttachmentColumn): Future[Unit] = {
+    for {
+      t <- connection.begin()
+
+      (t, _) <- t.query("DELETE FROM system_attachment WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
+      (t, _) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id)).map({ case (t, json) => (t, deleteNotNull(json)) })
+
+      _ <- t.commit()
+    } yield ()
+  }
+
+  private def deleteSimpleColumn(column: ColumnType[_]): Future[Unit] = {
+    val tableId = column.table.id
+    val columnId = column.id
+
+    for {
+      t <- connection.begin()
+
+      (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId")
+      (t, _) <- t.query(s"ALTER TABLE user_table_lang_$tableId DROP COLUMN IF EXISTS column_$columnId")
+
+      (t, _) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId)).map({ case (t, json) => (t, deleteNotNull(json)) })
+
+      _ <- t.commit()
+    } yield ()
+  }
 
   def change(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[Unit] = for {
     t <- connection.begin()

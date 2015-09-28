@@ -73,6 +73,14 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"deleteTable $tableId")
 
     for {
+      columns <- columnStruc.retrieveAll(tableId)
+      // only delete special column before deleting table;
+      // e.g. link column are based on simple columns
+      _ <- Future.sequence(columns.map({
+        case column@(_: LinkColumn[_]) => columnStruc.delete(tableId, column.id)
+        case column@(_: AttachmentColumn) => columnStruc.delete(tableId, column.id)
+        case _ => Future(())
+      }))
       _ <- tableStruc.delete(tableId)
     } yield EmptyObject()
   }
