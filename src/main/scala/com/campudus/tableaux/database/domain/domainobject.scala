@@ -69,6 +69,14 @@ case class EmptyObject() extends DomainObject {
 
 object MultiLanguageValue {
 
+  def apply[A](values: Option[JsonObject]): MultiLanguageValue[A] = {
+    if (values.isDefined) {
+      MultiLanguageValue[A](values.get)
+    } else {
+      MultiLanguageValue.empty[A]()
+    }
+  }
+
   def apply[A](values: (String, A)*): MultiLanguageValue[A] = {
     MultiLanguageValue[A](values.toMap)
   }
