@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
-import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
+import com.campudus.tableaux.database.domain.{MultiLanguageValue, DomainObject}
 import org.vertx.scala.core.http.HttpServerRequest
 import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.router.RouterException
@@ -35,9 +35,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
   val FileId: Regex = s"/files/($uuidRegex)".r
   val FileIdLang: Regex = s"/files/($uuidRegex)/($langtagRegex)".r
-  val FileIdReplace: Regex = s"/files/($uuidRegex)/($langtagRegex)/replace".r
-
-  val FileIdStatic: Regex = s"/files/($uuidRegex)/($langtagRegex)/.*".r
+  val FileIdLangStatic: Regex = s"/files/($uuidRegex)/($langtagRegex)/.*".r
 
   override def routes(implicit req: HttpServerRequest): Routing = {
     /**
@@ -82,10 +80,16 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     case Delete(FolderId(id)) => asyncSetReply(controller.deleteFolder(id.toLong))
 
     /**
-     * Upload file
+     * Create file handle
      */
-    case Post(FilesLang(langtag)) => handleUpload(req, langtag, (action: UploadAction) => {
-      controller.uploadFile(langtag, action)
+    case Post("/files") => asyncSetReply({
+      getJson(req) flatMap { implicit json =>
+        val title = MultiLanguageValue[String](getNullableField("title"))
+        val description = MultiLanguageValue[String](getNullableField("description"))
+        val folder = getNullableField("folder")
+
+        controller.addFile(title, description, folder)
+      }
     })
 
     /**
@@ -96,7 +100,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     /**
      * Serve file
      */
-    case Get(FileIdStatic(uuid, langtag)) => AsyncReply({
+    case Get(FileIdLangStatic(uuid, langtag)) => AsyncReply({
       for {
         (file, paths) <- controller.retrieveFile(UUID.fromString(uuid))
       } yield {
@@ -126,11 +130,16 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     })
 
     /**
-     * Replace language specific file and its meta information
+     * Replace/upload language specific file and its meta information
      */
-    case Put(FileIdReplace(uuid, langtag)) => handleUpload(req, langtag, (action: UploadAction) => {
-      controller.replaceFile(UUID.fromString(uuid), langtag, action)
-    })
+    case Put(FileIdLang(uuid, langtag)) => {
+      logger.info(s"PUT FileIdLang $uuid $langtag")
+
+      handleUpload(req, (action: UploadAction) => {
+        logger.info(s"Call replaceFile $uuid $langtag")
+        controller.replaceFile(UUID.fromString(uuid), langtag, action)
+      })
+    }
 
     /**
      * Delete file
@@ -147,7 +156,9 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     Option(json.getField[A](field))
   }
 
-  def handleUpload(implicit req: HttpServerRequest, langtag: String, fn: (UploadAction) => Future[DomainObject]) = asyncSetReply({
+  def handleUpload(implicit req: HttpServerRequest, fn: (UploadAction) => Future[DomainObject]): AsyncReply = asyncSetReply({
+    logger.info(s"Handle upload for ${req.absoluteURI().toString}")
+
     val p = Promise[DomainObject]()
 
     val timerId = vertx.setTimer(10000, { timerId =>
@@ -157,7 +168,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     req.expectMultiPart(expect = true)
 
     req.uploadHandler({ upload =>
-      logger.debug("Received a file upload")
+      logger.info("Received a file upload")
 
       vertx.cancelTimer(timerId)
 
@@ -167,10 +178,8 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
       val action = UploadAction(upload.filename(), upload.contentType(), setExceptionHandler, setEndHandler, setStreamToFile)
 
-      fn(action).onComplete({
-        case Success(result) => p.success(result)
-        case Failure(ex) => p.failure(ex)
-      })
+      logger.info("Call fn(action)")
+      fn(action).map(p.success)
     })
 
     p.future

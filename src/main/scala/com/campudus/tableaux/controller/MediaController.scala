@@ -89,32 +89,9 @@ class MediaController(override val config: TableauxConfig,
     } yield ()
   }
 
-  def uploadFile(langtag: String, upload: UploadAction): Future[TemporaryFile] = promisify { p: Promise[TemporaryFile] =>
-    val ext = Path(upload.fileName).extension
-    val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
-
-    upload.exceptionHandler({ ex: Throwable =>
-      logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
-      p.failure(ex)
-    })
-
-    upload.endHandler({ () =>
-      logger.info(s"Uploading of file ${upload.fileName} into ${filePath.name} done, making database entry.")
-
-      val internalName = MultiLanguageValue(Map(langtag -> filePath.name))
-      val externalName = MultiLanguageValue(Map(langtag -> upload.fileName))
-      val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
-
-      // Generate new uuid for file entry.
-      val file = File(UUID.randomUUID(), internalName, externalName, mimeType)
-      val insertedFile = fileModel.add(file)
-
-      insertedFile map { f =>
-        p.success(TemporaryFile(f))
-      }
-    })
-
-    upload.streamToFile(filePath.toString())
+  def addFile(title: MultiLanguageValue[String], description: MultiLanguageValue[String], folder: Option[FolderId]): Future[TemporaryFile] = {
+    val file = File(UUID.randomUUID(), title, description, folder)
+    fileModel.add(file).map(TemporaryFile)
   }
 
   def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[File] = promisify { p: Promise[File] =>
@@ -133,21 +110,34 @@ class MediaController(override val config: TableauxConfig,
       val externalName = MultiLanguageValue(Map(langtag -> upload.fileName))
       val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
 
-      for {
-        (oldFile, paths) <- retrieveFile(uuid)
+      (for {
+        (oldFile, paths) <- {
+          logger.info("retrieve file")
+          retrieveFile(uuid, withTmp = true)
+        }
 
         file = oldFile.file.copy(internalName = internalName, externalName = externalName, mimeType = mimeType)
         path = paths.get(langtag)
 
-        _ <- if (path.isDefined) {
-          deleteFile(path.get)
-        } else {
-          Future(())
+        _ <- {
+          logger.info(s"delete old file $path")
+          if (path.isDefined) {
+            deleteFile(path.get)
+          } else {
+            Future.successful(())
+          }
         }
 
-        updatedFile <- fileModel.update(file)
+        updatedFile <- {
+          logger.info(s"update file! $file")
+          fileModel.update(file)
+        }
       } yield {
         p.success(updatedFile)
+      }) recover {
+        case ex =>
+          logger.fatal("Making database entry failed.", ex)
+          p.failure(ex)
       }
     })
 
@@ -160,7 +150,6 @@ class MediaController(override val config: TableauxConfig,
 
   def retrieveFile(uuid: UUID, withTmp: Boolean = false): Future[(ExtendedFile, Map[String, Path])] = {
     fileModel.retrieve(uuid, withTmp) map { f =>
-
       val filePaths = f.internalName.values.filter({
         case (_, internalName) =>
           internalName != null && internalName.nonEmpty

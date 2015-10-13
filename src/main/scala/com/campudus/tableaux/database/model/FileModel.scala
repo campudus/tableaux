@@ -10,6 +10,7 @@ import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
+import scala.util.Try
 
 object FileModel {
   def apply(connection: DatabaseConnection): FileModel = {
@@ -30,17 +31,16 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     val insert =
       s"""INSERT INTO $table (
           |uuid,
-          |idfolder) VALUES (?,?) RETURNING created_at""".stripMargin
+          |idfolder,
+          |tmp) VALUES (?,?,true) RETURNING created_at""".stripMargin
 
-    val t = Map(
+    val b = MultiLanguageValue.merge(Map(
       "title" -> o.title.values,
       "description" -> o.description.values,
       "internal_name" -> o.internalName.values,
       "external_name" -> o.externalName.values,
       "mime_type" -> o.mimeType.values
-    )
-
-    val b = MultiLanguageValue.merge(t)
+    ))
 
     for {
       resultJson <- connection.query(insert, Json.arr(uuid.toString, o.folder.orNull))
@@ -91,90 +91,54 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     s"json_object_agg(DISTINCT COALESCE($tableAlias.$languageColumn,'de_DE'), $tableAlias.$column) as $column"
   }
 
+  private def select(where: String): String = {
+    s"""SELECT
+        |	f.uuid,
+        |	f.idfolder,
+        |	f.created_at,
+        |	f.updated_at,
+        |
+        |	${json_agg("fl", "title")},
+        |	${json_agg("fl", "description")},
+        |	${json_agg("fl", "internal_name")},
+        |	${json_agg("fl", "external_name")},
+        |	${json_agg("fl", "mime_type")}
+        |
+        |FROM file f LEFT JOIN file_lang fl ON (f.uuid = fl.uuid)
+        |WHERE $where
+        |GROUP BY f.uuid""".stripMargin
+  }
+
   override def retrieve(id: UUID): Future[File] = retrieve(id, withTmp = false)
 
   def retrieve(id: UUID, withTmp: Boolean): Future[File] = {
-    def select(additionalWhere: String) =
-      s"""SELECT
-          |	f.uuid,
-          |	f.idfolder,
-          |	f.tmp,
-          |	f.created_at,
-          |	f.updated_at,
-          |	
-          |	${json_agg("fl", "title")},
-          |	${json_agg("fl", "description")},
-          |	${json_agg("fl", "internal_name")},
-          |	${json_agg("fl", "external_name")},
-          |	${json_agg("fl", "mime_type")}
-          |	
-          |FROM file f LEFT JOIN file_lang fl ON (f.uuid = fl.uuid)
-          |WHERE f.uuid = ? $additionalWhere
-          |GROUP BY f.uuid""".stripMargin
-
     for {
       resultJson <- if (withTmp) {
-        connection.query(select(""), Json.arr(id.toString))
+        connection.query(select("f.uuid = ?"), Json.arr(id.toString))
       } else {
-        connection.query(select(" AND tmp = FALSE"), Json.arr(id.toString))
+        connection.query(select("f.uuid = ? AND tmp = FALSE"), Json.arr(id.toString))
       }
-      resultRow <- Future(selectNotNull(resultJson).head)
+      resultRow = selectNotNull(resultJson).head
     } yield {
       convertRowToFile(resultRow)
     }
   }
 
   override def retrieveAll(): Future[Seq[File]] = {
-    val select =
-      s"""SELECT
-          |	f.uuid,
-          |	f.idfolder,
-          |	f.tmp,
-          |	f.created_at,
-          |	f.updated_at,
-          |
-          |	${json_agg("fl", "title")},
-          |	${json_agg("fl", "description")},
-          |	${json_agg("fl", "internal_name")},
-          |	${json_agg("fl", "external_name")},
-          |	${json_agg("fl", "mime_type")}
-          |
-          |FROM file f LEFT JOIN file_lang fl ON (f.uuid = fl.uuid)
-          |WHERE tmp = FALSE
-          |GROUP BY f.uuid""".stripMargin
-
     for {
-      resultJson <- connection.query(select)
-      resultRows <- Future(selectNotNull(resultJson))
+      resultJson <- connection.query(select("f.tmp = FALSE"))
+      resultRows = selectNotNull(resultJson)
     } yield {
       resultRows.map(convertRowToFile)
     }
   }
 
   def retrieveFromFolder(folder: Option[FolderId]): Future[Seq[File]] = {
-    def select(additionalWhere: String) =
-      s"""SELECT
-          |	f.uuid,
-          |	f.idfolder,
-          |	f.tmp,
-          |	f.created_at,
-          |	f.updated_at,
-          |
-          |	${json_agg("fl", "title")},
-          |	${json_agg("fl", "description")},
-          |	${json_agg("fl", "internal_name")},
-          |	${json_agg("fl", "external_name")},
-          |	${json_agg("fl", "mime_type")}
-          |
-          |FROM file f LEFT JOIN file_lang fl ON (f.uuid = fl.uuid)
-          |WHERE $additionalWhere
-          |GROUP BY f.uuid""".stripMargin
-
     for {
       resultJson <- if (folder.isEmpty) {
-        connection.query(select("f.idfolder IS NULL"))
+        connection.query(select("f.idfolder IS NULL AND f.tmp = FALSE"))
       } else {
-        connection.query(select("f.idfolder = ?"), Json.arr(folder.get))
+        connection.query(select("f.idfolder = ? AND f.tmp = FALSE"), Json.arr(folder.get))
       }
 
       resultRows = getSeqOfJsonArray(resultJson)
@@ -188,21 +152,21 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
       row.get[String](0), //uuid
       row.get[Long](1), //idfolder
 
-      Json.fromObjectString(row.get[String](5)), //title
-      Json.fromObjectString(row.get[String](6)), //description
-      Json.fromObjectString(row.get[String](7)), //internal_name
-      Json.fromObjectString(row.get[String](8)), //external_name
-      Json.fromObjectString(row.get[String](9)), //mime_type
+      row.get[String](4), //title
+      row.get[String](5), //description
+      row.get[String](6), //internal_name
+      row.get[String](7), //external_name
+      row.get[String](8), //mime_type
 
-      row.get[String](3), //created_at
-      row.get[String](4) //updated_at
+      row.get[String](2), //created_at
+      row.get[String](3) //updated_at
     )
   }
 
-  implicit def mapJsonToMultiLanguage[A](obj: JsonObject): MultiLanguageValue[A] = {
-    MultiLanguageValue[A](obj)
+  implicit def convertStringToMultiLanguage[A](str: String): MultiLanguageValue[A] = {
+    MultiLanguageValue[A](Try(Json.fromObjectString(str)).toOption)
   }
-
+  
   implicit def convertStringToUUID(str: String): Option[UUID] = {
     Some(UUID.fromString(str))
   }
@@ -215,16 +179,13 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |tmp = FALSE
           |WHERE uuid = ?""".stripMargin
 
-
-    val t = Map(
+    val b = MultiLanguageValue.merge(Map(
       "title" -> o.title.values,
       "description" -> o.description.values,
       "internal_name" -> o.internalName.values,
       "external_name" -> o.externalName.values,
       "mime_type" -> o.mimeType.values
-    )
-
-    val b = MultiLanguageValue.merge(t)
+    ))
 
     for {
       resultJson <- connection.query(update, Json.arr(o.folder.orNull, o.uuid.get.toString))
