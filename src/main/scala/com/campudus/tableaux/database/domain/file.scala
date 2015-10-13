@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.domain
 
+import java.net.URLEncoder
 import java.util.UUID
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
@@ -7,35 +8,45 @@ import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
 object File {
-  def apply(name: String, mimeType: String, description: String): File = {
-    File(None, name, description, mimeType, name, None, None, None)
+  def apply(uuid: UUID, name: MultiLanguageValue[String], description: MultiLanguageValue[String], folder: Option[FolderId]): File = {
+    File(Some(uuid), folder, name, description, MultiLanguageValue.empty(), MultiLanguageValue.empty(), MultiLanguageValue.empty(), None, None)
   }
 
-  def apply(uuid: UUID, name: String, mimeType: String, description: String): File = {
-    File(Option(uuid), name, description, mimeType, name, None, None, None)
+  def apply(uuid: UUID, internalName: MultiLanguageValue[String], externalName: MultiLanguageValue[String], mimeType: MultiLanguageValue[String]): File = {
+    File(Some(uuid), None, externalName, MultiLanguageValue.empty[String](), internalName, externalName, mimeType, None, None)
   }
 
-  def apply(uuid: UUID, name: String, mimeType: String): File = {
-    File(Option(uuid), name, null, mimeType, name, None, None, None)
+  def apply(internalName: MultiLanguageValue[String], externalName: MultiLanguageValue[String], mimeType: MultiLanguageValue[String]): File = {
+    File(None, None, externalName, MultiLanguageValue.empty[String](), internalName, externalName, mimeType, None, None)
   }
 }
 
 case class File(uuid: Option[UUID],
-                name: String,
-                description: String,
-                mimeType: String,
-                filename: String,
                 folder: Option[FolderId],
+
+                title: MultiLanguageValue[String],
+                description: MultiLanguageValue[String],
+
+                internalName: MultiLanguageValue[String],
+                externalName: MultiLanguageValue[String],
+
+                mimeType: MultiLanguageValue[String],
+
                 createdAt: Option[DateTime],
                 updatedAt: Option[DateTime]) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
     "uuid" -> optionToString(uuid),
-    "name" -> name,
-    "description" -> description,
-    "mimeType" -> mimeType,
-    "filename" -> filename,
     "folder" -> folder.orNull,
+
+    "title" -> title.getJson,
+    "description" -> description.getJson,
+
+    "internalName" -> internalName.getJson,
+    "externalName" -> externalName.getJson,
+
+    "mimeType" -> mimeType.getJson,
+
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )
@@ -48,7 +59,20 @@ case class TemporaryFile(file: File) extends DomainObject {
 
 case class ExtendedFile(file: File) extends DomainObject {
 
-  override def getJson: JsonObject = Json.obj("url" -> getUrl).mergeIn(file.getJson)
+  override def getJson: JsonObject = Json.obj("url" -> getUrl.getJson).mergeIn(file.getJson)
 
-  def getUrl: String = s"/files/${file.uuid.get}/${file.filename}"
+  private def getUrl: MultiLanguageValue[String] = {
+    val uuid = file.uuid.get
+    val urls = file.externalName.values.map({
+      case (langtag, filename) =>
+        if (filename == null || filename.isEmpty) {
+          (langtag, null)
+        } else {
+          val encodedFilename = URLEncoder.encode(filename, "UTF-8")
+          (langtag, s"/files/${file.uuid.get}/$langtag/$encodedFilename")
+        }
+    })
+
+    MultiLanguageValue[String](urls)
+  }
 }

@@ -3,6 +3,8 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType, SetReturn}
 import org.vertx.scala.core.json._
 
+import scala.collection.mutable
+
 trait DomainObjectHelper {
 
   def compatibilitySet[A]: A => Any = compatibility(SetReturn)(_)
@@ -63,4 +65,64 @@ trait DomainObject extends DomainObjectHelper {
 
 case class EmptyObject() extends DomainObject {
   override def getJson: JsonObject = Json.emptyObj()
+}
+
+object MultiLanguageValue {
+
+  def apply[A](values: (String, A)*): MultiLanguageValue[A] = {
+    MultiLanguageValue[A](values.toMap)
+  }
+
+  /**
+   * Generates MultiLanguageValue based on JSON
+   */
+  def apply[A](obj: JsonObject): MultiLanguageValue[A] = {
+    import scala.collection.JavaConversions._
+    val fields: Map[String, A] = obj.getFieldNames.toList.map(name => name -> obj.getField[A](name))(collection.breakOut)
+
+    MultiLanguageValue[A](fields)
+  }
+
+  def empty[A](): MultiLanguageValue[A] = {
+    MultiLanguageValue[A](Map.empty[String, A])
+  }
+
+  def merge(map: Map[String, Map[String, Any]]): Map[String, Map[String, Any]] = {
+    // TODO refactor
+    val result = mutable.Map.empty[String, mutable.Map[String, Any]]
+
+    map.foreach({
+      case (column, values) =>
+        values.foreach({
+          case (langtag, value) =>
+            val columnsValueMap = result.get(langtag)
+
+            if (columnsValueMap.isDefined) {
+              columnsValueMap.get.put(column, value)
+            } else {
+              result.put(langtag, mutable.Map.empty[String, Any])
+              result.get(langtag).get.put(column, value)
+            }
+        })
+    })
+
+    result.map({
+      case (langtag, columnsValueMap) =>
+        (langtag, columnsValueMap.toMap)
+    }).toMap
+  }
+}
+
+/**
+ * Used for multi-language values in a DomainObject
+ */
+case class MultiLanguageValue[A](values: Map[String, A]) extends DomainObject {
+  override def getJson: JsonObject = {
+    values.foldLeft(Json.emptyObj()) {
+      case (obj, (langtag, value)) =>
+        obj.mergeIn(Json.obj(langtag -> value))
+    }
+  }
+
+  def get(langtag: String): Option[A] = values.get(langtag)
 }

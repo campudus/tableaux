@@ -21,6 +21,12 @@ trait BaseRouter extends Router with StandardVerticle {
    */
   val uuidRegex: String = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 
+  /**
+   * Regex for a Language tag e.g. de_DE or en_GB
+   * TODO verify if this is always correct. e.g. is there a_A or abc_ABC
+   */
+  val langtagRegex: String = "[a-z]{2}_[A-Z]{2}"
+
   override val verticle: Verticle = config.verticle
 
   def asyncSetReply: (Future[DomainObject]) => AsyncReply = asyncReply(SetReturn)(_)

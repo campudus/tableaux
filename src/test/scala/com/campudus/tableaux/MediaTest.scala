@@ -1,11 +1,7 @@
 package com.campudus.tableaux
 
-import java.net.URLEncoder
-import java.nio.file.FileSystems
-import java.util
-
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.domain.{File, Folder}
+import com.campudus.tableaux.database.domain.{File, Folder, MultiLanguageValue}
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.helper.FutureUtils
 import org.junit.Test
@@ -17,7 +13,7 @@ import org.vertx.testtools.VertxAssert._
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 class MediaTest extends TableauxTestBase {
 
@@ -35,7 +31,17 @@ class MediaTest extends TableauxTestBase {
 
   @Test
   def testFileModel(): Unit = okTest {
-    val file = File("lulu", "lala", "llu")
+    def file = File(
+      None,
+      None,
+      MultiLanguageValue("de_DE" -> "Test"),
+      MultiLanguageValue.empty(),
+      MultiLanguageValue("de_DE" -> s"internal${Random.nextInt()}.pdf"),
+      MultiLanguageValue("de_DE" -> "external.pdf"),
+      MultiLanguageValue("de_DE" -> "application/pdf"),
+      None,
+      None
+    )
 
     for {
       model <- Future.successful(createFileModel())
@@ -49,7 +55,7 @@ class MediaTest extends TableauxTestBase {
       insertedFile2 <- model.update(tempFile2)
 
       retrievedFile <- model.retrieve(insertedFile1.uuid.get)
-      updatedFile <- model.update(File(retrievedFile.uuid.get, "blub", "flab", "test"))
+      updatedFile <- model.update(File(retrievedFile.uuid.get, MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "Changed"), None))
 
       allFiles <- model.retrieveAll()
 
@@ -147,21 +153,28 @@ class MediaTest extends TableauxTestBase {
     val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
 
-    val put = Json.obj("name" -> "情暮夜告書究", "description" -> "情暮夜告書究情暮夜告書究")
+    val put = Json.obj(
+      "title" -> Json.obj(
+        "zh_CN" -> "情暮夜告書究"
+      ),
+      "description" -> Json.obj(
+        "zh_CN" -> "情暮夜告書究情暮夜告書究"
+      )
+    )
 
     for {
-      uploadResponse <- uploadFile(file, mimetype)
+      uploadResponse <- uploadFile(file, mimetype, "zh_CN")
       puttedFile <- sendRequest("PUT", s"/files/${uploadResponse.getString("uuid")}", put)
       deletedFile <- sendRequest("DELETE", s"/files/${uploadResponse.getString("uuid")}")
     } yield {
       assertEquals(true, uploadResponse.getBoolean("tmp"))
-      assertEquals("Screen Shöt.jpg", uploadResponse.getString("name"))
-      assertEquals(uploadResponse.getString("name"), uploadResponse.getString("filename"))
+      assertEquals("Screen Shöt.jpg", uploadResponse.getObject("title").getString("zh_CN"))
+      assertEquals(uploadResponse.getObject("title"), uploadResponse.getObject("externalName"))
 
       assertEquals(false, puttedFile.containsField("tmp"))
-      assertEquals(put.getString("name"), puttedFile.getString("name"))
-      assertEquals(put.getString("description"), puttedFile.getString("description"))
-      assertEquals(uploadResponse.getString("filename"), puttedFile.getString("filename"))
+      assertEquals(put.getObject("name"), puttedFile.getObject("name"))
+      assertEquals(put.getObject("description"), puttedFile.getObject("description"))
+      assertEquals(uploadResponse.getObject("externalName"), puttedFile.getObject("externalName"))
 
       // We need to remove url because DELETE doesn't return ExtendedFile
       puttedFile.removeField("url")
@@ -176,20 +189,28 @@ class MediaTest extends TableauxTestBase {
     val mimetype = "application/pdf"
     val size = vertx.fileSystem.propsSync(getClass.getResource(file).toURI.getPath).size()
 
-    val put = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+    val put = Json.obj(
+      "title" -> Json.obj(
+        "de_DE" -> "Test PDF"
+      ),
+      "description" -> Json.obj(
+        "de_DE" -> "A description about that PDF."
+      )
+    )
 
     import FutureUtils._
 
     for {
-      uploadResponse <- uploadFile(file, mimetype)
+      uploadResponse <- uploadFile(file, mimetype, "de_DE")
       _ <- sendRequest("PUT", s"/files/${uploadResponse.getString("uuid")}", put)
       file <- sendRequest("GET", s"/files/${uploadResponse.getString("uuid")}")
 
       request <- promisify { p: Promise[Unit] =>
 
-        val url = s"/files/${uploadResponse.getString("uuid")}/" + URLEncoder.encode(fileName, "UTF-8")
+        val url = file.getObject("url").getString("de_DE")
 
-        httpRequest("GET", url.toString, {
+        logger.info(s"Load file from http://localhost:${port}$url")
+        httpRequest("GET", s"http://localhost:${port}$url", {
           resp =>
             assertEquals(200, resp.statusCode())
 
@@ -207,7 +228,61 @@ class MediaTest extends TableauxTestBase {
       }
       _ <- sendRequest("DELETE", s"/files/${uploadResponse.getString("uuid")}")
     } yield {
-      assertEquals(put.getString("name"), file.getString("name"))
+      assertEquals(put.getObject("title"), file.getObject("title"))
+    }
+  }
+
+
+  @Test
+  def retrieveFileWithMultiLanguage(): Unit = okTest {
+    val fileName = "Scr$en Shot.pdf"
+    val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    val putOne = Json.obj(
+      "title" -> Json.obj(
+        "de_DE" -> "Ein schöner deutscher Titel."
+      ),
+      "description" -> Json.obj(
+        "de_DE" -> "Und hier folgt eine tolle hochdeutsche Beschreibung."
+      )
+    )
+
+    val putTwo = Json.obj(
+      "title" -> Json.obj(
+        "en_GB" -> "A beautiful German title."
+      ),
+      "description" -> Json.obj(
+        "en_GB" -> "And here is a great High German description."
+      )
+    )
+
+    for {
+      uploadResponse <- uploadFile(filePath, mimetype, "de_DE")
+
+      _ <- sendRequest("PUT", s"/files/${uploadResponse.getString("uuid")}", putOne)
+      _ <- sendRequest("PUT", s"/files/${uploadResponse.getString("uuid")}", putTwo)
+
+      file <- sendRequest("GET", s"/files/${uploadResponse.getString("uuid")}")
+
+      _ <- replaceFile(uploadResponse.getString("uuid"), "en_GB", filePath, mimetype)
+      fileReplaced <- sendRequest("GET", s"/files/${uploadResponse.getString("uuid")}")
+
+      _ <- replaceFile(uploadResponse.getString("uuid"), "de_DE", filePath, mimetype)
+      fileReplaced2 <- sendRequest("GET", s"/files/${uploadResponse.getString("uuid")}")
+
+      deletedEnGB <- sendRequest("DELETE", s"/files/${uploadResponse.getString("uuid")}/en_GB")
+
+      _ <- sendRequest("DELETE", s"/files/${uploadResponse.getString("uuid")}")
+    } yield {
+      assertEquals(putOne.getObject("title").mergeIn(putTwo.getObject("title")), file.getObject("title"))
+
+      assertTrue(file.getObject("url").containsField("en_GB") && file.getObject("url").getString("en_GB") == null)
+      assertTrue(fileReplaced.getObject("url").containsField("en_GB") && fileReplaced.getObject("url").getString("en_GB") != null)
+
+      assertNotSame(fileReplaced.getObject("internalName").getString("de_DE"), fileReplaced2.getObject("internalName").getString("de_DE"))
+
+      assertTrue(!deletedEnGB.getObject("internalName").containsField("en_GB"))
     }
   }
 
@@ -221,7 +296,7 @@ class MediaTest extends TableauxTestBase {
     }
 
     def createFilePutJson(folder: Int): JsonObject = {
-      Json.obj("name" -> "Test File", "description" -> "Test Description", "folder" -> folder)
+      Json.obj("title" -> Json.obj("de_DE" -> "Test File"), "description" -> Json.obj("de_DE" -> "Test Description"), "folder" -> folder)
     }
 
     for {
@@ -234,10 +309,10 @@ class MediaTest extends TableauxTestBase {
       folder21 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder2))).map(_.getInteger("id"))
       folder22 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder2))).map(_.getInteger("id"))
 
-      file1 <- uploadFile(file, mimetype).map(f => f.getString("uuid"))
+      file1 <- uploadFile(file, mimetype, "de_DE").map(f => f.getString("uuid"))
       puttedFile1 <- sendRequest("PUT", s"/files/$file1", createFilePutJson(folder11))
 
-      file2 <- uploadFile(file, mimetype).map(f => f.getString("uuid"))
+      file2 <- uploadFile(file, mimetype, "de_DE").map(f => f.getString("uuid"))
       puttedFile2 <- sendRequest("PUT", s"/files/$file2", createFilePutJson(folder21))
 
       deleteFolder1 <- sendRequest("DELETE", s"/folders/$folder1")
@@ -254,7 +329,7 @@ class MediaTest extends TableauxTestBase {
     val mimetype = "image/jpeg"
 
     for {
-      tmpFile <- uploadFile(file, mimetype)
+      tmpFile <- uploadFile(file, mimetype, "de_DE")
       result <- sendRequest("DELETE", s"/files/${tmpFile.getString("uuid")}")
     } yield {
       assertEquals(tmpFile.getString("uuid"), result.getString("uuid"))
@@ -267,14 +342,14 @@ class MediaTest extends TableauxTestBase {
     val mimetype = "image/jpeg"
 
     for {
-      tmpFile <- uploadFile(file, mimetype)
+      tmpFile <- uploadFile(file, mimetype, "de_DE")
 
       _ <- {
         val uploadsDirectory = Path(s"${tableauxConfig.workingDirectory}/${tableauxConfig.uploadsDirectory}")
 
         // because we are ./target/
         val dir = Path(s"./mods/uploads")
-        val path = dir / Path(s"${tmpFile.getString("uuid")}.jpg")
+        val path = dir / Path(tmpFile.getObject("internalName").getString("de_DE"))
 
         import FutureUtils._
         import org.vertx.scala.core.FunctionConverters._
@@ -324,7 +399,7 @@ class MediaTest extends TableauxTestBase {
     val fileName = "Scr$en Shot.pdf"
     val file = s"/com/campudus/tableaux/uploads/$fileName"
     val mimetype = "application/pdf"
-    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+    val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"), "description" -> Json.obj("de_DE" -> "A description about that PDF."))
 
     for {
       tableId <- setupDefaultTable()
@@ -333,7 +408,7 @@ class MediaTest extends TableauxTestBase {
 
       rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-      fileUuid <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      fileUuid <- uploadFile(file, mimetype, "de_DE") map (_.getString("uuid"))
       _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
 
       // Add attachment
@@ -362,7 +437,7 @@ class MediaTest extends TableauxTestBase {
     val fileName = "Scr$en Shot.pdf"
     val file = s"/com/campudus/tableaux/uploads/$fileName"
     val mimetype = "application/pdf"
-    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+    val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"), "description" -> Json.obj("de_DE" -> "A description about that PDF."))
 
     for {
       tableId <- setupDefaultTable()
@@ -371,11 +446,11 @@ class MediaTest extends TableauxTestBase {
 
       rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-      fileUuid1 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      fileUuid1 <- uploadFile(file, mimetype, "de_DE") map (_.getString("uuid"))
       _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-      fileUuid2 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      fileUuid2 <- uploadFile(file, mimetype, "de_DE") map (_.getString("uuid"))
       _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
-      fileUuid3 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      fileUuid3 <- uploadFile(file, mimetype, "de_DE") map (_.getString("uuid"))
       _ <- sendRequest("PUT", s"/files/$fileUuid3", putFile)
 
       // Add attachment
@@ -435,11 +510,6 @@ class MediaTest extends TableauxTestBase {
       "name" -> "Downloads"
     )))
 
-    val fileName = "Scr$en Shot.pdf"
-    val file = s"/com/campudus/tableaux/uploads/$fileName"
-    val mimetype = "application/pdf"
-    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
-
     for {
       tableId <- setupDefaultTable()
       columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
@@ -463,7 +533,7 @@ class MediaTest extends TableauxTestBase {
     val file = s"/com/campudus/tableaux/uploads/$fileName"
     val mimetype = "application/pdf"
 
-    val putFile = Json.obj("name" -> "Test PDF", "description" -> "A description about that PDF.")
+    val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"), "description" -> Json.obj("de_DE" -> "A description about that PDF."))
 
     for {
       tableId <- setupDefaultTable()
@@ -472,10 +542,10 @@ class MediaTest extends TableauxTestBase {
 
       rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-      fileUuid1 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      fileUuid1 <- uploadFile(file, mimetype, "de_DE") map (_.getString("uuid"))
       _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
 
-      fileUuid2 <- uploadFile(file, mimetype) map (_.getString("uuid"))
+      fileUuid2 <- uploadFile(file, mimetype, "de_DE") map (_.getString("uuid"))
       _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
 
       // Add attachments
@@ -516,7 +586,15 @@ class MediaTest extends TableauxTestBase {
     }
   }
 
-  private def uploadFile(file: String, mimeType: String): Future[JsonObject] = {
+  private def uploadFile(file: String, mimeType: String, langtag: String): Future[JsonObject] = {
+    uploadFile("POST", s"/files/$langtag", file, mimeType)
+  }
+
+  private def replaceFile(uuid: String, langtag: String, file: String, mimeType: String): Future[JsonObject] = {
+    uploadFile("PUT", s"/files/$uuid/$langtag/replace", file, mimeType)
+  }
+
+  private def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = {
     val filePath = getClass.getResource(file).toURI.getPath
     val fileName = file.substring(file.lastIndexOf("/") + 1)
 
@@ -533,7 +611,9 @@ class MediaTest extends TableauxTestBase {
       req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
 
       logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
+
       req.write(header)
+
       vertx.fileSystem.open(filePath, { ar =>
         assertTrue(s"Should be able to open file $filePath", ar.succeeded())
         val file = ar.result()
@@ -556,7 +636,7 @@ class MediaTest extends TableauxTestBase {
     import FutureUtils._
 
     promisify { p: Promise[JsonObject] =>
-      requestHandler(httpRequest("POST", "/files", jsonResponse(p)))
+      requestHandler(httpRequest(method, url, jsonResponse(p)))
     }
   }
 }

@@ -89,15 +89,15 @@ class DatabaseConnection(val config: TableauxConfig) extends StandardVerticle {
     def rollback(): Future[Unit] = transactionHelper(Json.obj("action" -> "rollback")) map { _ => () }
 
     def rollbackAndFail(): PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
-      case ex: Throwable => rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
+      case ex: Throwable =>
+        logger.warn(s"rollback and fail because of $ex")
+        rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
     }
 
     private def queryHelper(command: JsonObject): Future[(Transaction, JsonObject)] = {
       for {
-        reply <- transactionHelper(command)
-        check <- Future(
-          Transaction(reply), checkForDatabaseError(command, reply.body())
-        ) recoverWith Transaction(reply).rollbackAndFail()
+        reply <- transactionHelper(command).map(Transaction)
+        check <- Future(reply, checkForDatabaseError(command, reply.msg.body())).recoverWith(reply.rollbackAndFail())
       } yield check
     }
 

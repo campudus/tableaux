@@ -89,11 +89,9 @@ class MediaController(override val config: TableauxConfig,
     } yield ()
   }
 
-  def uploadFile(upload: UploadAction): Future[TemporaryFile] = promisify { p: Promise[TemporaryFile] =>
-    val uuid = UUID.randomUUID()
+  def uploadFile(langtag: String, upload: UploadAction): Future[TemporaryFile] = promisify { p: Promise[TemporaryFile] =>
     val ext = Path(upload.fileName).extension
-
-    val filePath = uploadsDirectory / Path(s"$uuid.$ext")
+    val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
 
     upload.exceptionHandler({ ex: Throwable =>
       logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
@@ -103,7 +101,12 @@ class MediaController(override val config: TableauxConfig,
     upload.endHandler({ () =>
       logger.info(s"Uploading of file ${upload.fileName} into ${filePath.name} done, making database entry.")
 
-      val file = File(uuid, upload.fileName, upload.mimeType)
+      val internalName = MultiLanguageValue(Map(langtag -> filePath.name))
+      val externalName = MultiLanguageValue(Map(langtag -> upload.fileName))
+      val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
+
+      // Generate new uuid for file entry.
+      val file = File(UUID.randomUUID(), internalName, externalName, mimeType)
       val insertedFile = fileModel.add(file)
 
       insertedFile map { f =>
@@ -114,59 +117,120 @@ class MediaController(override val config: TableauxConfig,
     upload.streamToFile(filePath.toString())
   }
 
-  def changeFile(uuid: UUID, name: String, description: String, folder: Option[FolderId]): Future[ExtendedFile] = {
-    fileModel.update(File(Some(uuid), name, description, null, null, folder, None, None)).map(ExtendedFile)
+  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[File] = promisify { p: Promise[File] =>
+    val ext = Path(upload.fileName).extension
+    val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
+
+    upload.exceptionHandler({ ex: Throwable =>
+      logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
+      p.failure(ex)
+    })
+
+    upload.endHandler({ () =>
+      logger.info(s"Uploading of file ${upload.fileName} into ${filePath.name} done, making database entry.")
+
+      val internalName = MultiLanguageValue(Map(langtag -> filePath.name))
+      val externalName = MultiLanguageValue(Map(langtag -> upload.fileName))
+      val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
+
+      for {
+        (oldFile, paths) <- retrieveFile(uuid)
+
+        file = oldFile.file.copy(internalName = internalName, externalName = externalName, mimeType = mimeType)
+        path = paths.get(langtag)
+
+        _ <- if (path.isDefined) {
+          deleteFile(path.get)
+        } else {
+          Future(())
+        }
+
+        updatedFile <- fileModel.update(file)
+      } yield {
+        p.success(updatedFile)
+      }
+    })
+
+    upload.streamToFile(filePath.toString())
   }
 
-  def retrieveFile(uuid: UUID): Future[(ExtendedFile, Path)] = {
-    fileModel.retrieve(uuid) map { f =>
-      val ext = Path(f.filename).extension
-      val filePath = uploadsDirectory / Path(s"$uuid.$ext")
-
-      (ExtendedFile(f), filePath)
-    }
+  def changeFile(uuid: UUID, title: MultiLanguageValue[String], description: MultiLanguageValue[String], folder: Option[FolderId]): Future[ExtendedFile] = {
+    fileModel.update(File(uuid, title, description, folder)).map(ExtendedFile)
   }
 
-  private def retrieveFileEvenIfTmp(uuid: UUID): Future[(ExtendedFile, Path)] = {
-    fileModel.retrieve(uuid, withTmp = true) map { f =>
-      val ext = Path(f.filename).extension
-      val filePath = uploadsDirectory / Path(s"$uuid.$ext")
+  def retrieveFile(uuid: UUID, withTmp: Boolean = false): Future[(ExtendedFile, Map[String, Path])] = {
+    fileModel.retrieve(uuid, withTmp) map { f =>
 
-      (ExtendedFile(f), filePath)
+      val filePaths = f.internalName.values.filter({
+        case (_, internalName) =>
+          internalName != null && internalName.nonEmpty
+      }).map({
+        case (langtag, internalName) =>
+          langtag -> uploadsDirectory / Path(internalName)
+      })
+
+      (ExtendedFile(f), filePaths)
     }
   }
 
   def deleteFile(uuid: UUID): Future[File] = {
     for {
-      (file, path) <- retrieveFileEvenIfTmp(uuid)
+      (file, paths) <- retrieveFile(uuid, withTmp = true)
       _ <- fileModel.deleteById(uuid)
-      _ <- {
-        import FutureUtils._
-        import org.vertx.scala.core.FunctionConverters._
-
-        promisify({ p: Promise[Unit] =>
-          // succeed even if file doesn't exist
-          vertx.fileSystem.delete(path.toString(), {
-            case Success(v) =>
-              p.success(())
-            case Failure(e) =>
-              vertx.fileSystem.exists(path.toString(), { result =>
-                if (result.result()) {
-                  logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
-                  p.failure(e)
-                } else {
-                  p.success(())
-                }
-              })
-
-          }: Try[Void] => Unit)
-        })
-      }
+      _ <- Future.sequence(paths.toSeq.map({
+        case (_, path) =>
+          deleteFile(path)
+      }))
     } yield {
       // return only File not
       // ExtendedFile because url will
       // be invalid after response
       file.file
     }
+  }
+
+  def deleteFile(uuid: UUID, langtag: String): Future[File] = {
+    for {
+      (file, paths) <- retrieveFile(uuid, withTmp = true)
+      _ <- fileModel.deleteByIdAndLangtag(uuid, langtag)
+
+      path = paths.get(langtag)
+
+      _ <- if (path.isDefined) {
+        deleteFile(path.get)
+      } else {
+        Future(())
+      }
+
+      (file, _) <- retrieveFile(uuid, withTmp = true)
+    } yield {
+      // return only File not
+      // ExtendedFile because url will
+      // be invalid after response
+      file.file
+    }
+  }
+
+  private def deleteFile(path: Path): Future[Unit] = {
+    import FutureUtils._
+    import org.vertx.scala.core.FunctionConverters._
+
+    promisify({ p: Promise[Unit] =>
+      vertx.fileSystem.delete(path.toString(), {
+        case Success(v) =>
+          p.success(())
+        case Failure(e) =>
+          vertx.fileSystem.exists(path.toString(), { result =>
+            if (result.result()) {
+              logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
+              p.failure(e)
+            } else {
+              // succeed even if file doesn't exist
+              p.success(())
+            }
+          })
+
+      }: Try[Void] => Unit)
+    })
   }
 }
