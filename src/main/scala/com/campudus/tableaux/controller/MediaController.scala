@@ -8,10 +8,11 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.helper.FutureUtils
 import com.campudus.tableaux.router.UploadAction
+import io.vertx.core.file.FileSystem
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object MediaController {
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
@@ -136,7 +137,7 @@ class MediaController(override val config: TableauxConfig,
         p.success(updatedFile)
       }) recover {
         case ex =>
-          logger.fatal("Making database entry failed.", ex)
+          logger.error("Making database entry failed.", ex)
           p.failure(ex)
       }
     })
@@ -202,24 +203,28 @@ class MediaController(override val config: TableauxConfig,
 
   private def deleteFile(path: Path): Future[Unit] = {
     import FutureUtils._
-    import org.vertx.scala.core.FunctionConverters._
+    import io.vertx.scala.FunctionConverters._
 
     promisify({ p: Promise[Unit] =>
-      vertx.fileSystem.delete(path.toString(), {
-        case Success(v) =>
-          p.success(())
+      val deleteFuture = asyncVoid(vertx.fileSystem().delete(path.toString(), _))
+      deleteFuture.onComplete({
+        case Success(_) => p.success(())
         case Failure(e) =>
-          vertx.fileSystem.exists(path.toString(), { result =>
-            if (result.result()) {
-              logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
+          val existsFuture = asyncResult[java.lang.Boolean, FileSystem](vertx.fileSystem().exists(path.toString(), _))
+          existsFuture.onComplete({
+            case Success(r) =>
+              if (r) {
+                logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
+                p.failure(e)
+              } else {
+                // succeed even if file doesn't exist
+                p.success(())
+              }
+            case Failure(e) =>
+              logger.warn("Couldn't check if uploaded file has been deleted.")
               p.failure(e)
-            } else {
-              // succeed even if file doesn't exist
-              p.success(())
-            }
           })
-
-      }: Try[Void] => Unit)
+      })
     })
   }
 }

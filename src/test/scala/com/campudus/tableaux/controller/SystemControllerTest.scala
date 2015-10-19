@@ -1,17 +1,22 @@
 package com.campudus.tableaux.controller
 
+import com.campudus.tableaux.TableauxTestBase
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.router.SystemRouter
-import com.campudus.tableaux.{TableauxTestBase, TestConfig}
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.scala.SQLConnection
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
-import org.vertx.testtools.VertxAssert._
 
-class SystemControllerTest extends TableauxTestBase with TestConfig {
+@RunWith(classOf[VertxUnitRunner])
+class SystemControllerTest extends TableauxTestBase {
 
   def createSystemController(): SystemController = {
-    val dbConnection = DatabaseConnection(tableauxConfig)
+    val sqlConnection = SQLConnection(vertx, databaseConfig)
+    val dbConnection = DatabaseConnection(sqlConnection)
 
     val systemModel = SystemModel(dbConnection)
     val tableauxModel = TableauxModel(dbConnection)
@@ -21,7 +26,7 @@ class SystemControllerTest extends TableauxTestBase with TestConfig {
   }
 
   @Test
-  def resetSystemTables(): Unit = okTest {
+  def resetSystemTables(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok")
 
     val nonce = SystemRouter.generateNonce()
@@ -34,7 +39,7 @@ class SystemControllerTest extends TableauxTestBase with TestConfig {
   }
 
   @Test
-  def resetDemoData(): Unit = okTest {
+  def resetDemoData(implicit c: TestContext): Unit = okTest {
     val expectedJson1 = Json.obj(
       "status" -> "ok",
       "tables" -> Json.arr(
@@ -68,13 +73,13 @@ class SystemControllerTest extends TableauxTestBase with TestConfig {
   }
 
   @Test
-  def resetWithOutNonce(): Unit = exceptionTest("error.nonce.none") {
+  def resetWithOutNonce(implicit c: TestContext): Unit = exceptionTest("error.nonce.none") {
     SystemRouter.nonce = null
     sendRequest("POST", s"/reset")
   }
 
   @Test
-  def resetWithNonceButInvalidRequestNonce(): Unit = exceptionTest("error.nonce.invalid") {
+  def resetWithNonceButInvalidRequestNonce(implicit c: TestContext): Unit = exceptionTest("error.nonce.invalid") {
     val nonce = SystemRouter.generateNonce()
     sendRequest("POST", s"/reset?nonce=asdf")
   }

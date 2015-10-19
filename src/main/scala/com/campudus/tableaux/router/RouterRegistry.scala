@@ -4,8 +4,9 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
-import org.vertx.scala.core.http.HttpServerRequest
-import org.vertx.scala.platform.Verticle
+import io.vertx.core.Verticle
+import io.vertx.core.http.HttpServerRequest
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing.{Error, Get, SendFile}
 
@@ -33,18 +34,18 @@ class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseR
 
   override val verticle: Verticle = config.verticle
 
-  override def routes(implicit req: HttpServerRequest): Routing = {
+  override def routes(implicit context: RoutingContext): Routing = {
     routers.map(_.routes).foldLeft(defaultRoutes)({
       case (last, current) =>
         last orElse current
     }) orElse noRouteFound
   }
 
-  def defaultRoutes(implicit req: HttpServerRequest): Routing = {
+  def defaultRoutes(implicit context: RoutingContext): Routing = {
     case Get("/") | Get("/index.html") => SendFile("index.html")
   }
 
-  def noRouteFound(implicit req: HttpServerRequest): Routing = {
+  def noRouteFound(implicit context: RoutingContext): Routing = {
     case _ => Error(RouterException(message = "No route found", statusCode = 404))
   }
 }

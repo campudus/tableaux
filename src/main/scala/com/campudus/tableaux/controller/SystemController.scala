@@ -5,7 +5,7 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.{FileUtils, JsonUtils}
-import org.vertx.java.core.json.JsonObject
+import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
 

@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.{InvalidNonceException, NoNonceException, TableauxConfig}
-import org.vertx.scala.core.http.HttpServerRequest
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing.{Get, Post}
 
 import scala.concurrent.Future
@@ -31,7 +31,7 @@ object SystemRouter {
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
-  override def routes(implicit req: HttpServerRequest): Routing = {
+  override def routes(implicit context: RoutingContext): Routing = {
     case Post("/reset") | Get("/reset") => asyncSetReply {
       for {
         _ <- Future(checkNonce)
@@ -46,8 +46,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     }
   }
 
-  def checkNonce(implicit req: HttpServerRequest): Unit = {
-    val requestNonce = getStringParam("nonce", req)
+  def checkNonce(implicit context: RoutingContext): Unit = {
+    val requestNonce = getStringParam("nonce", context)
 
     if (SystemRouter.retrieveNonce().isEmpty) {
       SystemRouter.generateNonce()

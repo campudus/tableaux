@@ -1,18 +1,21 @@
 package com.campudus.tableaux
 
+import io.vertx.core.buffer.Buffer
+import io.vertx.core.http.HttpClientResponse
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.scala.FunctionConverters._
 import org.junit.Test
-import org.vertx.scala.core.FunctionConverters._
-import org.vertx.scala.core.buffer.Buffer
-import org.vertx.scala.core.http.HttpClientResponse
-import org.vertx.testtools.VertxAssert._
+import org.junit.runner.RunWith
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
+@RunWith(classOf[VertxUnitRunner])
 class StaticFileTest extends TableauxTestBase {
 
   @Test
-  def checkIndexHtml(): Unit = okTest {
+  def checkIndexHtml(implicit c: TestContext): Unit = okTest {
     val p1 = readFile()
     val p2 = httpGetIndex()
 
@@ -27,7 +30,7 @@ class StaticFileTest extends TableauxTestBase {
     val p1 = Promise[String]()
     vertx.fileSystem.readFile("index.html", {
       case Success(buf) =>
-        val content = buf.toString()
+        val content = buf.toString(): String
         p1.success(content)
       case Failure(ex) =>
         logger.error("cannot read file", ex)
@@ -38,10 +41,14 @@ class StaticFileTest extends TableauxTestBase {
 
   private def httpGetIndex(): Future[String] = {
     val p = Promise[String]()
-    createClient().get("/", { resp: HttpClientResponse =>
+
+    def responseHandler(resp: HttpClientResponse): Unit = {
       logger.info("Got a response: " + resp.statusCode())
-      resp.bodyHandler { buf => p.success(buf.toString()) }
-    }).end()
+      resp.bodyHandler({ buf: Buffer => p.success(buf.toString); return; })
+    }
+
+    httpRequest("GET", "/", responseHandler, { x => p.failure(x) }).end()
+
     p.future
   }
 }

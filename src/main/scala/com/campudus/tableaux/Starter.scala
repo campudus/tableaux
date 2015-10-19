@@ -5,10 +5,12 @@ import java.nio.file.FileAlreadyExistsException
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.FutureUtils
 import com.campudus.tableaux.router.RouterRegistry
-import org.vertx.scala.core.FunctionConverters._
-import org.vertx.scala.core.http.HttpServer
-import org.vertx.scala.core.json.{Json, JsonObject}
-import org.vertx.scala.platform.{Container, Verticle}
+import io.vertx.core.http.{HttpServerRequest, HttpServer}
+import io.vertx.ext.web.Router
+import io.vertx.ext.web.handler.BodyHandler
+import io.vertx.scala.FunctionConverters._
+import io.vertx.scala.{SQLConnection, ScalaVerticle}
+import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
@@ -20,36 +22,45 @@ object Starter {
   val DEFAULT_DATABASE_ADDRESS = "campudus.asyncdb"
 }
 
-class Starter extends Verticle {
+class Starter extends ScalaVerticle {
 
   import FutureUtils._
   import Starter._
 
   override def start(p: Promise[Unit]): Unit = {
-    val config = container.config()
+    //val config = context.config()
+
+    val config = Json.fromObjectString("""{
+                            |  "port": 8181,
+                            |  "host": "127.0.0.1",
+                            |  "uploadsDirectory": "uploads/",
+                            |  "workingDirectory": "../",
+                            |  "database": {
+                            |    "url": "jdbc:postgresql://localhost:5432/buschjost",
+                            |    "driver_class": "org.postgresql.Driver",
+                            |    "user": "alexandervetter",
+                            |    "password": null
+                            |  }
+                            |}""".stripMargin)
 
     val port = config.getInteger("port", DEFAULT_PORT)
     val host = config.getString("host", DEFAULT_HOST)
 
-    val databaseConfig = config.getObject("database", Json.obj())
-    val validatorConfig = config.getObject("validator", Json.obj())
-
-    val databaseAddress = databaseConfig.getString("address", DEFAULT_DATABASE_ADDRESS)
+    val databaseConfig = config.getJsonObject("database", Json.obj())
 
     val tableauxConfig = TableauxConfig(
       vert = this,
-      addr = databaseAddress,
-      pwd = config.getString("workingDirectory"),
-      upload = config.getString("uploadsDirectory")
+      databaseConfig = databaseConfig,
+      workingDir = config.getString("workingDirectory"),
+      uploadDir = config.getString("uploadsDirectory")
     )
+
+    val connection = SQLConnection(vertx, databaseConfig)
 
     (for {
       _ <- createUploadsDirectory(tableauxConfig)
 
-      _ <- deployMod(container, "io.vertx~mod-mysql-postgresql_2.11~0.3.1", databaseConfig, 1)
-      _ <- deployMod(container, "com.campudus~vertx-tiny-validator4~1.0.0", validatorConfig, 1)
-
-      _ <- deployHttpServer(port, host, tableauxConfig)
+      _ <- deployHttpServer(port, host, tableauxConfig, connection)
     } yield ())
       .map(_ => p.success(()))
       .recover({
@@ -72,18 +83,15 @@ class Starter extends Verticle {
     }: Try[Void] => Unit)
   }
 
-  def deployMod(container: Container, modName: String, config: JsonObject, instances: Int): Future[String] = promisify { p: Promise[String] =>
-    container.deployModule(modName, config, instances, {
-      case Success(deploymentId) => p.success(deploymentId)
-      case Failure(x) => p.failure(x)
-    }: Try[String] => Unit)
-  }
+  def deployHttpServer(port: Int, host: String, tableauxConfig: TableauxConfig, connection: SQLConnection): Future[HttpServer] = promisify { p: Promise[HttpServer] =>
+    val dbConnection = DatabaseConnection(connection)
+    val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
 
-  def deployHttpServer(port: Int, host: String, tableauxConfig: TableauxConfig): Future[HttpServer] = promisify { p: Promise[HttpServer] =>
-    val dbConnection = DatabaseConnection(tableauxConfig)
-    val router = RouterRegistry(tableauxConfig, dbConnection)
+    val router = Router.router(vertx)
 
-    vertx.createHttpServer().requestHandler(router).listen(port, host, {
+    router.route.handler(routerRegistry)
+
+    vertx.createHttpServer().requestHandler(router.accept(_: HttpServerRequest)).listen(port, host, {
       case Success(server) => p.success(server)
       case Failure(x) => p.failure(x)
     }: Try[HttpServer] => Unit)

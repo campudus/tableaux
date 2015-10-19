@@ -46,9 +46,9 @@ object ArgumentChecker {
     if (seq.nonEmpty) OkArg(seq) else FailArg(InvalidJsonException(s"Warning: $name is empty.", "empty"))
   }
 
-  def hasArray(field: String, value: JsonObject): ArgumentCheck[JsonArray] = notNull(value.getArray(field), field)
+  def hasArray(field: String, value: JsonObject): ArgumentCheck[JsonArray] = notNull(value.getJsonArray(field), field)
 
-  def hasNumber(field: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getNumber(field), field)
+  def hasNumber(field: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getValue(field).asInstanceOf[Number], field)
 
   def hasLong(field: String, value: JsonObject): ArgumentCheck[Long] = notNull(value.getLong(field), field)
 

@@ -1,9 +1,12 @@
 package com.campudus.tableaux
 
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
-import org.vertx.testtools.VertxAssert._
 
+@RunWith(classOf[VertxUnitRunner])
 class DeleteTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
@@ -12,17 +15,17 @@ class DeleteTest extends TableauxTestBase {
   val expectedOkJson = Json.obj("status" -> "ok")
 
   @Test
-  def deleteEmptyTable(): Unit = okTest {
+  def deleteEmptyTable(implicit c: TestContext): Unit = okTest {
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       test <- sendRequest("DELETE", "/tables/1")
     } yield {
-      assertEquals(expectedOkJson, test)
+      c.assertEquals(expectedOkJson, test)
     }
   }
 
   @Test
-  def deleteTableWithColumn(): Unit = okTest {
+  def deleteTableWithColumn(implicit c: TestContext): Unit = okTest {
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
@@ -33,7 +36,7 @@ class DeleteTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteColumn(): Unit = okTest {
+  def deleteColumn(implicit c: TestContext): Unit = okTest {
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
@@ -44,7 +47,7 @@ class DeleteTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteRow(): Unit = okTest {
+  def deleteRow(implicit c: TestContext): Unit = okTest {
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       _ <- sendRequest("POST", "/tables/1/rows")
@@ -55,7 +58,7 @@ class DeleteTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteTableWithLink(): Unit = okTest {
+  def deleteTableWithLink(implicit c: TestContext): Unit = okTest {
     val createLinkColumnJson = Json.obj(
       "columns" -> Json.arr(
         Json.obj(
@@ -84,7 +87,7 @@ class DeleteTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteLinkColumn(): Unit = okTest {
+  def deleteLinkColumn(implicit c: TestContext): Unit = okTest {
     val createLinkColumnJson = Json.obj(
       "columns" -> Json.arr(
         Json.obj(
@@ -113,7 +116,7 @@ class DeleteTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteAttachmentColumn(): Unit = okTest {
+  def deleteAttachmentColumn(implicit c: TestContext): Unit = okTest {
     val createAttachmentColumnJson = Json.obj(
       "columns" -> Json.arr(
         Json.obj(

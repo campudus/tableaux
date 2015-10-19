@@ -5,33 +5,43 @@ import com.campudus.tableaux.database.domain.{File, Folder, MultiLanguageValue}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.helper.FutureUtils
+import io.vertx.core.AsyncResult
+import io.vertx.core.buffer.Buffer
+import io.vertx.core.file.{OpenOptions, AsyncFile}
+import io.vertx.core.http.{HttpClientResponse, HttpClientRequest}
+import io.vertx.core.json.JsonObject
+import io.vertx.core.streams.Pump
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.scala.SQLConnection
+import io.vertx.scala.FunctionConverters._
 import org.junit.Test
-import org.vertx.java.core.json.JsonObject
-import org.vertx.scala.core.http.HttpClientRequest
+import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonArray}
-import org.vertx.scala.core.streams.Pump
-import org.vertx.testtools.VertxAssert._
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
 import scala.util.{Failure, Random, Success, Try}
 
+@RunWith(classOf[VertxUnitRunner])
 class MediaTest extends TableauxTestBase {
 
   def createFileModel(): FileModel = {
-    val dbConnection = DatabaseConnection(tableauxConfig)
+    val sqlConnection = SQLConnection(vertx, databaseConfig)
+    val dbConnection = DatabaseConnection(sqlConnection)
 
     new FileModel(dbConnection)
   }
 
   def createFolderModel(): FolderModel = {
-    val dbConnection = DatabaseConnection(tableauxConfig)
+    val sqlConnection = SQLConnection(vertx, databaseConfig)
+    val dbConnection = DatabaseConnection(sqlConnection)
 
     new FolderModel(dbConnection)
   }
 
   @Test
-  def testFileModel(): Unit = okTest {
+  def testFileModel(implicit c: TestContext): Unit = okTest {
     def file = File(
       None,
       None,
@@ -85,7 +95,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def testFolderModel(): Unit = okTest {
+  def testFolderModel(implicit c: TestContext): Unit = okTest {
     val folder = Folder(None, name = "hallo", description = "Test", None, None, None)
 
     for {
@@ -119,7 +129,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveRootFolder(): Unit = okTest {
+  def retrieveRootFolder(implicit c: TestContext): Unit = okTest {
     for {
       rootFolder <- sendRequest("GET", "/folders")
     } yield {
@@ -130,7 +140,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def createAndRetrieveFolder(): Unit = okTest {
+  def createAndRetrieveFolder(implicit c: TestContext): Unit = okTest {
     def createFolderPutJson(name: String): JsonObject = {
       Json.obj("name" -> name, "description" -> "Test Description", "parent" -> null)
     }
@@ -150,7 +160,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def uploadFileWithNonAsciiCharacterName(): Unit = okTest {
+  def uploadFileWithNonAsciiCharacterName(implicit c: TestContext): Unit = okTest {
     val filePath = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
 
@@ -189,11 +199,11 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveFile(): Unit = okTest {
+  def retrieveFile(implicit c: TestContext): Unit = okTest {
     val fileName = "Scr$en Shot.pdf"
     val filePath = s"/com/campudus/tableaux/uploads/$fileName"
     val mimetype = "application/pdf"
-    val size = vertx.fileSystem.propsSync(getClass.getResource(filePath).toURI.getPath).size()
+    val size = vertx.fileSystem.propsBlocking(getClass.getResource(filePath).toURI.getPath).size()
 
     val meta = Json.obj(
       "title" -> Json.obj(
@@ -217,20 +227,20 @@ class MediaTest extends TableauxTestBase {
       _ <- promisify { p: Promise[Unit] =>
         val url = file.getObject("url").getString("de_DE")
 
-        httpRequest("GET", s"http://localhost:${port}$url", {
-          resp =>
+        httpRequest("GET", s"$url", {
+          resp: HttpClientResponse =>
             assertEquals(200, resp.statusCode())
 
-            assertEquals("Should get the correct MIME type", mimetype, resp.headers().get("content-type").get.head)
-            assertEquals("Should get the correct content length", String.valueOf(size), resp.headers().get("content-length").get.head)
+            assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
+            assertEquals("Should get the correct content length", String.valueOf(size), resp.getHeader("content-length"))
 
-            resp.bodyHandler { buf =>
+            resp.bodyHandler { buf: Buffer =>
               assertEquals("Should get the same size back as the file really is", size, buf.length())
               p.success(())
             }
-        }).exceptionHandler({ ext =>
-          fail(ext.toString)
-          p.failure(ext)
+        }, { x =>
+          c.fail(x)
+          p.failure(x)
         }).end()
       }
 
@@ -241,9 +251,8 @@ class MediaTest extends TableauxTestBase {
     }
   }
 
-
   @Test
-  def retrieveFileWithMultiLanguage(): Unit = okTest {
+  def retrieveFileWithMultiLanguage(implicit c: TestContext): Unit = okTest {
     val fileName = "Scr$en Shot.pdf"
     val filePath = s"/com/campudus/tableaux/uploads/$fileName"
     val mimetype = "application/pdf"
@@ -298,7 +307,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteFolderRecursively(): Unit = okTest {
+  def deleteFolderRecursively(implicit c: TestContext): Unit = okTest {
     val filePath = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
 
@@ -337,7 +346,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteTmpFile(): Unit = okTest {
+  def deleteTmpFile(implicit c: TestContext): Unit = okTest {
     val filePath = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
 
@@ -362,7 +371,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteAlreadyDeletedTmpFile(): Unit = okTest {
+  def deleteAlreadyDeletedTmpFile(implicit c: TestContext): Unit = okTest {
     val file = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
 
@@ -387,7 +396,6 @@ class MediaTest extends TableauxTestBase {
         val path = dir / Path(uploadedFile.getObject("internalName").getString("de_DE"))
 
         import FutureUtils._
-        import org.vertx.scala.core.FunctionConverters._
 
         promisify({ p: Promise[Unit] =>
           // delete tmp file
@@ -407,7 +415,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def createAttachmentColumn(): Unit = okTest {
+  def createAttachmentColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
 
     val column = Json.obj("columns" -> Json.arr(Json.obj(
@@ -425,7 +433,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def fillAndRetrieveAttachmentCell(): Unit = okTest {
+  def fillAndRetrieveAttachmentCell(implicit c: TestContext): Unit = okTest {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
@@ -463,7 +471,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def fillAndReplaceAndRetrieveAttachmentCell(): Unit = okTest {
+  def fillAndReplaceAndRetrieveAttachmentCell(implicit c: TestContext): Unit = okTest {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
@@ -539,7 +547,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def addAttachmentWithMalformedUUID(): Unit = exceptionTest("errors.unknown") {
+  def addAttachmentWithMalformedUUID(implicit c: TestContext): Unit = exceptionTest("errors.unknown") {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
@@ -558,7 +566,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def updateAttachmentColumn(): Unit = okTest {
+  def updateAttachmentColumn(implicit c: TestContext): Unit = okTest {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
@@ -621,7 +629,7 @@ class MediaTest extends TableauxTestBase {
     }
   }
 
-  private def createFile(langtag: String, filePath: String, mimeType: String, folder: Option[FolderId]): Future[JsonObject] = {
+  private def createFile(langtag: String, filePath: String, mimeType: String, folder: Option[FolderId])(implicit c: TestContext): Future[JsonObject] = {
     val meta = Json.obj(
       "title" -> Json.obj(
         langtag -> filePath
@@ -638,11 +646,11 @@ class MediaTest extends TableauxTestBase {
     } yield uploaded
   }
 
-  private def replaceFile(uuid: String, langtag: String, file: String, mimeType: String): Future[JsonObject] = {
+  private def replaceFile(uuid: String, langtag: String, file: String, mimeType: String)(implicit c: TestContext): Future[JsonObject] = {
     uploadFile("PUT", s"/files/$uuid/$langtag", file, mimeType)
   }
 
-  private def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = {
+  private def uploadFile(method: String, url: String, file: String, mimeType: String)(implicit c: TestContext): Future[JsonObject] = {
     val filePath = getClass.getResource(file).toURI.getPath
     val fileName = file.substring(file.lastIndexOf("/") + 1)
 
@@ -654,7 +662,7 @@ class MediaTest extends TableauxTestBase {
           "Content-Type: " + mimeType + "\r\n\r\n"
       val footer = "\r\n--" + boundary + "--\r\n"
 
-      val contentLength = String.valueOf(vertx.fileSystem.propsSync(filePath).size() + header.length + footer.length)
+      val contentLength = String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
       req.putHeader("Content-length", contentLength)
       req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
 
@@ -662,17 +670,18 @@ class MediaTest extends TableauxTestBase {
 
       req.write(header)
 
-      vertx.fileSystem.open(filePath, { ar =>
+      vertx.fileSystem.open(filePath, new OpenOptions(), { ar: AsyncResult[AsyncFile] =>
         assertTrue(s"Should be able to open file $filePath", ar.succeeded())
+
         val file = ar.result()
-        val pump = Pump.createPump(file, req)
-        file.endHandler({
-          file.close({ ar =>
+        val pump = Pump.pump(file, req)
+        file.endHandler({ a: Void =>
+          file.close({ ar: AsyncResult[Void] =>
             if (ar.succeeded()) {
-              logger.info(s"File loaded, ending request, ${pump.bytesPumped()} bytes pumped.")
+              logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
               req.end(footer)
             } else {
-              fail(ar.cause().getMessage)
+              c.fail(ar.cause())
             }
           })
         })
@@ -684,7 +693,7 @@ class MediaTest extends TableauxTestBase {
     import FutureUtils._
 
     promisify { p: Promise[JsonObject] =>
-      requestHandler(httpRequest(method, url, jsonResponse(p)))
+      requestHandler(httpRequest(method, url, jsonResponse(p), {x => p.failure(x); c.fail()}))
     }
   }
 }

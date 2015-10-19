@@ -1,10 +1,10 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.helper.FutureUtils._
-import org.vertx.scala.core.FunctionConverters._
-import org.vertx.scala.core.buffer.Buffer
+import io.vertx.core.Verticle
+import io.vertx.core.buffer.Buffer
+import io.vertx.scala.FunctionConverters._
 import org.vertx.scala.core.json._
-import org.vertx.scala.platform.Verticle
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -19,11 +19,14 @@ class FileUtils(override val verticle: Verticle) extends StandardVerticle {
 
   def readDir(dir: String, filter: String): Future[Array[String]] = promisify { p: Promise[Array[String]] =>
     vertx.fileSystem.readDir(dir, filter, {
-      case Success(files) => p.success(files)
+      case Success(files) => {
+        import scala.collection.JavaConverters._
+        p.success(files.asScala.toArray)
+      }
       case Failure(ex) =>
         logger.info("Failed reading schema directory")
         p.failure(ex)
-    }: Try[Array[String]] => Unit)
+    }: Try[java.util.List[String]] => Unit)
   }
 
   def readJsonFile(fileName: String): Future[JsonObject] = promisify { p: Promise[JsonObject] =>

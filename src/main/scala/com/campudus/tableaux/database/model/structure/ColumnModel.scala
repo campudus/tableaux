@@ -34,14 +34,17 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   private def createValueColumn(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
-        (t, result) <- insertSystemColumn(t, tableId, name, dbType, ordering, None, languageType)
-        result <- Future.successful(insertNotNull(result).head)
+        (t, resultJson) <- insertSystemColumn(t, tableId, name, dbType, ordering, None, languageType)
+        resultRow = insertNotNull(resultJson).head
 
         (t, _) <- languageType match {
-          case MultiLanguage => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${result.get[ColumnId](0)} $dbType")
-          case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[ColumnId](0)} $dbType")
+          case MultiLanguage => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${resultRow.get[ColumnId](0)} $dbType")
+          case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${resultRow.get[ColumnId](0)} $dbType")
         }
-      } yield (t, (result.get[ColumnId](0), result.get[Ordering](1)))
+      } yield {
+        logger.info(s"createValueColumn $resultRow")
+        (t, (resultRow.get[ColumnId](0), resultRow.get[Ordering](1)))
+      }
     }
   }
 

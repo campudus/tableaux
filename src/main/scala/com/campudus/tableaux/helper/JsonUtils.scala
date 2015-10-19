@@ -16,7 +16,7 @@ object JsonUtils {
     sequence(array.asScala.toList.map(notNull(_, "some array value").flatMap(tryCast[A])))
   }
 
-  private def checkNotNullArray(json: JsonObject, field: String): ArgumentCheck[JsonArray] = notNull(json.getArray(field), field)
+  private def checkNotNullArray(json: JsonObject, field: String): ArgumentCheck[JsonArray] = notNull(json.getJsonArray(field), field)
 
   private def checkForJsonObject(seq: Seq[JsonObject]): ArgumentCheck[Seq[JsonObject]] = {
     tryMap((y: Seq[JsonObject]) => y map { x: JsonObject => x }, InvalidJsonException(s"Warning: Columns should be in JsonObjects", "object"))(seq)
@@ -53,7 +53,7 @@ object JsonUtils {
         } yield {
           val toName = Try(Option(json.getString("toName"))).toOption.flatten
 
-          val ordering = Try(json.getNumber("ordering").longValue()).toOption
+          val ordering = Try(json.getInteger("ordering").longValue()).toOption
           val multilanguage = Try[Boolean](json.getBoolean("multilanguage")).getOrElse(false)
 
           dbType match {
@@ -92,8 +92,8 @@ object JsonUtils {
   def toTupleSeq[A](json: JsonObject): Seq[(String, A)] = {
     import scala.collection.JavaConverters._
 
-    val fields = json.getFieldNames.asScala.toSeq
-    fields.map(field => (field, json.getField[A](field)))
+    val fields = json.fieldNames().asScala.toSeq
+    fields.map(field => (field, json.getValue(field).asInstanceOf[A]))
   }
 
   private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[Any]] = for {
@@ -129,7 +129,7 @@ object JsonUtils {
 
   def getColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType]) = {
     val name = Try(notNull(json.getString("name"), "name").get).toOption
-    val ord = Try(json.getNumber("ordering").longValue()).toOption
+    val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     (name, ord, kind)
   }

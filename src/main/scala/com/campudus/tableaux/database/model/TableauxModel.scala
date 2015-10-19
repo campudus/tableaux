@@ -109,7 +109,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
           _ <- if (multiValues.nonEmpty) {
             rowStruc.createTranslations(table.id, rowId, multiValues)
           } else {
-            Future.successful()
+            Future.successful(())
           }
         } yield rowId
     }))

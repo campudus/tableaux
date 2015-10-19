@@ -1,14 +1,12 @@
 package com.campudus.tableaux.helper
 
-import org.vertx.scala.core.{VertxAccess, VertxExecutionContext}
-import org.vertx.scala.platform.Verticle
+import com.typesafe.scalalogging.{LazyLogging, Logger}
+import io.vertx.core.Verticle
+import io.vertx.scala.VertxExecutionContext
+import org.slf4j.LoggerFactory
 
-trait StandardVerticle extends VertxAccess {
+trait StandardVerticle extends VertxExecutionContext with LazyLogging {
   val verticle: Verticle
 
-  lazy val vertx = verticle.vertx
-  lazy val container = verticle.container
-  lazy val logger = verticle.logger
-
-  override implicit val executionContext = VertxExecutionContext.fromVertx(vertx, logger)
+  lazy val vertx = verticle.getVertx
 }

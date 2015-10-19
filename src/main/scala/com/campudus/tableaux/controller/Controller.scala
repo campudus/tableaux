@@ -3,8 +3,7 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.DatabaseQuery
 import com.campudus.tableaux.helper.StandardVerticle
-import org.vertx.scala.platform.Verticle
-
+import io.vertx.core.Verticle
 
 trait Controller[T <: DatabaseQuery] extends StandardVerticle {
 
