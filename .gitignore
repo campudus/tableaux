@@ -2,6 +2,11 @@
 conf.json
 conf-test.json
 uploads/
+.vertx/
+
+# Gradle
+.gradle/
+build/
 
 # IDEA specific
 .idea/
