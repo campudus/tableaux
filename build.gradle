@@ -1,0 +1,95 @@
+buildscript {
+    repositories { jcenter() }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.2'
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'scala'
+apply plugin: 'application'
+apply plugin: 'com.github.johnrengelman.shadow'
+
+def vertxVersion = '3.1.0'
+def scalaVersion = '2.11.7'
+
+if (!JavaVersion.current().java8Compatible) {
+    throw new IllegalStateException("This needs Java 8.")
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'http://oss.sonatype.org/content/repositories/snapshots'
+    }
+}
+
+dependencies {
+    compile 'org.hsqldb:hsqldb:2.3.3'
+
+    compile "org.scala-lang:scala-library:${scalaVersion}"
+
+    compile "io.vertx:vertx-core:${vertxVersion}"
+    compile "io.vertx:vertx-web:${vertxVersion}"
+    //compile "io.vertx:vertx-jdbc-client:${vertxVersion}"
+
+    compile 'joda-time:joda-time:2.8'
+    //compile 'org.postgresql:postgresql:9.4-1201-jdbc41'
+    compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'
+    compile 'org.slf4j:slf4j-jdk14:1.7.12'
+
+    compile 'io.vertx:vertx-mysql-postgresql-client:3.2.0-SNAPSHOT'
+
+    testCompile "io.vertx:vertx-unit:${vertxVersion}"
+    testCompile 'junit:junit:4.12'
+}
+
+mainClassName = "io.vertx.core.Starter"
+def mainVerticle = "com.campudus.tableaux.Starter"
+
+run {
+    args = ["run", mainVerticle]
+}
+
+compileScala {
+    scalaCompileOptions.useCompileDaemon = true
+
+    // optionally specify host and port of the daemon:
+    scalaCompileOptions.daemonServer = "localhost:4243"
+}
+
+// activate Zinc incremental compilation
+tasks.withType(ScalaCompile) {
+    scalaCompileOptions.useAnt = false
+}
+
+// let Scala compiler do everything – even java stuff
+sourceSets {
+    main {
+        scala {
+            srcDirs = ['src/main/scala', 'src/main/java']
+        }
+        java {
+            srcDirs = []
+        }
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': mainClassName
+        attributes 'Main-Verticle': mainVerticle
+    }
+}
+
+shadowJar {
+    classifier = 'fat'
+
+    mergeServiceFiles {
+        include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
+    }
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.7'
+}
