@@ -4,18 +4,19 @@ import com.campudus.tableaux.helper.FutureUtils._
 import io.vertx.core.Verticle
 import io.vertx.core.buffer.Buffer
 import io.vertx.scala.FunctionConverters._
+import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.core.json._
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 object FileUtils {
-  def apply(verticle: Verticle): FileUtils = {
+  def apply(verticle: ScalaVerticle): FileUtils = {
     new FileUtils(verticle)
   }
 }
 
-class FileUtils(override val verticle: Verticle) extends StandardVerticle {
+class FileUtils(override val verticle: ScalaVerticle) extends StandardVerticle {
 
   def readDir(dir: String, filter: String): Future[Array[String]] = promisify { p: Promise[Array[String]] =>
     vertx.fileSystem.readDir(dir, filter, {

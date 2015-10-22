@@ -6,17 +6,17 @@ import com.campudus.tableaux.database.model.SystemModel
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.{HttpClient, HttpClientRequest, HttpClientResponse, HttpMethod}
-import io.vertx.core.{AsyncResult, Handler, Vertx}
+import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FunctionConverters._
-import io.vertx.scala.{SQLConnection, VertxExecutionContext}
+import io.vertx.scala.SQLConnection
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.{Future, Promise}
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable
 
@@ -47,9 +47,10 @@ trait TestAssertionHelper {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHelper with JsonCompatible with VertxExecutionContext {
+trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHelper with JsonCompatible {
 
   override val verticle = new Starter
+  implicit lazy val executionContext = verticle.executionContext
 
   val vertx: Vertx = Vertx.vertx()
   private var deploymentId: String = ""
@@ -58,13 +59,16 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   def before(context: TestContext) {
     val async = context.async()
 
-    vertx.deployVerticle(verticle, {
+    val options = new DeploymentOptions()
+      .setConfig(config)
+
+    val completionHandler = {
       case Success(id) =>
         logger.info(s"Verticle deployed with ID $id")
         this.deploymentId = id
 
-        val sqlConnection = SQLConnection(vertx, databaseConfig)
-        val dbConnection = DatabaseConnection(sqlConnection)
+        val sqlConnection = SQLConnection(verticle, databaseConfig)
+        val dbConnection = DatabaseConnection(verticle, sqlConnection)
         val system = SystemModel(dbConnection)
 
         for {
@@ -77,7 +81,9 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
         logger.error("Verticle couldn't be deployed.", e)
         context.fail(e)
         async.complete()
-    }: Try[String] => Unit)
+    }: Try[String] => Unit
+
+    vertx.deployVerticle(verticle, options, completionHandler)
   }
 
   @After
@@ -87,9 +93,17 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     vertx.undeploy(deploymentId, {
       case Success(_) =>
         logger.info("Verticle undeployed!")
-        async.complete()
+        vertx.close({
+          case Success(_) =>
+            logger.info("Vertx closed!")
+            async.complete()
+          case Failure(e) =>
+            logger.error("Vertx couldn't be closed!", e)
+            context.fail(e)
+            async.complete()
+        }: Try[Void] => Unit)
       case Failure(e) =>
-        logger.error("Verticle couldn't be undeployed.", e)
+        logger.error("Verticle couldn't be undeployed!", e)
         context.fail(e)
         async.complete()
     }: Try[Void] => Unit)
@@ -115,6 +129,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
         val msg = s"Test with id $id should fail but got no exception."
         logger.error(msg)
         context.fail(msg)
+        async.complete()
       case Failure(ex: TestCustomException) =>
         context.assertEquals(id, ex.id)
         async.complete()
@@ -122,6 +137,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
         val msg = s"Test with id $id failed but got wrong exception (${ex.getMessage})."
         logger.error(msg)
         context.fail(msg)
+        async.complete()
     }
   }
 

@@ -10,9 +10,13 @@ import scala.concurrent.Future
 
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = Future.sequence(createColumns.map(createColumn(table, _)))
+  def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
+    Future.sequence(createColumns.map(createColumn(table, _)))
+  }
 
   def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
+    logger.info(s"Create column ${createColumn}")
+
     createColumn match {
       case CreateSimpleColumn(name, ordering, kind, languageType) =>
         createValueColumn(table.id, kind, name, ordering, languageType).map {
@@ -42,7 +46,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${resultRow.get[ColumnId](0)} $dbType")
         }
       } yield {
-        logger.info(s"createValueColumn $resultRow")
+        logger.info(s"$name ${resultRow.get[ColumnId](0)}, ${resultRow.get[Ordering](1)}")
         (t, (resultRow.get[ColumnId](0), resultRow.get[Ordering](1)))
       }
     }

@@ -3,7 +3,7 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.TableauxModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.{Starter, TestConfig}
+import com.campudus.tableaux.{TableauxTestBase, Starter, TestConfig}
 import io.vertx.core.Vertx
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -14,14 +14,11 @@ import org.junit.runner.RunWith
 import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
-class TableauxControllerTest extends TestConfig with VertxExecutionContext {
-
-  override val verticle = new Starter
-  val vertx: Vertx = Vertx.vertx()
+class TableauxControllerTest extends TableauxTestBase {
 
   def createTableauxController(): TableauxController = {
-    val sqlConnection = SQLConnection(vertx, databaseConfig)
-    val dbConnection = DatabaseConnection(sqlConnection)
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
     val model = TableauxModel(dbConnection)
 

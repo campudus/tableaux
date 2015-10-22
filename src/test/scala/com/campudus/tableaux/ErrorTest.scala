@@ -89,8 +89,8 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createTableWithNoExistingSystemTables(implicit c: TestContext): Unit = exceptionTest(errorDatabaseUnknown) {
-    val sqlConnection = SQLConnection(vertx, databaseConfig)
-    val dbConnection = DatabaseConnection(sqlConnection)
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
     val system = SystemModel(dbConnection)
 
     for {

@@ -15,7 +15,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.FunctionConverters._
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonArray}
 
@@ -24,18 +24,19 @@ import scala.reflect.io.Path
 import scala.util.{Failure, Random, Success, Try}
 
 @RunWith(classOf[VertxUnitRunner])
+@Ignore
 class MediaTest extends TableauxTestBase {
 
   def createFileModel(): FileModel = {
-    val sqlConnection = SQLConnection(vertx, databaseConfig)
-    val dbConnection = DatabaseConnection(sqlConnection)
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
     new FileModel(dbConnection)
   }
 
   def createFolderModel(): FolderModel = {
-    val sqlConnection = SQLConnection(vertx, databaseConfig)
-    val dbConnection = DatabaseConnection(sqlConnection)
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
     new FolderModel(dbConnection)
   }

@@ -3,11 +3,14 @@ package com.campudus.tableaux
 import com.campudus.tableaux.helper.StandardVerticle
 import io.vertx.core.Verticle
 import io.vertx.core.json.JsonObject
+import io.vertx.scala.ScalaVerticle
 
 object TableauxConfig {
-  def apply(vert: Verticle, databaseConfig: JsonObject, workingDir: String, uploadDir: String): TableauxConfig = {
+  def apply(verticle: ScalaVerticle, databaseConfig: JsonObject, workingDir: String, uploadDir: String): TableauxConfig = {
+    val _verticle = verticle
+
     new TableauxConfig {
-      override val verticle = vert
+      override val verticle = _verticle
       override val database = databaseConfig
       override val workingDirectory = workingDir
       override val uploadsDirectory = uploadDir

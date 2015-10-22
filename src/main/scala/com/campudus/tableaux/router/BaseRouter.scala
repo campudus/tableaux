@@ -10,6 +10,7 @@ import io.vertx.core.buffer.Buffer
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.FunctionConverters._
 import io.vertx.ext.web.RoutingContext
+import io.vertx.scala.ScalaVerticle
 import org.slf4j.LoggerFactory
 import org.vertx.scala.core.json._
 import org.vertx.scala.router.routing.{AsyncReply, Error, Ok}
@@ -33,7 +34,7 @@ trait BaseRouter extends Router with StandardVerticle with LazyLogging {
    */
   val langtagRegex: String = "[a-z]{2}_[A-Z]{2}"
 
-  override val verticle: Verticle = config.verticle
+  override val verticle: ScalaVerticle = config.verticle
 
   def asyncSetReply: (Future[DomainObject]) => AsyncReply = asyncReply(SetReturn)(_)
 

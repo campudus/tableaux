@@ -1,8 +1,10 @@
 package com.campudus.tableaux.database
 
+import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.FolderModel._
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.helper.StandardVerticle
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.ext.sql.{ResultSet, UpdateResult}
 import io.vertx.scala._
@@ -10,6 +12,7 @@ import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonCompatible, JsonObject}
 
 import scala.concurrent.Future
+import scala.util.Random
 
 trait DatabaseQuery extends JsonCompatible with LazyLogging {
   protected[this] val connection: DatabaseConnection
@@ -54,12 +57,12 @@ object DatabaseConnection {
 
   type ScalaTransaction = io.vertx.scala.Transaction
 
-  def apply(connection: SQLConnection): DatabaseConnection = {
-    new DatabaseConnection(connection)
+  def apply(verticle: ScalaVerticle, connection: SQLConnection): DatabaseConnection = {
+    new DatabaseConnection(verticle, connection)
   }
 }
 
-class DatabaseConnection(val connection: SQLConnection) extends VertxExecutionContext with LazyLogging {
+class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnection) extends StandardVerticle with LazyLogging {
 
   import DatabaseConnection._
 
@@ -97,11 +100,33 @@ class DatabaseConnection(val connection: SQLConnection) extends VertxExecutionCo
   def begin(): Future[Transaction] = connection.transaction().map(Transaction)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
+    import com.campudus.tableaux.TimeoutScheduler._
+
+    import scala.concurrent.duration.DurationInt
+
+    val random = Random.nextInt()
+
     for {
-      transaction <- begin()
-      (transaction, result) <- fn(transaction)
-      _ <- transaction.commit()
-    } yield result
+      transaction <- begin().withTimeout(DurationInt(1).seconds, s"Transaction-Begin")
+
+      (transaction, result) <- {
+        logger.info(s"Transactional begin $random")
+        fn(transaction) recoverWith {
+          case e =>
+            logger.error("Failed executing transactional. Rollback and fail.", e)
+            transaction.rollback()
+            Future.failed(e)
+        }
+      }.withTimeout(DurationInt(1).seconds, s"Transactional-Fn $random")
+
+      _ <- {
+        logger.info(s"Transactional fn $random")
+        transaction.commit().withTimeout(DurationInt(2).seconds, s"Transactional-Commit $random")
+      }
+    } yield {
+      logger.info(s"Transactional commit $random")
+      result
+    }
   }
 
   def transactionalFoldLeft[A](values: Seq[A])(fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]): Future[JsonObject] = {
@@ -146,7 +171,7 @@ class DatabaseConnection(val connection: SQLConnection) extends VertxExecutionCo
           case Some(s) => connection.query(stmt, s)
           case None => connection.query(stmt)
         }
-      case ("DELETE", true) | ("INSERT", true) =>
+      case ("DELETE", true) =>
         values match {
           case Some(s) => connection.update(stmt + ";--", s)
           case None => connection.update(stmt + ";--")
@@ -157,13 +182,29 @@ class DatabaseConnection(val connection: SQLConnection) extends VertxExecutionCo
           case None => connection.update(stmt)
         }
       case (_, _) =>
-        throw new Exception(s"Command $command in Statement $stmt not supported")
+        throw new DatabaseException(s"Command $command in Statement $stmt not supported", "error.database.command_not_supported")
     }
 
+    import io.vertx.scala.FunctionConverters._
+    //val vertx = Vertx.vertx()
+    val timerId = vertx.setTimer(10000, { d: java.lang.Long => logger.error(s"doMagicQuery $command $returning $stmt exceeded the delay") })
+
     future.map({
-      case r: UpdateResult => mapUpdateResult(command, r.toJson)
-      case r: ResultSet => mapResultSet(r.toJson)
-      case _ => createExecuteResult(command)
+      case r: UpdateResult => {
+        vertx.cancelTimer(timerId)
+
+        mapUpdateResult(command, r.toJson)
+      }
+      case r: ResultSet => {
+        vertx.cancelTimer(timerId)
+
+        mapResultSet(r.toJson)
+      }
+      case _ => {
+        vertx.cancelTimer(timerId)
+
+        createExecuteResult(command)
+      }
     })
   }
 
@@ -192,7 +233,7 @@ class DatabaseConnection(val connection: SQLConnection) extends VertxExecutionCo
     Json.obj(
       "status" -> "ok",
       "rows" -> updated,
-      "message" -> msg,
+      "message" -> s"${msg.toUpperCase} $updated",
       "fields" -> fields,
       "results" -> results
     )

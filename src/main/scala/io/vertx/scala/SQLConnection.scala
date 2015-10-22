@@ -1,8 +1,10 @@
 package io.vertx.scala
 
+import com.campudus.tableaux.DatabaseException
+import com.campudus.tableaux.helper.StandardVerticle
 import io.vertx.core.json.{JsonArray, JsonObject}
-import io.vertx.core.{AsyncResult, Handler, Vertx}
-import io.vertx.ext.jdbc.JDBCClient
+import io.vertx.core.{AsyncResult, Handler}
+import io.vertx.ext.asyncsql.{AsyncSQLClient, PostgreSQLClient}
 import io.vertx.ext.sql.{ResultSet, UpdateResult}
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.SQLConnection.JSQLConnection
@@ -10,50 +12,53 @@ import io.vertx.scala.SQLConnection.JSQLConnection
 import scala.concurrent.Future
 
 object SQLConnection {
+  val LEASE_TIMEOUT = 10000
+
   type JSQLConnection = io.vertx.ext.sql.SQLConnection
 
-  def apply(vertx: Vertx, config: JsonObject): SQLConnection = {
-    new SQLConnection(vertx, config)
+  def apply(verticle: ScalaVerticle, config: JsonObject): SQLConnection = {
+    new SQLConnection(verticle, config)
   }
 }
 
 sealed trait SQLFunction
 
 case class Execute() extends SQLFunction
+
 case class Update() extends SQLFunction
+
 case class Query() extends SQLFunction
 
-sealed trait SQLCommons extends VertxExecutionContext {
+sealed trait SQLCommons extends StandardVerticle {
 
   def execute(sql: String): Future[Unit] = {
     for {
       connection <- connection()
       _ <- execute(connection, sql)
-    } yield {
-      connection.close()
-    }
+      _ <- close(connection)
+    } yield ()
   }
+
+  protected def close(connection: JSQLConnection): Future[Unit] = connection.close(_: Handler[AsyncResult[Void]])
 
   protected def execute(connection: JSQLConnection, sql: String): Future[Unit] = connection.execute(sql, _: Handler[AsyncResult[Void]])
 
   def query(sql: String): Future[ResultSet] = {
     for {
-      connection <- connection()
-      _ <- setAutoUpdate(connection, autoCommit = true)
-      resultSet <- query(connection, sql)
+      conn <- connection()
+      resultSet <- query(conn, sql)
+      _ <- close(conn)
     } yield {
-      connection.close()
       resultSet
     }
   }
 
   def query(sql: String, params: JsonArray): Future[ResultSet] = {
     for {
-      connection <- connection()
-      _ <- setAutoUpdate(connection, autoCommit = true)
-      resultSet <- query(connection, sql, params)
+      conn <- connection()
+      resultSet <- query(conn, sql, params)
+      _ <- close(conn)
     } yield {
-      connection.close()
       resultSet
     }
   }
@@ -64,23 +69,21 @@ sealed trait SQLCommons extends VertxExecutionContext {
 
   def update(sql: String): Future[UpdateResult] = {
     for {
-      connection <- connection()
-      _ <- setAutoUpdate(connection, autoCommit = true)
-      resultSet <- update(connection, sql)
+      conn <- connection()
+      updateResult <- update(conn, sql)
+      _ <- close(conn)
     } yield {
-      connection.close()
-      resultSet
+      updateResult
     }
   }
 
   def update(sql: String, params: JsonArray): Future[UpdateResult] = {
     for {
-      connection <- connection()
-      _ <- setAutoUpdate(connection, autoCommit = true)
-      resultSet <- update(connection, sql, params)
+      conn <- connection()
+      updateResult <- update(conn, sql, params)
+      _ <- close(conn)
     } yield {
-      connection.close()
-      resultSet
+      updateResult
     }
   }
 
@@ -90,61 +93,98 @@ sealed trait SQLCommons extends VertxExecutionContext {
 
   protected def connection(): Future[JSQLConnection] = getClient.getConnection(_: Handler[AsyncResult[JSQLConnection]])
 
-  protected def close(connection: JSQLConnection): Future[Unit] = connection.close(_: Handler[AsyncResult[Void]])
-
   protected def setAutoUpdate(connection: JSQLConnection, autoCommit: Boolean): Future[Unit] = connection.setAutoCommit(autoCommit, _: Handler[AsyncResult[Void]])
 
-  protected def getClient: JDBCClient
+  protected def getClient: AsyncSQLClient
 }
 
-class SQLConnection(val vertx: Vertx, val config: JsonObject) extends SQLCommons {
-
-  val client = JDBCClient.createShared(vertx, config)
+class SQLConnection(val verticle: ScalaVerticle, val config: JsonObject) extends SQLCommons {
+  val client = PostgreSQLClient.createShared(vertx, config)
 
   def transaction(): Future[Transaction] = {
     for {
       connection <- connection()
-      _ <- connection.setAutoCommit(false, _: Handler[AsyncResult[Void]])
-      transaction = new Transaction(connection)
-    } yield transaction
+      _ <- setAutoUpdate(connection, autoCommit = false)
+    } yield new Transaction(verticle, connection)
   }
 
-  override def getClient: JDBCClient = client
+  override def getClient: AsyncSQLClient = client
 }
 
-class Transaction(val conn: JSQLConnection) extends SQLCommons {
+class Transaction(val verticle: ScalaVerticle, val conn: JSQLConnection) extends SQLCommons {
+
+  import com.campudus.tableaux.TimeoutScheduler._
+
+  import scala.concurrent.duration.DurationInt
+
+  val connectionTimerId = vertx.setTimer(SQLConnection.LEASE_TIMEOUT, {
+    d: java.lang.Long =>
+      logger.error(s"Lease timeout exceeded")
+      conn.close()
+  })
 
   override def connection(): Future[JSQLConnection] = Future.successful(conn)
 
+  implicit class DatabaseFuture[A](future: Future[A]) {
+    def recoverDatabaseException(name: String): Future[A] = {
+      future.recoverWith {
+        case e =>
+          logger.error(s"Database ($name) action failed.", e)
+          Future.failed(DatabaseException(e.getMessage, "unknown"))
+      }
+    }
+  }
+
   override def execute(sql: String): Future[Unit] = {
-    execute(conn, sql)
+    execute(conn, sql).recoverDatabaseException("execute").withTimeout(10000, "execute")
   }
 
   override def query(sql: String): Future[ResultSet] = {
-    query(conn, sql)
+    query(conn, sql).recoverDatabaseException("query").withTimeout(10000, "query")
   }
 
   override def query(sql: String, params: JsonArray): Future[ResultSet] = {
-    query(conn, sql, params)
+    query(conn, sql, params).recoverDatabaseException("query").withTimeout(10000, "query")
   }
 
   override def update(sql: String): Future[UpdateResult] = {
-    update(conn, sql)
+    update(conn, sql).recoverDatabaseException("update").withTimeout(10000, "update")
   }
 
   override def update(sql: String, params: JsonArray): Future[UpdateResult] = {
-    update(conn, sql, params)
+    update(conn, sql, params).recoverDatabaseException("update").withTimeout(10000, "update")
   }
 
-  def commit(): Future[Unit] = for {
-    _ <- conn.commit(_: Handler[AsyncResult[Void]])
-    _ <- close(conn)
-  } yield ()
+  override def close(_conn: JSQLConnection): Future[Unit] = {
+    vertx.cancelTimer(connectionTimerId)
+    super.close(_conn)
+  }
 
-  def rollback(): Future[Unit] = for {
-    _ <- conn.rollback(_: Handler[AsyncResult[Void]])
-    _ <- close(conn)
-  } yield ()
+  def commit(): Future[Unit] = {
+    (for {
+      t <- asyncVoid(conn.commit(_: Handler[AsyncResult[Void]])).withTimeout(DurationInt(1).seconds, "commit")
+      b <- close(conn)
+    } yield {
+        ()
+      }) recoverDatabaseException "commit" recoverWith {
+      case e =>
+        rollback()
+        Future.failed(e)
+    } withTimeout(10000, "commit")
+  }
 
-  override def getClient: JDBCClient = null
+  def rollback(): Future[Unit] = {
+    import com.campudus.tableaux.TimeoutScheduler._
+
+    import scala.concurrent.duration.DurationInt
+
+    (for {
+      _ <- asyncVoid(conn.rollback(_: Handler[AsyncResult[Void]])).withTimeout(DurationInt(1).seconds, "rollback")
+      _ <- close(conn)
+    } yield {
+        ()
+      }) recoverDatabaseException "rollback" withTimeout(10000, "commit")
+  }
+
+  override def getClient: AsyncSQLClient = null
 }

@@ -1,6 +1,6 @@
 package com.campudus.tableaux
 
-import io.vertx.core.Verticle
+import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.core.json._
 
 import scala.io.Source
@@ -8,7 +8,7 @@ import scala.reflect.io.Path
 
 trait TestConfig {
 
-  val verticle: Verticle
+  val verticle: ScalaVerticle
 
   lazy val config = jsonFromFile("conf-test.json", "conf-travis.json", "../conf-test.json", "../conf-travis.json")
 

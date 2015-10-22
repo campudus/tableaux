@@ -48,7 +48,7 @@ mainClassName = "io.vertx.core.Starter"
 def mainVerticle = "com.campudus.tableaux.Starter"
 
 run {
-    args = ["run", mainVerticle]
+    args = ["run", mainVerticle, "-conf", "conf.json"]
 }
 
 compileScala {

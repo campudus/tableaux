@@ -3,13 +3,13 @@ package org.vertx.scala.router
 import java.io.FileNotFoundException
 import java.net.URLEncoder
 
+import com.campudus.tableaux.helper.StandardVerticle
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.file.FileProps
 import io.vertx.core.http.{HttpMethod, HttpServerRequest, HttpServerResponse}
-import io.vertx.core.{AsyncResult, Handler, Vertx}
+import io.vertx.core.{AsyncResult, Handler}
 import io.vertx.ext.web.RoutingContext
 import io.vertx.scala.FutureHelper._
-import io.vertx.scala.VertxExecutionContext
 import org.vertx.scala.router.routing._
 
 import scala.concurrent.Future
@@ -21,10 +21,7 @@ import scala.util.{Failure, Success}
  *
  * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
  */
-trait Router extends (RoutingContext => Unit) with LazyLogging {
-  this: VertxExecutionContext =>
-
-  val vertx: Vertx
+trait Router extends (RoutingContext => Unit) with StandardVerticle with LazyLogging {
 
   type Routing = PartialFunction[RouteMatch, Reply]
 
@@ -93,11 +90,14 @@ trait Router extends (RoutingContext => Unit) with LazyLogging {
           case ex =>
             endResponse(resp, Error(RouterException("send file exception", ex, "errors.routing.sendFile", 500)))
         }
-      case Error(RouterException(_, cause, id, 404)) =>
-        logger.info(s"File not found", cause)
+      case Error(RouterException(message, cause, id, 404)) =>
+        logger.warn(s"Error 404: $message", cause)
         resp.setStatusCode(404)
         resp.setStatusMessage("NOT FOUND")
-        resp.sendFile(notFoundFile)
+        message match {
+          case null => resp.end()
+          case msg => resp.end(msg)
+        }
       case Error(RouterException(message, cause, id, statusCode)) =>
         logger.warn(s"Error $statusCode: $message", cause)
         resp.setStatusCode(statusCode)

@@ -15,8 +15,8 @@ import org.vertx.scala.core.json.Json
 class SystemControllerTest extends TableauxTestBase {
 
   def createSystemController(): SystemController = {
-    val sqlConnection = SQLConnection(vertx, databaseConfig)
-    val dbConnection = DatabaseConnection(sqlConnection)
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
     val systemModel = SystemModel(dbConnection)
     val tableauxModel = TableauxModel(dbConnection)

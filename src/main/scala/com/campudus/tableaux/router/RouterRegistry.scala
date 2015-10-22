@@ -7,6 +7,7 @@ import com.campudus.tableaux.database.model._
 import io.vertx.core.Verticle
 import io.vertx.core.http.HttpServerRequest
 import io.vertx.ext.web.RoutingContext
+import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing.{Error, Get, SendFile}
 
@@ -32,7 +33,7 @@ object RouterRegistry {
 
 class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseRouter]) extends BaseRouter {
 
-  override val verticle: Verticle = config.verticle
+  override val verticle: ScalaVerticle = config.verticle
 
   override def routes(implicit context: RoutingContext): Routing = {
     routers.map(_.routes).foldLeft(defaultRoutes)({

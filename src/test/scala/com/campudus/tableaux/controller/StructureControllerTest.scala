@@ -3,7 +3,7 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.database.domain.CreateSimpleColumn
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.{DatabaseConnection, SingleLanguage, TextType}
-import com.campudus.tableaux.{Starter, TestConfig}
+import com.campudus.tableaux.{TableauxTestBase, Starter, TestConfig}
 import io.vertx.core.Vertx
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -14,14 +14,11 @@ import org.junit.runner.RunWith
 import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
-class StructureControllerTest extends TestConfig with VertxExecutionContext {
-
-  override val verticle = new Starter
-  val vertx: Vertx = Vertx.vertx()
+class StructureControllerTest extends TableauxTestBase {
 
   def createStructureController(): StructureController = {
-    val sqlConnection = SQLConnection(vertx, databaseConfig)
-    val dbConnection = DatabaseConnection(sqlConnection)
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
     val model = StructureModel(dbConnection)
 
     StructureController(tableauxConfig, model)

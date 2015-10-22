@@ -40,7 +40,10 @@ class StructureController(override val config: TableauxConfig, override protecte
     for {
       table <- retrieveTable(tableId)
       columns <- columnStruc.createColumns(table, columns)
-    } yield ColumnSeq(columns)
+    } yield {
+      logger.info(s"$columns")
+      ColumnSeq(columns)
+    }
   }
 
   def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
