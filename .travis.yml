@@ -6,8 +6,8 @@ addons:
 before_script:
   - psql -c 'SHOW SERVER_VERSION;' -U postgres
   - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
-script: ./gradlew test
-#after_success: ./gradlew cobertura coveralls
+script: ./gradlew testScoverage
+after_success: ./gradlew reportScoverage coveralls
 env:
   global:
     secure: fICktYC5w0CBqF1RUvBw/CPvEtLzOyJiwP9+nlMZyRVhURcl8EeCkQmLSEYHo1YRQO1rj34MV3qzXAtu/0je1iYtSNVKFzsqkzrecPBZjVgEfTpe68ip9oN3FH1b+wzRHlDy92ofEBcfXoVWcZCG1j5Ku0jwFtvE8J7GlZIqD/GN6GMgvB1ph9pXB1jaFxV8peWMCSQHQxvA1SXXwl2SPbr2ZWq/Sgn5UxbD4XHbHdu+44IP9l6fd2aBwZBXcal6f2lZY2KK0r4DOwpMABw99tRaJu7MlKklAvOC9uGiLhj1zHiGe05Zst/UvGlFoQnmIhKoNpkbFRoZRcPaNGyGZSNvSZ+N3uEKjnhKXKbriNCl0eoUfzMc80W8FDr4EJ1ZxAmSE2fJWy2VefnWlkLueS4IpXkjurdZ8KEtDiilY4Xyw8ENojZ9mYMqqQI3r+vRxGY1pYFd0tu8V5viXE4pzxXKSr3EyzQVIHQ1U8BXtLVe4fF4PC83052cFaGulCZHqlyENy44hgZxg3tsbHSvhDWDWE1cdrvj4GgyiWHNyR/G+o1DQrOEedx2FXpJkmgmnxuEsMqZlsU1zEUB/B4zjWHNuHrcFe/DNRrZSHsFmB0+GJeeKRLB6vTZF1EKeGpQ0X/skzpi8T8by/p484ZyUkGFfy+dhQ5E6CMFzbr+vMA=
