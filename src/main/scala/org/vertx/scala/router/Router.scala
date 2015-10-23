@@ -3,7 +3,7 @@ package org.vertx.scala.router
 import java.io.FileNotFoundException
 import java.net.URLEncoder
 
-import com.campudus.tableaux.helper.StandardVerticle
+import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.file.FileProps
 import io.vertx.core.http.{HttpMethod, HttpServerRequest, HttpServerResponse}
@@ -21,7 +21,7 @@ import scala.util.{Failure, Success}
  *
  * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
  */
-trait Router extends (RoutingContext => Unit) with StandardVerticle with LazyLogging {
+trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging {
 
   type Routing = PartialFunction[RouteMatch, Reply]
 

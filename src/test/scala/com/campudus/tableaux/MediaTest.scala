@@ -4,18 +4,18 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{File, Folder, MultiLanguageValue}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
-import com.campudus.tableaux.helper.FutureUtils
-import io.vertx.core.AsyncResult
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.file.{OpenOptions, AsyncFile}
-import io.vertx.core.http.{HttpClientResponse, HttpClientRequest}
+import io.vertx.core.file.{AsyncFile, OpenOptions}
+import io.vertx.core.http.{HttpClientRequest, HttpClientResponse}
 import io.vertx.core.json.JsonObject
 import io.vertx.core.streams.Pump
+import io.vertx.core.{AsyncResult, Handler}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.SQLConnection
 import io.vertx.scala.FunctionConverters._
-import org.junit.{Ignore, Test}
+import io.vertx.scala.FutureHelper._
+import io.vertx.scala.SQLConnection
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonArray}
 
@@ -24,7 +24,6 @@ import scala.reflect.io.Path
 import scala.util.{Failure, Random, Success, Try}
 
 @RunWith(classOf[VertxUnitRunner])
-@Ignore
 class MediaTest extends TableauxTestBase {
 
   def createFileModel(): FileModel = {
@@ -77,7 +76,7 @@ class MediaTest extends TableauxTestBase {
 
       sizeAfterDeleteOne <- model.size()
     } yield {
-      assertEquals(0, sizeAfterAdd)
+      assertEquals(0L, sizeAfterAdd)
 
       assertEquals(insertedFile1, retrievedFile)
 
@@ -90,8 +89,8 @@ class MediaTest extends TableauxTestBase {
 
       assertEquals(2, allFiles.toList.size)
 
-      assertEquals(2, size)
-      assertEquals(1, sizeAfterDeleteOne)
+      assertEquals(2L, size)
+      assertEquals(1L, sizeAfterDeleteOne)
     }
   }
 
@@ -124,8 +123,8 @@ class MediaTest extends TableauxTestBase {
 
       assertEquals(2, folders.toList.size)
 
-      assertEquals(2, size)
-      assertEquals(1, sizeAfterDelete)
+      assertEquals(2L, size)
+      assertEquals(1L, sizeAfterDelete)
     }
   }
 
@@ -215,8 +214,6 @@ class MediaTest extends TableauxTestBase {
       )
     )
 
-    import FutureUtils._
-
     for {
       file <- sendRequest("POST", "/files", meta)
 
@@ -225,7 +222,7 @@ class MediaTest extends TableauxTestBase {
 
       file <- sendRequest("GET", s"/files/${file.getString("uuid")}")
 
-      _ <- promisify { p: Promise[Unit] =>
+      _ <- futurify { p: Promise[Unit] =>
         val url = file.getObject("url").getString("de_DE")
 
         httpRequest("GET", s"$url", {
@@ -233,7 +230,7 @@ class MediaTest extends TableauxTestBase {
             assertEquals(200, resp.statusCode())
 
             assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
-            assertEquals("Should get the correct content length", String.valueOf(size), resp.getHeader("content-length"))
+            assertEquals("Should get the correct content length", s"$size", resp.getHeader("content-length"))
 
             resp.bodyHandler { buf: Buffer =>
               assertEquals("Should get the same size back as the file really is", size, buf.length())
@@ -392,16 +389,12 @@ class MediaTest extends TableauxTestBase {
       _ <- {
         val uploadsDirectory = Path(s"${tableauxConfig.workingDirectory}/${tableauxConfig.uploadsDirectory}")
 
-        // because we are ./target/
-        val dir = Path(s"./mods/uploads")
-        val path = dir / Path(uploadedFile.getObject("internalName").getString("de_DE"))
+        val path = uploadsDirectory / Path(uploadedFile.getObject("internalName").getString("de_DE"))
 
-        import FutureUtils._
-
-        promisify({ p: Promise[Unit] =>
+        futurify({ p: Promise[Unit] =>
           // delete tmp file
-          vertx.fileSystem.delete(path.toString(), {
-            case Success(v) =>
+          vertx.fileSystem().delete(path.toString(), {
+            case Success(_) =>
               p.success(())
             case Failure(e) =>
               p.failure(e)
@@ -651,50 +644,64 @@ class MediaTest extends TableauxTestBase {
     uploadFile("PUT", s"/files/$uuid/$langtag", file, mimeType)
   }
 
-  private def uploadFile(method: String, url: String, file: String, mimeType: String)(implicit c: TestContext): Future[JsonObject] = {
-    val filePath = getClass.getResource(file).toURI.getPath
-    val fileName = file.substring(file.lastIndexOf("/") + 1)
+  private def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = futurify {
+    p: Promise[JsonObject] =>
+      val filePath = getClass.getResource(file).toURI.getPath
+      val fileName = file.substring(file.lastIndexOf("/") + 1)
 
-    def requestHandler(req: HttpClientRequest): Unit = {
-      val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
-      val header =
-        "--" + boundary + "\r\n" +
-          "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
-          "Content-Type: " + mimeType + "\r\n\r\n"
-      val footer = "\r\n--" + boundary + "--\r\n"
+      def requestHandler(req: HttpClientRequest): Unit = {
+        val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
+        val header =
+          "--" + boundary + "\r\n" +
+            "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
+            "Content-Type: " + mimeType + "\r\n\r\n"
 
-      val contentLength = String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
-      req.putHeader("Content-length", contentLength)
-      req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
+        val footer = "\r\n--" + boundary + "--\r\n"
 
-      logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
+        val contentLength = String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
+        req.putHeader("Content-length", contentLength)
+        req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
 
-      req.write(header)
+        logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
 
-      vertx.fileSystem.open(filePath, new OpenOptions(), { ar: AsyncResult[AsyncFile] =>
-        assertTrue(s"Should be able to open file $filePath", ar.succeeded())
+        req.write(header)
 
-        val file = ar.result()
-        val pump = Pump.pump(file, req)
-        file.endHandler({ a: Void =>
-          file.close({ ar: AsyncResult[Void] =>
-            if (ar.succeeded()) {
-              logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
-              req.end(footer)
-            } else {
-              c.fail(ar.cause())
-            }
-          })
+        import io.vertx.scala.FunctionConverters._
+
+        val asyncFile: Future[AsyncFile] = vertx.fileSystem().open(filePath, new OpenOptions(), _: Handler[AsyncResult[AsyncFile]])
+
+        asyncFile.map({
+          file =>
+            val pump = Pump.pump(file, req)
+
+            file.exceptionHandler({
+              e: Throwable =>
+                pump.stop()
+                req.end("")
+                p.failure(e)
+            })
+
+            file.endHandler({
+              _: Void =>
+                file.close({
+                  case Success(_) =>
+                    logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
+                    req.end(footer)
+                  case Failure(e) =>
+                    req.end("")
+                    p.failure(e)
+                }: Try[Void] => Unit)
+            })
+
+            pump.start()
         })
+      }
 
-        pump.start()
-      })
-    }
-
-    import FutureUtils._
-
-    promisify { p: Promise[JsonObject] =>
-      requestHandler(httpRequest(method, url, jsonResponse(p), {x => p.failure(x); c.fail()}))
-    }
+      requestHandler(httpRequest(method, url, jsonResponse(p), {
+        x =>
+          if (!p.isCompleted) {
+            p.failure(x)
+          }
+      }))
   }
 }

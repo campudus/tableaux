@@ -5,7 +5,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.2'
-        classpath 'net.saliman:gradle-cobertura-plugin:2.0.0'
+        classpath 'org.scoverage:gradle-scoverage:1.0.9'
         classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.4.0'
     }
 }
@@ -14,11 +14,8 @@ apply plugin: 'java'
 apply plugin: 'scala'
 apply plugin: 'application'
 apply plugin: 'com.github.johnrengelman.shadow'
-apply plugin: 'cobertura'
+apply plugin: 'scoverage'
 apply plugin: 'com.github.kt3k.coveralls'
-
-cobertura.coverageFormats = ['html', 'xml']
-cobertura.coverageSourceDirs = sourceSets.main.scala.srcDirs
 
 def vertxVersion = '3.1.0'
 def scalaVersion = '2.11.7'
@@ -41,14 +38,14 @@ dependencies {
 
     compile "io.vertx:vertx-core:${vertxVersion}"
     compile "io.vertx:vertx-web:${vertxVersion}"
-    //compile "io.vertx:vertx-jdbc-client:${vertxVersion}"
+    compile 'io.vertx:vertx-mysql-postgresql-client:3.2.0-SNAPSHOT'
 
     compile 'joda-time:joda-time:2.8'
-    //compile 'org.postgresql:postgresql:9.4-1201-jdbc41'
     compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'
     compile 'org.slf4j:slf4j-jdk14:1.7.12'
 
-    compile 'io.vertx:vertx-mysql-postgresql-client:3.2.0-SNAPSHOT'
+    scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.1.0'
+    scoverage 'org.scoverage:scalac-scoverage-runtime_2.11:1.1.0'
 
     testCompile "io.vertx:vertx-unit:${vertxVersion}"
     testCompile 'junit:junit:4.12'
@@ -56,6 +53,10 @@ dependencies {
 
 mainClassName = "io.vertx.core.Starter"
 def mainVerticle = "com.campudus.tableaux.Starter"
+
+checkScoverage {
+    minimumRate = 0.9
+}
 
 run {
     args = ["run", mainVerticle, "-conf", "conf.json"]

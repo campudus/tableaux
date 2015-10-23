@@ -1,15 +1,50 @@
 package io.vertx.scala
 
 import com.campudus.tableaux.DatabaseException
-import com.campudus.tableaux.helper.StandardVerticle
+import com.campudus.tableaux.helper.VertxAccess
 import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.core.{AsyncResult, Handler}
-import io.vertx.ext.asyncsql.{AsyncSQLClient, PostgreSQLClient}
+import io.vertx.ext.asyncsql.PostgreSQLClient
 import io.vertx.ext.sql.{ResultSet, UpdateResult}
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.SQLConnection.JSQLConnection
 
 import scala.concurrent.Future
+
+sealed trait DatabaseAction extends VertxAccess {
+
+  def execute(sql: String): Future[Unit]
+
+  protected def execute(connection: JSQLConnection, sql: String): Future[Unit] = connection.execute(sql, _: Handler[AsyncResult[Void]])
+
+  def query(sql: String): Future[ResultSet]
+
+  def query(sql: String, params: JsonArray): Future[ResultSet]
+
+  protected def query(connection: JSQLConnection, sql: String, params: Option[JsonArray]): Future[ResultSet] = {
+    params match {
+      case Some(p) => connection.queryWithParams(sql, p, _: Handler[AsyncResult[ResultSet]])
+      case None => connection.query(sql, _: Handler[AsyncResult[ResultSet]])
+    }
+  }
+
+  def update(sql: String): Future[UpdateResult]
+
+  def update(sql: String, params: JsonArray): Future[UpdateResult]
+
+  protected def update(connection: JSQLConnection, sql: String, params: Option[JsonArray]): Future[UpdateResult] = {
+    params match {
+      case Some(p) => connection.updateWithParams(sql, p, _: Handler[AsyncResult[UpdateResult]])
+      case None => connection.update(sql, _: Handler[AsyncResult[UpdateResult]])
+    }
+  }
+
+  protected def connection(): Future[JSQLConnection]
+
+  protected def close(connection: JSQLConnection): Future[Unit] = connection.close(_: Handler[AsyncResult[Void]])
+
+  protected def setAutoUpdate(connection: JSQLConnection, autoCommit: Boolean): Future[Unit] = connection.setAutoCommit(autoCommit, _: Handler[AsyncResult[Void]])
+}
 
 object SQLConnection {
   val LEASE_TIMEOUT = 10000
@@ -21,84 +56,7 @@ object SQLConnection {
   }
 }
 
-sealed trait SQLFunction
-
-case class Execute() extends SQLFunction
-
-case class Update() extends SQLFunction
-
-case class Query() extends SQLFunction
-
-sealed trait SQLCommons extends StandardVerticle {
-
-  def execute(sql: String): Future[Unit] = {
-    for {
-      connection <- connection()
-      _ <- execute(connection, sql)
-      _ <- close(connection)
-    } yield ()
-  }
-
-  protected def close(connection: JSQLConnection): Future[Unit] = connection.close(_: Handler[AsyncResult[Void]])
-
-  protected def execute(connection: JSQLConnection, sql: String): Future[Unit] = connection.execute(sql, _: Handler[AsyncResult[Void]])
-
-  def query(sql: String): Future[ResultSet] = {
-    for {
-      conn <- connection()
-      resultSet <- query(conn, sql)
-      _ <- close(conn)
-    } yield {
-      resultSet
-    }
-  }
-
-  def query(sql: String, params: JsonArray): Future[ResultSet] = {
-    for {
-      conn <- connection()
-      resultSet <- query(conn, sql, params)
-      _ <- close(conn)
-    } yield {
-      resultSet
-    }
-  }
-
-  protected def query(connection: JSQLConnection, sql: String): Future[ResultSet] = connection.query(sql, _: Handler[AsyncResult[ResultSet]])
-
-  protected def query(connection: JSQLConnection, sql: String, params: JsonArray): Future[ResultSet] = connection.queryWithParams(sql, params, _: Handler[AsyncResult[ResultSet]])
-
-  def update(sql: String): Future[UpdateResult] = {
-    for {
-      conn <- connection()
-      updateResult <- update(conn, sql)
-      _ <- close(conn)
-    } yield {
-      updateResult
-    }
-  }
-
-  def update(sql: String, params: JsonArray): Future[UpdateResult] = {
-    for {
-      conn <- connection()
-      updateResult <- update(conn, sql, params)
-      _ <- close(conn)
-    } yield {
-      updateResult
-    }
-  }
-
-  protected def update(connection: JSQLConnection, sql: String): Future[UpdateResult] = connection.update(sql, _: Handler[AsyncResult[UpdateResult]])
-
-  protected def update(connection: JSQLConnection, sql: String, params: JsonArray): Future[UpdateResult] = connection.updateWithParams(sql, params, _: Handler[AsyncResult[UpdateResult]])
-
-  protected def connection(): Future[JSQLConnection] = getClient.getConnection(_: Handler[AsyncResult[JSQLConnection]])
-
-  protected def setAutoUpdate(connection: JSQLConnection, autoCommit: Boolean): Future[Unit] = connection.setAutoCommit(autoCommit, _: Handler[AsyncResult[Void]])
-
-  protected def getClient: AsyncSQLClient
-}
-
-class SQLConnection(val verticle: ScalaVerticle, val config: JsonObject) extends SQLCommons {
+class SQLConnection(val verticle: ScalaVerticle, private val config: JsonObject) extends DatabaseAction {
   val client = PostgreSQLClient.createShared(vertx, config)
 
   def transaction(): Future[Transaction] = {
@@ -108,12 +66,57 @@ class SQLConnection(val verticle: ScalaVerticle, val config: JsonObject) extends
     } yield new Transaction(verticle, connection)
   }
 
-  override def getClient: AsyncSQLClient = client
+  override protected def connection(): Future[JSQLConnection] = client.getConnection(_: Handler[AsyncResult[JSQLConnection]])
+
+  override def execute(sql: String): Future[Unit] = wrap {
+    conn =>
+      for {
+        _ <- execute(conn, sql)
+      } yield ()
+  }
+
+  override def query(sql: String): Future[ResultSet] = query(sql, None)
+
+  override def query(sql: String, params: JsonArray): Future[ResultSet] = query(sql, Some(params))
+
+  private def query(sql: String, params: Option[JsonArray]): Future[ResultSet] = wrap {
+    conn =>
+      for {
+        resultSet <- query(conn, sql, params)
+      } yield {
+        resultSet
+      }
+  }
+
+  override def update(sql: String): Future[UpdateResult] = update(sql, None)
+
+  override def update(sql: String, params: JsonArray): Future[UpdateResult] = update(sql, Some(params))
+
+  private def update(sql: String, params: Option[JsonArray]): Future[UpdateResult] = wrap {
+    conn =>
+      for {
+        updateResult <- update(conn, sql, params)
+      } yield {
+        updateResult
+      }
+  }
+
+  private def wrap[A](fn: (JSQLConnection) => Future[A]): Future[A] = {
+    for {
+      conn <- connection()
+      result <- fn(conn)
+      _ <- close(conn)
+    } yield {
+      result
+    }
+  }
+
+  def close(): Future[Unit] = client.close(_: Handler[AsyncResult[Void]])
 }
 
-class Transaction(val verticle: ScalaVerticle, val conn: JSQLConnection) extends SQLCommons {
+class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection) extends DatabaseAction {
 
-  import com.campudus.tableaux.TimeoutScheduler._
+  import com.campudus.tableaux.helper.TimeoutScheduler._
 
   import scala.concurrent.duration.DurationInt
 
@@ -136,23 +139,33 @@ class Transaction(val verticle: ScalaVerticle, val conn: JSQLConnection) extends
   }
 
   override def execute(sql: String): Future[Unit] = {
-    execute(conn, sql).recoverDatabaseException("execute").withTimeout(10000, "execute")
+    execute(conn, sql)
+      .recoverDatabaseException("execute")
+      .withTimeout(10000, "execute")
   }
 
   override def query(sql: String): Future[ResultSet] = {
-    query(conn, sql).recoverDatabaseException("query").withTimeout(10000, "query")
+    query(conn, sql, None)
+      .recoverDatabaseException("query")
+      .withTimeout(10000, "query")
   }
 
   override def query(sql: String, params: JsonArray): Future[ResultSet] = {
-    query(conn, sql, params).recoverDatabaseException("query").withTimeout(10000, "query")
+    query(conn, sql, Some(params))
+      .recoverDatabaseException("query")
+      .withTimeout(10000, "query")
   }
 
   override def update(sql: String): Future[UpdateResult] = {
-    update(conn, sql).recoverDatabaseException("update").withTimeout(10000, "update")
+    update(conn, sql, None)
+      .recoverDatabaseException("update")
+      .withTimeout(10000, "update")
   }
 
   override def update(sql: String, params: JsonArray): Future[UpdateResult] = {
-    update(conn, sql, params).recoverDatabaseException("update").withTimeout(10000, "update")
+    update(conn, sql, Some(params))
+      .recoverDatabaseException("update")
+      .withTimeout(10000, "update")
   }
 
   override def close(_conn: JSQLConnection): Future[Unit] = {
@@ -174,10 +187,6 @@ class Transaction(val verticle: ScalaVerticle, val conn: JSQLConnection) extends
   }
 
   def rollback(): Future[Unit] = {
-    import com.campudus.tableaux.TimeoutScheduler._
-
-    import scala.concurrent.duration.DurationInt
-
     (for {
       _ <- asyncVoid(conn.rollback(_: Handler[AsyncResult[Void]])).withTimeout(DurationInt(1).seconds, "rollback")
       _ <- close(conn)
@@ -185,6 +194,4 @@ class Transaction(val verticle: ScalaVerticle, val conn: JSQLConnection) extends
         ()
       }) recoverDatabaseException "rollback" withTimeout(10000, "commit")
   }
-
-  override def getClient: AsyncSQLClient = null
 }

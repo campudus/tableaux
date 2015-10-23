@@ -1,18 +1,16 @@
 package com.campudus.tableaux
 
-import java.nio.file.FileAlreadyExistsException
-
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.helper.FutureUtils
+import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.RouterRegistry
 import io.vertx.core.http.{HttpServer, HttpServerRequest}
-import io.vertx.ext.web.Router
+import io.vertx.ext.web.{Router, RoutingContext}
 import io.vertx.scala.FunctionConverters._
+import io.vertx.scala.FutureHelper._
 import io.vertx.scala.{SQLConnection, ScalaVerticle}
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
-import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
 object Starter {
@@ -21,9 +19,6 @@ object Starter {
 }
 
 class Starter extends ScalaVerticle {
-
-  import FutureUtils._
-  import Starter._
 
   private var connection: SQLConnection = _
 
@@ -35,8 +30,8 @@ class Starter extends ScalaVerticle {
 
     val config = context.config()
 
-    val port = config.getInteger("port", DEFAULT_PORT)
-    val host = config.getString("host", DEFAULT_HOST)
+    val port = config.getInteger("port", Starter.DEFAULT_PORT)
+    val host = config.getString("host", Starter.DEFAULT_HOST)
 
     val databaseConfig = config.getJsonObject("database", Json.obj())
 
@@ -44,13 +39,14 @@ class Starter extends ScalaVerticle {
       verticle = this,
       databaseConfig = databaseConfig,
       workingDir = config.getString("workingDirectory"),
-      uploadDir = config.getString("uploadsDirectory")
+      uploadsDir = config.getString("uploadsDirectory"),
+      uploadsTempDir = config.getString("uploadsTempDirectory")
     )
 
     connection = SQLConnection(this, databaseConfig)
 
     (for {
-      _ <- createUploadsDirectory(tableauxConfig)
+      _ <- createUploadsDirectories(tableauxConfig)
       _ <- deployHttpServer(port, host, tableauxConfig, connection)
     } yield {
         p.success(())
@@ -60,32 +56,35 @@ class Starter extends ScalaVerticle {
   }
 
   override def stop(p: Promise[Unit]): Unit = {
-    connection.getClient.close()
+    connection.close()
     p.success(())
   }
 
-  def createUploadsDirectory(config: TableauxConfig): Future[Unit] = promisify { p: Promise[Unit] =>
-    val uploadsDirectory = Path(s"${config.workingDirectory}/${config.uploadsDirectory}")
+  def createUploadsDirectories(config: TableauxConfig): Future[Unit] = {
+    val verticle = this
 
-    // succeed also in error cause (directory already exists)
-    vertx.fileSystem.mkdir(s"$uploadsDirectory", {
-      case Success(s) => p.success(())
-      case Failure(x) => {
-        x.getCause match {
-          case _: FileAlreadyExistsException => p.success(())
-          case _ => p.failure(x)
-        }
-      }
-    }: Try[Void] => Unit)
+    val uploadsDirectory = config.uploadsDirectoryPath()
+    val uploadsTempDirectory = config.uploadsTempDirectoryPath()
+
+    for {
+      _ <- FileUtils(verticle).mkdirs(uploadsDirectory)
+      _ <- FileUtils(verticle).mkdirs(uploadsTempDirectory)
+    } yield ()
   }
 
-  def deployHttpServer(port: Int, host: String, tableauxConfig: TableauxConfig, connection: SQLConnection): Future[HttpServer] = promisify { p: Promise[HttpServer] =>
+  def handleUpload(context: RoutingContext): Unit = {
+    logger.info(s"handle upload ${context.fileUploads()}")
+
+    context.response().end()
+  }
+
+  def deployHttpServer(port: Int, host: String, tableauxConfig: TableauxConfig, connection: SQLConnection): Future[HttpServer] = futurify { p: Promise[HttpServer] =>
     val dbConnection = DatabaseConnection(this, connection)
     val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
 
     val router = Router.router(vertx)
 
-    router.route.handler(routerRegistry)
+    router.route().handler(routerRegistry)
 
     vertx.createHttpServer().requestHandler(router.accept(_: HttpServerRequest)).listen(port, host, {
       case Success(server) => p.success(server)

@@ -3,7 +3,7 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType, SetReturn}
-import com.campudus.tableaux.helper.StandardVerticle
+import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 import io.vertx.core.Verticle
 import io.vertx.core.buffer.Buffer
@@ -19,7 +19,7 @@ import org.vertx.scala.router.{Router, RouterException}
 import scala.concurrent.{Promise, Future}
 import scala.util.{Failure, Success, Try}
 
-trait BaseRouter extends Router with StandardVerticle with LazyLogging {
+trait BaseRouter extends Router with VertxAccess with LazyLogging {
 
   val config: TableauxConfig
 

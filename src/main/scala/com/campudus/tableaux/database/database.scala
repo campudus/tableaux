@@ -4,7 +4,7 @@ import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.FolderModel._
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.helper.StandardVerticle
+import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.ext.sql.{ResultSet, UpdateResult}
 import io.vertx.scala._
@@ -62,7 +62,7 @@ object DatabaseConnection {
   }
 }
 
-class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnection) extends StandardVerticle with LazyLogging {
+class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnection) extends VertxAccess with LazyLogging {
 
   import DatabaseConnection._
 
@@ -100,7 +100,7 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
   def begin(): Future[Transaction] = connection.transaction().map(Transaction)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
-    import com.campudus.tableaux.TimeoutScheduler._
+    import com.campudus.tableaux.helper.TimeoutScheduler._
 
     import scala.concurrent.duration.DurationInt
 
@@ -154,8 +154,8 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     }
   }
 
-  private def doMagicQuery(stmt: String, values: Option[JsonArray], connection: SQLCommons): Future[JsonObject] = {
-    val command = stmt.trim().split(" ").head.toUpperCase
+  private def doMagicQuery(stmt: String, values: Option[JsonArray], connection: DatabaseAction): Future[JsonObject] = {
+    val command = stmt.trim().split("\\s+").head.toUpperCase
     val returning = stmt.trim().toUpperCase.contains("RETURNING")
 
     val future = (command, returning) match {

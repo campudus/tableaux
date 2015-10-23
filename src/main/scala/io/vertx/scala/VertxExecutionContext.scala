@@ -4,14 +4,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.Vertx
-import io.vertx.core.logging.{Logger, LoggerFactory}
 import io.vertx.scala.FunctionConverters._
 
 import scala.concurrent.ExecutionContext
 
-trait VertxExecutionContext {
-
-  private def logger: Logger = LoggerFactory.getLogger(classOf[VertxExecutionContext])
+trait VertxExecutionContext extends LazyLogging {
 
   val _vertx: Vertx
 
@@ -24,7 +21,7 @@ object VertxEventLoopExecutionContext {
   }
 }
 
-class VertxEventLoopExecutionContext(val vertx: Vertx, val errorHandler: (Throwable) => Unit) extends ExecutionContext with LazyLogging{
+class VertxEventLoopExecutionContext(val vertx: Vertx, val errorHandler: (Throwable) => Unit) extends ExecutionContext with LazyLogging {
 
   val context = Option(Vertx.currentContext()).getOrElse(vertx.getOrCreateContext)
 
@@ -34,7 +31,7 @@ class VertxEventLoopExecutionContext(val vertx: Vertx, val errorHandler: (Throwa
     val random = integer.getAndIncrement()
 
     val _vertx = vertx
-    val timerId = _vertx.setTimer(10000, { d: java.lang.Long => logger.error(s"$random exceeded the delay")})
+    val timerId = _vertx.setTimer(10000, { d: java.lang.Long => logger.error(s"$random exceeded the delay") })
 
     if (context == Vertx.currentContext()) {
       try {

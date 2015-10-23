@@ -21,16 +21,16 @@ import scala.util.{Failure, Success, Try}
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable
 
 trait TestAssertionHelper {
-  def assertEquals(message: String, excepted: Any, actual: Any)(implicit c: TestContext): TestContext = {
+  def assertEquals[A](message: String, excepted: A, actual: A)(implicit c: TestContext): TestContext = {
     c.assertEquals(excepted, actual, message)
   }
 
-  def assertEquals(excepted: Any, actual: Any)(implicit c: TestContext): TestContext = {
+  def assertEquals[A](excepted: A, actual: A)(implicit c: TestContext): TestContext = {
     c.assertEquals(excepted, actual)
   }
 
   def assertNull(excepted: Any)(implicit c: TestContext): TestContext = {
-    c.assertNotNull(excepted)
+    c.assertNull(excepted)
   }
 
   def assertTrue(message: String, condition: Boolean)(implicit c: TestContext): TestContext = {
@@ -41,7 +41,7 @@ trait TestAssertionHelper {
     c.assertTrue(condition)
   }
 
-  def assertNotSame(first: Any, second: Any)(implicit c: TestContext): TestContext = {
+  def assertNotSame[A](first: A, second: A)(implicit c: TestContext): TestContext = {
     c.assertNotEquals(first, second)
   }
 }

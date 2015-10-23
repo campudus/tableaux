@@ -5,8 +5,11 @@ import java.util.UUID
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
+import io.vertx.core.http.HttpServerFileUpload
 import io.vertx.ext.web.RoutingContext
+import io.vertx.scala.FunctionConverters._
 import org.vertx.scala.core.json.JsonObject
+import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing._
 
 import scala.concurrent.{Future, Promise}
@@ -102,7 +105,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       for {
         (file, paths) <- controller.retrieveFile(UUID.fromString(uuid))
       } yield {
-        val absolute = config.workingDirectory.startsWith("/")
+        val absolute = config.isWorkingDirectoryAbsolute
 
         val mimeType = file.file.mimeType.get(langtag)
         val path = paths.get(langtag).get
@@ -155,20 +158,20 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   def handleUpload(implicit context: RoutingContext, fn: (UploadAction) => Future[DomainObject]): AsyncReply = asyncSetReply({
-    logger.info(s"Handle upload for ${context.request().absoluteURI()}")
+    logger.info(s"Handle upload for ${context.request().absoluteURI()} ${context.fileUploads()}")
+
+    val req = context.request()
 
     val p = Promise[DomainObject]()
 
-    /*
-    val timerId = vertx.setTimer(10000, { timerId: Long =>
+    val timerId = vertx.setTimer(10000L, { timerId: java.lang.Long =>
       p.failure(RouterException(message = "No valid file upload received", id = "errors.upload.invalidRequest", statusCode = 400))
     })
 
-    context.fileUploads()
+    req.setExpectMultipart(true)
 
-    req.expectMultiPart(expect = true)
-
-    req.uploadHandler({ upload =>
+    // TODO this only can handle one file upload per request
+    req.uploadHandler({ upload: HttpServerFileUpload =>
       logger.info("Received a file upload")
 
       vertx.cancelTimer(timerId)
@@ -179,10 +182,8 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
       val action = UploadAction(upload.filename(), upload.contentType(), setExceptionHandler, setEndHandler, setStreamToFile)
 
-      logger.info("Call fn(action)")
-      fn(action).map(p.success)
+      fn(action).map(p.success).recoverWith({ case e => logger.error("Upload failed", e); p.failure(e); Future.failed(e) })
     })
-    */
 
     p.future
   })

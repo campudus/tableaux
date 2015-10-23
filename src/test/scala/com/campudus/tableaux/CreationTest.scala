@@ -62,6 +62,7 @@ class CreationTest extends TableauxTestBase {
     val jsonObj = Json.obj("columns" -> Json.arr(
       Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
       Json.obj("kind" -> "text", "name" -> "Test Column 2")))
+
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
       Json.obj("id" -> 1, "ordering" -> 1),
       Json.obj("id" -> 2, "ordering" -> 2)))

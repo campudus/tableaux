@@ -6,13 +6,14 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
-import com.campudus.tableaux.helper.FutureUtils
 import com.campudus.tableaux.router.UploadAction
 import io.vertx.core.file.FileSystem
+import io.vertx.scala.FunctionConverters._
+import io.vertx.scala.FutureHelper._
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object MediaController {
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
@@ -24,9 +25,7 @@ class MediaController(override val config: TableauxConfig,
                       override protected val repository: FolderModel,
                       protected val fileModel: FileModel) extends Controller[FolderModel] {
 
-  import FutureUtils._
-
-  lazy val uploadsDirectory = Path(s"${config.workingDirectory}/${config.uploadsDirectory}")
+  lazy val uploadsDirectory = config.uploadsDirectoryPath()
 
   /**
    * Alias for None which represents
@@ -95,13 +94,23 @@ class MediaController(override val config: TableauxConfig,
     fileModel.add(file).map(TemporaryFile)
   }
 
-  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[File] = promisify { p: Promise[File] =>
+  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[File] = futurify { p: Promise[File] =>
     val ext = Path(upload.fileName).extension
     val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
 
+    val errorHandler = { ex: Throwable =>
+      logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
+      vertx.fileSystem().delete(filePath.toString(), {
+        case Success(_) | Failure(_) => p.failure(ex)
+      }: Try[Void] => Unit)
+    }
+
     upload.exceptionHandler({ ex: Throwable =>
       logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
-      p.failure(ex)
+
+      vertx.fileSystem().delete(filePath.toString(), {
+        case Success(_) | Failure(_) => p.failure(ex)
+      }: Try[Void] => Unit)
     })
 
     upload.endHandler({ () =>
@@ -134,11 +143,14 @@ class MediaController(override val config: TableauxConfig,
           fileModel.update(file)
         }
       } yield {
-        p.success(updatedFile)
-      }) recover {
+          p.success(updatedFile)
+        }) recover {
         case ex =>
           logger.error("Making database entry failed.", ex)
-          p.failure(ex)
+
+          vertx.fileSystem().delete(filePath.toString(), {
+            case Success(_) | Failure(_) => p.failure(ex)
+          }: Try[Void] => Unit)
       }
     })
 
@@ -202,10 +214,7 @@ class MediaController(override val config: TableauxConfig,
   }
 
   private def deleteFile(path: Path): Future[Unit] = {
-    import FutureUtils._
-    import io.vertx.scala.FunctionConverters._
-
-    promisify({ p: Promise[Unit] =>
+    futurify({ p: Promise[Unit] =>
       val deleteFuture = asyncVoid(vertx.fileSystem().delete(path.toString(), _))
       deleteFuture.onComplete({
         case Success(_) => p.success(())
