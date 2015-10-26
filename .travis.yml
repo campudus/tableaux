@@ -6,7 +6,7 @@ addons:
 before_script:
 - psql -c 'SHOW SERVER_VERSION;' -U postgres
 - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
-script: "./gradlew testScoverage"
+script: "./gradlew testScoverage --info"
 after_success: "./gradlew reportScoverage coveralls"
 env:
   global:
