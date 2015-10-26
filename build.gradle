@@ -32,8 +32,6 @@ repositories {
 }
 
 dependencies {
-    compile 'org.hsqldb:hsqldb:2.3.3'
-
     compile "org.scala-lang:scala-library:${scalaVersion}"
 
     compile "io.vertx:vertx-core:${vertxVersion}"
@@ -86,6 +84,22 @@ sourceSets {
     }
 }
 
+def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
+
+coveralls {
+    def sourceDirStrings = new ArrayList()
+    subprojects.sourceSets.main.allSource.srcDirs.each {
+        it.each {
+            java.nio.file.Path absPath = Paths.get(it.toString())
+            java.nio.file.Path basePath = Paths.get(System.getProperty("user.dir"))
+            java.nio.file.Path relPath = basePath.relativize(absPath)
+            sourceDirStrings.add(relPath.toString())
+        }
+    }
+    sourceDirs = sourceDirStrings.flatten()
+    coberturaReportPath = coverageReportPath
+}
+
 jar {
     manifest {
         attributes 'Main-Class': mainClassName
@@ -102,5 +116,5 @@ shadowJar {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.7'
+    gradleVersion = '2.8'
 }
