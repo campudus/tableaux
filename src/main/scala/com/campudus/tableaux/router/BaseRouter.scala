@@ -58,8 +58,6 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   def getJson(context: RoutingContext): Future[JsonObject] = futurify { p: Promise[JsonObject] =>
     context.request().bodyHandler({ buffer: Buffer =>
       val requestBody = buffer.toString()
-      logger.info(s"Parse requestBody for json. $requestBody")
-
       Option(requestBody).getOrElse("").isEmpty match {
         case true => p.failure(NoJsonFoundException("Warning: No Json found", "not-found"))
         case false => Try(Json.fromObjectString(requestBody)) match {

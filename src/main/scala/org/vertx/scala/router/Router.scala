@@ -142,7 +142,7 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
    */
   override final def apply(context: RoutingContext): Unit = {
     val req = context.request()
-    logger.info(s"${req.method()}-Request: ${req.uri()}")
+    logger.debug(s"${req.method()}-Request: ${req.uri()}")
 
     val reply = try {
       val path = req.path()

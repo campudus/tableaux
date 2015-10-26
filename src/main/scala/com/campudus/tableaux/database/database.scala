@@ -110,7 +110,6 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
       transaction <- begin().withTimeout(DurationInt(1).seconds, s"Transaction-Begin")
 
       (transaction, result) <- {
-        logger.info(s"Transactional begin $random")
         fn(transaction) recoverWith {
           case e =>
             logger.error("Failed executing transactional. Rollback and fail.", e)
@@ -120,11 +119,9 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
       }.withTimeout(DurationInt(1).seconds, s"Transactional-Fn $random")
 
       _ <- {
-        logger.info(s"Transactional fn $random")
         transaction.commit().withTimeout(DurationInt(2).seconds, s"Transactional-Commit $random")
       }
     } yield {
-      logger.info(s"Transactional commit $random")
       result
     }
   }
