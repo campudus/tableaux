@@ -31,28 +31,26 @@ class VertxEventLoopExecutionContext(val vertx: Vertx, val errorHandler: (Throwa
     val random = integer.getAndIncrement()
 
     val _vertx = vertx
-    val timerId = _vertx.setTimer(10000, { d: java.lang.Long => logger.error(s"$random exceeded the delay") })
+    val timerId = _vertx.setTimer(10000, { d: java.lang.Long => logger.error(s"Execution on EventLoop took longer than expected (more than 10000ms).") })
 
     if (context == Vertx.currentContext()) {
       try {
-        //logger.info(s"Before runnable $random")
         runnable.run()
-        //logger.info(s"After runnable $random")
-        _vertx.cancelTimer(timerId)
       } catch {
         case e: Throwable =>
           reportFailure(e)
+      } finally {
+        _vertx.cancelTimer(timerId)
       }
     } else {
       context.runOnContext({ _: Void =>
         try {
-          logger.info(s"Before onContext runnable $random")
           runnable.run()
-          logger.info(s"After onContext runnable $random")
-          _vertx.cancelTimer(timerId)
         } catch {
           case e: Throwable =>
             reportFailure(e)
+        } finally {
+          _vertx.cancelTimer(timerId)
         }
       })
     }
