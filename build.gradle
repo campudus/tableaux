@@ -53,7 +53,7 @@ mainClassName = "io.vertx.core.Starter"
 def mainVerticle = "com.campudus.tableaux.Starter"
 
 checkScoverage {
-    minimumRate = 0.9
+    minimumRate = 0.85
 }
 
 run {
