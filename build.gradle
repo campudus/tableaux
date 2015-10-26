@@ -1,0 +1,120 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.2'
+        classpath 'org.scoverage:gradle-scoverage:1.0.9'
+        classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.4.0'
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'scala'
+apply plugin: 'application'
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'scoverage'
+apply plugin: 'com.github.kt3k.coveralls'
+
+def vertxVersion = '3.1.0'
+def scalaVersion = '2.11.7'
+
+if (!JavaVersion.current().java8Compatible) {
+    throw new IllegalStateException("This needs Java 8.")
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'http://oss.sonatype.org/content/repositories/snapshots'
+    }
+}
+
+dependencies {
+    compile "org.scala-lang:scala-library:${scalaVersion}"
+
+    compile "io.vertx:vertx-core:${vertxVersion}"
+    compile "io.vertx:vertx-web:${vertxVersion}"
+    compile 'io.vertx:vertx-mysql-postgresql-client:3.2.0-SNAPSHOT'
+
+    compile 'joda-time:joda-time:2.8'
+    compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'
+    compile 'org.slf4j:slf4j-jdk14:1.7.12'
+
+    scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.1.0'
+    scoverage 'org.scoverage:scalac-scoverage-runtime_2.11:1.1.0'
+
+    testCompile "io.vertx:vertx-unit:${vertxVersion}"
+    testCompile 'junit:junit:4.12'
+}
+
+mainClassName = "io.vertx.core.Starter"
+def mainVerticle = "com.campudus.tableaux.Starter"
+
+checkScoverage {
+    minimumRate = 0.85
+}
+
+run {
+    args = ["run", mainVerticle, "-conf", "conf.json"]
+}
+
+compileScala {
+    scalaCompileOptions.useCompileDaemon = true
+
+    // optionally specify host and port of the daemon:
+    scalaCompileOptions.daemonServer = "localhost:4243"
+}
+
+// activate Zinc incremental compilation
+tasks.withType(ScalaCompile) {
+    scalaCompileOptions.useAnt = false
+}
+
+// let Scala compiler do everything – even java stuff
+sourceSets {
+    main {
+        scala {
+            srcDirs = ['src/main/scala', 'src/main/java']
+        }
+        java {
+            srcDirs = []
+        }
+    }
+}
+
+def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
+
+coveralls {
+    def sourceDirStrings = new ArrayList()
+    subprojects.sourceSets.main.allSource.srcDirs.each {
+        it.each {
+            java.nio.file.Path absPath = Paths.get(it.toString())
+            java.nio.file.Path basePath = Paths.get(System.getProperty("user.dir"))
+            java.nio.file.Path relPath = basePath.relativize(absPath)
+            sourceDirStrings.add(relPath.toString())
+        }
+    }
+    sourceDirs = sourceDirStrings.flatten()
+    coberturaReportPath = coverageReportPath
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': mainClassName
+        attributes 'Main-Verticle': mainVerticle
+    }
+}
+
+shadowJar {
+    classifier = 'fat'
+
+    mergeServiceFiles {
+        include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
+    }
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.8'
+}

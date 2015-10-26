@@ -5,7 +5,7 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.{FileUtils, JsonUtils}
-import org.vertx.java.core.json.JsonObject
+import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
 
@@ -66,10 +66,19 @@ class SystemController(override val config: TableauxConfig,
     logger.info(s"createTable $tableName columns $rows")
 
     for {
+      tables <- structureModel.tableStruc.retrieveAll()
+      c <- structureModel.columnStruc.retrieveAll(1)
+    } yield {
+      logger.info(s"after retrieve $tables $c")
+    }
+
+    for {
       table <- structureModel.tableStruc.create(tableName)
       columns <- structureModel.columnStruc.createColumns(table, columns)
-      columnIds <- Future(columns.map(_.id))
-      rowsWithColumnIdAndValue <- Future.successful(rows.map(columnIds.zip(_)))
+
+      columnIds = columns.map(_.id)
+      rowsWithColumnIdAndValue = rows.map(columnIds.zip(_))
+
       _ <- tableauxModel.createRows(table.id, rowsWithColumnIdAndValue)
     } yield table
   }

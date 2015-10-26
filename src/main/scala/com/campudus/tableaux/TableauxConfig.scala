@@ -1,22 +1,45 @@
 package com.campudus.tableaux
 
-import com.campudus.tableaux.helper.StandardVerticle
-import org.vertx.scala.platform.Verticle
+import com.campudus.tableaux.helper.VertxAccess
+import io.vertx.core.json.JsonObject
+import io.vertx.scala.ScalaVerticle
+
+import scala.reflect.io.Path
 
 object TableauxConfig {
-  def apply(vert: Verticle, addr: String, pwd: String, upload: String): TableauxConfig = {
+  def apply(verticle: ScalaVerticle, databaseConfig: JsonObject, workingDir: String, uploadsDir: String, uploadsTempDir: String): TableauxConfig = {
+    val _verticle = verticle
+
     new TableauxConfig {
-      override val verticle = vert
-      override val databaseAddress = addr
-      override val workingDirectory = pwd
-      override val uploadsDirectory = upload
+      override val verticle = _verticle
+      override val database = databaseConfig
+      override val workingDirectory = workingDir
+      override val uploadsDirectory = uploadsDir
+      override val uploadsTempDirectory = uploadsTempDir
     }
   }
 }
 
-trait TableauxConfig extends StandardVerticle {
-  val databaseAddress: String
+trait TableauxConfig extends VertxAccess {
+  val database: JsonObject
 
   val workingDirectory: String
   val uploadsDirectory: String
+  val uploadsTempDirectory: String
+
+  def uploadsDirectoryPath(): Path = {
+    retrievePath(uploadsDirectory)
+  }
+
+  def uploadsTempDirectoryPath(): Path = {
+    retrievePath(uploadsTempDirectory)
+  }
+
+  def retrievePath(subpath: String): Path = {
+    Path(s"$workingDirectory/$subpath")
+  }
+
+  def isWorkingDirectoryAbsolute: Boolean = {
+    workingDirectory.startsWith("/")
+  }
 }

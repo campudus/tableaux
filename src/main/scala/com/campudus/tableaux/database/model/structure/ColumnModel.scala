@@ -10,7 +10,17 @@ import scala.concurrent.Future
 
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = Future.sequence(createColumns.map(createColumn(table, _)))
+  def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
+    createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
+      case (future, next) =>
+        for {
+          createdColumns <- future
+          createdColumn <- createColumn(table, next)
+        } yield {
+          createdColumns :+ createdColumn
+        }
+    }
+  }
 
   def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
     createColumn match {
@@ -34,14 +44,16 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   private def createValueColumn(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
-        (t, result) <- insertSystemColumn(t, tableId, name, dbType, ordering, None, languageType)
-        result <- Future.successful(insertNotNull(result).head)
+        (t, resultJson) <- insertSystemColumn(t, tableId, name, dbType, ordering, None, languageType)
+        resultRow = insertNotNull(resultJson).head
 
         (t, _) <- languageType match {
-          case MultiLanguage => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${result.get[ColumnId](0)} $dbType")
-          case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${result.get[ColumnId](0)} $dbType")
+          case MultiLanguage => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${resultRow.get[ColumnId](0)} $dbType")
+          case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${resultRow.get[ColumnId](0)} $dbType")
         }
-      } yield (t, (result.get[ColumnId](0), result.get[Ordering](1)))
+      } yield {
+        (t, (resultRow.get[ColumnId](0), resultRow.get[Ordering](1)))
+      }
     }
   }
 
@@ -83,13 +95,13 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
                               |id_2 bigint,
                               |PRIMARY KEY(id_1, id_2),
                               |CONSTRAINT link_table_${linkId}_foreign_1
-                              | FOREIGN KEY(id_1)
-                              | REFERENCES user_table_$tableId (id)
-                              | ON DELETE CASCADE,
+                              |FOREIGN KEY(id_1)
+                              |REFERENCES user_table_$tableId (id)
+                              |ON DELETE CASCADE,
                               |CONSTRAINT link_table_${linkId}_foreign_2
-                              | FOREIGN KEY(id_2)
-                              | REFERENCES user_table_$toTableId (id)
-                              | ON DELETE CASCADE
+                              |FOREIGN KEY(id_2)
+                              |REFERENCES user_table_$toTableId (id)
+                              |ON DELETE CASCADE
                               |)""".stripMargin)
       } yield {
         val json = insertNotNull(result).head

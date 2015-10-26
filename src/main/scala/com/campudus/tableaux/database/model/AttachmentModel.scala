@@ -53,8 +53,6 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
         })
 
         (t, _) <- {
-          connection.logger.info(s"params $params")
-
           if (params.nonEmpty) {
             t.query(s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr", Json.arr(params: _*))
           } else {

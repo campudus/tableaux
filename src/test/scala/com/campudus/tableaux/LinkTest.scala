@@ -1,17 +1,20 @@
 package com.campudus.tableaux
 
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
-import org.vertx.testtools.VertxAssert._
 
 import scala.concurrent.Future
 
+@RunWith(classOf[VertxUnitRunner])
 class LinkTest extends TableauxTestBase {
 
   val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
 
   @Test
-  def retrieveLinkColumn(): Unit = okTest {
+  def retrieveLinkColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 3,
@@ -38,32 +41,32 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
-  def createLinkColumn(): Unit = okTest {
+  def createLinkColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
 
     for {
       tables <- setupTwoTables()
-      test <- sendRequest("POST",  "/tables/1/columns",  postLinkCol)
+      test <- sendRequest("POST", "/tables/1/columns", postLinkCol)
     } yield {
       assertEquals(expectedJson, test)
     }
   }
 
   @Test
-  def createLinkColumnWithOrdering(): Unit = okTest {
+  def createLinkColumnWithOrdering(implicit c: TestContext): Unit = okTest {
     val postLinkColWithOrd = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1, "ordering" -> 5)))
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 5)))
 
     for {
       tables <- setupTwoTables()
-      test <- sendRequest("POST",  "/tables/1/columns",  postLinkColWithOrd)
+      test <- sendRequest("POST", "/tables/1/columns", postLinkColWithOrd)
     } yield {
       assertEquals(expectedJson, test)
     }
   }
 
   @Test
-  def createLinkColumnWithToName(): Unit = okTest {
+  def createLinkColumnWithToName(implicit c: TestContext): Unit = okTest {
     val postLinkColWithOrd = Json.obj(
       "columns" -> Json.arr(
         Json.obj(
@@ -81,7 +84,7 @@ class LinkTest extends TableauxTestBase {
 
     for {
       tables <- setupTwoTables()
-      createLink <- sendRequest("POST",  "/tables/1/columns",  postLinkColWithOrd)
+      createLink <- sendRequest("POST", "/tables/1/columns", postLinkColWithOrd)
       retrieveLinkColumn <- sendRequest("GET", s"/tables/2/columns/3")
     } yield {
       assertEquals(expectedJson, createLink)
@@ -90,7 +93,7 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
-  def fillAndRetrieveLinkCell(): Unit = okTest {
+  def fillAndRetrieveLinkCell(implicit c: TestContext): Unit = okTest {
     def valuesRow(c: String) =
       Json.obj(
         "columns" -> Json.arr(
@@ -108,18 +111,18 @@ class LinkTest extends TableauxTestBase {
     for {
       tables <- setupTwoTables()
       // create link column
-      postResult <- sendRequest("POST",  "/tables/1/columns",  postLinkCol)
+      postResult <- sendRequest("POST", "/tables/1/columns", postLinkCol)
       columnId <- Future.apply(postResult.getArray("columns").get[JsonObject](0).getLong("id"))
       // add row 1 to table 2
-      postResult <- sendRequest("POST",  "/tables/2/rows",  valuesRow("Lala"))
+      postResult <- sendRequest("POST", "/tables/2/rows", valuesRow("Lala"))
       rowId1 <- Future.apply(postResult.getArray("rows").get[JsonObject](0).getInteger("id"))
       // add row 2 to table 2
-      postResult <- sendRequest("POST",  "/tables/2/rows",  valuesRow("Lulu"))
+      postResult <- sendRequest("POST", "/tables/2/rows", valuesRow("Lulu"))
       rowId2 <- Future.apply(postResult.getArray("rows").get[JsonObject](0).getInteger("id"))
       // add link 1
-      addLink1 <- sendRequest("POST",  s"/tables/1/columns/$columnId/rows/1",  fillLinkCellJson(rowId1))
+      addLink1 <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", fillLinkCellJson(rowId1))
       // add link 2
-      addLink2 <- sendRequest("POST",  s"/tables/1/columns/$columnId/rows/1",  fillLinkCellJson(rowId2))
+      addLink2 <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", fillLinkCellJson(rowId2))
       // get link value (so it's a value from table 2 shown in table 1)
       linkValue <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
@@ -139,7 +142,7 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveLinkValuesFromLinkedTable(): Unit = okTest {
+  def retrieveLinkValuesFromLinkedTable(implicit c: TestContext): Unit = okTest {
     def valuesRow(c: String) = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
       "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2)))
@@ -237,7 +240,7 @@ class LinkTest extends TableauxTestBase {
     )
 
     def addRow(tableId: Long, values: JsonObject): Future[Number] = for {
-      res <- sendRequest("POST",  s"/tables/$tableId/rows",  values)
+      res <- sendRequest("POST", s"/tables/$tableId/rows", values)
       table1RowId1 <- Future.apply(res.getArray("rows").get[JsonObject](0).getNumber("id"))
     } yield table1RowId1
 
@@ -250,7 +253,7 @@ class LinkTest extends TableauxTestBase {
       tables <- setupTwoTables()
 
       // create link column
-      res <- sendRequest("POST",  "/tables/1/columns",  linkColumn)
+      res <- sendRequest("POST", "/tables/1/columns", linkColumn)
       linkColumnId <- Future.apply(res.getArray("columns").get[JsonObject](0).getNumber("id"))
 
       // add rows to tables
@@ -262,7 +265,7 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
-  def putLinkValues(): Unit = okTest {
+  def putLinkValues(implicit c: TestContext): Unit = okTest {
 
     val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
 
@@ -280,18 +283,18 @@ class LinkTest extends TableauxTestBase {
       resGet4 <- sendRequest("GET", s"/tables/2/columns/$linkColumnId/rows/2")
     } yield {
       val expected1 = Json.obj("status" -> "ok", "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table2row1"),
-          Json.obj("id" -> 2, "value" -> "table2row2")
-        )
+        Json.obj("id" -> 1, "value" -> "table2row1"),
+        Json.obj("id" -> 2, "value" -> "table2row2")
+      )
       )
       val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr())
       val expected3 = Json.obj("status" -> "ok", "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table1row1")
-        )
+        Json.obj("id" -> 1, "value" -> "table1row1")
+      )
       )
       val expected4 = Json.obj("status" -> "ok", "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table1row1")
-        )
+        Json.obj("id" -> 1, "value" -> "table1row1")
+      )
       )
 
       assertEquals(Json.obj("status" -> "ok"), resPut)
@@ -303,7 +306,7 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteAllLinkValues(): Unit = okTest {
+  def deleteAllLinkValues(implicit c: TestContext): Unit = okTest {
     val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
     val putOneLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
     val putZeroLinks = Json.obj("value" -> Json.obj("values" -> Json.arr()))
@@ -326,14 +329,14 @@ class LinkTest extends TableauxTestBase {
       resGet3 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
     } yield {
       val expected1 = Json.obj("status" -> "ok", "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table2row1"),
-          Json.obj("id" -> 2, "value" -> "table2row2")
-        )
+        Json.obj("id" -> 1, "value" -> "table2row1"),
+        Json.obj("id" -> 2, "value" -> "table2row2")
+      )
       )
 
       val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table2row1")
-        )
+        Json.obj("id" -> 1, "value" -> "table2row1")
+      )
       )
 
       val expected3 = Json.obj("status" -> "ok", "value" -> Json.arr())
@@ -349,24 +352,24 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
-  def invalidPutLinkValueToMissing(): Unit = {
+  def invalidPutLinkValueToMissing(implicit c: TestContext): Unit = {
     // Should contain a "to" value
     invalidJsonForLink(Json.obj("value" -> Json.obj("invalid" -> "no to")))
   }
 
   @Test
-  def invalidPutLinkValueToString(): Unit = {
+  def invalidPutLinkValueToString(implicit c: TestContext): Unit = {
     // Should contain a "to" value that is an integer
     invalidJsonForLink(Json.obj("value" -> Json.obj("to" -> "hello")))
   }
 
   @Test
-  def invalidPutLinkValuesStrings(): Unit = {
+  def invalidPutLinkValuesStrings(implicit c: TestContext): Unit = {
     // Should contain values that is an integer
     invalidJsonForLink(Json.obj("value" -> Json.obj("values" -> Json.arr("hello"))))
   }
 
-  private def invalidJsonForLink(input: JsonObject) = exceptionTest("error.json.link-value") {
+  private def invalidJsonForLink(input: JsonObject)(implicit c: TestContext) = exceptionTest("error.json.link-value") {
     for {
       linkColumnId <- setupTwoTablesWithEmptyLinks()
       resPut <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", input)
@@ -374,7 +377,7 @@ class LinkTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveEmptyLinkValue(): Unit = okTest {
+  def retrieveEmptyLinkValue(implicit c: TestContext): Unit = okTest {
     val linkColumn = Json.obj(
       "columns" -> Json.arr(
         Json.obj(

@@ -4,15 +4,16 @@ import java.util.UUID
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
-import com.campudus.tableaux.database.domain.{MultiLanguageValue, DomainObject}
-import org.vertx.scala.core.http.HttpServerRequest
+import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
+import io.vertx.core.http.HttpServerFileUpload
+import io.vertx.ext.web.RoutingContext
+import io.vertx.scala.FunctionConverters._
 import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing._
 
 import scala.concurrent.{Future, Promise}
 import scala.util.matching.Regex
-import scala.util.{Failure, Success}
 
 sealed trait FileAction
 
@@ -37,12 +38,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   val FileIdLang: Regex = s"/files/($uuidRegex)/($langtagRegex)".r
   val FileIdLangStatic: Regex = s"/files/($uuidRegex)/($langtagRegex)/.*".r
 
-  override def routes(implicit req: HttpServerRequest): Routing = {
+  override def routes(implicit context: RoutingContext): Routing = {
     /**
      * Create folder
      */
     case Post("/folders") => asyncSetReply({
-      getJson(req) flatMap { implicit json =>
+      getJson(context) flatMap { implicit json =>
         val name = json.getString("name")
         val description = json.getString("description")
         val parent = getNullableField("parent")
@@ -65,7 +66,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
      * Change folder
      */
     case Put(FolderId(id)) => asyncSetReply({
-      getJson(req) flatMap { implicit json =>
+      getJson(context) flatMap { implicit json =>
         val name = json.getString("name")
         val description = json.getString("description")
         val parent = getNullableField("parent")
@@ -83,7 +84,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
      * Create file handle
      */
     case Post("/files") => asyncSetReply({
-      getJson(req) flatMap { implicit json =>
+      getJson(context) flatMap { implicit json =>
         val title = MultiLanguageValue[String](getNullableField("title"))
         val description = MultiLanguageValue[String](getNullableField("description"))
         val folder = getNullableField("folder")
@@ -104,7 +105,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       for {
         (file, paths) <- controller.retrieveFile(UUID.fromString(uuid))
       } yield {
-        val absolute = config.workingDirectory.startsWith("/")
+        val absolute = config.isWorkingDirectoryAbsolute
 
         val mimeType = file.file.mimeType.get(langtag)
         val path = paths.get(langtag).get
@@ -118,10 +119,10 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
      * Change file meta information
      */
     case Put(FileId(uuid)) => asyncSetReply({
-      getJson(req) flatMap { implicit json =>
+      getJson(context) flatMap { implicit json =>
 
-        val title = MultiLanguageValue[String](json.getObject("title"))
-        val description = MultiLanguageValue[String](json.getObject("description"))
+        val title = MultiLanguageValue[String](json.getJsonObject("title"))
+        val description = MultiLanguageValue[String](json.getJsonObject("description"))
 
         val folder = getNullableField("folder")
 
@@ -135,7 +136,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     case Put(FileIdLang(uuid, langtag)) => {
       logger.info(s"PUT FileIdLang $uuid $langtag")
 
-      handleUpload(req, (action: UploadAction) => {
+      handleUpload(context, (action: UploadAction) => {
         logger.info(s"Call replaceFile $uuid $langtag")
         controller.replaceFile(UUID.fromString(uuid), langtag, action)
       })
@@ -153,21 +154,24 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   def getNullableField[A](field: String)(implicit json: JsonObject): Option[A] = {
-    Option(json.getField[A](field))
+    Option(json.getValue(field).asInstanceOf[A])
   }
 
-  def handleUpload(implicit req: HttpServerRequest, fn: (UploadAction) => Future[DomainObject]): AsyncReply = asyncSetReply({
-    logger.info(s"Handle upload for ${req.absoluteURI().toString}")
+  def handleUpload(implicit context: RoutingContext, fn: (UploadAction) => Future[DomainObject]): AsyncReply = asyncSetReply({
+    logger.info(s"Handle upload for ${context.request().absoluteURI()} ${context.fileUploads()}")
+
+    val req = context.request()
 
     val p = Promise[DomainObject]()
 
-    val timerId = vertx.setTimer(10000, { timerId =>
+    val timerId = vertx.setTimer(10000L, { timerId: java.lang.Long =>
       p.failure(RouterException(message = "No valid file upload received", id = "errors.upload.invalidRequest", statusCode = 400))
     })
 
-    req.expectMultiPart(expect = true)
+    req.setExpectMultipart(true)
 
-    req.uploadHandler({ upload =>
+    // TODO this only can handle one file upload per request
+    req.uploadHandler({ upload: HttpServerFileUpload =>
       logger.info("Received a file upload")
 
       vertx.cancelTimer(timerId)
@@ -178,8 +182,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
       val action = UploadAction(upload.filename(), upload.contentType(), setExceptionHandler, setEndHandler, setStreamToFile)
 
-      logger.info("Call fn(action)")
-      fn(action).map(p.success)
+      fn(action).map(p.success).recoverWith({ case e => logger.error("Upload failed", e); p.failure(e); Future.failed(e) })
     })
 
     p.future

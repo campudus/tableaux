@@ -1,60 +1,73 @@
 package com.campudus.tableaux.controller
 
-import com.campudus.tableaux.TestConfig
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.TableauxModel
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.{TableauxTestBase, Starter, TestConfig}
+import io.vertx.core.Vertx
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.scala.{SQLConnection, VertxExecutionContext}
 import org.junit.Test
-import org.vertx.scala.testtools.TestVerticle
-import org.vertx.testtools.VertxAssert._
+import org.junit.runner.RunWith
 
 import scala.concurrent.Future
 
-class TableauxControllerTest extends TestVerticle with TestConfig {
-
-  override val verticle = this
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerTest extends TableauxTestBase {
 
   def createTableauxController(): TableauxController = {
-    val dbConnection = DatabaseConnection(tableauxConfig)
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+
     val model = TableauxModel(dbConnection)
 
     TableauxController(tableauxConfig, model)
   }
 
   @Test
-  def checkCreateRowWithNullParameter(): Unit = {
+  def checkCreateRowWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createTableauxController()
     illegalArgumentTest(controller.createRow(0, Option(Seq())))
   }
 
   @Test
-  def checkCreateRowWithNullSeq(): Unit = {
+  def checkCreateRowWithNullSeq(implicit c: TestContext): Unit = {
     val controller = createTableauxController()
     illegalArgumentTest(controller.createRow(0, Option(Seq(Seq()))))
   }
 
   @Test
-  def checkCreateRowWithNullId(): Unit = {
+  def checkCreateRowWithNullId(implicit c: TestContext): Unit = {
     val controller = createTableauxController()
     illegalArgumentTest(controller.createRow(0, Option(Seq(Seq((0: ColumnId, ""))))))
   }
 
   @Test
-  def checkCreateRowWithNullValue(): Unit = {
+  def checkCreateRowWithNullValue(implicit c: TestContext): Unit = {
     val controller = createTableauxController()
     illegalArgumentTest(controller.createRow(0, Option(Seq(Seq((1: ColumnId, null))))))
   }
 
   @Test
-  def checkFillCellWithNullParameter(): Unit = {
+  def checkFillCellWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createTableauxController()
     illegalArgumentTest(controller.fillCell(0, 0, 0, null))
   }
 
-  private def illegalArgumentTest(f: => Future[_]): Unit = {
-    try f map { _ => fail("should get an IllegalArgumentException") } catch {
-      case ex: IllegalArgumentException => testComplete()
-      case x: Throwable => fail(s"should get an IllegalArgumentException, but got exception $x")
+  private def illegalArgumentTest[A](f: => Future[A])(implicit c: TestContext): Unit = {
+    val async = c.async()
+    try {
+      f map { _: A =>
+        c.fail("should get an IllegalArgumentException")
+        async.complete()
+      }
+    } catch {
+      case ex: IllegalArgumentException =>
+        async.complete()
+      case x: Throwable =>
+        c.fail(s"should get an IllegalArgumentException, but got exception $x")
+        async.complete()
     }
   }
 }

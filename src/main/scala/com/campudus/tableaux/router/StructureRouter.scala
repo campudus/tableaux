@@ -3,7 +3,7 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.helper.JsonUtils._
-import org.vertx.scala.core.http.HttpServerRequest
+import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
 import scala.util.matching.Regex
@@ -22,7 +22,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   private val Table: Regex = "/tables/(\\d+)".r
   private val Tables: Regex = "/tables".r
 
-  override def routes(implicit req: HttpServerRequest): Routing = {
+  override def routes(implicit context: RoutingContext): Routing = {
     case Get(Tables()) => asyncGetReply(controller.retrieveTables())
     case Get(Table(tableId)) => asyncGetReply(controller.retrieveTable(tableId.toLong))
 
@@ -40,7 +40,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
      * Create Table
      */
     case Post(Tables()) => asyncSetReply {
-      getJson(req) flatMap { json =>
+      getJson(context) flatMap { json =>
         controller.createTable(json.getString("name"))
       }
     }
@@ -49,14 +49,14 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
      * Create Column
      */
     case Post(Columns(tableId)) => asyncSetReply {
-      getJson(req) flatMap (json => controller.createColumns(tableId.toLong, toCreateColumnSeq(json)))
+      getJson(context) flatMap (json => controller.createColumns(tableId.toLong, toCreateColumnSeq(json)))
     }
 
     /**
      * Change Table
      */
     case Post(Table(tableId)) => asyncEmptyReply {
-      getJson(req) flatMap { json =>
+      getJson(context) flatMap { json =>
         controller.changeTable(tableId.toLong, json.getString("name"))
       }
     }
@@ -65,7 +65,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
      * Change Column
      */
     case Post(Column(tableId, columnId)) => asyncEmptyReply {
-      getJson(req) flatMap {
+      getJson(context) flatMap {
         json =>
           val (optName, optOrd, optKind) = getColumnChanges(json)
           controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind)

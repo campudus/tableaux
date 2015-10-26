@@ -1,12 +1,12 @@
 package com.campudus.tableaux
 
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
-import org.vertx.testtools.VertxAssert._
+import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
-/**
- * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
- */
+@RunWith(classOf[VertxUnitRunner])
 class FillTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
@@ -14,7 +14,7 @@ class FillTest extends TableauxTestBase {
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
   @Test
-  def fillSingleCellWithNull(): Unit = okTest {
+  def fillSingleCellWithNull(implicit c: TestContext): Unit = okTest {
     val fillStringCellJson = Json.obj("value" -> null)
 
     val expectedJson = Json.obj("status" -> "ok")
@@ -22,10 +22,10 @@ class FillTest extends TableauxTestBase {
     val expectedCell = Json.obj("status" -> "ok", "value" -> null)
 
     for {
-      _ <- sendRequest("POST",  "/tables",  createTableJson)
-      _ <- sendRequest("POST",  "/tables/1/columns",  createStringColumnJson)
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
       _ <- sendRequest("POST", "/tables/1/rows")
-      fillResult <- sendRequest("POST",  "/tables/1/columns/1/rows/1",  fillStringCellJson)
+      fillResult <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson)
       cellResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
       assertEquals(expectedJson, fillResult)
@@ -34,17 +34,17 @@ class FillTest extends TableauxTestBase {
   }
 
   @Test
-  def fillSingleStringCell(): Unit = okTest {
+  def fillSingleStringCell(implicit c: TestContext): Unit = okTest {
     val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
 
     val expectedJson = Json.obj("status" -> "ok")
     val expectedGet = Json.obj("status" -> "ok", "value" -> "Test Fill 1")
 
     for {
-      _ <- sendRequest("POST",  "/tables",  createTableJson)
-      _ <- sendRequest("POST",  "/tables/1/columns",  createStringColumnJson)
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
       _ <- sendRequest("POST", "/tables/1/rows")
-      test <- sendRequest("POST",  "/tables/1/columns/1/rows/1",  fillStringCellJson)
+      test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -53,17 +53,17 @@ class FillTest extends TableauxTestBase {
   }
 
   @Test
-  def fillSingleNumberCell(): Unit = okTest {
+  def fillSingleNumberCell(implicit c: TestContext): Unit = okTest {
     val fillNumberCellJson = Json.obj("value" -> 101)
 
     val expectedJson = Json.obj("status" -> "ok")
     val expectedGet = Json.obj("status" -> "ok", "value" -> 101)
 
     for {
-      _ <- sendRequest("POST",  "/tables",  createTableJson)
-      _ <- sendRequest("POST",  "/tables/1/columns",  createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
       _ <- sendRequest("POST", "/tables/1/rows")
-      test <- sendRequest("POST",  "/tables/1/columns/1/rows/1",  fillNumberCellJson)
+      test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillNumberCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -72,7 +72,7 @@ class FillTest extends TableauxTestBase {
   }
 
   @Test
-  def fillTwoDifferentCell(): Unit = okTest {
+  def fillTwoDifferentCell(implicit c: TestContext): Unit = okTest {
     val fillNumberCellJson = Json.obj("value" -> 101)
     val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
 
@@ -82,12 +82,12 @@ class FillTest extends TableauxTestBase {
     val expectedGet2 = Json.obj("status" -> "ok", "value" -> "Test Fill 1")
 
     for {
-      _ <- sendRequest("POST",  "/tables",  createTableJson)
-      _ <- sendRequest("POST",  "/tables/1/columns",  createNumberColumnJson)
-      _ <- sendRequest("POST",  "/tables/1/columns",  createStringColumnJson)
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
       _ <- sendRequest("POST", "/tables/1/rows")
-      test1 <- sendRequest("POST",  "/tables/1/columns/1/rows/1",  fillNumberCellJson)
-      test2 <- sendRequest("POST",  "/tables/1/columns/2/rows/1",  fillStringCellJson)
+      test1 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillNumberCellJson)
+      test2 <- sendRequest("POST", "/tables/1/columns/2/rows/1", fillStringCellJson)
       getResult1 <- sendRequest("GET", "/tables/1/columns/1/rows/1")
       getResult2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
     } yield {

@@ -1,17 +1,19 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
-import org.junit.{Ignore, Test}
-import org.vertx.java.core.json.JsonObject
-import org.vertx.scala.core.json.Json
-import org.vertx.testtools.VertxAssert._
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 
+@RunWith(classOf[VertxUnitRunner])
 class MultiLanguageTest extends TableauxTestBase {
 
   @Test
-  def testCreateAndDeleteMultilanguageColumn(): Unit = okTest {
+  def testCreateAndDeleteMultilanguageColumn(implicit c: TestContext): Unit = okTest {
     def exceptedJson(tableId: TableId, columnId: ColumnId) = Json.obj(
       "status" -> "ok",
       "id" -> columnId,
@@ -36,7 +38,7 @@ class MultiLanguageTest extends TableauxTestBase {
   }
 
   @Test
-  def testFillMultilanguageCell(): Unit = okTest {
+  def testFillMultilanguageCell(implicit c: TestContext): Unit = okTest {
     val cellValue = Json.obj(
       "value" -> Json.obj(
         "de_DE" -> "Hallo, Welt!",
@@ -69,7 +71,7 @@ class MultiLanguageTest extends TableauxTestBase {
   }
 
   @Test
-  def testEmptyMultilanguageCell(): Unit = okTest {
+  def testEmptyMultilanguageCell(implicit c: TestContext): Unit = okTest {
 
     val exceptedJson = Json.fromObjectString(
       """
@@ -93,7 +95,7 @@ class MultiLanguageTest extends TableauxTestBase {
   }
 
   @Test
-  def testFillMultilanguageRow(): Unit = okTest {
+  def testFillMultilanguageRow(implicit c: TestContext): Unit = okTest {
     val valuesRow = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 1)),
       "rows" -> Json.arr(
@@ -110,14 +112,14 @@ class MultiLanguageTest extends TableauxTestBase {
 
     def exceptedJson(rowId: RowId) = Json.fromObjectString(
       s"""
-        |{
-        |  "status" : "ok",
-        |  "id" : $rowId,
-        |  "values" : [ {
-        |    "de_DE" : "Hallo, Welt!",
-        |    "en_US" : "Hello, World!"
-        |  } ]
-        |}
+         |{
+         | "status" : "ok",
+         | "id" : $rowId,
+         | "values" : [ {
+         |   "de_DE" : "Hallo, Welt!",
+         |   "en_US" : "Hello, World!"
+         | } ]
+         |}
       """.stripMargin)
 
     for {
@@ -138,7 +140,7 @@ class MultiLanguageTest extends TableauxTestBase {
   }
 
   @Test
-  def testSingleTranslation(): Unit = okTest {
+  def testSingleTranslation(implicit c: TestContext): Unit = okTest {
     val valuesRow = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 1)),
       "rows" -> Json.arr(
@@ -191,7 +193,7 @@ class MultiLanguageTest extends TableauxTestBase {
       tableId <- sendRequest("POST", "/tables", Json.obj("name" -> "Multi Language")) map (_.getLong("id"))
       columnId <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn) map (_.getArray("columns").get[JsonObject](0).getLong("id"))
     } yield {
-      (tableId, columnId)
+      (tableId.toLong, columnId.toLong)
     }
   }
 }

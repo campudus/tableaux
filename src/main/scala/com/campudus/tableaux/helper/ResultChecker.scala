@@ -10,7 +10,7 @@ import org.vertx.scala.core.json.{JsonArray, JsonObject}
 object ResultChecker {
 
   def getSeqOfJsonArray(json: JsonObject): Seq[JsonArray] = {
-    jsonArrayToSeq(json.getArray("results"))
+    jsonArrayToSeq(json.getJsonArray("results"))
   }
 
   def jsonArrayToSeq[A](json: JsonArray): Seq[A] = {

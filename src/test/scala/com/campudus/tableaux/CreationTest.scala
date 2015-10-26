@@ -1,12 +1,12 @@
 package com.campudus.tableaux
 
+import io.vertx.ext.unit.TestContext
+import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
-import org.vertx.testtools.VertxAssert._
 
-/**
- * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
- */
+@RunWith(classOf[VertxUnitRunner])
 class CreationTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
@@ -14,7 +14,7 @@ class CreationTest extends TableauxTestBase {
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
   @Test
-  def createTable(): Unit = okTest {
+  def createTable(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 1)
     val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2)
 
@@ -28,7 +28,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createStringColumn(): Unit = okTest {
+  def createStringColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
     val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
 
@@ -43,7 +43,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createNumberColumn(): Unit = okTest {
+  def createNumberColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
     val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
 
@@ -58,10 +58,11 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createMultipleColumns(): Unit = okTest {
+  def createMultipleColumns(implicit c: TestContext): Unit = okTest {
     val jsonObj = Json.obj("columns" -> Json.arr(
       Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
       Json.obj("kind" -> "text", "name" -> "Test Column 2")))
+
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
       Json.obj("id" -> 1, "ordering" -> 1),
       Json.obj("id" -> 2, "ordering" -> 2)))
@@ -75,7 +76,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createMultipleColumnsWithOrdering(): Unit = okTest {
+  def createMultipleColumnsWithOrdering(implicit c: TestContext): Unit = okTest {
     val jsonObj = Json.obj("columns" -> Json.arr(
       Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "ordering" -> 2),
       Json.obj("kind" -> "text", "name" -> "Test Column 2", "ordering" -> 1)))
@@ -92,7 +93,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createRow(): Unit = okTest {
+  def createRow(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 1)
     val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2)
 
@@ -107,7 +108,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createFullRow(): Unit = okTest {
+  def createFullRow(implicit c: TestContext): Unit = okTest {
     val valuesRow = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2))))
     val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1)))
 
@@ -122,7 +123,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createMultipleFullRows(): Unit = okTest {
+  def createMultipleFullRows(implicit c: TestContext): Unit = okTest {
     val valuesRow = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
       "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)), Json.obj("values" -> Json.arr("Test Field 2", 5))))
     val expectedJson = Json.obj("status" -> "ok", "rows" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)))
@@ -138,7 +139,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createCompleteTable(): Unit = okTest {
+  def createCompleteTable(implicit c: TestContext): Unit = okTest {
     val createCompleteTableJson = Json.obj(
       "name" -> "Test Nr. 1",
       "columns" -> Json.arr(
@@ -166,7 +167,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createCompleteTableWithOrdering(): Unit = okTest {
+  def createCompleteTableWithOrdering(implicit c: TestContext): Unit = okTest {
     val createCompleteTableJson = Json.obj(
       "name" -> "Test Nr. 1",
       "columns" -> Json.arr(
@@ -194,7 +195,7 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createCompleteTableWithoutRows(): Unit = okTest {
+  def createCompleteTableWithoutRows(implicit c: TestContext): Unit = okTest {
     val createCompleteTableJson = Json.obj(
       "name" -> "Test Nr. 1",
       "columns" -> Json.arr(

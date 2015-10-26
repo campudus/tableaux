@@ -44,7 +44,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
     for {
       resultJson <- connection.query(insert, Json.arr(uuid.toString, o.folder.orNull))
-      resultRow <- Future(insertNotNull(resultJson).head)
+      resultRow = insertNotNull(resultJson).head
 
       _ <- addTranslations(uuid, b)
 
