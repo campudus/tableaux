@@ -1,13 +1,13 @@
 language: java
 jdk:
-  - oraclejdk8
+- oraclejdk8
 addons:
   postgresql: '9.4'
 before_script:
-  - psql -c 'SHOW SERVER_VERSION;' -U postgres
-  - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
-script: ./gradlew testScoverage
-after_success: ./gradlew reportScoverage coveralls
+- psql -c 'SHOW SERVER_VERSION;' -U postgres
+- psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
+script: "./gradlew testScoverage"
+after_success: "./gradlew reportScoverage coveralls"
 env:
   global:
-    secure: fICktYC5w0CBqF1RUvBw/CPvEtLzOyJiwP9+nlMZyRVhURcl8EeCkQmLSEYHo1YRQO1rj34MV3qzXAtu/0je1iYtSNVKFzsqkzrecPBZjVgEfTpe68ip9oN3FH1b+wzRHlDy92ofEBcfXoVWcZCG1j5Ku0jwFtvE8J7GlZIqD/GN6GMgvB1ph9pXB1jaFxV8peWMCSQHQxvA1SXXwl2SPbr2ZWq/Sgn5UxbD4XHbHdu+44IP9l6fd2aBwZBXcal6f2lZY2KK0r4DOwpMABw99tRaJu7MlKklAvOC9uGiLhj1zHiGe05Zst/UvGlFoQnmIhKoNpkbFRoZRcPaNGyGZSNvSZ+N3uEKjnhKXKbriNCl0eoUfzMc80W8FDr4EJ1ZxAmSE2fJWy2VefnWlkLueS4IpXkjurdZ8KEtDiilY4Xyw8ENojZ9mYMqqQI3r+vRxGY1pYFd0tu8V5viXE4pzxXKSr3EyzQVIHQ1U8BXtLVe4fF4PC83052cFaGulCZHqlyENy44hgZxg3tsbHSvhDWDWE1cdrvj4GgyiWHNyR/G+o1DQrOEedx2FXpJkmgmnxuEsMqZlsU1zEUB/B4zjWHNuHrcFe/DNRrZSHsFmB0+GJeeKRLB6vTZF1EKeGpQ0X/skzpi8T8by/p484ZyUkGFfy+dhQ5E6CMFzbr+vMA=
+    secure: XX3paDhV+agMmuLFrMtTvsrmGJND+NuryJ0Py/mnne4z9ds3ABw5BN85zOG9l3VpffaM6RASv+pUaOyuSh379ocS2ge+CkoYcc7UprRhvFL+YwcMpeqnBQqgO+D9eF+Q9MvI9SuY6gQBsB0u9InkjGgWsXWAn0jpLgPmxbBMrgcxvxOJyffXTcKszv0YqAxESlOzTVgK+ZsaujZ34akqGNY2IbW2w6SQloQmkilp7rZ4my7VBP7rLGY/WRf42KHznCmaSCi5SPHtfdQWOsyF9vY6l8r7Y6VZQTu0C+I+ZbjqTYLJ4BTrXE4luV0sm18o/edf0300JKhwP1UZUhK0jRDMXQS/CJGRrzO94DkzbU1DWWlmQls/TtdgiKOUpXoVt8BdVNPMEAVLNl6efe8sPQXCkoOe1Zx5Tfe8swAbP06yG2slEWiINQFQjXJDIf1WZT0if6fJjId0qXbuSkCTaY25/rZVzgtQHUvWlasuK05gI8HfPTm3jIgCWzL+KN5oVuUfdVH7lOjyqdNDCEvHxdBSHfjBqeCHtGP65VVO72nD6pnm4aWsBzWU/sLCG0z3pd7638RpnnfCY3Kc9ous6NZnFmydXUq4tcX+4G1b8Y3o12pb2S5Ny50V/kIrIB144l0Ir3SEP8y1JqNfSPsvwoYfhUqC2CpptkQaYSGc3jw=
