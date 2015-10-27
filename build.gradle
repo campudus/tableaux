@@ -87,6 +87,8 @@ sourceSets {
 def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
 
 coveralls {
+    service = "travis-ci"
+
     def sourceDirStrings = new ArrayList()
     subprojects.sourceSets.main.allSource.srcDirs.each {
         it.each {
@@ -96,7 +98,9 @@ coveralls {
             sourceDirStrings.add(relPath.toString())
         }
     }
+
     sourceDirs = sourceDirStrings.flatten()
+
     coberturaReportPath = coverageReportPath
 }
 
