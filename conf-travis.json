@@ -3,7 +3,6 @@
   "port" : 8181,
 
   "uploadsDirectory" : "uploads/",
-  "uploadsTmpDirectory" : "uploads_temp/",
   "workingDirectory" : "./",
 
   "database" : {

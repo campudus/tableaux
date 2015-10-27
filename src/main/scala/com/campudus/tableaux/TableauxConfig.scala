@@ -7,7 +7,7 @@ import io.vertx.scala.ScalaVerticle
 import scala.reflect.io.Path
 
 object TableauxConfig {
-  def apply(verticle: ScalaVerticle, databaseConfig: JsonObject, workingDir: String, uploadsDir: String, uploadsTempDir: String): TableauxConfig = {
+  def apply(verticle: ScalaVerticle, databaseConfig: JsonObject, workingDir: String, uploadsDir: String): TableauxConfig = {
     val _verticle = verticle
 
     new TableauxConfig {
@@ -15,7 +15,6 @@ object TableauxConfig {
       override val database = databaseConfig
       override val workingDirectory = workingDir
       override val uploadsDirectory = uploadsDir
-      override val uploadsTempDirectory = uploadsTempDir
     }
   }
 }
@@ -25,14 +24,9 @@ trait TableauxConfig extends VertxAccess {
 
   val workingDirectory: String
   val uploadsDirectory: String
-  val uploadsTempDirectory: String
 
   def uploadsDirectoryPath(): Path = {
     retrievePath(uploadsDirectory)
-  }
-
-  def uploadsTempDirectoryPath(): Path = {
-    retrievePath(uploadsTempDirectory)
   }
 
   def retrievePath(subpath: String): Path = {

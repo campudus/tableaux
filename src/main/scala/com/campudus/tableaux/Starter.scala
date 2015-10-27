@@ -39,8 +39,7 @@ class Starter extends ScalaVerticle {
       verticle = this,
       databaseConfig = databaseConfig,
       workingDir = config.getString("workingDirectory"),
-      uploadsDir = config.getString("uploadsDirectory"),
-      uploadsTempDir = config.getString("uploadsTempDirectory")
+      uploadsDir = config.getString("uploadsDirectory")
     )
 
     connection = SQLConnection(this, databaseConfig)
@@ -61,15 +60,7 @@ class Starter extends ScalaVerticle {
   }
 
   def createUploadsDirectories(config: TableauxConfig): Future[Unit] = {
-    val verticle = this
-
-    val uploadsDirectory = config.uploadsDirectoryPath()
-    val uploadsTempDirectory = config.uploadsTempDirectoryPath()
-
-    for {
-      _ <- FileUtils(verticle).mkdirs(uploadsDirectory)
-      _ <- FileUtils(verticle).mkdirs(uploadsTempDirectory)
-    } yield ()
+    FileUtils(this).mkdirs(config.uploadsDirectoryPath())
   }
 
   def handleUpload(context: RoutingContext): Unit = {
