@@ -55,6 +55,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   }
 
   private def addTranslations(uuid: UUID, map: Map[String, Map[String, _]]): Future[Seq[JsonObject]] = {
+    // TODO add in order
     Future.sequence(map.foldLeft(Seq.empty[Future[JsonObject]]) {
       case (result, (langtag, columnsValueMap)) =>
         val columns = columnsValueMap.keySet.toSeq
@@ -109,6 +110,17 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
         |GROUP BY f.uuid""".stripMargin
   }
 
+  private def selectOrdered(where: String, langtag: String): String = {
+    s"""
+       |SELECT
+       |	s.*
+       |FROM (
+       | ${select(where)}
+       |) s
+       |ORDER BY s.title->>'${langtag}' ASC NULLS FIRST
+     """.stripMargin
+  }
+
   override def retrieve(id: UUID): Future[File] = retrieve(id, withTmp = false)
 
   def retrieve(id: UUID, withTmp: Boolean): Future[File] = {
@@ -136,9 +148,9 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   def retrieveFromFolder(folder: Option[FolderId]): Future[Seq[File]] = {
     for {
       resultJson <- if (folder.isEmpty) {
-        connection.query(select("f.idfolder IS NULL AND f.tmp = FALSE"))
+        connection.query(selectOrdered("f.idfolder IS NULL AND f.tmp = FALSE", "de_DE"))
       } else {
-        connection.query(select("f.idfolder = ? AND f.tmp = FALSE"), Json.arr(folder.get))
+        connection.query(selectOrdered("f.idfolder = ? AND f.tmp = FALSE", "de_DE"), Json.arr(folder.get))
       }
 
       resultRows = getSeqOfJsonArray(resultJson)
@@ -166,7 +178,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   implicit def convertStringToMultiLanguage[A](str: String): MultiLanguageValue[A] = {
     MultiLanguageValue[A](Try(Json.fromObjectString(str)).toOption)
   }
-  
+
   implicit def convertStringToUUID(str: String): Option[UUID] = {
     Some(UUID.fromString(str))
   }
