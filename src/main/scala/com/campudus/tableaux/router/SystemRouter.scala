@@ -40,7 +40,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     }
     case Post("/resetDemo") | Get("/resetDemo") => asyncSetReply {
       for {
-        //_ <- Future(checkNonce)
+        _ <- Future(checkNonce)
         result <- controller.createDemoTables()
       } yield result
     }
