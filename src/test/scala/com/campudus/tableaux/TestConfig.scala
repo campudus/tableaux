@@ -16,9 +16,8 @@ trait TestConfig {
   lazy val databaseConfig = config.getJsonObject("database", Json.obj())
   lazy val workingDirectory = config.getString("workingDirectory")
   lazy val uploadsDirectory = config.getString("uploadsDirectory")
-  lazy val uploadsTempDirectory = config.getString("uploadsTempDirectory")
 
-  lazy val tableauxConfig = TableauxConfig(verticle, databaseConfig, workingDirectory, uploadsDirectory, uploadsTempDirectory)
+  lazy val tableauxConfig = TableauxConfig(verticle, databaseConfig, workingDirectory, uploadsDirectory)
 
   private def readTextFile(filePath: String): String = Source.fromFile(filePath).getLines().mkString
 
