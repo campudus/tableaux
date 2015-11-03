@@ -183,7 +183,6 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     }
 
     import io.vertx.scala.FunctionConverters._
-    //val vertx = Vertx.vertx()
     val timerId = vertx.setTimer(10000, { d: java.lang.Long => logger.error(s"doMagicQuery $command $returning $stmt exceeded the delay") })
 
     future.map({

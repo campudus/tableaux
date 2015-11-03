@@ -94,7 +94,7 @@ class MediaController(override val config: TableauxConfig,
     fileModel.add(file).map(TemporaryFile)
   }
 
-  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[File] = futurify { p: Promise[File] =>
+  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[ExtendedFile] = futurify { p: Promise[ExtendedFile] =>
     val ext = Path(upload.fileName).extension
     val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
 
@@ -140,7 +140,7 @@ class MediaController(override val config: TableauxConfig,
 
         updatedFile <- {
           logger.info(s"update file! $file")
-          fileModel.update(file)
+          fileModel.update(file).map(ExtendedFile)
         }
       } yield {
           p.success(updatedFile)
