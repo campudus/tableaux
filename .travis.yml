@@ -1,14 +1,17 @@
 language: java
 jdk:
-- oraclejdk8
+  - oraclejdk8
+sudo: false
 addons:
   postgresql: '9.4'
 before_script:
-- psql -c 'SHOW SERVER_VERSION;' -U postgres
-- psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
-sudo: false
-script: "./gradlew checkScoverage --info --stacktrace"
-after_success: "./gradlew reportScoverage coveralls"
+  - psql -c 'SHOW SERVER_VERSION;' -U postgres
+  - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
+  - ./gradlew testScoverageClasses --info --stacktrace
+script:
+  - ./gradlew checkScoverage --info --stacktrace
+after_success:
+  - ./gradlew reportScoverage coveralls --info --stacktrace
 env:
   global:
     - CI_NAME=travis-ci
