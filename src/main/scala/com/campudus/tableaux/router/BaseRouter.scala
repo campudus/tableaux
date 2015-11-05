@@ -32,7 +32,7 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
    * Regex for a Language tag e.g. de_DE or en_GB
    * TODO verify if this is always correct. e.g. is there a_A or abc_ABC
    */
-  val langtagRegex: String = "[a-z]{2}_[A-Z]{2}"
+  val langtagRegex: String = "[a-z]{2}[-_][A-Z]{2}"
 
   override val verticle: ScalaVerticle = config.verticle
 
