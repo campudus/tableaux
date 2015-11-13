@@ -39,6 +39,10 @@ case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Orde
   override val kind = NumericType
 }
 
+case class BooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[Boolean] {
+  override val kind = BooleanType
+}
+
 sealed trait MultiLanguageColumn[A] extends SimpleValueColumn[A] {
   override val multilanguage = true
 }
@@ -48,7 +52,11 @@ case class MultiTextColumn(table: Table, id: ColumnId, name: String, ordering: O
 }
 
 case class MultiNumericColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[Number] {
-  override val kind = TextType
+  override val kind = NumericType
+}
+
+case class MultiBooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[Boolean] {
+  override val kind = BooleanType
 }
 
 case class LinkColumn[A](table: Table, id: ColumnId, to: SimpleValueColumn[A], name: String, ordering: Ordering) extends ColumnType[Link[A]] {

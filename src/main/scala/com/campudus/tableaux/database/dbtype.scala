@@ -25,6 +25,10 @@ case object AttachmentType extends TableauxDbType {
   override val name = "attachment"
 }
 
+case object BooleanType extends TableauxDbType {
+  override val name = "boolean"
+}
+
 sealed trait LanguageType {
   def toBoolean: Boolean
 }
@@ -54,6 +58,7 @@ object Mapper {
         // primitive/simple types
         case TextType => Some(TextColumn.apply)
         case NumericType => Some(NumberColumn.apply)
+        case BooleanType => Some(BooleanColumn.apply)
 
         // complex types
         case AttachmentType => None
@@ -64,6 +69,7 @@ object Mapper {
         // primitive/simple types
         case TextType => Some(MultiTextColumn.apply)
         case NumericType => Some(MultiNumericColumn.apply)
+        case BooleanType => Some(MultiBooleanColumn.apply)
 
         // complex types
         case AttachmentType => None
@@ -80,6 +86,7 @@ object Mapper {
       case NumericType.name => NumericType
       case LinkType.name => LinkType
       case AttachmentType.name => AttachmentType
+      case BooleanType.name => BooleanType
     }
   }
 }

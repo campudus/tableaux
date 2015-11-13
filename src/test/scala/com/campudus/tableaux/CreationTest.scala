@@ -12,6 +12,7 @@ class CreationTest extends TableauxTestBase {
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+  val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
 
   @Test
   def createTable(implicit c: TestContext): Unit = okTest {
@@ -44,6 +45,21 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createNumberColumn(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      test2 <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+    } yield {
+      assertEquals(expectedJson, test1)
+      assertEquals(expectedJson2, test2)
+    }
+  }
+
+  @Test
+  def createBooleanColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
     val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
 

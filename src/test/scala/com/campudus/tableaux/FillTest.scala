@@ -12,6 +12,7 @@ class FillTest extends TableauxTestBase {
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+  val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
 
   @Test
   def fillSingleCellWithNull(implicit c: TestContext): Unit = okTest {
@@ -64,6 +65,25 @@ class FillTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
       _ <- sendRequest("POST", "/tables/1/rows")
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillNumberCellJson)
+      getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
+    } yield {
+      assertEquals(expectedJson, test)
+      assertEquals(expectedGet, getResult)
+    }
+  }
+
+  @Test
+  def fillSingleBooleanCell(implicit c: TestContext): Unit = okTest {
+    val fillBooleanCellJson = Json.obj("value" -> true)
+
+    val expectedJson = Json.obj("status" -> "ok")
+    val expectedGet = Json.obj("status" -> "ok", "value" -> true)
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson)
+      _ <- sendRequest("POST", "/tables/1/rows")
+      test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillBooleanCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
       assertEquals(expectedJson, test)

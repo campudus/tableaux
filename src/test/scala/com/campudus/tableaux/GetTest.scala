@@ -1,5 +1,6 @@
 package com.campudus.tableaux
 
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -12,6 +13,7 @@ class GetTest extends TableauxTestBase {
   val createTableJson = Json.obj("name" -> "Test Table 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+  val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
 
   @Test
   def retrieveEmptyTable(implicit c: TestContext): Unit = okTest {
@@ -43,7 +45,8 @@ class GetTest extends TableauxTestBase {
       "name" -> "Test Table 1",
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false),
-        Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false)),
+        Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false),
+        Json.obj("id" -> 3, "name" -> "Test Column 3", "kind" -> "boolean", "ordering" -> 3, "multilanguage" -> false)),
       "page" -> Json.obj(
         "offset" -> null,
         "limit" -> null,
@@ -55,6 +58,7 @@ class GetTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables", createTableJson)
       _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
       _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson)
       test <- sendRequest("GET", "/completetable/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -69,19 +73,21 @@ class GetTest extends TableauxTestBase {
       "name" -> "Test Table 1",
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false),
-        Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false)),
+        Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false),
+        Json.obj("id" -> 3, "name" -> "Test Column 3", "kind" -> "boolean", "ordering" -> 3, "multilanguage" -> false)),
       "page" -> Json.obj(
         "offset" -> null,
         "limit" -> null,
         "totalSize" -> 1
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr(null, null))))
+        Json.obj("id" -> 1, "values" -> Json.arr(null, null, null))))
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
       _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson)
       _ <- sendRequest("POST", "/tables/1/rows")
       test <- sendRequest("GET", "/completetable/1")
     } yield {
@@ -91,24 +97,43 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def retrieveFullTable(implicit c: TestContext): Unit = okTest {
+    val columns = Json.arr(
+      Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false),
+      Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false),
+      Json.obj("id" -> 3, "name" -> "Test Column 3", "kind" -> "boolean", "ordering" -> 3, "multilanguage" -> false)
+    )
+
+    val rows = Json.arr(
+      Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1, false)),
+      Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2, true)),
+      Json.obj("id" -> 3, "values" -> Json.arr("table1row3", 3, false))
+    )
+
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
       "name" -> "Test Table 1",
-      "columns" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false),
-        Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false)),
+      "columns" -> columns,
       "page" -> Json.obj(
         "offset" -> null,
         "limit" -> null,
-        "totalSize" -> 2
+        "totalSize" -> 3
       ),
-      "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
-        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))))
+      "rows" -> rows
+    )
+
+    def valuesObj(values: Any*): JsonObject = {
+      Json.obj("values" -> values)
+    }
 
     for {
-      _ <- setupDefaultTable()
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson)
+      _ <- sendRequest("POST", "/tables/1/rows", Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row1", 1, false)))))
+      _ <- sendRequest("POST", "/tables/1/rows", Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row2", 2, true)))))
+      _ <- sendRequest("POST", "/tables/1/rows", Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row3", 3, false)))))
       test <- sendRequest("GET", "/completetable/1")
     } yield {
       assertEquals(expectedJson, test)
