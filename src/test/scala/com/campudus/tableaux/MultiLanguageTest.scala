@@ -115,10 +115,13 @@ class MultiLanguageTest extends TableauxTestBase {
          |{
          | "status" : "ok",
          | "id" : $rowId,
-         | "values" : [ {
-         |   "de_DE" : "Hallo, Welt!",
-         |   "en_US" : "Hello, World!"
-         | } ]
+         | "values" : [
+         |  {"de_DE" : "Hallo, Welt!", "en_US" : "Hello, World!"},
+         |  {"de_DE" : null, "en_US" : null},
+         |  {"de_DE" : null, "en_US" : null},
+         |  {"de_DE" : null, "en_US" : null},
+         |  {"de_DE" : null, "en_US" : null}
+         | ]
          |}
       """.stripMargin)
 
