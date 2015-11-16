@@ -79,7 +79,7 @@ object Mapper {
 
       case MultiLanguage => kind match {
         // primitive/simple types
-        case TextType => Some(MultiTextColumn.apply)
+        case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind))
         case NumericType => Some(MultiNumericColumn.apply)
         case BooleanType => Some(MultiBooleanColumn.apply)
 

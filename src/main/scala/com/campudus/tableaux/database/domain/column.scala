@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.model.{AttachmentFile, TableauxModel}
+import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
@@ -37,6 +37,12 @@ object TextColumn {
   }
 }
 
+object MultiTextColumn {
+  def apply(kind: TableauxDbType): (Table, ColumnId, String, Ordering) => MultiTextColumn = {
+    MultiTextColumn(kind, _, _, _, _)
+  }
+}
+
 case class TextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[String]
 
 case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[Number] {
@@ -51,9 +57,7 @@ sealed trait MultiLanguageColumn[A] extends SimpleValueColumn[A] {
   override val multilanguage = true
 }
 
-case class MultiTextColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[String] {
-  override val kind = TextType
-}
+case class MultiTextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[String]
 
 case class MultiNumericColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[Number] {
   override val kind = NumericType
@@ -74,7 +78,11 @@ case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: 
 }
 
 case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
-  override def getJson: JsonObject = Json.obj("columns" -> columns.map { _.getJson })
+  override def getJson: JsonObject = Json.obj("columns" -> columns.map {
+    _.getJson
+  })
 
-  override def setJson: JsonObject = Json.obj("columns" -> columns.map { _.setJson })
+  override def setJson: JsonObject = Json.obj("columns" -> columns.map {
+    _.setJson
+  })
 }
