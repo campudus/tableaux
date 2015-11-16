@@ -31,9 +31,13 @@ sealed trait ColumnType[+A] extends DomainObject {
 
 sealed trait SimpleValueColumn[A] extends ColumnType[A]
 
-case class TextColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[String] {
-  override val kind = TextType
+object TextColumn {
+  def apply(kind: TableauxDbType): (Table, ColumnId, String, Ordering) => TextColumn = {
+    TextColumn(kind, _, _, _, _)
+  }
 }
+
+case class TextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[String]
 
 case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[Number] {
   override val kind = NumericType

@@ -10,7 +10,11 @@ import org.vertx.scala.core.json.Json
 class CreationTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
-  val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+
+  val createTextColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+  val createShortTextColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "shorttext", "name" -> "Test Column 1")))
+  val createRichTextColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "richtext", "name" -> "Test Column 1")))
+
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
   val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
 
@@ -29,14 +33,44 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def createStringColumn(implicit c: TestContext): Unit = okTest {
+  def createTextColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
     val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
-      test2 <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
+      test2 <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
+    } yield {
+      assertEquals(expectedJson, test1)
+      assertEquals(expectedJson2, test2)
+    }
+  }
+
+  @Test
+  def createShortTextColumn(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createShortTextColumnJson)
+      test2 <- sendRequest("POST", "/tables/1/columns", createShortTextColumnJson)
+    } yield {
+      assertEquals(expectedJson, test1)
+      assertEquals(expectedJson2, test2)
+    }
+  }
+
+  @Test
+  def createRichTextColumn(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1)))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2)))
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createRichTextColumnJson)
+      test2 <- sendRequest("POST", "/tables/1/columns", createRichTextColumnJson)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -130,7 +164,7 @@ class CreationTest extends TableauxTestBase {
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
       _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
       test <- sendRequest("POST", "/tables/1/rows", valuesRow)
     } yield {
@@ -146,7 +180,7 @@ class CreationTest extends TableauxTestBase {
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
       _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
       test <- sendRequest("POST", "/tables/1/rows", valuesRow)
     } yield {

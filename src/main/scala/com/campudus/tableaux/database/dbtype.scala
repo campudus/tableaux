@@ -7,10 +7,22 @@ sealed trait TableauxDbType {
   val name: String
 
   override def toString: String = name
+
+  def toDbType: String = name
 }
 
 case object TextType extends TableauxDbType {
   override val name = "text"
+}
+
+case object RichTextType extends TableauxDbType {
+  override val name = "richtext"
+  override def toDbType = "text"
+}
+
+case object ShortTextType extends TableauxDbType {
+  override val name = "shorttext"
+  override def toDbType = "text"
 }
 
 case object NumericType extends TableauxDbType {
@@ -56,7 +68,7 @@ object Mapper {
     languageType match {
       case SingleLanguage => kind match {
         // primitive/simple types
-        case TextType => Some(TextColumn.apply)
+        case TextType | RichTextType | ShortTextType => Some(TextColumn(kind))
         case NumericType => Some(NumberColumn.apply)
         case BooleanType => Some(BooleanColumn.apply)
 
@@ -83,6 +95,8 @@ object Mapper {
   def getDatabaseType(kind: String): TableauxDbType = {
     kind match {
       case TextType.name => TextType
+      case ShortTextType.name => ShortTextType
+      case RichTextType.name => RichTextType
       case NumericType.name => NumericType
       case LinkType.name => LinkType
       case AttachmentType.name => AttachmentType

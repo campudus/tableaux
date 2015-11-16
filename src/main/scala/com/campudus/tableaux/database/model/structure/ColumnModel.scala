@@ -41,15 +41,15 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createValueColumn(tableId: TableId, dbType: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
+  private def createValueColumn(tableId: TableId, kind: TableauxDbType, name: String, ordering: Option[Ordering], languageType: LanguageType): Future[(ColumnId, Ordering)] = {
     connection.transactional { t =>
       for {
-        (t, resultJson) <- insertSystemColumn(t, tableId, name, dbType, ordering, None, languageType)
+        (t, resultJson) <- insertSystemColumn(t, tableId, name, kind, ordering, None, languageType)
         resultRow = insertNotNull(resultJson).head
 
         (t, _) <- languageType match {
-          case MultiLanguage => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${resultRow.get[ColumnId](0)} $dbType")
-          case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${resultRow.get[ColumnId](0)} $dbType")
+          case MultiLanguage => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${resultRow.get[ColumnId](0)} ${kind.toDbType}")
+          case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${resultRow.get[ColumnId](0)} ${kind.toDbType}")
         }
       } yield {
         (t, (resultRow.get[ColumnId](0), resultRow.get[Ordering](1)))
@@ -165,8 +165,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def mapValueColumn(table: Table, columnId: ColumnId, columnName: String, columnKind: TableauxDbType, ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
-    Future(Mapper(languageType, columnKind).apply(table, columnId, columnName, ordering))
+  private def mapValueColumn(table: Table, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
+    Future(Mapper(languageType, kind).apply(table, columnId, columnName, ordering))
   }
 
   private def mapAttachmentColumn(table: Table, columnId: ColumnId, columnName: String, ordering: Ordering): Future[AttachmentColumn] = {
@@ -263,15 +263,19 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def change(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType]): Future[Unit] = for {
     t <- connection.begin()
+
     (t, result1) <- optionToValidFuture(columnName, t, { name: String => t.query(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?", Json.arr(name, tableId, columnId)) })
     (t, result2) <- optionToValidFuture(ordering, t, { ord: Ordering => t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?", Json.arr(ord, tableId, columnId)) })
-    (t, result3) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?", Json.arr(k.toString, tableId, columnId)) })
-    (t, _) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toString} USING column_$columnId::${k.toString}") })
-    _ <- Future.apply(checkUpdateResults(Seq(result1, result2, result3))) recoverWith t.rollbackAndFail()
+    (t, result3) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?", Json.arr(k.name, tableId, columnId)) })
+
+    (t, _) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}") })
+
+    _ <- Future(checkUpdateResults(result1, result2, result3)) recoverWith t.rollbackAndFail()
+
     _ <- t.commit()
   } yield ()
 
-  private def checkUpdateResults(seq: Seq[JsonObject]): Unit = seq map {
+  private def checkUpdateResults(seq: JsonObject*): Unit = seq map {
     json => if (json.containsField("message")) updateNotNull(json)
   }
 
