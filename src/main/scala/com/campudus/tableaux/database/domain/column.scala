@@ -3,6 +3,7 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
+import org.joda.time.{DateTime, LocalDate}
 import org.vertx.scala.core.json._
 
 sealed trait ColumnType[+A] extends DomainObject {
@@ -16,7 +17,7 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   val ordering: Ordering
 
-  val multilanguage: Boolean = false
+  val multilanguage: Boolean
 
   override def getJson: JsonObject = Json.obj(
     "id" -> id,
@@ -29,17 +30,16 @@ sealed trait ColumnType[+A] extends DomainObject {
   override def setJson: JsonObject = Json.obj("id" -> id, "ordering" -> ordering)
 }
 
-sealed trait SimpleValueColumn[A] extends ColumnType[A]
+/*
+ * Single-language column types
+ */
+sealed trait SimpleValueColumn[A] extends ColumnType[A] {
+  override val multilanguage = false
+}
 
 object TextColumn {
   def apply(kind: TableauxDbType): (Table, ColumnId, String, Ordering) => TextColumn = {
     TextColumn(kind, _, _, _, _)
-  }
-}
-
-object MultiTextColumn {
-  def apply(kind: TableauxDbType): (Table, ColumnId, String, Ordering) => MultiTextColumn = {
-    MultiTextColumn(kind, _, _, _, _)
   }
 }
 
@@ -53,8 +53,25 @@ case class BooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ord
   override val kind = BooleanType
 }
 
+case class DateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[LocalDate] {
+  override val kind = DateType
+}
+
+case class DateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends SimpleValueColumn[DateTime] {
+  override val kind = DateTimeType
+}
+
+/*
+ * Multi-language column types
+ */
 sealed trait MultiLanguageColumn[A] extends SimpleValueColumn[A] {
   override val multilanguage = true
+}
+
+object MultiTextColumn {
+  def apply(kind: TableauxDbType): (Table, ColumnId, String, Ordering) => MultiTextColumn = {
+    MultiTextColumn(kind, _, _, _, _)
+  }
 }
 
 case class MultiTextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[String]
@@ -67,16 +84,34 @@ case class MultiBooleanColumn(table: Table, id: ColumnId, name: String, ordering
   override val kind = BooleanType
 }
 
-case class LinkColumn[A](table: Table, id: ColumnId, to: SimpleValueColumn[A], name: String, ordering: Ordering) extends ColumnType[Link[A]] {
+case class MultiDateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[LocalDate] {
+  override val kind = DateType
+}
+
+case class MultiDateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends MultiLanguageColumn[DateTime] {
+  override val kind = DateTimeType
+}
+
+/*
+ * Special column types
+ */
+case class LinkColumn[A](table: Table, id: ColumnId, to: SimpleValueColumn[A], linkInformation: (Long, String, String), name: String, ordering: Ordering) extends ColumnType[Link[A]] {
   override val kind = LinkType
+  override val multilanguage = false
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.getJson)
 }
 
 case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering) extends ColumnType[AttachmentFile] {
   override val kind = AttachmentType
+  override val multilanguage = false
 }
 
+/**
+  * Column seq is just a sequence of columns.
+  *
+  * @param columns
+  */
 case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
   override def getJson: JsonObject = Json.obj("columns" -> columns.map {
     _.getJson

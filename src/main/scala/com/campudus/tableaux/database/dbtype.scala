@@ -17,11 +17,13 @@ case object TextType extends TableauxDbType {
 
 case object RichTextType extends TableauxDbType {
   override val name = "richtext"
+
   override def toDbType = "text"
 }
 
 case object ShortTextType extends TableauxDbType {
   override val name = "shorttext"
+
   override def toDbType = "text"
 }
 
@@ -39,6 +41,16 @@ case object AttachmentType extends TableauxDbType {
 
 case object BooleanType extends TableauxDbType {
   override val name = "boolean"
+}
+
+case object DateType extends TableauxDbType {
+  override val name = "date"
+}
+
+case object DateTimeType extends TableauxDbType {
+  override val name = "datetime"
+
+  override def toDbType = "timestamp with time zone"
 }
 
 sealed trait LanguageType {
@@ -71,6 +83,8 @@ object Mapper {
         case TextType | RichTextType | ShortTextType => Some(TextColumn(kind))
         case NumericType => Some(NumberColumn.apply)
         case BooleanType => Some(BooleanColumn.apply)
+        case DateType => Some(DateColumn.apply)
+        case DateTimeType => Some(DateTimeColumn.apply)
 
         // complex types
         case AttachmentType => None
@@ -82,6 +96,8 @@ object Mapper {
         case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind))
         case NumericType => Some(MultiNumericColumn.apply)
         case BooleanType => Some(MultiBooleanColumn.apply)
+        case DateType => Some(MultiDateColumn.apply)
+        case DateTimeType => Some(MultiDateTimeColumn.apply)
 
         // complex types
         case AttachmentType => None
@@ -101,6 +117,8 @@ object Mapper {
       case LinkType.name => LinkType
       case AttachmentType.name => AttachmentType
       case BooleanType.name => BooleanType
+      case DateType.name => DateType
+      case DateTimeType.name => DateTimeType
     }
   }
 }
