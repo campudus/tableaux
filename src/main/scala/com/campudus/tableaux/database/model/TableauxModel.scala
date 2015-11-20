@@ -292,8 +292,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
         val mergedValues = Future.sequence((columns, rawValues).zipped map {
           case (c: AttachmentColumn, _) => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-          case (c: LinkColumn[_], _) => cellStruc.getLinkValues(c, rowId)
-
+          //case (c: LinkColumn[_], _) => cellStruc.getLinkValues(c, rowId)
+          case (c: LinkColumn[_], value) => Future(value)
           case (c: MultiLanguageColumn[_], value) => Future(value)
           case (c: SimpleValueColumn[_], value) => Future(value)
         })
