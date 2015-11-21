@@ -25,10 +25,10 @@ object TableauxModel {
 }
 
 /**
- * Needed because of {@code TableauxController#createCompleteTable} &
- * {@code TableauxController#retrieveCompleteTable}. Should only
- * be used by following delegate methods.
- */
+  * Needed because of {@code TableauxController#createCompleteTable} &
+  * {@code TableauxController#retrieveCompleteTable}. Should only
+  * be used by following delegate methods.
+  */
 sealed trait StructureDelegateModel extends DatabaseQuery {
 
   import TableauxModel._
@@ -65,18 +65,18 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   import TableauxModel._
 
-  val cellStruc = new CellModel(connection)
-  val rowStruc = new RowModel(connection)
+  val cellModel = new CellModel(connection)
+  val rowModel = new RowModel(connection)
 
   val attachmentModel = AttachmentModel(connection)
 
   def deleteRow(tableId: TableId, rowId: RowId): Future[EmptyObject] = for {
-    _ <- rowStruc.delete(tableId, rowId)
+    _ <- rowModel.delete(tableId, rowId)
   } yield EmptyObject()
 
   def createRow(tableId: TableId): Future[Row] = for {
     table <- retrieveTable(tableId)
-    id <- rowStruc.createEmpty(tableId)
+    id <- rowModel.createEmpty(tableId)
   } yield Row(table, id, Seq.empty)
 
   def createRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
@@ -101,13 +101,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
         for {
           rowId <- if (singleValues.isEmpty) {
-            rowStruc.createEmpty(table.id)
+            rowModel.createEmpty(table.id)
           } else {
-            rowStruc.createFull(table.id, singleValues)
+            rowModel.createFull(table.id, singleValues)
           }
 
           _ <- if (multiValues.nonEmpty) {
-            rowStruc.createTranslations(table.id, rowId, multiValues)
+            rowModel.createTranslations(table.id, rowId, multiValues)
           } else {
             Future.successful(())
           }
@@ -198,13 +198,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   private def insertMultiLanguageValues[A <: JsonObject](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(tableId, columnId)
-      _ <- cellStruc.updateTranslations(column.table.id, column.id, rowId, JsonUtils.toTupleSeq(value))
+      _ <- cellModel.updateTranslations(column.table.id, column.id, rowId, JsonUtils.toTupleSeq(value))
     } yield Cell(column, rowId, value)
   }
 
   private def insertSimpleValue[A, B <: ColumnType[A]](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[A]] = for {
     column <- retrieveColumn(tableId, columnId)
-    _ <- cellStruc.update(tableId, columnId, rowId, value)
+    _ <- cellModel.update(tableId, columnId, rowId, value)
   } yield Cell(column.asInstanceOf[B], rowId, value)
 
   private def handleLinkValues[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Link[Any]]] = {
@@ -229,73 +229,66 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   private def insertLinkValues(tableId: TableId, columnId: ColumnId, fromId: RowId, toIds: Seq[RowId]): Future[Cell[Link[Any]]] = for {
     linkColumn <- retrieveColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
-    _ <- cellStruc.putLinks(linkColumn.table.id, linkColumn.id, fromId, toIds)
-    v <- cellStruc.getLinkValues(linkColumn, fromId)
+    _ <- cellModel.putLinks(linkColumn.table.id, linkColumn.id, fromId, toIds)
+    v <- cellModel.getLinkValues(linkColumn, fromId)
   } yield Cell(linkColumn, fromId, Link(linkColumn.to.id, v))
 
   def addLinkValue(tableId: TableId, columnId: ColumnId, fromId: RowId, toId: RowId): Future[Cell[Link[Any]]] = for {
     linkColumn <- retrieveColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
-    _ <- cellStruc.updateLink(linkColumn.table.id, linkColumn.id, fromId, toId)
-    v <- cellStruc.getLinkValues(linkColumn, fromId)
+    _ <- cellModel.updateLink(linkColumn.table.id, linkColumn.id, fromId, toId)
+    v <- cellModel.getLinkValues(linkColumn, fromId)
   } yield Cell(linkColumn, fromId, Link(toId, v))
 
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = for {
     column <- retrieveColumn(tableId, columnId)
     value <- column match {
       case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-      case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
+      case c: LinkColumn[_] => cellModel.getLinkValues(c, rowId)
 
-      case c: MultiLanguageColumn[_] => cellStruc.getTranslations(c.table.id, c.id, rowId)
-      case c: SimpleValueColumn[_] => cellStruc.getValue(c.table.id, c.id, rowId)
+      case c: MultiLanguageColumn[_] => cellModel.getTranslations(c.table.id, c.id, rowId)
+      case c: SimpleValueColumn[_] => cellModel.getValue(c.table.id, c.id, rowId)
     }
   } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
 
   def retrieveRow(tableId: TableId, rowId: RowId): Future[Row] = {
     for {
       table <- retrieveTable(tableId)
-      allColumns <- retrieveColumns(table.id)
-      (rowId, values) <- rowStruc.retrieve(tableId, rowId, allColumns)
-      mergedValues <- {
-        Future.sequence(allColumns map {
-          case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-          case c: LinkColumn[_] => cellStruc.getLinkValues(c, rowId)
-
-          case c: MultiLanguageColumn[_] => Future.successful(values.toList(c.id.toInt - 1))
-          case c: SimpleValueColumn[_] => Future.successful(values.toList(c.id.toInt - 1))
-        })
-      }
-    } yield Row(table, rowId, mergedValues)
+      columns <- retrieveColumns(table.id)
+      rawRow <- rowModel.retrieve(tableId, rowId, columns)
+      rowSeq <- mapRawRows(table, columns, Seq(rawRow))
+    } yield rowSeq.head
   }
 
   def retrieveRows(table: Table, pagination: Pagination): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table.id)
-      rawRows <- rowStruc.retrieveAll(table.id, columns, pagination)
-      totalSize <- rowStruc.size(table.id)
-      rowSeq <- mapRawRows(table, columns, rawRows).map(seq => RowSeq(seq, Page(pagination, Some(totalSize))))
-    } yield rowSeq
+      rows <- retrieveRows(table, columns, pagination)
+    } yield rows
   }
 
   def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
     for {
       column <- retrieveColumn(table.id, columnId)
-      rawRows <- rowStruc.retrieveAll(table.id, Seq(column), pagination)
-      totalSize <- rowStruc.size(table.id)
-      rowSeq <- mapRawRows(table, Seq(column), rawRows).map(seq => RowSeq(seq, Page(pagination, Some(totalSize))))
-    } yield rowSeq
+      rows <- retrieveRows(table, Seq(column), pagination)
+    } yield rows
+  }
+
+  private def retrieveRows(table: Table, columns: Seq[ColumnType[_]], pagination: Pagination): Future[RowSeq] = {
+    for {
+      totalSize <- rowModel.size(table.id)
+      rawRows <- rowModel.retrieveAll(table.id, columns, pagination)
+      rowSeq <- mapRawRows(table, columns, rawRows)
+    } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }
 
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[AnyRef])]): Future[Seq[Row]] = {
-    // TODO performance problem: foreach row every link column is map and the link value is fetched!
+    // TODO performance problem: foreach row every attachment column is mapped and attachments will be fetched!
     val mergedRows = rawRows map {
       case (rowId, rawValues) =>
 
         val mergedValues = Future.sequence((columns, rawValues).zipped map {
           case (c: AttachmentColumn, _) => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-          //case (c: LinkColumn[_], _) => cellStruc.getLinkValues(c, rowId)
-          case (c: LinkColumn[_], value) => Future(value)
-          case (c: MultiLanguageColumn[_], value) => Future(value)
-          case (c: SimpleValueColumn[_], value) => Future(value)
+          case (_, value) => Future(value)
         })
 
         (rowId, mergedValues)

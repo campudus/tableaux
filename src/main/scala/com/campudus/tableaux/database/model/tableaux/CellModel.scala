@@ -90,6 +90,9 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
+  /*
+   * TODO should fetch the column and hand it over to the CellModel
+   */
   @Deprecated
   private def getLinkInformation(t: connection.Transaction)(tableId: TableId, linkColumnId: ColumnId): Future[(connection.Transaction, Long, String, String)] = {
     for {

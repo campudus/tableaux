@@ -65,7 +65,6 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       (t, result) <- {
         val sql = s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination"
-        logger.info(s"SELECT!\n$sql")
         t.query(sql)
       }
 
