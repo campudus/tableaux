@@ -61,14 +61,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val fromClause = generateFromClause(tableId, columns)
 
     for {
-      t <- connection.begin()
-
-      (t, result) <- {
-        val sql = s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination"
-        t.query(sql)
-      }
-
-      t <- t.commit()
+      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
       getSeqOfJsonArray(result).map(jsonArrayToSeq).map { row =>
         (row.head, mapResultRow(columns, row.drop(1)))
@@ -133,9 +126,11 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
                 |   link_table_${linkId} lt${linkId}
                 |   LEFT JOIN user_table_lang_${toTableId} utl${toTableId} ON (lt${linkId}.${id2} = utl${toTableId}.id)
                 | GROUP BY utl${toTableId}.id, lt${linkId}.${id1}
+                | ORDER BY lt${linkId}.${id1}
                 |) sub
                 |WHERE sub.${id1} = ut.id
                 |GROUP BY sub.${id1}
+                |ORDER BY sub.${id1}
                 |) AS column_${c.id}
            """.stripMargin
           case _: SimpleValueColumn[_] =>
@@ -151,9 +146,11 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
                 |   link_table_${linkId} lt${linkId}
                 |   LEFT JOIN user_table_${toTableId} ut${toTableId} ON (lt${linkId}.${id2} = ut${toTableId}.id)
                 | GROUP BY ut${toTableId}.id, lt${linkId}.${id1}
+                | ORDER BY lt${linkId}.${id1}
                 |) sub
                 |WHERE sub.${id1} = ut.id
                 |GROUP BY sub.${id1}
+                |ORDER BY sub.${id1}
                 |) AS column_${c.id}
            """.stripMargin
         }

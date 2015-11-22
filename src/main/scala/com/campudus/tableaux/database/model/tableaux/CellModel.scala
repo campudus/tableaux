@@ -65,31 +65,6 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def getValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Any] = {
-    for {
-      result <- connection.query(s"SELECT column_$columnId FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
-    } yield {
-      selectNotNull(result).head.get[Any](0)
-    }
-  }
-
-  def getTranslations(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[JsonObject] = {
-    val select = s"SELECT json_object_agg(DISTINCT COALESCE(langtag, 'de_DE'), column_$columnId) AS column_$columnId FROM user_table_lang_$tableId WHERE id = ? GROUP BY id"
-    for {
-      result <- connection.query(select, Json.arr(rowId))
-    } yield {
-      val rows = getSeqOfJsonArray(result)
-
-      Json.fromObjectString {
-        if (rows.isEmpty) {
-          "{\"de_DE\": null}"
-        } else {
-          rows.head.get[String](0)
-        }
-      }
-    }
-  }
-
   /*
    * TODO should fetch the column and hand it over to the CellModel
    */

@@ -239,16 +239,15 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     v <- cellModel.getLinkValues(linkColumn, fromId)
   } yield Cell(linkColumn, fromId, Link(toId, v))
 
-  def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = for {
-    column <- retrieveColumn(tableId, columnId)
-    value <- column match {
-      case c: AttachmentColumn => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
-      case c: LinkColumn[_] => cellModel.getLinkValues(c, rowId)
-
-      case c: MultiLanguageColumn[_] => cellModel.getTranslations(c.table.id, c.id, rowId)
-      case c: SimpleValueColumn[_] => cellModel.getValue(c.table.id, c.id, rowId)
-    }
-  } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
+  def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
+    for {
+      table <- retrieveTable(tableId)
+      column <- retrieveColumn(tableId, columnId)
+      rawRow <- rowModel.retrieve(tableId, rowId, Seq(column))
+      rowSeq <- mapRawRows(table, Seq(column), Seq(rawRow))
+      value = rowSeq.head.values.head
+    } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
+  }
 
   def retrieveRow(tableId: TableId, rowId: RowId): Future[Row] = {
     for {
