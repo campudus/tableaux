@@ -1,4 +1,4 @@
-# tableaux [![Build Status](https://travis-ci.org/campudus/tableaux.svg)](https://travis-ci.org/campudus/tableaux) [![Coverage Status](https://coveralls.io/repos/campudus/tableaux/badge.svg?branch=master&service=github)](https://coveralls.io/github/campudus/tableaux?branch=master)
+# Tableaux [![Build Status](https://travis-ci.org/campudus/tableaux.svg)](https://travis-ci.org/campudus/tableaux) [![Coverage Status](https://coveralls.io/repos/campudus/tableaux/badge.svg?branch=master&service=github)](https://coveralls.io/github/campudus/tableaux?branch=master)
 
 Tableaux (pronounced /ta.blo/) is a restful service for storing data in tables. These tables can have links between them.
 
@@ -7,24 +7,24 @@ Tableaux (pronounced /ta.blo/) is a restful service for storing data in tables. 
 At first you need to setup your database and create a new `conf.json` based on `conf-example.json`.
 After that you can need to call `POST /reset` once to initialize system tables. If you wish you can fill in the demo data with `POST /resetDemo`.
 
-## FatJar
+## Run
 
-Run `sbt` and create make a new `fatJar`. You can find it in `target/deploy/`.
-
-```
-sbt clean fatJar
-```
-
-To execute the `fatJar` you can call it like this:
+Tableaux uses gradle to build a so called **fat jar** which contains all runtime dependencies. You can find it in `build/libs/tableaux-fat.jar`.
 
 ```
-$ java -jar tableaux_2.11-0.1.0-fat.jar -conf ../../conf.json`
+./gradlew clean build
 ```
 
-## Features
+To execute the **fat jar** call it like this:
 
-### Relational data store
+```
+$ java -jar tableaux-fat.jar -conf ../../conf.json`
+```
 
-### Multi-language
+## Highlevel Features
 
-### Revision control
+* Content Creation System
+* Content Translation System
+* Digital Asset Management
+* Editing Publishing Workflow
+* Workspaces & Custom Projections
