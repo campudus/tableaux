@@ -13,6 +13,8 @@ class FillTest extends TableauxTestBase {
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
   val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
+  val createDateColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "date", "name" -> "Test Column 4")))
+  val createDateTimeColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "datetime", "name" -> "Test Column 5")))
 
   @Test
   def fillSingleCellWithNull(implicit c: TestContext): Unit = okTest {
@@ -84,6 +86,40 @@ class FillTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson)
       _ <- sendRequest("POST", "/tables/1/rows")
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillBooleanCellJson)
+      getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
+    } yield {
+      assertEquals(expectedJson, test)
+      assertEquals(expectedGet, getResult)
+    }
+  }
+
+  @Test
+  def fillDateCell(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok")
+    val expectedGet = Json.obj("status" -> "ok", "value" -> "2015-01-01")
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createDateColumnJson)
+      _ <- sendRequest("POST", "/tables/1/rows")
+      test <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> "2015-01-01"))
+      getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
+    } yield {
+      assertEquals(expectedJson, test)
+      assertEquals(expectedGet, getResult)
+    }
+  }
+
+  @Test
+  def fillDateTimeCell(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok")
+    val expectedGet = Json.obj("status" -> "ok", "value" -> "2015-01-01T13:37:47.111Z")
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createDateTimeColumnJson)
+      _ <- sendRequest("POST", "/tables/1/rows")
+      test <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> "2015-01-01T14:37:47.111+01"))
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
       assertEquals(expectedJson, test)
