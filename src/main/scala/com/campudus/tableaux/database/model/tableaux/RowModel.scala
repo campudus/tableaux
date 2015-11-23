@@ -94,10 +94,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def generateFromClause(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
-    s"""
-       |user_table_$tableId ut
-       |LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)
-       |""".stripMargin
+    s"user_table_$tableId ut LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)"
   }
 
   private def generateProjection(columns: Seq[ColumnType[_]]): String = {
@@ -123,14 +120,13 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
                 |   lt${linkId}.${id1} AS ${id1},
                 |   json_build_object('id', utl${toTableId}.id, 'value', json_object_agg(DISTINCT COALESCE(langtag, 'de_DE'), utl${toTableId}.column_${c.to.id})) AS column_${c.to.id}
                 | FROM
-                |   link_table_${linkId} lt${linkId}
-                |   LEFT JOIN user_table_lang_${toTableId} utl${toTableId} ON (lt${linkId}.${id2} = utl${toTableId}.id)
+                |   link_table_${linkId} lt${linkId} LEFT JOIN
+                |   user_table_lang_${toTableId} utl${toTableId} ON (lt${linkId}.${id2} = utl${toTableId}.id)
                 | GROUP BY utl${toTableId}.id, lt${linkId}.${id1}
-                | ORDER BY lt${linkId}.${id1}
+                | ORDER BY ut${toTableId}.id
                 |) sub
                 |WHERE sub.${id1} = ut.id
                 |GROUP BY sub.${id1}
-                |ORDER BY sub.${id1}
                 |) AS column_${c.id}
            """.stripMargin
           case _: SimpleValueColumn[_] =>
@@ -143,14 +139,13 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
                 |   lt${linkId}.${id1} AS ${id1},
                 |   json_build_object('id', ut${toTableId}.id, 'value', ut${toTableId}.column_${c.to.id}) AS column_${c.to.id}
                 | FROM
-                |   link_table_${linkId} lt${linkId}
-                |   LEFT JOIN user_table_${toTableId} ut${toTableId} ON (lt${linkId}.${id2} = ut${toTableId}.id)
+                |   link_table_${linkId} lt${linkId} LEFT JOIN
+                |   user_table_${toTableId} ut${toTableId} ON (lt${linkId}.${id2} = ut${toTableId}.id)
                 | GROUP BY ut${toTableId}.id, lt${linkId}.${id1}
-                | ORDER BY lt${linkId}.${id1}
+                | ORDER BY ut${toTableId}.id
                 |) sub
                 |WHERE sub.${id1} = ut.id
                 |GROUP BY sub.${id1}
-                |ORDER BY sub.${id1}
                 |) AS column_${c.id}
            """.stripMargin
         }

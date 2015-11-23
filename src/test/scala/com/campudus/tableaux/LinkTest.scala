@@ -112,17 +112,21 @@ class LinkTest extends TableauxTestBase {
       tables <- setupTwoTables()
       // create link column
       postResult <- sendRequest("POST", "/tables/1/columns", postLinkCol)
-      columnId <- Future.apply(postResult.getArray("columns").get[JsonObject](0).getLong("id"))
+      columnId = postResult.getArray("columns").get[JsonObject](0).getLong("id")
+
       // add row 1 to table 2
       postResult <- sendRequest("POST", "/tables/2/rows", valuesRow("Lala"))
-      rowId1 <- Future.apply(postResult.getArray("rows").get[JsonObject](0).getInteger("id"))
+      rowId1 = postResult.getArray("rows").get[JsonObject](0).getInteger("id")
+
       // add row 2 to table 2
       postResult <- sendRequest("POST", "/tables/2/rows", valuesRow("Lulu"))
-      rowId2 <- Future.apply(postResult.getArray("rows").get[JsonObject](0).getInteger("id"))
+      rowId2 = postResult.getArray("rows").get[JsonObject](0).getInteger("id")
+
       // add link 1
       addLink1 <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", fillLinkCellJson(rowId1))
       // add link 2
       addLink2 <- sendRequest("POST", s"/tables/1/columns/$columnId/rows/1", fillLinkCellJson(rowId2))
+
       // get link value (so it's a value from table 2 shown in table 1)
       linkValue <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
     } yield {
