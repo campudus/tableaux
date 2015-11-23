@@ -31,6 +31,10 @@ repositories {
     }
 }
 
+configurations {
+    compileOnly
+}
+
 dependencies {
     compile "org.scala-lang:scala-library:${scalaVersion}"
 
@@ -38,12 +42,14 @@ dependencies {
     compile "io.vertx:vertx-web:${vertxVersion}"
     compile 'io.vertx:vertx-mysql-postgresql-client:3.2.0-SNAPSHOT'
 
-    compile 'joda-time:joda-time:2.8'
+    compile 'joda-time:joda-time:2.9.1'
     compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'
-    compile 'org.slf4j:slf4j-jdk14:1.7.12'
+    compile 'org.slf4j:slf4j-jdk14:1.7.13'
 
-    scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.1.0'
-    scoverage 'org.scoverage:scalac-scoverage-runtime_2.11:1.1.0'
+    compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
+
+    scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.1.1'
+    scoverage 'org.scoverage:scalac-scoverage-runtime_2.11:1.1.1'
 
     testCompile "io.vertx:vertx-unit:${vertxVersion}"
     testCompile 'junit:junit:4.12'
@@ -60,27 +66,27 @@ run {
     args = ["run", mainVerticle, "-conf", "conf.json"]
 }
 
-compileScala {
-    scalaCompileOptions.useCompileDaemon = true
-
-    // optionally specify host and port of the daemon:
-    scalaCompileOptions.daemonServer = "localhost:4243"
-}
-
 // activate Zinc incremental compilation
 tasks.withType(ScalaCompile) {
     scalaCompileOptions.useAnt = false
+    scalaCompileOptions.useCompileDaemon = true
+    scalaCompileOptions.daemonServer = "localhost:4243"
 }
 
 // let Scala compiler do everything – even java stuff
 sourceSets {
     main {
+        compileClasspath += configurations.compileOnly
+
         scala {
             srcDirs = ['src/main/scala', 'src/main/java']
         }
         java {
             srcDirs = []
         }
+    }
+    test {
+        compileClasspath += configurations.compileOnly
     }
 }
 
@@ -118,6 +124,8 @@ shadowJar {
         include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
     }
 }
+
+assemble.dependsOn shadowJar
 
 task wrapper(type: Wrapper) {
     gradleVersion = '2.9'
