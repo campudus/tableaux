@@ -116,37 +116,41 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     rows <- Future.sequence(ids.map(retrieveRow(table.id, _)))
   } yield RowSeq(rows)
 
-  def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = for {
-  // TODO column should be passed on to insert methods
-    column <- retrieveColumn(tableId, columnId)
-    cell <- column match {
-      case attachmentColumn: AttachmentColumn => updateAttachment(tableId, columnId, rowId, value)
-      case _ => insertValue(tableId, columnId, rowId, value)
-    }
-  } yield cell
+  def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
+    for {
+      column <- retrieveColumn(tableId, columnId)
+      cell <- column match {
+        case column: AttachmentColumn => updateAttachment(column, rowId, value)
+        case _ => insertValue(tableId, columnId, rowId, value)
+      }
+    } yield cell
+  }
 
   def insertValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = for {
-  // TODO column should be passed on to insert methods
     column <- retrieveColumn(tableId, columnId)
+    cell <- insertValue[A](column, rowId, value)
+  } yield cell
+
+  private def insertValue[A](column: ColumnType[_], rowId: RowId, value: A): Future[Cell[_]] = for {
     cell <- column match {
-      case column: AttachmentColumn => insertAttachment(tableId, columnId, rowId, value)
-      case column: LinkColumn[_] => handleLinkValues(tableId, columnId, rowId, value)
-      case column: MultiLanguageColumn[_] => insertMultiLanguageValues(tableId, columnId, rowId, value.asInstanceOf[JsonObject])
-      case _ => insertSimpleValue(tableId, columnId, rowId, value)
+      case column: AttachmentColumn => insertAttachment[A](column, rowId, value)
+      case column: LinkColumn[_] => handleLinkValues[A](column, rowId, value)
+      case column: MultiLanguageColumn[_] => insertMultiLanguageValues(column, rowId, value.asInstanceOf[JsonObject])
+      case _ => insertSimpleValue(column, rowId, value)
     }
   } yield cell
 
-  def insertAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
+  private def insertAttachment[A](column: AttachmentColumn, rowId: RowId, value: A): Future[Cell[Any]] = {
     // add attachment
-    handleAttachment(tableId, columnId, rowId, value, attachmentModel.add)
+    handleAttachment(column, rowId, value, attachmentModel.add)
   }
 
-  def updateAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
+  private def updateAttachment[A](column: AttachmentColumn, rowId: RowId, value: A): Future[Cell[Any]] = {
     // update attachment order
-    handleAttachment(tableId, columnId, rowId, value, attachmentModel.update)
+    handleAttachment(column, rowId, value, attachmentModel.update)
   }
 
-  private def handleAttachment[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, fn: Attachment => Future[AttachmentFile]): Future[Cell[Any]] = {
+  private def handleAttachment[A](column: AttachmentColumn, rowId: RowId, value: A, fn: Attachment => Future[AttachmentFile]): Future[Cell[Any]] = {
     import ArgumentChecker._
 
     val v = Try(Left(value.asInstanceOf[JsonObject])).orElse(Try(Right(value.asInstanceOf[JsonArray]))).get
@@ -164,8 +168,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         }
 
         for {
-          column <- retrieveColumn(tableId, columnId)
-          file <- fn(Attachment(tableId, columnId, rowId, uuid, ordering))
+          column <- retrieveColumn(column.table.id, column.id)
+          file <- fn(Attachment(column.table.id, column.id, rowId, uuid, ordering))
         } yield Cell(column.asInstanceOf[AttachmentColumn], rowId, file)
 
       case Right(arr) =>
@@ -184,42 +188,40 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             }
           }
 
-          attachments += Attachment(tableId, columnId, rowId, uuid, ordering)
+          attachments += Attachment(column.table.id, column.id, rowId, uuid, ordering)
         }
 
         for {
-          column <- retrieveColumn(tableId, columnId)
-          file <- attachmentModel.replace(tableId, columnId, rowId, attachments)
-          cell <- retrieveCell(tableId, columnId, rowId)
+          column <- retrieveColumn(column.table.id, column.id)
+          file <- attachmentModel.replace(column.table.id, column.id, rowId, attachments)
+          cell <- retrieveCell(column.table.id, column.id, rowId)
         } yield cell
     }
   }
 
-  private def insertMultiLanguageValues[A <: JsonObject](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Any]] = {
+  private def insertMultiLanguageValues[A <: JsonObject](column: MultiLanguageColumn[_], rowId: RowId, value: A): Future[Cell[Any]] = {
     for {
-      column <- retrieveColumn(tableId, columnId)
-      _ <- cellModel.updateTranslations(column.table.id, column.id, rowId, JsonUtils.toTupleSeq(value))
+      _ <- cellModel.updateTranslations(column.table, column, rowId, JsonUtils.toTupleSeq(value))
     } yield Cell(column, rowId, value)
   }
 
-  private def insertSimpleValue[A, B <: ColumnType[A]](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[A]] = for {
-    column <- retrieveColumn(tableId, columnId)
-    _ <- cellModel.update(tableId, columnId, rowId, value)
+  private def insertSimpleValue[A, B <: ColumnType[A]](column: ColumnType[_], rowId: RowId, value: A): Future[Cell[A]] = for {
+    _ <- cellModel.update(column.table, column, rowId, value)
   } yield Cell(column.asInstanceOf[B], rowId, value)
 
-  private def handleLinkValues[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[Link[Any]]] = {
+  private def handleLinkValues[A](column: LinkColumn[_], rowId: RowId, value: A): Future[Cell[Link[_]]] = {
     Try(value.asInstanceOf[JsonObject]).flatMap { v =>
       import ArgumentChecker._
 
       import collection.JavaConverters._
 
       for {
-        toIds <- Try(Left(checked(hasNumber("to", v)).longValue())).orElse(
-          Try(Right(checked(hasArray("values", v)).asScala.map(_.asInstanceOf[Number].longValue()).toSeq)))
+        toOrValues <- Try(Left(checked(hasNumber("to", v)).longValue()))
+          .orElse(Try(Right(checked(hasArray("values", v)).asScala.map(_.asInstanceOf[Number].longValue()).toSeq)))
       } yield {
-        toIds match {
-          case Left(toId) => addLinkValue(tableId, columnId, rowId, toId)
-          case Right(toIds) => insertLinkValues(tableId, columnId, rowId, toIds)
+        toOrValues match {
+          case Left(toId) => addLinkValue(column, rowId, toId)
+          case Right(toIds) => insertLinkValues(column, rowId, toIds)
         }
       }
     } getOrElse {
@@ -227,24 +229,27 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   }
 
-  private def insertLinkValues(tableId: TableId, columnId: ColumnId, fromId: RowId, toIds: Seq[RowId]): Future[Cell[Link[Any]]] = for {
-    linkColumn <- retrieveColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
-    _ <- cellModel.putLinks(linkColumn.table.id, linkColumn.id, fromId, toIds)
-    v <- cellModel.getLinkValues(linkColumn, fromId)
+  private def insertLinkValues(linkColumn: LinkColumn[_], fromId: RowId, toIds: Seq[RowId]): Future[Cell[Link[_]]] = for {
+    _ <- cellModel.putLinks(linkColumn.table, linkColumn, fromId, toIds)
+    v <- retrieveCell(linkColumn, fromId)
   } yield Cell(linkColumn, fromId, Link(linkColumn.to.id, v))
 
-  def addLinkValue(tableId: TableId, columnId: ColumnId, fromId: RowId, toId: RowId): Future[Cell[Link[Any]]] = for {
-    linkColumn <- retrieveColumn(tableId, columnId).asInstanceOf[Future[LinkColumn[Any]]]
-    _ <- cellModel.updateLink(linkColumn.table.id, linkColumn.id, fromId, toId)
-    v <- cellModel.getLinkValues(linkColumn, fromId)
+  private def addLinkValue(linkColumn: LinkColumn[_], fromId: RowId, toId: RowId): Future[Cell[Link[_]]] = for {
+    _ <- cellModel.updateLink(linkColumn.table, linkColumn, fromId, toId)
+    v <- retrieveCell(linkColumn, fromId)
   } yield Cell(linkColumn, fromId, Link(toId, v))
 
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
     for {
-      table <- retrieveTable(tableId)
       column <- retrieveColumn(tableId, columnId)
-      rawRow <- rowModel.retrieve(tableId, rowId, Seq(column))
-      rowSeq <- mapRawRows(table, Seq(column), Seq(rawRow))
+      cell <- retrieveCell(column, rowId)
+    } yield cell
+  }
+
+  private def retrieveCell(column: ColumnType[_], rowId: RowId): Future[Cell[Any]] = {
+    for {
+      rawRow <- rowModel.retrieve(column.table.id, rowId, Seq(column))
+      rowSeq <- mapRawRows(column.table, Seq(column), Seq(rawRow))
       value = rowSeq.head.values.head
     } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
   }
@@ -281,7 +286,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   }
 
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[AnyRef])]): Future[Seq[Row]] = {
-    // TODO performance problem: foreach row every attachment column is mapped and attachments will be fetched!
+    // TODO potential performance problem: foreach row every attachment column is mapped and attachments will be fetched!
     val mergedRows = rawRows map {
       case (rowId, rawValues) =>
 
