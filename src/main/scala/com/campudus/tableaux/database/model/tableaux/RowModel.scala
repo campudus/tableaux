@@ -108,11 +108,18 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def generateProjection(columns: Seq[ColumnType[_]]): String = {
-    // TODO support for multi-language date & date-time
-
     val projection = columns map {
       case c: MultiLanguageColumn[_] =>
-        s"CASE WHEN COUNT(utl.id) = 0 THEN NULL ELSE json_object_agg(DISTINCT COALESCE(utl.langtag, 'IGNORE'), utl.column_${c.id}) FILTER (WHERE utl.column_${c.id} IS NOT NULL) END AS column_${c.id}"
+        val column = c match {
+          case _: MultiDateTimeColumn =>
+            s"""TO_CHAR(utl.column_${c.id} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')"""
+          case _: MultiDateColumn =>
+            s"TO_CHAR(utl.column_${c.id}, 'YYYY-MM-DD')"
+          case _ =>
+            s"utl.column_${c.id}"
+        }
+
+        s"CASE WHEN COUNT(utl.id) = 0 THEN NULL ELSE json_object_agg(DISTINCT COALESCE(utl.langtag, 'IGNORE'), $column) FILTER (WHERE utl.column_${c.id} IS NOT NULL) END AS column_${c.id}"
       case c: DateTimeColumn =>
         s"""TO_CHAR(ut.column_${c.id} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS column_${c.id}"""
       case c: DateColumn =>
@@ -127,7 +134,16 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
         val column = c.to match {
           case _: MultiLanguageColumn[_] =>
-            s"json_build_object('id', ut${toTableId}.id, 'value', json_object_agg(utl${toTableId}.langtag, utl${toTableId}.column_${c.to.id})) AS column_${c.to.id}"
+            val subcolumn = c.to match {
+              case _: MultiDateTimeColumn =>
+                s"""TO_CHAR(utl${toTableId}.column_${c.to.id} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')"""
+              case _: MultiDateColumn =>
+                s"TO_CHAR(utl${toTableId}.column_${c.to.id}, 'YYYY-MM-DD')"
+              case _ =>
+                s"utl${toTableId}.column_${c.to.id}"
+            }
+
+            s"json_build_object('id', ut${toTableId}.id, 'value', json_object_agg(utl${toTableId}.langtag, $subcolumn)) AS column_${c.to.id}"
           case _: DateTimeColumn =>
             s"""TO_CHAR(ut${toTableId}.column_${c.id} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS column_${c.id}"""
           case _: DateColumn =>

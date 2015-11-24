@@ -174,6 +174,17 @@ class MultiLanguageTest extends TableauxTestBase {
       )
     )
 
+    val cellDateValue = Json.obj(
+      "value" -> Json.obj(
+        "de_DE" -> "2015-01-01"
+      )
+    )
+
+    val cellDateTimeValue = Json.obj(
+      "value" -> Json.obj(
+        "de_DE" -> "2015-01-01T14:37:47.110+01"
+      )
+    )
 
     val exceptedJson = Json.fromObjectString(
       """
@@ -185,7 +196,9 @@ class MultiLanguageTest extends TableauxTestBase {
         |   { "de_DE" : true },
         |   { "de_DE" : 3.1415926 },
         |   { "en_US" : "Hello, Cell!" },
-        |   { "en_US" : "Hello, Cell!" }
+        |   { "en_US" : "Hello, Cell!" },
+        |   { "de_DE" : "2015-01-01" },
+        |   { "de_DE" : "2015-01-01T13:37:47.110Z" }
         |  ]
         |}
       """.stripMargin)
@@ -203,6 +216,9 @@ class MultiLanguageTest extends TableauxTestBase {
       _ <- sendRequest("POST", s"/tables/$tableId/columns/4/rows/$rowId", cellTextValue)
       _ <- sendRequest("POST", s"/tables/$tableId/columns/5/rows/$rowId", cellTextValue)
 
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/6/rows/$rowId", cellDateValue)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/7/rows/$rowId", cellDateTimeValue)
+
       row <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
     } yield {
       assertEquals(exceptedJson, row)
@@ -217,7 +233,9 @@ class MultiLanguageTest extends TableauxTestBase {
           Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true),
           Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
           Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
-          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "multilanguage" -> true)
+          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "multilanguage" -> true),
+          Json.obj("kind" -> "date", "name" -> "Test Column 6", "multilanguage" -> true),
+          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "multilanguage" -> true)
         )
     )
 
