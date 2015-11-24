@@ -5,7 +5,7 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.{FileUtils, JsonUtils}
-import org.vertx.scala.core.json.JsonObject
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 
@@ -29,6 +29,10 @@ class SystemController(override val config: TableauxConfig,
   def createDemoTables(): Future[DomainObject] = {
     logger.info("Create demo tables")
 
+    def generateToJson(to: Int): JsonObject = {
+      Json.obj("to" -> to)
+    }
+
     for {
       bl <- writeDemoData(readDemoData("bundeslaender"))
       rb <- writeDemoData(readDemoData("regierungsbezirke"))
@@ -36,17 +40,20 @@ class SystemController(override val config: TableauxConfig,
       // Add link column Bundeslaender(Land) <> Regierungsbezirke(Regierungsbezirk)
       linkColumn <- structureModel.columnStruc.createColumn(bl, CreateLinkColumn("Regierungsbezirke", None, LinkConnection(rb.id, 1, 1), Some("Bundesland")))
 
+      toRow1 = generateToJson(1)
+      toRow2 = generateToJson(2)
+
       // Bayern 2nd row
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 1, 2)
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 2, 2)
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 3, 2)
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 4, 2)
+      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 1, toRow2)
+      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 2, toRow2)
+      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 3, toRow2)
+      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 4, toRow2)
 
       //Baden-Wuerttemberg 1st row
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 5, 1)
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 6, 1)
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 7, 1)
-      _ <- tableauxModel.addLinkValue(rb.id, linkColumn.id, 8, 1)
+      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 5, toRow1)
+      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 6, toRow1)
+      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 7, toRow1)
+      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 8, toRow1)
     } yield TableSeq(Seq(bl, rb))
   }
 

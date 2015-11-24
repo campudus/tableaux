@@ -33,7 +33,7 @@ class MultiLanguageTest extends TableauxTestBase {
       columnsAfterDelete <- sendRequest("GET", s"/tables/$tableId/columns")
     } yield {
       assertEquals(exceptedJson(tableId, columnId), column)
-      assertEquals(0, columnsAfterDelete.getArray("columns").size())
+      assertEquals(6, columnsAfterDelete.getArray("columns").size())
     }
   }
 
@@ -77,9 +77,7 @@ class MultiLanguageTest extends TableauxTestBase {
       """
         |{
         |  "status" : "ok",
-        |  "value" : {
-        |    "de_DE" : null
-        |  }
+        |  "value" : {}
         |}
       """.stripMargin)
 
@@ -115,10 +113,15 @@ class MultiLanguageTest extends TableauxTestBase {
          |{
          | "status" : "ok",
          | "id" : $rowId,
-         | "values" : [ {
-         |   "de_DE" : "Hallo, Welt!",
-         |   "en_US" : "Hello, World!"
-         | } ]
+         | "values" : [
+         |  {"de_DE" : "Hallo, Welt!", "en_US" : "Hello, World!"},
+         |  {},
+         |  {},
+         |  {},
+         |  {},
+         |  {},
+         |  {}
+         | ]
          |}
       """.stripMargin)
 
@@ -155,9 +158,33 @@ class MultiLanguageTest extends TableauxTestBase {
       )
     )
 
-    val cellValue = Json.obj(
+    val cellTextValue = Json.obj(
       "value" -> Json.obj(
         "en_US" -> "Hello, Cell!"
+      )
+    )
+
+    val cellBooleanValue = Json.obj(
+      "value" -> Json.obj(
+        "de_DE" -> true
+      )
+    )
+
+    val cellNumericValue = Json.obj(
+      "value" -> Json.obj(
+        "de_DE" -> 3.1415926
+      )
+    )
+
+    val cellDateValue = Json.obj(
+      "value" -> Json.obj(
+        "de_DE" -> "2015-01-01"
+      )
+    )
+
+    val cellDateTimeValue = Json.obj(
+      "value" -> Json.obj(
+        "de_DE" -> "2015-01-01T14:37:47.110+01"
       )
     )
 
@@ -166,19 +193,33 @@ class MultiLanguageTest extends TableauxTestBase {
         |{
         |  "status" : "ok",
         |  "id" : 1,
-        |  "values" : [ {
-        |    "de_DE" : "Hallo, Welt!",
-        |    "en_US" : "Hello, Cell!"
-        |  } ]
+        |  "values" : [
+        |   { "de_DE" : "Hallo, Welt!", "en_US" : "Hello, Cell!" },
+        |   { "de_DE" : true },
+        |   { "de_DE" : 3.1415926 },
+        |   { "en_US" : "Hello, Cell!" },
+        |   { "en_US" : "Hello, Cell!" },
+        |   { "de_DE" : "2015-01-01" },
+        |   { "de_DE" : "2015-01-01T13:37:47.110Z" }
+        |  ]
         |}
       """.stripMargin)
 
     for {
-      (tableId, columnId) <- createTableWithMultilanguageColumn()
+      (tableId, _) <- createTableWithMultilanguageColumn()
 
       rowId <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow) map (_.getArray("rows").get[JsonObject](0).getLong("id"))
 
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", cellValue)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId", cellTextValue)
+
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/$rowId", cellBooleanValue)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/3/rows/$rowId", cellNumericValue)
+
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/4/rows/$rowId", cellTextValue)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/5/rows/$rowId", cellTextValue)
+
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/6/rows/$rowId", cellDateValue)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/7/rows/$rowId", cellDateTimeValue)
 
       row <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
     } yield {
@@ -187,7 +228,18 @@ class MultiLanguageTest extends TableauxTestBase {
   }
 
   private def createTableWithMultilanguageColumn(): Future[(Long, Long)] = {
-    val createMultilanguageColumn = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true)))
+    val createMultilanguageColumn = Json.obj(
+      "columns" ->
+        Json.arr(
+          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true),
+          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true),
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
+          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
+          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "multilanguage" -> true),
+          Json.obj("kind" -> "date", "name" -> "Test Column 6", "multilanguage" -> true),
+          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "multilanguage" -> true)
+        )
+    )
 
     for {
       tableId <- sendRequest("POST", "/tables", Json.obj("name" -> "Multi Language")) map (_.getLong("id"))

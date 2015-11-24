@@ -39,7 +39,7 @@ class TableauxController(override val config: TableauxConfig, override protected
 
   def retrieveRows(tableId: TableId, pagination: Pagination): Future[RowSeq] = {
     checkArguments(greaterZero(tableId))
-    logger.info(s"retrieveRows $tableId")
+    logger.info(s"retrieveRows $tableId for all columns")
 
     for {
       table <- repository.retrieveTable(tableId)
@@ -49,7 +49,7 @@ class TableauxController(override val config: TableauxConfig, override protected
 
   def retrieveRows(tableId: TableId, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
     checkArguments(greaterZero(tableId))
-    logger.info(s"retrieveRows $tableId")
+    logger.info(s"retrieveRows $tableId for column $columnId")
 
     for {
       table <- repository.retrieveTable(tableId)

@@ -7,10 +7,24 @@ sealed trait TableauxDbType {
   val name: String
 
   override def toString: String = name
+
+  def toDbType: String = name
 }
 
 case object TextType extends TableauxDbType {
   override val name = "text"
+}
+
+case object RichTextType extends TableauxDbType {
+  override val name = "richtext"
+
+  override def toDbType = "text"
+}
+
+case object ShortTextType extends TableauxDbType {
+  override val name = "shorttext"
+
+  override def toDbType = "text"
 }
 
 case object NumericType extends TableauxDbType {
@@ -23,6 +37,20 @@ case object LinkType extends TableauxDbType {
 
 case object AttachmentType extends TableauxDbType {
   override val name = "attachment"
+}
+
+case object BooleanType extends TableauxDbType {
+  override val name = "boolean"
+}
+
+case object DateType extends TableauxDbType {
+  override val name = "date"
+}
+
+case object DateTimeType extends TableauxDbType {
+  override val name = "datetime"
+
+  override def toDbType = "timestamp with time zone"
 }
 
 sealed trait LanguageType {
@@ -52,8 +80,11 @@ object Mapper {
     languageType match {
       case SingleLanguage => kind match {
         // primitive/simple types
-        case TextType => Some(TextColumn.apply)
+        case TextType | RichTextType | ShortTextType => Some(TextColumn(kind))
         case NumericType => Some(NumberColumn.apply)
+        case BooleanType => Some(BooleanColumn.apply)
+        case DateType => Some(DateColumn.apply)
+        case DateTimeType => Some(DateTimeColumn.apply)
 
         // complex types
         case AttachmentType => None
@@ -62,8 +93,11 @@ object Mapper {
 
       case MultiLanguage => kind match {
         // primitive/simple types
-        case TextType => Some(MultiTextColumn.apply)
+        case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind))
         case NumericType => Some(MultiNumericColumn.apply)
+        case BooleanType => Some(MultiBooleanColumn.apply)
+        case DateType => Some(MultiDateColumn.apply)
+        case DateTimeType => Some(MultiDateTimeColumn.apply)
 
         // complex types
         case AttachmentType => None
@@ -77,9 +111,14 @@ object Mapper {
   def getDatabaseType(kind: String): TableauxDbType = {
     kind match {
       case TextType.name => TextType
+      case ShortTextType.name => ShortTextType
+      case RichTextType.name => RichTextType
       case NumericType.name => NumericType
       case LinkType.name => LinkType
       case AttachmentType.name => AttachmentType
+      case BooleanType.name => BooleanType
+      case DateType.name => DateType
+      case DateTimeType.name => DateTimeType
     }
   }
 }
