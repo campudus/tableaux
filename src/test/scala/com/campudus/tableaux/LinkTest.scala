@@ -4,7 +4,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 
@@ -415,6 +415,83 @@ class LinkTest extends TableauxTestBase {
       )
 
       assertEquals(expectedJson, emptyLinkValue)
+    }
+  }
+
+  @Test
+  def createSelfLink(implicit c: TestContext): Unit = okTest {
+    val linkColumn = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "fromColumn" -> 1,
+          "toTable" -> 1,
+          "toColumn" -> 1
+        )
+      )
+    )
+
+    def addRow(tableId: Long, values: JsonObject): Future[Number] = for {
+      res <- sendRequest("POST", s"/tables/$tableId/rows", values)
+      table1RowId1 = res.getArray("rows").get[JsonObject](0).getNumber("id")
+    } yield table1RowId1
+
+    def valuesRow(c: String) = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr(c)))
+    )
+
+    def putLinks(arr: JsonArray) = Json.obj("value" -> Json.obj("values" -> arr))
+
+    val postTable = Json.obj("name" -> "Test Table")
+    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+
+    for {
+      tableId <- sendRequest("POST", "/tables", postTable) map { js => js.getLong("id") }
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createStringColumnJson)
+
+      // create link column
+      linkColumnId <- sendRequest("POST", "/tables/1/columns", linkColumn) map {
+        _.getArray("columns").get[JsonObject](0).getLong("id")
+      }
+
+      // add rows
+      row1 <- addRow(1, valuesRow("blub 1"))
+      row2 <- addRow(1, valuesRow("blub 2"))
+      row3 <- addRow(1, valuesRow("blub 3"))
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/$row1", putLinks(Json.arr(row2)))
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/$row2", putLinks(Json.arr(row3)))
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/$row3", putLinks(Json.arr(row1)))
+
+      // get link values
+      rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows")
+
+      // get column
+      columns <- sendRequest("GET", s"/tables/1/columns") map { js => js.getJsonArray("columns") }
+    } yield {
+      val expectedJson = Json.fromObjectString(
+        s"""
+           |{
+           |  "status": "ok",
+           |  "page": {
+           |    "offset": null,
+           |    "limit": null,
+           |    "totalSize": 3
+           |  },
+           |  "rows": [
+           |    {"id": 1,"values": [[{"id": 2,"value": "blub 2"}]]},
+           |    {"id": 2,"values": [[{"id": 3,"value": "blub 3"}]]},
+           |    {"id": 3,"values": [[{"id": 1,"value": "blub 1"}]]}
+           |  ]
+           |}
+         """.stripMargin)
+
+      assertEquals(expectedJson, rows)
+
+      // text column, and the self-link column
+      assertEquals(2, columns.size())
     }
   }
 
