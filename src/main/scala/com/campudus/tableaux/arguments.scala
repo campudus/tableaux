@@ -29,8 +29,8 @@ case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
 }
 
 /**
- * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
- */
+  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
+  */
 object ArgumentChecker {
 
   def notNull[A](x: => A, name: String): ArgumentCheck[A] = try {
@@ -52,6 +52,13 @@ object ArgumentChecker {
 
   def hasLong(field: String, value: JsonObject): ArgumentCheck[Long] = notNull(value.getLong(field), field)
 
+  def hasParam[A](option: Option[A], name: String): ArgumentCheck[A] = {
+    if (option.isDefined)
+      OkArg(option.get)
+    else
+      FailArg(ParamNotFoundException("query parameter $name not found"))
+  }
+
   def tryCast[A](elem: Any): ArgumentCheck[A] = {
     tryMap((x: Any) => x.asInstanceOf[A], InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid"))(elem)
   }
@@ -60,7 +67,7 @@ object ArgumentChecker {
     if (list1.size == list2.size) {
       OkArg(list1.zip(list2))
     } else {
-      FailArg(NotEnoughArgumentsException("lists are not equally sized", "arguments"))
+      FailArg(NotEnoughArgumentsException("lists are not equally sized"))
     }
   }
 

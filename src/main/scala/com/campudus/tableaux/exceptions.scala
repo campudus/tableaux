@@ -1,23 +1,51 @@
 package com.campudus.tableaux
 
 sealed trait CustomException extends Throwable {
-  def message: String
+  val message: String
 
-  def id: String
+  val id: String
 
-  override def toString: String = s"${super.toString()}: $message"
+  val statusCode: Int
+
+  override def toString: String = s"${super.toString}: $message"
 }
 
-case class NoJsonFoundException(message: String, id: String) extends CustomException
+case class NoJsonFoundException(override val message: String) extends CustomException {
+  override val id = "error.json.notfound"
+  override val statusCode = 400
+}
 
-case class NotFoundInDatabaseException(message: String, id: String) extends CustomException
+case class NotFoundInDatabaseException(override val message: String, subId: String) extends CustomException {
+  override val id = s"error.database.notfound.$subId"
+  override val statusCode = 404
+}
 
-case class DatabaseException(message: String, id: String) extends CustomException
+case class DatabaseException(override val message: String, subId: String) extends CustomException {
+  override val id = s"error.database.$subId"
+  override val statusCode = 500
+}
 
-case class NotEnoughArgumentsException(message: String, id: String) extends CustomException
+case class NotEnoughArgumentsException(override val message: String) extends CustomException {
+  override val id = s"error.json.arguments"
+  override val statusCode = 400
+}
 
-case class InvalidJsonException(message: String, id: String) extends CustomException
+case class InvalidJsonException(override val message: String, subId: String) extends CustomException {
+  override val id = s"error.json.$subId"
+  override val statusCode = 400
+}
 
-case class InvalidNonceException(message: String, id: String = "error.nonce.invalid") extends CustomException
+case class InvalidNonceException(override val message: String) extends CustomException {
+  override val id = "error.nonce.invalid"
+  override val statusCode = 401
+}
 
-case class NoNonceException(message: String, id: String = "error.nonce.none") extends CustomException
+case class NoNonceException(override val message: String) extends CustomException {
+  override val id = "error.nonce.none"
+  override val statusCode = 500
+}
+
+case class ParamNotFoundException(override val message: String) extends CustomException {
+  override val id = "error.param.notfound"
+  override val statusCode = 400
+}
