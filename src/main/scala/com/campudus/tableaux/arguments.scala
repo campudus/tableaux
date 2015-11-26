@@ -56,7 +56,15 @@ object ArgumentChecker {
     if (option.isDefined)
       OkArg(option.get)
     else
-      FailArg(ParamNotFoundException("query parameter $name not found"))
+      FailArg(ParamNotFoundException(s"query parameter $name not found"))
+  }
+
+  def hasAny(options: Seq[Option[_]], name: String = ""): ArgumentCheck[Unit] = {
+    val empty = !options.exists({ o => o.isDefined })
+    empty match {
+      case true => FailArg(InvalidRequestException(s"Non of these options has a value. ($name)"))
+      case false => OkArg(())
+    }
   }
 
   def tryCast[A](elem: Any): ArgumentCheck[A] = {
@@ -89,5 +97,5 @@ object ArgumentChecker {
     if (failedArgs.nonEmpty) throw new IllegalArgumentException(failedArgs.mkString("\n"))
   }
 
-  def checked[A](arg1: ArgumentCheck[A]): A = arg1.get
+  def checked[A](checkedArgument: ArgumentCheck[A]): A = checkedArgument.get
 }

@@ -49,3 +49,8 @@ case class ParamNotFoundException(override val message: String) extends CustomEx
   override val id = "error.param.notfound"
   override val statusCode = 400
 }
+
+case class InvalidRequestException(override val message: String) extends CustomException {
+  override val id = "error.request.invalid"
+  override val statusCode = 400
+}
