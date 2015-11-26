@@ -8,16 +8,8 @@ import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
 object File {
-  def apply(uuid: UUID, name: MultiLanguageValue[String], description: MultiLanguageValue[String], folder: Option[FolderId]): File = {
-    File(Some(uuid), folder, name, description, MultiLanguageValue.empty(), MultiLanguageValue.empty(), MultiLanguageValue.empty(), None, None)
-  }
-
-  def apply(uuid: UUID, internalName: MultiLanguageValue[String], externalName: MultiLanguageValue[String], mimeType: MultiLanguageValue[String]): File = {
-    File(Some(uuid), None, externalName, MultiLanguageValue.empty[String](), internalName, externalName, mimeType, None, None)
-  }
-
-  def apply(internalName: MultiLanguageValue[String], externalName: MultiLanguageValue[String], mimeType: MultiLanguageValue[String]): File = {
-    File(None, None, externalName, MultiLanguageValue.empty[String](), internalName, externalName, mimeType, None, None)
+  def apply(uuid: UUID, name: MultiLanguageValue[String], description: MultiLanguageValue[String], externalName: MultiLanguageValue[String], folder: Option[FolderId]): File = {
+    File(Some(uuid), folder, name, description, MultiLanguageValue.empty(), externalName, MultiLanguageValue.empty(), None, None)
   }
 }
 

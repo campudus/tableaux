@@ -66,7 +66,7 @@ class MediaTest extends TableauxTestBase {
       insertedFile2 <- model.update(tempFile2)
 
       retrievedFile <- model.retrieve(insertedFile1.uuid.get)
-      updatedFile <- model.update(File(retrievedFile.uuid.get, MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "Changed"), None))
+      updatedFile <- model.update(File(uuid = retrievedFile.uuid.get, MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "external.pdf"), None))
 
       allFiles <- model.retrieveAll()
 
@@ -131,7 +131,7 @@ class MediaTest extends TableauxTestBase {
   @Test
   def retrieveRootFolder(implicit c: TestContext): Unit = okTest {
     for {
-      rootFolder <- sendRequest("GET", "/folders")
+      rootFolder <- sendRequest("GET", "/folders?langtag=de-DE")
     } yield {
       assertNull(rootFolder.getString("id"))
       assertEquals("root", rootFolder.getString("name"))
@@ -146,7 +146,7 @@ class MediaTest extends TableauxTestBase {
     }
 
     for {
-      folderId <- sendRequest("POST", s"/folders", createFolderPutJson("Test")).map(_.getInteger("id"))
+      folderId <- sendRequest("POST", s"/folders?langtag=de-DE", createFolderPutJson("Test")).map(_.getInteger("id"))
 
       folder <- sendRequest("GET", s"/folders/$folderId")
 
@@ -541,7 +541,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def addAttachmentWithMalformedUUID(implicit c: TestContext): Unit = exceptionTest("errors.unknown") {
+  def addAttachmentWithMalformedUUID(implicit c: TestContext): Unit = exceptionTest("error.unknown") {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
