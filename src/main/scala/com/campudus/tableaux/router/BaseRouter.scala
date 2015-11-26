@@ -31,16 +31,28 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
     */
   val langtagRegex: String = "[a-z]{2}[-_][A-Z]{2}"
 
+  /**
+    * Base result JSON
+    */
+  val baseResult = Json.obj("status" -> "ok")
+
   override val verticle: ScalaVerticle = config.verticle
 
-  def asyncSetReply: (Future[DomainObject]) => AsyncReply = asyncReply(SetReturn)(_)
+  type AsyncReplyFunction = (=> Future[DomainObject]) => AsyncReply
 
-  def asyncGetReply: (Future[DomainObject]) => AsyncReply = asyncReply(GetReturn)(_)
+  def asyncSetReply: AsyncReplyFunction = asyncReply(SetReturn)(_)
 
-  def asyncEmptyReply: (Future[DomainObject]) => AsyncReply = asyncReply(EmptyReturn)(_)
+  def asyncGetReply: AsyncReplyFunction = asyncReply(GetReturn)(_)
 
-  def asyncReply(reType: ReturnType)(f: => Future[DomainObject]): AsyncReply = AsyncReply {
-    f map { d => Ok(Json.obj("status" -> "ok").mergeIn(d.toJson(reType))) } recover {
+  def asyncEmptyReply: AsyncReplyFunction = asyncReply(EmptyReturn)(_)
+
+  private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject]): AsyncReply = AsyncReply {
+    replyFunction map {
+      result =>
+        val resultJson = result.toJson(returnType)
+        val replyBody = resultJson.mergeIn(baseResult)
+        Ok(replyBody)
+    } recover {
       case ex: CustomException => Error(RouterException(ex.message, ex, ex.id, ex.statusCode))
       case ex: Throwable => Error(RouterException("unknown error", ex, "error.unknown", 500))
     }

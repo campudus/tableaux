@@ -22,7 +22,7 @@ object JsonUtils {
     tryMap((y: Seq[JsonObject]) => y map { x: JsonObject => x }, InvalidJsonException(s"Warning: Array should only contain JsonObjects", "object"))(seq)
   }
 
-  def toTableauxType(kind: String): ArgumentCheck[TableauxDbType] = {
+  private def toTableauxType(kind: String): ArgumentCheck[TableauxDbType] = {
     tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))(kind)
   }
 
@@ -127,7 +127,7 @@ object JsonUtils {
     })
   }
 
-  def getColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType]) = {
+  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType]) = {
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
