@@ -17,11 +17,11 @@ class ErrorTest extends TableauxTestBase {
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
   val fillCellJson = Json.obj("value" -> "Test Fill 1")
 
-  val errorJsonNotFound = "errors.json.not-found"
-  val errorDatabaseDelete = "errors.database.delete"
-  val errorDatabaseSelect = "errors.database.select"
-  val errorDatabaseInsert = "errors.database.insert"
-  val errorDatabaseUnknown = "errors.database.unknown"
+  val errorJsonNotFound = "error.json.notfound"
+  val errorDatabaseDelete = "error.database.delete"
+  val errorDatabaseSelect = "error.database.select"
+  val errorDatabaseInsert = "error.database.insert"
+  val errorDatabaseUnknown = "error.database.unknown"
   val errorJsonArguments = "error.json.arguments"
   val errorJsonInvalid = "error.json.invalid"
   val errorJsonNull = "error.json.null"
