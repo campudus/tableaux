@@ -38,18 +38,18 @@ trait DomainObject extends DomainObjectHelper {
   def setJson: JsonObject = getJson
 
   /**
-   * Returns an empty JsonObject. It's used
-   * as response for all requests which don't
-   * need a response body.
-   *
-   * @return empty JsonObject
-   */
+    * Returns an empty JsonObject. It's used
+    * as response for all requests which don't
+    * need a response body.
+    *
+    * @return empty JsonObject
+    */
   final def emptyJson: JsonObject = Json.obj()
 
   /**
-   * @param returnType get, set or empty
-   * @return
-   */
+    * @param returnType get, set or empty
+    * @return
+    */
   final def toJson(returnType: ReturnType): JsonObject = returnType match {
     case GetReturn => getJson
     case SetReturn => setJson
@@ -57,9 +57,10 @@ trait DomainObject extends DomainObjectHelper {
   }
 
   /**
-   * Uses getJson to encode DomainObject as String
-   * @return String representation of DomainObject
-   */
+    * Uses getJson to encode DomainObject as String
+    *
+    * @return String representation of DomainObject
+    */
   override def toString: String = getJson.encode()
 }
 
@@ -82,8 +83,8 @@ object MultiLanguageValue {
   }
 
   /**
-   * Generates MultiLanguageValue based on JSON
-   */
+    * Generates MultiLanguageValue based on JSON
+    */
   def apply[A](obj: JsonObject): MultiLanguageValue[A] = {
     import scala.collection.JavaConversions._
     val fields: Map[String, A] = obj.fieldNames().toList.map(name => name -> obj.getValue(name).asInstanceOf[A])(collection.breakOut)
@@ -96,9 +97,9 @@ object MultiLanguageValue {
   }
 
   /**
-   * Map Map(column -> Map(langtag -> value))
-   * to Map(langtag -> Map(column -> value))
-   */
+    * Map Map(column -> Map(langtag -> value))
+    * to Map(langtag -> Map(column -> value))
+    */
   def merge(map: Map[String, Map[String, Any]]): Map[String, Map[String, Any]] = {
     // TODO refactor
     val result = mutable.Map.empty[String, mutable.Map[String, Any]]
@@ -126,8 +127,8 @@ object MultiLanguageValue {
 }
 
 /**
- * Used for multi-language values in a DomainObject
- */
+  * Used for multi-language values in a DomainObject
+  */
 case class MultiLanguageValue[A](values: Map[String, A]) extends DomainObject {
   override def getJson: JsonObject = {
     values.foldLeft(Json.emptyObj()) {
@@ -137,4 +138,11 @@ case class MultiLanguageValue[A](values: Map[String, A]) extends DomainObject {
   }
 
   def get(langtag: String): Option[A] = values.get(langtag)
+
+  def size = values.size
+
+  def add(langtag: String, value: A): MultiLanguageValue[A] = {
+    val newValues = values + (langtag -> value)
+    MultiLanguageValue[A](newValues)
+  }
 }
