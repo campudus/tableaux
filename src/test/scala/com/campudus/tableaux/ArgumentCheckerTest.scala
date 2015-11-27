@@ -68,10 +68,10 @@ class ArgumentCheckerTest {
 
   @Test
   def checkHasAny(): Unit = {
-    checkArguments(hasAny(Seq(Some(1), Some("text"), None)))
+    checkArguments(isDefined(Seq(Some(1), Some("text"), None)))
 
     try {
-      checkArguments(hasAny(Seq(None, None, None)))
+      checkArguments(isDefined(Seq(None, None, None)))
       fail("Should throw an exception")
     } catch {
       case ex: IllegalArgumentException => assertEquals("(0) Non of these options has a value. ()", ex.getMessage)

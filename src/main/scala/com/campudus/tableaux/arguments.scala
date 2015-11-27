@@ -46,26 +46,28 @@ object ArgumentChecker {
     if (seq.nonEmpty) OkArg(seq) else FailArg(InvalidJsonException(s"Warning: $name is empty.", "empty"))
   }
 
-  def hasArray(field: String, value: JsonObject): ArgumentCheck[JsonArray] = notNull(value.getJsonArray(field), field)
-
-  def hasNumber(field: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getValue(field).asInstanceOf[Number], field)
-
-  def hasLong(field: String, value: JsonObject): ArgumentCheck[Long] = notNull(value.getLong(field), field)
-
-  def hasParam[A](option: Option[A], name: String): ArgumentCheck[A] = {
-    if (option.isDefined)
-      OkArg(option.get)
-    else
-      FailArg(ParamNotFoundException(s"query parameter $name not found"))
+  def isDefined[A](option: Option[A], name: String): ArgumentCheck[A] = {
+    option.isDefined match {
+      case true => OkArg(option.get)
+      case false => FailArg(ParamNotFoundException(s"query parameter $name not found"))
+    }
   }
 
-  def hasAny(options: Seq[Option[_]], name: String = ""): ArgumentCheck[Unit] = {
+  def isDefined(options: Seq[Option[_]], name: String = ""): ArgumentCheck[Unit] = {
     val empty = !options.exists({ o => o.isDefined })
     empty match {
       case true => FailArg(InvalidRequestException(s"Non of these options has a value. ($name)"))
       case false => OkArg(())
     }
   }
+
+  def hasArray(field: String, json: JsonObject): ArgumentCheck[JsonArray] = notNull(json.getJsonArray(field), field)
+
+  def hasNumber(field: String, json: JsonObject): ArgumentCheck[Number] = notNull(json.getValue(field).asInstanceOf[Number], field)
+
+  def hasLong(field: String, json: JsonObject): ArgumentCheck[Long] = notNull(json.getLong(field), field)
+
+  def hasString(field: String, json: JsonObject): ArgumentCheck[String] = notNull(json.getString(field), field)
 
   def tryCast[A](elem: Any): ArgumentCheck[A] = {
     tryMap((x: Any) => x.asInstanceOf[A], InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid"))(elem)
