@@ -2,6 +2,7 @@ package com.campudus.tableaux.router
 
 import java.util.UUID
 
+import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
@@ -36,6 +37,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   val FilesLang: Regex = s"/files/($langtagRegex)".r
 
   val FileId: Regex = s"/files/($uuidRegex)".r
+  val FileIdMerge: Regex = s"/files/($uuidRegex)/merge".r
   val FileIdLang: Regex = s"/files/($uuidRegex)/($langtagRegex)".r
   val FileIdLangStatic: Regex = s"/files/($uuidRegex)/($langtagRegex)/.*".r
 
@@ -60,18 +62,18 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       import ArgumentChecker._
 
       //TODO this will result in a unhandled exception error
-      val sortByLangtag = checked(hasParam(getStringParam("langtag", context), "langtag"))
+      val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
       controller.retrieveRootFolder(sortByLangtag)
     })
 
     /**
       * Retrieve folder
       */
-    case Get(FolderId(id, langtag)) => asyncGetReply({
+    case Get(FolderId(id)) => asyncGetReply({
       import ArgumentChecker._
 
       //TODO this will result in a unhandled exception error
-      val sortByLangtag = checked(hasParam(getStringParam("langtag", context), "langtag"))
+      val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
       controller.retrieveFolder(id.toLong, sortByLangtag)
     })
 
@@ -154,6 +156,18 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         controller.replaceFile(UUID.fromString(uuid), langtag, action)
       })
     }
+
+    /**
+      * File merge
+      */
+    case Post(FileIdMerge(uuid)) => asyncSetReply({
+      getJson(context) flatMap { implicit json =>
+        val langtag = checked(hasString("langtag", json))
+        val mergeWith = UUID.fromString(checked(hasString("mergeWith", json)))
+
+        controller.mergeFile(UUID.fromString(uuid), langtag, mergeWith)
+      }
+    })
 
     /**
       * Delete file

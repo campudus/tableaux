@@ -226,4 +226,46 @@ class MediaController(override val config: TableauxConfig,
       })
     })
   }
+
+  def mergeFile(uuid: UUID, langtag: String, mergeWith: UUID): Future[ExtendedFile] = {
+    for {
+      toMerge <- fileModel.retrieve(mergeWith)
+      file <- fileModel.retrieve(uuid)
+
+      // only delete database entry but not file
+      _ <- fileModel.deleteById(mergeWith)
+
+      mergedFile <- {
+        val mergeLangtag = isSingleLanguage(toMerge) match {
+          case Some(l) => l
+          case None => throw new IllegalArgumentException("Can't merge a multi language file.")
+        }
+
+        val externalName = toMerge.externalName.get(mergeLangtag)
+        val internalName = toMerge.internalName.get(mergeLangtag)
+
+        val title = toMerge.title.get(mergeLangtag)
+        val description = toMerge.description.get(mergeLangtag)
+
+        val mimeType = toMerge.mimeType.get(mergeLangtag)
+
+        val mergedFile = file.copy(
+          externalName = file.externalName.add(langtag, externalName.getOrElse("")),
+          internalName = file.internalName.add(langtag, internalName.getOrElse("")),
+          title = file.title.add(langtag, title.getOrElse("")),
+          description = file.description.add(langtag, description.getOrElse("")),
+          mimeType = file.mimeType.add(langtag, mimeType.getOrElse(""))
+        )
+
+        fileModel.update(mergedFile)
+      }
+    } yield ExtendedFile(mergedFile)
+  }
+
+  private def isSingleLanguage(file: File): Option[String] = {
+    file.internalName.size == 1 match {
+      case true => Some(file.internalName.values.head._1)
+      case false => None
+    }
+  }
 }
