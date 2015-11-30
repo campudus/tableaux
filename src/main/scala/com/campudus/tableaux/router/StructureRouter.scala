@@ -27,18 +27,18 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     case Get(Table(tableId)) => asyncGetReply(controller.retrieveTable(tableId.toLong))
 
     /**
-     * Get columns
-     */
+      * Get columns
+      */
     case Get(Columns(tableId)) => asyncGetReply(controller.retrieveColumns(tableId.toLong))
 
     /**
-     * Get columns
-     */
+      * Get columns
+      */
     case Get(Column(tableId, columnId)) => asyncGetReply(controller.retrieveColumn(tableId.toLong, columnId.toLong))
 
     /**
-     * Create Table
-     */
+      * Create Table
+      */
     case Post(Tables()) => asyncSetReply {
       getJson(context) flatMap { json =>
         controller.createTable(json.getString("name"))
@@ -46,15 +46,15 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
 
     /**
-     * Create Column
-     */
+      * Create Column
+      */
     case Post(Columns(tableId)) => asyncSetReply {
       getJson(context) flatMap (json => controller.createColumns(tableId.toLong, toCreateColumnSeq(json)))
     }
 
     /**
-     * Change Table
-     */
+      * Change Table
+      */
     case Post(Table(tableId)) => asyncEmptyReply {
       getJson(context) flatMap { json =>
         controller.changeTable(tableId.toLong, json.getString("name"))
@@ -62,24 +62,24 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
 
     /**
-     * Change Column
-     */
+      * Change Column
+      */
     case Post(Column(tableId, columnId)) => asyncEmptyReply {
       getJson(context) flatMap {
         json =>
-          val (optName, optOrd, optKind) = getColumnChanges(json)
+          val (optName, optOrd, optKind) = toColumnChanges(json)
           controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind)
       }
     }
 
     /**
-     * Delete Table
-     */
+      * Delete Table
+      */
     case Delete(Table(tableId)) => asyncEmptyReply(controller.deleteTable(tableId.toLong))
 
     /**
-     * Delete Column
-     */
+      * Delete Column
+      */
     case Delete(Column(tableId, columnId)) => asyncEmptyReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
   }
 }

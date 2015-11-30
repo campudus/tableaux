@@ -1,8 +1,8 @@
 package com.campudus.tableaux
 
-import org.junit.Test
-import org.junit.Assert._
 import com.campudus.tableaux.ArgumentChecker._
+import org.junit.Assert._
+import org.junit.Test
 
 class ArgumentCheckerTest {
 
@@ -66,4 +66,16 @@ class ArgumentCheckerTest {
     }
   }
 
+  @Test
+  def checkHasAny(): Unit = {
+    checkArguments(isDefined(Seq(Some(1), Some("text"), None)))
+
+    try {
+      checkArguments(isDefined(Seq(None, None, None)))
+      fail("Should throw an exception")
+    } catch {
+      case ex: IllegalArgumentException => assertEquals("(0) Non of these options has a value. ()", ex.getMessage)
+      case _: Throwable => fail(s"Should throw an IllegalArgumentException")
+    }
+  }
 }

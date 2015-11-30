@@ -30,8 +30,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   override def routes(implicit context: RoutingContext): Routing = {
     /**
-     * Get Rows
-     */
+      * Get Rows
+      */
     case Get(Rows(tableId)) => asyncGetReply({
       val limit = getLongParam("limit", context)
       val offset = getLongParam("offset", context)
@@ -42,8 +42,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     })
 
     /**
-     * Get Rows
-     */
+      * Get Rows
+      */
     case Get(RowsOfColumn(tableId, columnId)) => asyncGetReply({
       val limit = getLongParam("limit", context)
       val offset = getLongParam("offset", context)
@@ -54,23 +54,23 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     })
 
     /**
-     * Get Row
-     */
+      * Get Row
+      */
     case Get(Row(tableId, rowId)) => asyncGetReply(controller.retrieveRow(tableId.toLong, rowId.toLong))
 
     /**
-     * Get Cell
-     */
+      * Get Cell
+      */
     case Get(Cell(tableId, columnId, rowId)) => asyncGetReply(controller.retrieveCell(tableId.toLong, columnId.toLong, rowId.toLong))
 
     /**
-     * Get complete table
-     */
+      * Get complete table
+      */
     case Get(CompleteTableId(tableId)) => asyncGetReply(controller.retrieveCompleteTable(tableId.toLong))
 
     /**
-     * Create table with columns and rows
-     */
+      * Create table with columns and rows
+      */
     case Post(CompleteTable()) => asyncSetReply {
       getJson(context) flatMap { json =>
         if (json.containsKey("rows")) {
@@ -82,8 +82,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-     * Create Row
-     */
+      * Create Row
+      */
     case Post(Rows(tableId)) => asyncSetReply {
       getJson(context) flatMap (json => controller.createRow(tableId.toLong, Some(toColumnValueSeq(json)))) recoverWith {
         case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
@@ -91,8 +91,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-     * Fill Cell
-     */
+      * Fill Cell
+      */
     case Post(Cell(tableId, columnId, rowId)) => asyncSetReply {
       getJson(context) flatMap { json =>
         controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
@@ -100,8 +100,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-     * Update Cell
-     */
+      * Update Cell
+      */
     case Put(Cell(tableId, columnId, rowId)) => asyncSetReply {
       getJson(context) flatMap { json =>
         controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
@@ -109,13 +109,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-     * Delete Row
-     */
+      * Delete Row
+      */
     case Delete(Row(tableId, rowId)) => asyncEmptyReply(controller.deleteRow(tableId.toLong, rowId.toLong))
 
     /**
-     * Delete Attachment
-     */
+      * Delete Attachment
+      */
     case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) => asyncEmptyReply(controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid))
   }
 }

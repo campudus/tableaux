@@ -2,9 +2,11 @@ package com.campudus.tableaux.router
 
 import java.util.UUID
 
-import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
+import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.{ArgumentChecker, TableauxConfig}
 import io.vertx.core.http.HttpServerFileUpload
 import io.vertx.ext.web.RoutingContext
 import io.vertx.scala.FunctionConverters._
@@ -30,18 +32,19 @@ object MediaRouter {
 }
 
 class MediaRouter(override val config: TableauxConfig, val controller: MediaController) extends BaseRouter {
-  val FolderId: Regex = "/folders/(\\d+)".r
+  val FolderId: Regex = s"/folders/(\\d+)".r
 
   val FilesLang: Regex = s"/files/($langtagRegex)".r
 
   val FileId: Regex = s"/files/($uuidRegex)".r
+  val FileIdMerge: Regex = s"/files/($uuidRegex)/merge".r
   val FileIdLang: Regex = s"/files/($uuidRegex)/($langtagRegex)".r
   val FileIdLangStatic: Regex = s"/files/($uuidRegex)/($langtagRegex)/.*".r
 
   override def routes(implicit context: RoutingContext): Routing = {
     /**
-     * Create folder
-     */
+      * Create folder
+      */
     case Post("/folders") => asyncSetReply({
       getJson(context) flatMap { implicit json =>
         val name = json.getString("name")
@@ -53,18 +56,30 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     })
 
     /**
-     * Retrieve root folder
-     */
-    case Get("/folders") => asyncGetReply(controller.retrieveRootFolder())
+      * Retrieve root folder
+      */
+    case Get("/folders") => asyncGetReply({
+      import ArgumentChecker._
+
+      //TODO this will result in a unhandled exception error
+      val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
+      controller.retrieveRootFolder(sortByLangtag)
+    })
 
     /**
-     * Retrieve folder
-     */
-    case Get(FolderId(id)) => asyncGetReply(controller.retrieveFolder(id.toLong))
+      * Retrieve folder
+      */
+    case Get(FolderId(id)) => asyncGetReply({
+      import ArgumentChecker._
+
+      //TODO this will result in a unhandled exception error
+      val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
+      controller.retrieveFolder(id.toLong, sortByLangtag)
+    })
 
     /**
-     * Change folder
-     */
+      * Change folder
+      */
     case Put(FolderId(id)) => asyncSetReply({
       getJson(context) flatMap { implicit json =>
         val name = json.getString("name")
@@ -76,31 +91,34 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     })
 
     /**
-     * Delete folder and its files
-     */
+      * Delete folder and its files
+      */
     case Delete(FolderId(id)) => asyncSetReply(controller.deleteFolder(id.toLong))
 
     /**
-     * Create file handle
-     */
+      * Create file handle
+      */
     case Post("/files") => asyncSetReply({
       getJson(context) flatMap { implicit json =>
+
         val title = MultiLanguageValue[String](getNullableField("title"))
         val description = MultiLanguageValue[String](getNullableField("description"))
+        val externalName = MultiLanguageValue[String](getNullableField("externalName"))
+
         val folder = getNullableField("folder")
 
-        controller.addFile(title, description, folder)
+        controller.addFile(title, description, externalName, folder)
       }
     })
 
     /**
-     * Retrieve file meta information
-     */
+      * Retrieve file meta information
+      */
     case Get(FileId(uuid)) => asyncGetReply(controller.retrieveFile(UUID.fromString(uuid)).map({ case (file, _) => file }))
 
     /**
-     * Serve file
-     */
+      * Serve file
+      */
     case Get(FileIdLangStatic(uuid, langtag)) => AsyncReply({
       for {
         (file, paths) <- controller.retrieveFile(UUID.fromString(uuid))
@@ -110,46 +128,55 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         val mimeType = file.file.mimeType.get(langtag)
         val path = paths.get(langtag).get
 
-        // TODO 404 if no path found
         Header("Content-type", mimeType.get, SendFile(path.toString(), absolute))
       }
     })
 
     /**
-     * Change file meta information
-     */
+      * Change file meta information
+      */
     case Put(FileId(uuid)) => asyncSetReply({
       getJson(context) flatMap { implicit json =>
 
-        val title = MultiLanguageValue[String](json.getJsonObject("title"))
-        val description = MultiLanguageValue[String](json.getJsonObject("description"))
+        val title = MultiLanguageValue[String](getNullableField("title"))
+        val description = MultiLanguageValue[String](getNullableField("description"))
+        val externalName = MultiLanguageValue[String](getNullableField("externalName"))
 
-        val folder = getNullableField("folder")
+        val folder = getNullableField[FolderId]("folder")
 
-        controller.changeFile(UUID.fromString(uuid), title, description, folder)
+        controller.changeFile(UUID.fromString(uuid), title, description, externalName, folder)
       }
     })
 
     /**
-     * Replace/upload language specific file and its meta information
-     */
+      * Replace/upload language specific file and its meta information
+      */
     case Put(FileIdLang(uuid, langtag)) => {
-      logger.info(s"PUT FileIdLang $uuid $langtag")
-
       handleUpload(context, (action: UploadAction) => {
-        logger.info(s"Call replaceFile $uuid $langtag")
         controller.replaceFile(UUID.fromString(uuid), langtag, action)
       })
     }
 
     /**
-     * Delete file
-     */
+      * File merge
+      */
+    case Post(FileIdMerge(uuid)) => asyncSetReply({
+      getJson(context) flatMap { implicit json =>
+        val langtag = checked(hasString("langtag", json))
+        val mergeWith = UUID.fromString(checked(hasString("mergeWith", json)))
+
+        controller.mergeFile(UUID.fromString(uuid), langtag, mergeWith)
+      }
+    })
+
+    /**
+      * Delete file
+      */
     case Delete(FileId(uuid)) => asyncSetReply(controller.deleteFile(UUID.fromString(uuid)))
 
     /**
-     * Delete language specific stuff
-     */
+      * Delete language specific stuff
+      */
     case Delete(FileIdLang(uuid, langtag)) => asyncSetReply(controller.deleteFile(UUID.fromString(uuid), langtag))
   }
 

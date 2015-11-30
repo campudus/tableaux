@@ -16,21 +16,21 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 /**
- * The Router trait can be extended to give access to an easy way to write nice routes for your
- * HTTP server.
- *
- * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
- */
+  * The Router trait can be extended to give access to an easy way to write nice routes for your
+  * HTTP server.
+  *
+  * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
+  */
 trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging {
 
   type Routing = PartialFunction[RouteMatch, Reply]
 
   /**
-   * Override this method to define your routes for the request handler.
-   *
-   * @param context The HttpServerRequest that came in.
-   * @return A partial function that matches all routes.
-   */
+    * Override this method to define your routes for the request handler.
+    *
+    * @param context The HttpServerRequest that came in.
+    * @return A partial function that matches all routes.
+    */
   def routes(implicit context: RoutingContext): Routing
 
   /** The working directory */
@@ -39,13 +39,14 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
   /** File to send if the given file in SendFile was not found. */
   protected def notFoundFile: String = "404.html"
 
-  private val noRouteMatch: RouteMatch => Reply =
-    _ => Error(RouterException(message = "No route matched.", id = "NO_ROUTE", statusCode = 404))
-
   private def matcherFor(routeMatch: RouteMatch, context: RoutingContext): Reply = {
     val pf: PartialFunction[RouteMatch, Reply] = routes(context)
-    val tryAllThenNoRouteMatch: Function[RouteMatch, Reply] = _ => pf.applyOrElse(All(context.normalisedPath()), noRouteMatch)
+    val tryAllThenNoRouteMatch: Function[RouteMatch, Reply] = _ => pf.applyOrElse(All(context.normalisedPath()), noRouteMatched(context))
     pf.applyOrElse(routeMatch, tryAllThenNoRouteMatch)
+  }
+
+  private def noRouteMatched(context: RoutingContext): (RouteMatch => Reply) = {
+    _ => Error(RouterException(message = s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}", id = "NOT FOUND", statusCode = 404))
   }
 
   private def fileExists(file: String): Future[String] = asyncResultToFuture {
@@ -82,9 +83,9 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
           exists <- fileExists(if (absolute) path else s"$workingDirectory/$path")
           file <- directoryToIndexFile(exists)
         } yield {
-            logger.info(s"Serving file $file after receiving request for: $path")
-            resp.sendFile(file)
-          }) recover {
+          logger.info(s"Serving file $file after receiving request for: $path")
+          resp.sendFile(file)
+        }) recover {
           case ex: FileNotFoundException =>
             endResponse(resp, Error(RouterException("File not found", ex, "errors.routing.fileNotFound", 404)))
           case ex =>
@@ -137,9 +138,9 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
   private def errorReplyFromException(ex: RouterException) = Error(ex)
 
   /**
-   * To be able to use this in `HttpServer.requestHandler()`, the Router needs to be a `HttpServerRequest => Unit`. This
-   * apply method starts the magic to be able to use `override def request() = ...` for the routes.
-   */
+    * To be able to use this in `HttpServer.requestHandler()`, the Router needs to be a `HttpServerRequest => Unit`. This
+    * apply method starts the magic to be able to use `override def request() = ...` for the routes.
+    */
   override final def apply(context: RoutingContext): Unit = {
     val req = context.request()
     logger.debug(s"${req.method()}-Request: ${req.uri()}")
@@ -172,8 +173,8 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
 }
 
 /**
- * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
- */
+  * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
+  */
 case class RouterException(message: String = "",
                            cause: Throwable = null,
                            id: String = "UNKNOWN_SERVER_ERROR",

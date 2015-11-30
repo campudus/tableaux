@@ -29,8 +29,8 @@ case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
 }
 
 /**
- * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
- */
+  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
+  */
 object ArgumentChecker {
 
   def notNull[A](x: => A, name: String): ArgumentCheck[A] = try {
@@ -46,11 +46,28 @@ object ArgumentChecker {
     if (seq.nonEmpty) OkArg(seq) else FailArg(InvalidJsonException(s"Warning: $name is empty.", "empty"))
   }
 
-  def hasArray(field: String, value: JsonObject): ArgumentCheck[JsonArray] = notNull(value.getJsonArray(field), field)
+  def isDefined[A](option: Option[A], name: String): ArgumentCheck[A] = {
+    option.isDefined match {
+      case true => OkArg(option.get)
+      case false => FailArg(ParamNotFoundException(s"query parameter $name not found"))
+    }
+  }
 
-  def hasNumber(field: String, value: JsonObject): ArgumentCheck[Number] = notNull(value.getValue(field).asInstanceOf[Number], field)
+  def isDefined(options: Seq[Option[_]], name: String = ""): ArgumentCheck[Unit] = {
+    val empty = !options.exists({ o => o.isDefined })
+    empty match {
+      case true => FailArg(InvalidRequestException(s"Non of these options has a value. ($name)"))
+      case false => OkArg(())
+    }
+  }
 
-  def hasLong(field: String, value: JsonObject): ArgumentCheck[Long] = notNull(value.getLong(field), field)
+  def hasArray(field: String, json: JsonObject): ArgumentCheck[JsonArray] = notNull(json.getJsonArray(field), field)
+
+  def hasNumber(field: String, json: JsonObject): ArgumentCheck[Number] = notNull(json.getValue(field).asInstanceOf[Number], field)
+
+  def hasLong(field: String, json: JsonObject): ArgumentCheck[Long] = notNull(json.getLong(field), field)
+
+  def hasString(field: String, json: JsonObject): ArgumentCheck[String] = notNull(json.getString(field), field)
 
   def tryCast[A](elem: Any): ArgumentCheck[A] = {
     tryMap((x: Any) => x.asInstanceOf[A], InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid"))(elem)
@@ -60,7 +77,7 @@ object ArgumentChecker {
     if (list1.size == list2.size) {
       OkArg(list1.zip(list2))
     } else {
-      FailArg(NotEnoughArgumentsException("lists are not equally sized", "arguments"))
+      FailArg(NotEnoughArgumentsException("lists are not equally sized"))
     }
   }
 
@@ -82,5 +99,5 @@ object ArgumentChecker {
     if (failedArgs.nonEmpty) throw new IllegalArgumentException(failedArgs.mkString("\n"))
   }
 
-  def checked[A](arg1: ArgumentCheck[A]): A = arg1.get
+  def checked[A](checkedArgument: ArgumentCheck[A]): A = checkedArgument.get
 }

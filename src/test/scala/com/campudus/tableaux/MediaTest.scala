@@ -66,7 +66,7 @@ class MediaTest extends TableauxTestBase {
       insertedFile2 <- model.update(tempFile2)
 
       retrievedFile <- model.retrieve(insertedFile1.uuid.get)
-      updatedFile <- model.update(File(retrievedFile.uuid.get, MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "Changed"), None))
+      updatedFile <- model.update(File(uuid = retrievedFile.uuid.get, MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "external.pdf"), None))
 
       allFiles <- model.retrieveAll()
 
@@ -131,7 +131,7 @@ class MediaTest extends TableauxTestBase {
   @Test
   def retrieveRootFolder(implicit c: TestContext): Unit = okTest {
     for {
-      rootFolder <- sendRequest("GET", "/folders")
+      rootFolder <- sendRequest("GET", "/folders?langtag=de-DE")
     } yield {
       assertNull(rootFolder.getString("id"))
       assertEquals("root", rootFolder.getString("name"))
@@ -148,11 +148,11 @@ class MediaTest extends TableauxTestBase {
     for {
       folderId <- sendRequest("POST", s"/folders", createFolderPutJson("Test")).map(_.getInteger("id"))
 
-      folder <- sendRequest("GET", s"/folders/$folderId")
+      folder <- sendRequest("GET", s"/folders/$folderId?langtag=de-DE")
 
       _ <- sendRequest("PUT", s"/folders/$folderId", createFolderPutJson("Update")).map(_.getInteger("id"))
 
-      updatedFolder <- sendRequest("GET", s"/folders/$folderId")
+      updatedFolder <- sendRequest("GET", s"/folders/$folderId?langtag=de-DE")
     } yield {
       assertEquals("Test", folder.getString("name"))
       assertEquals("Update", updatedFolder.getString("name"))
@@ -541,7 +541,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def addAttachmentWithMalformedUUID(implicit c: TestContext): Unit = exceptionTest("errors.unknown") {
+  def addAttachmentWithMalformedUUID(implicit c: TestContext): Unit = exceptionTest("error.unknown") {
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
@@ -620,6 +620,72 @@ class MediaTest extends TableauxTestBase {
       assertEquals(fileUuid1, resultRetrieveUpdate.getArray("value").get[JsonObject](1).getString("uuid"))
 
       assertEquals(fileUuid1, resultRetrieveDelete.getArray("value").get[JsonObject](0).getString("uuid"))
+    }
+  }
+
+  @Test
+  def mergeFiles(implicit c: TestContext): Unit = okTest {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    val putFile1 = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF 1"), "description" -> Json.obj("de_DE" -> "A description about that PDF. 1"))
+    val putFile2 = Json.obj("title" -> Json.obj("en_US" -> "Test PDF 2"), "description" -> Json.obj("en_US" -> "A description about that PDF. 2"))
+
+    for {
+      fileUuid1 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+      fileAfterPut1 <- sendRequest("PUT", s"/files/$fileUuid1", putFile1)
+
+      fileUuid2 <- createFile("en_US", file, mimetype, None) map (_.getString("uuid"))
+      fileAfterPut2 <- sendRequest("PUT", s"/files/$fileUuid2", putFile2)
+
+      _ <- sendRequest("POST", s"/files/$fileUuid1/merge", Json.obj("mergeWith" -> fileUuid2, "langtag" -> "en_US"))
+
+      fileAfterMerge <- sendRequest("GET", s"/files/$fileUuid1")
+
+      files <- sendRequest("GET", s"/folders?langtag=de_DE")
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid1")
+    } yield {
+      assertEquals(1, files.getJsonArray("files", Json.emptyArr()).size())
+
+      assertEquals(fileAfterPut1.getJsonObject("internalName").getString("de_DE"), fileAfterMerge.getJsonObject("internalName").getString("de_DE"))
+      assertEquals(fileAfterPut2.getJsonObject("internalName").getString("en_US"), fileAfterMerge.getJsonObject("internalName").getString("en_US"))
+    }
+  }
+
+  @Test
+  def testFileSorting(implicit c: TestContext): Unit = okTest {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    val putFileA = Json.obj("externalName" -> Json.obj("de_DE" -> "A.pdf"))
+    val putFileB = Json.obj("externalName" -> Json.obj("de_DE" -> "B.pdf"))
+    val putFileC = Json.obj("externalName" -> Json.obj("de_DE" -> "C.pdf"))
+
+    for {
+      fileUuid1 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+      fileAfterPut1 <- sendRequest("PUT", s"/files/$fileUuid1", putFileC)
+
+      fileUuid2 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+      fileAfterPut2 <- sendRequest("PUT", s"/files/$fileUuid2", putFileA)
+
+      fileUuid3 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+      fileAfterPut3 <- sendRequest("PUT", s"/files/$fileUuid3", putFileB)
+
+      files <- sendRequest("GET", s"/folders?langtag=de_DE")
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid1")
+      _ <- sendRequest("DELETE", s"/files/$fileUuid2")
+      _ <- sendRequest("DELETE", s"/files/$fileUuid3")
+    } yield {
+      assertEquals(3, files.getJsonArray("files", Json.emptyArr()).size())
+
+      assertEquals("A.pdf", files.getJsonArray("files", Json.emptyArr()).getJsonObject(0).getJsonObject("externalName").getString("de_DE"))
+      assertEquals("B.pdf", files.getJsonArray("files", Json.emptyArr()).getJsonObject(1).getJsonObject("externalName").getString("de_DE"))
+      assertEquals("C.pdf", files.getJsonArray("files", Json.emptyArr()).getJsonObject(2).getJsonObject("externalName").getString("de_DE"))
+
     }
   }
 

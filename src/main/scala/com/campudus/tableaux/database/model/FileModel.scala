@@ -22,8 +22,8 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   val table: String = "file"
 
   /**
-   * Will add a new entity marked as temporary!
-   */
+    * Will add a new entity marked as temporary!
+    */
   override def add(o: File): Future[File] = {
     //if a UUID is already defined use this one
     val uuid = o.uuid.getOrElse(UUID.randomUUID())
@@ -37,9 +37,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     val b = MultiLanguageValue.merge(Map(
       "title" -> o.title.values,
       "description" -> o.description.values,
-      "internal_name" -> o.internalName.values,
-      "external_name" -> o.externalName.values,
-      "mime_type" -> o.mimeType.values
+      "external_name" -> o.externalName.values
     ))
 
     for {
@@ -55,7 +53,6 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   }
 
   private def addTranslations(uuid: UUID, map: Map[String, Map[String, _]]): Future[Seq[JsonObject]] = {
-    // TODO add in order
     Future.sequence(map.foldLeft(Seq.empty[Future[JsonObject]]) {
       case (result, (langtag, columnsValueMap)) =>
         val columns = columnsValueMap.keySet.toSeq
@@ -89,7 +86,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   }
 
   private def json_agg(tableAlias: String, column: String, languageColumn: String = "langtag"): String = {
-    s"json_object_agg(DISTINCT COALESCE($tableAlias.$languageColumn,'de_DE'), $tableAlias.$column) as $column"
+    s"CASE WHEN COUNT(fl.uuid) = 0 THEN NULL ELSE json_object_agg(DISTINCT COALESCE($tableAlias.$languageColumn,'IGNORE'), $tableAlias.$column) FILTER (WHERE $tableAlias.$column IS NOT NULL) END as $column"
   }
 
   private def select(where: String): String = {
@@ -117,7 +114,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
        |FROM (
        | ${select(where)}
        |) s
-       |ORDER BY s.title->>'${langtag}' ASC NULLS FIRST
+       |ORDER BY s.external_name->>'${langtag}' ASC NULLS FIRST
      """.stripMargin
   }
 
@@ -148,9 +145,23 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   def retrieveFromFolder(folder: Option[FolderId]): Future[Seq[File]] = {
     for {
       resultJson <- if (folder.isEmpty) {
-        connection.query(selectOrdered("f.idfolder IS NULL AND f.tmp = FALSE", "de_DE"))
+        connection.query(select("f.idfolder IS NULL AND f.tmp = FALSE"))
       } else {
-        connection.query(selectOrdered("f.idfolder = ? AND f.tmp = FALSE", "de_DE"), Json.arr(folder.get))
+        connection.query(select("f.idfolder = ? AND f.tmp = FALSE"), Json.arr(folder.get))
+      }
+
+      resultRows = getSeqOfJsonArray(resultJson)
+    } yield {
+      resultRows.map(convertRowToFile)
+    }
+  }
+
+  def retrieveFromFolder(folder: Option[FolderId], sortByLangtag: String): Future[Seq[File]] = {
+    for {
+      resultJson <- if (folder.isEmpty) {
+        connection.query(selectOrdered("f.idfolder IS NULL AND f.tmp = FALSE", sortByLangtag))
+      } else {
+        connection.query(selectOrdered("f.idfolder = ? AND f.tmp = FALSE", sortByLangtag), Json.arr(folder.get))
       }
 
       resultRows = getSeqOfJsonArray(resultJson)
@@ -201,9 +212,11 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
     for {
       resultJson <- connection.query(update, Json.arr(o.folder.orNull, o.uuid.get.toString))
-      _ <- Future(updateNotNull(resultJson))
 
-      _ <- addTranslations(o.uuid.get, b)
+      _ <- {
+        updateNotNull(resultJson)
+        addTranslations(o.uuid.get, b)
+      }
 
       file <- retrieve(o.uuid.get)
     } yield file
