@@ -21,6 +21,28 @@ class SystemController(override val config: TableauxConfig,
                        protected val tableauxModel: TableauxModel,
                        protected val structureModel: StructureModel) extends Controller[SystemModel] {
 
+  def retrieveVersions(): Future[DomainObject] = {
+    logger.info("Retrieve system version")
+
+    val objPackage = getClass.getPackage
+
+    for {
+      databaseVersion <- repository.retrieveVersion()
+    } yield {
+      val json = Json.obj(
+        "versions" -> Json.obj(
+          "implementation" -> Option(objPackage.getImplementationVersion).getOrElse("DEVELOPMENT"),
+          "database" -> Json.obj(
+            "current" -> databaseVersion,
+            "specification" -> SystemModel.VERSION
+          )
+        )
+      )
+
+      PlainDomainObject(json)
+    }
+  }
+
   def resetDB(): Future[DomainObject] = {
     logger.info("Reset system structure")
 

@@ -44,6 +44,9 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         result <- controller.createDemoTables()
       } yield result
     }
+    case Get("/system/versions") => asyncGetReply {
+      controller.retrieveVersions()
+    }
   }
 
   def checkNonce(implicit context: RoutingContext): Unit = {
