@@ -67,7 +67,7 @@ class ArgumentCheckerTest {
   }
 
   @Test
-  def checkHasAny(): Unit = {
+  def checkIsDefinedAnyOption(): Unit = {
     checkArguments(isDefined(Seq(Some(1), Some("text"), None)))
 
     try {
@@ -75,6 +75,19 @@ class ArgumentCheckerTest {
       fail("Should throw an exception")
     } catch {
       case ex: IllegalArgumentException => assertEquals("(0) Non of these options has a value. ()", ex.getMessage)
+      case _: Throwable => fail(s"Should throw an IllegalArgumentException")
+    }
+  }
+
+  @Test
+  def checkIsDefined(): Unit = {
+    checkArguments(isDefined(Some("is defined"), "test"))
+
+    try {
+      checkArguments(isDefined(None, "text"))
+      fail("Should throw an exception")
+    } catch {
+      case ex: IllegalArgumentException => assertEquals("(0) query parameter text not found", ex.getMessage)
       case _: Throwable => fail(s"Should throw an IllegalArgumentException")
     }
   }
