@@ -2,11 +2,9 @@ package com.campudus.tableaux.helper
 
 import java.nio.file.FileAlreadyExistsException
 
-import io.vertx.core.buffer.Buffer
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.ScalaVerticle
-import org.vertx.scala.core.json._
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
@@ -30,15 +28,6 @@ class FileUtils(override val verticle: ScalaVerticle) extends VertxAccess {
         logger.info("Failed reading schema directory")
         p.failure(ex)
     }: Try[java.util.List[String]] => Unit)
-  }
-
-  def readJsonFile(fileName: String): Future[JsonObject] = futurify { p: Promise[JsonObject] =>
-    vertx.fileSystem.readFile(fileName, {
-      case Success(b) => p.success(Json.fromObjectString(b.toString()))
-      case Failure(ex) =>
-        logger.info("Failed reading schema file")
-        p.failure(ex)
-    }: Try[Buffer] => Unit)
   }
 
   def mkdirs(dir: Path): Future[Unit] = futurify { p: Promise[Unit] =>
