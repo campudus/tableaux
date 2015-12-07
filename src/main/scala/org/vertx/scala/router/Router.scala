@@ -13,6 +13,7 @@ import io.vertx.scala.FutureHelper._
 import org.vertx.scala.router.routing._
 
 import scala.concurrent.Future
+import scala.io.Source
 import scala.util.{Failure, Success}
 
 /**
@@ -78,6 +79,33 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
         resp.setStatusMessage("OK")
         resp.putHeader("Content-type", "application/json")
         resp.end(js.encode())
+      case SendEmbeddedFile(path) =>
+        try {
+          val file = Source.fromInputStream(getClass.getResourceAsStream(path), "UTF-8").mkString
+
+          resp.setStatusCode(200)
+          resp.setStatusMessage("OK")
+
+          val extension = if (path.contains(".")) {
+            path.split("\\.").toList.last.toLowerCase()
+          } else {
+            "other"
+          }
+
+          extension match {
+            case "html" =>
+              resp.putHeader("Content-type", "text/html; charset=UTF-8")
+            case "json" =>
+              resp.putHeader("Content-type", "application/json; charset=UTF-8")
+            case _ | "txt" =>
+              resp.putHeader("Content-type", "text/plain; charset= UTF-8")
+          }
+
+          resp.end(file)
+        } catch {
+          case ex: Throwable =>
+            endResponse(resp, Error(RouterException("send embedded file exception", ex, "errors.routing.sendEmbeddedFile", 500)))
+        }
       case SendFile(path, absolute) =>
         (for {
           exists <- fileExists(if (absolute) path else s"$workingDirectory/$path")

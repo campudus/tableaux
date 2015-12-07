@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.model._
 import io.vertx.ext.web.RoutingContext
 import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.router.RouterException
-import org.vertx.scala.router.routing.{Error, Get, SendFile}
+import org.vertx.scala.router.routing.{Error, Get, SendEmbeddedFile}
 
 object RouterRegistry {
   def apply(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection): RouterRegistry = {
@@ -41,7 +41,7 @@ class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseR
   }
 
   def defaultRoutes(implicit context: RoutingContext): Routing = {
-    case Get("/") | Get("/index.html") => SendFile("index.html")
+    case Get("/") | Get("/index.html") => SendEmbeddedFile("/index.html")
   }
 
   def noRouteFound(implicit context: RoutingContext): Routing = {

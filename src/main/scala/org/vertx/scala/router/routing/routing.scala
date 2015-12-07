@@ -15,6 +15,8 @@ case class Ok(json: JsonObject) extends SyncReply
 
 case class SendFile(file: String, absolute: Boolean = false) extends SyncReply
 
+case class SendEmbeddedFile(path: String) extends SyncReply
+
 case class Error(ex: RouterException) extends SyncReply
 
 case class AsyncReply(replyWhenDone: Future[Reply]) extends Reply
