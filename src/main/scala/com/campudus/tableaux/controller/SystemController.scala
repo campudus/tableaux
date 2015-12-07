@@ -4,10 +4,11 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
-import com.campudus.tableaux.helper.{FileUtils, JsonUtils}
+import com.campudus.tableaux.helper.JsonUtils
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
+import scala.io.Source
 
 object SystemController {
   def apply(config: TableauxConfig, repository: SystemModel, tableauxModel: TableauxModel, structureModel: StructureModel): SystemController = {
@@ -57,15 +58,13 @@ class SystemController(override val config: TableauxConfig,
     } yield TableSeq(Seq(bl, rb))
   }
 
-  private def writeDemoData(demoData: Future[JsonObject]): Future[Table] = {
-    for {
-      json <- demoData
-      table <- createTable(json.getString("name"), JsonUtils.toCreateColumnSeq(json), JsonUtils.toRowValueSeq(json))
-    } yield table
+  private def writeDemoData(json: JsonObject): Future[Table] = {
+    createTable(json.getString("name"), JsonUtils.toCreateColumnSeq(json), JsonUtils.toRowValueSeq(json))
   }
 
-  private def readDemoData(name: String): Future[JsonObject] = {
-    FileUtils(verticle).readJsonFile(s"demodata/$name.json")
+  private def readDemoData(name: String): JsonObject = {
+    val file = Source.fromInputStream(getClass.getResourceAsStream(s"/demodata/$name.json"), "UTF-8").mkString
+    Json.fromObjectString(file)
   }
 
   private def createTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]]): Future[Table] = {
