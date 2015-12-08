@@ -85,7 +85,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Create Row
       */
     case Post(Rows(tableId)) => asyncSetReply {
-      getJson(context) flatMap (json => controller.createRow(tableId.toLong, Some(toColumnValueSeq(json)))) recoverWith {
+      getJson(context) flatMap {
+        json =>
+          json.containsKey("columns") && json.containsKey("rows") match {
+            case true => controller.createRow(tableId.toLong, Some(toColumnValueSeq(json)))
+            case false => controller.createRow(tableId.toLong, None)
+          }
+      } recoverWith {
         case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
       }
     }

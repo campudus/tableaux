@@ -62,10 +62,16 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
     context.request().bodyHandler({ buffer: Buffer =>
       val requestBody = buffer.toString()
       Option(requestBody).getOrElse("").isEmpty match {
-        case true => p.failure(NoJsonFoundException("Warning: No Json found"))
-        case false => Try(Json.fromObjectString(requestBody)) match {
-          case Success(r) => p.success(r)
-          case Failure(x) => p.failure(x)
+        case true => p.failure(NoJsonFoundException("No JSON found."))
+        case false => requestBody match {
+          case "null" => p.success(Json.emptyObj())
+          case _ => Try(Json.fromObjectString(requestBody)) match {
+            case Success(r) =>
+              p.success(r)
+            case Failure(x) =>
+              logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$requestBody]")
+              p.failure(x)
+          }
         }
       }
     })
