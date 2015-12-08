@@ -266,4 +266,25 @@ class CreationTest extends TableauxTestBase {
       assertEquals(expectedJson, test)
     }
   }
+
+  @Test
+  def createEmptyRows(implicit c: TestContext): Unit = okTest {
+    val createCompleteTableJson = Json.obj(
+      "name" -> "Test Nr. 1",
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "Test Column 1"),
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+
+    for {
+      _ <- sendRequest("POST", "/completetable", createCompleteTableJson)
+
+      row1 <- sendRequest("POST", "/tables/1/rows", "null") map (_.getInteger("id"))
+      row2 <- sendRequest("POST", "/tables/1/rows", "") map (_.getInteger("id"))
+      row3 <- sendRequest("POST", "/tables/1/rows", "{}") map (_.getInteger("id"))
+    } yield {
+      assertEquals(1, row1)
+      assertEquals(2, row2)
+      assertEquals(3, row3)
+    }
+  }
 }

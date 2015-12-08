@@ -157,6 +157,12 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     p.future
   }
 
+  def sendRequest(method: String, path: String, body: String): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p).setChunked(true).write(body).end()
+    p.future
+  }
+
   def jsonResponse(p: Promise[JsonObject]): HttpClientResponse => Unit = { resp: HttpClientResponse =>
     def jsonBodyHandler(buf: Buffer): Unit = {
       if (resp.statusCode() != 200) {
