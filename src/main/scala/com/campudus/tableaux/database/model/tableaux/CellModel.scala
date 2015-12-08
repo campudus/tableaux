@@ -55,8 +55,8 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val id1 = column.linkInformation._2
     val id2 = column.linkInformation._3
 
-    val paramStr = toIds.map(_ => "(?, ?)").mkString(", ")
-    val params = toIds.flatMap(List(fromId, _))
+    val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT $id1, $id2 FROM link_table_$linkId WHERE $id1 = ? AND $id2 = ?)").mkString(" UNION ")
+    val params = toIds.flatMap(to => List(fromId, to, fromId, to))
 
     for {
       t <- connection.begin()
@@ -65,7 +65,7 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       (t, _) <- {
         if (params.nonEmpty) {
-          t.query(s"INSERT INTO link_table_$linkId($id1, $id2) VALUES $paramStr", Json.arr(params: _*))
+          t.query(s"INSERT INTO link_table_$linkId($id1, $id2) $paramStr", Json.arr(params: _*))
         } else {
           Future((t, Json.emptyObj()))
         }
