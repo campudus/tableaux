@@ -27,14 +27,15 @@ class SystemController(override val config: TableauxConfig,
     val objPackage = getClass.getPackage
 
     for {
-      databaseVersion <- repository.retrieveVersion()
+      databaseVersion <- repository.retrieveCurrentVersion()
+      specificationVersion = repository.retrieveSpecificationVersion()
     } yield {
       val json = Json.obj(
         "versions" -> Json.obj(
           "implementation" -> Option(objPackage.getImplementationVersion).getOrElse("DEVELOPMENT"),
           "database" -> Json.obj(
             "current" -> databaseVersion,
-            "specification" -> SystemModel.VERSION
+            "specification" -> specificationVersion
           )
         )
       )
@@ -43,10 +44,22 @@ class SystemController(override val config: TableauxConfig,
     }
   }
 
+  def updateDB(): Future[DomainObject] = {
+    logger.info("Update system structure")
+
+    for {
+      _ <- repository.update()
+      version <- retrieveVersions()
+    } yield PlainDomainObject(Json.obj("updated" -> true).mergeIn(version.getJson))
+  }
+
   def resetDB(): Future[DomainObject] = {
     logger.info("Reset system structure")
 
-    repository.reset()
+    for {
+      _ <- repository.uninstall()
+      _ <- repository.install()
+    } yield EmptyObject()
   }
 
   def createDemoTables(): Future[DomainObject] = {

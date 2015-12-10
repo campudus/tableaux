@@ -32,13 +32,13 @@ object SystemRouter {
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
   override def routes(implicit context: RoutingContext): Routing = {
-    case Post("/reset") | Get("/reset") => asyncSetReply {
+    case Post("/reset") => asyncSetReply {
       for {
         _ <- Future(checkNonce)
         result <- controller.resetDB()
       } yield result
     }
-    case Post("/resetDemo") | Get("/resetDemo") => asyncSetReply {
+    case Post("/resetDemo") => asyncSetReply {
       for {
         _ <- Future(checkNonce)
         result <- controller.createDemoTables()
@@ -46,6 +46,12 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     }
     case Get("/system/versions") => asyncGetReply {
       controller.retrieveVersions()
+    }
+    case Post("/system/update") => asyncSetReply {
+      for {
+        _ <- Future(checkNonce)
+        result <- controller.updateDB()
+      } yield result
     }
   }
 

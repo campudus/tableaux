@@ -71,11 +71,15 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
   case class Transaction(transaction: ScalaTransaction) {
 
     def query(stmt: String): Future[(Transaction, JsonObject)] = {
-      doMagicQuery(stmt, None, transaction).map(result => (copy(transaction), result))
+      doMagicQuery(stmt, None, transaction)
+        .map(result => (copy(transaction), result))
+        .recoverWith(rollbackAndFail())
     }
 
     def query(stmt: String, values: JsonArray): Future[(Transaction, JsonObject)] = {
-      doMagicQuery(stmt, Some(values), transaction).map(result => (copy(transaction), result))
+      doMagicQuery(stmt, Some(values), transaction)
+        .map(result => (copy(transaction), result))
+        .recoverWith(rollbackAndFail())
     }
 
     def commit(): Future[Unit] = transaction.commit()
