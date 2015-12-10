@@ -94,7 +94,7 @@ class ErrorTest extends TableauxTestBase {
     val system = SystemModel(dbConnection)
 
     for {
-      _ <- system.deinstall()
+      _ <- system.uninstall()
       _ <- sendRequest("POST", "/tables", createTableJson)
     } yield ()
   }

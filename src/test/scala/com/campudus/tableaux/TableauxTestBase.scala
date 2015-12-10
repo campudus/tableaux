@@ -72,8 +72,8 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
         val system = SystemModel(dbConnection)
 
         for {
-          _ <- system.deinstall()
-          _ <- system.setup()
+          _ <- system.uninstall()
+          _ <- system.install()
         } yield {
           async.complete()
         }
