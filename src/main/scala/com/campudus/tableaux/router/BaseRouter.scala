@@ -11,7 +11,7 @@ import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.core.json._
-import org.vertx.scala.router.routing.{AsyncReply, Error, Ok}
+import org.vertx.scala.router.routing.{AsyncReply, Error, Header, Ok}
 import org.vertx.scala.router.{Router, RouterException}
 
 import scala.concurrent.{Future, Promise}
@@ -47,7 +47,7 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   def asyncEmptyReply: AsyncReplyFunction = asyncReply(EmptyReturn)(_)
 
   private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject]): AsyncReply = AsyncReply {
-    replyFunction map {
+    val futureReply = replyFunction map {
       result =>
         val resultJson = result.toJson(returnType)
         val replyBody = resultJson.mergeIn(baseResult)
@@ -55,6 +55,12 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
     } recover {
       case ex: CustomException => Error(RouterException(ex.message, ex, ex.id, ex.statusCode))
       case ex: Throwable => Error(RouterException("unknown error", ex, "error.unknown", 500))
+    }
+
+    futureReply map { reply =>
+      Header("Expires", "-1",
+        Header("Cache-Control", "no-cache", reply)
+      )
     }
   }
 
