@@ -71,11 +71,15 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
   case class Transaction(transaction: ScalaTransaction) {
 
     def query(stmt: String): Future[(Transaction, JsonObject)] = {
-      doMagicQuery(stmt, None, transaction).map(result => (copy(transaction), result))
+      doMagicQuery(stmt, None, transaction)
+        .map(result => (copy(transaction), result))
+        .recoverWith(rollbackAndFail())
     }
 
     def query(stmt: String, values: JsonArray): Future[(Transaction, JsonObject)] = {
-      doMagicQuery(stmt, Some(values), transaction).map(result => (copy(transaction), result))
+      doMagicQuery(stmt, Some(values), transaction)
+        .map(result => (copy(transaction), result))
+        .recoverWith(rollbackAndFail())
     }
 
     def commit(): Future[Unit] = transaction.commit()
@@ -185,20 +189,19 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     import io.vertx.scala.FunctionConverters._
     val timerId = vertx.setTimer(10000, { d: java.lang.Long => logger.error(s"doMagicQuery $command $returning $stmt exceeded the delay") })
 
+    future.onComplete({
+      case _ =>
+        vertx.cancelTimer(timerId)
+    })
+
     future.map({
       case r: UpdateResult => {
-        vertx.cancelTimer(timerId)
-
         mapUpdateResult(command, r.toJson)
       }
       case r: ResultSet => {
-        vertx.cancelTimer(timerId)
-
         mapResultSet(r.toJson)
       }
       case _ => {
-        vertx.cancelTimer(timerId)
-
         createExecuteResult(command)
       }
     })

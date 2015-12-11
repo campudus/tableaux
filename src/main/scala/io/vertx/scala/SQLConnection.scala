@@ -104,7 +104,11 @@ class SQLConnection(val verticle: ScalaVerticle, private val config: JsonObject)
   private def wrap[A](fn: (JSQLConnection) => Future[A]): Future[A] = {
     for {
       conn <- connection()
-      result <- fn(conn)
+      result <- fn(conn).recoverWith({
+        case ex: Throwable =>
+          logger.error(s"Database query/update/execute failed. Close connection.", ex)
+          close(conn) flatMap (_ => Future.failed[A](ex))
+      })
       _ <- close(conn)
     } yield {
       result
@@ -178,8 +182,8 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
       t <- asyncVoid(conn.commit(_: Handler[AsyncResult[Void]])).withTimeout(DurationInt(1).seconds, "commit")
       b <- close(conn)
     } yield {
-        ()
-      }) recoverDatabaseException "commit" recoverWith {
+      ()
+    }) recoverDatabaseException "commit" recoverWith {
       case e =>
         rollback()
         Future.failed(e)
@@ -191,7 +195,7 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
       _ <- asyncVoid(conn.rollback(_: Handler[AsyncResult[Void]])).withTimeout(DurationInt(1).seconds, "rollback")
       _ <- close(conn)
     } yield {
-        ()
-      }) recoverDatabaseException "rollback" withTimeout(10000, "commit")
+      ()
+    }) recoverDatabaseException "rollback" withTimeout(10000, "commit")
   }
 }
