@@ -68,6 +68,10 @@ case class EmptyObject() extends DomainObject {
   override def getJson: JsonObject = Json.emptyObj()
 }
 
+case class PlainDomainObject(json: JsonObject) extends DomainObject {
+  override def getJson: JsonObject = json
+}
+
 object MultiLanguageValue {
 
   def apply[A](values: Option[JsonObject]): MultiLanguageValue[A] = {
