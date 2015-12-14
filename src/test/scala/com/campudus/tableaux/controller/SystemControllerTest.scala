@@ -67,7 +67,8 @@ class SystemControllerTest extends TableauxTestBase {
           "current" -> 1,
           "specification" -> 1
         )
-      )
+      ),
+      "status" -> "ok"
     )
 
     for {
