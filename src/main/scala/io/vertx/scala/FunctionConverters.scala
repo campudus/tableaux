@@ -44,23 +44,6 @@ trait FunctionConverters {
   implicit def lazyToVoidHandler(func: => Unit): Handler[Void] = new Handler[Void]() {
     override def handle(event: Void) = func
   }
-
-  def asyncResultConverter[ST, JT](mapFn: JT => ST)(handler: AsyncResult[ST] => Unit): Handler[AsyncResult[JT]] = {
-    new Handler[AsyncResult[JT]]() {
-      def handle(ar: AsyncResult[JT]) = {
-        val scalaAr = new AsyncResult[ST]() {
-          override def result(): ST = mapFn(ar.result())
-
-          override def cause() = ar.cause()
-
-          override def succeeded() = ar.succeeded()
-
-          override def failed() = ar.failed()
-        }
-        handler(scalaAr)
-      }
-    }
-  }
 }
 
 object FunctionConverters extends FunctionConverters
