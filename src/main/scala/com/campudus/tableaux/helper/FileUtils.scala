@@ -18,18 +18,6 @@ object FileUtils {
 
 class FileUtils(override val verticle: ScalaVerticle) extends VertxAccess {
 
-  def readDir(dir: String, filter: String): Future[Array[String]] = futurify { p: Promise[Array[String]] =>
-    vertx.fileSystem.readDir(dir, filter, {
-      case Success(files) => {
-        import scala.collection.JavaConverters._
-        p.success(files.asScala.toArray)
-      }
-      case Failure(ex) =>
-        logger.info("Failed reading schema directory")
-        p.failure(ex)
-    }: Try[java.util.List[String]] => Unit)
-  }
-
   def mkdirs(dir: Path): Future[Unit] = futurify { p: Promise[Unit] =>
     // succeed also in error cause (directory already exists)
     vertx.fileSystem.mkdirs(dir.toString(), {

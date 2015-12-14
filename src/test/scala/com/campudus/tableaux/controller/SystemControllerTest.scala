@@ -1,29 +1,15 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.TableauxTestBase
-import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.router.SystemRouter
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
 @RunWith(classOf[VertxUnitRunner])
 class SystemControllerTest extends TableauxTestBase {
-
-  def createSystemController(): SystemController = {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
-
-    val systemModel = SystemModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection)
-    val structureModel = StructureModel(dbConnection)
-
-    SystemController(tableauxConfig, systemModel, tableauxModel, structureModel)
-  }
 
   @Test
   def resetSystemTables(implicit c: TestContext): Unit = okTest {
@@ -69,6 +55,33 @@ class SystemControllerTest extends TableauxTestBase {
     } yield {
       assertEquals(expectedJson1, result)
       assertEquals(expectedJson2, tablesResult)
+    }
+  }
+
+  @Test
+  def retrieveVersions(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj(
+      "versions" -> Json.obj(
+        "implementation" -> "DEVELOPMENT",
+        "database" -> Json.obj(
+          "current" -> 1,
+          "specification" -> 1
+        )
+      )
+    )
+
+    for {
+      _ <- {
+        val nonce = SystemRouter.generateNonce()
+        sendRequest("POST", s"/reset?nonce=$nonce")
+      }
+      _ <- {
+        val nonce = SystemRouter.generateNonce()
+        sendRequest("POST", s"/resetDemo?nonce=$nonce")
+      }
+      versions <- sendRequest("GET", "/system/versions")
+    } yield {
+      assertEquals(expectedJson, versions)
     }
   }
 
