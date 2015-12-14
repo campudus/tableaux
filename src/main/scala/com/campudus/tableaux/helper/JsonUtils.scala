@@ -51,14 +51,19 @@ object JsonUtils {
 
           dbType <- toTableauxType(kind)
         } yield {
-          val toName = Try(Option(json.getString("toName"))).toOption.flatten
-
+          // optional fields
           val ordering = Try(json.getInteger("ordering").longValue()).toOption
           val multilanguage = Try[Boolean](json.getBoolean("multilanguage")).getOrElse(false)
 
           dbType match {
             case AttachmentType => CreateAttachmentColumn(name, ordering)
-            case LinkType => CreateLinkColumn(name, ordering, toLinkConnection(json).get, toName)
+            case LinkType => {
+              // link specific fields
+              val toName = Try(Option(json.getString("toName"))).toOption.flatten
+              val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
+
+              CreateLinkColumn(name, ordering, toLinkConnection(json).get, toName, singleDirection)
+            }
             case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage))
           }
         }

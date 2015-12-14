@@ -12,6 +12,7 @@ import scala.concurrent.Future
 class LinkTest extends TableauxTestBase {
 
   val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
+  val postSingleDirectionLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1, "singleDirection" -> true)))
 
   @Test
   def retrieveLinkColumn(implicit c: TestContext): Unit = okTest {
@@ -89,6 +90,27 @@ class LinkTest extends TableauxTestBase {
     } yield {
       assertEquals(expectedJson, createLink)
       assertEquals("Backlink", retrieveLinkColumn.getString("name"))
+    }
+  }
+
+  @Test
+  def createLinkColumnSingleDirection(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
+
+    for {
+      tables <- setupTwoTables()
+      test <- sendRequest("POST", "/tables/1/columns", postSingleDirectionLinkCol)
+
+      columnsA <- sendRequest("GET", s"/tables/${tables.head}/columns")
+      columnsB <- sendRequest("GET", s"/tables/${tables.last}/columns")
+    } yield {
+      assertEquals(expectedJson, test)
+
+      logger.info(columnsA.encode())
+      logger.info(columnsB.encode())
+
+      assertEquals(3, columnsA.getArray("columns").size())
+      assertEquals(2, columnsB.getArray("columns").size())
     }
   }
 
@@ -332,15 +354,19 @@ class LinkTest extends TableauxTestBase {
       // check first table for the link (no link values anymore)
       resGet3 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
     } yield {
-      val expected1 = Json.obj("status" -> "ok", "value" -> Json.arr(
-        Json.obj("id" -> 1, "value" -> "table2row1"),
-        Json.obj("id" -> 2, "value" -> "table2row2")
-      )
+      val expected1 = Json.obj(
+        "status" -> "ok",
+        "value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table2row1"),
+          Json.obj("id" -> 2, "value" -> "table2row2")
+        )
       )
 
-      val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr(
-        Json.obj("id" -> 1, "value" -> "table2row1")
-      )
+      val expected2 = Json.obj(
+        "status" -> "ok",
+        "value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table2row1")
+        )
       )
 
       val expected3 = Json.obj("status" -> "ok", "value" -> Json.arr())
