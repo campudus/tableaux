@@ -20,7 +20,7 @@ apply plugin: 'com.github.kt3k.coveralls'
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-def vertxVersion = '3.1.0'
+def vertxVersion = '3.2.0'
 def scalaVersion = '2.11.7'
 
 if (!JavaVersion.current().java8Compatible) {
@@ -30,7 +30,7 @@ if (!JavaVersion.current().java8Compatible) {
 repositories {
     mavenCentral()
     maven {
-        url 'http://oss.sonatype.org/content/repositories/snapshots'
+        url 'https://oss.sonatype.org/content/repositories/snapshots'
     }
 }
 
