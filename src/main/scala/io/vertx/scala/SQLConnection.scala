@@ -57,7 +57,8 @@ object SQLConnection {
 }
 
 class SQLConnection(val verticle: ScalaVerticle, private val config: JsonObject) extends DatabaseAction {
-  val client = PostgreSQLClient.createShared(vertx, config)
+  /* TODO: For now it's createNonShared, otherwise stopping the verticle will last for ever because Test will create many SQLConnection not just the verticle */
+  val client = PostgreSQLClient.createNonShared(vertx, config)
 
   def transaction(): Future[Transaction] = {
     for {

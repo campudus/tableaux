@@ -4,6 +4,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.RouterRegistry
 import io.vertx.core.http.{HttpServer, HttpServerRequest}
+import io.vertx.core.{AsyncResult, Handler}
 import io.vertx.ext.web.{Router, RoutingContext}
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
@@ -21,6 +22,7 @@ object Starter {
 class Starter extends ScalaVerticle {
 
   private var connection: SQLConnection = _
+  private var server: HttpServer = _
 
   override def start(p: Promise[Unit]): Unit = {
     if (context.config().isEmpty) {
@@ -44,19 +46,28 @@ class Starter extends ScalaVerticle {
 
     connection = SQLConnection(this, databaseConfig)
 
-    (for {
+    val initialize = for {
       _ <- createUploadsDirectories(tableauxConfig)
-      _ <- deployHttpServer(port, host, tableauxConfig, connection)
+      server <- deployHttpServer(port, host, tableauxConfig, connection)
     } yield {
-        p.success(())
-      }).recover({
+      this.server = server
+      p.success(())
+    }
+
+    initialize.recover({
       case t: Throwable => p.failure(t)
     })
   }
 
   override def stop(p: Promise[Unit]): Unit = {
-    connection.close()
-    p.success(())
+    import io.vertx.scala.FunctionConverters._
+
+    p.completeWith({
+      for {
+        _ <- connection.close()
+        _ <- server.close(_: Handler[AsyncResult[Void]])
+      } yield ()
+    })
   }
 
   def createUploadsDirectories(config: TableauxConfig): Future[Unit] = {
