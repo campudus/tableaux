@@ -8,7 +8,11 @@ import scala.util.{Failure, Success, Try}
 
 trait FunctionConverters {
 
-  implicit def asyncResult[A, B](fn: (Handler[AsyncResult[A]]) => B): Future[A] = {
+  type AsyncVoid = Handler[AsyncResult[Void]]
+  type AsyncValue[A] = Handler[AsyncResult[A]]
+
+  implicit def asyncResultToFuture[A, B](fn: (Handler[AsyncResult[A]]) => B): Future[A] = {
+    // implicit tryToAsyncHandler
     futurify { p: Promise[A] =>
       fn({
         case Success(re) => p.success(re)
@@ -17,7 +21,8 @@ trait FunctionConverters {
     }
   }
 
-  implicit def asyncVoid[A](fn: (Handler[AsyncResult[Void]]) => A): Future[Unit] = {
+  implicit def asyncVoidToFuture[A](fn: (Handler[AsyncResult[Void]]) => A): Future[Unit] = {
+    // implicit tryToAsyncHandler
     futurify { p: Promise[Unit] =>
       fn({
         case Success(_) => p.success(())
@@ -26,12 +31,8 @@ trait FunctionConverters {
     }
   }
 
-  implicit def functionToHandler[A](handler: A => _): Handler[A] = new Handler[A]() {
-    override def handle(event: A): Unit = handler(event)
-  }
-
   implicit def tryToAsyncHandler[A](tryHandler: Try[A] => Unit): Handler[AsyncResult[A]] = {
-    // implicit functionToHandler
+    // implicit functionToAnyHandler
     tryHandler.compose { ar: AsyncResult[A] =>
       if (ar.succeeded()) {
         Success(ar.result())
@@ -41,8 +42,12 @@ trait FunctionConverters {
     }
   }
 
-  implicit def lazyToVoidHandler(func: => Unit): Handler[Void] = new Handler[Void]() {
-    override def handle(event: Void) = func
+  implicit def functionToAnyHandler[A, B](function: (A) => B): Handler[A] = new Handler[A]() {
+    override def handle(event: A): Unit = function(event)
+  }
+
+  implicit def functionToVoidHandler[B](function: => B): Handler[Void] = new Handler[Void]() {
+    override def handle(event: Void): Unit = function
   }
 }
 

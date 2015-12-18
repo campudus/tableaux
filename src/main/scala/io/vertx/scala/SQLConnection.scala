@@ -180,7 +180,7 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
 
   def commit(): Future[Unit] = {
     (for {
-      t <- asyncVoid(conn.commit(_: Handler[AsyncResult[Void]])).withTimeout(DurationInt(1).seconds, "commit")
+      t <- asyncVoidToFuture(conn.commit(_: AsyncVoid)).withTimeout(DurationInt(1).seconds, "commit")
       b <- close(conn)
     } yield {
       ()
@@ -193,7 +193,7 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
 
   def rollback(): Future[Unit] = {
     (for {
-      _ <- asyncVoid(conn.rollback(_: Handler[AsyncResult[Void]])).withTimeout(DurationInt(1).seconds, "rollback")
+      _ <- asyncVoidToFuture(conn.rollback(_: Handler[AsyncResult[Void]])).withTimeout(DurationInt(1).seconds, "rollback")
       _ <- close(conn)
     } yield {
       ()

@@ -7,7 +7,6 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
-import io.vertx.core.file.FileSystem
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 
@@ -204,12 +203,14 @@ class MediaController(override val config: TableauxConfig,
   }
 
   private def deleteFile(path: Path): Future[Unit] = {
+    import io.vertx.scala.FunctionConverters._
+
     futurify({ p: Promise[Unit] =>
-      val deleteFuture = asyncVoid(vertx.fileSystem().delete(path.toString(), _))
+      val deleteFuture = vertx.fileSystem().delete(path.toString(), _: AsyncVoid)
       deleteFuture.onComplete({
         case Success(_) => p.success(())
         case Failure(e) =>
-          val existsFuture = asyncResult[java.lang.Boolean, FileSystem](vertx.fileSystem().exists(path.toString(), _))
+          val existsFuture = vertx.fileSystem().exists(path.toString(), _: AsyncValue[java.lang.Boolean])
           existsFuture.onComplete({
             case Success(r) =>
               if (r) {
