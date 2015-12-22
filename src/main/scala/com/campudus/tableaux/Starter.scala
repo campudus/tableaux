@@ -5,7 +5,7 @@ import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.RouterRegistry
 import io.vertx.core.http.{HttpServer, HttpServerRequest}
 import io.vertx.core.{AsyncResult, Handler}
-import io.vertx.ext.web.{Router, RoutingContext}
+import io.vertx.ext.web.{Router}
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.{SQLConnection, ScalaVerticle}
@@ -72,12 +72,6 @@ class Starter extends ScalaVerticle {
 
   def createUploadsDirectories(config: TableauxConfig): Future[Unit] = {
     FileUtils(this).mkdirs(config.uploadsDirectoryPath())
-  }
-
-  def handleUpload(context: RoutingContext): Unit = {
-    logger.info(s"handle upload ${context.fileUploads()}")
-
-    context.response().end()
   }
 
   def deployHttpServer(port: Int, host: String, tableauxConfig: TableauxConfig, connection: SQLConnection): Future[HttpServer] = futurify { p: Promise[HttpServer] =>
