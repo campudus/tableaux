@@ -4,6 +4,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
+import io.vertx.core.json.JsonObject
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
@@ -83,8 +84,40 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
+  private def joinJson(fields: Seq[String], objOne: AnyRef, objTwo: AnyRef, sep: String): JsonObject = {
+    val result = new JsonObject()
+
+    fields.foreach({
+      field =>
+        val valueOne = objOne match {
+          case o: JsonObject => o.getValue(field)
+          case _ => objOne
+        }
+        val valueTwo = objTwo match {
+          case o: JsonObject => o.getValue(field)
+          case _ => objTwo
+        }
+
+        val merged = (valueOne, valueTwo) match {
+          case (one: JsonObject, null) => one
+          case (null, two: JsonObject) => two
+          case (one: JsonObject, two: JsonObject) => joinJson(fields, one, two, sep)
+          case _ => s"$valueOne$sep$valueTwo"
+        }
+
+        result.put(field, merged)
+    })
+
+    result
+  }
+
   private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[AnyRef]): Seq[AnyRef] = {
-    (columns, result).zipped map { (column: ColumnType[_], value: AnyRef) =>
+    val (concatColumn, zipped) = columns.head match {
+      case c: ConcatColumn => (Some(c), (columns.drop(1), result.drop(1)).zipped)
+      case _ => (None, (columns, result).zipped)
+    }
+
+    def mapling(column: ColumnType[_], value: AnyRef): AnyRef = {
       column match {
         case _: MultiLanguageColumn[_] =>
           if (value == null)
@@ -101,6 +134,57 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         case _ => value
       }
     }
+
+    concatColumn match {
+      case None => zipped map mapling
+      case Some(concatColumn) =>
+        import scala.collection.JavaConversions._
+
+        val concatColumns = zipped.filter({ (column: ColumnType[_], _) =>
+          concatColumn.columns.exists(_.id == column.id)
+        }).zipped
+
+        val concatLanguages = concatColumns.filter({ (column: ColumnType[_], _) =>
+          column.multilanguage
+        }).zipped.flatMap({ (column: ColumnType[_], value: AnyRef) =>
+          column match {
+            case _: MultiLanguageColumn[_] =>
+              val json = if (value == null)
+                Json.emptyObj()
+              else
+                Json.fromObjectString(value.toString)
+
+              json.fieldNames().toList
+
+            case _: LinkColumn[_] =>
+              val json = if (value == null)
+                Json.emptyArr()
+              else
+                Json.fromArrayString(value.toString)
+
+              json.toList.flatMap({
+                case o: JsonObject =>
+                  o.fieldNames().toSeq
+              }).distinct
+            case _ => Seq.empty[String]
+          }
+        }).distinct
+
+        val joinedValue = concatColumn.multilanguage match {
+          case true =>
+            concatColumns.foldLeft(Json.obj(concatLanguages.map((_, "")):_*)) {
+              case (joined, (column: ColumnType[_], value: AnyRef)) =>
+                joinJson(concatLanguages, joined, mapling(column, value), ", ")
+            }
+          case false =>
+            concatColumns.foldLeft("") {
+              case (joined, (column: ColumnType[_], value: AnyRef)) =>
+                joined + ", " + mapling(column, value)
+            }
+        }
+
+        (columns.drop(1), result.drop(1)).zipped.map(mapling).+:(joinedValue)
+    }
   }
 
   private def generateFromClause(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
@@ -109,6 +193,8 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def generateProjection(columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
+      case c: ConcatColumn =>
+        "NULL"
       case c: MultiLanguageColumn[_] =>
         val column = c match {
           case _: MultiDateTimeColumn =>

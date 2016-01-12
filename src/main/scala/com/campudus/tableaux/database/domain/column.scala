@@ -19,12 +19,15 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   val multilanguage: Boolean
 
+  val identifier: Boolean = false
+
   override def getJson: JsonObject = Json.obj(
     "id" -> id,
     "ordering" -> ordering,
     "name" -> name,
     "kind" -> kind.toString,
-    "multilanguage" -> multilanguage
+    "multilanguage" -> multilanguage,
+    "identifier" -> identifier
   )
 
   override def setJson: JsonObject = Json.obj("id" -> id, "ordering" -> ordering)
@@ -97,7 +100,7 @@ case class MultiDateTimeColumn(table: Table, id: ColumnId, name: String, orderin
  */
 case class LinkColumn[A](table: Table, id: ColumnId, to: SimpleValueColumn[A], linkInformation: (Long, String, String), name: String, ordering: Ordering) extends ColumnType[Link[A]] {
   override val kind = LinkType
-  override val multilanguage = false
+  override val multilanguage = to.multilanguage
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.getJson)
 }
@@ -107,17 +110,33 @@ case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: 
   override val multilanguage = false
 }
 
+case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]]) extends ColumnType[String] {
+  override val kind = TextType
+  // ConcatColumn will be a multi-language
+  // column in case any columns is also multi-language
+  override val multilanguage = columns.exists(_.multilanguage)
+
+  override val id: ColumnId = 0
+  override val ordering: Ordering = 0
+
+  override def getJson: JsonObject = Json.obj(
+    "id" -> id,
+    "ordering" -> ordering,
+    "name" -> name,
+    "kind" -> "concat",
+    "multilanguage" -> multilanguage,
+    "identifier" -> identifier,
+    "concats" -> columns.map(_.id)
+  )
+}
+
 /**
   * Column seq is just a sequence of columns.
   *
   * @param columns
   */
 case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
-  override def getJson: JsonObject = Json.obj("columns" -> columns.map {
-    _.getJson
-  })
+  override def getJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
 
-  override def setJson: JsonObject = Json.obj("columns" -> columns.map {
-    _.setJson
-  })
+  override def setJson: JsonObject = Json.obj("columns" -> columns.map(_.setJson))
 }
