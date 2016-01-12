@@ -22,6 +22,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
 
   private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
+  private val RowDuplicate: Regex = "/tables/(\\d+)/rows/(\\d+)/duplicate".r
   private val Rows: Regex = "/tables/(\\d+)/rows".r
   private val RowsOfColumn: Regex = "/tables/(\\d+)/columns/(\\d+)/rows".r
 
@@ -95,6 +96,11 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
       }
     }
+
+    /**
+      * Duplicate Row
+      */
+    case Post(RowDuplicate(tableId, rowId)) => asyncGetReply(controller.duplicateRow(tableId.toLong, rowId.toLong))
 
     /**
       * Fill Cell

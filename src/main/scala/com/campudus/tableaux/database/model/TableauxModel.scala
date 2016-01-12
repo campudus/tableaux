@@ -285,6 +285,15 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }
 
+  def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
+    for {
+      table <- retrieveTable(tableId)
+      columns <- retrieveColumns(table.id)
+      rowIdValues <- rowModel.retrieve(tableId, rowId, columns)
+      duplicatedRow <- createRows(tableId, Seq(columns.map(_.id).zip(rowIdValues._2)))
+    } yield duplicatedRow.rows.head
+  }
+
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[AnyRef])]): Future[Seq[Row]] = {
     // TODO potential performance problem: foreach row every attachment column is mapped and attachments will be fetched!
     val mergedRows = rawRows map {

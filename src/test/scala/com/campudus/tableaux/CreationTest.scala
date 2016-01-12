@@ -173,6 +173,28 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
+  def duplicateRow(implicit c: TestContext): Unit = okTest {
+    val valuesRow = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2))))
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables/1/rows", valuesRow)
+      expected <- sendRequest("GET", "/tables/1/rows/1")
+      lastIdJson <- sendRequest("POST", "/tables/1/rows/1/duplicate")
+      result <- sendRequest("GET", s"/tables/1/rows/${lastIdJson.getNumber("id")}")
+    } yield {
+      assertNotSame(expected.getNumber("id"), result.getNumber("id"))
+      expected.remove("id")
+      result.remove("id")
+      logger.info(s"expected without id=${expected.encode()}")
+      logger.info(s"result without id=${result.encode()}")
+      assertEquals(expected, result)
+    }
+  }
+
+  @Test
   def createMultipleFullRows(implicit c: TestContext): Unit = okTest {
     val valuesRow = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
       "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)), Json.obj("values" -> Json.arr("Test Field 2", 5))))
