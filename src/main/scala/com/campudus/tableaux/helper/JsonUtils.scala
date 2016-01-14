@@ -54,17 +54,18 @@ object JsonUtils {
           // optional fields
           val ordering = Try(json.getInteger("ordering").longValue()).toOption
           val multilanguage = Try[Boolean](json.getBoolean("multilanguage")).getOrElse(false)
+          val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
 
           dbType match {
-            case AttachmentType => CreateAttachmentColumn(name, ordering)
+            case AttachmentType => CreateAttachmentColumn(name, ordering, identifier)
             case LinkType => {
               // link specific fields
               val toName = Try(Option(json.getString("toName"))).toOption.flatten
               val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
 
-              CreateLinkColumn(name, ordering, toLinkConnection(json).get, toName, singleDirection)
+              CreateLinkColumn(name, ordering, toLinkConnection(json).get, toName, singleDirection, identifier)
             }
-            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage))
+            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage), identifier)
           }
         }
     })

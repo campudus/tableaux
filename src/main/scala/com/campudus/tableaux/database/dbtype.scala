@@ -53,6 +53,10 @@ case object DateTimeType extends TableauxDbType {
   override def toDbType = "timestamp with time zone"
 }
 
+case object ConcatType extends TableauxDbType {
+  override val name = "concat"
+}
+
 sealed trait LanguageType {
   def toBoolean: Boolean
 }
@@ -76,7 +80,7 @@ case object MultiLanguage extends LanguageType {
 }
 
 object Mapper {
-  private def columnType(languageType: LanguageType, kind: TableauxDbType): Option[(Table, ColumnId, String, Ordering) => ColumnType[_]] = {
+  private def columnType(languageType: LanguageType, kind: TableauxDbType): Option[(Table, ColumnId, String, Ordering, Boolean) => ColumnType[_]] = {
     languageType match {
       case SingleLanguage => kind match {
         // primitive/simple types
@@ -89,6 +93,7 @@ object Mapper {
         // complex types
         case AttachmentType => None
         case LinkType => None
+        case ConcatType => None
       }
 
       case MultiLanguage => kind match {
@@ -102,11 +107,12 @@ object Mapper {
         // complex types
         case AttachmentType => None
         case LinkType => None
+        case ConcatType => None
       }
     }
   }
 
-  def apply(languageType: LanguageType, kind: TableauxDbType): (Table, ColumnId, String, Ordering) => ColumnType[_] = columnType(languageType, kind).get
+  def apply(languageType: LanguageType, kind: TableauxDbType): (Table, ColumnId, String, Ordering, Boolean) => ColumnType[_] = columnType(languageType, kind).get
 
   def getDatabaseType(kind: String): TableauxDbType = {
     kind match {
