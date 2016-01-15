@@ -4,8 +4,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
-import io.vertx.core.json.JsonObject
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{Json, _}
 
 import scala.concurrent.Future
 
@@ -84,31 +83,31 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def joinJson(fields: Seq[String], objOne: AnyRef, objTwo: AnyRef, sep: String): JsonObject = {
-    val result = new JsonObject()
+  private def joinMultiLanguageJson(fields: Seq[String], joined: Map[String, List[AnyRef]], obj: AnyRef, sep: String): Map[String, List[AnyRef]] = {
+    import scala.collection.JavaConversions._
 
-    fields.foreach({
-      field =>
-        val valueOne = objOne match {
+    fields.foldLeft(joined)({
+      (result, field) =>
+        val joinedValue = result.get(field)
+
+        val value = obj match {
+          case a: JsonArray => a.toList.map({
+            case o: JsonObject =>
+              o.getJsonObject("value").getValue(field)
+          })
           case o: JsonObject => o.getValue(field)
-          case _ => objOne
-        }
-        val valueTwo = objTwo match {
-          case o: JsonObject => o.getValue(field)
-          case _ => objTwo
+          case _ => obj
         }
 
-        val merged = (valueOne, valueTwo) match {
-          case (one: JsonObject, null) => one
-          case (null, two: JsonObject) => two
-          case (one: JsonObject, two: JsonObject) => joinJson(fields, one, two, sep)
-          case _ => s"$valueOne$sep$valueTwo"
+        val merged = (joinedValue, value) match {
+          case (None, null) => List[AnyRef](null)
+          case (None, _) => List[AnyRef](value)
+          case (Some(j), null) => j.:+(null)
+          case (Some(j), _) => j.:+(value)
         }
 
-        result.put(field, merged)
+        result.+((field, merged))
     })
-
-    result
   }
 
   private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[AnyRef]): Seq[AnyRef] = {
@@ -164,23 +163,32 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
               json.toList.flatMap({
                 case o: JsonObject =>
-                  o.fieldNames().toSeq
+                  o.getJsonObject("value").fieldNames().toSeq
               }).distinct
             case _ => Seq.empty[String]
           }
         }).distinct
 
+        import scala.collection.JavaConverters._
+
+        val separator = ", "
         val joinedValue = concatColumn.multilanguage match {
           case true =>
-            concatColumns.foldLeft(Json.obj(concatLanguages.map((_, "")):_*)) {
-              case (joined, (column: ColumnType[_], value: AnyRef)) =>
-                joinJson(concatLanguages, joined, mapling(column, value), ", ")
-            }
+            concatColumns.foldLeft(Map.empty[String, List[AnyRef]])({
+              (joined, columnValue) =>
+                joinMultiLanguageJson(concatLanguages, joined, mapling(columnValue._1, columnValue._2), ", ")
+            }).map({
+              case (field, list) =>
+                (field, list.map({
+                  case l: List[_] => l.asJava
+                  case v => v
+                }).asJava)
+            }).asJava
           case false =>
-            concatColumns.foldLeft("") {
-              case (joined, (column: ColumnType[_], value: AnyRef)) =>
-                joined + ", " + mapling(column, value)
-            }
+            concatColumns.foldLeft(List.empty[AnyRef])({
+              (joined, columnValue) =>
+                joined.:+(mapling(columnValue._1, columnValue._2))
+            }).mkString(separator)
         }
 
         (columns.drop(1), result.drop(1)).zipped.map(mapling).+:(joinedValue)
