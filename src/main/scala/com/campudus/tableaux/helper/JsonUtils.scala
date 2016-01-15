@@ -103,10 +103,12 @@ object JsonUtils {
     valueList <- nonEmpty(valueAsAnyList, "values")
   } yield valueList
 
-  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType]) = {
+  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean]) = {
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
-    (name, ord, kind)
+    val identifier = Try[Boolean](json.getBoolean("identifier")).toOption
+
+    (name, ord, kind, identifier)
   }
 }

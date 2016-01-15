@@ -67,8 +67,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     case Post(Column(tableId, columnId)) => asyncEmptyReply {
       getJson(context) flatMap {
         json =>
-          val (optName, optOrd, optKind) = toColumnChanges(json)
-          controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind)
+          val (optName, optOrd, optKind, optIdent) = toColumnChanges(json)
+          controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent)
       }
     }
 
