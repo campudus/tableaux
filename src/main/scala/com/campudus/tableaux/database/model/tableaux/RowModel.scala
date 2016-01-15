@@ -188,7 +188,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
             concatColumns.foldLeft(List.empty[AnyRef])({
               (joined, columnValue) =>
                 joined.:+(mapling(columnValue._1, columnValue._2))
-            }).mkString(separator)
+            }).asJava
         }
 
         (columns.drop(1), result.drop(1)).zipped.map(mapling).+:(joinedValue)
