@@ -399,20 +399,20 @@ class LinkTest extends TableauxTestBase {
     val postLinkValue = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
 
     for {
-      (tableId1, columnIds1, table1rowId1) <- createFullTableWithMultilanguageColumns("Table 1")
-      (tableId2, columnIds2, table2rowId1) <- createFullTableWithMultilanguageColumns("Table 2")
+      (tableId1, columnIds1, table1rowIds) <- createFullTableWithMultilanguageColumns("Table 1")
+      (tableId2, columnIds2, table2rowIds) <- createFullTableWithMultilanguageColumns("Table 2")
       linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkColumn)
       linkColumnId = linkColumn.getArray("columns").get[JsonObject](0).getNumber("id")
 
-      resPost <- sendRequest("POST", s"/tables/$tableId1/columns/$linkColumnId/rows/1", postLinkValue)
+      resPost <- sendRequest("POST", s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}", postLinkValue)
       // check first table for the link (links to t2, r1 and r2, c4)
-      resGet1 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/1")
-      // check first table for the link (links to nothing)
-      resGet2 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/2")
+      resGet1 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}")
+      // check first table for the link in row 2 (links to nothing)
+      resGet2 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.drop(1).head}")
       // check second table for the link (links to t1, r1, c1)
-      resGet3 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId/rows/1")
-      // check second table for the link (links to t1, r1, c1)
-      resGet4 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId/rows/2")
+      resGet3 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId/rows/${table2rowIds.head}")
+      // check second table for the link in row 2 (links to t1, r1, c1)
+      resGet4 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId/rows/${table2rowIds.drop(1).head}")
     } yield {
       val expected1 = Json.obj("status" -> "ok", "value" -> Json.arr(
         Json.obj("id" -> 1, "value" -> Json.obj("en_US" -> "Hello, Table 2 Col 1 Row 1!")),
