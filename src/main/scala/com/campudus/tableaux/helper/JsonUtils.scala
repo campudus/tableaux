@@ -77,7 +77,8 @@ object JsonUtils {
   } yield result).get
 
   def toColumnValueSeq(json: JsonObject): Seq[Seq[(ColumnId, _)]] = (for {
-    columns <- toJsonObjectSeq("columns", json).map(columns => sequence(columns.map(hasLong("id", _))))
+    columnsObject <- toJsonObjectSeq("columns", json)
+    columns = sequence(columnsObject.map(hasLong("id", _)))
     rows <- toJsonObjectSeq("rows", json)
     result <- mergeColumnWithValue(columns.get, rows)
   } yield result).get

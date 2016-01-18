@@ -1,14 +1,60 @@
 package com.campudus.tableaux.database.model.tableaux
 
+import java.util.UUID
+
+import com.campudus.tableaux.ArgumentChecker
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.{AttachmentFile, Attachment, AttachmentModel}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.{Json, _}
 
+import scala.collection.immutable.HashMap
 import scala.concurrent.Future
 
 class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
+  val attachmentModel = AttachmentModel(connection)
+
+  private def splitIntoDatabaseTypes(values: Seq[(ColumnType[_], _)]): (
+    List[(SimpleValueColumn[_], _)],
+      List[(MultiLanguageColumn[_], Map[String, _])],
+      List[(LinkColumn[_], _)],
+      List[(AttachmentColumn, _)]
+    ) = {
+
+    values.foldLeft((
+      List[(SimpleValueColumn[_], _)](),
+      List[(MultiLanguageColumn[_], Map[String, _])](),
+      List[(LinkColumn[_], _)](),
+      List[(AttachmentColumn, _)]())) {
+      case ((s, m, l, a), (c: SimpleValueColumn[_], v)) => ((c, v) :: s, m, l, a)
+      case ((s, m, l, a), (c: MultiLanguageColumn[_], v: JsonObject)) =>
+        logger.info(s"got a multilanguage column $c -> $v")
+        import scala.collection.JavaConverters._
+        val valueAsMap = v.getMap.asScala.toMap
+        (s, (c, valueAsMap) :: m, l, a)
+      case ((s, m, l, a), (c: LinkColumn[_], v)) => (s, m, (c, v) :: l, a)
+      case ((s, m, l, a), (c: AttachmentColumn, v)) => (s, m, l, (c, v) :: a)
+      case (_, (c, v)) =>
+        logger.info(s"Class cast exception: unknown column or value: $c -> $v")
+        throw new ClassCastException(s"unknown column or value: $c -> $v")
+    }
+  }
+
+  def createRow(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+    val (simple, multis, links, attachments) = splitIntoDatabaseTypes(values)
+
+    for {
+      rowId <- if (simple.isEmpty) createEmpty(tableId) else createFull(tableId, simple)
+      _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
+      _ <- if (links.isEmpty) Future.successful(()) else createLinks(tableId, rowId, links)
+      _ <- if (attachments.isEmpty) Future.successful(()) else {
+        logger.info(s"attachments: $attachments")
+        createAttachments(tableId, rowId, attachments)
+      }
+    } yield rowId
+  }
 
   def createEmpty(tableId: TableId): Future[RowId] = {
     for {
@@ -18,7 +64,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def createFull(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+  private def createFull(tableId: TableId, values: Seq[(SimpleValueColumn[_], _)]): Future[RowId] = {
     val placeholder = values.map(_ => "?").mkString(", ")
     val columns = values.map { case (column: ColumnType[_], _) => s"column_${column.id}" }.mkString(", ")
     val binds = values.map { case (_, value) => value }
@@ -30,18 +76,97 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(ColumnType[_], Seq[(String, _)])]): Future[Unit] = {
-    for {
-      _ <- connection.transactionalFoldLeft(values) { (t, _, value) =>
-        val column = s"column_${value._1.id}"
-        val translations = value._2
-
-        val placeholder = translations.map(_ => "(?, ?, ?)").mkString(", ")
-        val binds = translations.flatMap(translation => Seq(rowId, translation._1, translation._2))
-
-        t.query(s"INSERT INTO user_table_lang_$tableId (id, langtag, $column) VALUES $placeholder", Json.arr(binds: _*))
+  private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn[_], _)]): Future[_] = {
+    val futureSequence = for {
+      (column: LinkColumn[_], idValues) <- values
+      toIds = idValues match {
+        case x: JsonObject => Seq(x.getLong("to").toLong)
+        case x: JsonArray =>
+          import scala.collection.JavaConverters._
+          logger.info(s"hello x JsonArray: ${x.encode()}")
+          x.asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
       }
-    } yield ()
+    } yield {
+      logger.info(s"link column = $column")
+      logger.info(s"toIds = $toIds")
+      val linkId = column.linkInformation._1
+      val id1 = column.linkInformation._2
+      val id2 = column.linkInformation._3
+
+      val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT $id1, $id2 FROM link_table_$linkId WHERE $id1 = ? AND $id2 = ?)").mkString(" UNION ")
+      val params = toIds.flatMap(to => List(rowId, to, rowId, to))
+
+      for {
+        t <- connection.begin()
+
+        (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE $id1 = ?", Json.arr(rowId))
+
+        (t, _) <- {
+          if (params.nonEmpty) {
+            t.query(s"INSERT INTO link_table_$linkId($id1, $id2) $paramStr", Json.arr(params: _*))
+          } else {
+            Future((t, Json.emptyObj()))
+          }
+        }
+        _ <- t.commit()
+      } yield ()
+    }
+
+    Future.sequence(futureSequence)
+  }
+
+  private def createAttachments(tableId: TableId, rowId: RowId, values: Seq[(AttachmentColumn, _)]): Future[_] = {
+    import ArgumentChecker._
+    val futureSequence = for {
+      (column: AttachmentColumn, attachmentValue) <- values
+      attachments = attachmentValue match {
+        case x: JsonObject =>
+          logger.info(s"attachmentValue=${x.encode()}")
+          notNull(x.getString("uuid"), "uuid")
+          Seq(Attachment(
+            tableId,
+            column.id,
+            rowId,
+            UUID.fromString(x.getString("uuid")),
+            Option(x.getLong("ordering")).map(_.toLong)))
+        case x: JsonArray =>
+          import scala.collection.JavaConverters._
+          x.asScala.map {
+            case file: JsonObject =>
+              notNull(file.getString("uuid"), "uuid")
+              Attachment(tableId, column.id, rowId, UUID.fromString(file.getString("uuid")), Option(file.getLong("ordering")))
+          }.toSeq
+        case x: Stream[_] =>
+          x.map {
+            case file: AttachmentFile =>
+            Attachment(tableId, column.id, rowId, file.file.file.uuid.get, Some(file.ordering))
+          }.toSeq
+      }
+    } yield {
+      attachmentModel.replace(tableId, column.id, rowId, attachments)
+    }
+
+    Future.sequence(futureSequence)
+  }
+
+  private def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(MultiLanguageColumn[_], Map[String, _])]): Future[_] = {
+    val entries = for {
+      (column, langs) <- values
+      (langTag: String, value) <- langs
+    } yield (langTag, (column, value))
+
+    val columnsForLang = entries.groupBy(_._1).mapValues(_.map(_._2))
+
+    connection.transactionalFoldLeft(columnsForLang.toSeq) { (t, _, langValues) =>
+      val columns = langValues._2.map { case (col, _) => s"column_${col.id}" }.mkString(", ")
+      val placeholder = langValues._2.map(_ => "?").mkString(", ")
+      val insertStmt = s"INSERT INTO user_table_lang_$tableId (id, langtag, $columns) VALUES (?, ?, $placeholder)"
+      val insertBinds = List(rowId, langValues._1) ::: langValues._2.map(_._2).toList
+
+      for {
+        (t, result) <- t.query(insertStmt, Json.arr(insertBinds: _*))
+      } yield (t, result)
+    }
   }
 
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[AnyRef])] = {
@@ -63,8 +188,9 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
-      getSeqOfJsonArray(result).map(jsonArrayToSeq).map { row =>
-        (row.head, mapResultRow(columns, row.drop(1)))
+      getSeqOfJsonArray(result).map(jsonArrayToSeq).map {
+        row =>
+          (row.head, mapResultRow(columns, row.drop(1)))
       }
     }
   }

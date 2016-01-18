@@ -1,10 +1,12 @@
 package com.campudus.tableaux
 
+import java.util
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{JsonArray, Json}
 
 @RunWith(classOf[VertxUnitRunner])
 class CreationTest extends TableauxTestBase {
@@ -173,14 +175,112 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
-  def duplicateRow(implicit c: TestContext): Unit = okTest {
-    val valuesRow = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2))))
+  def createComplexRow(implicit c: TestContext): Unit = okTest {
+    val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
+    val postAttachmentColumn = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+    val fileName = "Scr$en Shot.pdf"
+    val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimeType = "application/pdf"
+    val de = "de_DE"
+    val en = "en_US"
+
+    val putOne = Json.obj(
+      "title" -> Json.obj(de -> "Ein schöner deutscher Titel."),
+      "description" -> Json.obj(de -> "Und hier folgt eine tolle hochdeutsche Beschreibung.")
+    )
+
+    def valuesRow(linkToRowId: Long, fileUuid: String) = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("id" -> 1), //text
+        Json.obj("id" -> 2), //text multilanguage
+        Json.obj("id" -> 3), //numeric
+        Json.obj("id" -> 4), //numeric multilanguage
+        Json.obj("id" -> 5), //richtext
+        Json.obj("id" -> 6), //richtext multilanguage
+        Json.obj("id" -> 7), //date
+        Json.obj("id" -> 8), //date multilanguage
+        Json.obj("id" -> 9), //attachment
+        Json.obj("id" -> 10) // link
+      ),
+      "rows" -> Json.arr(Json.obj("values" ->
+        Json.arr(
+          "Test Field in first row, column one",
+          Json.obj(de -> "Erste Zeile, Spalte 2", en -> "First row, column 2"),
+          3,
+          Json.obj(de -> 14),
+          "Test Field in first row, column <strong>five</strong>.",
+          Json.obj(
+            "de_AT" -> "Erste Reihe, Spalte <strong>sechs</strong> - mit AT statt DE.",
+            "en_GB" -> "First row, column <strong>six</strong> - with GB instead of US."
+          ),
+          "2016-01-08",
+          Json.obj(en -> "2016-01-08"),
+          Json.obj("uuid" -> fileUuid),
+          Json.obj("to" -> linkToRowId)
+        ))))
+
+    def expectedWithoutAttachment(rowId: Long, fileUuid: String, linkToRowId: Long) = Json.obj(
+      "status" -> "ok",
+      "id" -> rowId,
+      "values" ->
+        Json.arr(
+          "Test Field in first row, column one",
+          Json.obj(de -> "Erste Zeile, Spalte 2", en -> "First row, column 2"),
+          3,
+          Json.obj(de -> 14),
+          "Test Field in first row, column <strong>five</strong>.",
+          Json.obj(
+            "de_AT" -> "Erste Reihe, Spalte <strong>sechs</strong> - mit AT statt DE.",
+            "en_GB" -> "First row, column <strong>six</strong> - with GB instead of US."
+          ),
+          "2016-01-08",
+          Json.obj(en -> "2016-01-08"),
+          Json.arr(Json.obj("id" -> linkToRowId, "value" -> Json.obj(
+            de -> "Hallo, Test Table 1 Welt!",
+            en -> "Hello, Test Table 1 World!"
+          )))
+        )
+    )
 
     for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
-      _ <- sendRequest("POST", "/tables/1/rows", valuesRow)
+      (tableId1, columnIds, rowIds) <- createFullTableWithMultilanguageColumns("Test Table 1")
+      (tableId2, columnIds, linkColumnId) <- createTableWithComplexColumns("Test Table 2", LinkTo(tableId1, columnIds.head))
+
+      file <- sendRequest("POST", "/files", putOne)
+      fileUuid = file.getString("uuid")
+      uploadedFile <- uploadFile("PUT", s"/files/$fileUuid/$de", filePath, mimeType)
+
+      // link to table 1, row 1, column 1
+      row <- sendRequest("POST", s"/tables/$tableId2/rows", valuesRow(rowIds.head, fileUuid))
+      rowId = row.getJsonArray("rows").getJsonObject(0).getLong("id")
+
+      result <- sendRequest("GET", s"/tables/$tableId2/rows/$rowId")
+    } yield {
+      val expect = expectedWithoutAttachment(rowId, fileUuid, rowIds.head)
+      val resultAttachment = result.getJsonArray("values").remove(8).asInstanceOf[util.ArrayList[_]]
+      logger.info(s"expect=${expect.encode()}")
+      logger.info(s"result=${result.encode()}")
+      assertEquals(1, resultAttachment.size)
+      assertEquals(fileUuid, resultAttachment.get(0).asInstanceOf[util.Map[String, _]].get("uuid"))
+      assertEquals(expect, result)
+    }
+  }
+
+  @Test
+  def duplicateRowWithLink(implicit c: TestContext): Unit = okTest {
+    val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
+    def fillLinkCellJson(c: Integer) = Json.obj("value" -> Json.obj("to" -> c))
+
+    for {
+      tableId1 <- setupDefaultTable()
+      tableId2 <- setupDefaultTable("Test Table 2", 2)
+      linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkCol)
+      linkColumnId = linkColumn.getArray("columns").getJsonObject(0).getNumber("id")
+      _ <- sendRequest("POST", s"/tables/$tableId1/columns/$linkColumnId/rows/1", fillLinkCellJson(1))
+      _ <- sendRequest("POST", s"/tables/$tableId1/columns/$linkColumnId/rows/1", fillLinkCellJson(2))
       expected <- sendRequest("GET", "/tables/1/rows/1")
       lastIdJson <- sendRequest("POST", "/tables/1/rows/1/duplicate")
       result <- sendRequest("GET", s"/tables/1/rows/${lastIdJson.getNumber("id")}")
@@ -190,6 +290,60 @@ class CreationTest extends TableauxTestBase {
       result.remove("id")
       logger.info(s"expected without id=${expected.encode()}")
       logger.info(s"result without id=${result.encode()}")
+      assertEquals(expected, result)
+    }
+  }
+
+  @Test
+  def duplicateRowWithMultiLanguageAttachment(implicit c: TestContext): Unit = okTest {
+    val postAttachmentColumn = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+    val fileName = "Scr$en Shot.pdf"
+    val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimeType = "application/pdf"
+    val de = "de_DE"
+    val en = "en_GB"
+
+    val putOne = Json.obj(
+      "title" -> Json.obj(de -> "Ein schöner deutscher Titel."),
+      "description" -> Json.obj(de -> "Und hier folgt eine tolle hochdeutsche Beschreibung.")
+    )
+
+    val putTwo = Json.obj(
+      "title" -> Json.obj(en -> "A beautiful German title."),
+      "description" -> Json.obj(en -> "And here is a great High German description.")
+    )
+    def insertRow(uuid: String) = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("id" -> 1),
+        Json.obj("id" -> 2),
+        Json.obj("id" -> 3)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr(
+        "row 3 column 1",
+        3,
+        Json.obj("uuid" -> uuid)
+      )))
+    )
+
+    for {
+      tableId <- setupDefaultTable()
+      column <- sendRequest("POST", s"/tables/$tableId/columns", postAttachmentColumn)
+      columnId = column.getArray("columns").getJsonObject(0).getInteger("id")
+      file <- sendRequest("POST", "/files", putOne)
+      uploadedFile <- uploadFile("PUT", s"/files/${file.getString("uuid")}/$de", filePath, mimeType)
+      row <- sendRequest("POST", s"/tables/$tableId/rows", insertRow(file.getString("uuid")))
+      rowId = row.getJsonArray("rows").getJsonObject(0).getInteger("id")
+      expected <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+      lastIdJson <- sendRequest("POST", s"/tables/$tableId/rows/$rowId/duplicate")
+      result <- sendRequest("GET", s"/tables/$tableId/rows/${lastIdJson.getNumber("id")}")
+    } yield {
+      logger.info(s"expected=${expected.encode()}")
+      logger.info(s"result=${result.encode()}")
+      assertNotSame(expected.getNumber("id"), result.getNumber("id"))
+      expected.remove("id")
+      result.remove("id")
       assertEquals(expected, result)
     }
   }
