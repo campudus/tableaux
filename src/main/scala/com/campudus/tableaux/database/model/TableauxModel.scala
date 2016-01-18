@@ -38,8 +38,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
   private lazy val structureModel = StructureModel(connection)
 
-  def createTable(name: String): Future[Table] = {
-    structureModel.tableStruc.create(name)
+  def createTable(name: String, hidden: Boolean): Future[Table] = {
+    structureModel.tableStruc.create(name, hidden)
   }
 
   def createColumns(tableId: TableId, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {

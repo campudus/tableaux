@@ -21,6 +21,7 @@ class GetTest extends TableauxTestBase {
       "status" -> "ok",
       "id" -> 1,
       "name" -> "Test Table 1",
+      "hidden" -> false,
       "columns" -> Json.arr(),
       "page" -> Json.obj(
         "offset" -> null,
@@ -43,6 +44,7 @@ class GetTest extends TableauxTestBase {
       "status" -> "ok",
       "id" -> 1,
       "name" -> "Test Table 1",
+      "hidden" -> false,
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> false),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false),
@@ -71,6 +73,7 @@ class GetTest extends TableauxTestBase {
       "status" -> "ok",
       "id" -> 1,
       "name" -> "Test Table 1",
+      "hidden" -> false,
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> false),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false),
@@ -113,6 +116,7 @@ class GetTest extends TableauxTestBase {
       "status" -> "ok",
       "id" -> 1,
       "name" -> "Test Table 1",
+      "hidden" -> false,
       "columns" -> columns,
       "page" -> Json.obj(
         "offset" -> null,
@@ -145,7 +149,8 @@ class GetTest extends TableauxTestBase {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
-      "name" -> "Test Table 1"
+      "name" -> "Test Table 1",
+      "hidden" -> false
     )
 
     for {
@@ -159,8 +164,8 @@ class GetTest extends TableauxTestBase {
   @Test
   def retrieveAllTables(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "tables" -> Json.arr(
-      Json.obj("id" -> 1, "name" -> "Test Table 1"),
-      Json.obj("id" -> 2, "name" -> "Test Table 2")
+      Json.obj("id" -> 1, "name" -> "Test Table 1", "hidden" -> false),
+      Json.obj("id" -> 2, "name" -> "Test Table 2", "hidden" -> false)
     ))
 
     for {

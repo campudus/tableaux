@@ -64,11 +64,11 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield ColumnSeq(columns)
   }
 
-  def createTable(tableName: String): Future[Table] = {
+  def createTable(tableName: String, hidden: Option[Boolean]): Future[Table] = {
     checkArguments(notNull(tableName, "tableName"))
     logger.info(s"createTable $tableName")
 
-    tableStruc.create(tableName)
+    tableStruc.create(tableName, hidden.getOrElse(false))
   }
 
   def deleteTable(tableId: TableId): Future[EmptyObject] = {
@@ -103,7 +103,8 @@ class StructureController(override val config: TableauxConfig, override protecte
 
     for {
       _ <- tableStruc.change(tableId, tableName)
-    } yield Table(tableId, tableName)
+      table <- tableStruc.retrieve(tableId)
+    } yield table
   }
 
   def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean]): Future[ColumnType[_]] = {

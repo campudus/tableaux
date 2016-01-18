@@ -113,7 +113,7 @@ class TableauxController(override val config: TableauxConfig, override protected
     logger.info(s"createTable $tableName columns $columns rows $rows")
 
     for {
-      table <- repository.createTable(tableName)
+      table <- repository.createTable(tableName, hidden = false)
       columnIds <- repository.createColumns(table.id, columns).map(_.map(_.id))
       _ <- repository.createRows(table.id, rows.map(columnIds.zip(_)))
       completeTable <- retrieveCompleteTable(table.id)

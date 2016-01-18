@@ -4,22 +4,21 @@ import com.campudus.tableaux.database.domain.Table
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
-import io.vertx.core.Vertx
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 
 class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def create(name: String): Future[Table] = {
+  def create(name: String, hidden: Boolean): Future[Table] = {
     connection.transactional { t =>
       for {
-        (t, result) <- t.query("INSERT INTO system_table (user_table_name) VALUES (?) RETURNING table_id", Json.arr(name))
+        (t, result) <- t.query("INSERT INTO system_table (user_table_name, is_hidden) VALUES (?, ?) RETURNING table_id", Json.arr(name, hidden))
         id <- Future(insertNotNull(result).head.get[TableId](0))
-        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
+        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, hidden BOOLEAN, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
-      } yield (t, Table(id, name))
+      } yield (t, Table(id, name, hidden))
     }
   }
 
@@ -43,20 +42,20 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieveAll(): Future[Seq[Table]] = {
     for {
-      result <- connection.query("SELECT table_id, user_table_name FROM system_table ORDER BY table_id")
+      result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table ORDER BY table_id")
     } yield {
       getSeqOfJsonArray(result).map { row =>
-        Table(row.get[TableId](0), row.get[String](1))
+        Table(row.get[TableId](0), row.getString(1), row.getBoolean(2))
       }
     }
   }
 
   def retrieve(tableId: TableId): Future[Table] = {
     for {
-      result <- connection.query("SELECT table_id, user_table_name FROM system_table WHERE table_id = ?", Json.arr(tableId))
+      result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table WHERE table_id = ?", Json.arr(tableId))
     } yield {
       val json = selectNotNull(result).head
-      Table(json.get[TableId](0), json.get[String](1))
+      Table(json.get[TableId](0), json.getString(1), json.getBoolean(2))
     }
   }
 

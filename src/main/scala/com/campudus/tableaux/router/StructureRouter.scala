@@ -41,7 +41,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       */
     case Post(Tables()) => asyncSetReply {
       getJson(context) flatMap { json =>
-        controller.createTable(json.getString("name"))
+        controller.createTable(json.getString("name"), Option(json.getBoolean("hidden")).map(_.booleanValue()))
       }
     }
 
