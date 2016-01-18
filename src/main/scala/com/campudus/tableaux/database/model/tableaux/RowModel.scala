@@ -49,10 +49,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
       rowId <- if (simple.isEmpty) createEmpty(tableId) else createFull(tableId, simple)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
       _ <- if (links.isEmpty) Future.successful(()) else createLinks(tableId, rowId, links)
-      _ <- if (attachments.isEmpty) Future.successful(()) else {
-        logger.info(s"attachments: $attachments")
-        createAttachments(tableId, rowId, attachments)
-      }
+      _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(tableId, rowId, attachments)
     } yield rowId
   }
 
@@ -139,7 +136,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         case x: Stream[_] =>
           x.map {
             case file: AttachmentFile =>
-            Attachment(tableId, column.id, rowId, file.file.file.uuid.get, Some(file.ordering))
+              Attachment(tableId, column.id, rowId, file.file.file.uuid.get, Some(file.ordering))
           }.toSeq
       }
     } yield {
