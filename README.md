@@ -15,6 +15,15 @@ Tableaux uses gradle to build a so called **fat jar** which contains all runtime
 ./gradlew clean build
 ```
 
+To start without running the tests:
+
+```
+./gradlew clean assemble
+```
+```
+./gradlew run
+```
+
 To execute the **fat jar** call it like this:
 
 ```
