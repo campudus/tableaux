@@ -83,18 +83,20 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def createRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
     table <- retrieveTable(tableId)
     columns <- retrieveColumns(table.id)
-    ids <- Future.sequence(rows.map({
-      row =>
+    ids <- rows.foldLeft(Future.successful(Vector[RowId]())) {
+      (futureRows, row) =>
         // replace ColumnId with ColumnType
         val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
-        for {
-          rowId <- rowModel.createRow(table.id, columnValuePairs)
-        } yield {
-          logger.info(s"created row $rowId")
-          rowId
+        futureRows.flatMap { rows =>
+          for {
+            rowId <- rowModel.createRow(table.id, columnValuePairs)
+          } yield {
+            logger.info(s"created row $rowId")
+            rows :+ rowId
+          }
         }
-    }))
+    }
     rows <- Future.sequence(ids.map(retrieveRow(table.id, _)))
   } yield RowSeq(rows)
 
