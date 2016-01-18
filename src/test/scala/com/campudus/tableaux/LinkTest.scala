@@ -28,9 +28,12 @@ class LinkTest extends TableauxTestBase {
         "ordering" -> 1,
         "name" -> "Test Column 1",
         "kind" -> "text",
-        "multilanguage" -> false
+        "multilanguage" -> false,
+        "identifier" -> false
       ),
-      "ordering" -> 3)
+      "ordering" -> 3,
+      "identifier" -> false
+    )
 
     for {
       tables <- setupTwoTables()

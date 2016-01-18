@@ -21,21 +21,14 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   val identifier: Boolean = false
 
-  override def getJson: JsonObject = {
-    val result = Json.obj(
-      "id" -> id,
-      "ordering" -> ordering,
-      "name" -> name,
-      "kind" -> kind.toString,
-      "multilanguage" -> multilanguage
-    )
-
-    if (identifier) {
-      result.put("identifier", identifier)
-    }
-
-    result
-  }
+  override def getJson: JsonObject = Json.obj(
+    "id" -> id,
+    "ordering" -> ordering,
+    "name" -> name,
+    "kind" -> kind.toString,
+    "multilanguage" -> multilanguage,
+    "identifier" -> identifier
+  )
 
   override def setJson: JsonObject = Json.obj("id" -> id, "ordering" -> ordering)
 }

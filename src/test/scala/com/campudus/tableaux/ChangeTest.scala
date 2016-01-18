@@ -74,7 +74,7 @@ class ChangeTest extends TableauxTestBase {
   @Test
   def changeColumn(implicit c: TestContext): Unit = okTest {
     val postJson = Json.obj("name" -> "New testname", "ordering" -> 5, "kind" -> "text")
-    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5, "multilanguage" -> false)
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5, "multilanguage" -> false, "identifier" -> false)
 
     for {
       _ <- setupDefaultTable()
