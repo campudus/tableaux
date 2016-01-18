@@ -7,13 +7,14 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
+// TODO Rename "File" to TableauxFile or similar..
 object File {
   def apply(uuid: UUID, name: MultiLanguageValue[String], description: MultiLanguageValue[String], externalName: MultiLanguageValue[String], folder: Option[FolderId]): File = {
     File(Some(uuid), folder, name, description, MultiLanguageValue.empty(), externalName, MultiLanguageValue.empty(), None, None)
   }
 }
 
-case class File(uuid: Option[UUID],
+case class File(uuid: Option[UUID], // TODO Shouldn't a File always have a UUID?
                 folder: Option[FolderId],
 
                 title: MultiLanguageValue[String],
@@ -54,7 +55,7 @@ case class ExtendedFile(file: File) extends DomainObject {
   override def getJson: JsonObject = Json.obj("url" -> getUrl.getJson).mergeIn(file.getJson)
 
   private def getUrl: MultiLanguageValue[String] = {
-    val uuid = file.uuid.get
+    val uuid = file.uuid.get // TODO possible null pointer, if UUID is not set (I guess it should always be set, but why Option[UUID] then?)
     val urls = file.externalName.values.map({
       case (langtag, filename) =>
         if (filename == null || filename.isEmpty) {

@@ -34,10 +34,10 @@ case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
 object ArgumentChecker {
 
   def notNull[A](x: => A, name: String): ArgumentCheck[A] = try {
-    if (x != null) OkArg(x) else FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
+    if (x != null) OkArg(x.asInstanceOf[A]) else FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
   } catch {
     case npe: NullPointerException => FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
-    case cce: ClassCastException => FailArg(InvalidJsonException(s"Warning: $name should not be ${name.getClass}", "invalid"))
+    case cce: ClassCastException => FailArg(InvalidJsonException(s"Warning: $name should be another type. Error: ${cce.getMessage}", "invalid"))
   }
 
   def greaterZero(x: Long): ArgumentCheck[Long] = if (x > 0) OkArg(x) else FailArg(InvalidJsonException(s"Argument $x is not greater than zero", "invalid"))

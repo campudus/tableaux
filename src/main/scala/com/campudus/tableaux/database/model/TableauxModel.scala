@@ -7,6 +7,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CellModel, RowModel}
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException}
+import io.vertx.core.json.JsonArray
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -82,37 +83,20 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def createRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
     table <- retrieveTable(tableId)
     columns <- retrieveColumns(table.id)
-    ids <- Future.sequence(rows.map({
-      row =>
+    ids <- rows.foldLeft(Future.successful(Vector[RowId]())) {
+      (futureRows, row) =>
         // replace ColumnId with ColumnType
-        val mappedRow = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
+        val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
-        val singleValues = mappedRow.filter {
-          case (_: MultiLanguageColumn[_], _) => false
-          case (_, _) => true
-        }
-
-        val multiValues = mappedRow.filter {
-          case (_: MultiLanguageColumn[_], _) => true
-          case (_, _) => false
-        } map { case (column, value) =>
-          (column, JsonUtils.toTupleSeq(value.asInstanceOf[JsonObject]))
-        }
-
-        for {
-          rowId <- if (singleValues.isEmpty) {
-            rowModel.createEmpty(table.id)
-          } else {
-            rowModel.createFull(table.id, singleValues)
+        futureRows.flatMap { rows =>
+          for {
+            rowId <- rowModel.createRow(table.id, columnValuePairs)
+          } yield {
+            logger.info(s"created row $rowId")
+            rows :+ rowId
           }
-
-          _ <- if (multiValues.nonEmpty) {
-            rowModel.createTranslations(table.id, rowId, multiValues)
-          } else {
-            Future.successful(())
-          }
-        } yield rowId
-    }))
+        }
+    }
     rows <- Future.sequence(ids.map(retrieveRow(table.id, _)))
   } yield RowSeq(rows)
 
@@ -225,7 +209,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         }
       }
     } getOrElse {
-      Future.failed(InvalidJsonException(s"A link column expects a JSON object with from and to values, but got $value", "link-value"))
+      Future.failed(InvalidJsonException(s"A link column expects a JSON object with to values, but got $value", "link-value"))
     }
   }
 
@@ -283,6 +267,36 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       rawRows <- rowModel.retrieveAll(table.id, columns, pagination)
       rowSeq <- mapRawRows(table, columns, rawRows)
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+  }
+
+  def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
+    for {
+      table <- retrieveTable(tableId)
+      columns <- retrieveColumns(table.id)
+      rowIdValues <- rowModel.retrieve(tableId, rowId, columns)
+      rows <- mapRawRows(table, columns, Seq(rowIdValues))
+      rowValues = rows.head.values
+      duplicatedSimpleRowId <- rowModel.createRow(tableId, columns.zip(rowValues))
+      duplicatedRow <- rowModel.retrieve(tableId, duplicatedSimpleRowId, columns)
+    } yield Row(table, duplicatedRow._1, duplicatedRow._2)
+  }
+
+  private def updateValuesInRow(table: Table, rowId: RowId, columnsAndValues: Seq[(ColumnType[_], Any)]): Future[_] = {
+    val insertedCells = for {
+      (column, value) <- columnsAndValues
+    } yield {
+      column match {
+        case link: LinkColumn[_] =>
+          import scala.collection.JavaConverters._
+          val toIds = value.asInstanceOf[JsonArray].asScala.map(_.asInstanceOf[JsonObject].getNumber("id").longValue()).toSeq
+          cellModel.putLinks(table, link, rowId, toIds)
+        case _ =>
+          logger.info(s"value=$value")
+          insertValue(column, rowId, value)
+      }
+    }
+
+    Future.sequence(insertedCells)
   }
 
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[AnyRef])]): Future[Seq[Row]] = {

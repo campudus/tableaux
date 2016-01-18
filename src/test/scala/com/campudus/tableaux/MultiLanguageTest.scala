@@ -24,7 +24,8 @@ class MultiLanguageTest extends TableauxTestBase {
     )
 
     for {
-      (tableId, columnId) <- createTableWithMultilanguageColumn()
+      (tableId, columnIds) <- createTableWithMultilanguageColumns("Multilanguage Table")
+      columnId = columnIds.head
 
       column <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
 
@@ -58,7 +59,8 @@ class MultiLanguageTest extends TableauxTestBase {
       """.stripMargin)
 
     for {
-      (tableId, columnId) <- createTableWithMultilanguageColumn()
+      (tableId, columnIds) <- createTableWithMultilanguageColumns("Multilanguage Table")
+      columnId = columnIds.head
 
       rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getLong("id"))
 
@@ -82,9 +84,11 @@ class MultiLanguageTest extends TableauxTestBase {
       """.stripMargin)
 
     for {
-      (tableId, columnId) <- createTableWithMultilanguageColumn()
+      (tableId, columnIds) <- createTableWithMultilanguageColumns("Multilanguage Table")
+      columnId = columnIds.head
 
-      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getLong("id"))
+      row <- sendRequest("POST", s"/tables/$tableId/rows")
+      rowId = row.getLong("id")
 
       cell <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
     } yield {
@@ -126,7 +130,7 @@ class MultiLanguageTest extends TableauxTestBase {
       """.stripMargin)
 
     for {
-      (tableId, columnId) <- createTableWithMultilanguageColumn()
+      (tableId, columnId) <- createTableWithMultilanguageColumns("Multilanguage Table")
 
       rowId1 <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow) map (_.getArray("rows").get[JsonObject](0).getLong("id"))
       rowId2 <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow) map (_.getArray("rows").get[JsonObject](0).getLong("id"))
@@ -206,7 +210,7 @@ class MultiLanguageTest extends TableauxTestBase {
       """.stripMargin)
 
     for {
-      (tableId, _) <- createTableWithMultilanguageColumn()
+      (tableId, _) <- createTableWithMultilanguageColumns("Multilanguage Table")
 
       rowId <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow) map (_.getArray("rows").get[JsonObject](0).getLong("id"))
 
@@ -227,25 +231,4 @@ class MultiLanguageTest extends TableauxTestBase {
     }
   }
 
-  private def createTableWithMultilanguageColumn(): Future[(Long, Long)] = {
-    val createMultilanguageColumn = Json.obj(
-      "columns" ->
-        Json.arr(
-          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true),
-          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true),
-          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
-          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
-          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "multilanguage" -> true),
-          Json.obj("kind" -> "date", "name" -> "Test Column 6", "multilanguage" -> true),
-          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "multilanguage" -> true)
-        )
-    )
-
-    for {
-      tableId <- sendRequest("POST", "/tables", Json.obj("name" -> "Multi Language")) map (_.getLong("id"))
-      columnId <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn) map (_.getArray("columns").get[JsonObject](0).getLong("id"))
-    } yield {
-      (tableId.toLong, columnId.toLong)
-    }
-  }
 }

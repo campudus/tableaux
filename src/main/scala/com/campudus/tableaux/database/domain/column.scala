@@ -40,10 +40,12 @@ sealed trait ColumnType[+A] extends DomainObject {
   override def setJson: JsonObject = Json.obj("id" -> id, "ordering" -> ordering)
 }
 
+sealed trait ValueColumn[+A] extends ColumnType[A]
+
 /*
  * Single-language column types
  */
-sealed trait SimpleValueColumn[A] extends ColumnType[A] {
+sealed trait SimpleValueColumn[+A] extends ValueColumn[A] {
   override val multilanguage = false
 }
 
@@ -74,7 +76,7 @@ case class DateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Or
 /*
  * Multi-language column types
  */
-sealed trait MultiLanguageColumn[A] extends SimpleValueColumn[A] {
+sealed trait MultiLanguageColumn[A] extends ValueColumn[A] {
   override val multilanguage = true
 }
 
@@ -105,7 +107,8 @@ case class MultiDateTimeColumn(table: Table, id: ColumnId, name: String, orderin
 /*
  * Special column types
  */
-case class LinkColumn[A](table: Table, id: ColumnId, to: SimpleValueColumn[A], linkInformation: (Long, String, String), name: String, ordering: Ordering, override val identifier: Boolean) extends ColumnType[Link[A]] {
+// TODO What is linkInformation? Could be refactored into case class?
+case class LinkColumn[A](table: Table, id: ColumnId, to: ValueColumn[A], linkInformation: (Long, String, String), name: String, ordering: Ordering, override val identifier: Boolean) extends ColumnType[Link[A]] {
   override val kind = LinkType
   override val multilanguage = to.multilanguage
 

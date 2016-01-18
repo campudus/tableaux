@@ -31,6 +31,12 @@ class TableauxController(override val config: TableauxConfig, override protected
     }
   }
 
+  def duplicateRow(tableId: TableId, rowId: TableId): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"duplicateRow $tableId $rowId")
+    repository.duplicateRow(tableId, rowId)
+  }
+
   def retrieveRow(tableId: TableId, rowId: TableId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"retrieveRow $tableId $rowId")

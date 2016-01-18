@@ -30,7 +30,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         }
 
       case CreateLinkColumn(name, ordering, linkConnection, toName, singleDirection, identifier) => for {
-        toCol <- retrieve(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
+        toCol <- retrieve(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[ValueColumn[_]]]
         (linkId, id, ordering) <- createLinkColumn(table, name, toName, linkConnection, ordering, singleDirection, identifier)
       } yield LinkColumn(table, id, toCol, (linkId, "id_1", "id_2"), name, ordering, identifier)
 
@@ -186,7 +186,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       (linkId, id_1, id_2, toTableId, toColumnId) <- getToColumn(fromTable.id, linkColumnId)
 
-      toCol <- retrieve(toTableId, toColumnId).asInstanceOf[Future[SimpleValueColumn[_]]]
+      toCol <- retrieve(toTableId, toColumnId).asInstanceOf[Future[ValueColumn[_]]]
     } yield {
       LinkColumn(fromTable, linkColumnId, toCol, (linkId, id_1, id_2), columnName, ordering, identifier)
     }

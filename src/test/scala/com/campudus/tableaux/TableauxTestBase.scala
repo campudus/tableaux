@@ -5,11 +5,15 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
+import io.vertx.core.file.{OpenOptions, AsyncFile}
 import io.vertx.core.http.{HttpClient, HttpClientRequest, HttpClientResponse, HttpMethod}
-import io.vertx.core.{DeploymentOptions, Vertx}
+import io.vertx.core.json.JsonObject
+import io.vertx.core.streams.Pump
+import io.vertx.core.{AsyncResult, Handler, DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FunctionConverters._
+import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
@@ -212,5 +216,181 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/1", fillNumberCellJson)
       _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/2", fillNumberCellJson2)
     } yield tableId
+  }
+
+  protected def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = futurify {
+    p: Promise[JsonObject] =>
+      val filePath = getClass.getResource(file).toURI.getPath
+      val fileName = file.substring(file.lastIndexOf("/") + 1)
+
+      def requestHandler(req: HttpClientRequest): Unit = {
+        val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
+        val header =
+          "--" + boundary + "\r\n" +
+            "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
+            "Content-Type: " + mimeType + "\r\n\r\n"
+
+        val footer = "\r\n--" + boundary + "--\r\n"
+
+        val contentLength = String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
+        req.putHeader("Content-length", contentLength)
+        req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
+
+        logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
+
+        req.write(header)
+
+        import io.vertx.scala.FunctionConverters._
+
+        val asyncFile: Future[AsyncFile] = vertx.fileSystem().open(filePath, new OpenOptions(), _: Handler[AsyncResult[AsyncFile]])
+
+        asyncFile.map({
+          file =>
+            val pump = Pump.pump(file, req)
+
+            file.exceptionHandler({
+              e: Throwable =>
+                pump.stop()
+                req.end("")
+                p.failure(e)
+            })
+
+            file.endHandler({
+              _: Void =>
+                file.close({
+                  case Success(_) =>
+                    logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
+                    req.end(footer)
+                  case Failure(e) =>
+                    req.end("")
+                    p.failure(e)
+                }: Try[Void] => Unit)
+            })
+
+            pump.start()
+        })
+      }
+
+      requestHandler(httpRequest(method, url, jsonResponse(p), {
+        x =>
+          if (!p.isCompleted) {
+            p.failure(x)
+          }
+      }))
+  }
+
+  protected def createFullTableWithMultilanguageColumns(tableName: String): Future[(Long, Seq[Long], Seq[Long])] = {
+    def valuesRow(columnIds: Seq[Long]) = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("id" -> columnIds.head),
+        Json.obj("id" -> columnIds(1)),
+        Json.obj("id" -> columnIds(2)),
+        Json.obj("id" -> columnIds(3)),
+        Json.obj("id" -> columnIds(4)),
+        Json.obj("id" -> columnIds(5)),
+        Json.obj("id" -> columnIds(6))
+      ),
+      "rows" -> Json.arr(
+        Json.obj("values" ->
+          Json.arr(
+            Json.obj(
+              "de_DE" -> s"Hallo, $tableName Welt!",
+              "en_US" -> s"Hello, $tableName World!"
+            ),
+            Json.obj("de_DE" -> true),
+            Json.obj("de_DE" -> 3.1415926),
+            Json.obj("en_US" -> s"Hello, $tableName Col 1 Row 1!"),
+            Json.obj("en_US" -> s"Hello, $tableName Col 2 Row 1!"),
+            Json.obj("de_DE" -> "2015-01-01"),
+            Json.obj("de_DE" -> "2015-01-01T14:37:47.110+01")
+          )
+        ),
+        Json.obj("values" ->
+          Json.arr(
+            Json.obj(
+              "de_DE" -> s"Hallo, $tableName Welt2!",
+              "en_US" -> s"Hello, $tableName World2!"
+            ),
+            Json.obj("de_DE" -> false),
+            Json.obj("de_DE" -> 2.1415926),
+            Json.obj("en_US" -> s"Hello, $tableName Col 1 Row 2!"),
+            Json.obj("en_US" -> s"Hello, $tableName Col 2 Row 2!"),
+            Json.obj("de_DE" -> "2015-01-02"),
+            Json.obj("de_DE" -> "2015-01-02T14:37:47.110+01")
+          )
+        )
+      )
+    )
+
+    import scala.collection.JavaConverters._
+    for {
+      (tableId, columnIds) <- createTableWithMultilanguageColumns(tableName)
+      rows <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow(columnIds))
+      _ = logger.info(s"Row is $rows")
+      rowIds = rows.getJsonArray("rows").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
+    } yield (tableId, columnIds, rowIds)
+  }
+
+  protected def createTableWithMultilanguageColumns(tableName: String): Future[(Long, Seq[Long])] = {
+    val createMultilanguageColumn = Json.obj(
+      "columns" ->
+        Json.arr(
+          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true),
+          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true),
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
+          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
+          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "multilanguage" -> true),
+          Json.obj("kind" -> "date", "name" -> "Test Column 6", "multilanguage" -> true),
+          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "multilanguage" -> true)
+        )
+    )
+
+    import scala.collection.JavaConverters._
+    for {
+      tableId <- sendRequest("POST", "/tables", Json.obj("name" -> tableName)) map (_.getLong("id"))
+      columns <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn)
+      columnIds = columns.getArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
+    } yield {
+      (tableId.toLong, columnIds)
+    }
+  }
+
+  protected case class LinkTo(tableId: Long, columnId: Long)
+
+  protected def createTableWithComplexColumns(tableName: String, linkTo: LinkTo): Future[(Long, Seq[Long], Long)] = {
+    val createColumns = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "column 1 (text)"),
+        Json.obj("kind" -> "text", "name" -> "column 2 (text multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "numeric", "name" -> "column 3 (numeric)"),
+        Json.obj("kind" -> "numeric", "name" -> "column 4 (numeric multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "richtext", "name" -> "column 5 (richtext)"),
+        Json.obj("kind" -> "richtext", "name" -> "column 6 (richtext multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "date", "name" -> "column 7 (date)"),
+        Json.obj("kind" -> "date", "name" -> "column 8 (date multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "attachment", "name" -> "column 9 (attachment)")
+      )
+    )
+
+    def createLinkColumn(fromColumnId: Long, linkTo: LinkTo) = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "link",
+      "name" -> "column 10 (link)",
+      "fromColumn" -> fromColumnId,
+      "toTable" -> linkTo.tableId,
+      "toColumn" -> linkTo.columnId
+    )))
+
+    import scala.collection.JavaConverters._
+    for {
+      table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
+      tableId = table.getLong("id").toLong
+
+      columns <- sendRequest("POST", s"/tables/$tableId/columns", createColumns)
+      columnIds = columns.getArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toList
+
+      linkColumn <- sendRequest("POST", s"/tables/$tableId/columns", createLinkColumn(columnIds.head, linkTo))
+      linkColumnId = linkColumn.getArray("columns").getJsonObject(0).getLong("id").toLong
+
+    } yield (tableId, columnIds, linkColumnId)
   }
 }
