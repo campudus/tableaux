@@ -69,6 +69,18 @@ run {
     args = [
             "run",
             mainVerticle,
+            "-conf", "conf.json"
+    ]
+}
+
+task runRedeploy(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+
+    main = mainClassName
+
+    args = [
+            "run",
+            mainVerticle,
             "-conf", "conf.json",
             "--redeploy=src/main/**/*.scala",
             "--launcher-class=${mainClassName}",
@@ -141,5 +153,5 @@ shadowJar {
 assemble.dependsOn shadowJar
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.9'
+    gradleVersion = '2.10'
 }

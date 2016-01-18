@@ -113,7 +113,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   }
 
   private val setupFunctions = Seq(
-    setupVersion1(_)
+    setupVersion1(_),
+    setupVersion2(_)
   )
 
   private def saveVersion(t: connection.Transaction, version: Int): Future[connection.Transaction] = {
@@ -252,6 +253,21 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
            |ON DELETE CASCADE""".stripMargin)
 
       t <- saveVersion(t, 1)
+    } yield t
+  }
+
+  private def setupVersion2(t: connection.Transaction): Future[connection.Transaction] = {
+    logger.info("Setup schema version 2")
+
+    for {
+      (t, _) <- t.query(
+        s"""
+           |ALTER TABLE system_columns
+           |ADD COLUMN
+           |identifier BOOLEAN DEFAULT FALSE
+           |""".stripMargin)
+
+      t <- saveVersion(t, 2)
     } yield t
   }
 }

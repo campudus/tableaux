@@ -64,8 +64,8 @@ class SystemControllerTest extends TableauxTestBase {
       "versions" -> Json.obj(
         "implementation" -> "DEVELOPMENT",
         "database" -> Json.obj(
-          "current" -> 1,
-          "specification" -> 1
+          "current" -> 2,
+          "specification" -> 2
         )
       ),
       "status" -> "ok"
