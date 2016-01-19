@@ -4,13 +4,12 @@ import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.{AttachmentFile, Attachment, AttachmentModel}
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.{Json, _}
 
-import scala.collection.immutable.HashMap
 import scala.concurrent.Future
 
 class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
@@ -233,87 +232,46 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     })
   }
 
+  private def mapValueByColumnType(column: ColumnType[_], value: AnyRef): AnyRef = {
+    column match {
+      case _: MultiLanguageColumn[_] =>
+        if (value == null)
+          Json.emptyObj()
+        else
+          Json.fromObjectString(value.toString)
+
+      case _: LinkColumn[_] =>
+        if (value == null)
+          Json.emptyArr()
+        else
+          Json.fromArrayString(value.toString)
+
+      case _ =>
+        value
+    }
+  }
+
   private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[AnyRef]): Seq[AnyRef] = {
-    val (concatColumn, zipped) = columns.head match {
+    val (concatColumnOpt, zipped) = columns.head match {
       case c: ConcatColumn => (Some(c), (columns.drop(1), result.drop(1)).zipped)
       case _ => (None, (columns, result).zipped)
     }
 
-    def mapling(column: ColumnType[_], value: AnyRef): AnyRef = {
-      column match {
-        case _: MultiLanguageColumn[_] =>
-          if (value == null)
-            Json.emptyObj()
-          else
-            Json.fromObjectString(value.toString)
-
-        case _: LinkColumn[_] =>
-          if (value == null)
-            Json.emptyArr()
-          else
-            Json.fromArrayString(value.toString)
-
-        case _ => value
-      }
-    }
-
-    concatColumn match {
-      case None => zipped map mapling
+    concatColumnOpt match {
+      case None => zipped.map(mapValueByColumnType)
       case Some(concatColumn) =>
-        import scala.collection.JavaConversions._
-
-        val concatColumns = zipped.filter({ (column: ColumnType[_], _) =>
+        val identifierColumns = zipped.filter({ (column: ColumnType[_], _) =>
           concatColumn.columns.exists(_.id == column.id)
         }).zipped
 
-        val concatLanguages = concatColumns.filter({ (column: ColumnType[_], _) =>
-          column.multilanguage
-        }).zipped.flatMap({ (column: ColumnType[_], value: AnyRef) =>
-          column match {
-            case _: MultiLanguageColumn[_] =>
-              val json = if (value == null)
-                Json.emptyObj()
-              else
-                Json.fromObjectString(value.toString)
-
-              json.fieldNames().toList
-
-            case _: LinkColumn[_] =>
-              val json = if (value == null)
-                Json.emptyArr()
-              else
-                Json.fromArrayString(value.toString)
-
-              json.toList.flatMap({
-                case o: JsonObject =>
-                  o.getJsonObject("value").fieldNames().toSeq
-              }).distinct
-            case _ => Seq.empty[String]
-          }
-        }).distinct
-
         import scala.collection.JavaConverters._
 
-        val joinedValue = concatColumn.multilanguage match {
-          case true =>
-            concatColumns.foldLeft(Map.empty[String, List[AnyRef]])({
-              (joined, columnValue) =>
-                joinMultiLanguageJson(concatLanguages, joined, mapling(columnValue._1, columnValue._2))
-            }).map({
-              case (field, list) =>
-                (field, list.map({
-                  case l: List[_] => l.asJava
-                  case v => v
-                }).asJava)
-            }).asJava
-          case false =>
-            concatColumns.foldLeft(List.empty[AnyRef])({
-              (joined, columnValue) =>
-                joined.:+(mapling(columnValue._1, columnValue._2))
-            }).asJava
-        }
+        val joinedValue = identifierColumns.foldLeft(List.empty[AnyRef])({
+          (joined, columnValue) =>
+            joined.:+(mapValueByColumnType(columnValue._1, columnValue._2))
+        }).asJava
 
-        (columns.drop(1), result.drop(1)).zipped.map(mapling).+:(joinedValue)
+        (columns.drop(1), result.drop(1)).zipped.map(mapValueByColumnType).+:(joinedValue)
     }
   }
 

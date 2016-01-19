@@ -137,7 +137,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = {
-    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? ORDER BY identifier DESC, ordering, column_id"
+    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? ORDER BY ordering, column_id"
     for {
       result <- connection.query(select, Json.arr(tableId))
       mappedColumns <- {
@@ -156,15 +156,23 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield {
       val concatColumns = mappedColumns.filter({_.identifier})
 
-      concatColumns.size > 1 match {
-        case true => mappedColumns.+:(ConcatColumn(Table(tableId, "", false), "ID", concatColumns))
-        case false => mappedColumns
+      concatColumns.size match {
+        case x if x >= 2 =>
+          // in case of two or more identifier columns we preserve the order of column
+          // and a concatcolumn in front of all columns
+          mappedColumns.+:(ConcatColumn(Table(tableId, "", hidden = false), "ID", concatColumns))
+        case x if x == 1 =>
+          // in case of one identifier column we don't get a concat column
+          // but the identifier column will be the first
+          mappedColumns.sortBy(_.identifier)(Ordering[Boolean].reverse)
+        case _ =>
+          mappedColumns
       }
     }
   }
 
   private def mapColumn(tableId: TableId, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean): Future[ColumnType[_]] = {
-    val table = Table(tableId, "", false)
+    val table = Table(tableId, "", hidden = false)
 
     kind match {
       case AttachmentType => mapAttachmentColumn(table, columnId, columnName, ordering, identifier)

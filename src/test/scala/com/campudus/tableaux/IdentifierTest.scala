@@ -10,6 +10,47 @@ import org.vertx.scala.core.json._
 class IdentifierTest extends TableauxTestBase {
 
   @Test
+  def retrieveColumnsWithOneIdentifierColumn(implicit c: TestContext): Unit = okTest {
+    for {
+      _ <- setupDefaultTable()
+
+      // make the last (ordering) column an identifier column
+      _ <- sendRequest("POST", "/tables/1/columns/2", Json.obj("identifier" -> true))
+
+      test <- sendRequest("GET", "/tables/1/columns")
+    } yield {
+      // in case of one identifier column we don't get a concat column
+      // but the identifier column will be the first
+      assertEquals(2, test.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+    }
+  }
+
+  @Test
+  def retrieveColumnsWithTwoIdentifierColumn(implicit c: TestContext): Unit = okTest {
+    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3")))
+
+    for {
+      _ <- setupDefaultTable()
+
+      // create a third column
+      _ <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson)
+
+      // make the first and the last an identifier column
+      _ <- sendRequest("POST", "/tables/1/columns/1", Json.obj("identifier" -> true))
+      _ <- sendRequest("POST", "/tables/1/columns/3", Json.obj("identifier" -> true))
+
+      test <- sendRequest("GET", "/tables/1/columns")
+    } yield {
+      // in case of two or more identifier columns we preserve the order of column
+      // and a concatcolumn in front of all columns
+      assertEquals(Json.arr(1,3), test.getJsonArray("columns").get[JsonObject](0).getJsonArray("concats"))
+
+      assertEquals(1, test.getJsonArray("columns").get[JsonObject](1).getInteger("id"))
+      assertEquals(3, test.getJsonArray("columns").get[JsonObject](3).getInteger("id"))
+    }
+  }
+
+  @Test
   def retrieveRowWithSingleLanguageIdentifierColumn(implicit c: TestContext): Unit = okTest {
     val linkColumn = Json.obj(
       "columns" -> Json.arr(
@@ -81,15 +122,28 @@ class IdentifierTest extends TableauxTestBase {
       "status" -> "ok",
       "id" -> 1,
       "values" -> Json.arr(
-        Json.obj(
-          "de-DE" -> Json.arr("table1row1", 1, "Hallo", Json.arr("Hallo")),
-          "en-US" -> Json.arr("table1row1", 1, "Hello", Json.arr("Hello"))
+        Json.arr(
+          "table1row1",
+          1,
+          Json.obj(
+            "de-DE" -> "Tschüss",
+            "en-US" -> "Goodbye"
+          ),
+          Json.arr(
+            Json.obj(
+              "id" -> 1,
+              "value" -> Json.obj(
+                "de-DE" -> "Hallo",
+                "en-US" -> "Hello"
+              )
+            )
+          )
         ),
         "table1row1",
         1,
         Json.obj(
-          "de-DE" -> "Hallo",
-          "en-US" -> "Hello"
+          "de-DE" -> "Tschüss",
+          "en-US" -> "Goodbye"
         ),
         Json.arr(
           Json.obj(
@@ -121,7 +175,7 @@ class IdentifierTest extends TableauxTestBase {
       }
 
       _ <- sendRequest("POST", "/tables/2/columns/3/rows/1", Json.obj("value" -> Json.obj("de-DE" -> "Hallo", "en-US" -> "Hello")))
-      _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("de-DE" -> "Hallo", "en-US" -> "Hello")))
+      _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("de-DE" -> "Tschüss", "en-US" -> "Goodbye")))
 
       _ <- sendRequest("PUT", "/tables/1/columns/4/rows/1", Json.obj("value" -> Json.obj("from" -> 1, "to" -> 1)))
 
