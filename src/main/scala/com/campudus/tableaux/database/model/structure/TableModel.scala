@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.domain.Table
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 
@@ -55,7 +55,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table WHERE table_id = ?", Json.arr(tableId))
     } yield {
       val json = selectNotNull(result).head
-      Table(json.get[TableId](0), json.getString(1), json.getBoolean(2))
+      Table(json.getLong(0), json.getString(1), json.getBoolean(2))
     }
   }
 
@@ -76,9 +76,16 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def change(tableId: TableId, name: String): Future[Unit] = {
+  def change(tableId: TableId, tableName: Option[String], hidden: Option[Boolean]): Future[Unit] = {
     for {
-      result <- connection.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
+      t <- connection.begin()
+
+      (t, result1) <- optionToValidFuture(tableName, t, { name: String => t.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId)) })
+      (t, result2) <- optionToValidFuture(hidden, t, { hidden: Boolean => t.query(s"UPDATE system_table SET is_hidden = ? WHERE table_id = ?", Json.arr(hidden, tableId)) })
+
+      _ <- Future(checkUpdateResults(result1, result2)) recoverWith t.rollbackAndFail()
+
+      _ <- t.commit()
     } yield ()
   }
 }

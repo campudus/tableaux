@@ -89,4 +89,23 @@ class HiddenTableTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def updateHiddenFlagTable(implicit c: TestContext): Unit = okTest {
+    val createTableJson = Json.obj("name" -> "Some table test", "hidden" -> false)
+    val expectedFirstGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Some table test", "hidden" -> false)
+    val updateTableJson = Json.obj("hidden" -> true)
+    val expectedSecondGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Some table test", "hidden" -> true)
+
+    for {
+      tablePost <- sendRequest("POST", "/tables", createTableJson)
+      tableId = tablePost.getLong("id").toLong
+      table1 <- sendRequest("GET", s"/tables/$tableId")
+      tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
+      table2 <- sendRequest("GET", s"/tables/$tableId")
+    } yield {
+      assertEquals(expectedFirstGetJson, table1)
+      assertEquals(expectedSecondGetJson, table2)
+    }
+  }
+
 }

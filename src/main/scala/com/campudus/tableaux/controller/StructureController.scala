@@ -97,14 +97,17 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield EmptyObject()
   }
 
-  def changeTable(tableId: TableId, tableName: String): Future[Table] = {
-    checkArguments(greaterZero(tableId), notNull(tableName, "tableName"))
-    logger.info(s"changeTable $tableId $tableName")
+  def changeTable(tableId: TableId, tableName: Option[String], hidden: Option[Boolean]): Future[Table] = {
+    checkArguments(greaterZero(tableId), isDefined(Seq(tableName, hidden), "tableName,hidden"))
+    logger.info(s"changeTable $tableId $tableName $hidden")
 
     for {
-      _ <- tableStruc.change(tableId, tableName)
+      _ <- tableStruc.change(tableId, tableName, hidden)
       table <- tableStruc.retrieve(tableId)
-    } yield table
+    } yield {
+      logger.info(s"retrieved table after change $table")
+      table
+    }
   }
 
   def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean]): Future[ColumnType[_]] = {

@@ -296,12 +296,4 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     _ <- t.commit()
   } yield ()
 
-  private def checkUpdateResults(seq: JsonObject*): Unit = seq map {
-    json => if (json.containsField("message")) updateNotNull(json)
-  }
-
-  private def optionToValidFuture[A, B](opt: Option[A], trans: B, someCase: A => Future[(B, JsonObject)]): Future[(B, JsonObject)] = opt match {
-    case Some(x) => someCase(x)
-    case None => Future.successful(trans, Json.obj())
-  }
 }

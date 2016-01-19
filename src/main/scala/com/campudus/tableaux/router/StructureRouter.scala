@@ -57,7 +57,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       */
     case Post(Table(tableId)) => asyncEmptyReply {
       getJson(context) flatMap { json =>
-        controller.changeTable(tableId.toLong, json.getString("name"))
+        controller.changeTable(tableId.toLong, Option(json.getString("name")), Option(json.getBoolean("hidden")).map(_.booleanValue()))
       }
     }
 
