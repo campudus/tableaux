@@ -37,8 +37,8 @@ class SystemControllerTest extends TableauxTestBase {
     val expectedJson2 = Json.obj(
       "status" -> "ok",
       "tables" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Bundesländer Deutschlands"),
-        Json.obj("id" -> 2, "name" -> "Regierungsbezirke")
+        Json.obj("id" -> 1, "name" -> "Bundesländer Deutschlands", "hidden" -> false),
+        Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false)
       )
     )
 
@@ -64,8 +64,8 @@ class SystemControllerTest extends TableauxTestBase {
       "versions" -> Json.obj(
         "implementation" -> "DEVELOPMENT",
         "database" -> Json.obj(
-          "current" -> 2,
-          "specification" -> 2
+          "current" -> 3,
+          "specification" -> 3
         )
       ),
       "status" -> "ok"

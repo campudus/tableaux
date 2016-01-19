@@ -27,7 +27,7 @@ class StructureControllerTest extends TableauxTestBase {
   @Test
   def checkCreateTableWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createTable(null))
+    illegalArgumentTest(controller.createTable(null, None))
   }
 
   @Test

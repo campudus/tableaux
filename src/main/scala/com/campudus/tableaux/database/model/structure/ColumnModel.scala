@@ -157,14 +157,14 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       val concatColumns = mappedColumns.filter({_.identifier})
 
       concatColumns.size > 1 match {
-        case true => mappedColumns.+:(ConcatColumn(Table(tableId, null), "ID", concatColumns))
+        case true => mappedColumns.+:(ConcatColumn(Table(tableId, "", false), "ID", concatColumns))
         case false => mappedColumns
       }
     }
   }
 
   private def mapColumn(tableId: TableId, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean): Future[ColumnType[_]] = {
-    val table = Table(tableId, "")
+    val table = Table(tableId, "", false)
 
     kind match {
       case AttachmentType => mapAttachmentColumn(table, columnId, columnName, ordering, identifier)
@@ -296,12 +296,4 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     _ <- t.commit()
   } yield ()
 
-  private def checkUpdateResults(seq: JsonObject*): Unit = seq map {
-    json => if (json.containsField("message")) updateNotNull(json)
-  }
-
-  private def optionToValidFuture[A, B](opt: Option[A], trans: B, someCase: A => Future[(B, JsonObject)]): Future[(B, JsonObject)] = opt match {
-    case Some(x) => someCase(x)
-    case None => Future.successful(trans, Json.obj())
-  }
 }

@@ -64,11 +64,11 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield ColumnSeq(columns)
   }
 
-  def createTable(tableName: String): Future[Table] = {
+  def createTable(tableName: String, hidden: Option[Boolean]): Future[Table] = {
     checkArguments(notNull(tableName, "tableName"))
     logger.info(s"createTable $tableName")
 
-    tableStruc.create(tableName)
+    tableStruc.create(tableName, hidden.getOrElse(false))
   }
 
   def deleteTable(tableId: TableId): Future[EmptyObject] = {
@@ -97,13 +97,17 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield EmptyObject()
   }
 
-  def changeTable(tableId: TableId, tableName: String): Future[Table] = {
-    checkArguments(greaterZero(tableId), notNull(tableName, "tableName"))
-    logger.info(s"changeTable $tableId $tableName")
+  def changeTable(tableId: TableId, tableName: Option[String], hidden: Option[Boolean]): Future[Table] = {
+    checkArguments(greaterZero(tableId), isDefined(Seq(tableName, hidden), "tableName,hidden"))
+    logger.info(s"changeTable $tableId $tableName $hidden")
 
     for {
-      _ <- tableStruc.change(tableId, tableName)
-    } yield Table(tableId, tableName)
+      _ <- tableStruc.change(tableId, tableName, hidden)
+      table <- tableStruc.retrieve(tableId)
+    } yield {
+      logger.info(s"retrieved table after change $table")
+      table
+    }
   }
 
   def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean]): Future[ColumnType[_]] = {
