@@ -15,7 +15,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       for {
         (t, result) <- t.query("INSERT INTO system_table (user_table_name, is_hidden) VALUES (?, ?) RETURNING table_id", Json.arr(name, hidden))
         id <- Future(insertNotNull(result).head.get[TableId](0))
-        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, hidden BOOLEAN, PRIMARY KEY (id))")
+        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
       } yield (t, Table(id, name, hidden))
@@ -42,7 +42,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieveAll(): Future[Seq[Table]] = {
     for {
-      result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table ORDER BY table_id")
+      result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table ORDER BY ordering, table_id")
     } yield {
       getSeqOfJsonArray(result).map { row =>
         Table(row.get[TableId](0), row.getString(1), row.getBoolean(2))
