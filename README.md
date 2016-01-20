@@ -7,6 +7,10 @@ Tableaux (pronounced /ta.blo/) is a restful service for storing data in tables. 
 At first you need to setup your database and create a new `conf.json` based on `conf-example.json`.
 After that you can need to call `POST /reset` once to initialize system tables. If you wish you can fill in the demo data with `POST /resetDemo`.
 
+## Update
+
+If you upgrade from an older schema version you need to call `POST /system/update` before that. Schema will be upgraded automatically.
+
 ## Build & Test
 
 Tableaux uses gradle to build a so called **fat jar** which contains all runtime dependencies. You can find it in `build/libs/tableaux-fat.jar`. The gradle task `build` needs a running PostgreSQL and the `conf-test.json` must be configured correct.
@@ -26,7 +30,7 @@ Build without running tests:
 To execute the **fat jar** call it like this:
 
 ```
-$ java -jar tableaux-fat.jar -conf ../../conf.json
+$ java -jar tableaux-fat-0.1.0.jar -conf ../../conf.json
 ```
 
 ## Run in development
