@@ -20,7 +20,8 @@ apply plugin: 'com.github.kt3k.coveralls'
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-def vertxVersion = '3.3.0-SNAPSHOT'
+def vertxVersion = '3.2.0'
+def vertxDbVersion = '3.2.0'
 def scalaVersion = '2.11.7'
 
 if (!JavaVersion.current().java8Compatible) {
@@ -43,7 +44,7 @@ dependencies {
 
     compile "io.vertx:vertx-core:${vertxVersion}"
     compile "io.vertx:vertx-web:${vertxVersion}"
-    compile "io.vertx:vertx-mysql-postgresql-client:${vertxVersion}"
+    compile "io.vertx:vertx-mysql-postgresql-client:${vertxDbVersion}"
 
     compile 'joda-time:joda-time:2.9.1'
     compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'
