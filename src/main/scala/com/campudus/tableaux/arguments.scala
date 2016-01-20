@@ -61,6 +61,14 @@ object ArgumentChecker {
     }
   }
 
+  def oneOf[A](x: => A, list: List[A], name: String): ArgumentCheck[A] = {
+    if (list.contains(x)) {
+      OkArg(x)
+    } else {
+      FailArg(InvalidRequestException(s"'$name' value needs to be one of ${list.mkString("'", "', '", "'")}."))
+    }
+  }
+
   def hasArray(field: String, json: JsonObject): ArgumentCheck[JsonArray] = notNull(json.getJsonArray(field), field)
 
   def hasNumber(field: String, json: JsonObject): ArgumentCheck[Number] = notNull(json.getValue(field).asInstanceOf[Number], field)

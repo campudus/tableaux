@@ -91,4 +91,17 @@ class ArgumentCheckerTest {
       case _: Throwable => fail(s"Should throw an IllegalArgumentException")
     }
   }
+
+  @Test
+  def checkOneOf(): Unit = {
+    checkArguments(oneOf("b", List("a", "b", "c"), "oneof"))
+
+    try {
+      checkArguments(oneOf("d", List("a", "b", "c"), "oneof"))
+      fail("Should throw an exception")
+    } catch {
+      case ex: IllegalArgumentException => assertEquals("(0) 'oneof' value needs to be one of 'a', 'b', 'c'.", ex.getMessage)
+      case _: Throwable => fail("Should throw an IllegalArgumentException")
+    }
+  }
 }

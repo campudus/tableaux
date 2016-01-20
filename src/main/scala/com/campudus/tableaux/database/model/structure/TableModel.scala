@@ -88,4 +88,36 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       _ <- t.commit()
     } yield ()
   }
+
+  def changeOrder(tableId: TableId, location: String, id: Option[Long]): Future[Unit] = {
+    val listOfStatements: List[(String, JsonArray)] = location match {
+      case "start" => List(
+        (s"UPDATE system_table SET ordering = ordering + 1 WHERE ordering >= 1", Json.emptyArr()),
+        (s"UPDATE system_table SET ordering = 1 WHERE table_id = ?", Json.arr(tableId))
+      )
+      case "end" => List(
+        (s"UPDATE system_table SET ordering = ordering - 1 WHERE ordering >= (SELECT ordering FROM system_table WHERE table_id = ?)", Json.arr(tableId)),
+        (s"UPDATE system_table SET ordering = (SELECT MAX(ordering) + 1 FROM system_table) WHERE table_id = ?", Json.arr(tableId))
+      )
+      case "before" => List(
+        (s"UPDATE system_table SET ordering = (SELECT ordering FROM system_table WHERE table_id = ?) WHERE table_id = ?", Json.arr(id.get, tableId)),
+        (s"UPDATE system_table SET ordering = ordering + 1 WHERE (ordering >= (SELECT ordering FROM system_table WHERE table_id = ?) AND table_id != ?)", Json.arr(id.get, tableId))
+      )
+    }
+
+    for {
+      t <- connection.begin()
+
+      (t, results) <- listOfStatements.foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+        case (fTuple, (query, bindParams)) =>
+          for {
+            (latestTransaction, results) <- fTuple
+            (lastT, result) <- latestTransaction.query(query, bindParams)
+          } yield (lastT, results :+ result)
+      }
+
+      _ <- Future(checkUpdateResults(results: _*)) recoverWith t.rollbackAndFail()
+      _ <- t.commit()
+    } yield ()
+  }
 }

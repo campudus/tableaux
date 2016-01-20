@@ -115,7 +115,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   private val setupFunctions = Seq(
     setupVersion1(_),
     setupVersion2(_),
-    setupVersion3(_)
+    setupVersion3(_),
+    setupVersion4(_)
   )
 
   private def saveVersion(t: connection.Transaction, version: Int): Future[connection.Transaction] = {
@@ -284,6 +285,21 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
            |""".stripMargin)
 
       t <- saveVersion(t, 3)
+    } yield t
+  }
+
+  private def setupVersion4(t: connection.Transaction): Future[connection.Transaction] = {
+    logger.info("Setup schema version 4")
+
+    for {
+      (t, _) <- t.query(
+        s"""
+           |ALTER TABLE system_table
+           |ADD COLUMN
+           |ordering BIGINT DEFAULT currval('system_table_table_id_seq')
+           |""".stripMargin)
+
+      t <- saveVersion(t, 4)
     } yield t
   }
 }
