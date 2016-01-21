@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model.structure
 
+import com.campudus.tableaux.NotFoundInDatabaseException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -144,11 +145,13 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         val json = connection.query(select, Json.arr(tableId, columnId))
         json.map(selectNotNull(_).head)
       }
-      mappedColumn <- mapColumn(tableId, result.get[ColumnId](0), result.get[String](1), Mapper.getDatabaseType(result.get[String](2)), result.get[Ordering](3), LanguageType(result.get[Boolean](4)), result.get[Boolean](5))
+      mappedColumn <- mapColumn(mapping = true, tableId, result.get[ColumnId](0), result.get[String](1), Mapper.getDatabaseType(result.get[String](2)), result.get[Ordering](3), LanguageType(result.get[Boolean](4)), result.get[Boolean](5))
     } yield mappedColumn
   }
 
-  def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = {
+  def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = retrieveAll(tableId, mapping = true)
+
+  private def retrieveAll(tableId: TableId, mapping: Boolean): Future[Seq[ColumnType[_]]] = {
     val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? ORDER BY ordering, column_id"
     for {
       result <- connection.query(select, Json.arr(tableId))
@@ -161,7 +164,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           val languageType = LanguageType(arr.get[Boolean](4))
           val identifier = arr.get[Boolean](5)
 
-          mapColumn(tableId, columnId, columnName, kind, ordering, languageType, identifier)
+          mapColumn(mapping, tableId, columnId, columnName, kind, ordering, languageType, identifier)
         }
         Future.sequence(futures)
       }
@@ -183,12 +186,12 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def mapColumn(tableId: TableId, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean): Future[ColumnType[_]] = {
+  private def mapColumn(mapping: Boolean, tableId: TableId, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean): Future[ColumnType[_]] = {
     val table = Table(tableId, "", hidden = false)
 
     kind match {
       case AttachmentType => mapAttachmentColumn(table, columnId, columnName, ordering, identifier)
-      case LinkType => mapLinkColumn(table, columnId, columnName, ordering, identifier)
+      case LinkType => mapLinkColumn(mapping, table, columnId, columnName, ordering, identifier)
 
       case kind: TableauxDbType => mapValueColumn(table, columnId, columnName, kind, ordering, languageType, identifier)
     }
@@ -202,13 +205,37 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     Future(AttachmentColumn(table, columnId, columnName, ordering, identifier))
   }
 
-  private def mapLinkColumn(fromTable: Table, linkColumnId: ColumnId, columnName: String, ordering: Ordering, identifier: Boolean): Future[LinkColumn[_]] = {
+  private def mapLinkColumn(mapping: Boolean, fromTable: Table, linkColumnId: ColumnId, columnName: String, ordering: Ordering, identifier: Boolean): Future[LinkColumn[_]] = {
     for {
       (linkId, id_1, id_2, toTableId, toColumnId) <- getToColumn(fromTable.id, linkColumnId)
 
-      toCol <- retrieve(toTableId, toColumnId).asInstanceOf[Future[ValueColumn[_]]]
+      foreignColumns <- {
+        if (mapping) {
+          retrieveAll(toTableId, mapping = false)
+        } else {
+          retrieveOne(toTableId, toColumnId).map(Seq(_))
+        }
+      }
+
+      // Link should point at ConcatColumn if defined
+      // Otherwise the first could be an identifier
+      // If nothing is defined we fallback to old habits
+      toColumnOpt = foreignColumns.head match {
+        case c: ConcatColumn =>
+          Some(c)
+        case c: ValueColumn[_] if c.identifier =>
+          Some(c)
+        case _ =>
+          foreignColumns.find(_.id == toColumnId)
+      }
     } yield {
-      LinkColumn(fromTable, linkColumnId, toCol, (linkId, id_1, id_2), columnName, ordering, identifier)
+      // TODO Correct error handling?
+      if (toColumnOpt.isEmpty) {
+        throw new NotFoundInDatabaseException(s"Link points at column $toColumnId in table $toTableId which wasn't found", "not_found")
+      }
+
+      val toColumn = toColumnOpt.get.asInstanceOf[ValueColumn[_]]
+      LinkColumn(fromTable, linkColumnId, toColumn, (linkId, id_1, id_2), columnName, ordering, identifier)
     }
   }
 

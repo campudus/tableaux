@@ -113,7 +113,7 @@ case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: 
   override val multilanguage = false
 }
 
-case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]]) extends ColumnType[String] {
+case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]]) extends ValueColumn[String] {
   override val kind = ConcatType
 
   // ConcatColumn will be a multi-language
