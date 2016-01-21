@@ -126,6 +126,18 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def retrieve(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
+    columnId match {
+      case 0 =>
+        // Column zero could only be a concat column.
+        // We need to retrieve all columns, because
+        // only then the ConcatColumn is generated.
+        retrieveAll(tableId).map(_.head)
+      case _ =>
+        retrieveOne(tableId, columnId)
+    }
+  }
+
+  private def retrieveOne(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
     val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? AND column_id = ?"
     for {
       result <- {

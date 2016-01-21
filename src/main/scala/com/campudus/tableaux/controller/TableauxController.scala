@@ -64,7 +64,7 @@ class TableauxController(override val config: TableauxConfig, override protected
   }
 
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: ColumnId): Future[DomainObject] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCell $tableId $columnId $rowId")
     repository.retrieveCell(tableId, columnId, rowId)
   }

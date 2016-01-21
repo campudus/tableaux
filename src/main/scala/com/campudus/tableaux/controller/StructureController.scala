@@ -47,7 +47,7 @@ class StructureController(override val config: TableauxConfig, override protecte
   }
 
   def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId))
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"))
     logger.info(s"retrieveColumn $tableId $columnId")
 
     for {

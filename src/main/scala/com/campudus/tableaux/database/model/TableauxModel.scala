@@ -231,9 +231,21 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   }
 
   private def retrieveCell(column: ColumnType[_], rowId: RowId): Future[Cell[Any]] = {
+    // In case of a ConcatColumn we need to retrieve the
+    // other values too, so the ConcatColumn can be build.
+    val columns = column match {
+      case c: ConcatColumn =>
+        c.columns.+:(c)
+      case _ =>
+        Seq(column)
+    }
+
     for {
-      rawRow <- rowModel.retrieve(column.table.id, rowId, Seq(column))
-      rowSeq <- mapRawRows(column.table, Seq(column), Seq(rawRow))
+      rawRow <- rowModel.retrieve(column.table.id, rowId, columns)
+      rowSeq <- mapRawRows(column.table, columns, Seq(rawRow))
+
+      // Because we only want a cell's value other
+      // potential rows and columns can be ignored.
       value = rowSeq.head.values.head
     } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
   }
