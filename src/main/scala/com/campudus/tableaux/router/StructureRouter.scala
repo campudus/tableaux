@@ -21,6 +21,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
   private val Table: Regex = "/tables/(\\d+)".r
   private val Tables: Regex = "/tables".r
+  private val TableOrder: Regex = "/tables/(\\d+)/order".r
 
   override def routes(implicit context: RoutingContext): Routing = {
     case Get(Tables()) => asyncGetReply(controller.retrieveTables())
@@ -59,6 +60,16 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       getJson(context) flatMap { json =>
         controller.changeTable(tableId.toLong, Option(json.getString("name")), Option(json.getBoolean("hidden")).map(_.booleanValue()))
       }
+    }
+
+    /**
+      * Change Table ordering
+      */
+    case Post(TableOrder(tableId)) => asyncEmptyReply {
+      for {
+        json <- getJson(context)
+        result <- controller.changeTableOrder(tableId.toLong, json.getString("location"), Option(json.getLong("id")).map(_.toLong))
+      } yield result
     }
 
     /**

@@ -15,7 +15,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       for {
         (t, result) <- t.query("INSERT INTO system_table (user_table_name, is_hidden) VALUES (?, ?) RETURNING table_id", Json.arr(name, hidden))
         id <- Future(insertNotNull(result).head.get[TableId](0))
-        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, hidden BOOLEAN, PRIMARY KEY (id))")
+        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
       } yield (t, Table(id, name, hidden))
@@ -42,7 +42,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieveAll(): Future[Seq[Table]] = {
     for {
-      result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table ORDER BY table_id")
+      result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table ORDER BY ordering, table_id")
     } yield {
       getSeqOfJsonArray(result).map { row =>
         Table(row.get[TableId](0), row.getString(1), row.getBoolean(2))
@@ -85,6 +85,38 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       _ <- Future(checkUpdateResults(result1, result2)) recoverWith t.rollbackAndFail()
 
+      _ <- t.commit()
+    } yield ()
+  }
+
+  def changeOrder(tableId: TableId, location: String, id: Option[Long]): Future[Unit] = {
+    val listOfStatements: List[(String, JsonArray)] = location match {
+      case "start" => List(
+        (s"UPDATE system_table SET ordering = ordering + 1 WHERE ordering >= 1", Json.emptyArr()),
+        (s"UPDATE system_table SET ordering = 1 WHERE table_id = ?", Json.arr(tableId))
+      )
+      case "end" => List(
+        (s"UPDATE system_table SET ordering = ordering - 1 WHERE ordering >= (SELECT ordering FROM system_table WHERE table_id = ?)", Json.arr(tableId)),
+        (s"UPDATE system_table SET ordering = (SELECT MAX(ordering) + 1 FROM system_table) WHERE table_id = ?", Json.arr(tableId))
+      )
+      case "before" => List(
+        (s"UPDATE system_table SET ordering = (SELECT ordering FROM system_table WHERE table_id = ?) WHERE table_id = ?", Json.arr(id.get, tableId)),
+        (s"UPDATE system_table SET ordering = ordering + 1 WHERE (ordering >= (SELECT ordering FROM system_table WHERE table_id = ?) AND table_id != ?)", Json.arr(id.get, tableId))
+      )
+    }
+
+    for {
+      t <- connection.begin()
+
+      (t, results) <- listOfStatements.foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+        case (fTuple, (query, bindParams)) =>
+          for {
+            (latestTransaction, results) <- fTuple
+            (lastT, result) <- latestTransaction.query(query, bindParams)
+          } yield (lastT, results :+ result)
+      }
+
+      _ <- Future(checkUpdateResults(results: _*)) recoverWith t.rollbackAndFail()
       _ <- t.commit()
     } yield ()
   }

@@ -54,6 +54,7 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
         Ok(replyBody)
     } recover {
       case ex: CustomException => Error(RouterException(ex.message, ex, ex.id, ex.statusCode))
+      case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
       case ex: Throwable => Error(RouterException("unknown error", ex, "error.unknown", 500))
     }
 

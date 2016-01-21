@@ -110,6 +110,20 @@ class StructureController(override val config: TableauxConfig, override protecte
     }
   }
 
+  def changeTableOrder(tableId: TableId, location: String, id: Option[Long]): Future[EmptyObject] = {
+    checkArguments(notNull(location, "location"), oneOf(location, List("start", "end", "before"), "location"))
+
+    if ("before" == location) {
+      checkArguments(isDefined(id, "id"))
+    }
+
+    logger.info(s"changeTableOrder $tableId $location $id")
+
+    for {
+      _ <- tableStruc.changeOrder(tableId, location, id)
+    } yield EmptyObject()
+  }
+
   def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean]): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     logger.info(s"changeColumn $tableId $columnId $columnName $ordering $kind")
