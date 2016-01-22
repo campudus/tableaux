@@ -29,7 +29,7 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   /**
     * Regex for a Language tag e.g. de_DE, de-DE, or en_GB
     */
-  val langtagRegex: String = "[a-z]{2}[-_][A-Z]{2}"
+  val langtagRegex: String = "[a-z]{2,3}[-_][A-Z]{2,3}"
 
   /**
     * Base result JSON
