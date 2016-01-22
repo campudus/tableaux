@@ -40,6 +40,13 @@ object ArgumentChecker {
     case cce: ClassCastException => FailArg(InvalidJsonException(s"Warning: $name should be another type. Error: ${cce.getMessage}", "invalid"))
   }
 
+  def greaterThan(x: Long, than: Long, name: String): ArgumentCheck[Long] = {
+    if (x > than)
+      OkArg(x)
+    else
+      FailArg(InvalidJsonException(s"Argument $name ($x) is less than $than.", "invalid"))
+  }
+
   def greaterZero(x: Long): ArgumentCheck[Long] = if (x > 0) OkArg(x) else FailArg(InvalidJsonException(s"Argument $x is not greater than zero", "invalid"))
 
   def nonEmpty[A](seq: Seq[A], name: String): ArgumentCheck[Seq[A]] = {

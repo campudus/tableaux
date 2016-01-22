@@ -322,24 +322,30 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         val toTableId = c.to.table.id
 
         val column = c.to match {
-          case _: MultiLanguageColumn[_] =>
-            val linkedColumn = c.to match {
+          case _: ConcatColumn =>
+            (s"''", "NULL")
+
+          case to: MultiLanguageColumn[_] =>
+            val linkedColumn = to match {
               case _: MultiDateTimeColumn =>
-                parseDateTimeSql(s"utl$toTableId.column_${c.to.id}")
+                parseDateTimeSql(s"utl$toTableId.column_${to.id}")
               case _: MultiDateColumn =>
-                parseDateSql(s"utl$toTableId.column_${c.to.id}")
+                parseDateSql(s"utl$toTableId.column_${to.id}")
               case _ =>
-                s"utl$toTableId.column_${c.to.id}"
+                s"utl$toTableId.column_${to.id}"
             }
 
             // No distinct needed, just one result
-            s"json_object_agg(utl$toTableId.langtag, $linkedColumn)"
+            (s"column_${c.to.id}", s"json_object_agg(utl$toTableId.langtag, $linkedColumn)")
+
           case _: DateTimeColumn =>
-            parseDateTimeSql(s"ut$toTableId.column_${c.id}") + s" AS column_${c.id}"
+            (s"column_${c.to.id}", parseDateTimeSql(s"ut$toTableId.column_${c.id}") + s" AS column_${c.id}")
+
           case _: DateColumn =>
-            parseDateSql(s"ut$toTableId.column_${c.id}")
+            (s"column_${c.to.id}", parseDateSql(s"ut$toTableId.column_${c.id}"))
+
           case _: SimpleValueColumn[_] =>
-            s"ut$toTableId.column_${c.to.id}"
+            (s"column_${c.to.id}", s"ut$toTableId.column_${c.to.id}")
         }
 
         s"""(
@@ -349,12 +355,12 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
             |(
             | SELECT
             |   lt$linkId.$id1 AS $id1,
-            |   json_build_object('id', ut$toTableId.id, 'value', $column) AS column_${c.to.id}
+            |   json_build_object('id', ut$toTableId.id, 'value', ${column._2}) AS column_${c.to.id}
             | FROM
             |   link_table_$linkId lt$linkId JOIN
             |   user_table_$toTableId ut$toTableId ON (lt$linkId.$id2 = ut$toTableId.id)
             |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
-            | WHERE column_${c.to.id} IS NOT NULL
+            | WHERE ${column._1} IS NOT NULL
             | GROUP BY ut$toTableId.id, lt$linkId.$id1
             | ORDER BY ut$toTableId.id
             |) sub

@@ -7,7 +7,6 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CellModel, RowModel}
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException}
-import io.vertx.core.json.JsonArray
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -231,9 +230,21 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   }
 
   private def retrieveCell(column: ColumnType[_], rowId: RowId): Future[Cell[Any]] = {
+    // In case of a ConcatColumn we need to retrieve the
+    // other values too, so the ConcatColumn can be build.
+    val columns = column match {
+      case c: ConcatColumn =>
+        c.columns.+:(c)
+      case _ =>
+        Seq(column)
+    }
+
     for {
-      rawRow <- rowModel.retrieve(column.table.id, rowId, Seq(column))
-      rowSeq <- mapRawRows(column.table, Seq(column), Seq(rawRow))
+      rawRow <- rowModel.retrieve(column.table.id, rowId, columns)
+      rowSeq <- mapRawRows(column.table, columns, Seq(rawRow))
+
+      // Because we only want a cell's value other
+      // potential rows and columns can be ignored.
       value = rowSeq.head.values.head
     } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
   }
@@ -305,6 +316,24 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       case (rowId, rawValues) =>
 
         val mergedValues = Future.sequence((columns, rawValues).zipped map {
+          case (c: LinkColumn[_], value) if c.to.isInstanceOf[ConcatColumn] =>
+            import scala.collection.JavaConversions._
+            import scala.collection.JavaConverters._
+
+            // ConcatColumn's value is always a
+            // json array with the linked row ids
+            val array = value.asInstanceOf[JsonArray]
+
+            // Iterate over each linked row and
+            // replace json's value with ConcatColumn value
+            Future.sequence(array.toList.map({
+              case obj: JsonObject =>
+                val rowId = obj.getLong("id").longValue()
+                retrieveCell(c.to, rowId).map({
+                  cell =>
+                    Json.obj("id" -> rowId, "value" -> cell.value)
+                })
+            })).map(_.asJava)
           case (c: AttachmentColumn, _) => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
           case (_, value) => Future(value)
         })
