@@ -18,14 +18,14 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   /**
     * Runs all setup functions.
     */
-  def install(): Future[Unit] = {
+  def install(version: Option[Int] = None): Future[Unit] = {
     for {
       t <- connection.begin()
 
       // retrieve but ignore version
       (t, _) <- retrieveCurrentVersion(t)
 
-      t <- setupFunctions.foldLeft(Future(t)) {
+      t <- version.map(i => setupFunctions.take(i)).getOrElse(setupFunctions).foldLeft(Future(t)) {
         case (t, setup) =>
           t.flatMap(setup)
       }
@@ -296,7 +296,16 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
         s"""
            |ALTER TABLE system_table
            |ADD COLUMN
-           |ordering BIGINT DEFAULT currval('system_table_table_id_seq')
+           |ordering BIGINT
+           |""".stripMargin)
+
+      (t, _) <- t.query("UPDATE system_table SET ordering = table_id")
+
+      (t, _) <- t.query(
+        s"""
+           |ALTER TABLE system_table
+           |ALTER COLUMN ordering
+           |SET DEFAULT currval('system_table_table_id_seq')
            |""".stripMargin)
 
       t <- saveVersion(t, 4)
