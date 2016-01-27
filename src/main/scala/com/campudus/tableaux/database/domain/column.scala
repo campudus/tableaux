@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.joda.time.{DateTime, LocalDate}
 import org.vertx.scala.core.json._
+import com.campudus.tableaux.database.CheckValidValue._
 
 sealed trait ColumnType[+A] extends DomainObject {
   val kind: TableauxDbType
@@ -31,6 +32,8 @@ sealed trait ColumnType[+A] extends DomainObject {
   )
 
   override def setJson: JsonObject = Json.obj("id" -> id, "ordering" -> ordering)
+
+  def checkValidValue[B](value: B): Option[String] = if (value == null) None else kind.checkValidValue(value)
 }
 
 sealed trait ValueColumn[+A] extends ColumnType[A]
@@ -71,6 +74,17 @@ case class DateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Or
  */
 sealed trait MultiLanguageColumn[A] extends ValueColumn[A] {
   override val multilanguage = true
+
+  override def checkValidValue[B](value: B): Option[String] = try {
+    import scala.collection.JavaConverters._
+    val json = value.asInstanceOf[JsonObject]
+    val map = json.getMap
+    map.entrySet().asScala.toStream.map { entry =>
+      if (entry.getValue == null) None else kind.checkValidValue(entry.getValue)
+    }.find(_.isDefined).flatten
+  } catch {
+    case _: Throwable => boolToArgumentError(false)
+  }
 }
 
 object MultiTextColumn {
