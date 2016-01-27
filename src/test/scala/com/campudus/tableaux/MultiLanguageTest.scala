@@ -125,6 +125,74 @@ class MultiLanguageTest extends TableauxTestBase {
   }
 
   @Test
+  def testRemoveValuesFromMultilanguageRow(implicit c: TestContext): Unit = okTest {
+    def valuesRow(columnId: Long) = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> columnId)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj(
+        "de_DE" -> "Hallo, Welt!",
+        "en_US" -> "Hello, World!"
+      ))))
+    )
+
+    val removeEn: JsonObject = Json.obj("value" -> Json.obj(
+      "en_US" -> null
+    ))
+
+    for {
+      (tableId, columnId) <- createSimpleTableWithMultilanguageColumn("multi-table", "multi-column")
+
+      rowPost <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow(columnId))
+      rowId = rowPost.getArray("rows").get[JsonObject](0).getLong("id")
+      cellAfterCreation <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      cell <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", removeEn)
+      cellAfterRemoveEn <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+    } yield {
+      assertEquals(Json.obj("status" -> "ok",
+        "value" -> Json.obj("de_DE" -> "Hallo, Welt!", "en_US" -> "Hello, World!")), cellAfterCreation)
+
+      assertEquals(Json.obj("status" -> "ok",
+        "value" -> Json.obj("de_DE" -> "Hallo, Welt!")), cellAfterRemoveEn)
+    }
+  }
+
+  @Test
+  def testRemoveValuesFromMultilanguageRowIncorrectlyYieldsError(implicit c: TestContext): Unit = okTest {
+    def valuesRow(columnId: Long) = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> columnId)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj(
+        "de_DE" -> "Hallo, Welt!",
+        "en_US" -> "Hello, World!"
+      ))))
+    )
+
+    val incorrectRemove: JsonObject = Json.obj("value" -> Json.obj())
+    val errorJsonArguments = "error.json.arguments"
+
+    for {
+      (tableId, columnId) <- createSimpleTableWithMultilanguageColumn("multi-table", "multi-column")
+
+      rowPost <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow(columnId))
+      rowId = rowPost.getArray("rows").get[JsonObject](0).getLong("id")
+      cellAfterCreation <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", incorrectRemove)
+        .map(result => fail(s"Should get exception here but got $result"))
+        .recover {
+          case TestCustomException(message, id, statusCode) =>
+            assertEquals(errorJsonArguments, message)
+            assertEquals(422, statusCode)
+        }
+      cellAfterIncorrectRemove <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+    } yield {
+      assertEquals(Json.obj("status" -> "ok",
+        "value" -> Json.obj("de_DE" -> "Hallo, Welt!", "en_US" -> "Hello, World!")), cellAfterCreation)
+
+      assertEquals(cellAfterCreation, cellAfterIncorrectRemove)
+    }
+  }
+
+  @Test
   def testFillMultilanguageRow(implicit c: TestContext): Unit = okTest {
     val valuesRow = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 1)),
