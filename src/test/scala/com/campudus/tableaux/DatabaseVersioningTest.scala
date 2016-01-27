@@ -26,8 +26,6 @@ class DatabaseVersioningTest extends TableauxTestBase {
       _ <- system.install(Some(3))
       result2 <- dbConnection.query("SELECT * FROM system_table")
     } yield {
-      logger.info(s"result=${result1.encode()}")
-      logger.info(s"result=${result2.encode()}")
       assertTrue(!result1.getJsonArray("fields").contains("is_hidden"))
       assertTrue(result2.getJsonArray("fields").contains("is_hidden"))
     }
@@ -45,7 +43,6 @@ class DatabaseVersioningTest extends TableauxTestBase {
 
       // Needs to create tables like it did in database version 1
       inserted <- dbConnection.query("INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id")
-      _ = logger.info(s"inserted=${inserted.encode()}")
       tableId1 = inserted.getJsonArray("results").getJsonArray(0).getLong(0)
       _ <- dbConnection.query(s"CREATE TABLE user_table_$tableId1 (id BIGSERIAL, PRIMARY KEY (id))")
       _ <- dbConnection.query(s"CREATE SEQUENCE system_columns_column_id_table_$tableId1")
