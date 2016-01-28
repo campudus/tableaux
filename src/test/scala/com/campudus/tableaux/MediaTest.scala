@@ -710,4 +710,168 @@ class MediaTest extends TableauxTestBase {
     uploadFile("PUT", s"/files/$uuid/$langtag", file, mimeType)
   }
 
+
+  // Change file meta information
+  @Test
+  def testChangeFileMetaInformation(implicit c: TestContext): Unit = okTest {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    for {
+      fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+      (fileUuid, internalNameDe) <- Future.successful((fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+      fileAfterUploadEn <- uploadFile("PUT", s"/files/$fileUuid/en_GB", file, mimetype)
+      internalNameEn <- Future.successful(fileAfterUploadEn.getObject("internalName").getString("en_GB"))
+      fileAfterChange <- sendRequest("PUT", s"/files/$fileUuid", Json.obj(
+        "title" -> Json.obj(
+          "de_DE" -> "A_de.pdf",
+          "en_GB" -> "A_en.pdf"
+        ),
+        "description" -> Json.obj(
+          "de_DE" -> "desc deutsch",
+          "en_GB" -> "desc english"
+        ),
+        "externalName" -> Json.obj(
+          "de_DE" -> "A_de.pdf",
+          "en_GB" -> "A_en.pdf"
+        ),
+        "internalName" -> Json.obj(
+          "de_DE" -> internalNameEn,
+          "en_GB" -> internalNameDe
+        ),
+        "mimeType" -> Json.obj(
+          "de_DE" -> "application/pdf",
+          "en_GB" -> "application/pdf"
+        )
+      ))
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de_DE"))
+      assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de_DE"))
+      assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de_DE"))
+      assertEquals(internalNameEn, fileAfterChange.getJsonObject("internalName").getString("de_DE"))
+      assertEquals("application/pdf", fileAfterChange.getJsonObject("mimeType").getString("de_DE"))
+
+      assertEquals("A_en.pdf", fileAfterChange.getJsonObject("title").getString("en_GB"))
+      assertEquals("desc english", fileAfterChange.getJsonObject("description").getString("en_GB"))
+      assertEquals("A_en.pdf", fileAfterChange.getJsonObject("externalName").getString("en_GB"))
+      assertEquals(internalNameDe, fileAfterChange.getJsonObject("internalName").getString("en_GB"))
+      assertEquals("application/pdf", fileAfterChange.getJsonObject("mimeType").getString("en_GB"))
+
+    }
+  }
+
+  @Test
+  def testFailChangeFileMetaInformationWithMissingFile(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    for {
+      fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+      (fileUuid, internalNameDe) <- Future.successful((fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+      exception <- sendRequest("PUT", s"/files/$fileUuid", Json.obj(
+        "title" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "description" -> Json.obj(
+          "de_DE" -> "desc deutsch"
+        ),
+        "externalName" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "internalName" -> Json.obj(
+          "de_DE" -> "../blablubb.config"
+        ),
+        "mimeType" -> Json.obj(
+          "de_DE" -> "application/pdf"
+        )
+      )) recover {
+        case ex => ex
+      }
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      exception match {
+        case ex:Throwable => throw ex
+      }
+    }
+  }
+
+  @Test
+  def testFailChangeFileMetaInformationWithInvalidFile1(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    for {
+      fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+      (fileUuid, internalNameDe) <- Future.successful((fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+      exception <- sendRequest("PUT", s"/files/$fileUuid", Json.obj(
+        "title" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "description" -> Json.obj(
+          "de_DE" -> "desc deutsch"
+        ),
+        "externalName" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "internalName" -> Json.obj(
+          "de_DE" -> ".."
+        ),
+        "mimeType" -> Json.obj(
+          "de_DE" -> "application/pdf"
+        )
+      )) recover {
+        case ex => ex
+      }
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      exception match {
+        case ex:Throwable => throw ex
+      }
+    }
+  }
+
+  @Test
+  def testFailChangeFileMetaInformationWithInvalidFile2(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    for {
+      fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+      (fileUuid, internalNameDe) <- Future.successful((fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+      exception <- sendRequest("PUT", s"/files/$fileUuid", Json.obj(
+        "title" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "description" -> Json.obj(
+          "de_DE" -> "desc deutsch"
+        ),
+        "externalName" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "internalName" -> Json.obj(
+          "de_DE" -> "."
+        ),
+        "mimeType" -> Json.obj(
+          "de_DE" -> "application/pdf"
+        )
+      )) recover {
+        case ex => ex
+      }
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      exception match {
+        case ex:Throwable => throw ex
+      }
+    }
+  }
+
 }

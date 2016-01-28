@@ -116,7 +116,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     setupVersion1(_),
     setupVersion2(_),
     setupVersion3(_),
-    setupVersion4(_)
+    setupVersion4(_),
+    setupVersion5(_)
   )
 
   private def saveVersion(t: connection.Transaction, version: Int): Future[connection.Transaction] = {
@@ -309,6 +310,21 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
            |""".stripMargin)
 
       t <- saveVersion(t, 4)
+    } yield t
+  }
+
+  private def setupVersion5(t: connection.Transaction): Future[connection.Transaction] = {
+    logger.info("Setup schema version 5")
+
+    for {
+      (t, _) <- t.query(
+        s"""
+           |ALTER TABLE file_lang
+           |DROP CONSTRAINT
+           |file_lang_internal_name_key
+           |""".stripMargin)
+
+      t <- saveVersion(t, 5)
     } yield t
   }
 }
