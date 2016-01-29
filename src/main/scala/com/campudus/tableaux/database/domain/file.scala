@@ -10,7 +10,7 @@ import org.vertx.scala.core.json._
 // TODO Rename "File" to TableauxFile or similar..
 object File {
   def apply(uuid: UUID, name: MultiLanguageValue[String], description: MultiLanguageValue[String], externalName: MultiLanguageValue[String], folder: Option[FolderId], internalName: MultiLanguageValue[String] = MultiLanguageValue.empty(), mimeType: MultiLanguageValue[String] = MultiLanguageValue.empty()): File = {
-    File(Some(uuid), folder, name, description, internalName, externalName, MultiLanguageValue.empty(), None, None)
+    File(Some(uuid), folder, name, description, internalName, externalName, mimeType, None, None)
   }
 }
 
