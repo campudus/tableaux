@@ -141,7 +141,7 @@ case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]])
   override val id: ColumnId = 0
   override val ordering: Ordering = 0
 
-  override def getJson: JsonObject = super.getJson mergeIn Json.obj("concats" -> columns.map(_.id))
+  override def getJson: JsonObject = super.getJson mergeIn Json.obj("concats" -> columns.map(_.getJson))
 }
 
 /**

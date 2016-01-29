@@ -229,7 +229,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           foreignColumns.find(_.id == toColumnId)
       }
     } yield {
-      // TODO Correct error handling?
+      // TODO Correct error handling? Due to database constraints, this should never happen?
       if (toColumnOpt.isEmpty) {
         throw new NotFoundInDatabaseException(s"Link points at column $toColumnId in table $toTableId which wasn't found", "not_found")
       }

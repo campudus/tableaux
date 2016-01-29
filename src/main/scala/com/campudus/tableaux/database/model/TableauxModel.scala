@@ -61,9 +61,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   }
 
   def checkValueTypeForColumn[A](column: ColumnType[_], value: A): Future[Unit] = {
-    logger.info(s"checking value for column ${column.kind} -> $value")
     val checked = column.checkValidValue(value)
-    logger.info(s"result of checkValidValue=$checked")
     checked.map(err => Future.failed(InvalidJsonException("malformed value provided", err))).getOrElse(Future.successful(()))
   }
 }

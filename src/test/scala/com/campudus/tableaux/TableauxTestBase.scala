@@ -23,7 +23,9 @@ import org.vertx.scala.core.json._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable
+case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable {
+  override def toString: String = s"TestCustomException(status=$statusCode,id=$id,message=$message)"
+}
 
 trait TestAssertionHelper {
   def assertEquals[A](message: String, excepted: A, actual: A)(implicit c: TestContext): TestContext = {
@@ -404,6 +406,21 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       rowPost <- sendRequest("POST", s"/tables/$tableId/rows")
       rowId = rowPost.getLong("id").toLong
     } yield (tableId, columnId, rowId)
+  }
+
+
+  protected def createSimpleTableWithValues(tableName: String, columnTypes: Seq[ColType], rows: Seq[Seq[Any]]): Future[(Long, Seq[Long], Seq[Long])] = {
+    import scala.collection.JavaConverters._
+    for {
+      table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
+      tableId = table.getLong("id").toLong
+      column <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(columnTypes.map(_.json): _*)))
+      columnIds = column.getJsonArray("columns").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
+      columnsPost = Json.arr(columnIds.map(id => Json.obj("id" -> id)): _*)
+      rowsPost = Json.arr(rows.map(values => Json.obj("values" -> Json.arr(values: _*))): _*)
+      rowPost <- sendRequest("POST", s"/tables/$tableId/rows", Json.obj("columns" -> columnsPost, "rows" -> rowsPost))
+      rowIds = rowPost.getJsonArray("rows").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
+    } yield (tableId, columnIds, rowIds)
   }
 
 }
