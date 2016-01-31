@@ -764,7 +764,7 @@ class MediaTest extends TableauxTestBase {
   }
 
   @Test
-  def testFailChangeFileMetaInformationWithMissingFile(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
+  def testFailChangeFileMetaInformationWithPathInFile1(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
     val fileName = "Scr$en Shot.pdf"
     val file = s"/com/campudus/tableaux/uploads/$fileName"
     val mimetype = "application/pdf"
@@ -784,6 +784,43 @@ class MediaTest extends TableauxTestBase {
         ),
         "internalName" -> Json.obj(
           "de_DE" -> "../blablubb.config"
+        ),
+        "mimeType" -> Json.obj(
+          "de_DE" -> "application/pdf"
+        )
+      )) recover {
+        case ex => ex
+      }
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      exception match {
+        case ex:Throwable => throw ex
+      }
+    }
+  }
+
+  @Test
+  def testFailChangeFileMetaInformationWithPathInFile2(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    for {
+      fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+      (fileUuid, internalNameDe) <- Future.successful((fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+      exception <- sendRequest("PUT", s"/files/$fileUuid", Json.obj(
+        "title" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "description" -> Json.obj(
+          "de_DE" -> "desc deutsch"
+        ),
+        "externalName" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "internalName" -> Json.obj(
+          "de_DE" -> "..\\bla\\blablubb.config"
         ),
         "mimeType" -> Json.obj(
           "de_DE" -> "application/pdf"
@@ -874,4 +911,77 @@ class MediaTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def testChangeFileInternalnameToNull(implicit c: TestContext): Unit = okTest {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    for {
+      fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+      (fileUuid, internalNameDe) <- Future.successful((fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+      fileAfterChange <- sendRequest("PUT", s"/files/$fileUuid", Json.obj(
+        "title" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "description" -> Json.obj(
+          "de_DE" -> "desc deutsch"
+        ),
+        "externalName" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "internalName" -> Json.obj(
+          "de_DE" -> null
+        ),
+        "mimeType" -> Json.obj(
+          "de_DE" -> null
+        )
+      ))
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de_DE"))
+      assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de_DE"))
+      assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de_DE"))
+      assertEquals(null, fileAfterChange.getJsonObject("internalName").getString("de_DE"))
+      assertEquals(null, fileAfterChange.getJsonObject("mimeType").getString("de_DE"))
+    }
+  }
+
+  @Test
+  def testChangeFileInternalnameAndMimeType(implicit c: TestContext): Unit = okTest {
+    val fileName = "Scr$en Shot.pdf"
+    val file = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+
+    for {
+      fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+      (fileUuid, internalNameDe) <- Future.successful((fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+      fileAfterChange <- sendRequest("PUT", s"/files/$fileUuid", Json.obj(
+        "title" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "description" -> Json.obj(
+          "de_DE" -> "desc deutsch"
+        ),
+        "externalName" -> Json.obj(
+          "de_DE" -> "A_de.pdf"
+        ),
+        "internalName" -> Json.obj(
+          "de_DE" -> internalNameDe
+        ),
+        "mimeType" -> Json.obj(
+          "de_DE" -> "text/plain"
+        )
+      ))
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de_DE"))
+      assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de_DE"))
+      assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de_DE"))
+      assertEquals(internalNameDe, fileAfterChange.getJsonObject("internalName").getString("de_DE"))
+      assertEquals("text/plain", fileAfterChange.getJsonObject("mimeType").getString("de_DE"))
+    }
+  }
 }
