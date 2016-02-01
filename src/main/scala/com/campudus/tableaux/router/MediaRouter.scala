@@ -141,21 +141,21 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         val title = MultiLanguageValue[String](getNullableField("title"))
         val description = MultiLanguageValue[String](getNullableField("description"))
         val externalName = MultiLanguageValue[String](getNullableField("externalName"))
+        val internalName = MultiLanguageValue[String](getNullableField("internalName"))
+        val mimeType = MultiLanguageValue[String](getNullableField("mimeType"))
 
         val folder = getNullableField[FolderId]("folder")
 
-        controller.changeFile(UUID.fromString(uuid), title, description, externalName, folder)
+        controller.changeFile(UUID.fromString(uuid), title, description, externalName, internalName, mimeType, folder)
       }
     })
 
     /**
       * Replace/upload language specific file and its meta information
       */
-    case Put(FileIdLang(uuid, langtag)) => {
-      handleUpload(context, (action: UploadAction) => {
-        controller.replaceFile(UUID.fromString(uuid), langtag, action)
-      })
-    }
+    case Put(FileIdLang(uuid, langtag)) => handleUpload(context, (action: UploadAction) => {
+      controller.replaceFile(UUID.fromString(uuid), langtag, action)
+    })
 
     /**
       * File merge

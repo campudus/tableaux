@@ -2,11 +2,11 @@ package com.campudus.tableaux.controller
 
 import java.util.UUID
 
-import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
+import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 
@@ -146,8 +146,35 @@ class MediaController(override val config: TableauxConfig,
     upload.streamToFile(filePath.toString())
   }
 
-  def changeFile(uuid: UUID, title: MultiLanguageValue[String], description: MultiLanguageValue[String], externalName: MultiLanguageValue[String], folder: Option[FolderId]): Future[ExtendedFile] = {
-    fileModel.update(File(uuid, title, description, externalName, folder)).map(ExtendedFile)
+  def changeFile(uuid: UUID, title: MultiLanguageValue[String], description: MultiLanguageValue[String], externalName: MultiLanguageValue[String], internalName: MultiLanguageValue[String], mimeType: MultiLanguageValue[String], folder: Option[FolderId]): Future[ExtendedFile] = {
+    def checkInternalName(internalName: String): Future[Unit] = {
+      val p: Promise[Unit] = Promise()
+      vertx.fileSystem().exists((uploadsDirectory / Path(internalName)).toString(), {
+        case Success(java.lang.Boolean.TRUE) => p.success(())
+        case Success(java.lang.Boolean.FALSE) => p.failure(InvalidRequestException(s"File with internal name $internalName does not exist"))
+        case Failure(ex) => p.failure(ex)
+        case _ => p.failure(UnknownServerException("Error in vertx filesystem exists check"))
+      }: Try[java.lang.Boolean] => Unit)
+
+      p.future
+    }
+
+    Future.sequence(internalName.values.map { x =>
+      val internalFileName = x._2
+      if (internalFileName == null) {
+        Future.successful(())
+      } else {
+        if (!internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
+          internalFileName.equals("..") ||
+          internalFileName.equals(".")) {
+          Future.failed(InvalidRequestException(s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
+        } else {
+          checkInternalName(internalFileName)
+        }
+      }
+    }).flatMap { _ =>
+      fileModel.update(File(uuid, title, description, externalName, folder, internalName, mimeType)).map(ExtendedFile)
+    }
   }
 
   def retrieveFile(uuid: UUID, withTmp: Boolean = false): Future[(ExtendedFile, Map[String, Path])] = {
@@ -209,20 +236,20 @@ class MediaController(override val config: TableauxConfig,
       val deleteFuture = vertx.fileSystem().delete(path.toString(), _: AsyncVoid)
       deleteFuture.onComplete({
         case Success(_) => p.success(())
-        case Failure(e) =>
+        case Failure(deleteEx) =>
           val existsFuture = vertx.fileSystem().exists(path.toString(), _: AsyncValue[java.lang.Boolean])
           existsFuture.onComplete({
             case Success(r) =>
               if (r) {
-                logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
-                p.failure(e)
+                logger.warn(s"Couldn't delete uploaded file $path: ${deleteEx.toString}")
+                p.failure(deleteEx)
               } else {
                 // succeed even if file doesn't exist
                 p.success(())
               }
-            case Failure(e) =>
+            case Failure(existsEx) =>
               logger.warn("Couldn't check if uploaded file has been deleted.")
-              p.failure(e)
+              p.failure(existsEx)
           })
       })
     })
