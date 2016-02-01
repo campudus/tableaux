@@ -62,8 +62,6 @@ trait DatabaseHandler[O <: DomainObject, ID] extends DatabaseQuery with Database
 }
 
 object DatabaseConnection {
-  val DEFAULT_TIMEOUT = 5000L
-
   type ScalaTransaction = io.vertx.scala.Transaction
 
   def apply(verticle: ScalaVerticle, connection: SQLConnection): DatabaseConnection = {
@@ -113,14 +111,8 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
   def begin(): Future[Transaction] = connection.transaction().map(Transaction)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
-    import com.campudus.tableaux.helper.TimeoutScheduler._
-
-    import scala.concurrent.duration.DurationInt
-
-    val random = Random.nextInt()
-
     for {
-      transaction <- begin().withTimeout(DurationInt(1).seconds, s"Transaction-Begin")
+      transaction <- begin()
 
       (transaction, result) <- {
         fn(transaction) recoverWith {
@@ -129,10 +121,10 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
             transaction.rollback()
             Future.failed(e)
         }
-      }.withTimeout(DurationInt(1).seconds, s"Transactional-Fn $random")
+      }
 
       _ <- {
-        transaction.commit().withTimeout(DurationInt(2).seconds, s"Transactional-Commit $random")
+        transaction.commit()
       }
     } yield {
       result
@@ -195,14 +187,6 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
         throw new DatabaseException(s"Command $command in Statement $stmt not supported", "error.database.command_not_supported")
     }
 
-    import io.vertx.scala.FunctionConverters._
-    val timerId = vertx.setTimer(10000, { d: java.lang.Long => logger.error(s"doMagicQuery $command $returning $stmt exceeded the delay") })
-
-    future.onComplete({
-      case _ =>
-        vertx.cancelTimer(timerId)
-    })
-
     future.map({
       case r: UpdateResult => {
         mapUpdateResult(command, r.toJson)
@@ -254,7 +238,9 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     Json.obj(
       "status" -> "ok",
       "rows" -> results.size(),
-      "message" -> s"SELECT ${results.size()}",
+      "message" -> s"SELECT ${
+        results.size()
+      }",
       "fields" -> columnNames,
       "results" -> results
     )
