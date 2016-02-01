@@ -98,6 +98,33 @@ class MultiLanguageTest extends TableauxTestBase {
   }
 
   @Test
+  def updateSingleTranslation(implicit c: TestContext): Unit = okTest {
+    val tableName = "multi-table"
+    val patchedString = s"Guten Tag, $tableName"
+    val patchSingleTranslation = Json.obj("value" -> Json.obj("de_DE" -> patchedString))
+
+    for {
+      (tableId1, columnIds, rowIds) <- createFullTableWithMultilanguageColumns(tableName)
+      columnId1 = columnIds.head
+      rowId1 = rowIds.head
+
+      _ <- sendRequest("PATCH", s"/tables/$tableId1/columns/$columnId1/rows/$rowId1", patchSingleTranslation)
+
+      cell <- sendRequest("GET", s"/tables/$tableId1/columns/$columnId1/rows/$rowId1")
+    } yield {
+      val expected = Json.obj(
+        "status" -> "ok",
+        "value" -> Json.obj(
+          "de_DE" -> patchedString,
+          "en_US" -> s"Hello, $tableName World!"
+        )
+      )
+
+      assertEquals(expected, cell)
+    }
+  }
+
+  @Test
   def testFillMultilanguageRow(implicit c: TestContext): Unit = okTest {
     val valuesRow = Json.obj(
       "columns" -> Json.arr(Json.obj("id" -> 1)),
