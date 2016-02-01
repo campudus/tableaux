@@ -57,14 +57,14 @@ case class ExtendedFile(file: File) extends DomainObject {
   private def getUrl: MultiLanguageValue[String] = {
     val uuid = file.uuid.get // TODO possible null pointer, if UUID is not set (I guess it should always be set, but why Option[UUID] then?)
     val urls = file.externalName.values.map({
-      case (langtag, filename) =>
-        if (filename == null || filename.isEmpty) {
-          (langtag, null)
-        } else {
-          val encodedFilename = URLEncoder.encode(filename, "UTF-8")
-          (langtag, s"/files/${file.uuid.get}/$langtag/$encodedFilename")
-        }
-    })
+        case (langtag, filename) =>
+          if (filename == null || filename.isEmpty) {
+            (langtag, null)
+          } else {
+            val encodedFilename = URLEncoder.encode(filename, "UTF-8")
+            (langtag, s"/files/${file.uuid.get}/$langtag/$encodedFilename")
+          }
+      })
 
     MultiLanguageValue[String](urls)
   }

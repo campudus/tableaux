@@ -5,11 +5,8 @@ import com.campudus.tableaux.database.domain.{File, Folder, MultiLanguageValue}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.file.{AsyncFile, OpenOptions}
-import io.vertx.core.http.{HttpClientRequest, HttpClientResponse}
+import io.vertx.core.http.HttpClientResponse
 import io.vertx.core.json.JsonObject
-import io.vertx.core.streams.Pump
-import io.vertx.core.{AsyncResult, Handler}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FunctionConverters._
@@ -795,7 +792,7 @@ class MediaTest extends TableauxTestBase {
       _ <- sendRequest("DELETE", s"/files/$fileUuid")
     } yield {
       exception match {
-        case ex:Throwable => throw ex
+        case ex: Throwable => throw ex
       }
     }
   }
@@ -832,7 +829,7 @@ class MediaTest extends TableauxTestBase {
       _ <- sendRequest("DELETE", s"/files/$fileUuid")
     } yield {
       exception match {
-        case ex:Throwable => throw ex
+        case ex: Throwable => throw ex
       }
     }
   }
@@ -869,7 +866,7 @@ class MediaTest extends TableauxTestBase {
       _ <- sendRequest("DELETE", s"/files/$fileUuid")
     } yield {
       exception match {
-        case ex:Throwable => throw ex
+        case ex: Throwable => throw ex
       }
     }
   }
@@ -906,7 +903,7 @@ class MediaTest extends TableauxTestBase {
       _ <- sendRequest("DELETE", s"/files/$fileUuid")
     } yield {
       exception match {
-        case ex:Throwable => throw ex
+        case ex: Throwable => throw ex
       }
     }
   }

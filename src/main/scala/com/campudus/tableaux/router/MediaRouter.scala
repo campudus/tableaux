@@ -153,11 +153,9 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     /**
       * Replace/upload language specific file and its meta information
       */
-    case Put(FileIdLang(uuid, langtag)) => {
-      handleUpload(context, (action: UploadAction) => {
-        controller.replaceFile(UUID.fromString(uuid), langtag, action)
-      })
-    }
+    case Put(FileIdLang(uuid, langtag)) => handleUpload(context, (action: UploadAction) => {
+      controller.replaceFile(UUID.fromString(uuid), langtag, action)
+    })
 
     /**
       * File merge

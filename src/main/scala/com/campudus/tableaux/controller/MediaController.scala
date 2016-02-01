@@ -2,11 +2,11 @@ package com.campudus.tableaux.controller
 
 import java.util.UUID
 
-import com.campudus.tableaux.{UnknownServerException, CustomException, InvalidRequestException, TableauxConfig}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
+import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 
@@ -236,20 +236,20 @@ class MediaController(override val config: TableauxConfig,
       val deleteFuture = vertx.fileSystem().delete(path.toString(), _: AsyncVoid)
       deleteFuture.onComplete({
         case Success(_) => p.success(())
-        case Failure(e) =>
+        case Failure(deleteEx) =>
           val existsFuture = vertx.fileSystem().exists(path.toString(), _: AsyncValue[java.lang.Boolean])
           existsFuture.onComplete({
             case Success(r) =>
               if (r) {
-                logger.warn(s"Couldn't delete uploaded file $path: ${e.toString}")
-                p.failure(e)
+                logger.warn(s"Couldn't delete uploaded file $path: ${deleteEx.toString}")
+                p.failure(deleteEx)
               } else {
                 // succeed even if file doesn't exist
                 p.success(())
               }
-            case Failure(e) =>
+            case Failure(existsEx) =>
               logger.warn("Couldn't check if uploaded file has been deleted.")
-              p.failure(e)
+              p.failure(existsEx)
           })
       })
     })
