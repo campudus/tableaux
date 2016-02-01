@@ -111,8 +111,6 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
   def begin(): Future[Transaction] = connection.transaction().map(Transaction)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
-    val random = Random.nextInt()
-
     for {
       transaction <- begin()
 
