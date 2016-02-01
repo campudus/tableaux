@@ -1,8 +1,9 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.testtools.RequestCreation._
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json._
 
@@ -43,10 +44,87 @@ class IdentifierTest extends TableauxTestBase {
     } yield {
       // in case of two or more identifier columns we preserve the order of column
       // and a concatcolumn in front of all columns
-      assertEquals(Json.arr(1, 3), test.getJsonArray("columns").get[JsonObject](0).getJsonArray("concats"))
+      val concats = test.getJsonArray("columns").get[JsonObject](0).getJsonArray("concats")
+      assertEquals(1L, concats.getJsonObject(0).getLong("id"))
+      assertEquals(3L, concats.getJsonObject(1).getLong("id"))
 
-      assertEquals(1, test.getJsonArray("columns").get[JsonObject](1).getInteger("id"))
-      assertEquals(3, test.getJsonArray("columns").get[JsonObject](3).getInteger("id"))
+      val columns = test.getJsonArray("columns")
+      assertEquals(columns.getJsonObject(1), concats.getJsonObject(0))
+      assertEquals(columns.getJsonObject(3), concats.getJsonObject(1))
+    }
+  }
+
+  @Ignore("not implemented - like retrieveColumnsWithTwoIdentifierColumn, but re-order columns before doing this")
+  @Test
+  def retrieveColumnsWithTwoIdentifierColumnInCorrectOrder(implicit c: TestContext): Unit = okTest {
+    // TODO Add test
+    ???
+  }
+
+  @Ignore("not implemented - retrieve links on links on links ... that use concat columns")
+  @Test
+  def retrieveLinksOnConcatColumnsRecursively(implicit c: TestContext): Unit = okTest {
+    // TODO Add test
+    // create multiple tables that link on concat columns
+    // verify that each concat has the needed column information
+    // verify that the values are of the provided type
+    // verify that the values are fetched recursively
+    ???
+  }
+
+  @Test
+  def retrieveLinkOnConcatColumn(implicit c: TestContext): Unit = okTest {
+    def putLink(id: Long) = Json.obj("value" -> Json.obj("values" -> Json.arr(id)))
+    def putLinks(ids: Seq[Long]) = Json.obj("value" -> Json.obj("values" -> Json.arr(ids: _*)))
+    for {
+      (tableId1, columnIds1, rowIds1) <- createSimpleTableWithValues("table1", List(Text("text11"), Identifier(Numeric("num12")), Identifier(Multilanguage(Text("multitext13"))), Numeric("num14")), List(
+        List("table1col1row1", 121, Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
+        List("table1col1row2", 122, Json.obj("de_DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
+      ))
+      (tableId2, columnIds2, rowIds2) <- createSimpleTableWithValues("table2", List(Text("text21"), Identifier(Numeric("num22")), Identifier(Multilanguage(Text("multitext23"))), Numeric("num24")), List(
+        List("table2col1row1", 221, Json.obj("de_DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"), 241),
+        List("table2col1row2", 222, Json.obj("de_DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"), 242)
+      ))
+      (tableId3, columnIds3, rowIds3) <- createSimpleTableWithValues("table2", List(Text("text31"), Identifier(Numeric("num32")), Identifier(Multilanguage(Text("multitext23"))), Numeric("num34")), List(
+        List("table3col1row1", 321, Json.obj("de_DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"), 341),
+        List("table3col1row2", 322, Json.obj("de_DE" -> "table3col3row2-de", "en_GB" -> "table3col3row2-gb"), 342)
+      ))
+
+      // add link column from table 1 to table 2 and make it identifier
+      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "fromColumn" -> 1, "toTable" -> tableId1, "toColumn" -> 1, "identifier" -> true)))
+      linkColRes2 <- sendRequest("POST", s"/tables/$tableId2/columns", postLinkColTable2)
+      linkColId2 = linkColRes2.getJsonArray("columns").getJsonObject(0).getLong("id")
+      postLinkColTable3 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "fromColumn" -> 1, "toTable" -> tableId2, "toColumn" -> 1)))
+      linkColRes3 <- sendRequest("POST", s"/tables/$tableId3/columns", postLinkColTable3)
+      linkColId3 = linkColRes3.getJsonArray("columns").getJsonObject(0).getLong("id")
+
+      // add link from table2row1 to table1row1 and to table1row2
+      _ <- sendRequest("POST", s"/tables/$tableId2/columns/$linkColId2/rows/${rowIds2.head}", putLinks(rowIds1))
+
+      // add link from table2row2 to table1row1
+      _ <- sendRequest("POST", s"/tables/$tableId2/columns/$linkColId2/rows/${rowIds2(1)}", putLink(rowIds1.head))
+
+      // add link from table3row1 to table2row1 and to table2row2
+      _ <- sendRequest("POST", s"/tables/$tableId3/columns/$linkColId3/rows/${rowIds3.head}", putLinks(rowIds2))
+
+      columnResult <- sendRequest("GET", s"/tables/$tableId3/columns/$linkColId3")
+      cellResult <- sendRequest("GET", s"/tables/$tableId3/columns/$linkColId3/rows/${rowIds3.head}")
+    } yield {
+
+      val toColumn = columnResult.getJsonObject("toColumn")
+      assertEquals("concat", toColumn.getString("kind"))
+      val concats = toColumn.getJsonArray("concats")
+      assertEquals(3, concats.size)
+      val concats1 = concats.getJsonObject(0)
+      val concats2 = concats.getJsonObject(1)
+      val concats3 = concats.getJsonObject(2)
+      assertEquals(columnIds2(1), concats1.getLong("id"))
+      assertEquals("numeric", concats1.getString("kind"))
+      assertEquals(columnIds2(2), concats2.getLong("id"))
+      assertEquals("text", concats2.getString("kind"))
+      assertEquals(true, concats2.getBoolean("multilanguage"))
+      assertEquals(linkColId2, concats3.getLong("id"))
+      assertEquals("link", concats3.getString("kind"))
     }
   }
 
@@ -66,7 +144,10 @@ class IdentifierTest extends TableauxTestBase {
 
       test <- sendRequest("GET", "/tables/1/columns/0")
     } yield {
-      assertEquals(Json.arr(1, 3), test.getJsonArray("concats"))
+      val first = test.getJsonArray("concats").getJsonObject(0)
+      val second = test.getJsonArray("concats").getJsonObject(1)
+      assertEquals(1L, first.getLong("id"))
+      assertEquals(3L, second.getLong("id"))
       assertEquals("concat", test.getString("kind"))
     }
   }

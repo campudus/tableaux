@@ -1,8 +1,9 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.testtools.RequestCreation._
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
@@ -71,6 +72,27 @@ class FillTest extends TableauxTestBase {
     } yield {
       assertEquals(expectedJson, test)
       assertEquals(expectedGet, getResult)
+    }
+  }
+
+  @Ignore("Bug is in underlying driver - cannot fix here")
+  @Test
+  def fillNumberCellWithFloatingNumber(implicit c: TestContext): Unit = okTest {
+    val expectOk = Json.obj("status" -> "ok")
+
+    for {
+      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", Numeric("num-column"))
+
+      test0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 1234))
+      getResult0 <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      test3 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 123.123))
+      getResult3 <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+    } yield {
+      assertEquals(expectOk, test0)
+      assertEquals(Json.obj("status" -> "ok", "value" -> 1234), getResult0)
+      assertEquals(expectOk, test3)
+      assertEquals(Json.obj("status" -> "ok", "value" -> 123.123), getResult3)
     }
   }
 

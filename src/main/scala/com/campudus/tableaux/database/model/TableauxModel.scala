@@ -59,6 +59,11 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   def retrieveColumns(tableId: TableId): Future[Seq[ColumnType[_]]] = {
     structureModel.columnStruc.retrieveAll(tableId)
   }
+
+  def checkValueTypeForColumn[A](column: ColumnType[_], value: A): Future[Unit] = {
+    val checked = column.checkValidValue(value)
+    checked.map(err => Future.failed(InvalidJsonException("malformed value provided", err))).getOrElse(Future.successful(()))
+  }
 }
 
 class TableauxModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery with StructureDelegateModel {
@@ -102,15 +107,17 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(tableId, columnId)
+      _ <- checkValueTypeForColumn(column, value)
       cell <- column match {
         case column: AttachmentColumn => updateAttachment(column, rowId, value)
-        case _ => insertValue(tableId, columnId, rowId, value)
+        case _ => insertValue(column, rowId, value)
       }
     } yield cell
   }
 
   def insertValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = for {
     column <- retrieveColumn(tableId, columnId)
+    _ <- checkValueTypeForColumn(column, value)
     cell <- insertValue[A](column, rowId, value)
   } yield cell
 
