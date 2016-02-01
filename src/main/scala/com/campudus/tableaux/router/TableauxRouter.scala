@@ -121,6 +121,15 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
+      * Update Cell
+      */
+    case Patch(Cell(tableId, columnId, rowId)) => asyncSetReply {
+      getJson(context) flatMap { json =>
+        controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+      }
+    }
+
+    /**
       * Delete Row
       */
     case Delete(Row(tableId, rowId)) => asyncEmptyReply(controller.deleteRow(tableId.toLong, rowId.toLong))
