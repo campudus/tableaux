@@ -106,6 +106,7 @@ class SystemController(override val config: TableauxConfig,
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     logger.info(s"createTable $tableName columns $rows")
 
+    // TODO is this retrieving necessary or only for logging purposes?
     for {
       tables <- structureModel.tableStruc.retrieveAll()
       c <- structureModel.columnStruc.retrieveAll(1)

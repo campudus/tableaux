@@ -3,6 +3,7 @@ package com.campudus.tableaux
 
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
+import com.campudus.tableaux.testtools.RequestCreation._
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.file.{OpenOptions, AsyncFile}
@@ -393,4 +394,16 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
 
     } yield (tableId, columnIds, linkColumnId)
   }
+
+  protected def createSimpleTableWithCell(tableName: String, columnType: ColType): Future[(Long, Long, Long)] = {
+    for {
+      table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
+      tableId = table.getLong("id").toLong
+      column <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(columnType.json)))
+      columnId = column.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+      rowPost <- sendRequest("POST", s"/tables/$tableId/rows")
+      rowId = rowPost.getLong("id").toLong
+    } yield (tableId, columnId, rowId)
+  }
+
 }
