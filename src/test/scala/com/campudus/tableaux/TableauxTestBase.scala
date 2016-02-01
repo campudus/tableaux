@@ -28,6 +28,10 @@ case class TestCustomException(message: String, id: String, statusCode: Int) ext
 }
 
 trait TestAssertionHelper {
+  def fail[A](message: String)(implicit c: TestContext): Unit = {
+    c.fail(message)
+  }
+
   def assertEquals[A](message: String, excepted: A, actual: A)(implicit c: TestContext): TestContext = {
     c.assertEquals(excepted, actual, message)
   }
@@ -332,6 +336,19 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       _ = logger.info(s"Row is $rows")
       rowIds = rows.getJsonArray("rows").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
     } yield (tableId, columnIds, rowIds)
+  }
+
+  protected def createSimpleTableWithMultilanguageColumn(tableName: String, columnName: String): Future[(Long, Long)] = {
+    for {
+      table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
+      tableId = table.getLong("id").toLong
+      columns <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> columnName, "multilanguage" -> true)
+      )))
+      columnId = columns.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+    } yield {
+      (tableId, columnId)
+    }
   }
 
   protected def createTableWithMultilanguageColumns(tableName: String): Future[(Long, Seq[Long])] = {

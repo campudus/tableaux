@@ -34,19 +34,23 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val insert = s"INSERT INTO user_table_lang_$tableId(id, langtag, column_$columnId) VALUES(?, ?, ?)"
     val update = s"UPDATE user_table_lang_$tableId SET column_$columnId = ? WHERE id = ? AND langtag = ?"
 
-    connection.transactionalFoldLeft(values) { (t, _, value) =>
-      for {
-        (t, count) <- t.query(select, Json.arr(rowId, value._1)).map({
-          case (t, json) =>
-            (t, selectNotNull(json).head.get[Long](0))
-        })
+    if (values.nonEmpty) {
+      connection.transactionalFoldLeft(values) { (t, _, value) =>
+        for {
+          (t, count) <- t.query(select, Json.arr(rowId, value._1)).map({
+            case (t, json) =>
+              (t, selectNotNull(json).head.get[Long](0))
+          })
 
-        (t, result) <- if (count > 0) {
-          t.query(update, Json.arr(value._2, rowId, value._1))
-        } else {
-          t.query(insert, Json.arr(rowId, value._1, value._2))
-        }
-      } yield (t, result)
+          (t, result) <- if (count > 0) {
+            t.query(update, Json.arr(value._2, rowId, value._1))
+          } else {
+            t.query(insert, Json.arr(rowId, value._1, value._2))
+          }
+        } yield (t, result)
+      }
+    } else {
+      Future.failed(new IllegalArgumentException("error.json.arguments"))
     }
   }
 
