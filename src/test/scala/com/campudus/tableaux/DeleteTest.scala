@@ -11,6 +11,7 @@ class DeleteTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+  val createIdentifierStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
 
   val expectedOkJson = Json.obj("status" -> "ok")
 
@@ -73,8 +74,8 @@ class DeleteTest extends TableauxTestBase {
       table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
       table2 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
 
-      _ <- sendRequest("POST", s"/tables/$table1/columns", createStringColumnJson)
-      _ <- sendRequest("POST", s"/tables/$table2/columns", createStringColumnJson)
+      _ <- sendRequest("POST", s"/tables/$table1/columns", createIdentifierStringColumnJson)
+      _ <- sendRequest("POST", s"/tables/$table2/columns", createIdentifierStringColumnJson)
 
       _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
 
@@ -101,8 +102,8 @@ class DeleteTest extends TableauxTestBase {
       table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
       table2 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
 
-      _ <- sendRequest("POST", s"/tables/$table1/columns", createStringColumnJson)
-      _ <- sendRequest("POST", s"/tables/$table2/columns", createStringColumnJson)
+      _ <- sendRequest("POST", s"/tables/$table1/columns", createIdentifierStringColumnJson)
+      _ <- sendRequest("POST", s"/tables/$table2/columns", createIdentifierStringColumnJson)
 
       _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
 

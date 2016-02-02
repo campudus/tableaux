@@ -3,8 +3,8 @@ package com.campudus.tableaux
 import com.campudus.tableaux.testtools.RequestCreation._
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
+import org.junit.{Ignore, Test}
 import org.vertx.scala.core.json._
 
 @RunWith(classOf[VertxUnitRunner])
@@ -16,6 +16,7 @@ class IdentifierTest extends TableauxTestBase {
       _ <- setupDefaultTable()
 
       // make the last (ordering) column an identifier column
+      _ <- sendRequest("POST", "/tables/1/columns/1", Json.obj("identifier" -> false))
       _ <- sendRequest("POST", "/tables/1/columns/2", Json.obj("identifier" -> true))
 
       test <- sendRequest("GET", "/tables/1/columns")
@@ -67,7 +68,7 @@ class IdentifierTest extends TableauxTestBase {
     def putLinks(ids: Seq[Long]) = Json.obj("value" -> Json.obj("values" -> Json.arr(ids: _*)))
     for {
 
-    // create multiple tables
+      // create multiple tables
       (tableId1, columnIds1, rowIds1) <- createSimpleTableWithValues("table1", List(Text("text11"), Identifier(Numeric("num12")), Identifier(Multilanguage(Text("multitext13"))), Numeric("num14")), List(
         List("table1col1row1", 121, Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
         List("table1col1row2", 122, Json.obj("de_DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
@@ -85,13 +86,17 @@ class IdentifierTest extends TableauxTestBase {
         List("table4col1row2", 422, Json.obj("de_DE" -> "table4col3row2-de", "en_GB" -> "table4col3row2-gb"), 442)
       ))
 
-      // ... that link on concat columns
-      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "toTable" -> tableId1, "identifier" -> true)))
+      // link from table 2 to table 1
+      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "toTable" -> tableId1, "identifier" -> true, "singleDirection" -> true)))
       linkColRes2 <- sendRequest("POST", s"/tables/$tableId2/columns", postLinkColTable2)
       linkColId2 = linkColRes2.getJsonArray("columns").getJsonObject(0).getLong("id")
-      postLinkColTable3 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "toTable" -> tableId2, "identifier" -> true)))
+
+      // link from table 3 to table 2
+      postLinkColTable3 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "toTable" -> tableId2, "identifier" -> true, "singleDirection" -> true)))
       linkColRes3 <- sendRequest("POST", s"/tables/$tableId3/columns", postLinkColTable3)
       linkColId3 = linkColRes3.getJsonArray("columns").getJsonObject(0).getLong("id")
+
+      // link from table 4 to table 3
       postLinkColTable4 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link452", "kind" -> "link", "toTable" -> tableId3)))
       linkColRes4 <- sendRequest("POST", s"/tables/$tableId4/columns", postLinkColTable4)
       linkColId4 = linkColRes4.getJsonArray("columns").getJsonObject(0).getLong("id")
@@ -136,8 +141,8 @@ class IdentifierTest extends TableauxTestBase {
 
       assertEquals(tableId2, concats3.getLong("toTable"))
       val toTable2 = concats3.getJsonObject("toColumn")
-      assertEquals(0, toTable2.getLong("id"))
-      assertEquals("concat", toTable2.getLong("kind"))
+      assertEquals(0.toLong, toTable2.getLong("id"))
+      assertEquals("concat", toTable2.getString("kind"))
       val concatsTo2 = toTable2.getJsonArray("concats")
       assertEquals(3, concatsTo2.size())
 
@@ -162,10 +167,11 @@ class IdentifierTest extends TableauxTestBase {
         List("table3col1row2", 322, Json.obj("de_DE" -> "table3col3row2-de", "en_GB" -> "table3col3row2-gb"), 342)
       ))
 
-      // add link column from table 1 to table 2 and make it identifier
-      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "toTable" -> tableId1, "identifier" -> true)))
+      // add link column from table 2 and make it identifier
+      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "toTable" -> tableId1, "identifier" -> true, "singleDirection" -> true)))
       linkColRes2 <- sendRequest("POST", s"/tables/$tableId2/columns", postLinkColTable2)
       linkColId2 = linkColRes2.getJsonArray("columns").getJsonObject(0).getLong("id")
+      // add link from table 3 to table 2 (with 3 identifiers)
       postLinkColTable3 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "toTable" -> tableId2)))
       linkColRes3 <- sendRequest("POST", s"/tables/$tableId3/columns", postLinkColTable3)
       linkColId3 = linkColRes3.getJsonArray("columns").getJsonObject(0).getLong("id")

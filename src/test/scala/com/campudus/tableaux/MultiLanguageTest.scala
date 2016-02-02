@@ -21,7 +21,7 @@ class MultiLanguageTest extends TableauxTestBase {
       "kind" -> "text",
       "ordering" -> columnId,
       "multilanguage" -> true,
-      "identifier" -> false
+      "identifier" -> true
     )
 
     for {

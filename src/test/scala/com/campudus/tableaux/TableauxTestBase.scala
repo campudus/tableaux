@@ -355,7 +355,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     val createMultilanguageColumn = Json.obj(
       "columns" ->
         Json.arr(
-          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true),
+          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true, "identifier" -> true),
           Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true),
           Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
           Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
