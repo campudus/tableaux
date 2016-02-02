@@ -68,7 +68,7 @@ class IdentifierTest extends TableauxTestBase {
     def putLinks(ids: Seq[Long]) = Json.obj("value" -> Json.obj("values" -> Json.arr(ids: _*)))
     for {
 
-      // create multiple tables
+    // create multiple tables
       (tableId1, columnIds1, rowIds1) <- createSimpleTableWithValues("table1", List(Text("text11"), Identifier(Numeric("num12")), Identifier(Multilanguage(Text("multitext13"))), Numeric("num14")), List(
         List("table1col1row1", 121, Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
         List("table1col1row2", 122, Json.obj("de_DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
@@ -120,32 +120,97 @@ class IdentifierTest extends TableauxTestBase {
       columnResult <- sendRequest("GET", s"/tables/$tableId4/columns/$linkColId4")
       cellResult <- sendRequest("GET", s"/tables/$tableId4/columns/$linkColId4/rows/${rowIds4.head}")
     } yield {
+
+      // check columns
       logger.info(s"columnResult=${columnResult.encode()}")
-      logger.info(s"cellResult=${cellResult.encode()}")
+      // concat columns to table 3
+      val toColumn4 = columnResult.getJsonObject("toColumn")
+      assertEquals("concat", toColumn4.getString("kind"))
+      val concatsTo3 = toColumn4.getJsonArray("concats")
+      assertEquals(3, concatsTo3.size)
 
-      val toColumn = columnResult.getJsonObject("toColumn")
-      assertEquals("concat", toColumn.getString("kind"))
-      val concats = toColumn.getJsonArray("concats")
-      assertEquals(3, concats.size)
+      val concatColumn31 = concatsTo3.getJsonObject(0)
+      val concatColumn32 = concatsTo3.getJsonObject(1)
+      val concatColumn33 = concatsTo3.getJsonObject(2)
+      assertEquals(columnIds3(1), concatColumn31.getLong("id"))
+      assertEquals("numeric", concatColumn31.getString("kind"))
+      assertEquals(columnIds3(2), concatColumn32.getLong("id"))
+      assertEquals("text", concatColumn32.getString("kind"))
+      assertEquals(true, concatColumn32.getBoolean("multilanguage"))
+      assertEquals(linkColId3, concatColumn33.getLong("id"))
+      assertEquals("link", concatColumn33.getString("kind"))
 
-      val concats1 = concats.getJsonObject(0)
-      val concats2 = concats.getJsonObject(1)
-      val concats3 = concats.getJsonObject(2)
-      assertEquals(columnIds3(1), concats1.getLong("id"))
-      assertEquals("numeric", concats1.getString("kind"))
-      assertEquals(columnIds3(2), concats2.getLong("id"))
-      assertEquals("text", concats2.getString("kind"))
-      assertEquals(true, concats2.getBoolean("multilanguage"))
-      assertEquals(linkColId3, concats3.getLong("id"))
-      assertEquals("link", concats3.getString("kind"))
-
-      assertEquals(tableId2, concats3.getLong("toTable"))
-      val toTable2 = concats3.getJsonObject("toColumn")
+      // concat columns to table 2
+      assertEquals(tableId2, concatColumn33.getLong("toTable"))
+      val toTable2 = concatColumn33.getJsonObject("toColumn")
       assertEquals(0.toLong, toTable2.getLong("id"))
       assertEquals("concat", toTable2.getString("kind"))
       val concatsTo2 = toTable2.getJsonArray("concats")
       assertEquals(3, concatsTo2.size())
 
+      val concatColumn21 = concatsTo2.getJsonObject(0)
+      val concatColumn22 = concatsTo2.getJsonObject(1)
+      val concatColumn23 = concatsTo2.getJsonObject(2)
+      assertEquals(columnIds2(1), concatColumn21.getLong("id"))
+      assertEquals("numeric", concatColumn21.getString("kind"))
+      assertEquals(columnIds2(2), concatColumn22.getLong("id"))
+      assertEquals("text", concatColumn22.getString("kind"))
+      assertEquals(true, concatColumn22.getBoolean("multilanguage"))
+      assertEquals(linkColId2, concatColumn23.getLong("id"))
+      assertEquals("link", concatColumn23.getString("kind"))
+
+      // concat columns to table 1
+      assertEquals(tableId1, concatColumn23.getLong("toTable"))
+      val toTable1 = concatColumn23.getJsonObject("toColumn")
+      assertEquals(0.toLong, toTable1.getLong("id"))
+      assertEquals("concat", toTable1.getString("kind"))
+      val concatsTo1 = toTable1.getJsonArray("concats")
+      assertEquals(2, concatsTo1.size())
+
+      val concatColumn11 = concatsTo2.getJsonObject(0)
+      val concatColumn12 = concatsTo2.getJsonObject(1)
+      assertEquals(columnIds1(1), concatColumn11.getLong("id"))
+      assertEquals("numeric", concatColumn11.getString("kind"))
+      assertEquals(columnIds1(2), concatColumn12.getLong("id"))
+      assertEquals("text", concatColumn12.getString("kind"))
+      assertEquals(true, concatColumn12.getBoolean("multilanguage"))
+
+      // check cell results
+      logger.info(s"cellResult=${cellResult.encode()}")
+      assertEquals(Json.obj("value" -> Json.arr(
+        // single link into table 3 row 1
+        Json.obj("id" -> rowIds3.head, "value" -> Json.arr(
+          321,
+          Json.obj("de_DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"),
+
+          // links into table 2 row 1 and row 2
+          Json.arr(
+            Json.obj("id" -> rowIds2.head, "value" -> Json.arr(
+              221, Json.obj("de_DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"),
+
+              // links into table 1 row 1 and row 2
+              Json.arr(
+                Json.obj("id" -> rowIds1.head, "value" -> Json.arr(
+                  121, Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
+                )),
+                Json.obj("id" -> rowIds1(1), "value" -> Json.arr(
+                  122, Json.obj("de_DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb")
+                ))
+              )
+            )),
+            Json.obj("id" -> rowIds2(1), "value" -> Json.arr(
+              222, Json.obj("de_DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"),
+
+              // links into table 1 row 1
+              Json.arr(
+                Json.obj("id" -> rowIds1.head, "value" -> Json.arr(
+                  121, Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
+                ))
+              )
+            ))
+          )
+        ))
+      ), "status" -> "ok"), cellResult)
     }
   }
 

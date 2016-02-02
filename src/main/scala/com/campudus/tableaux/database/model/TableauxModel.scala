@@ -322,7 +322,39 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     val mergedRows = rawRows map {
       case (rowId, rawValues) =>
 
+        logger.info(s"mapping raw row ${table.id} ${columns.map(c => s"${c.id}:${c.kind}")} $rowId -> $rawValues")
         val mergedValues = Future.sequence((columns, rawValues).zipped map {
+          case (c: ConcatColumn, value) if c.columns.exists(col => col.kind == LinkType && col.asInstanceOf[LinkColumn[_]].to.isInstanceOf[ConcatColumn]) =>
+
+            logger.info(s"###### ${c.name} - $value - ${value.getClass}")
+
+            import scala.collection.JavaConversions._
+            import scala.collection.JavaConverters._
+            val values = value.asInstanceOf[java.util.List[Object]].toList
+
+            val futures = c.columns.zip(values) map {
+              case (column: LinkColumn[_], v: JsonArray) =>
+                column.to match {
+                  case c: ConcatColumn => {
+                    logger.info("////// concat with a link to a concat ")
+                    val t = Future.sequence(v.toList.map({
+                      case linkedObj: JsonObject =>
+                        // value of linkedObj is null in this case, we need to dig further
+                        retrieveCell(column, linkedObj.getLong("id")).map(cell => Json.obj("id"-> linkedObj.getLong("id"), "value"->cell.value))
+                    }))
+                    t.map(_.asJava)
+                  }
+                  case _ => Future.successful(v)
+                }
+              case (column, v) => Future.successful(v)
+            }
+
+            Future.sequence(futures).map(_values => {
+              val values = _values.toList
+              logger.info(s"????????? $values")
+              values.asJava
+            })
+
           case (c: LinkColumn[_], value) if c.to.isInstanceOf[ConcatColumn] =>
             import scala.collection.JavaConversions._
             import scala.collection.JavaConverters._
@@ -336,10 +368,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             Future.sequence(array.toList.map({
               case obj: JsonObject =>
                 val rowId = obj.getLong("id").longValue()
-                retrieveCell(c.to, rowId).map({
-                  cell =>
-                    Json.obj("id" -> rowId, "value" -> cell.value)
-                })
+                retrieveCell(c.to, rowId).map(cell => Json.obj("id" -> rowId, "value" -> cell.value))
             })).map(_.asJava)
           case (c: AttachmentColumn, _) => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
           case (_, value) => Future(value)
