@@ -206,7 +206,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       import collection.JavaConverters._
 
       for {
-        toOrValues <- Try(Left(checked(hasNumber("to", v)).longValue()))
+        toOrValues <- Try(Left(checked(hasLong("to", v))))
           .orElse(Try(Right(checked(hasArray("values", v)).asScala.map(_.asInstanceOf[Number].longValue()).toSeq)))
       } yield {
         toOrValues match {

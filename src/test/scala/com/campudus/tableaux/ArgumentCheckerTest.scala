@@ -3,6 +3,7 @@ package com.campudus.tableaux
 import com.campudus.tableaux.ArgumentChecker._
 import org.junit.Assert._
 import org.junit.Test
+import org.vertx.scala.core.json.Json
 
 class ArgumentCheckerTest {
 
@@ -32,6 +33,20 @@ class ArgumentCheckerTest {
     assertEquals(FailArg(InvalidJsonException("Argument -1 is not greater than zero", "invalid")), greaterZero(-1))
     assertEquals(FailArg(InvalidJsonException("Argument 0 is not greater than zero", "invalid")), greaterZero(0))
     assertEquals(FailArg(InvalidJsonException(s"Argument ${Long.MinValue} is not greater than zero", "invalid")), greaterZero(Long.MinValue))
+  }
+
+  @Test
+  def checkValidGreaterThan(): Unit = {
+    assertEquals(OkArg(123), greaterThan(123, 121, "test"))
+    assertEquals(OkArg(-10), greaterThan(-10, -20, "test"))
+    assertEquals(OkArg(Long.MaxValue), greaterThan(Long.MaxValue, Long.MaxValue - 1, "test"))
+  }
+
+  @Test
+  def checkInvalidGreaterThan(): Unit = {
+    assertEquals(FailArg(InvalidJsonException("Argument test (-1) is less than 0.", "invalid")), greaterThan(-1, 0, "test"))
+    assertEquals(FailArg(InvalidJsonException("Argument test (100) is less than 1000.", "invalid")), greaterThan(100, 1000, "test"))
+    assertEquals(FailArg(InvalidJsonException(s"Argument test (${Long.MinValue}) is less than 0.", "invalid")), greaterThan(Long.MinValue, 0, "test"))
   }
 
   @Test
@@ -103,5 +118,42 @@ class ArgumentCheckerTest {
       case ex: IllegalArgumentException => assertEquals("(0) 'oneof' value needs to be one of 'a', 'b', 'c'.", ex.getMessage)
       case _: Throwable => fail("Should throw an IllegalArgumentException")
     }
+  }
+
+  @Test
+  def checkHasValueOfType(): Unit = {
+    val json = Json.obj(
+      "string" -> "valid", // valid
+      "no_string" -> 123, // invalid
+
+      "array" -> Json.arr(1, 2, 3), // valid
+      "no_array" -> "no array", // invalid
+
+      "long" -> Long.MaxValue, // valid
+      "no_long" -> "no long" // invalid
+    )
+
+    assertEquals(OkArg(json.getString("string")), hasString("string", json))
+    assertEquals(OkArg(json.getJsonArray("array")), hasArray("array", json))
+    assertEquals(OkArg(json.getLong("long").toLong), hasLong("long", json))
+
+    assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasString("test", json))
+    assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasArray("test", json))
+    assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasLong("test", json))
+
+    assertEquals(FailArg(InvalidJsonException(
+      "Warning: no_string should be another type. Error: java.lang.Integer cannot be cast to java.lang.CharSequence", "invalid")),
+      hasString("no_string", json)
+    )
+
+    assertEquals(FailArg(InvalidJsonException(
+      "Warning: no_array should be another type. Error: java.lang.String cannot be cast to io.vertx.core.json.JsonArray", "invalid")),
+      hasArray("no_array", json)
+    )
+
+    assertEquals(FailArg(InvalidJsonException(
+      "Warning: no_long should be another type. Error: java.lang.String cannot be cast to java.lang.Number", "invalid")),
+      hasLong("no_long", json)
+    )
   }
 }
