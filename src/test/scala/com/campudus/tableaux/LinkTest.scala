@@ -11,8 +11,8 @@ import scala.concurrent.Future
 @RunWith(classOf[VertxUnitRunner])
 class LinkTest extends TableauxTestBase {
 
-  val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
-  val postSingleDirectionLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1, "singleDirection" -> true)))
+  val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
+  val postSingleDirectionLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "singleDirection" -> true)))
 
   @Test
   def retrieveLinkColumn(implicit c: TestContext): Unit = okTest {
@@ -58,7 +58,7 @@ class LinkTest extends TableauxTestBase {
 
   @Test
   def createLinkColumnWithOrdering(implicit c: TestContext): Unit = okTest {
-    val postLinkColWithOrd = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1, "ordering" -> 5)))
+    val postLinkColWithOrd = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "ordering" -> 5)))
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 5)))
 
     for {
@@ -76,10 +76,8 @@ class LinkTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
           "toName" -> "Backlink",
           "toTable" -> 2,
-          "toColumn" -> 1,
           "ordering" -> 5
         )
       )
@@ -184,9 +182,7 @@ class LinkTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 2
+          "toTable" -> 2
         )
       )
     )
@@ -261,9 +257,7 @@ class LinkTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 1
+          "toTable" -> 2
         )
       )
     )
@@ -341,9 +335,7 @@ class LinkTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 4
+          "toTable" -> 2
         )
       )
     )
@@ -393,9 +385,7 @@ class LinkTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 4
+          "toTable" -> 2
         )
       )
     )
@@ -520,9 +510,7 @@ class LinkTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 2
+          "toTable" -> 2
         )
       )
     )
@@ -558,9 +546,7 @@ class LinkTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 1,
-          "toColumn" -> 1
+          "toTable" -> 1
         )
       )
     )

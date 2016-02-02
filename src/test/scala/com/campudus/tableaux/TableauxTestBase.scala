@@ -395,9 +395,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     def createLinkColumn(fromColumnId: Long, linkTo: LinkTo) = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "link",
       "name" -> "column 10 (link)",
-      "fromColumn" -> fromColumnId,
-      "toTable" -> linkTo.tableId,
-      "toColumn" -> linkTo.columnId
+      "toTable" -> linkTo.tableId
     )))
 
     import scala.collection.JavaConverters._

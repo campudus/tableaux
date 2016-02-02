@@ -151,15 +151,7 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createMultipleLinkColumnsWithoutToTable(implicit c: TestContext): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(
-    Json.obj("kind" -> "link", "name" -> "Test Column 1", "toColumn" -> 1, "fromColumn" -> 1))))
-
-  @Test
-  def createMultipleLinkColumnsWithoutToColumn(implicit c: TestContext): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(
-    Json.obj("kind" -> "link", "name" -> "Test Column 1", "toTable" -> 1, "fromColumn" -> 1))))
-
-  @Test
-  def createMultipleLinkColumnsWithoutFromColumn(implicit c: TestContext): Unit = multipleColumnHelper(errorJsonNull, Json.obj("columns" -> Json.arr(
-    Json.obj("kind" -> "link", "name" -> "Test Column 1", "toTable" -> 1, "toColumn" -> 1))))
+    Json.obj("kind" -> "link", "name" -> "Test Column 1"))))
 
   private def multipleColumnHelper(error: String, json: JsonObject)(implicit c: TestContext): Unit = exceptionTest(error) {
     for {

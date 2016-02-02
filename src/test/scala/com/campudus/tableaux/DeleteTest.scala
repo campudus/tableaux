@@ -64,9 +64,7 @@ class DeleteTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 1
+          "toTable" -> 2
         )
       )
     )
@@ -83,6 +81,7 @@ class DeleteTest extends TableauxTestBase {
       test <- sendRequest("DELETE", "/tables/1")
     } yield {
       assertEquals(expectedOkJson, test)
+      // TODO check 404 at GET /tables/1 and check link is gone in /tables/2
     }
   }
 
@@ -93,9 +92,7 @@ class DeleteTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 1
+          "toTable" -> 2
         )
       )
     )
@@ -112,6 +109,7 @@ class DeleteTest extends TableauxTestBase {
       test <- sendRequest("DELETE", "/tables/1/columns/2")
     } yield {
       assertEquals(expectedOkJson, test)
+      // TODO check GET /tables/1/columns/2 for 404 and GET /tables/2/columns/2 is still there (bidirectional link)
     }
   }
 

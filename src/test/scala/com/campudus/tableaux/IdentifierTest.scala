@@ -86,13 +86,13 @@ class IdentifierTest extends TableauxTestBase {
       ))
 
       // ... that link on concat columns
-      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "fromColumn" -> 1, "toTable" -> tableId1, "toColumn" -> 1, "identifier" -> true)))
+      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "toTable" -> tableId1, "identifier" -> true)))
       linkColRes2 <- sendRequest("POST", s"/tables/$tableId2/columns", postLinkColTable2)
       linkColId2 = linkColRes2.getJsonArray("columns").getJsonObject(0).getLong("id")
-      postLinkColTable3 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "fromColumn" -> 1, "toTable" -> tableId2, "toColumn" -> 1, "identifier" -> true)))
+      postLinkColTable3 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "toTable" -> tableId2, "identifier" -> true)))
       linkColRes3 <- sendRequest("POST", s"/tables/$tableId3/columns", postLinkColTable3)
       linkColId3 = linkColRes3.getJsonArray("columns").getJsonObject(0).getLong("id")
-      postLinkColTable4 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link452", "kind" -> "link", "fromColumn" -> 1, "toTable" -> tableId3, "toColumn" -> 1)))
+      postLinkColTable4 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link452", "kind" -> "link", "toTable" -> tableId3)))
       linkColRes4 <- sendRequest("POST", s"/tables/$tableId4/columns", postLinkColTable4)
       linkColId4 = linkColRes4.getJsonArray("columns").getJsonObject(0).getLong("id")
 
@@ -163,10 +163,10 @@ class IdentifierTest extends TableauxTestBase {
       ))
 
       // add link column from table 1 to table 2 and make it identifier
-      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "fromColumn" -> 1, "toTable" -> tableId1, "toColumn" -> 1, "identifier" -> true)))
+      postLinkColTable2 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link251", "kind" -> "link", "toTable" -> tableId1, "identifier" -> true)))
       linkColRes2 <- sendRequest("POST", s"/tables/$tableId2/columns", postLinkColTable2)
       linkColId2 = linkColRes2.getJsonArray("columns").getJsonObject(0).getLong("id")
-      postLinkColTable3 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "fromColumn" -> 1, "toTable" -> tableId2, "toColumn" -> 1)))
+      postLinkColTable3 = Json.obj("columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "toTable" -> tableId2)))
       linkColRes3 <- sendRequest("POST", s"/tables/$tableId3/columns", postLinkColTable3)
       linkColId3 = linkColRes3.getJsonArray("columns").getJsonObject(0).getLong("id")
 
@@ -231,9 +231,7 @@ class IdentifierTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 2
+          "toTable" -> 2
         )
       )
     )
@@ -278,9 +276,7 @@ class IdentifierTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 2,
-          "toColumn" -> 3
+          "toTable" -> 2
         )
       )
     )
@@ -290,9 +286,7 @@ class IdentifierTest extends TableauxTestBase {
         Json.obj(
           "name" -> "Test Link 1",
           "kind" -> "link",
-          "fromColumn" -> 1,
-          "toTable" -> 3,
-          "toColumn" -> 1
+          "toTable" -> 3
         )
       )
     )
