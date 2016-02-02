@@ -148,78 +148,49 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield mappedColumn
   }
 
-//  private def identifierColumn(depth: Int, table: Table, columnId: ColumnId, columnName: String, kind: TableauxDbType,
-//                               ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
-//
-//    kind match {
-//      case AttachmentType => Future.failed(DatabaseException("Cannot link on attachments. Check schema.", "link-attachment"))
-//      case ConcatType => Future.failed(DatabaseException("Cannot link on concat columns. Check schema.", "link-concat"))
-//      case LinkType => if (depth == 0) {
-//        Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
-//      } else {
-//        for {
-//          (linkId, id_1, id_2, toTableId, toColumnId) <- getToColumn(table.id, columnId)
-//          linkedTable <- tableStruc.retrieve(toTableId)
-//          linkedIdentifiers <- retrieveIdentifiers(linkedTable, depth - 1)
-//        } yield {
-//          if (linkedIdentifiers.size > 1) {
-//            ConcatColumn(linkedTable, linkedName, linkedIdentifiers)
-//          } else {
-//            linkedIdentifiers.head
-//          }
-//        }
-//      }
-//
-//      case _ => mapValueColumn(table, columnId, columnName, kind, ordering, languageType, identifier = true)
-//    }
-//  }
-//
-//  def retrieveIdentifiers(tableId: TableId): Future[Seq[ColumnType[_]]] = {
-//    for {
-//      table <- tableStruc.retrieve(tableId)
-//      identifiers <- retrieveIdentifiers(table)
-//    } yield identifiers
-//  }
-//
-  private def retrieveIdentifiers(tableId: TableId, depth: Int): Future[Seq[ColumnType[_]]] = {
-    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? AND identifier IS TRUE ORDER BY ordering, column_id"
+  def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = retrieveAll(tableId, 5)
+
+  private def retrieveAll(tableId: TableId, depth: Int): Future[Seq[ColumnType[_]]] = {
     for {
-      result <- connection.query(select, Json.arr(tableId))
-      mappedColumns <- {
-        val futures = getSeqOfJsonArray(result).map { arr =>
-          val columnId = arr.get[ColumnId](0)
-          val columnName = arr.get[String](1)
-          val kind = Mapper.getDatabaseType(arr.get[String](2))
-          val ordering = arr.get[Ordering](3)
-          val languageType = LanguageType(arr.get[Boolean](4))
-          val identifier = arr.get[Boolean](5)
+      (concatColumns, columns) <- retrieveColumns(tableId, depth, identifierOnly = false)
+    } yield concatColumnAndColumns(tableId, concatColumns, columns)
+  }
 
-          mapColumn(depth, tableId, columnId, columnName, kind, ordering, languageType, identifier)
-        }
-        Future.sequence(futures)
-      }
+  private def retrieveIdentifiers(tableId: TableId, depth: Int): Future[Seq[ColumnType[_]]] = {
+    for {
+      (concatColumns, columns) <- retrieveColumns(tableId, depth, identifierOnly = true)
     } yield {
-      val concatColumns = mappedColumns.filter(_.identifier)
-
-      concatColumns.size match {
-        case x if x >= 2 =>
-          // in case of two or more identifier columns we preserve the order of column
-          // and a concatcolumn in front of all columns
-          mappedColumns.+:(ConcatColumn(Table(tableId, "", hidden = false), "ID", concatColumns))
-        case x if x == 1 =>
-          // in case of one identifier column we don't get a concat column
-          // but the identifier column will be the first
-          mappedColumns.sortBy(_.identifier)(Ordering[Boolean].reverse)
-        case _ =>
-          throw DatabaseException("Link can not point to table without identifier(s).", "missing-identifier")
+      if (concatColumns.isEmpty) {
+        throw DatabaseException("Link can not point to table without identifier(s).", "missing-identifier")
+      } else {
+        concatColumnAndColumns(tableId, concatColumns, columns)
       }
     }
   }
 
-  def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = retrieveAll(tableId, 5)
+  private def concatColumnAndColumns(tableId: TableId, concatColumns: Seq[ColumnType[_]], columns: Seq[ColumnType[_]]): Seq[ColumnType[_]] = {
+    concatColumns.size match {
+      case x if x >= 2 =>
+        // in case of two or more identifier columns we preserve the order of column
+        // and a concatcolumn in front of all columns
+        columns.+:(ConcatColumn(Table(tableId, "", hidden = false), "ID", concatColumns))
+      case x if x == 1 =>
+        // in case of one identifier column we don't get a concat column
+        // but the identifier column will be the first
+        columns.sortBy(_.identifier)(Ordering[Boolean].reverse)
+      case _ =>
+        // no identifier -> return columns
+        columns
+    }
+  }
 
-  private def retrieveAll(tableId: TableId, depth: Int): Future[Seq[ColumnType[_]]] = {
-    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? ORDER BY ordering, column_id"
+  private def retrieveColumns(tableId: TableId, depth: Int, identifierOnly: Boolean): Future[(Seq[ColumnType[_]], Seq[ColumnType[_]])] = {
+    val identCondition = if (identifierOnly) " AND identifier IS TRUE " else ""
+    val select =
+      s"""SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier
+          | FROM system_columns
+          | WHERE table_id = ? $identCondition ORDER BY ordering, column_id""".stripMargin
+
     for {
       result <- connection.query(select, Json.arr(tableId))
       mappedColumns <- {
@@ -235,24 +206,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         }
         Future.sequence(futures)
       }
-    } yield {
-      val concatColumns = mappedColumns.filter({
-        _.identifier
-      })
-
-      concatColumns.size match {
-        case x if x >= 2 =>
-          // in case of two or more identifier columns we preserve the order of column
-          // and a concatcolumn in front of all columns
-          mappedColumns.+:(ConcatColumn(Table(tableId, "", hidden = false), "ID", concatColumns))
-        case x if x == 1 =>
-          // in case of one identifier column we don't get a concat column
-          // but the identifier column will be the first
-          mappedColumns.sortBy(_.identifier)(Ordering[Boolean].reverse)
-        case _ =>
-          mappedColumns
-      }
-    }
+    } yield (mappedColumns.filter(_.identifier), mappedColumns)
   }
 
   private def mapColumn(depth: Int, tableId: TableId, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean): Future[ColumnType[_]] = {
