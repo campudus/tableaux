@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.model.structure
 
-import com.campudus.tableaux.NotFoundInDatabaseException
+import com.campudus.tableaux.{DatabaseException, NotFoundInDatabaseException}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -10,6 +10,8 @@ import org.vertx.scala.core.json._
 import scala.concurrent.Future
 
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
+
+  lazy val tableStruc = new TableModel(connection)
 
   def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
     createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
@@ -30,9 +32,9 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           case (id, ordering) => Mapper(languageType, kind).apply(table, id, name, ordering, identifier)
         }
 
-      case CreateLinkColumn(name, ordering, linkConnection, toName, singleDirection, identifier) => for {
-        toCol <- retrieve(linkConnection.toTableId, linkConnection.toColumnId).asInstanceOf[Future[ValueColumn[_]]]
-        (linkId, id, ordering) <- createLinkColumn(table, name, toName, linkConnection, ordering, singleDirection, identifier)
+      case CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier) => for {
+        toCol <- retrieveAll(toTableId).map(_.head.asInstanceOf[ValueColumn[_]])
+        (linkId, id, ordering) <- createLinkColumn(table, name, toName, toTableId, ordering, singleDirection, identifier)
       } yield LinkColumn(table, id, toCol, (linkId, "id_1", "id_2"), name, ordering, identifier)
 
       case CreateAttachmentColumn(name, ordering, identifier) =>
@@ -67,15 +69,12 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createLinkColumn(table: Table, name: String, toName: Option[String], link: LinkConnection, ordering: Option[Ordering], singleDirection: Boolean, identifier: Boolean): Future[(Long, ColumnId, Ordering)] = {
+  private def createLinkColumn(table: Table, name: String, toName: Option[String], toTableId: TableId, ordering: Option[Ordering], singleDirection: Boolean, identifier: Boolean): Future[(Long, ColumnId, Ordering)] = {
     val tableId = table.id
-    val fromColumnId = link.fromColumnId
-    val toTableId = link.toTableId
-    val toColumnId = link.toColumnId
 
     connection.transactional { t =>
       for {
-        (t, result) <- t.query("INSERT INTO system_link_table (table_id_1, table_id_2, column_id_1, column_id_2) VALUES (?, ?, ?, ?) RETURNING link_id", Json.arr(tableId, toTableId, fromColumnId, toColumnId))
+        (t, result) <- t.query("INSERT INTO system_link_table (table_id_1, table_id_2) VALUES (?, ?) RETURNING link_id", Json.arr(tableId, toTableId))
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
@@ -134,24 +133,92 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         // only then the ConcatColumn is generated.
         retrieveAll(tableId).map(_.head)
       case _ =>
-        retrieveOne(tableId, columnId)
+        retrieveOne(tableId, columnId, 5)
     }
   }
 
-  private def retrieveOne(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
+  private def retrieveOne(tableId: TableId, columnId: ColumnId, depth: Int): Future[ColumnType[_]] = {
     val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? AND column_id = ?"
     for {
       result <- {
         val json = connection.query(select, Json.arr(tableId, columnId))
         json.map(selectNotNull(_).head)
       }
-      mappedColumn <- mapColumn(mapping = true, tableId, result.get[ColumnId](0), result.get[String](1), Mapper.getDatabaseType(result.get[String](2)), result.get[Ordering](3), LanguageType(result.get[Boolean](4)), result.get[Boolean](5))
+      mappedColumn <- mapColumn(depth, tableId, result.get[ColumnId](0), result.get[String](1), Mapper.getDatabaseType(result.get[String](2)), result.get[Ordering](3), LanguageType(result.get[Boolean](4)), result.get[Boolean](5))
     } yield mappedColumn
   }
 
-  def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = retrieveAll(tableId, mapping = true)
+//  private def identifierColumn(depth: Int, table: Table, columnId: ColumnId, columnName: String, kind: TableauxDbType,
+//                               ordering: Ordering, languageType: LanguageType): Future[ColumnType[_]] = {
+//
+//    kind match {
+//      case AttachmentType => Future.failed(DatabaseException("Cannot link on attachments. Check schema.", "link-attachment"))
+//      case ConcatType => Future.failed(DatabaseException("Cannot link on concat columns. Check schema.", "link-concat"))
+//      case LinkType => if (depth == 0) {
+//        Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
+//      } else {
+//        for {
+//          (linkId, id_1, id_2, toTableId, toColumnId) <- getToColumn(table.id, columnId)
+//          linkedTable <- tableStruc.retrieve(toTableId)
+//          linkedIdentifiers <- retrieveIdentifiers(linkedTable, depth - 1)
+//        } yield {
+//          if (linkedIdentifiers.size > 1) {
+//            ConcatColumn(linkedTable, linkedName, linkedIdentifiers)
+//          } else {
+//            linkedIdentifiers.head
+//          }
+//        }
+//      }
+//
+//      case _ => mapValueColumn(table, columnId, columnName, kind, ordering, languageType, identifier = true)
+//    }
+//  }
+//
+//  def retrieveIdentifiers(tableId: TableId): Future[Seq[ColumnType[_]]] = {
+//    for {
+//      table <- tableStruc.retrieve(tableId)
+//      identifiers <- retrieveIdentifiers(table)
+//    } yield identifiers
+//  }
+//
+  private def retrieveIdentifiers(tableId: TableId, depth: Int): Future[Seq[ColumnType[_]]] = {
+    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? AND identifier IS TRUE ORDER BY ordering, column_id"
+    for {
+      result <- connection.query(select, Json.arr(tableId))
+      mappedColumns <- {
+        val futures = getSeqOfJsonArray(result).map { arr =>
+          val columnId = arr.get[ColumnId](0)
+          val columnName = arr.get[String](1)
+          val kind = Mapper.getDatabaseType(arr.get[String](2))
+          val ordering = arr.get[Ordering](3)
+          val languageType = LanguageType(arr.get[Boolean](4))
+          val identifier = arr.get[Boolean](5)
 
-  private def retrieveAll(tableId: TableId, mapping: Boolean): Future[Seq[ColumnType[_]]] = {
+          mapColumn(depth, tableId, columnId, columnName, kind, ordering, languageType, identifier)
+        }
+        Future.sequence(futures)
+      }
+    } yield {
+      val concatColumns = mappedColumns.filter(_.identifier)
+
+      concatColumns.size match {
+        case x if x >= 2 =>
+          // in case of two or more identifier columns we preserve the order of column
+          // and a concatcolumn in front of all columns
+          mappedColumns.+:(ConcatColumn(Table(tableId, "", hidden = false), "ID", concatColumns))
+        case x if x == 1 =>
+          // in case of one identifier column we don't get a concat column
+          // but the identifier column will be the first
+          mappedColumns.sortBy(_.identifier)(Ordering[Boolean].reverse)
+        case _ =>
+          throw DatabaseException("Link can not point to table without identifier(s).", "missing-identifier")
+      }
+    }
+  }
+
+  def retrieveAll(tableId: TableId): Future[Seq[ColumnType[_]]] = retrieveAll(tableId, 5)
+
+  private def retrieveAll(tableId: TableId, depth: Int): Future[Seq[ColumnType[_]]] = {
     val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier FROM system_columns WHERE table_id = ? ORDER BY ordering, column_id"
     for {
       result <- connection.query(select, Json.arr(tableId))
@@ -164,12 +231,14 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           val languageType = LanguageType(arr.get[Boolean](4))
           val identifier = arr.get[Boolean](5)
 
-          mapColumn(mapping, tableId, columnId, columnName, kind, ordering, languageType, identifier)
+          mapColumn(depth, tableId, columnId, columnName, kind, ordering, languageType, identifier)
         }
         Future.sequence(futures)
       }
     } yield {
-      val concatColumns = mappedColumns.filter({_.identifier})
+      val concatColumns = mappedColumns.filter({
+        _.identifier
+      })
 
       concatColumns.size match {
         case x if x >= 2 =>
@@ -186,12 +255,12 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def mapColumn(mapping: Boolean, tableId: TableId, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean): Future[ColumnType[_]] = {
+  private def mapColumn(depth: Int, tableId: TableId, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean): Future[ColumnType[_]] = {
     val table = Table(tableId, "", hidden = false)
 
     kind match {
       case AttachmentType => mapAttachmentColumn(table, columnId, columnName, ordering, identifier)
-      case LinkType => mapLinkColumn(mapping, table, columnId, columnName, ordering, identifier)
+      case LinkType => mapLinkColumn(depth, table, columnId, columnName, ordering, identifier)
 
       case kind: TableauxDbType => mapValueColumn(table, columnId, columnName, kind, ordering, languageType, identifier)
     }
@@ -205,33 +274,25 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     Future(AttachmentColumn(table, columnId, columnName, ordering, identifier))
   }
 
-  private def mapLinkColumn(mapping: Boolean, fromTable: Table, linkColumnId: ColumnId, columnName: String, ordering: Ordering, identifier: Boolean): Future[LinkColumn[_]] = {
+  private def mapLinkColumn(depth: Int, fromTable: Table, linkColumnId: ColumnId, columnName: String, ordering: Ordering, identifier: Boolean): Future[LinkColumn[_]] = {
     for {
-      (linkId, id_1, id_2, toTableId, toColumnId) <- getToColumn(fromTable.id, linkColumnId)
+      (linkId, id_1, id_2, toTableId) <- getLinkInformation(fromTable.id, linkColumnId)
 
       foreignColumns <- {
-        if (mapping) {
-          retrieveAll(toTableId, mapping = false)
+        if (depth > 0) {
+          retrieveIdentifiers(toTableId, depth - 1)
         } else {
-          retrieveOne(toTableId, toColumnId).map(Seq(_))
+          Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
         }
       }
 
       // Link should point at ConcatColumn if defined
-      // Otherwise the first could be an identifier
-      // If nothing is defined we fallback to old habits
-      toColumnOpt = foreignColumns.head match {
-        case c: ConcatColumn =>
-          Some(c)
-        case c: ValueColumn[_] if c.identifier =>
-          Some(c)
-        case _ =>
-          foreignColumns.find(_.id == toColumnId)
-      }
+      // Otherwise use the first column which should be an identifier
+      // If no identifier is defined, use the first column. Period.
+      toColumnOpt = foreignColumns.headOption
     } yield {
-      // TODO Correct error handling? Due to database constraints, this should never happen?
       if (toColumnOpt.isEmpty) {
-        throw new NotFoundInDatabaseException(s"Link points at column $toColumnId in table $toTableId which wasn't found", "not_found")
+        throw new NotFoundInDatabaseException(s"Link points at table $toTableId without columns", "not_found")
       }
 
       val toColumn = toColumnOpt.get.asInstanceOf[ValueColumn[_]]
@@ -239,15 +300,13 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def getToColumn(tableId: TableId, columnId: ColumnId): Future[(Long, String, String, TableId, ColumnId)] = {
+  private def getLinkInformation(tableId: TableId, columnId: ColumnId): Future[(Long, String, String, TableId)] = {
     for {
       result <- connection.query(
         """
           |SELECT
           | table_id_1,
           | table_id_2,
-          | column_id_1,
-          | column_id_2,
           | link_id
           |FROM system_link_table
           |WHERE link_id = (
@@ -256,23 +315,24 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           |    WHERE table_id = ? AND column_id = ?
           |)""".stripMargin, Json.arr(tableId, columnId))
 
-      (linkId, id_1, id_2, toTableId, toColumnId) <- Future.successful {
+      (linkId, id_1, id_2, toTableId) <- Future.successful {
         val res = selectNotNull(result).head
 
-        val linkId = res.get[Long](4)
+        val linkId = res.getLong(2).toLong
         val table1 = res.get[TableId](0)
 
         /* we need this because links can go both ways */
         if (tableId == table1) {
-          (linkId, "id_1", "id_2", res.get[TableId](1), res.get[ColumnId](3))
+          (linkId, "id_1", "id_2", res.get[TableId](1))
         } else {
-          (linkId, "id_2", "id_1", res.get[TableId](0), res.get[ColumnId](2))
+          (linkId, "id_2", "id_1", res.get[TableId](0))
         }
-      }
-    } yield (linkId, id_1, id_2, toTableId, toColumnId)
+      } // TODO create a unfunny case object for this
+    } yield (linkId, id_1, id_2, toTableId)
   }
 
   def delete(tableId: TableId, columnId: ColumnId): Future[Unit] = {
+    // TODO if last column than throw an error
     for {
       column <- retrieve(tableId, columnId)
       _ <- {

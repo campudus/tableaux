@@ -205,7 +205,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
 
   def setupDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[Long] = {
     val postTable = Json.obj("name" -> name)
-    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
     val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
     val fillStringCellJson = Json.obj("value" -> s"table${tableNum}row1")
     val fillStringCellJson2 = Json.obj("value" -> s"table${tableNum}row2")
