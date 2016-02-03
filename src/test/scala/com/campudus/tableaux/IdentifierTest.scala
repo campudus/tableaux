@@ -3,8 +3,8 @@ package com.campudus.tableaux
 import com.campudus.tableaux.testtools.RequestCreation._
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.{Ignore, Test}
 import org.vertx.scala.core.json._
 
 @RunWith(classOf[VertxUnitRunner])
@@ -50,16 +50,67 @@ class IdentifierTest extends TableauxTestBase {
       assertEquals(3L, concats.getJsonObject(1).getLong("id"))
 
       val columns = test.getJsonArray("columns")
+      // actually we have 4 columns because of the ConcatColumn
       assertEquals(columns.getJsonObject(1), concats.getJsonObject(0))
       assertEquals(columns.getJsonObject(3), concats.getJsonObject(1))
     }
   }
 
-  @Ignore("not implemented - like retrieveColumnsWithTwoIdentifierColumn, but re-order columns before doing this")
   @Test
   def retrieveColumnsWithTwoIdentifierColumnInCorrectOrder(implicit c: TestContext): Unit = okTest {
-    // TODO Add test
-    ???
+    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3")))
+
+    for {
+      _ <- setupDefaultTable()
+
+      // create a third column
+      _ <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson)
+
+      // make the first and the last an identifier column and reorder them
+      _ <- sendRequest("POST", "/tables/1/columns/1", Json.obj("name" -> "Column 1 but second concat column", "identifier" -> true, "ordering" -> 3))
+      _ <- sendRequest("POST", "/tables/1/columns/3", Json.obj("name" -> "Column 3 but first concat column", "identifier" -> true, "ordering" -> 1))
+
+      testColumns <- sendRequest("GET", "/tables/1/columns")
+
+      _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", Json.obj("value" -> "table 1 column 3 row 1"))
+      _ <- sendRequest("POST", "/tables/1/columns/3/rows/2", Json.obj("value" -> "table 1 column 3 row 2"))
+
+      testCells <- sendRequest("GET", "/tables/1/rows")
+    } yield {
+      // in case of two or more identifier columns we preserve the order of column
+      // and a concatcolumn in front of all columns
+      val concats = testColumns.getJsonArray("columns").get[JsonObject](0).getJsonArray("concats")
+      assertEquals(3L, concats.getJsonObject(0).getLong("id"))
+      assertEquals(1L, concats.getJsonObject(1).getLong("id"))
+
+      // actually we have 4 columns because of the ConcatColumn
+      // (0) concat, (1) column 3, (2) columnn 2, (3) column 1
+      assertEquals("Column 3 but first concat column", concats.getJsonObject(0).getString("name"))
+      assertEquals("Column 1 but second concat column", concats.getJsonObject(1).getString("name"))
+
+      val excepted = Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "values" -> Json.arr(
+            Json.arr("table 1 column 3 row 1", "table1row1"),
+            "table 1 column 3 row 1",
+            1,
+            "table1row1"
+          )
+        ),
+        Json.obj(
+          "id" -> 2,
+          "values" -> Json.arr(
+            Json.arr("table 1 column 3 row 2", "table1row2"),
+            "table 1 column 3 row 2",
+            2,
+            "table1row2"
+          )
+        )
+      )
+
+      assertEquals(excepted, testCells.getJsonArray("rows"))
+    }
   }
 
   @Test
