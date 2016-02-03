@@ -117,7 +117,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     setupVersion2(_),
     setupVersion3(_),
     setupVersion4(_),
-    setupVersion5(_)
+    setupVersion5(_),
+    setupVersion6(_)
   )
 
   private def saveVersion(t: connection.Transaction, version: Int): Future[connection.Transaction] = {
@@ -325,6 +326,23 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
            |""".stripMargin)
 
       t <- saveVersion(t, 5)
+    } yield t
+  }
+
+  private def setupVersion6(t: connection.Transaction): Future[connection.Transaction] = {
+    logger.info("Setup schema version 6")
+
+    for {
+      (t, _) <- t.query(
+        """
+          |ALTER TABLE system_link_table
+          |DROP COLUMN column_id_1,
+          |DROP COLUMN column_id_2,
+          |ADD FOREIGN KEY (table_id_1) REFERENCES system_table(table_id) ON DELETE CASCADE,
+          |ADD FOREIGN KEY (table_id_2) REFERENCES system_table(table_id) ON DELETE CASCADE
+          |""".stripMargin)
+
+      t <- saveVersion(t, 6)
     } yield t
   }
 }

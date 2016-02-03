@@ -205,7 +205,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
 
   def setupDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[Long] = {
     val postTable = Json.obj("name" -> name)
-    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
     val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
     val fillStringCellJson = Json.obj("value" -> s"table${tableNum}row1")
     val fillStringCellJson2 = Json.obj("value" -> s"table${tableNum}row2")
@@ -355,7 +355,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     val createMultilanguageColumn = Json.obj(
       "columns" ->
         Json.arr(
-          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true),
+          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true, "identifier" -> true),
           Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true),
           Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
           Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
@@ -395,9 +395,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     def createLinkColumn(fromColumnId: Long, linkTo: LinkTo) = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "link",
       "name" -> "column 10 (link)",
-      "fromColumn" -> fromColumnId,
-      "toTable" -> linkTo.tableId,
-      "toColumn" -> linkTo.columnId
+      "toTable" -> linkTo.tableId
     )))
 
     import scala.collection.JavaConverters._

@@ -180,7 +180,7 @@ class GetTest extends TableauxTestBase {
   @Test
   def retrieveColumns(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
-      Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> false),
+      Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> true),
       Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false)
     ))
 
@@ -194,7 +194,7 @@ class GetTest extends TableauxTestBase {
 
   @Test
   def retrieveStringColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> false)
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> true)
 
     for {
       _ <- setupDefaultTable()

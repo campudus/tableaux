@@ -3,7 +3,8 @@
   "columns" : [ {
     "kind" : "text",
     "name" : "Land",
-    "ordering" : 1
+    "ordering" : 1,
+    "identifier" : true
   }, {
     "kind" : "text",
     "name" : "Hauptstadt",

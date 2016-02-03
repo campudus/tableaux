@@ -26,12 +26,6 @@ object JsonUtils {
     tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))(kind)
   }
 
-  private def toLinkConnection(json: JsonObject): ArgumentCheck[LinkConnection] = for {
-    toTable <- notNull(json.getLong("toTable"): TableId, "toTable")
-    toColumn <- notNull(json.getLong("toColumn"): ColumnId, "toColumn")
-    fromColumn <- notNull(json.getLong("fromColumn"): ColumnId, "fromColumn")
-  } yield LinkConnection(toTable, toColumn, fromColumn)
-
   private def toJsonObjectSeq(field: String, json: JsonObject): ArgumentCheck[Seq[JsonObject]] = {
     for {
       columns <- checkNotNullArray(json, field)
@@ -58,13 +52,14 @@ object JsonUtils {
 
           dbType match {
             case AttachmentType => CreateAttachmentColumn(name, ordering, identifier)
-            case LinkType => {
+            case LinkType =>
               // link specific fields
               val toName = Try(Option(json.getString("toName"))).toOption.flatten
               val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
+              val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
 
-              CreateLinkColumn(name, ordering, toLinkConnection(json).get, toName, singleDirection, identifier)
-            }
+              CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier)
+
             case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage), identifier)
           }
         }

@@ -176,7 +176,7 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createComplexRow(implicit c: TestContext): Unit = okTest {
-    val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
+    val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
     val postAttachmentColumn = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
       "name" -> "Downloads"
@@ -271,7 +271,7 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def duplicateRowWithLink(implicit c: TestContext): Unit = okTest {
-    val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "fromColumn" -> 1, "toTable" -> 2, "toColumn" -> 1)))
+    val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
     def fillLinkCellJson(c: Integer) = Json.obj("value" -> Json.obj("to" -> c))
 
     for {

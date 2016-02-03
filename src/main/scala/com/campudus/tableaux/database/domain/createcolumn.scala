@@ -19,7 +19,7 @@ case class CreateSimpleColumn(override val name: String,
 
 case class CreateLinkColumn(override val name: String,
                             override val ordering: Option[Ordering],
-                            linkConnection: LinkConnection,
+                            toTable: TableId,
                             toName: Option[String],
                             singleDirection: Boolean,
                             override val identifier: Boolean) extends CreateColumn {
