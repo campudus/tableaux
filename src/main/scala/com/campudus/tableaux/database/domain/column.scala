@@ -1,11 +1,11 @@
 package com.campudus.tableaux.database.domain
 
+import com.campudus.tableaux.database.CheckValidValue._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.joda.time.{DateTime, LocalDate}
 import org.vertx.scala.core.json._
-import com.campudus.tableaux.database.CheckValidValue._
 
 sealed trait ColumnType[+A] extends DomainObject {
   val kind: TableauxDbType
@@ -81,7 +81,7 @@ sealed trait MultiLanguageColumn[A] extends ValueColumn[A] {
       if (entry.getValue == null) None else kind.checkValidValue(entry.getValue)
     }.find(_.isDefined).flatten
   } catch {
-    case _: Throwable => boolToArgumentError(false)
+    case _: Throwable => boolToOption(false)
   }
 }
 
