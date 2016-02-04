@@ -87,7 +87,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def createRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
     table <- retrieveTable(tableId)
     columns <- retrieveColumns(table.id)
-    ids <- rows.foldLeft(Future.successful(Vector[RowId]())) {
+    rows <- rows.foldLeft(Future.successful(Vector[Row]())) {
       (futureRows, row) =>
         // replace ColumnId with ColumnType
         val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
@@ -95,13 +95,14 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         futureRows.flatMap { rows =>
           for {
             rowId <- rowModel.createRow(table.id, columnValuePairs)
+            rawRow <- rowModel.retrieve(table.id, rowId, columns)
+            rowSeq <- mapRawRows(table, columns, Seq(rawRow))
           } yield {
             logger.info(s"created row $rowId")
-            rows :+ rowId
+            rows ++ rowSeq
           }
         }
     }
-    rows <- Future.sequence(ids.map(retrieveRow(table.id, _)))
   } yield RowSeq(rows)
 
   def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
@@ -224,10 +225,14 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     v <- retrieveCell(linkColumn, fromId)
   } yield Cell(linkColumn, fromId, Link(linkColumn.to.id, v))
 
-  private def addLinkValue(linkColumn: LinkColumn[_], fromId: RowId, toId: RowId): Future[Cell[Link[_]]] = for {
-    _ <- cellModel.updateLink(linkColumn.table, linkColumn, fromId, toId)
-    v <- retrieveCell(linkColumn, fromId)
-  } yield Cell(linkColumn, fromId, Link(toId, v))
+  private def addLinkValue(linkColumn: LinkColumn[_], fromId: RowId, toId: RowId): Future[Cell[Link[_]]] = {
+    logger.info(s"in addLinkValue $linkColumn -> $fromId to $toId")
+    for {
+      _ <- cellModel.updateLink(linkColumn.table, linkColumn, fromId, toId)
+      _ = logger.info(s"link updated!")
+      v <- retrieveCell(linkColumn, fromId)
+    } yield Cell(linkColumn, fromId, Link(toId, v))
+  }
 
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
     for {
@@ -295,8 +300,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       rows <- mapRawRows(table, columns, Seq(rowIdValues))
       rowValues = rows.head.values
       duplicatedSimpleRowId <- rowModel.createRow(tableId, columns.zip(rowValues))
-      duplicatedRow <- rowModel.retrieve(tableId, duplicatedSimpleRowId, columns)
-    } yield Row(table, duplicatedRow._1, duplicatedRow._2)
+      (duplicatedRowId, duplicatedRowValues) <- rowModel.retrieve(tableId, duplicatedSimpleRowId, columns)
+    } yield Row(table, duplicatedRowId, duplicatedRowValues)
   }
 
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[AnyRef])]): Future[Seq[Row]] = {

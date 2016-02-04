@@ -5,12 +5,8 @@ import org.vertx.scala.core.json._
 
 case class Row(table: Table, id: RowId, values: Seq[_]) extends DomainObject {
   override def getJson: JsonObject = Json.obj("id" -> id, "values" -> compatibilityGet(values))
-
-  override def setJson: JsonObject = Json.obj("id" -> id)
 }
 
 case class RowSeq(rows: Seq[Row], page: Page = Page(Pagination(None, None), None)) extends DomainObject {
   override def getJson: JsonObject = Json.obj("page" -> compatibilityGet(page), "rows" -> (rows map (_.getJson)))
-
-  override def setJson: JsonObject = Json.obj("rows" -> (rows map (_.setJson)))
 }

@@ -40,8 +40,18 @@ trait TestAssertionHelper {
     c.assertEquals(excepted, actual)
   }
 
+  def assertShallowContains(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
+    import scala.collection.JavaConverters._
+    expected.fieldNames().asScala.map(key => c.assertEquals(expected.getValue(key), actual.getValue(key)))
+    c
+  }
+
   def assertNull(excepted: Any)(implicit c: TestContext): TestContext = {
     c.assertNull(excepted)
+  }
+
+  def assertNotNull(excepted: Any)(implicit c: TestContext): TestContext = {
+    c.assertNotNull(excepted)
   }
 
   def assertTrue(message: String, condition: Boolean)(implicit c: TestContext): TestContext = {
@@ -50,6 +60,10 @@ trait TestAssertionHelper {
 
   def assertTrue(condition: Boolean)(implicit c: TestContext): TestContext = {
     c.assertTrue(condition)
+  }
+
+  def assertFalse(condition: Boolean)(implicit c: TestContext): TestContext = {
+    c.assertFalse(condition)
   }
 
   def assertNotSame[A](first: A, second: A)(implicit c: TestContext): TestContext = {

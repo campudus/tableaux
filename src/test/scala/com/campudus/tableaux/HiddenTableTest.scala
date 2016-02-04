@@ -12,48 +12,45 @@ class HiddenTableTest extends TableauxTestBase {
   @Test
   def createRegularTable(implicit c: TestContext): Unit = okTest {
     val createTableJson = Json.obj("name" -> "Regular table test", "hidden" -> false)
-    val expectedPostJson = Json.obj("status" -> "ok", "id" -> 1)
-    val expectedGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Regular table test", "hidden" -> false)
+    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Regular table test", "hidden" -> false)
 
     for {
       tablePost <- sendRequest("POST", "/tables", createTableJson)
       tableId = tablePost.getLong("id").toLong
       tableGet <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedPostJson, tablePost)
-      assertEquals(expectedGetJson, tableGet)
+      assertEquals(expectedTableJson, tablePost)
+      assertEquals(expectedTableJson, tableGet)
     }
   }
 
   @Test
   def createRegularTableWithoutHiddenFlag(implicit c: TestContext): Unit = okTest {
     val createTableJson = Json.obj("name" -> "Regular table test")
-    val expectedPostJson = Json.obj("status" -> "ok", "id" -> 1)
-    val expectedGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Regular table test", "hidden" -> false)
+    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Regular table test", "hidden" -> false)
 
     for {
       tablePost <- sendRequest("POST", "/tables", createTableJson)
       tableId = tablePost.getLong("id").toLong
       tableGet <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedPostJson, tablePost)
-      assertEquals(expectedGetJson, tableGet)
+      assertEquals(expectedTableJson, tablePost)
+      assertEquals(expectedTableJson, tableGet)
     }
   }
 
   @Test
   def createHiddenTable(implicit c: TestContext): Unit = okTest {
     val createTableJson = Json.obj("name" -> "Hidden table test", "hidden" -> true)
-    val expectedPostJson = Json.obj("status" -> "ok", "id" -> 1)
-    val expectedGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Hidden table test", "hidden" -> true)
+    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Hidden table test", "hidden" -> true)
 
     for {
       tablePost <- sendRequest("POST", "/tables", createTableJson)
       tableId = tablePost.getLong("id").toLong
       tableGet <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedPostJson, tablePost)
-      assertEquals(expectedGetJson, tableGet)
+      assertEquals(expectedTableJson, tablePost)
+      assertEquals(expectedTableJson, tableGet)
     }
   }
 
@@ -61,7 +58,7 @@ class HiddenTableTest extends TableauxTestBase {
   def updateTableNameDoesNotChangeHiddenFlagFromTrue(implicit c: TestContext): Unit = okTest {
     val createTableJson = Json.obj("name" -> "Hidden table test", "hidden" -> true)
     val updateTableJson = Json.obj("name" -> "Still hidden table test")
-    val expectedGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Still hidden table test", "hidden" -> true)
+    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Still hidden table test", "hidden" -> true)
 
     for {
       tablePost <- sendRequest("POST", "/tables", createTableJson)
@@ -69,7 +66,8 @@ class HiddenTableTest extends TableauxTestBase {
       tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
       table <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedGetJson, table)
+      assertEquals(expectedTableJson, tableUpdate)
+      assertEquals(expectedTableJson, table)
     }
   }
 
@@ -77,7 +75,7 @@ class HiddenTableTest extends TableauxTestBase {
   def updateTableNameDoesNotChangeHiddenFlagFromFalse(implicit c: TestContext): Unit = okTest {
     val createTableJson = Json.obj("name" -> "Regular table test", "hidden" -> false)
     val updateTableJson = Json.obj("name" -> "Still regular table test")
-    val expectedGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Still regular table test", "hidden" -> false)
+    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Still regular table test", "hidden" -> false)
 
     for {
       tablePost <- sendRequest("POST", "/tables", createTableJson)
@@ -85,16 +83,17 @@ class HiddenTableTest extends TableauxTestBase {
       tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
       table <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedGetJson, table)
+      assertEquals(expectedTableJson, tableUpdate)
+      assertEquals(expectedTableJson, table)
     }
   }
 
   @Test
   def updateHiddenFlagTable(implicit c: TestContext): Unit = okTest {
     val createTableJson = Json.obj("name" -> "Some table test", "hidden" -> false)
-    val expectedFirstGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Some table test", "hidden" -> false)
+    val expectedFirstTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Some table test", "hidden" -> false)
     val updateTableJson = Json.obj("hidden" -> true)
-    val expectedSecondGetJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Some table test", "hidden" -> true)
+    val expectedSecondTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Some table test", "hidden" -> true)
 
     for {
       tablePost <- sendRequest("POST", "/tables", createTableJson)
@@ -103,8 +102,10 @@ class HiddenTableTest extends TableauxTestBase {
       tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
       table2 <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedFirstGetJson, table1)
-      assertEquals(expectedSecondGetJson, table2)
+      assertEquals(expectedFirstTableJson, tablePost)
+      assertEquals(expectedFirstTableJson, table1)
+      assertEquals(expectedSecondTableJson, tableUpdate)
+      assertEquals(expectedSecondTableJson, table2)
     }
   }
 

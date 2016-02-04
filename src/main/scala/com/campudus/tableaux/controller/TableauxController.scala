@@ -18,26 +18,26 @@ object TableauxController {
 
 class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel) extends Controller[TableauxModel] {
 
-  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {
+  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[Either[RowSeq, Row]] = {
     values match {
       case Some(seq) =>
         checkArguments(greaterZero(tableId), nonEmpty(seq, "rows"))
         logger.info(s"createRows $tableId $values")
-        repository.createRows(tableId, seq)
+        repository.createRows(tableId, seq).map(Left.apply)
       case None =>
         checkArguments(greaterZero(tableId))
         logger.info(s"createRow $tableId")
-        repository.createRow(tableId)
+        repository.createRow(tableId).map(Right.apply)
     }
   }
 
-  def duplicateRow(tableId: TableId, rowId: TableId): Future[DomainObject] = {
+  def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")
     repository.duplicateRow(tableId, rowId)
   }
 
-  def retrieveRow(tableId: TableId, rowId: TableId): Future[DomainObject] = {
+  def retrieveRow(tableId: TableId, rowId: RowId): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"retrieveRow $tableId $rowId")
     repository.retrieveRow(tableId, rowId)
@@ -63,7 +63,7 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield rows
   }
 
-  def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: ColumnId): Future[DomainObject] = {
+  def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCell $tableId $columnId $rowId")
     repository.retrieveCell(tableId, columnId, rowId)
@@ -75,13 +75,13 @@ class TableauxController(override val config: TableauxConfig, override protected
     repository.deleteRow(tableId, rowId)
   }
 
-  def fillCell[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[DomainObject] = {
+  def fillCell[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"fillCell $tableId $columnId $rowId $value")
     repository.insertValue(tableId, columnId, rowId, value)
   }
 
-  def updateCell[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[DomainObject] = {
+  def updateCell[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"updateCell $tableId $columnId $rowId $value")
     repository.updateValue(tableId, columnId, rowId, value)

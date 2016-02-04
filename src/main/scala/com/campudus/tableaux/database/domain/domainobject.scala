@@ -1,13 +1,11 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType, SetReturn}
+import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
 import org.vertx.scala.core.json._
 
 import scala.collection.mutable
 
 trait DomainObjectHelper {
-
-  def compatibilitySet[A]: A => Any = compatibility(SetReturn)(_)
 
   def compatibilityGet[A]: A => Any = compatibility(GetReturn)(_)
 
@@ -35,8 +33,6 @@ trait DomainObjectHelper {
 trait DomainObject extends DomainObjectHelper {
   def getJson: JsonObject
 
-  def setJson: JsonObject = getJson
-
   /**
     * Returns an empty JsonObject. It's used
     * as response for all requests which don't
@@ -52,7 +48,6 @@ trait DomainObject extends DomainObjectHelper {
     */
   final def toJson(returnType: ReturnType): JsonObject = returnType match {
     case GetReturn => getJson
-    case SetReturn => setJson
     case EmptyReturn => emptyJson
   }
 

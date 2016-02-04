@@ -2,10 +2,12 @@ package com.campudus.tableaux.router
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.StructureController
+import com.campudus.tableaux.database.domain.ColumnSeq
 import com.campudus.tableaux.helper.JsonUtils._
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
+import scala.concurrent.Future
 import scala.util.matching.Regex
 
 object StructureRouter {
@@ -40,26 +42,34 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     /**
       * Create Table
       */
-    case Post(Tables()) => asyncSetReply {
-      getJson(context) flatMap { json =>
-        controller.createTable(json.getString("name"), Option(json.getBoolean("hidden")).map(_.booleanValue()))
-      }
+    case Post(Tables()) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        created <- controller.createTable(json.getString("name"), Option(json.getBoolean("hidden")).map(_.booleanValue()))
+        table <- controller.retrieveTable(created.id)
+      } yield table
     }
 
     /**
       * Create Column
       */
-    case Post(Columns(tableId)) => asyncSetReply {
-      getJson(context) flatMap (json => controller.createColumns(tableId.toLong, toCreateColumnSeq(json)))
+    case Post(Columns(tableId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        created <- controller.createColumns(tableId.toLong, toCreateColumnSeq(json))
+        columns <- Future.sequence(created.columns.map(c => controller.retrieveColumn(c.table.id, c.id)))
+      } yield ColumnSeq(columns)
     }
 
     /**
       * Change Table
       */
-    case Post(Table(tableId)) => asyncEmptyReply {
-      getJson(context) flatMap { json =>
-        controller.changeTable(tableId.toLong, Option(json.getString("name")), Option(json.getBoolean("hidden")).map(_.booleanValue()))
-      }
+    case Post(Table(tableId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        updated <- controller.changeTable(tableId.toLong, Option(json.getString("name")), Option(json.getBoolean("hidden")).map(_.booleanValue()))
+        table <- controller.retrieveTable(updated.id)
+      } yield table
     }
 
     /**
@@ -76,11 +86,12 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Change Column
       */
     case Post(Column(tableId, columnId)) => asyncEmptyReply {
-      getJson(context) flatMap {
-        json =>
-          val (optName, optOrd, optKind, optIdent) = toColumnChanges(json)
-          controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent)
-      }
+      for {
+        json <- getJson(context)
+        (optName, optOrd, optKind, optIdent) = toColumnChanges(json)
+        changed <- controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent)
+        column <- controller.retrieveColumn(changed.table.id, changed.id)
+      } yield column
     }
 
     /**

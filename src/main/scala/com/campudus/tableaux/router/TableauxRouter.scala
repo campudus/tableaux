@@ -72,61 +72,81 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     /**
       * Create table with columns and rows
       */
-    case Post(CompleteTable()) => asyncSetReply {
-      getJson(context) flatMap { json =>
-        if (json.containsKey("rows")) {
+    case Post(CompleteTable()) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        completeTable <- if (json.containsKey("rows")) {
           controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), toRowValueSeq(json))
         } else {
           controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), Seq())
         }
-      }
+        pulled <- controller.retrieveCompleteTable(completeTable.table.id)
+      } yield pulled
     }
 
     /**
       * Create Row
       */
-    case Post(Rows(tableId)) => asyncSetReply {
-      getJson(context) flatMap {
-        json =>
-          json.containsKey("columns") && json.containsKey("rows") match {
-            case true => controller.createRow(tableId.toLong, Some(toColumnValueSeq(json)))
-            case false => controller.createRow(tableId.toLong, None)
+    case Post(Rows(tableId)) => asyncGetReply {
+      for {
+        optionalValues <- (for {
+          json <- getJson(context)
+          option = json.containsKey("columns") && json.containsKey("rows") match {
+            case true => Some(toColumnValueSeq(json))
+            case false => None
           }
-      } recoverWith {
-        case _: NoJsonFoundException => controller.createRow(tableId.toLong, None)
-      }
+        } yield option) recover {
+          case _: NoJsonFoundException => None
+        }
+        result <- controller.createRow(tableId.toLong, optionalValues)
+        rowOrRows = result match {
+          case Left(rows) => rows
+          case Right(row) => row
+        }
+      } yield rowOrRows
     }
 
     /**
       * Duplicate Row
       */
-    case Post(RowDuplicate(tableId, rowId)) => asyncGetReply(controller.duplicateRow(tableId.toLong, rowId.toLong))
+    case Post(RowDuplicate(tableId, rowId)) => asyncGetReply {
+      for {
+        duplicated <- controller.duplicateRow(tableId.toLong, rowId.toLong)
+        retrieved <- controller.retrieveRow(duplicated.table.id, duplicated.id)
+      } yield retrieved
+    }
 
     /**
       * Fill Cell
       */
-    case Post(Cell(tableId, columnId, rowId)) => asyncSetReply {
-      getJson(context) flatMap { json =>
-        controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-      }
+    case Post(Cell(tableId, columnId, rowId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        filled <- controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+        cell <- controller.retrieveCell(tableId.toLong, filled.column.id, filled.rowId)
+      } yield cell
     }
 
     /**
       * Update Cell
       */
-    case Put(Cell(tableId, columnId, rowId)) => asyncSetReply {
-      getJson(context) flatMap { json =>
-        controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-      }
+    case Put(Cell(tableId, columnId, rowId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        updated <- controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+        cell <- controller.retrieveCell(tableId.toLong, updated.column.id, updated.rowId)
+      } yield cell
     }
 
     /**
       * Update Cell
       */
-    case Patch(Cell(tableId, columnId, rowId)) => asyncSetReply {
-      getJson(context) flatMap { json =>
-        controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-      }
+    case Patch(Cell(tableId, columnId, rowId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        updated <- controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+        cell <- controller.retrieveCell(tableId.toLong, updated.column.id, updated.rowId)
+      } yield cell
     }
 
     /**
@@ -139,4 +159,5 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       */
     case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) => asyncEmptyReply(controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid))
   }
+
 }

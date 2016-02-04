@@ -42,7 +42,7 @@ class StructureController(override val config: TableauxConfig, override protecte
       columns <- columnStruc.createColumns(table, columns)
     } yield {
       logger.info(s"$columns")
-      ColumnSeq(columns)
+      ColumnSeq(columns.sortBy(_.ordering))
     }
   }
 

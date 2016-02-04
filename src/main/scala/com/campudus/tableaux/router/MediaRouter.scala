@@ -45,14 +45,16 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     /**
       * Create folder
       */
-    case Post("/folders") => asyncSetReply({
-      getJson(context) flatMap { implicit json =>
-        val name = json.getString("name")
-        val description = json.getString("description")
-        val parent = getNullableField("parent")
+    case Post("/folders") => asyncGetReply({
+      for {
+        json <- getJson(context)
+        name = json.getString("name")
+        description = json.getString("description")
+        parent = getNullableField("parent")(json)
 
-        controller.addNewFolder(name, description, parent)
-      }
+        added <- controller.addNewFolder(name, description, parent)
+        // TODO sortByLangtag should be removed and the real folder should be fetched
+      } yield added
     })
 
     /**
@@ -80,36 +82,38 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     /**
       * Change folder
       */
-    case Put(FolderId(id)) => asyncSetReply({
-      getJson(context) flatMap { implicit json =>
-        val name = json.getString("name")
-        val description = json.getString("description")
-        val parent = getNullableField("parent")
+    case Put(FolderId(id)) => asyncGetReply({
+      for {
+        json <- getJson(context)
+        name = json.getString("name")
+        description = json.getString("description")
+        parent = getNullableField("parent")(json)
 
-        controller.changeFolder(id.toLong, name, description, parent)
-      }
+        changed <- controller.changeFolder(id.toLong, name, description, parent)
+      // TODO sortByLangtag should be removed and the real folder should be fetched
+      } yield changed
     })
 
     /**
       * Delete folder and its files
       */
-    case Delete(FolderId(id)) => asyncSetReply(controller.deleteFolder(id.toLong))
+    case Delete(FolderId(id)) => asyncGetReply(controller.deleteFolder(id.toLong))
 
     /**
       * Create file handle
       */
-    case Post("/files") => asyncSetReply({
-      getJson(context) flatMap { implicit json =>
+    case Post("/files") => asyncGetReply {
+      for {
+        json <- getJson(context)
 
-        val title = MultiLanguageValue[String](getNullableField("title"))
-        val description = MultiLanguageValue[String](getNullableField("description"))
-        val externalName = MultiLanguageValue[String](getNullableField("externalName"))
+        title = MultiLanguageValue[String](getNullableField("title")(json))
+        description = MultiLanguageValue[String](getNullableField("description")(json))
+        externalName = MultiLanguageValue[String](getNullableField("externalName")(json))
+        folder = getNullableField("folder")(json)
 
-        val folder = getNullableField("folder")
-
-        controller.addFile(title, description, externalName, folder)
-      }
-    })
+        added <- controller.addFile(title, description, externalName, folder)
+      } yield added
+    }
 
     /**
       * Retrieve file meta information
@@ -135,19 +139,20 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     /**
       * Change file meta information
       */
-    case Put(FileId(uuid)) => asyncSetReply({
-      getJson(context) flatMap { implicit json =>
+    case Put(FileId(uuid)) => asyncGetReply({
+      for {
+        json <- getJson(context)
 
-        val title = MultiLanguageValue[String](getNullableField("title"))
-        val description = MultiLanguageValue[String](getNullableField("description"))
-        val externalName = MultiLanguageValue[String](getNullableField("externalName"))
-        val internalName = MultiLanguageValue[String](getNullableField("internalName"))
-        val mimeType = MultiLanguageValue[String](getNullableField("mimeType"))
+        title = MultiLanguageValue[String](getNullableField("title")(json))
+        description = MultiLanguageValue[String](getNullableField("description")(json))
+        externalName = MultiLanguageValue[String](getNullableField("externalName")(json))
+        internalName = MultiLanguageValue[String](getNullableField("internalName")(json))
+        mimeType = MultiLanguageValue[String](getNullableField("mimeType")(json))
 
-        val folder = getNullableField[FolderId]("folder")
+        folder = getNullableField[FolderId]("folder")(json)
 
-        controller.changeFile(UUID.fromString(uuid), title, description, externalName, internalName, mimeType, folder)
-      }
+        changed <- controller.changeFile(UUID.fromString(uuid), title, description, externalName, internalName, mimeType, folder)
+      } yield changed
     })
 
     /**
@@ -160,31 +165,32 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     /**
       * File merge
       */
-    case Post(FileIdMerge(uuid)) => asyncSetReply({
-      getJson(context) flatMap { implicit json =>
-        val langtag = checked(hasString("langtag", json))
-        val mergeWith = UUID.fromString(checked(hasString("mergeWith", json)))
+    case Post(FileIdMerge(uuid)) => asyncGetReply({
+      for {
+        json <- getJson(context)
+        langtag = checked(hasString("langtag", json))
+        mergeWith = UUID.fromString(checked(hasString("mergeWith", json)))
 
-        controller.mergeFile(UUID.fromString(uuid), langtag, mergeWith)
-      }
+        merged <- controller.mergeFile(UUID.fromString(uuid), langtag, mergeWith)
+      } yield merged
     })
 
     /**
       * Delete file
       */
-    case Delete(FileId(uuid)) => asyncSetReply(controller.deleteFile(UUID.fromString(uuid)))
+    case Delete(FileId(uuid)) => asyncGetReply(controller.deleteFile(UUID.fromString(uuid)))
 
     /**
       * Delete language specific stuff
       */
-    case Delete(FileIdLang(uuid, langtag)) => asyncSetReply(controller.deleteFile(UUID.fromString(uuid), langtag))
+    case Delete(FileIdLang(uuid, langtag)) => asyncGetReply(controller.deleteFile(UUID.fromString(uuid), langtag))
   }
 
   def getNullableField[A](field: String)(implicit json: JsonObject): Option[A] = {
     Option(json.getValue(field).asInstanceOf[A])
   }
 
-  def handleUpload(implicit context: RoutingContext, fn: (UploadAction) => Future[DomainObject]): AsyncReply = asyncSetReply({
+  def handleUpload(implicit context: RoutingContext, fn: (UploadAction) => Future[DomainObject]): AsyncReply = asyncGetReply({
     logger.info(s"Handle upload for ${context.request().absoluteURI()} ${context.fileUploads()}")
 
     val req = context.request()

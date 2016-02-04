@@ -252,8 +252,8 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[AnyRef]): Seq[AnyRef] = {
-    val (concatColumnOpt, zipped) = columns.head match {
-      case c: ConcatColumn => (Some(c), (columns.drop(1), result.drop(1)).zipped)
+    val (concatColumnOpt, zipped) = columns.headOption match {
+      case Some(c: ConcatColumn) => (Some(c), (columns.drop(1), result.drop(1)).zipped)
       case _ => (None, (columns, result).zipped)
     }
 
@@ -275,6 +275,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
+  // TODO should be possible to kick columns here
   private def generateFromClause(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
     s"user_table_$tableId ut LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)"
   }
