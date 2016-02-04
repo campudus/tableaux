@@ -4,8 +4,8 @@ jdk:
 sudo: false
 addons:
   postgresql: '9.4'
+install: /bin/true
 before_script:
-  - echo `free -m`
   - psql -c 'SHOW SERVER_VERSION;' -U postgres
   - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
   - ./gradlew testScoverageClasses --info --stacktrace
