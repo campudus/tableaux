@@ -130,11 +130,11 @@ class StructureController(override val config: TableauxConfig, override protecte
 
   def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean]): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"changeColumn $tableId $columnId $columnName $ordering $kind")
+    logger.info(s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier")
 
     for {
-      _ <- columnStruc.change(tableId, columnId, columnName, ordering, kind, identifier)
-      column <- retrieveColumn(tableId, columnId)
+      table <- tableStruc.retrieve(tableId)
+      column <- columnStruc.change(table, columnId, columnName, ordering, kind, identifier)
     } yield column
   }
 }
