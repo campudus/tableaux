@@ -66,6 +66,16 @@ checkScoverage {
     minimumRate = 0.85
 }
 
+test {
+    maxHeapSize = "512m"
+    jvmArgs "-Xmx512m"
+}
+
+testScoverage {
+    maxHeapSize = "512m"
+    jvmArgs "-Xmx512m"
+}
+
 run {
     args = [
             "run",
