@@ -5,13 +5,13 @@ sudo: false
 addons:
   postgresql: '9.4'
 before_script:
-  - sudo service cassandra stop
-  - sudo service mysql stop
-  - sudo service memcached stop
+  - echo `free -m`
   - psql -c 'SHOW SERVER_VERSION;' -U postgres
   - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
   - ./gradlew testScoverageClasses --info --stacktrace
 script:
+  - export GRADLE_OPTS="-Xmx500m"
+  - export JAVA_OPTS="-Xmx500m"
   - ./gradlew checkScoverage --info --stacktrace
 after_success:
   - ./gradlew reportScoverage coveralls --info --stacktrace
