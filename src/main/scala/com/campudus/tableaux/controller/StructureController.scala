@@ -39,10 +39,12 @@ class StructureController(override val config: TableauxConfig, override protecte
 
     for {
       table <- retrieveTable(tableId)
-      columns <- columnStruc.createColumns(table, columns)
+      created <- columnStruc.createColumns(table, columns)
+      retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
+      sorted = retrieved.sortBy(_.ordering)
     } yield {
       logger.info(s"$columns")
-      ColumnSeq(columns.sortBy(_.ordering))
+      ColumnSeq(sorted)
     }
   }
 
@@ -70,7 +72,10 @@ class StructureController(override val config: TableauxConfig, override protecte
     checkArguments(notNull(tableName, "tableName"))
     logger.info(s"createTable $tableName")
 
-    tableStruc.create(tableName, hidden.getOrElse(false))
+    for {
+      created <- tableStruc.create(tableName, hidden.getOrElse(false))
+      retrieved <- tableStruc.retrieve(created.id)
+    } yield retrieved
   }
 
   def deleteTable(tableId: TableId): Future[EmptyObject] = {
@@ -134,7 +139,8 @@ class StructureController(override val config: TableauxConfig, override protecte
 
     for {
       table <- tableStruc.retrieve(tableId)
-      column <- columnStruc.change(table, columnId, columnName, ordering, kind, identifier)
+      changed <- columnStruc.change(table, columnId, columnName, ordering, kind, identifier)
+      column <- columnStruc.retrieve(changed.table, changed.id)
     } yield column
   }
 }

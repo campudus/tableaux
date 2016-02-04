@@ -80,8 +80,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         } else {
           controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), Seq())
         }
-        pulled <- controller.retrieveCompleteTable(completeTable.table.id)
-      } yield pulled
+      } yield completeTable
     }
 
     /**
@@ -99,21 +98,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           case _: NoJsonFoundException => None
         }
         result <- controller.createRow(tableId.toLong, optionalValues)
-        rowOrRows = result match {
-          case Left(rows) => rows
-          case Right(row) => row
-        }
-      } yield rowOrRows
+      } yield result
     }
 
     /**
       * Duplicate Row
       */
     case Post(RowDuplicate(tableId, rowId)) => asyncGetReply {
-      for {
-        duplicated <- controller.duplicateRow(tableId.toLong, rowId.toLong)
-        retrieved <- controller.retrieveRow(duplicated.table.id, duplicated.id)
-      } yield retrieved
+      controller.duplicateRow(tableId.toLong, rowId.toLong)
     }
 
     /**
@@ -123,8 +115,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       for {
         json <- getJson(context)
         filled <- controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-        cell <- controller.retrieveCell(tableId.toLong, filled.column.id, filled.rowId)
-      } yield cell
+      } yield filled
     }
 
     /**
@@ -134,8 +125,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       for {
         json <- getJson(context)
         updated <- controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-        cell <- controller.retrieveCell(tableId.toLong, updated.column.id, updated.rowId)
-      } yield cell
+      } yield updated
     }
 
     /**
@@ -145,8 +135,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       for {
         json <- getJson(context)
         updated <- controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-        cell <- controller.retrieveCell(tableId.toLong, updated.column.id, updated.rowId)
-      } yield cell
+      } yield updated
     }
 
     /**
