@@ -9,6 +9,7 @@ before_script:
   - psql -c 'SHOW SERVER_VERSION;' -U postgres
   - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
   - ./gradlew testScoverageClasses --info --stacktrace
+  - free -m
 script:
   - export GRADLE_OPTS="-Xmx500m"
   - export JAVA_OPTS="-Xmx500m"
