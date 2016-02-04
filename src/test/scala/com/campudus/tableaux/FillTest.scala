@@ -21,8 +21,6 @@ class FillTest extends TableauxTestBase {
   def fillSingleCellWithNull(implicit c: TestContext): Unit = okTest {
     val fillStringCellJson = Json.obj("value" -> null)
 
-    val expectedJson = Json.obj("status" -> "ok")
-
     val expectedCell = Json.obj("status" -> "ok", "value" -> null)
 
     for {
@@ -32,7 +30,7 @@ class FillTest extends TableauxTestBase {
       fillResult <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson)
       cellResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedJson, fillResult)
+      assertEquals(expectedCell, fillResult)
       assertEquals(expectedCell, cellResult)
     }
   }
@@ -41,8 +39,7 @@ class FillTest extends TableauxTestBase {
   def fillSingleStringCell(implicit c: TestContext): Unit = okTest {
     val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
 
-    val expectedJson = Json.obj("status" -> "ok")
-    val expectedGet = Json.obj("status" -> "ok", "value" -> "Test Fill 1")
+    val expectedCell = Json.obj("status" -> "ok", "value" -> "Test Fill 1")
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -51,8 +48,8 @@ class FillTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedGet, getResult)
+      assertEquals(expectedCell, test)
+      assertEquals(expectedCell, getResult)
     }
   }
 
@@ -60,8 +57,7 @@ class FillTest extends TableauxTestBase {
   def fillSingleNumberCell(implicit c: TestContext): Unit = okTest {
     val fillNumberCellJson = Json.obj("value" -> 101)
 
-    val expectedJson = Json.obj("status" -> "ok")
-    val expectedGet = Json.obj("status" -> "ok", "value" -> 101)
+    val expectedCell = Json.obj("status" -> "ok", "value" -> 101)
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -70,8 +66,8 @@ class FillTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillNumberCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedGet, getResult)
+      assertEquals(expectedCell, test)
+      assertEquals(expectedCell, getResult)
     }
   }
 
@@ -100,8 +96,7 @@ class FillTest extends TableauxTestBase {
   def fillSingleBooleanCell(implicit c: TestContext): Unit = okTest {
     val fillBooleanCellJson = Json.obj("value" -> true)
 
-    val expectedJson = Json.obj("status" -> "ok")
-    val expectedGet = Json.obj("status" -> "ok", "value" -> true)
+    val expectedCell = Json.obj("status" -> "ok", "value" -> true)
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -110,15 +105,14 @@ class FillTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillBooleanCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedGet, getResult)
+      assertEquals(expectedCell, test)
+      assertEquals(expectedCell, getResult)
     }
   }
 
   @Test
   def fillDateCell(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok")
-    val expectedGet = Json.obj("status" -> "ok", "value" -> "2015-01-01")
+    val expectedCell = Json.obj("status" -> "ok", "value" -> "2015-01-01")
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -127,15 +121,14 @@ class FillTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> "2015-01-01"))
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedGet, getResult)
+      assertEquals(expectedCell, test)
+      assertEquals(expectedCell, getResult)
     }
   }
 
   @Test
   def fillDateTimeCell(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok")
-    val expectedGet = Json.obj("status" -> "ok", "value" -> "2015-01-01T13:37:47.111Z")
+    val expectedCell = Json.obj("status" -> "ok", "value" -> "2015-01-01T13:37:47.111Z")
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -144,8 +137,8 @@ class FillTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> "2015-01-01T14:37:47.111+01"))
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedGet, getResult)
+      assertEquals(expectedCell, test)
+      assertEquals(expectedCell, getResult)
     }
   }
 
@@ -154,10 +147,8 @@ class FillTest extends TableauxTestBase {
     val fillNumberCellJson = Json.obj("value" -> 101)
     val fillStringCellJson = Json.obj("value" -> "Test Fill 1")
 
-    val expectedJson = Json.obj("status" -> "ok")
-    val expectedJson2 = Json.obj("status" -> "ok")
-    val expectedGet1 = Json.obj("status" -> "ok", "value" -> 101)
-    val expectedGet2 = Json.obj("status" -> "ok", "value" -> "Test Fill 1")
+    val expectedCell1 = Json.obj("status" -> "ok", "value" -> 101)
+    val expectedCell2 = Json.obj("status" -> "ok", "value" -> "Test Fill 1")
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -169,10 +160,10 @@ class FillTest extends TableauxTestBase {
       getResult1 <- sendRequest("GET", "/tables/1/columns/1/rows/1")
       getResult2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
     } yield {
-      assertEquals(expectedJson, test1)
-      assertEquals(expectedJson2, test2)
-      assertEquals(expectedGet1, getResult1)
-      assertEquals(expectedGet2, getResult2)
+      assertEquals(expectedCell1, test1)
+      assertEquals(expectedCell2, test2)
+      assertEquals(expectedCell1, getResult1)
+      assertEquals(expectedCell2, getResult2)
     }
   }
 }

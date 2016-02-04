@@ -292,12 +292,12 @@ class MediaTest extends TableauxTestBase {
     } yield {
       assertEquals(putOne.getObject("title").mergeIn(putTwo.getObject("title")), fileRequested.getObject("title"))
 
-      assertTrue(!file.getObject("url").containsField("en_GB"))
+      assertFalse(file.getObject("url").containsField("en_GB"))
       assertTrue(fileReplaced.getObject("url").containsField("en_GB") && fileReplaced.getObject("url").getString("en_GB") != null)
 
       assertNotSame(fileReplaced.getObject("internalName").getString("de_DE"), fileReplaced2.getObject("internalName").getString("de_DE"))
 
-      assertTrue(!deletedEnGB.getObject("internalName").containsField("en_GB"))
+      assertFalse(deletedEnGB.getObject("internalName").containsField("en_GB"))
     }
   }
 
@@ -407,7 +407,13 @@ class MediaTest extends TableauxTestBase {
 
   @Test
   def createAttachmentColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 3, "ordering" -> 3)))
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj(
+      "id" -> 3,
+      "ordering" -> 3,
+      "name" -> "Downloads",
+      "kind" -> "attachment",
+      "multilanguage" -> false,
+      "identifier" -> false)))
 
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
@@ -455,7 +461,18 @@ class MediaTest extends TableauxTestBase {
     } yield {
       assertEquals(3, columnId)
 
-      assertEquals(Json.obj("status" -> "ok"), resultFill)
+      val uuid = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
+      assertNotNull(uuid)
+      assertShallowContains(Json.obj(
+        "ordering" -> 1,
+        "folder" -> null,
+        "uuid" -> uuid,
+        "title" -> Json.obj("de_DE" -> "Test PDF"),
+        "url" -> Json.obj("de_DE" -> s"/files/$uuid/de_DE/Scr%24en+Shot.pdf"),
+        "description" -> Json.obj("de_DE" -> "A description about that PDF."),
+        "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
+        "mimeType" -> Json.obj("de_DE" -> "application/pdf")),
+        resultFill.getJsonArray("value").getJsonObject(0))
 
       assertEquals(fileUuid, resultRetrieve.getArray("value").get[JsonObject](0).getString("uuid"))
     }
@@ -517,23 +534,37 @@ class MediaTest extends TableauxTestBase {
     } yield {
       assertEquals(3, columnId)
 
-      assertEquals(Json.obj("status" -> "ok"), resultFill)
+      val uuid1 = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
+      assertNotNull(uuid1)
+      assertShallowContains(Json.obj(
+        "ordering" -> 1,
+        "folder" -> null,
+        "uuid" -> uuid1,
+        "title" -> Json.obj("de_DE" -> "Test PDF"),
+        "url" -> Json.obj("de_DE" -> s"/files/$uuid1/de_DE/Scr%24en+Shot.pdf"),
+        "description" -> Json.obj("de_DE" -> "A description about that PDF."),
+        "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
+        "mimeType" -> Json.obj("de_DE" -> "application/pdf")),
+        resultFill.getJsonArray("value").getJsonObject(0))
 
-      assertEquals(fileUuid1, resultRetrieve.getArray("values").get[JsonArray](columnId - 1).get[JsonObject](0).getString("uuid"))
+      assertEquals(fileUuid1, resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1).getJsonObject(0).getString("uuid"))
+      assertEquals(resultFill.getJsonArray("value"), resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1))
 
-      assertEquals(Json.obj("status" -> "ok"), resultReplace)
+      assertNotSame(resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1), resultReplace.getJsonArray("value"))
+      assertNotSame(uuid1, resultReplace.getJsonArray("value").getJsonObject(0).getString("uuid"))
 
-      assertEquals(fileUuid3, resultRetrieveAfterReplace.getArray("value").get[JsonObject](0).getString("uuid"))
-      assertEquals(fileUuid2, resultRetrieveAfterReplace.getArray("value").get[JsonObject](1).getString("uuid"))
+      assertEquals(resultReplace, resultRetrieveAfterReplace)
+      assertEquals(fileUuid3, resultRetrieveAfterReplace.getJsonArray("value").getJsonObject(0).getString("uuid"))
+      assertEquals(fileUuid2, resultRetrieveAfterReplace.getJsonArray("value").getJsonObject(1).getString("uuid"))
 
-      assertEquals(Json.obj("status" -> "ok"), resultReplaceWithoutOrder)
+      assertEquals(resultReplaceWithoutOrder, resultRetrieveAfterReplaceWithoutOrder)
 
-      assertEquals(fileUuid2, resultRetrieveAfterReplaceWithoutOrder.getArray("value").get[JsonObject](0).getString("uuid"))
-      assertEquals(fileUuid3, resultRetrieveAfterReplaceWithoutOrder.getArray("value").get[JsonObject](1).getString("uuid"))
+      assertEquals(fileUuid2, resultRetrieveAfterReplaceWithoutOrder.getJsonArray("value").getJsonObject(0).getString("uuid"))
+      assertEquals(fileUuid3, resultRetrieveAfterReplaceWithoutOrder.getJsonArray("value").getJsonObject(1).getString("uuid"))
 
-      assertEquals(Json.obj("status" -> "ok"), resultReplaceEmpty)
-
-      assertEquals(0, resultRetrieveAfterReplaceEmpty.getArray("value").size())
+      assertEquals("ok", resultReplaceEmpty.getString("status"))
+      assertEquals(0, resultRetrieveAfterReplaceEmpty.getJsonArray("value").size())
+      assertEquals(resultReplaceEmpty, resultRetrieveAfterReplaceEmpty)
     }
   }
 
@@ -607,8 +638,27 @@ class MediaTest extends TableauxTestBase {
     } yield {
       assertEquals(3, columnId)
 
-      assertEquals(Json.obj("status" -> "ok"), resultFill1)
-      assertEquals(Json.obj("status" -> "ok"), resultFill2)
+      val uuid1 = resultFill1.getJsonArray("value").getJsonObject(0).getString("uuid")
+      val uuid2 = resultFill2.getJsonArray("value").getJsonObject(0).getString("uuid")
+      assertShallowContains(Json.obj(
+        "ordering" -> 1,
+        "folder" -> null,
+        "uuid" -> uuid1,
+        "title" -> Json.obj("de_DE" -> "Test PDF"),
+        "url" -> Json.obj("de_DE" -> s"/files/$uuid1/de_DE/Scr%24en+Shot.pdf"),
+        "description" -> Json.obj("de_DE" -> "A description about that PDF."),
+        "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
+        "mimeType" -> Json.obj("de_DE" -> "application/pdf")),
+        resultFill1.getJsonArray("value").getJsonObject(0))
+      assertShallowContains(Json.obj(
+        "folder" -> null,
+        "uuid" -> uuid2,
+        "title" -> Json.obj("de_DE" -> "Test PDF"),
+        "url" -> Json.obj("de_DE" -> s"/files/$uuid2/de_DE/Scr%24en+Shot.pdf"),
+        "description" -> Json.obj("de_DE" -> "A description about that PDF."),
+        "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
+        "mimeType" -> Json.obj("de_DE" -> "application/pdf")),
+        resultFill2.getJsonArray("value").getJsonObject(0))
 
       assertEquals(fileUuid1, resultRetrieveFill.getArray("value").get[JsonObject](0).getString("uuid"))
       assertEquals(fileUuid2, resultRetrieveFill.getArray("value").get[JsonObject](1).getString("uuid"))

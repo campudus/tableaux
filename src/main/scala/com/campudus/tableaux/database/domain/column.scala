@@ -31,8 +31,6 @@ sealed trait ColumnType[+A] extends DomainObject {
     "identifier" -> identifier
   )
 
-  override def setJson: JsonObject = Json.obj("id" -> id, "ordering" -> ordering)
-
   def checkValidValue[B](value: B): Option[String] = if (value == null) None else kind.checkValidValue(value)
 }
 
@@ -151,6 +149,4 @@ case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]])
   */
 case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
   override def getJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
-
-  override def setJson: JsonObject = Json.obj("columns" -> columns.map(_.setJson))
 }

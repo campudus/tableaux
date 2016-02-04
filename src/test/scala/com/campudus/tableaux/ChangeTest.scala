@@ -14,15 +14,15 @@ class ChangeTest extends TableauxTestBase {
   @Test
   def changeTableName(implicit c: TestContext): Unit = okTest {
     val postJson = Json.obj("name" -> "New testname")
-    val expectedString = "New testname"
+    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "New testname", "hidden" -> false)
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequest("POST", "/tables/1", postJson)
+      test1 <- sendRequest("POST", "/tables/1", postJson)
       test2 <- sendRequest("GET", "/tables/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedString, test2.getString("name"))
+      assertEquals(expectedTableJson, test1)
+      assertEquals(expectedTableJson, test2)
     }
   }
 

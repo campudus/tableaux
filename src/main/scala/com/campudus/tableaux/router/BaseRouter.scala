@@ -2,7 +2,7 @@ package com.campudus.tableaux.router
 
 import com.campudus.tableaux._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType, SetReturn}
+import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
@@ -39,8 +39,6 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   override val verticle: ScalaVerticle = config.verticle
 
   type AsyncReplyFunction = (=> Future[DomainObject]) => AsyncReply
-
-  def asyncSetReply: AsyncReplyFunction = asyncReply(SetReturn)(_)
 
   def asyncGetReply: AsyncReplyFunction = asyncReply(GetReturn)(_)
 
