@@ -13,6 +13,7 @@ import scala.concurrent.Future
 import scala.util.Try
 
 object TableauxModel {
+  type LinkId = Long
   type TableId = Long
   type ColumnId = Long
   type RowId = Long
@@ -52,13 +53,15 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.tableStruc.retrieve(tableId)
   }
 
-  def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
-    structureModel.columnStruc.retrieve(tableId, columnId)
-  }
+  def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = for {
+    table <- retrieveTable(tableId)
+    column <- structureModel.columnStruc.retrieve(table, columnId)
+  } yield column
 
-  def retrieveColumns(tableId: TableId): Future[Seq[ColumnType[_]]] = {
-    structureModel.columnStruc.retrieveAll(tableId)
-  }
+  def retrieveColumns(tableId: TableId): Future[Seq[ColumnType[_]]] = for {
+    table <- retrieveTable(tableId)
+    columns <- structureModel.columnStruc.retrieveAll(table)
+  } yield columns
 
   def checkValueTypeForColumn[A](column: ColumnType[_], value: A): Future[Unit] = {
     val checked = column.checkValidValue(value)

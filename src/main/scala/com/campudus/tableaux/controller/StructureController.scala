@@ -51,7 +51,8 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"retrieveColumn $tableId $columnId")
 
     for {
-      column <- columnStruc.retrieve(tableId, columnId)
+      table <- tableStruc.retrieve(tableId)
+      column <- columnStruc.retrieve(table, columnId)
     } yield column
   }
 
@@ -60,7 +61,8 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"retrieveColumns $tableId")
 
     for {
-      columns <- columnStruc.retrieveAll(tableId)
+      table <- tableStruc.retrieve(tableId)
+      columns <- columnStruc.retrieveAll(table)
     } yield ColumnSeq(columns)
   }
 
@@ -76,12 +78,13 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"deleteTable $tableId")
 
     for {
-      columns <- columnStruc.retrieveAll(tableId)
+      table <- tableStruc.retrieve(tableId)
+      columns <- columnStruc.retrieveAll(table)
       // only delete special column before deleting table;
       // e.g. link column are based on simple columns
       _ <- Future.sequence(columns.map({
-        case column@(_: LinkColumn[_]) => columnStruc.delete(tableId, column.id)
-        case column@(_: AttachmentColumn) => columnStruc.delete(tableId, column.id)
+        case column@(_: LinkColumn[_]) => columnStruc.delete(table, column.id)
+        case column@(_: AttachmentColumn) => columnStruc.delete(table, column.id)
         case _ => Future(())
       }))
       _ <- tableStruc.delete(tableId)
@@ -93,7 +96,8 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"deleteColumn $tableId $columnId")
 
     for {
-      _ <- columnStruc.delete(tableId, columnId)
+      table <- tableStruc.retrieve(tableId)
+      _ <- columnStruc.delete(table, columnId)
     } yield EmptyObject()
   }
 

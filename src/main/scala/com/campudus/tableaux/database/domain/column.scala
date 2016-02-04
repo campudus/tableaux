@@ -112,8 +112,7 @@ case class MultiDateTimeColumn(table: Table, id: ColumnId, name: String, orderin
 /*
  * Special column types
  */
-// TODO What is linkInformation? Could be refactored into case class? Yes it can -> LeftToRight / RightToLeft case objects
-case class LinkColumn[A](table: Table, id: ColumnId, to: ValueColumn[A], linkInformation: (Long, String, String), name: String, ordering: Ordering, override val identifier: Boolean) extends ColumnType[Link[A]] {
+case class LinkColumn[A](table: Table, id: ColumnId, to: ValueColumn[A], linkId: LinkId, linkDirection: LinkDirection, name: String, ordering: Ordering, override val identifier: Boolean) extends ColumnType[Link[A]] {
   override val kind = LinkType
   override val multilanguage = to.multilanguage
 

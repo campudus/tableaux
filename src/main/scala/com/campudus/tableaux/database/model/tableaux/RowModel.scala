@@ -79,27 +79,23 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         case x: JsonObject => Seq(x.getLong("to").toLong)
         case x: JsonArray =>
           import scala.collection.JavaConverters._
-          logger.info(s"hello x JsonArray: ${x.encode()}")
           x.asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
       }
     } yield {
-      logger.info(s"link column = $column")
-      logger.info(s"toIds = $toIds")
-      val linkId = column.linkInformation._1
-      val id1 = column.linkInformation._2
-      val id2 = column.linkInformation._3
+      val linkId = column.linkId
+      val (from, to) = column.linkDirection.linkTableColumns
 
-      val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT $id1, $id2 FROM link_table_$linkId WHERE $id1 = ? AND $id2 = ?)").mkString(" UNION ")
+      val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT $from, $to FROM link_table_$linkId WHERE $from = ? AND $to = ?)").mkString(" UNION ")
       val params = toIds.flatMap(to => List(rowId, to, rowId, to))
 
       for {
         t <- connection.begin()
 
-        (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE $id1 = ?", Json.arr(rowId))
+        (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE $from = ?", Json.arr(rowId))
 
         (t, _) <- {
           if (params.nonEmpty) {
-            t.query(s"INSERT INTO link_table_$linkId($id1, $id2) $paramStr", Json.arr(params: _*))
+            t.query(s"INSERT INTO link_table_$linkId($from, $to) $paramStr", Json.arr(params: _*))
           } else {
             Future((t, Json.emptyObj()))
           }
@@ -319,7 +315,8 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         s"ut.column_${c.id}"
 
       case c: LinkColumn[_] =>
-        val (linkId, id1, id2) = c.linkInformation
+        val linkId = c.linkId
+        val (from, to) = c.linkDirection.linkTableColumns
         val toTableId = c.to.table.id
 
         val column = c.to match {
@@ -355,18 +352,18 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
             |FROM
             |(
             | SELECT
-            |   lt$linkId.$id1 AS $id1,
+            |   lt$linkId.$from AS $from,
             |   json_build_object('id', ut$toTableId.id, 'value', ${column._2}) AS column_${c.to.id}
             | FROM
             |   link_table_$linkId lt$linkId JOIN
-            |   user_table_$toTableId ut$toTableId ON (lt$linkId.$id2 = ut$toTableId.id)
+            |   user_table_$toTableId ut$toTableId ON (lt$linkId.$to = ut$toTableId.id)
             |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
             | WHERE ${column._1} IS NOT NULL
-            | GROUP BY ut$toTableId.id, lt$linkId.$id1
+            | GROUP BY ut$toTableId.id, lt$linkId.$from
             | ORDER BY ut$toTableId.id
             |) sub
-            |WHERE sub.$id1 = ut.id
-            |GROUP BY sub.$id1
+            |WHERE sub.$from = ut.id
+            |GROUP BY sub.$from
             |) AS column_${c.id}
            """.stripMargin
 

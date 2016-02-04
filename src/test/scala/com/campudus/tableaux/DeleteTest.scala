@@ -41,6 +41,8 @@ class DeleteTest extends TableauxTestBase {
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      // Create a second column because we can't delete the only and last column of a table
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
       test <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedOkJson, test)
@@ -129,6 +131,8 @@ class DeleteTest extends TableauxTestBase {
       table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
 
       _ <- sendRequest("POST", s"/tables/$table1/columns", createAttachmentColumnJson)
+      // Create a second column because we can't delete the only and last column of a table
+      _ <- sendRequest("POST", s"/tables/$table1/columns", createStringColumnJson)
 
       test <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield {

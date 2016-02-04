@@ -71,7 +71,7 @@ class FillTest extends TableauxTestBase {
     }
   }
 
-  @Ignore("Bug is in underlying driver - cannot fix here")
+  @Ignore("Bug is in underlying driver - cannot fix here https://github.com/mauricio/postgresql-async/pull/164")
   @Test
   def fillNumberCellWithFloatingNumber(implicit c: TestContext): Unit = okTest {
     val expectOk = Json.obj("status" -> "ok")

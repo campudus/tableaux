@@ -42,7 +42,25 @@ class ErrorTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteNoExistingColumn(implicit c: TestContext): Unit = exceptionTest(notFound) {
+  def deleteLastColumn(implicit c: TestContext): Unit = exceptionTest("error.database.delete-last-column") {
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("DELETE", "/tables/1/columns/1")
+    } yield ()
+  }
+
+  @Test
+  def deleteNonExistingColumn(implicit c: TestContext): Unit = exceptionTest(notFound) {
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("DELETE", "/tables/1/columns/2")
+    } yield ()
+  }
+
+  @Test
+  def deleteColumnOfTableWithoutColumns(implicit c: TestContext): Unit = exceptionTest(notFound) {
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       _ <- sendRequest("DELETE", "/tables/1/columns/1")

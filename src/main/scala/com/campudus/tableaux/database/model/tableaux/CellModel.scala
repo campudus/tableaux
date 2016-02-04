@@ -17,9 +17,8 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def updateLink(table: Table, column: LinkColumn[_], fromId: RowId, toId: RowId): Future[Unit] = {
-    val linkId = column.linkInformation._1
-    val id1 = column.linkInformation._2
-    val id2 = column.linkInformation._3
+    val linkId = column.linkId
+    val (id1, id2) = column.linkDirection.linkTableColumns
 
     for {
       _ <- connection.query(s"INSERT INTO link_table_$linkId($id1, $id2) VALUES (?, ?)", Json.arr(fromId, toId))
@@ -55,9 +54,8 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def putLinks(table: Table, column: LinkColumn[_], fromId: RowId, toIds: Seq[RowId]): Future[Unit] = {
-    val linkId = column.linkInformation._1
-    val id1 = column.linkInformation._2
-    val id2 = column.linkInformation._3
+    val linkId = column.linkId
+    val (id1, id2) = column.linkDirection.linkTableColumns
 
     val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT $id1, $id2 FROM link_table_$linkId WHERE $id1 = ? AND $id2 = ?)").mkString(" UNION ")
     val params = toIds.flatMap(to => List(fromId, to, fromId, to))
