@@ -170,7 +170,7 @@ class CreationTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
       test <- sendRequest("POST", "/tables/1/rows", valuesRow)
     } yield {
-      assertShallowContains(expectedJson, test)
+      assertContains(expectedJson, test)
     }
   }
 
@@ -347,7 +347,7 @@ class CreationTest extends TableauxTestBase {
       assertNotSame(expected.getNumber("id"), result.getNumber("id"))
       expected.remove("id")
       result.remove("id")
-      assertShallowContains(expected, result)
+      assertContains(expected, result)
     }
   }
 
@@ -364,7 +364,7 @@ class CreationTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
       test <- sendRequest("POST", "/tables/1/rows", valuesRow)
     } yield {
-      assertShallowContains(expectedJson, test)
+      assertContains(expectedJson, test)
     }
   }
 
@@ -392,7 +392,7 @@ class CreationTest extends TableauxTestBase {
     for {
       test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
-      assertShallowContains(expectedJson, test)
+      assertContains(expectedJson, test)
     }
   }
 
@@ -420,7 +420,7 @@ class CreationTest extends TableauxTestBase {
     for {
       test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
-      assertShallowContains(expectedJson, test)
+      assertContains(expectedJson, test)
     }
   }
 
@@ -442,7 +442,7 @@ class CreationTest extends TableauxTestBase {
     for {
       test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
-      assertShallowContains(expectedJson, test)
+      assertContains(expectedJson, test)
     }
   }
 
