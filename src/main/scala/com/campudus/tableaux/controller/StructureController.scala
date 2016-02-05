@@ -83,7 +83,7 @@ class StructureController(override val config: TableauxConfig, override protecte
       // only delete special column before deleting table;
       // e.g. link column are based on simple columns
       _ <- Future.sequence(columns.map({
-        case column@(_: LinkColumn[_]) => columnStruc.delete(table, column.id)
+        case column@(_: LinkColumn[_]) => columnStruc.delete(table, column.id, bothDirections = true)
         case column@(_: AttachmentColumn) => columnStruc.delete(table, column.id)
         case _ => Future(())
       }))

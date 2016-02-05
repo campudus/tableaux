@@ -286,7 +286,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield (linkId, linkDirection, toTable)
   }
 
-  def delete(table: Table, columnId: ColumnId): Future[Unit] = {
+  def delete(table: Table, columnId: ColumnId, bothDirections: Boolean = false): Future[Unit] = {
     // Retrieve all filter for columnId and check if columns is not empty
     // If columns is empty last column would be deleted => error
     for {
@@ -305,7 +305,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       _ <- {
         column match {
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
-          case c: LinkColumn[_] => deleteLink(c)
+          case c: LinkColumn[_] => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
@@ -313,17 +313,39 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  private def deleteLink(column: LinkColumn[_]): Future[Unit] = {
+  private def deleteLink(column: LinkColumn[_], bothDirections: Boolean = false): Future[Unit] = {
     for {
       t <- connection.begin()
 
       (t, result) <- t.query("SELECT link_id FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
-      linkId <- Future(selectCheckSize(result, 1).head.get[Long](0)) recoverWith t.rollbackAndFail()
+      linkId = selectCheckSize(result, 1).head.get[Long](0)
 
-      (t, result) <- t.query("DELETE FROM system_columns WHERE link_id = ?", Json.arr(linkId))
-      _ <- Future(deleteCheckSize(result, 2)) recoverWith t.rollbackAndFail()
+      (t, result) <- t.query("SELECT COUNT(*) = 1 FROM system_columns WHERE link_id = ?", Json.arr(linkId))
+      unidirectional = selectCheckSize(result, 1).head.getBoolean(0).booleanValue()
 
-      (t, _) <- t.query(s"DROP TABLE IF EXISTS link_table_$linkId")
+      (t, _) <- {
+        // We only want to delete both directions
+        // when we delete one of the two tables
+        // which are linked together.
+        // ColumnModel.deleteLink() with both = true
+        // is called by StructureController.deleteTable().
+        val deleteFuture = if (bothDirections) {
+          t.query("DELETE FROM system_columns WHERE link_id = ?", Json.arr(linkId))
+        } else {
+          t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
+        }
+
+        deleteFuture.flatMap({
+          case (t, _) =>
+            if (unidirectional || bothDirections) {
+              // drop link_table if link is unidirectional or
+              // both directions where forcefully deleted
+              t.query(s"DROP TABLE IF EXISTS link_table_$linkId")
+            } else {
+              Future.successful((t, Json.obj()))
+            }
+        })
+      }
 
       _ <- t.commit()
     } yield ()
