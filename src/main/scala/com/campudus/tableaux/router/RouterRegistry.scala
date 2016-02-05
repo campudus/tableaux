@@ -40,11 +40,11 @@ class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseR
     }) orElse noRouteFound
   }
 
-  def defaultRoutes(implicit context: RoutingContext): Routing = {
+  private def defaultRoutes(implicit context: RoutingContext): Routing = {
     case Get("/") | Get("/index.html") => SendEmbeddedFile("/index.html")
   }
 
-  def noRouteFound(implicit context: RoutingContext): Routing = {
+  private def noRouteFound(implicit context: RoutingContext): Routing = {
     case _ => Error(RouterException(message = s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}", id = "NOT FOUND", statusCode = 404))
   }
 }

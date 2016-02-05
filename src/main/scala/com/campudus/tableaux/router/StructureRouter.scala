@@ -26,18 +26,34 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   private val TableOrder: Regex = "/tables/(\\d+)/order".r
 
   override def routes(implicit context: RoutingContext): Routing = {
-    case Get(Tables()) => asyncGetReply(controller.retrieveTables())
-    case Get(Table(tableId)) => asyncGetReply(controller.retrieveTable(tableId.toLong))
+
+    /**
+      * Get tables
+      */
+    case Get(Tables()) => asyncGetReply {
+      controller.retrieveTables()
+    }
+
+    /**
+      * Get table
+      */
+    case Get(Table(tableId)) => asyncGetReply {
+      controller.retrieveTable(tableId.toLong)
+    }
 
     /**
       * Get columns
       */
-    case Get(Columns(tableId)) => asyncGetReply(controller.retrieveColumns(tableId.toLong))
+    case Get(Columns(tableId)) => asyncGetReply {
+      controller.retrieveColumns(tableId.toLong)
+    }
 
     /**
       * Get columns
       */
-    case Get(Column(tableId, columnId)) => asyncGetReply(controller.retrieveColumn(tableId.toLong, columnId.toLong))
+    case Get(Column(tableId, columnId)) => asyncGetReply {
+      controller.retrieveColumn(tableId.toLong, columnId.toLong)
+    }
 
     /**
       * Create Table
@@ -93,11 +109,16 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     /**
       * Delete Table
       */
-    case Delete(Table(tableId)) => asyncEmptyReply(controller.deleteTable(tableId.toLong))
+    case Delete(Table(tableId)) => asyncEmptyReply {
+      controller.deleteTable(tableId.toLong)
+    }
 
     /**
       * Delete Column
       */
-    case Delete(Column(tableId, columnId)) => asyncEmptyReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
+    case Delete(Column(tableId, columnId)) => asyncEmptyReply {
+      controller.deleteColumn(tableId.toLong, columnId.toLong)
+    }
   }
+
 }
