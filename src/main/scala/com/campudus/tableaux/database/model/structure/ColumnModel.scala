@@ -39,7 +39,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         toTable <- tableStruc.retrieve(toTableId)
         toCol <- retrieveAll(toTable).map(_.head.asInstanceOf[ValueColumn[_]])
         (linkId, id, ordering) <- createLinkColumn(table, name, toName, toTableId, orderingOpt, singleDirection, identifier)
-      } yield LinkColumn(table, id, toCol, linkId, LeftToRight, name, ordering, identifier)
+      } yield LinkColumn(table, id, toCol, linkId, LeftToRight(table.id, toTableId), name, ordering, identifier)
 
       case CreateAttachmentColumn(name, orderingOpt, identifier) =>
         createAttachmentColumn(table.id, name, orderingOpt, identifier).map {
@@ -271,7 +271,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           |    WHERE table_id = ? AND column_id = ?
           |)""".stripMargin, Json.arr(fromTable.id, columnId))
 
-      (linkId, (linkDirection, toTableId)) = {
+      (linkId, linkDirection) = {
         val res = selectNotNull(result).head
 
         val table1 = res.getLong(0).toLong
@@ -281,7 +281,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (linkId, LinkDirection(fromTable.id, table1, table2))
       }
 
-      toTable <- tableStruc.retrieve(toTableId)
+      toTable <- tableStruc.retrieve(linkDirection.to)
 
     } yield (linkId, linkDirection, toTable)
   }

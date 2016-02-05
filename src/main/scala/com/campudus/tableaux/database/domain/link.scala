@@ -8,12 +8,21 @@ case class Link[A](id: RowId, value: A) extends DomainObject {
 }
 
 object LinkDirection {
-  def apply(fromTableId: TableId, tableId1: TableId, tableId2: TableId): (LinkDirection, TableId) = {
+  /**
+    * Depending on the point of view, the link may be in different directions (left-to-right or right-to-left). This
+    * method retrieves the correct link direction which can be used to get SQL and the correct table ids.
+    *
+    * @param fromTableId The table that was used to start from.
+    * @param tableId1 The table we found in the database in column 1.
+    * @param tableId2 The table we found in the database in column 2.
+    * @return The correct link direction with the respective values.
+    */
+  def apply(fromTableId: TableId, tableId1: TableId, tableId2: TableId): LinkDirection = {
     // we need this because links can go both ways
     if (fromTableId == tableId1) {
-      (LeftToRight, tableId2)
+      LeftToRight(tableId1, tableId2)
     } else {
-      (RightToLeft, tableId1)
+      RightToLeft(tableId2, tableId1)
     }
   }
 }
@@ -25,21 +34,23 @@ object LinkDirection {
   * More less it depends on the point of view.
   **/
 sealed trait LinkDirection {
-  def fromLinkColumn: String
+  val from: Long
 
-  def toLinkColumn: String
+  val to: Long
 
-  def linkTableColumns: (String, String) = (fromLinkColumn, toLinkColumn)
+  def fromSql: String
+
+  def toSql: String
 }
 
-case object LeftToRight extends LinkDirection {
-  override def fromLinkColumn: String = "id_1"
+case class LeftToRight(from: Long, to: Long) extends LinkDirection {
+  override def fromSql: String = "id_1"
 
-  override def toLinkColumn: String = "id_2"
+  override def toSql: String = "id_2"
 }
 
-case object RightToLeft extends LinkDirection {
-  override def fromLinkColumn: String = "id_2"
+case class RightToLeft(from: Long, to: Long) extends LinkDirection {
+  override def fromSql: String = "id_2"
 
-  override def toLinkColumn: String = "id_1"
+  override def toSql: String = "id_1"
 }
