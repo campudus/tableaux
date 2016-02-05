@@ -83,19 +83,19 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
       }
     } yield {
       val linkId = column.linkId
-      val (from, to) = column.linkDirection.linkTableColumns
+      val direction = column.linkDirection
 
-      val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT $from, $to FROM link_table_$linkId WHERE $from = ? AND $to = ?)").mkString(" UNION ")
+      val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
       val params = toIds.flatMap(to => List(rowId, to, rowId, to))
 
       for {
         t <- connection.begin()
 
-        (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE $from = ?", Json.arr(rowId))
+        (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
 
         (t, _) <- {
           if (params.nonEmpty) {
-            t.query(s"INSERT INTO link_table_$linkId($from, $to) $paramStr", Json.arr(params: _*))
+            t.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}) $paramStr", Json.arr(params: _*))
           } else {
             Future((t, Json.emptyObj()))
           }
@@ -316,7 +316,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       case c: LinkColumn[_] =>
         val linkId = c.linkId
-        val (from, to) = c.linkDirection.linkTableColumns
+        val direction = c.linkDirection
         val toTableId = c.to.table.id
 
         val column = c.to match {
@@ -352,18 +352,18 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
             |FROM
             |(
             | SELECT
-            |   lt$linkId.$from AS $from,
+            |   lt$linkId.${direction.fromSql} AS ${direction.fromSql},
             |   json_build_object('id', ut$toTableId.id, 'value', ${column._2}) AS column_${c.to.id}
             | FROM
             |   link_table_$linkId lt$linkId JOIN
-            |   user_table_$toTableId ut$toTableId ON (lt$linkId.$to = ut$toTableId.id)
+            |   user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
             |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
             | WHERE ${column._1} IS NOT NULL
-            | GROUP BY ut$toTableId.id, lt$linkId.$from
+            | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}
             | ORDER BY ut$toTableId.id
             |) sub
-            |WHERE sub.$from = ut.id
-            |GROUP BY sub.$from
+            |WHERE sub.${direction.fromSql} = ut.id
+            |GROUP BY sub.${direction.fromSql}
             |) AS column_${c.id}
            """.stripMargin
 
