@@ -85,13 +85,18 @@ class StructureController(override val config: TableauxConfig, override protecte
     for {
       table <- tableStruc.retrieve(tableId)
       columns <- columnStruc.retrieveAll(table)
+
       // only delete special column before deleting table;
       // e.g. link column are based on simple columns
-      _ <- Future.sequence(columns.map({
-        case column@(_: LinkColumn[_]) => columnStruc.delete(table, column.id, bothDirections = true)
-        case column@(_: AttachmentColumn) => columnStruc.delete(table, column.id)
-        case _ => Future(())
-      }))
+      _ <- columns.foldLeft(Future.successful(())) {
+        case (future, column: LinkColumn[_]) =>
+          future.flatMap(_ => columnStruc.deleteLinkBothDirections(table, column.id))
+        case (future, column: AttachmentColumn) =>
+          future.flatMap(_ => columnStruc.delete(table, column.id))
+        case (future, _) =>
+          future.flatMap(_ => Future.successful(()))
+      }
+
       _ <- tableStruc.delete(tableId)
     } yield EmptyObject()
   }

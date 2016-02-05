@@ -1,5 +1,7 @@
 package com.campudus.tableaux.database.model.structure
 
+import java.util.NoSuchElementException
+
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -286,17 +288,25 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield (linkId, linkDirection, toTable)
   }
 
-  def delete(table: Table, columnId: ColumnId, bothDirections: Boolean = false): Future[Unit] = {
+  def deleteLinkBothDirections(table: Table, columnId: ColumnId): Future[Unit] = delete(table, columnId, bothDirections = true)
+
+  def delete(table: Table, columnId: ColumnId): Future[Unit] = delete(table, columnId, bothDirections = false)
+
+  private def delete(table: Table, columnId: ColumnId, bothDirections: Boolean): Future[Unit] = {
     // Retrieve all filter for columnId and check if columns is not empty
     // If columns is empty last column would be deleted => error
     for {
       columns <- retrieveAll(table)
         .filter(_.nonEmpty)
-        .recoverWith({ case _ => Future.failed(NotFoundInDatabaseException("No column found at all", "no-column-found")) })
+        .recoverWith({
+          case _: NoSuchElementException => Future.failed(NotFoundInDatabaseException("No column found at all", "no-column-found"))
+        })
 
       _ <- Future.successful(columns)
         .filter(!_.forall(_.id == columnId))
-        .recoverWith({ case _ => Future.failed(DatabaseException("Last column can't be deleted", "delete-last-column")) })
+        .recoverWith({
+          case _: NoSuchElementException => Future.failed(DatabaseException("Last column can't be deleted", "delete-last-column"))
+        })
 
       column = columns
         .find(_.id == columnId)
@@ -313,7 +323,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  private def deleteLink(column: LinkColumn[_], bothDirections: Boolean = false): Future[Unit] = {
+  private def deleteLink(column: LinkColumn[_], bothDirections: Boolean): Future[Unit] = {
     for {
       t <- connection.begin()
 
