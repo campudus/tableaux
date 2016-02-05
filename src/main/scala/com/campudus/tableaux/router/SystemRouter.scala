@@ -17,11 +17,7 @@ object SystemRouter {
     new SystemRouter(config, controllerCurry(config))
   }
 
-  def retrieveNonce(): Option[String] = {
-    Try(nonce).toOption.flatMap {
-      Option(_)
-    }
-  }
+  def retrieveNonce(): Option[String] = Option(nonce)
 
   def generateNonce(): String = {
     nonce = UUID.randomUUID().toString
@@ -32,21 +28,37 @@ object SystemRouter {
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
   override def routes(implicit context: RoutingContext): Routing = {
+
+    /**
+      * Resets the database (needs nonce)
+      */
     case Post("/reset") => asyncGetReply {
       for {
         _ <- Future(checkNonce)
         result <- controller.resetDB()
       } yield result
     }
+
+    /**
+      * Create the demo tables (needs nonce)
+      */
     case Post("/resetDemo") => asyncGetReply {
       for {
         _ <- Future(checkNonce)
         result <- controller.createDemoTables()
       } yield result
     }
+
+    /**
+      * Get the current version
+      */
     case Get("/system/versions") => asyncGetReply {
       controller.retrieveVersions()
     }
+
+    /**
+      * Update the database (needs POST and nonce)
+      */
     case Post("/system/update") => asyncGetReply {
       for {
         _ <- Future(checkNonce)
@@ -55,7 +67,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     }
   }
 
-  def checkNonce(implicit context: RoutingContext): Unit = {
+  private def checkNonce(implicit context: RoutingContext): Unit = {
     val requestNonce = getStringParam("nonce", context)
 
     if (SystemRouter.retrieveNonce().isEmpty) {

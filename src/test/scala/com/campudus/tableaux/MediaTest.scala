@@ -463,7 +463,7 @@ class MediaTest extends TableauxTestBase {
 
       val uuid = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
       assertNotNull(uuid)
-      assertShallowContains(Json.obj(
+      assertContains(Json.obj(
         "ordering" -> 1,
         "folder" -> null,
         "uuid" -> uuid,
@@ -536,7 +536,7 @@ class MediaTest extends TableauxTestBase {
 
       val uuid1 = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
       assertNotNull(uuid1)
-      assertShallowContains(Json.obj(
+      assertContains(Json.obj(
         "ordering" -> 1,
         "folder" -> null,
         "uuid" -> uuid1,
@@ -640,7 +640,7 @@ class MediaTest extends TableauxTestBase {
 
       val uuid1 = resultFill1.getJsonArray("value").getJsonObject(0).getString("uuid")
       val uuid2 = resultFill2.getJsonArray("value").getJsonObject(0).getString("uuid")
-      assertShallowContains(Json.obj(
+      assertContains(Json.obj(
         "ordering" -> 1,
         "folder" -> null,
         "uuid" -> uuid1,
@@ -650,7 +650,7 @@ class MediaTest extends TableauxTestBase {
         "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
         "mimeType" -> Json.obj("de_DE" -> "application/pdf")),
         resultFill1.getJsonArray("value").getJsonObject(0))
-      assertShallowContains(Json.obj(
+      assertContains(Json.obj(
         "folder" -> null,
         "uuid" -> uuid2,
         "title" -> Json.obj("de_DE" -> "Test PDF"),

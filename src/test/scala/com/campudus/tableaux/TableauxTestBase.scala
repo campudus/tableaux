@@ -40,7 +40,7 @@ trait TestAssertionHelper {
     c.assertEquals(excepted, actual)
   }
 
-  def assertShallowContains(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
+  def assertContains(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
     import scala.collection.JavaConverters._
     expected.fieldNames().asScala.map(key => c.assertEquals(expected.getValue(key), actual.getValue(key)))
     c

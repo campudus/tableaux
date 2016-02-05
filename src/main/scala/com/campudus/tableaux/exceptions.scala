@@ -15,8 +15,9 @@ case class NoJsonFoundException(override val message: String) extends CustomExce
   override val statusCode = 400
 }
 
-case class NotFoundInDatabaseException(override val message: String, subId: String) extends CustomException {
+case class NotFoundInDatabaseException(msg: String, subId: String) extends CustomException {
   override val id = s"error.database.notfound.$subId"
+  override val message = s"$id: $msg"
   override val statusCode = 404
 }
 

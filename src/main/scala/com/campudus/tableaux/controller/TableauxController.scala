@@ -18,23 +18,26 @@ object TableauxController {
 
 class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel) extends Controller[TableauxModel] {
 
-  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[Either[RowSeq, Row]] = {
+  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {
     values match {
       case Some(seq) =>
         checkArguments(greaterZero(tableId), nonEmpty(seq, "rows"))
         logger.info(s"createRows $tableId $values")
-        repository.createRows(tableId, seq).map(Left.apply)
+        repository.createRows(tableId, seq)
       case None =>
         checkArguments(greaterZero(tableId))
         logger.info(s"createRow $tableId")
-        repository.createRow(tableId).map(Right.apply)
+        repository.createRow(tableId)
     }
   }
 
   def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")
-    repository.duplicateRow(tableId, rowId)
+    for {
+      duplicated <- repository.duplicateRow(tableId, rowId)
+      retrieved <- repository.retrieveRow(duplicated.table.id, duplicated.id)
+    } yield retrieved
   }
 
   def retrieveRow(tableId: TableId, rowId: RowId): Future[Row] = {
@@ -78,13 +81,19 @@ class TableauxController(override val config: TableauxConfig, override protected
   def fillCell[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"fillCell $tableId $columnId $rowId $value")
-    repository.insertValue(tableId, columnId, rowId, value)
+    for {
+      filled <- repository.insertValue(tableId, columnId, rowId, value)
+      retrieved <- repository.retrieveCell(tableId, filled.column.id, filled.rowId)
+    } yield retrieved
   }
 
   def updateCell[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"updateCell $tableId $columnId $rowId $value")
-    repository.updateValue(tableId, columnId, rowId, value)
+    for {
+      updated <- repository.updateValue(tableId, columnId, rowId, value)
+      retrieved <- repository.retrieveCell(tableId, updated.column.id, updated.rowId)
+    } yield retrieved
   }
 
   def deleteAttachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: String): Future[EmptyObject] = {

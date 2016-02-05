@@ -6,6 +6,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
+import scala.concurrent.Future
+
 @RunWith(classOf[VertxUnitRunner])
 class DeleteTest extends TableauxTestBase {
 
@@ -41,6 +43,8 @@ class DeleteTest extends TableauxTestBase {
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      // Create a second column because we can't delete the only and last column of a table
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
       test <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedOkJson, test)
@@ -70,6 +74,8 @@ class DeleteTest extends TableauxTestBase {
       )
     )
 
+    val failed = Json.obj("failed" -> "failed")
+
     for {
       table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
       table2 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
@@ -79,10 +85,17 @@ class DeleteTest extends TableauxTestBase {
 
       _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
 
-      test <- sendRequest("DELETE", "/tables/1")
+      deleteResult <- sendRequest("DELETE", "/tables/1")
+
+      table2Result <- sendRequest("GET", "/tables/2/columns")
+
+      table1Result <- sendRequest("GET", "/tables/1").recoverWith({ case _ => Future.successful(failed) })
     } yield {
-      assertEquals(expectedOkJson, test)
-      // TODO check 404 at GET /tables/1 and check link is gone in /tables/2
+      assertEquals(expectedOkJson, deleteResult)
+      // Check if back-link from Table 2 is Table 1 was deleted
+      assertEquals(1, table2Result.getJsonArray("columns").size())
+      // Table 1 is already gone
+      assertEquals(failed, table1Result)
     }
   }
 
@@ -107,10 +120,22 @@ class DeleteTest extends TableauxTestBase {
 
       _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
 
-      test <- sendRequest("DELETE", "/tables/1/columns/2")
+      deleteResult <- sendRequest("DELETE", "/tables/1/columns/2")
+
+      table1Columns <- sendRequest("GET", "/tables/1/columns")
+      table2Columns <- sendRequest("GET", "/tables/2/columns")
     } yield {
-      assertEquals(expectedOkJson, test)
-      // TODO check GET /tables/1/columns/2 for 404 and GET /tables/2/columns/2 is still there (bidirectional link)
+      assertEquals(expectedOkJson, deleteResult)
+
+      assertEquals(1, table1Columns.getJsonArray("columns").size())
+      assertEquals(2, table2Columns.getJsonArray("columns").size())
+
+      val backlink = Json.obj(
+        "kind" -> "link",
+        "toTable" -> 1
+      )
+
+      assertContains(backlink, table2Columns.getJsonArray("columns").getJsonObject(1))
     }
   }
 
@@ -129,6 +154,8 @@ class DeleteTest extends TableauxTestBase {
       table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
 
       _ <- sendRequest("POST", s"/tables/$table1/columns", createAttachmentColumnJson)
+      // Create a second column because we can't delete the only and last column of a table
+      _ <- sendRequest("POST", s"/tables/$table1/columns", createStringColumnJson)
 
       test <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield {

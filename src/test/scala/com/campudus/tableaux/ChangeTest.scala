@@ -6,6 +6,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
+import scala.concurrent.Future
+
 @RunWith(classOf[VertxUnitRunner])
 class ChangeTest extends TableauxTestBase {
 
@@ -68,6 +70,40 @@ class ChangeTest extends TableauxTestBase {
     } yield {
       assertEquals(expectedJson, test)
       assertEquals(expectedKind, test2.getString("kind"))
+    }
+  }
+
+  @Test
+  def changeColumnKindWhichShouldFail(implicit c: TestContext): Unit = okTest {
+    val kindTextJson = Json.obj("kind" -> "text")
+    val kindNumericJson = Json.obj("kind" -> "numeric")
+
+    val failed = Json.obj("failed" -> "failed")
+
+    for {
+      _ <- setupDefaultTable()
+
+      _ <- sendRequest("POST", "/tables/1/rows", Json.obj("rows" ->
+        Json.obj("values" ->
+          Json.arr("Test", 5)
+        )
+      ))
+
+      // change numeric column to text column
+      changeToText <- sendRequest("POST", "/tables/1/columns/2", kindTextJson)
+
+      // change text column to numeric column, which should fail
+      failedChangeToNumeric <- sendRequest("POST", "/tables/1/columns/1", kindNumericJson)
+        .recoverWith({ case _ => Future.successful(failed) })
+
+      columns <- sendRequest("GET", "/tables/1/columns")
+    } yield {
+      assertEquals(expectedJson, changeToText)
+
+      assertEquals(failed, failedChangeToNumeric)
+
+      assertEquals("text", columns.getJsonArray("columns").getJsonObject(0).getString("kind"))
+      assertEquals("text", columns.getJsonArray("columns").getJsonObject(1).getString("kind"))
     }
   }
 

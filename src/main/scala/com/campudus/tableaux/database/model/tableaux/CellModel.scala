@@ -17,12 +17,11 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def updateLink(table: Table, column: LinkColumn[_], fromId: RowId, toId: RowId): Future[Unit] = {
-    val linkId = column.linkInformation._1
-    val id1 = column.linkInformation._2
-    val id2 = column.linkInformation._3
+    val linkId = column.linkId
+    val direction = column.linkDirection
 
     for {
-      _ <- connection.query(s"INSERT INTO link_table_$linkId($id1, $id2) VALUES (?, ?)", Json.arr(fromId, toId))
+      _ <- connection.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}) VALUES (?, ?)", Json.arr(fromId, toId))
     } yield ()
   }
 
@@ -55,21 +54,20 @@ class CellModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def putLinks(table: Table, column: LinkColumn[_], fromId: RowId, toIds: Seq[RowId]): Future[Unit] = {
-    val linkId = column.linkInformation._1
-    val id1 = column.linkInformation._2
-    val id2 = column.linkInformation._3
+    val linkId = column.linkId
+    val direction = column.linkDirection
 
-    val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT $id1, $id2 FROM link_table_$linkId WHERE $id1 = ? AND $id2 = ?)").mkString(" UNION ")
+    val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
     val params = toIds.flatMap(to => List(fromId, to, fromId, to))
 
     for {
       t <- connection.begin()
 
-      (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE $id1 = ?", Json.arr(fromId))
+      (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(fromId))
 
       (t, _) <- {
         if (params.nonEmpty) {
-          t.query(s"INSERT INTO link_table_$linkId($id1, $id2) $paramStr", Json.arr(params: _*))
+          t.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}) $paramStr", Json.arr(params: _*))
         } else {
           Future((t, Json.emptyObj()))
         }

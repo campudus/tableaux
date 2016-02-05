@@ -39,10 +39,12 @@ class StructureController(override val config: TableauxConfig, override protecte
 
     for {
       table <- retrieveTable(tableId)
-      columns <- columnStruc.createColumns(table, columns)
+      created <- columnStruc.createColumns(table, columns)
+      retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
+      sorted = retrieved.sortBy(_.ordering)
     } yield {
       logger.info(s"$columns")
-      ColumnSeq(columns.sortBy(_.ordering))
+      ColumnSeq(sorted)
     }
   }
 
@@ -51,7 +53,8 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"retrieveColumn $tableId $columnId")
 
     for {
-      column <- columnStruc.retrieve(tableId, columnId)
+      table <- tableStruc.retrieve(tableId)
+      column <- columnStruc.retrieve(table, columnId)
     } yield column
   }
 
@@ -60,7 +63,8 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"retrieveColumns $tableId")
 
     for {
-      columns <- columnStruc.retrieveAll(tableId)
+      table <- tableStruc.retrieve(tableId)
+      columns <- columnStruc.retrieveAll(table)
     } yield ColumnSeq(columns)
   }
 
@@ -68,7 +72,10 @@ class StructureController(override val config: TableauxConfig, override protecte
     checkArguments(notNull(tableName, "tableName"))
     logger.info(s"createTable $tableName")
 
-    tableStruc.create(tableName, hidden.getOrElse(false))
+    for {
+      created <- tableStruc.create(tableName, hidden.getOrElse(false))
+      retrieved <- tableStruc.retrieve(created.id)
+    } yield retrieved
   }
 
   def deleteTable(tableId: TableId): Future[EmptyObject] = {
@@ -76,12 +83,13 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"deleteTable $tableId")
 
     for {
-      columns <- columnStruc.retrieveAll(tableId)
+      table <- tableStruc.retrieve(tableId)
+      columns <- columnStruc.retrieveAll(table)
       // only delete special column before deleting table;
       // e.g. link column are based on simple columns
       _ <- Future.sequence(columns.map({
-        case column@(_: LinkColumn[_]) => columnStruc.delete(tableId, column.id)
-        case column@(_: AttachmentColumn) => columnStruc.delete(tableId, column.id)
+        case column@(_: LinkColumn[_]) => columnStruc.delete(table, column.id, bothDirections = true)
+        case column@(_: AttachmentColumn) => columnStruc.delete(table, column.id)
         case _ => Future(())
       }))
       _ <- tableStruc.delete(tableId)
@@ -93,7 +101,8 @@ class StructureController(override val config: TableauxConfig, override protecte
     logger.info(s"deleteColumn $tableId $columnId")
 
     for {
-      _ <- columnStruc.delete(tableId, columnId)
+      table <- tableStruc.retrieve(tableId)
+      _ <- columnStruc.delete(table, columnId)
     } yield EmptyObject()
   }
 
@@ -126,11 +135,12 @@ class StructureController(override val config: TableauxConfig, override protecte
 
   def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean]): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"changeColumn $tableId $columnId $columnName $ordering $kind")
+    logger.info(s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier")
 
     for {
-      _ <- columnStruc.change(tableId, columnId, columnName, ordering, kind, identifier)
-      column <- retrieveColumn(tableId, columnId)
+      table <- tableStruc.retrieve(tableId)
+      changed <- columnStruc.change(table, columnId, columnName, ordering, kind, identifier)
+      column <- columnStruc.retrieve(changed.table, changed.id)
     } yield column
   }
 }

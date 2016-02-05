@@ -30,44 +30,51 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val CompleteTableId: Regex = "/completetable/(\\d+)".r
 
   override def routes(implicit context: RoutingContext): Routing = {
+
     /**
       * Get Rows
       */
-    case Get(Rows(tableId)) => asyncGetReply({
+    case Get(Rows(tableId)) => asyncGetReply {
       val limit = getLongParam("limit", context)
       val offset = getLongParam("offset", context)
 
       val pagination = Pagination(offset, limit)
 
       controller.retrieveRows(tableId.toLong, pagination)
-    })
+    }
 
     /**
       * Get Rows
       */
-    case Get(RowsOfColumn(tableId, columnId)) => asyncGetReply({
+    case Get(RowsOfColumn(tableId, columnId)) => asyncGetReply {
       val limit = getLongParam("limit", context)
       val offset = getLongParam("offset", context)
 
       val pagination = Pagination(offset, limit)
 
       controller.retrieveRows(tableId.toLong, columnId.toLong, pagination)
-    })
+    }
 
     /**
       * Get Row
       */
-    case Get(Row(tableId, rowId)) => asyncGetReply(controller.retrieveRow(tableId.toLong, rowId.toLong))
+    case Get(Row(tableId, rowId)) => asyncGetReply {
+      controller.retrieveRow(tableId.toLong, rowId.toLong)
+    }
 
     /**
       * Get Cell
       */
-    case Get(Cell(tableId, columnId, rowId)) => asyncGetReply(controller.retrieveCell(tableId.toLong, columnId.toLong, rowId.toLong))
+    case Get(Cell(tableId, columnId, rowId)) => asyncGetReply {
+      controller.retrieveCell(tableId.toLong, columnId.toLong, rowId.toLong)
+    }
 
     /**
       * Get complete table
       */
-    case Get(CompleteTableId(tableId)) => asyncGetReply(controller.retrieveCompleteTable(tableId.toLong))
+    case Get(CompleteTableId(tableId)) => asyncGetReply {
+      controller.retrieveCompleteTable(tableId.toLong)
+    }
 
     /**
       * Create table with columns and rows
@@ -80,8 +87,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         } else {
           controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), Seq())
         }
-        pulled <- controller.retrieveCompleteTable(completeTable.table.id)
-      } yield pulled
+      } yield completeTable
     }
 
     /**
@@ -99,21 +105,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           case _: NoJsonFoundException => None
         }
         result <- controller.createRow(tableId.toLong, optionalValues)
-        rowOrRows = result match {
-          case Left(rows) => rows
-          case Right(row) => row
-        }
-      } yield rowOrRows
+      } yield result
     }
 
     /**
       * Duplicate Row
       */
     case Post(RowDuplicate(tableId, rowId)) => asyncGetReply {
-      for {
-        duplicated <- controller.duplicateRow(tableId.toLong, rowId.toLong)
-        retrieved <- controller.retrieveRow(duplicated.table.id, duplicated.id)
-      } yield retrieved
+      controller.duplicateRow(tableId.toLong, rowId.toLong)
     }
 
     /**
@@ -123,8 +122,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       for {
         json <- getJson(context)
         filled <- controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-        cell <- controller.retrieveCell(tableId.toLong, filled.column.id, filled.rowId)
-      } yield cell
+      } yield filled
     }
 
     /**
@@ -134,8 +132,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       for {
         json <- getJson(context)
         updated <- controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-        cell <- controller.retrieveCell(tableId.toLong, updated.column.id, updated.rowId)
-      } yield cell
+      } yield updated
     }
 
     /**
@@ -145,19 +142,22 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       for {
         json <- getJson(context)
         updated <- controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-        cell <- controller.retrieveCell(tableId.toLong, updated.column.id, updated.rowId)
-      } yield cell
+      } yield updated
     }
 
     /**
       * Delete Row
       */
-    case Delete(Row(tableId, rowId)) => asyncEmptyReply(controller.deleteRow(tableId.toLong, rowId.toLong))
+    case Delete(Row(tableId, rowId)) => asyncEmptyReply {
+      controller.deleteRow(tableId.toLong, rowId.toLong)
+    }
 
     /**
       * Delete Attachment
       */
-    case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) => asyncEmptyReply(controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid))
+    case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) => asyncEmptyReply {
+      controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid)
+    }
   }
 
 }

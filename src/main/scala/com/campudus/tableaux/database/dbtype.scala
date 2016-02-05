@@ -24,7 +24,7 @@ sealed trait TableauxDbType {
 case object TextType extends TableauxDbType {
   override val name = "text"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[String])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[String])
 }
 
 case object RichTextType extends TableauxDbType {
@@ -32,7 +32,7 @@ case object RichTextType extends TableauxDbType {
 
   override def toDbType = "text"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[String])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[String])
 }
 
 case object ShortTextType extends TableauxDbType {
@@ -40,13 +40,13 @@ case object ShortTextType extends TableauxDbType {
 
   override def toDbType = "text"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[String])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[String])
 }
 
 case object NumericType extends TableauxDbType {
   override val name = "numeric"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[Number])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[Number])
 }
 
 case object LinkType extends TableauxDbType {
@@ -73,19 +73,19 @@ case object LinkType extends TableauxDbType {
 case object AttachmentType extends TableauxDbType {
   override val name = "attachment"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[JsonArray] || value.isInstanceOf[JsonObject])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[JsonArray] || value.isInstanceOf[JsonObject])
 }
 
 case object BooleanType extends TableauxDbType {
   override val name = "boolean"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[Boolean])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[Boolean])
 }
 
 case object DateType extends TableauxDbType {
   override val name = "date"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[String] || value.isInstanceOf[Date])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[String] || value.isInstanceOf[Date])
 }
 
 case object DateTimeType extends TableauxDbType {
@@ -93,13 +93,13 @@ case object DateTimeType extends TableauxDbType {
 
   override def toDbType = "timestamp with time zone"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[String] || value.isInstanceOf[DateTime])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[String] || value.isInstanceOf[DateTime])
 }
 
 case object ConcatType extends TableauxDbType {
   override val name = "concat"
 
-  override def checkValidValue[B](value: B): Option[String] = boolToArgumentError(value.isInstanceOf[JsonArray])
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[JsonArray])
 }
 
 sealed trait LanguageType {

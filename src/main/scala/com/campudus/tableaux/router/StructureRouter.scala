@@ -26,18 +26,34 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   private val TableOrder: Regex = "/tables/(\\d+)/order".r
 
   override def routes(implicit context: RoutingContext): Routing = {
-    case Get(Tables()) => asyncGetReply(controller.retrieveTables())
-    case Get(Table(tableId)) => asyncGetReply(controller.retrieveTable(tableId.toLong))
+
+    /**
+      * Get tables
+      */
+    case Get(Tables()) => asyncGetReply {
+      controller.retrieveTables()
+    }
+
+    /**
+      * Get table
+      */
+    case Get(Table(tableId)) => asyncGetReply {
+      controller.retrieveTable(tableId.toLong)
+    }
 
     /**
       * Get columns
       */
-    case Get(Columns(tableId)) => asyncGetReply(controller.retrieveColumns(tableId.toLong))
+    case Get(Columns(tableId)) => asyncGetReply {
+      controller.retrieveColumns(tableId.toLong)
+    }
 
     /**
       * Get columns
       */
-    case Get(Column(tableId, columnId)) => asyncGetReply(controller.retrieveColumn(tableId.toLong, columnId.toLong))
+    case Get(Column(tableId, columnId)) => asyncGetReply {
+      controller.retrieveColumn(tableId.toLong, columnId.toLong)
+    }
 
     /**
       * Create Table
@@ -46,8 +62,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       for {
         json <- getJson(context)
         created <- controller.createTable(json.getString("name"), Option(json.getBoolean("hidden")).map(_.booleanValue()))
-        table <- controller.retrieveTable(created.id)
-      } yield table
+      } yield created
     }
 
     /**
@@ -57,8 +72,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       for {
         json <- getJson(context)
         created <- controller.createColumns(tableId.toLong, toCreateColumnSeq(json))
-        columns <- Future.sequence(created.columns.map(c => controller.retrieveColumn(c.table.id, c.id)))
-      } yield ColumnSeq(columns)
+      } yield created
     }
 
     /**
@@ -68,8 +82,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       for {
         json <- getJson(context)
         updated <- controller.changeTable(tableId.toLong, Option(json.getString("name")), Option(json.getBoolean("hidden")).map(_.booleanValue()))
-        table <- controller.retrieveTable(updated.id)
-      } yield table
+      } yield updated
     }
 
     /**
@@ -90,18 +103,22 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         json <- getJson(context)
         (optName, optOrd, optKind, optIdent) = toColumnChanges(json)
         changed <- controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent)
-        column <- controller.retrieveColumn(changed.table.id, changed.id)
-      } yield column
+      } yield changed
     }
 
     /**
       * Delete Table
       */
-    case Delete(Table(tableId)) => asyncEmptyReply(controller.deleteTable(tableId.toLong))
+    case Delete(Table(tableId)) => asyncEmptyReply {
+      controller.deleteTable(tableId.toLong)
+    }
 
     /**
       * Delete Column
       */
-    case Delete(Column(tableId, columnId)) => asyncEmptyReply(controller.deleteColumn(tableId.toLong, columnId.toLong))
+    case Delete(Column(tableId, columnId)) => asyncEmptyReply {
+      controller.deleteColumn(tableId.toLong, columnId.toLong)
+    }
   }
+
 }
