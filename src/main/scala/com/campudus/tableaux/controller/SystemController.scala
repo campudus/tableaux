@@ -24,7 +24,7 @@ class SystemController(override val config: TableauxConfig,
   def retrieveVersions(): Future[DomainObject] = {
     logger.info("Retrieve system version")
 
-    val objPackage = getClass.getPackage
+    val development = "DEVELOPMENT"
 
     for {
       databaseVersion <- repository.retrieveCurrentVersion()
@@ -32,7 +32,20 @@ class SystemController(override val config: TableauxConfig,
     } yield {
       val json = Json.obj(
         "versions" -> Json.obj(
-          "implementation" -> Option(objPackage.getImplementationVersion).getOrElse("DEVELOPMENT"),
+          "implementation" -> Json.obj(
+            "vendor" -> manifestValue("Implementation-Vendor").getOrElse(development),
+            "title" -> manifestValue("Implementation-Title").getOrElse(development),
+            "version" -> manifestValue("Implementation-Version").getOrElse(development)
+          ),
+          "git" -> Json.obj(
+            "branch" -> manifestValue("Git-Branch").getOrElse(development),
+            "commit" -> manifestValue("Git-Commit").getOrElse(development),
+            "date" -> manifestValue("Git-Committer-Date").getOrElse(development)
+          ),
+          "build" -> Json.obj(
+            "date" -> manifestValue("Build-Date").getOrElse(development),
+            "jdk" -> manifestValue("Build-Java-Version").getOrElse(development)
+          ),
           "database" -> Json.obj(
             "current" -> databaseVersion,
             "specification" -> specificationVersion
@@ -115,5 +128,14 @@ class SystemController(override val config: TableauxConfig,
 
       _ <- tableauxModel.createRows(table.id, rowsWithColumnIdAndValue)
     } yield table
+  }
+
+  private def manifestValue(field: String): Option[String] = {
+    import com.jcabi.manifests.Manifests
+
+    if (Manifests.exists(field))
+      Some(Manifests.read(field))
+    else
+      None
   }
 }

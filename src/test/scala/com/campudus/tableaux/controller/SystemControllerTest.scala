@@ -61,14 +61,10 @@ class SystemControllerTest extends TableauxTestBase {
   @Test
   def retrieveVersions(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
-      "versions" -> Json.obj(
-        "implementation" -> "DEVELOPMENT",
-        "database" -> Json.obj(
-          "current" -> 6,
-          "specification" -> 6
-        )
-      ),
-      "status" -> "ok"
+      "database" -> Json.obj(
+        "current" -> 6,
+        "specification" -> 6
+      )
     )
 
     for {
@@ -82,7 +78,7 @@ class SystemControllerTest extends TableauxTestBase {
       }
       versions <- sendRequest("GET", "/system/versions")
     } yield {
-      assertEquals(expectedJson, versions)
+      assertContains(expectedJson, versions.getJsonObject("versions"))
     }
   }
 

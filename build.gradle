@@ -10,6 +10,10 @@ buildscript {
     }
 }
 
+plugins {
+    id 'com.github.ksoichiro.build.info' version '0.1.3'
+}
+
 apply plugin: 'java'
 apply plugin: 'scala'
 apply plugin: 'application'
@@ -49,6 +53,8 @@ dependencies {
     compile 'joda-time:joda-time:2.9.1'
     compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'
     compile 'org.slf4j:slf4j-jdk14:1.7.13'
+
+    compile 'com.jcabi:jcabi-manifests:1.1'
 
     compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
@@ -147,9 +153,9 @@ jar {
     manifest {
         attributes 'Main-Class': mainClassName
         attributes 'Main-Verticle': mainVerticle
+        attributes 'Implementation-Vendor': project.group
         attributes 'Implementation-Title': project.name
-        attributes 'Implementation-Version': project.group
-        attributes 'Implementation-Vendor': project.version
+        attributes 'Implementation-Version': project.version
     }
 }
 
