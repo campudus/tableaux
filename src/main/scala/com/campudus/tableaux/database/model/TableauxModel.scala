@@ -84,8 +84,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def createRow(tableId: TableId): Future[Row] = for {
     table <- retrieveTable(tableId)
-    id <- rowModel.createEmpty(tableId)
-  } yield Row(table, id, Seq.empty)
+    columns <- retrieveColumns(table.id)
+    id <- rowModel.createEmpty(table.id)
+    rawRow <- rowModel.retrieve(table.id, id, columns)
+    rowSeq <- mapRawRows(table, columns, Seq(rawRow))
+  } yield rowSeq.head
 
   def createRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
     table <- retrieveTable(tableId)

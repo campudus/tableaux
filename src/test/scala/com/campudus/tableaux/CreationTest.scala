@@ -2,11 +2,15 @@ package com.campudus.tableaux
 
 import java.util
 
+import com.campudus.tableaux.testtools.RequestCreation
+import com.campudus.tableaux.testtools.RequestCreation.{Text, Identifier}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{JsonArray, Json}
+
+import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class CreationTest extends TableauxTestBase {
@@ -247,7 +251,7 @@ class CreationTest extends TableauxTestBase {
 
     for {
       (tableId1, columnIds, rowIds) <- createFullTableWithMultilanguageColumns("Test Table 1")
-      (tableId2, columnIds, linkColumnId) <- createTableWithComplexColumns("Test Table 2", LinkTo(tableId1, columnIds.head))
+      (tableId2, columnIds, linkColumnId) <- createTableWithComplexColumns("Test Table 2", tableId1)
 
       file <- sendRequest("POST", "/files", putOne)
       fileUuid = file.getString("uuid")
@@ -464,6 +468,21 @@ class CreationTest extends TableauxTestBase {
       assertEquals(1, row1)
       assertEquals(2, row2)
       assertEquals(3, row3)
+    }
+  }
+
+  @Test
+  def createEmptyRowAndCheckValues(implicit c: TestContext): Unit = okTest {
+    for {
+      (tableId1, columnId, rowId) <- createSimpleTableWithCell("table1", Identifier(Text("name")))
+      (tableId2, columnIds, linkColumnId) <- createTableWithComplexColumns("Test Table 2", tableId1)
+      row <- sendRequest("POST", s"/tables/$tableId2/rows")
+      rowId = row.getLong("id")
+      cells <- Future.sequence((columnIds :+ linkColumnId).map(columnId => {
+        sendRequest("GET", s"/tables/$tableId2/columns/$columnId/rows/$rowId").map(_.getValue("value"))
+      }))
+    } yield {
+      assertEquals(Json.arr(cells: _*), row.getJsonArray("values"))
     }
   }
 }
