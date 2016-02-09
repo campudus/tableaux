@@ -3,6 +3,7 @@ package com.campudus.tableaux
 
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
+import com.campudus.tableaux.database.model.TableauxModel.{RowId, ColumnId, TableId}
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
@@ -389,9 +390,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     }
   }
 
-  protected case class LinkTo(tableId: Long, columnId: Long)
-
-  protected def createTableWithComplexColumns(tableName: String, linkTo: LinkTo): Future[(Long, Seq[Long], Long)] = {
+  protected def createTableWithComplexColumns(tableName: String, linkTo: TableId): Future[(TableId, Seq[ColumnId], ColumnId)] = {
     val createColumns = Json.obj(
       "columns" -> Json.arr(
         Json.obj("kind" -> "text", "name" -> "column 1 (text)"),
@@ -406,10 +405,10 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       )
     )
 
-    def createLinkColumn(fromColumnId: Long, linkTo: LinkTo) = Json.obj("columns" -> Json.arr(Json.obj(
+    def createLinkColumn(fromColumnId: ColumnId, linkTo: TableId) = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "link",
       "name" -> "column 10 (link)",
-      "toTable" -> linkTo.tableId
+      "toTable" -> linkTo
     )))
 
     import scala.collection.JavaConverters._
@@ -426,7 +425,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     } yield (tableId, columnIds, linkColumnId)
   }
 
-  protected def createSimpleTableWithCell(tableName: String, columnType: ColType): Future[(Long, Long, Long)] = {
+  protected def createSimpleTableWithCell(tableName: String, columnType: ColType): Future[(TableId, ColumnId, RowId)] = {
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
