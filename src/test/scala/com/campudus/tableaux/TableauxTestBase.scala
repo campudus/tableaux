@@ -218,7 +218,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       .exceptionHandler(exceptionHandler)
   }
 
-  def setupDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[Long] = {
+  def setupDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[TableId] = {
     val postTable = Json.obj("name" -> name)
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
     val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
@@ -301,7 +301,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       }))
   }
 
-  protected def createFullTableWithMultilanguageColumns(tableName: String): Future[(Long, Seq[Long], Seq[Long])] = {
+  protected def createFullTableWithMultilanguageColumns(tableName: String): Future[(TableId, Seq[ColumnId], Seq[RowId])] = {
     def valuesRow(columnIds: Seq[Long]) = Json.obj(
       "columns" -> Json.arr(
         Json.obj("id" -> columnIds.head),
@@ -353,7 +353,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     } yield (tableId, columnIds, rowIds)
   }
 
-  protected def createSimpleTableWithMultilanguageColumn(tableName: String, columnName: String): Future[(Long, Long)] = {
+  protected def createSimpleTableWithMultilanguageColumn(tableName: String, columnName: String): Future[(TableId, ColumnId)] = {
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
@@ -366,7 +366,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     }
   }
 
-  protected def createTableWithMultilanguageColumns(tableName: String): Future[(Long, Seq[Long])] = {
+  protected def createTableWithMultilanguageColumns(tableName: String): Future[(TableId, Seq[ColumnId])] = {
     val createMultilanguageColumn = Json.obj(
       "columns" ->
         Json.arr(
@@ -437,7 +437,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
 
-  protected def createSimpleTableWithValues(tableName: String, columnTypes: Seq[ColType], rows: Seq[Seq[Any]]): Future[(Long, Seq[Long], Seq[Long])] = {
+  protected def createSimpleTableWithValues(tableName: String, columnTypes: Seq[ColType], rows: Seq[Seq[Any]]): Future[(TableId, Seq[ColumnId], Seq[RowId])] = {
     import scala.collection.JavaConverters._
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
