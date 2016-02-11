@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database
 
+import com.campudus.tableaux.InvalidRequestException
 import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 
 sealed trait FilterOperation {
@@ -9,8 +10,14 @@ sealed trait FilterOperation {
 object FilterOperation {
   def apply(operation: String): FilterOperation = {
     operation.toLowerCase() match {
+      case ContainsNotOperation.name => ContainsNotOperation
       case ContainsOperation.name => ContainsOperation
+
+      case IsNotOperation.name => IsNotOperation
       case IsOperation.name => IsOperation
+
+      case NotEmptyOperation.name => NotEmptyOperation
+      case EmptyOperation.name => EmptyOperation
     }
   }
 }
@@ -45,16 +52,22 @@ case class FilterItem(columnId: ColumnId, operation: FilterOperation, filterValu
 
 object Filter {
   def apply(filter: String): Filter = {
-    import com.campudus.tableaux.ArgumentChecker._
+    val splitted = filter.split(",")
+    val filterItems = if (splitted.size % 3 != 0) {
+      throw InvalidRequestException("Filter is invalid.")
+    } else {
+      splitted.sliding(3, 3).map({
+        filterItem =>
+          val columnId = filterItem(0).toLong
+          val operation = FilterOperation(filterItem(1))
+          val filterValue = filterItem(2)
 
-    for {
-      splitted <- isSize(filter.split(","))
+          FilterItem(columnId, operation, filterValue)
+      }).toList
     }
 
-    filter.split(",")
-
-    Filter(List.empty[FilterItem])
+    Filter(filterItems)
   }
 }
 
-case class Filter(filters: List[FilterItem])
+case class Filter(val filters: List[FilterItem])
