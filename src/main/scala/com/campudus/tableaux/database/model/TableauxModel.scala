@@ -42,24 +42,21 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.tableStruc.create(name, hidden)
   }
 
-  def createColumns(tableId: TableId, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
-    for {
-      table <- retrieveTable(tableId)
-      result <- structureModel.columnStruc.createColumns(table, columns)
-    } yield result
-  }
-
   def retrieveTable(tableId: TableId): Future[Table] = {
     structureModel.tableStruc.retrieve(tableId)
   }
 
-  def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = for {
-    table <- retrieveTable(tableId)
+  def createColumns(table: Table, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
+    for {
+      result <- structureModel.columnStruc.createColumns(table, columns)
+    } yield result
+  }
+
+  def retrieveColumn(table: Table, columnId: ColumnId): Future[ColumnType[_]] = for {
     column <- structureModel.columnStruc.retrieve(table, columnId)
   } yield column
 
-  def retrieveColumns(tableId: TableId): Future[Seq[ColumnType[_]]] = for {
-    table <- retrieveTable(tableId)
+  def retrieveColumns(table: Table): Future[Seq[ColumnType[_]]] = for {
     columns <- structureModel.columnStruc.retrieveAll(table)
   } yield columns
 
@@ -78,21 +75,22 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   val attachmentModel = AttachmentModel(connection)
 
-  def deleteRow(tableId: TableId, rowId: RowId): Future[EmptyObject] = for {
-    _ <- rowModel.delete(tableId, rowId)
+  def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = for {
+    _ <- rowModel.delete(table.id, rowId)
   } yield EmptyObject()
 
-  def createRow(tableId: TableId): Future[Row] = for {
-    table <- retrieveTable(tableId)
-    columns <- retrieveColumns(table.id)
-    id <- rowModel.createEmpty(table.id)
-    rawRow <- rowModel.retrieve(table.id, id, columns)
-    rowSeq <- mapRawRows(table, columns, Seq(rawRow))
-  } yield rowSeq.head
+  def createRow(table: Table): Future[Row] = for {
+    rowId <- rowModel.createEmpty(table.id)
+    row <- retrieveRow(table, rowId)
+  } yield row
 
-  def createRows(tableId: TableId, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
-    table <- retrieveTable(tableId)
-    columns <- retrieveColumns(table.id)
+  private def createRow(table: Table, values: Seq[(ColumnType[_], Any)]): Future[Row] = for {
+    rowId <- rowModel.createRow(table.id, values)
+    row <- retrieveRow(table, rowId)
+  } yield row
+
+  def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
+    columns <- retrieveColumns(table)
     rows <- rows.foldLeft(Future.successful(Vector[Row]())) {
       (futureRows, row) =>
         // replace ColumnId with ColumnType
@@ -101,19 +99,17 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         futureRows.flatMap { rows =>
           for {
             rowId <- rowModel.createRow(table.id, columnValuePairs)
-            rawRow <- rowModel.retrieve(table.id, rowId, columns)
-            rowSeq <- mapRawRows(table, columns, Seq(rawRow))
+            newRow <- retrieveRow(table, columns,rowId)
           } yield {
-            logger.info(s"created row $rowId")
-            rows ++ rowSeq
+            rows ++ Seq(newRow)
           }
         }
     }
   } yield RowSeq(rows)
 
-  def updateValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
+  def updateValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
-      column <- retrieveColumn(tableId, columnId)
+      column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
       cell <- column match {
         case column: AttachmentColumn => updateAttachment(column, rowId, value)
@@ -122,8 +118,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield cell
   }
 
-  def insertValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = for {
-    column <- retrieveColumn(tableId, columnId)
+  def insertValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = for {
+    column <- retrieveColumn(table, columnId)
     _ <- checkValueTypeForColumn(column, value)
     cell <- insertValue[A](column, rowId, value)
   } yield cell
@@ -165,9 +161,9 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         }
 
         for {
-          column <- retrieveColumn(column.table.id, column.id)
           file <- fn(Attachment(column.table.id, column.id, rowId, uuid, ordering))
-        } yield Cell(column.asInstanceOf[AttachmentColumn], rowId, file)
+          cell <- retrieveCell(column, rowId)
+        } yield cell
 
       case Right(arr) =>
         // multiple attachments
@@ -189,9 +185,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         }
 
         for {
-          column <- retrieveColumn(column.table.id, column.id)
-          file <- attachmentModel.replace(column.table.id, column.id, rowId, attachments)
-          cell <- retrieveCell(column.table.id, column.id, rowId)
+          _ <- attachmentModel.replace(column.table.id, column.id, rowId, attachments)
+          cell <- retrieveCell(column.table, column.id, rowId)
         } yield cell
     }
   }
@@ -199,14 +194,18 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   private def insertMultiLanguageValues[A <: JsonObject](column: MultiLanguageColumn[_], rowId: RowId, value: A): Future[Cell[Any]] = {
     for {
       _ <- cellModel.updateTranslations(column.table, column, rowId, JsonUtils.toTupleSeq(value))
-    } yield Cell(column, rowId, value)
+      // We need to retrieve cell again
+      // because we could have only changed on language
+      cell <- retrieveCell(column, rowId)
+    } yield cell
   }
 
-  private def insertSimpleValue[A, B <: ColumnType[A]](column: ColumnType[_], rowId: RowId, value: A): Future[Cell[A]] = for {
+  private def insertSimpleValue[A](column: ColumnType[A], rowId: RowId, value: A): Future[Cell[Any]] = for {
     _ <- cellModel.update(column.table, column, rowId, value)
-  } yield Cell(column.asInstanceOf[B], rowId, value)
+    cell <- retrieveCell(column, rowId)
+  } yield cell
 
-  private def handleLinkValues[A](column: LinkColumn[_], rowId: RowId, value: A): Future[Cell[Link[_]]] = {
+  private def handleLinkValues[A](column: LinkColumn[_], rowId: RowId, value: A): Future[Cell[Any]] = {
     Try(value.asInstanceOf[JsonObject]).flatMap { v =>
       import ArgumentChecker._
 
@@ -226,23 +225,23 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   }
 
-  private def insertLinkValues(linkColumn: LinkColumn[_], fromId: RowId, toIds: Seq[RowId]): Future[Cell[Link[_]]] = for {
+  //TODO we should remove its in favor of addLinkValue because of raise conditions
+  @Deprecated
+  private def insertLinkValues(linkColumn: LinkColumn[_], fromId: RowId, toIds: Seq[RowId]): Future[Cell[Any]] = for {
     _ <- cellModel.putLinks(linkColumn.table, linkColumn, fromId, toIds)
-    v <- retrieveCell(linkColumn, fromId)
-  } yield Cell(linkColumn, fromId, Link(linkColumn.to.id, v))
+    cell <- retrieveCell(linkColumn, fromId)
+  } yield cell
 
-  private def addLinkValue(linkColumn: LinkColumn[_], fromId: RowId, toId: RowId): Future[Cell[Link[_]]] = {
-    logger.info(s"in addLinkValue $linkColumn -> $fromId to $toId")
+  private def addLinkValue(linkColumn: LinkColumn[_], fromId: RowId, toId: RowId): Future[Cell[Any]] = {
     for {
       _ <- cellModel.updateLink(linkColumn.table, linkColumn, fromId, toId)
-      _ = logger.info(s"link updated!")
-      v <- retrieveCell(linkColumn, fromId)
-    } yield Cell(linkColumn, fromId, Link(toId, v))
+      cell <- retrieveCell(linkColumn, fromId)
+    } yield cell
   }
 
-  def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
+  def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
     for {
-      column <- retrieveColumn(tableId, columnId)
+      column <- retrieveColumn(table, columnId)
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
@@ -267,25 +266,30 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
   }
 
-  def retrieveRow(tableId: TableId, rowId: RowId): Future[Row] = {
+  def retrieveRow(table: Table, rowId: RowId): Future[Row] = {
     for {
-      table <- retrieveTable(tableId)
-      columns <- retrieveColumns(table.id)
-      rawRow <- rowModel.retrieve(tableId, rowId, columns)
+      columns <- retrieveColumns(table)
+      row <- retrieveRow(table, columns, rowId)
+    } yield row
+  }
+
+  private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId): Future[Row] = {
+    for {
+      rawRow <- rowModel.retrieve(table.id, rowId, columns)
       rowSeq <- mapRawRows(table, columns, Seq(rawRow))
     } yield rowSeq.head
   }
 
   def retrieveRows(table: Table, pagination: Pagination): Future[RowSeq] = {
     for {
-      columns <- retrieveColumns(table.id)
+      columns <- retrieveColumns(table)
       rows <- retrieveRows(table, columns, pagination)
     } yield rows
   }
 
   def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
     for {
-      column <- retrieveColumn(table.id, columnId)
+      column <- retrieveColumn(table, columnId)
       rows <- retrieveRows(table, Seq(column), pagination)
     } yield rows
   }
@@ -298,16 +302,25 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }
 
-  def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
+  def duplicateRow(table: Table, rowId: RowId): Future[Row] = {
     for {
-      table <- retrieveTable(tableId)
-      columns <- retrieveColumns(table.id)
-      rowIdValues <- rowModel.retrieve(tableId, rowId, columns)
-      rows <- mapRawRows(table, columns, Seq(rowIdValues))
-      rowValues = rows.head.values
-      duplicatedSimpleRowId <- rowModel.createRow(tableId, columns.zip(rowValues))
-      (duplicatedRowId, duplicatedRowValues) <- rowModel.retrieve(tableId, duplicatedSimpleRowId, columns)
-    } yield Row(table, duplicatedRowId, duplicatedRowValues)
+      columns <- retrieveColumns(table).map({
+        _.filter({
+          // ConcatColumn can't be duplicated
+          case _: ConcatColumn => false
+          case _ => true
+        })
+      })
+
+      // Retrieve row without ConcatColumn
+      row <- retrieveRow(table, columns, rowId)
+      rowValues = row.values
+
+      duplicatedRowId <- rowModel.createRow(table.id, columns.zip(rowValues))
+
+      // Retrieve duplicated row with all columns
+      duplicatedRow <- retrieveRow(table, duplicatedRowId)
+    } yield duplicatedRow
   }
 
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[AnyRef])]): Future[Seq[Row]] = {

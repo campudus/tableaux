@@ -93,16 +93,16 @@ class SystemController(override val config: TableauxConfig,
       toRow2 = generateToJson(2)
 
       // Bayern 2nd row
-      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 1, toRow2)
-      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 2, toRow2)
-      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 3, toRow2)
-      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 4, toRow2)
+      _ <- tableauxModel.insertValue(rb, linkColumn.id, 1, toRow2)
+      _ <- tableauxModel.insertValue(rb, linkColumn.id, 2, toRow2)
+      _ <- tableauxModel.insertValue(rb, linkColumn.id, 3, toRow2)
+      _ <- tableauxModel.insertValue(rb, linkColumn.id, 4, toRow2)
 
       //Baden-Wuerttemberg 1st row
-      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 5, toRow1)
-      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 6, toRow1)
-      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 7, toRow1)
-      _ <- tableauxModel.insertValue(rb.id, linkColumn.id, 8, toRow1)
+      _ <- tableauxModel.insertValue(rb, linkColumn.id, 5, toRow1)
+      _ <- tableauxModel.insertValue(rb, linkColumn.id, 6, toRow1)
+      _ <- tableauxModel.insertValue(rb, linkColumn.id, 7, toRow1)
+      _ <- tableauxModel.insertValue(rb, linkColumn.id, 8, toRow1)
     } yield TableSeq(Seq(bl, rb))
   }
 
@@ -126,7 +126,7 @@ class SystemController(override val config: TableauxConfig,
       columnIds = columns.map(_.id)
       rowsWithColumnIdAndValue = rows.map(columnIds.zip(_))
 
-      _ <- tableauxModel.createRows(table.id, rowsWithColumnIdAndValue)
+      _ <- tableauxModel.createRows(table, rowsWithColumnIdAndValue)
     } yield table
   }
 
