@@ -1,5 +1,7 @@
 package com.campudus.tableaux
 
+import org.vertx.scala.router.RouterException
+
 sealed trait CustomException extends Throwable {
   val message: String
 
@@ -8,6 +10,13 @@ sealed trait CustomException extends Throwable {
   val statusCode: Int
 
   override def toString: String = s"${super.toString}: $message"
+
+  def toRouterException = RouterException(
+    message = message,
+    cause = this,
+    id = id,
+    statusCode = statusCode
+  )
 }
 
 case class NoJsonFoundException(override val message: String) extends CustomException {
