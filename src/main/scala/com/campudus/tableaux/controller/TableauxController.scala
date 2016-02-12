@@ -92,22 +92,22 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield EmptyObject()
   }
 
-  def fillCell[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
+  def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"fillCell $tableId $columnId $rowId $value")
     for {
       table <- repository.retrieveTable(tableId)
-      filled <- repository.insertValue(table, columnId, rowId, value)
+      filled <- repository.replaceCellValue(table, columnId, rowId, value)
     } yield filled
   }
 
-  def updateCell[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
+  def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"updateCell $tableId $columnId $rowId $value")
 
     for {
       table <- repository.retrieveTable(tableId)
-      updated <- repository.updateValue(table, columnId, rowId, value)
+      updated <- repository.updateCellValue(table, columnId, rowId, value)
     } yield updated
   }
 

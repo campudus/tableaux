@@ -4,8 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.tableaux.{CellModel, RowModel}
-import com.campudus.tableaux.helper.JsonUtils
+import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RowModel, UpdateRowModel}
 import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException}
 import org.vertx.scala.core.json._
 
@@ -70,8 +69,9 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   import TableauxModel._
 
-  val cellModel = new CellModel(connection)
   val rowModel = new RowModel(connection)
+  val createRowModel = new CreateRowModel(connection)
+  val updateRowModel = new UpdateRowModel(connection)
 
   val attachmentModel = AttachmentModel(connection)
 
@@ -80,12 +80,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   } yield EmptyObject()
 
   def createRow(table: Table): Future[Row] = for {
-    rowId <- rowModel.createEmpty(table.id)
-    row <- retrieveRow(table, rowId)
-  } yield row
-
-  private def createRow(table: Table, values: Seq[(ColumnType[_], Any)]): Future[Row] = for {
-    rowId <- rowModel.createRow(table.id, values)
+    rowId <- createRowModel.createEmpty(table.id)
     row <- retrieveRow(table, rowId)
   } yield row
 
@@ -98,8 +93,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
         futureRows.flatMap { rows =>
           for {
-            rowId <- rowModel.createRow(table.id, columnValuePairs)
-            newRow <- retrieveRow(table, columns,rowId)
+            rowId <- createRowModel.createRow(table.id, columnValuePairs)
+            newRow <- retrieveRow(table, columns, rowId)
           } yield {
             rows ++ Seq(newRow)
           }
@@ -107,136 +102,27 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield RowSeq(rows)
 
-  def updateValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
+  def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
-      cell <- column match {
-        case column: AttachmentColumn => updateAttachment(column, rowId, value)
-        case _ => insertValue(column, rowId, value)
-      }
-    } yield cell
+
+      _ <- updateRowModel.updateRow(column.table, rowId, Seq((column, value)))
+
+      updatedCell <- retrieveCell(column, rowId)
+    } yield updatedCell
   }
 
-  def insertValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = for {
-    column <- retrieveColumn(table, columnId)
-    _ <- checkValueTypeForColumn(column, value)
-    cell <- insertValue[A](column, rowId, value)
-  } yield cell
-
-  private def insertValue[A](column: ColumnType[_], rowId: RowId, value: A): Future[Cell[_]] = for {
-    cell <- column match {
-      case column: AttachmentColumn => insertAttachment[A](column, rowId, value)
-      case column: LinkColumn[_] => handleLinkValues[A](column, rowId, value)
-      case column: MultiLanguageColumn[_] => insertMultiLanguageValues(column, rowId, value.asInstanceOf[JsonObject])
-      case _ => insertSimpleValue(column, rowId, value)
-    }
-  } yield cell
-
-  private def insertAttachment[A](column: AttachmentColumn, rowId: RowId, value: A): Future[Cell[Any]] = {
-    // add attachment
-    handleAttachment(column, rowId, value, attachmentModel.add)
-  }
-
-  private def updateAttachment[A](column: AttachmentColumn, rowId: RowId, value: A): Future[Cell[Any]] = {
-    // update attachment order
-    handleAttachment(column, rowId, value, attachmentModel.update)
-  }
-
-  private def handleAttachment[A](column: AttachmentColumn, rowId: RowId, value: A, fn: Attachment => Future[AttachmentFile]): Future[Cell[Any]] = {
-    import ArgumentChecker._
-
-    val v = Try(Left(value.asInstanceOf[JsonObject])).orElse(Try(Right(value.asInstanceOf[JsonArray]))).get
-
-    v match {
-      case Left(obj) =>
-        // single attachment
-        val uuid = notNull(obj.getString("uuid"), "uuid").map(UUID.fromString).get
-        val ordering: Option[Ordering] = {
-          if (obj.containsField("ordering")) {
-            Option(obj.getLong("ordering"))
-          } else {
-            None
-          }
-        }
-
-        for {
-          file <- fn(Attachment(column.table.id, column.id, rowId, uuid, ordering))
-          cell <- retrieveCell(column, rowId)
-        } yield cell
-
-      case Right(arr) =>
-        // multiple attachments
-        val attachments = scala.collection.mutable.ListBuffer.empty[Attachment]
-
-        for (i <- 0 until arr.size()) {
-          val obj = arr.get[JsonObject](i)
-
-          val uuid = notNull(obj.getString("uuid"), "uuid").map(UUID.fromString).get
-          val ordering: Option[Ordering] = {
-            if (obj.containsField("ordering")) {
-              Option(obj.getLong("ordering"))
-            } else {
-              None
-            }
-          }
-
-          attachments += Attachment(column.table.id, column.id, rowId, uuid, ordering)
-        }
-
-        for {
-          _ <- attachmentModel.replace(column.table.id, column.id, rowId, attachments)
-          cell <- retrieveCell(column.table, column.id, rowId)
-        } yield cell
-    }
-  }
-
-  private def insertMultiLanguageValues[A <: JsonObject](column: MultiLanguageColumn[_], rowId: RowId, value: A): Future[Cell[Any]] = {
+  def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
-      _ <- cellModel.updateTranslations(column.table, column, rowId, JsonUtils.toTupleSeq(value))
-      // We need to retrieve cell again
-      // because we could have only changed on language
-      cell <- retrieveCell(column, rowId)
-    } yield cell
-  }
+      column <- retrieveColumn(table, columnId)
+      _ <- checkValueTypeForColumn(column, value)
 
-  private def insertSimpleValue[A](column: ColumnType[A], rowId: RowId, value: A): Future[Cell[Any]] = for {
-    _ <- cellModel.update(column.table, column, rowId, value)
-    cell <- retrieveCell(column, rowId)
-  } yield cell
+      _ <- updateRowModel.clearRow(table, rowId, Seq(column))
+      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
 
-  private def handleLinkValues[A](column: LinkColumn[_], rowId: RowId, value: A): Future[Cell[Any]] = {
-    Try(value.asInstanceOf[JsonObject]).flatMap { v =>
-      import ArgumentChecker._
-
-      import collection.JavaConverters._
-
-      for {
-        toOrValues <- Try(Left(checked(hasLong("to", v))))
-          .orElse(Try(Right(checked(hasArray("values", v)).asScala.map(_.asInstanceOf[Number].longValue()).toSeq)))
-      } yield {
-        toOrValues match {
-          case Left(toId) => addLinkValue(column, rowId, toId)
-          case Right(toIds) => insertLinkValues(column, rowId, toIds)
-        }
-      }
-    } getOrElse {
-      Future.failed(InvalidJsonException(s"A link column expects a JSON object with to values, but got $value", "link-value"))
-    }
-  }
-
-  //TODO we should remove its in favor of addLinkValue because of raise conditions
-  @Deprecated
-  private def insertLinkValues(linkColumn: LinkColumn[_], fromId: RowId, toIds: Seq[RowId]): Future[Cell[Any]] = for {
-    _ <- cellModel.putLinks(linkColumn.table, linkColumn, fromId, toIds)
-    cell <- retrieveCell(linkColumn, fromId)
-  } yield cell
-
-  private def addLinkValue(linkColumn: LinkColumn[_], fromId: RowId, toId: RowId): Future[Cell[Any]] = {
-    for {
-      _ <- cellModel.updateLink(linkColumn.table, linkColumn, fromId, toId)
-      cell <- retrieveCell(linkColumn, fromId)
-    } yield cell
+      replacedCell <- retrieveCell(column, rowId)
+    } yield replacedCell
   }
 
   def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
@@ -316,7 +202,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       row <- retrieveRow(table, columns, rowId)
       rowValues = row.values
 
-      duplicatedRowId <- rowModel.createRow(table.id, columns.zip(rowValues))
+      duplicatedRowId <- createRowModel.createRow(table.id, columns.zip(rowValues))
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
