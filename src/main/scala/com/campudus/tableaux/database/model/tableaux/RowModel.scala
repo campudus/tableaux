@@ -388,7 +388,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     }
   }
 
-  def generateFilter(tableId: TableId, columns: Seq[ColumnType[_]], filter: Filter, rawQuery: String): String = {
+  private def generateFilter(tableId: TableId, columns: Seq[ColumnType[_]], filter: Filter, rawQuery: String): String = {
     val usedFilters = filter.filters.filter(filterItem => columns.exists(_.id == filterItem.columnId))
 
     val mappedFilters = usedFilters.map({
@@ -418,7 +418,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     val rawQuery = s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination"
     val query = filter match {
       case None => rawQuery
-      case Some(filter) => generateFilter(tableId, columns, filter, rawQuery)
+      case Some(f) => generateFilter(tableId, columns, f, rawQuery)
     }
 
     logger.info(query)
