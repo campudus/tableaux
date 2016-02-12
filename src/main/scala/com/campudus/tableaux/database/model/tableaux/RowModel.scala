@@ -388,12 +388,43 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, Seq[AnyRef])]] = {
+  def generateFilter(tableId: TableId, columns: Seq[ColumnType[_]], filter: Filter, rawQuery: String): String = {
+    val usedFilters = filter.filters.filter(filterItem => columns.exists(_.id == filterItem.columnId))
+
+    val mappedFilters = usedFilters.map({
+      filterItem =>
+        val column = columns.find(_.id == filterItem.columnId)
+
+        filterItem.operation match {
+          case ContainsOperation =>
+            column.get match {
+              case c: SimpleValueColumn[_] => s"q.column_${c.id} LIKE '%${filterItem.filterValue}%'"
+            }
+          case ContainsNotOperation =>
+            column.get match {
+              case c: SimpleValueColumn[_] => s"q.column_${c.id} NOT LIKE '%${filterItem.filterValue}%'"
+            }
+        }
+
+    })
+
+    s"SELECT * FROM ($rawQuery) q WHERE ${mappedFilters.mkString(" AND ")}"
+  }
+
+  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination, filter: Option[Filter]): Future[Seq[(RowId, Seq[AnyRef])]] = {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
+    val rawQuery = s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination"
+    val query = filter match {
+      case None => rawQuery
+      case Some(filter) => generateFilter(tableId, columns, filter, rawQuery)
+    }
+
+    logger.info(query)
+
     for {
-      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
+      result <- connection.query(query)
     } yield {
       getSeqOfJsonArray(result).map(jsonArrayToSeq).map {
         row =>
