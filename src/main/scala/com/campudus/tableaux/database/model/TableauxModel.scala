@@ -280,24 +280,24 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield rowSeq.head
   }
 
-  def retrieveRows(table: Table, pagination: Pagination): Future[RowSeq] = {
+  def retrieveRows(table: Table, pagination: Pagination, filter: Option[Filter]): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)
-      rows <- retrieveRows(table, columns, pagination)
+      rows <- retrieveRows(table, columns, pagination, filter)
     } yield rows
   }
 
-  def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
+  def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination, filter: Option[Filter]): Future[RowSeq] = {
     for {
       column <- retrieveColumn(table, columnId)
-      rows <- retrieveRows(table, Seq(column), pagination)
+      rows <- retrieveRows(table, Seq(column), pagination, filter)
     } yield rows
   }
 
-  private def retrieveRows(table: Table, columns: Seq[ColumnType[_]], pagination: Pagination): Future[RowSeq] = {
+  private def retrieveRows(table: Table, columns: Seq[ColumnType[_]], pagination: Pagination, filter: Option[Filter]): Future[RowSeq] = {
     for {
       totalSize <- rowModel.size(table.id)
-      rawRows <- rowModel.retrieveAll(table.id, columns, pagination)
+      rawRows <- rowModel.retrieveAll(table.id, columns, pagination, filter)
       rowSeq <- mapRawRows(table, columns, rawRows)
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }

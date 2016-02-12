@@ -4,6 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.database.Filter
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
@@ -53,13 +54,13 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield row
   }
 
-  def retrieveRows(tableId: TableId, pagination: Pagination): Future[RowSeq] = {
+  def retrieveRows(tableId: TableId, pagination: Pagination, filter: Option[Filter]): Future[RowSeq] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveRows $tableId for all columns")
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveRows(table, pagination)
+      rows <- repository.retrieveRows(table, pagination, filter)
     } yield rows
   }
 
@@ -69,7 +70,7 @@ class TableauxController(override val config: TableauxConfig, override protected
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveRows(table, columnId, pagination)
+      rows <- repository.retrieveRows(table, columnId, pagination, None)
     } yield rows
   }
 
@@ -128,7 +129,7 @@ class TableauxController(override val config: TableauxConfig, override protected
     for {
       table <- repository.retrieveTable(tableId)
       colList <- repository.retrieveColumns(table)
-      rowList <- repository.retrieveRows(table, Pagination(None, None))
+      rowList <- repository.retrieveRows(table, Pagination(None, None), None)
     } yield CompleteTable(table, colList, rowList)
   }
 

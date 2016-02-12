@@ -3,10 +3,10 @@ package com.campudus.tableaux.database.model.tableaux
 import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.{Json, _}
 
@@ -163,7 +163,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[AnyRef])] = {
     val projection = generateProjection(columns)
-    val fromClause = generateFromClause(tableId, columns)
+    val fromClause = generateFromClause(tableId)
 
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id", Json.arr(rowId))
@@ -173,12 +173,43 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, Seq[AnyRef])]] = {
+  def generateFilter(tableId: TableId, columns: Seq[ColumnType[_]], filter: Filter, rawQuery: String): String = {
+    val usedFilters = filter.filters.filter(filterItem => columns.exists(_.id == filterItem.columnId))
+
+    val mappedFilters = usedFilters.map({
+      filterItem =>
+        val column = columns.find(_.id == filterItem.columnId)
+
+        filterItem.operation match {
+          case ContainsOperation =>
+            column.get match {
+              case c: SimpleValueColumn[_] => s"q.column_${c.id} LIKE '%${filterItem.filterValue}%'"
+            }
+          case ContainsNotOperation =>
+            column.get match {
+              case c: SimpleValueColumn[_] => s"q.column_${c.id} NOT LIKE '%${filterItem.filterValue}%'"
+            }
+        }
+
+    })
+
+    s"SELECT * FROM ($rawQuery) q WHERE ${mappedFilters.mkString(" AND ")}"
+  }
+
+  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination, filter: Option[Filter]): Future[Seq[(RowId, Seq[AnyRef])]] = {
     val projection = generateProjection(columns)
-    val fromClause = generateFromClause(tableId, columns)
+    val fromClause = generateFromClause(tableId)
+
+    val rawQuery = s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination"
+    val query = filter match {
+      case None => rawQuery
+      case Some(filter) => generateFilter(tableId, columns, filter, rawQuery)
+    }
+
+    logger.info(query)
 
     for {
-      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
+      result <- connection.query(query)
     } yield {
       getSeqOfJsonArray(result).map(jsonArrayToSeq).map {
         row =>
@@ -271,8 +302,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  // TODO should be possible to kick columns here
-  private def generateFromClause(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
+  private def generateFromClause(tableId: TableId): String = {
     s"user_table_$tableId ut LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)"
   }
 
