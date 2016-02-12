@@ -87,7 +87,7 @@ class SystemController(override val config: TableauxConfig,
       rb <- writeDemoData(readDemoData("regierungsbezirke"))
 
       // Add link column Bundeslaender(Land) <> Regierungsbezirke(Regierungsbezirk)
-      linkColumn <- structureModel.columnStruc.createColumn(bl, CreateLinkColumn("Regierungsbezirke", None, rb.id, Some("Bundesland"), singleDirection = false, identifier = false))
+      linkColumn <- structureModel.columnStruc.createColumn(bl, CreateLinkColumn("Regierungsbezirke", None, rb.id, Some("Bundesland"), singleDirection = false, identifier = false, List()))
 
       toRow1 = generateToJson(1)
       toRow2 = generateToJson(2)

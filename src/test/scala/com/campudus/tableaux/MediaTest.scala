@@ -14,7 +14,7 @@ import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonArray}
+import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
@@ -413,7 +413,9 @@ class MediaTest extends TableauxTestBase {
       "name" -> "Downloads",
       "kind" -> "attachment",
       "multilanguage" -> false,
-      "identifier" -> false)))
+      "identifier" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj())))
 
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",

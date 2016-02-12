@@ -112,13 +112,15 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     } yield (t, version)
   }
 
+  // TODO Get rid of hardcoded number in saveVersion(X) in all setupVersionX
   private val setupFunctions = Seq(
     setupVersion1(_),
     setupVersion2(_),
     setupVersion3(_),
     setupVersion4(_),
     setupVersion5(_),
-    setupVersion6(_)
+    setupVersion6(_),
+    setupVersion7(_)
   )
 
   private def saveVersion(t: connection.Transaction, version: Int): Future[connection.Transaction] = {
@@ -343,6 +345,28 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
           |""".stripMargin)
 
       t <- saveVersion(t, 6)
+    } yield t
+  }
+
+  private def setupVersion7(t: connection.Transaction): Future[connection.Transaction] = {
+    logger.info("Setup schema version 7")
+
+    for {
+      (t, _) <- t.query(
+        """
+          |CREATE TABLE system_columns_lang (
+          |  table_id BIGINT NOT NULL,
+          |  column_id BIGINT NOT NULL,
+          |  langtag VARCHAR(50) NOT NULL,
+          |  name VARCHAR(255),
+          |  description TEXT,
+          |
+          |  PRIMARY KEY (table_id, column_id, langtag),
+          |  FOREIGN KEY (table_id, column_id) REFERENCES system_columns (table_id, column_id) ON DELETE CASCADE
+          |)
+          |""".stripMargin)
+
+      t <- saveVersion(t, 7)
     } yield t
   }
 }
