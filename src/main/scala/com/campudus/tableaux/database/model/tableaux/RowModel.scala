@@ -2,47 +2,286 @@ package com.campudus.tableaux.database.model.tableaux
 
 import java.util.UUID
 
-import com.campudus.tableaux.ArgumentChecker
+import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException, OkArg}
 import org.vertx.scala.core.json.{Json, _}
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
-class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
-  val attachmentModel = AttachmentModel(connection)
+sealed trait ModelHelper {
 
-  private def splitIntoDatabaseTypes(values: Seq[(ColumnType[_], _)]): (
+  /**
+    * Parses { "value": ... } depending on column type
+    */
+  def splitIntoDatabaseTypesWithValues(values: Seq[(ColumnType[_], _)]): (
     List[(SimpleValueColumn[_], _)],
       List[(MultiLanguageColumn[_], Map[String, _])],
-      List[(LinkColumn[_], _)],
-      List[(AttachmentColumn, _)]
+      List[(LinkColumn[_], Seq[RowId])],
+      List[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
     ) = {
 
     values.foldLeft((
       List[(SimpleValueColumn[_], _)](),
       List[(MultiLanguageColumn[_], Map[String, _])](),
-      List[(LinkColumn[_], _)](),
-      List[(AttachmentColumn, _)]())) {
+      List[(LinkColumn[_], Seq[RowId])](),
+      List[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]())) {
+
       case ((s, m, l, a), (c: SimpleValueColumn[_], v)) => ((c, v) :: s, m, l, a)
+
+      case ((s, m, l, a), (c: MultiLanguageColumn[_], v: Seq[(String, Map[String, _])])) =>
+        val valueAsMap = v.toMap
+        (s, (c, valueAsMap) :: m, l, a)
+
       case ((s, m, l, a), (c: MultiLanguageColumn[_], v: JsonObject)) =>
-        logger.info(s"got a multilanguage column $c -> $v")
         import scala.collection.JavaConverters._
         val valueAsMap = v.getMap.asScala.toMap
         (s, (c, valueAsMap) :: m, l, a)
-      case ((s, m, l, a), (c: LinkColumn[_], v)) => (s, m, (c, v) :: l, a)
-      case ((s, m, l, a), (c: AttachmentColumn, v)) => (s, m, l, (c, v) :: a)
+
+      case ((s, m, l, a), (c: LinkColumn[_], v)) =>
+        val toIds: Seq[RowId] = v match {
+          case x: Seq[RowId] => x
+          case x: JsonObject if x.containsKey("to") =>
+            import ArgumentChecker._
+            hasLong("to", x) match {
+              case arg: OkArg[Long] =>
+                Seq(arg.get)
+              case _ =>
+                throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
+            }
+
+          case x: JsonObject if x.containsKey("values") =>
+            import scala.collection.JavaConverters._
+            Try(checked(hasArray("values", x)).asScala.map(_.asInstanceOf[java.lang.Integer].toLong).toSeq) match {
+              case Success(ids) =>
+                ids
+              case Failure(_) =>
+                throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
+            }
+
+          case x: JsonObject =>
+            throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
+
+          case x: JsonArray =>
+            import scala.collection.JavaConverters._
+            x.asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
+        }
+        (s, m, (c, toIds) :: l, a)
+
+      case ((s, m, l, a), (c: AttachmentColumn, v)) =>
+        val attachments = v match {
+          case attachment: JsonObject =>
+            notNull(attachment.getString("uuid"), "uuid")
+            Seq((UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong)))
+          case attachments: JsonArray =>
+            import scala.collection.JavaConverters._
+            attachments.asScala.map({
+              case attachment: JsonObject =>
+                notNull(attachment.getString("uuid"), "uuid")
+                (UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong))
+            }).toSeq
+          case attachments: Stream[_] =>
+            attachments.map({
+              case file: AttachmentFile =>
+                (file.file.file.uuid.get, Some(file.ordering))
+            }).toSeq
+        }
+
+        (s, m, l, (c, attachments) :: a)
+
       case (_, (c, v)) =>
-        logger.info(s"Class cast exception: unknown column or value: $c -> $v")
         throw new ClassCastException(s"unknown column or value: $c -> $v")
     }
   }
 
-  def createRow(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+  def splitIntoDatabaseTypes(columns: Seq[ColumnType[_]]): (
+    List[SimpleValueColumn[_]],
+      List[MultiLanguageColumn[_]],
+      List[LinkColumn[_]],
+      List[AttachmentColumn]
+    ) = {
+
+    columns.foldLeft((
+      List[SimpleValueColumn[_]](),
+      List[MultiLanguageColumn[_]](),
+      List[LinkColumn[_]](),
+      List[AttachmentColumn]())) {
+
+      case ((s, m, l, a), c: SimpleValueColumn[_]) =>
+        (c :: s, m, l, a)
+
+      case ((s, m, l, a), c: MultiLanguageColumn[_]) =>
+        (s, c :: m, l, a)
+
+      case ((s, m, l, a), c: MultiLanguageColumn[_]) =>
+        (s, c :: m, l, a)
+
+      case ((s, m, l, a), c: LinkColumn[_]) =>
+        (s, m, c :: l, a)
+
+      case ((s, m, l, a), c: AttachmentColumn) =>
+        (s, m, l, c :: a)
+
+      case (_, c) =>
+        throw new ClassCastException(s"unknown column $c")
+    }
+  }
+}
+
+class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with ModelHelper {
+  val attachmentModel = AttachmentModel(connection)
+
+  def clearRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_])]): Future[Unit] = {
     val (simple, multis, links, attachments) = splitIntoDatabaseTypes(values)
+
+    for {
+      _ <- if (simple.isEmpty) Future.successful(()) else updateRow(table, rowId, simple.map((_, null)))
+      _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis)
+      _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links)
+      _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
+    } yield ()
+  }
+
+  private def clearTranslation(table: Table, rowId: RowId, columns: Seq[MultiLanguageColumn[_]]): Future[_] = {
+    val setExpression = columns.map({
+      case column: MultiLanguageColumn[_] => s"column_${column.id} = NULL"
+    }).mkString(", ")
+
+    for {
+      update <- connection.query(s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ?", Json.arr(rowId))
+      _ = updateNotNull(update)
+    } yield ()
+  }
+
+  private def clearLinks(table: Table, rowId: RowId, columns: Seq[LinkColumn[_]]): Future[_] = {
+    val futureSequence = columns.map({
+      case column: LinkColumn[_] =>
+        val linkId = column.linkId
+        val direction = column.linkDirection
+
+        for {
+          _ <- connection.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
+        } yield ()
+    })
+
+    Future.sequence(futureSequence)
+  }
+
+  private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
+    val futureSequence = columns.map({
+      case column: AttachmentColumn =>
+        attachmentModel.deleteAll(table.id, column.id, rowId)
+    })
+
+    Future.sequence(futureSequence)
+  }
+
+  def updateRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+    val (simple, multis, links, attachments) = splitIntoDatabaseTypesWithValues(values)
+
+    for {
+      _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple)
+      _ <- if (multis.isEmpty) Future.successful(()) else updateTranslations(table, rowId, multis)
+      _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links)
+      _ <- if (attachments.isEmpty) Future.successful(()) else updateAttachments(table, rowId, attachments)
+    } yield ()
+  }
+
+  private def updateSimple(table: Table, rowId: RowId, simple: List[(SimpleValueColumn[_], _)]): Future[Unit] = {
+    val setExpression = simple.map({
+      case (column: SimpleValueColumn[_], _) => s"column_${column.id} = ?"
+    }).mkString(", ")
+
+    val binds = simple.map(_._2) ++ List(rowId)
+
+    for {
+      update <- connection.query(s"UPDATE user_table_${table.id} SET $setExpression WHERE id = ?", Json.arr(binds: _*))
+      _ = updateNotNull(update)
+    } yield ()
+  }
+
+  private def updateTranslations(table: Table, rowId: RowId, values: Seq[(MultiLanguageColumn[_], Map[String, _])]): Future[_] = {
+    val entries = for {
+      (column, langs) <- values
+      (langTag: String, value) <- langs
+    } yield (langTag, (column, value))
+
+    val columnsForLang = entries.groupBy(_._1).mapValues(_.map(_._2))
+
+    if (columnsForLang.nonEmpty) {
+      connection.transactionalFoldLeft(columnsForLang.toSeq) { (t, _, langValues) =>
+        val langtag = langValues._1
+        val values = langValues._2
+
+        val setExpression = values.map({
+          case (column, _) => s"column_${column.id} = ?"
+        }).mkString(", ")
+
+        val binds = values.map(_._2).toList ++ List(rowId, langtag)
+
+        for {
+          (t, _) <- t.query(s"INSERT INTO user_table_lang_${table.id}(id, langtag) SELECT ?, ? WHERE NOT EXISTS (SELECT id FROM user_table_lang_${table.id} WHERE id = ? AND langtag = ?)", Json.arr(rowId, langtag, rowId, langtag))
+          (t, result) <- t.query(s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ? AND langtag = ?", Json.arr(binds: _*))
+        } yield (t, result)
+      }
+    } else {
+      Future.failed(new IllegalArgumentException("error.json.arguments"))
+    }
+  }
+
+  private def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn[_], Seq[RowId])]): Future[Unit] = {
+    val futureSequence = values.map({
+      case (column, toIds) =>
+        val linkId = column.linkId
+        val direction = column.linkDirection
+
+        val union = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
+        val binds = toIds.flatMap(to => List(rowId, to, rowId, to))
+
+        for {
+          _ <- {
+            if (toIds.nonEmpty) {
+              connection.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}) $union", Json.arr(binds: _*))
+            } else {
+              Future.successful(Json.emptyObj())
+            }
+          }
+        } yield ()
+    })
+
+    Future.sequence(futureSequence).map(_ => ())
+  }
+
+  private def updateAttachments(table: Table, rowId: RowId, values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]): Future[Unit] = {
+    val futureSequence = values.map({
+      case (column, attachments) =>
+        for {
+          currentAttachments <- attachmentModel.retrieveAll(table.id, column.id, rowId)
+          _ <- Future.sequence(attachments.map({
+            case (uuid, ordering) =>
+              if (currentAttachments.exists(_.file.file.uuid.contains(uuid))) {
+                attachmentModel.update(Attachment(table.id, column.id, rowId, uuid, ordering))
+              } else {
+                attachmentModel.add(Attachment(table.id, column.id, rowId, uuid, ordering))
+              }
+          }))
+        } yield ()
+    })
+
+    Future.sequence(futureSequence).map(_ => ())
+  }
+}
+
+class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with ModelHelper {
+  val attachmentModel = AttachmentModel(connection)
+
+  def createRow(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+    val (simple, multis, links, attachments) = splitIntoDatabaseTypesWithValues(values)
 
     for {
       rowId <- if (simple.isEmpty) createEmpty(tableId) else createFull(tableId, simple)
@@ -72,75 +311,6 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn[_], _)]): Future[_] = {
-    val futureSequence = for {
-      (column: LinkColumn[_], idValues) <- values
-      toIds = idValues match {
-        case x: JsonObject => Seq(x.getLong("to").toLong)
-        case x: JsonArray =>
-          import scala.collection.JavaConverters._
-          x.asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
-      }
-    } yield {
-      val linkId = column.linkId
-      val direction = column.linkDirection
-
-      val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
-      val params = toIds.flatMap(to => List(rowId, to, rowId, to))
-
-      for {
-        t <- connection.begin()
-
-        (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
-
-        (t, _) <- {
-          if (params.nonEmpty) {
-            t.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}) $paramStr", Json.arr(params: _*))
-          } else {
-            Future((t, Json.emptyObj()))
-          }
-        }
-        _ <- t.commit()
-      } yield ()
-    }
-
-    Future.sequence(futureSequence)
-  }
-
-  private def createAttachments(tableId: TableId, rowId: RowId, values: Seq[(AttachmentColumn, _)]): Future[_] = {
-    import ArgumentChecker._
-    val futureSequence = for {
-      (column: AttachmentColumn, attachmentValue) <- values
-      attachments = attachmentValue match {
-        case x: JsonObject =>
-          logger.info(s"attachmentValue=${x.encode()}")
-          notNull(x.getString("uuid"), "uuid")
-          Seq(Attachment(
-            tableId,
-            column.id,
-            rowId,
-            UUID.fromString(x.getString("uuid")),
-            Option(x.getLong("ordering")).map(_.toLong)))
-        case x: JsonArray =>
-          import scala.collection.JavaConverters._
-          x.asScala.map {
-            case file: JsonObject =>
-              notNull(file.getString("uuid"), "uuid")
-              Attachment(tableId, column.id, rowId, UUID.fromString(file.getString("uuid")), Option(file.getLong("ordering")))
-          }.toSeq
-        case x: Stream[_] =>
-          x.map {
-            case file: AttachmentFile =>
-              Attachment(tableId, column.id, rowId, file.file.file.uuid.get, Some(file.ordering))
-          }.toSeq
-      }
-    } yield {
-      attachmentModel.replace(tableId, column.id, rowId, attachments)
-    }
-
-    Future.sequence(futureSequence)
-  }
-
   private def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(MultiLanguageColumn[_], Map[String, _])]): Future[_] = {
     val entries = for {
       (column, langs) <- values
@@ -149,17 +319,66 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     val columnsForLang = entries.groupBy(_._1).mapValues(_.map(_._2))
 
-    connection.transactionalFoldLeft(columnsForLang.toSeq) { (t, _, langValues) =>
-      val columns = langValues._2.map { case (col, _) => s"column_${col.id}" }.mkString(", ")
-      val placeholder = langValues._2.map(_ => "?").mkString(", ")
-      val insertStmt = s"INSERT INTO user_table_lang_$tableId (id, langtag, $columns) VALUES (?, ?, $placeholder)"
-      val insertBinds = List(rowId, langValues._1) ::: langValues._2.map(_._2).toList
+    if (columnsForLang.nonEmpty) {
+      connection.transactionalFoldLeft(columnsForLang.toSeq) { (t, _, langValues) =>
+        val columns = langValues._2.map { case (col, _) => s"column_${col.id}" }.mkString(", ")
+        val placeholder = langValues._2.map(_ => "?").mkString(", ")
+        val insertStmt = s"INSERT INTO user_table_lang_$tableId (id, langtag, $columns) VALUES (?, ?, $placeholder)"
+        val insertBinds = List(rowId, langValues._1) ::: langValues._2.map(_._2).toList
 
-      for {
-        (t, result) <- t.query(insertStmt, Json.arr(insertBinds: _*))
-      } yield (t, result)
+        for {
+          (t, result) <- t.query(insertStmt, Json.arr(insertBinds: _*))
+        } yield (t, result)
+      }
+    } else {
+      Future.failed(new IllegalArgumentException("error.json.arguments"))
     }
   }
+
+  private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn[_], Seq[RowId])]): Future[_] = {
+    val futureSequence = values.map({
+      case (column: LinkColumn[_], toIds) =>
+        val linkId = column.linkId
+        val direction = column.linkDirection
+
+        val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
+        val params = toIds.flatMap(to => List(rowId, to, rowId, to))
+
+        for {
+          t <- connection.begin()
+
+          (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
+
+          (t, _) <- {
+            if (params.nonEmpty) {
+              t.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}) $paramStr", Json.arr(params: _*))
+            } else {
+              Future((t, Json.emptyObj()))
+            }
+          }
+          _ <- t.commit()
+        } yield ()
+    })
+
+    Future.sequence(futureSequence)
+  }
+
+  private def createAttachments(tableId: TableId, rowId: RowId, values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]): Future[_] = {
+    val futureSequence = for {
+      (column: AttachmentColumn, attachmentValue) <- values
+      attachments = attachmentValue.map({
+        case (uuid, ordering) =>
+          Attachment(tableId, column.id, rowId, uuid, ordering)
+      })
+    } yield {
+      attachmentModel.replace(tableId, column.id, rowId, attachments)
+    }
+
+    Future.sequence(futureSequence)
+  }
+}
+
+class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with ModelHelper {
 
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[AnyRef])] = {
     val projection = generateProjection(columns)
@@ -173,7 +392,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def generateFilter(tableId: TableId, columns: Seq[ColumnType[_]], filter: Filter, rawQuery: String): String = {
+  private def generateFilter(tableId: TableId, columns: Seq[ColumnType[_]], filter: Filter, rawQuery: String): String = {
     val usedFilters = filter.filters.filter(filterItem => columns.exists(_.id == filterItem.columnId))
 
     val mappedFilters = usedFilters.map({
@@ -203,7 +422,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val rawQuery = s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination"
     val query = filter match {
       case None => rawQuery
-      case Some(filter) => generateFilter(tableId, columns, filter, rawQuery)
+      case Some(f) => generateFilter(tableId, columns, f, rawQuery)
     }
 
     logger.info(query)
@@ -230,33 +449,6 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield {
       deleteNotNull(result)
     }
-  }
-
-  private def joinMultiLanguageJson(fields: Seq[String], joined: Map[String, List[AnyRef]], obj: AnyRef): Map[String, List[AnyRef]] = {
-    import scala.collection.JavaConversions._
-
-    fields.foldLeft(joined)({
-      (result, field) =>
-        val joinedValue = result.get(field)
-
-        val value = obj match {
-          case a: JsonArray => a.toList.map({
-            case o: JsonObject =>
-              o.getJsonObject("value").getValue(field)
-          })
-          case o: JsonObject => o.getValue(field)
-          case _ => obj
-        }
-
-        val merged = (joinedValue, value) match {
-          case (None, null) => List[AnyRef](null)
-          case (None, _) => List[AnyRef](value)
-          case (Some(j), null) => j.:+(null)
-          case (Some(j), _) => j.:+(value)
-        }
-
-        result.+((field, merged))
-    })
   }
 
   private def mapValueByColumnType(column: ColumnType[_], value: AnyRef): AnyRef = {
