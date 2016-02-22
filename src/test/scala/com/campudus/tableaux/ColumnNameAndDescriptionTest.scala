@@ -4,7 +4,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.runner.RunWith
 import org.junit.{Ignore, Test}
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{JsonObject, Json}
 
 @RunWith(classOf[VertxUnitRunner])
 class ColumnNameAndDescriptionTest extends TableauxTestBase {
@@ -301,10 +301,50 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
     }
   }
 
-  @Ignore("not implemented yet")
   @Test
   def changeMultilanguageNameAndOtherDescriptionForColumn(implicit c: TestContext): Unit = okTest {
-    ???
+    val postSimpleTable = Json.obj("name" -> "table1")
+    def columnWithNameAndDescription(name: JsonObject, description: JsonObject) = Json.obj(
+      "name" -> "column1",
+      "kind" -> "shorttext",
+      "displayName" -> name,
+      "description" -> description
+    )
+
+    val postColumnJson = columnWithNameAndDescription(
+      name = Json.obj(
+        "de_DE" -> "Spalte 1"
+      ),
+      description = Json.obj(
+        "en_US" -> "Description Column 1"
+      ))
+    val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(postColumnJson))
+
+    val patchColumnJson = columnWithNameAndDescription(
+      name = Json.obj(
+        "de_DE" -> "Erste Spalte"
+      ),
+      description = Json.obj(
+        "en_US" -> "Description of first column"
+      ))
+    val patchColumnWithDisplayNames = patchColumnJson
+
+    for {
+      table <- sendRequest("POST", "/tables", postSimpleTable)
+      tableId = table.getLong("id")
+
+      postColumnResult <- sendRequest("POST", s"/tables/$tableId/columns", postColumnWithDisplayNames)
+      columnId = postColumnResult.getJsonArray("columns").getJsonObject(0).getLong("id")
+
+      patchColumnResult <- sendRequest("POST", s"/tables/$tableId/columns/$columnId", patchColumnWithDisplayNames)
+      columnId2 = patchColumnResult.getLong("id")
+
+      getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
+    } yield {
+      assertEquals(columnId, columnId2)
+      assertContains(patchColumnJson, patchColumnResult)
+      assertEquals(getColumnResult, patchColumnResult.mergeIn(Json.obj("status" -> "ok")))
+    }
   }
 
   @Test
@@ -334,10 +374,37 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
     }
   }
 
-  @Ignore("not implemented yet")
   @Test
   def changeMultilanguageDescriptionForColumn(implicit c: TestContext): Unit = okTest {
-    ???
+    val postSimpleTable = Json.obj("name" -> "table1")
+    def columnWithDescription(description: JsonObject) = Json.obj(
+      "name" -> "column1",
+      "kind" -> "shorttext",
+      "description" -> description
+    )
+
+    val postColumnJson = columnWithDescription(Json.obj("en_US" -> "Description Column 1"))
+    val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(postColumnJson))
+
+    val patchColumnJson = columnWithDescription(Json.obj("en_US" -> "Description first column"))
+    val patchColumnWithDisplayNames = patchColumnJson
+
+    for {
+      table <- sendRequest("POST", "/tables", postSimpleTable)
+      tableId = table.getLong("id")
+
+      postColumnResult <- sendRequest("POST", s"/tables/$tableId/columns", postColumnWithDisplayNames)
+      columnId = postColumnResult.getJsonArray("columns").getJsonObject(0).getLong("id")
+
+      patchColumnResult <- sendRequest("POST", s"/tables/$tableId/columns/$columnId", patchColumnWithDisplayNames)
+      columnId2 = patchColumnResult.getLong("id")
+
+      getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
+    } yield {
+      assertEquals(columnId, columnId2)
+      assertContains(patchColumnJson, patchColumnResult)
+      assertEquals(getColumnResult, patchColumnResult.mergeIn(Json.obj("status" -> "ok")))
+    }
   }
 
 }
