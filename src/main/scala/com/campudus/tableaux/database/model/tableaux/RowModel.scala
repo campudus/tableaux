@@ -118,9 +118,6 @@ sealed trait ModelHelper {
       case ((s, m, l, a), c: MultiLanguageColumn[_]) =>
         (s, c :: m, l, a)
 
-      case ((s, m, l, a), c: MultiLanguageColumn[_]) =>
-        (s, c :: m, l, a)
-
       case ((s, m, l, a), c: LinkColumn[_]) =>
         (s, m, c :: l, a)
 
@@ -173,12 +170,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   }
 
   private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
-    val futureSequence = columns.map({
-      case column: AttachmentColumn =>
-        attachmentModel.deleteAll(table.id, column.id, rowId)
-    })
-
-    Future.sequence(futureSequence)
+    val cleared = columns.map((c: AttachmentColumn) => attachmentModel.deleteAll(table.id, c.id, rowId))
+    Future.sequence(cleared)
   }
 
   def updateRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
@@ -257,23 +250,26 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(futureSequence).map(_ => ())
   }
 
-  private def updateAttachments(table: Table, rowId: RowId, values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]): Future[Unit] = {
+  private def updateAttachments(table: Table, rowId: RowId, values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]): Future[Seq[Seq[AttachmentFile]]] = {
     val futureSequence = values.map({
       case (column, attachments) =>
         for {
           currentAttachments <- attachmentModel.retrieveAll(table.id, column.id, rowId)
-          _ <- Future.sequence(attachments.map({
-            case (uuid, ordering) =>
-              if (currentAttachments.exists(_.file.file.uuid.contains(uuid))) {
-                attachmentModel.update(Attachment(table.id, column.id, rowId, uuid, ordering))
-              } else {
-                attachmentModel.add(Attachment(table.id, column.id, rowId, uuid, ordering))
-              }
-          }))
-        } yield ()
+          attachmentFiles <- attachments.foldLeft(Future.successful(List[AttachmentFile]())) {
+            case (future, (uuid, ordering)) =>
+              for {
+                list <- future
+                addedOrUpdatedAttachment <- if (currentAttachments.exists(_.file.file.uuid.contains(uuid))) {
+                  attachmentModel.update(Attachment(table.id, column.id, rowId, uuid, ordering))
+                } else {
+                  attachmentModel.add(Attachment(table.id, column.id, rowId, uuid, ordering))
+                }
+              } yield addedOrUpdatedAttachment :: list
+          }
+        } yield attachmentFiles
     })
 
-    Future.sequence(futureSequence).map(_ => ())
+    Future.sequence(futureSequence)
   }
 }
 
@@ -394,7 +390,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
 
   def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, Seq[AnyRef])]] = {
     val projection = generateProjection(columns)
-    val fromClause = generateFromClause(tableId, columns)
+    val fromClause = generateFromClause(tableId)
 
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
@@ -463,8 +459,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     }
   }
 
-  // TODO should be possible to kick columns here
-  private def generateFromClause(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
+  private def generateFromClause(tableId: TableId): String = {
     s"user_table_$tableId ut LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)"
   }
 
