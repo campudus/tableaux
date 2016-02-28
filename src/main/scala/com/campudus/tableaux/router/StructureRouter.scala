@@ -98,11 +98,11 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     /**
       * Change Column
       */
-    case Post(Column(tableId, columnId)) => asyncEmptyReply {
+    case Post(Column(tableId, columnId)) => asyncGetReply {
       for {
         json <- getJson(context)
-        (optName, optOrd, optKind, optIdent) = toColumnChanges(json)
-        changed <- controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent)
+        (optName, optOrd, optKind, optIdent, optDisplayNames, optDescription) = toColumnChanges(json)
+        changed <- controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent, optDisplayNames, optDescription)
       } yield changed
     }
 

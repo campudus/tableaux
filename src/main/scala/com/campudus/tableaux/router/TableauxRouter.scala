@@ -1,6 +1,7 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.database.Filter
 import com.campudus.tableaux.database.domain.Pagination
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
@@ -18,6 +19,7 @@ object TableauxRouter {
 class TableauxRouter(override val config: TableauxConfig, val controller: TableauxController) extends BaseRouter {
 
   private val AttachmentOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/attachment/($uuidRegex)".r
+  private val LinkOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/link/(\\d+)".r
 
   private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
 
@@ -35,12 +37,19 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get Rows
       */
     case Get(Rows(tableId)) => asyncGetReply {
+      val filter: Option[Filter] = getStringParam("filter", context) match {
+        case Some(x) if x.nonEmpty => Some(Filter(x))
+        case _ => None
+      }
+
+      logger.info(s"Get rows with filter $filter")
+
       val limit = getLongParam("limit", context)
       val offset = getLongParam("offset", context)
 
       val pagination = Pagination(offset, limit)
 
-      controller.retrieveRows(tableId.toLong, pagination)
+      controller.retrieveRows(tableId.toLong, pagination, filter)
     }
 
     /**
@@ -116,32 +125,32 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-      * Fill Cell
+      * Update Cell or add Link/Attachment
       */
     case Post(Cell(tableId, columnId, rowId)) => asyncGetReply {
       for {
         json <- getJson(context)
-        filled <- controller.fillCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-      } yield filled
-    }
-
-    /**
-      * Update Cell
-      */
-    case Put(Cell(tableId, columnId, rowId)) => asyncGetReply {
-      for {
-        json <- getJson(context)
-        updated <- controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+        updated <- controller.updateCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
       } yield updated
     }
 
     /**
-      * Update Cell
+      * Update Cell or add Link/Attachment
       */
     case Patch(Cell(tableId, columnId, rowId)) => asyncGetReply {
       for {
         json <- getJson(context)
-        updated <- controller.updateCell(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+        updated <- controller.updateCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+      } yield updated
+    }
+
+    /**
+      * Replace Cell value
+      */
+    case Put(Cell(tableId, columnId, rowId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        updated <- controller.replaceCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
       } yield updated
     }
 
@@ -153,11 +162,15 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-      * Delete Attachment
+      * Delete Attachment from Cell
       */
     case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) => asyncEmptyReply {
       controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid)
     }
-  }
 
+    /**
+      * Delete Link from Cell
+      */
+    case Delete(LinkOfCell(tableId, columnId, fromId, toId)) => ???
+  }
 }

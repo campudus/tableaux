@@ -14,7 +14,7 @@ import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonArray}
+import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
@@ -413,7 +413,9 @@ class MediaTest extends TableauxTestBase {
       "name" -> "Downloads",
       "kind" -> "attachment",
       "multilanguage" -> false,
-      "identifier" -> false)))
+      "identifier" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj())))
 
     val column = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
@@ -505,25 +507,25 @@ class MediaTest extends TableauxTestBase {
       _ <- sendRequest("PUT", s"/files/$fileUuid3", putFile)
 
       // Add attachment
-      resultFill <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)))
+      resultFill <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)))
 
       // Retrieve row with attachment
       resultRetrieve <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
-      // Replace with attachments (with order)
-      resultReplace <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr(Json.obj("uuid" -> fileUuid2, "ordering" -> 2), Json.obj("uuid" -> fileUuid3, "ordering" -> 1))))
+      // Replace attachments with order
+      resultReplace <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr(Json.obj("uuid" -> fileUuid2, "ordering" -> 2), Json.obj("uuid" -> fileUuid3, "ordering" -> 1))))
 
       // Retrieve attachments after replace
       resultRetrieveAfterReplace <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-      // Replace with attachments (without order)
-      resultReplaceWithoutOrder <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr(Json.obj("uuid" -> fileUuid2), Json.obj("uuid" -> fileUuid3))))
+      // Replace attachments without order
+      resultReplaceWithoutOrder <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr(Json.obj("uuid" -> fileUuid2), Json.obj("uuid" -> fileUuid3))))
 
       // Retrieve attachments after replace
       resultRetrieveAfterReplaceWithoutOrder <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-      // Replace with no attachments
-      resultReplaceEmpty <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr()))
+      // Clear cell
+      resultReplaceEmpty <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.arr()))
 
       // Retrieve attachments after replace
       resultRetrieveAfterReplaceEmpty <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
@@ -614,15 +616,15 @@ class MediaTest extends TableauxTestBase {
       _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
 
       // Add attachments
-      resultFill1 <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 1)))
-      resultFill2 <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
+      resultFill1 <- sendRequest("PATCH", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 1)))
+      resultFill2 <- sendRequest("PATCH", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
 
       // Retrieve attachments after fill
       resultRetrieveFill <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
       // Update attachments
-      resultUpdate1 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 2)))
-      resultUpdate2 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid2, "ordering" -> 1)))
+      resultUpdate1 <- sendRequest("PATCH", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid1, "ordering" -> 2)))
+      resultUpdate2 <- sendRequest("PATCH", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid2, "ordering" -> 1)))
 
       // Retrieve attachments after update
       resultRetrieveUpdate <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")

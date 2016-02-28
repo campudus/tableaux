@@ -29,10 +29,14 @@ class LinkTest extends TableauxTestBase {
         "name" -> "Test Column 1",
         "kind" -> "text",
         "multilanguage" -> false,
-        "identifier" -> true
+        "identifier" -> true,
+        "displayName" -> Json.obj(),
+        "description" -> Json.obj()
       ),
       "ordering" -> 3,
-      "identifier" -> false
+      "identifier" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj()
     )
 
     for {
@@ -54,13 +58,17 @@ class LinkTest extends TableauxTestBase {
         "kind" -> "link",
         "multilanguage" -> false,
         "identifier" -> false,
+        "displayName" -> Json.obj(),
+        "description" -> Json.obj(),
         "toTable" -> 2,
         "toColumn" -> Json.obj(
           "id" -> 1, "ordering" -> 1,
           "kind" -> "text",
           "name" -> "Test Column 1",
           "multilanguage" -> false,
-          "identifier" -> true
+          "identifier" -> true,
+          "displayName" -> Json.obj(),
+          "description" -> Json.obj()
         ))))
 
     for {
@@ -82,13 +90,17 @@ class LinkTest extends TableauxTestBase {
         "kind" -> "link",
         "multilanguage" -> false,
         "identifier" -> false,
+        "displayName" -> Json.obj(),
+        "description" -> Json.obj(),
         "toTable" -> 2,
         "toColumn" -> Json.obj(
           "id" -> 1, "ordering" -> 1,
           "kind" -> "text",
           "name" -> "Test Column 1",
           "multilanguage" -> false,
-          "identifier" -> true
+          "identifier" -> true,
+          "displayName" -> Json.obj(),
+          "description" -> Json.obj()
         ))))
 
     for {
@@ -120,13 +132,17 @@ class LinkTest extends TableauxTestBase {
         "kind" -> "link",
         "multilanguage" -> false,
         "identifier" -> false,
+        "displayName" -> Json.obj(),
+        "description" -> Json.obj(),
         "toTable" -> 2,
         "toColumn" -> Json.obj(
           "id" -> 1, "ordering" -> 1,
           "kind" -> "text",
           "name" -> "Test Column 1",
           "multilanguage" -> false,
-          "identifier" -> true
+          "identifier" -> true,
+          "displayName" -> Json.obj(),
+          "description" -> Json.obj()
         ))))
 
     for {
@@ -149,13 +165,17 @@ class LinkTest extends TableauxTestBase {
         "kind" -> "link",
         "multilanguage" -> false,
         "identifier" -> false,
+        "displayName" -> Json.obj(),
+        "description" -> Json.obj(),
         "toTable" -> 2,
         "toColumn" -> Json.obj(
           "id" -> 1, "ordering" -> 1,
           "kind" -> "text",
           "name" -> "Test Column 1",
           "multilanguage" -> false,
-          "identifier" -> true
+          "identifier" -> true,
+          "displayName" -> Json.obj(),
+          "description" -> Json.obj()
         ))))
 
     for {

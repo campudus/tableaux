@@ -156,4 +156,32 @@ class ArgumentCheckerTest {
       hasLong("no_long", json)
     )
   }
+
+  @Test
+  def checkForAllObjectValues(): Unit = {
+
+    val okJson1 = Json.obj("de_DE" -> "Eine beliebige Zeichenkette")
+    val okJson2 = Json.obj("de_DE" -> "Eine beliebige Zeichenkette", "en_US" -> "A random string")
+    val okJson3 = Json.obj()
+    val failJson1 = Json.obj("de_DE" -> false)
+    val failJson2 = Json.obj("de_DE" -> "Eine beliebige Zeichenkette", "en_US" -> true)
+    val failJson3 = Json.obj("de_DE" -> null)
+
+    assertEquals(OkArg(okJson1), checkForAllValues[String](okJson1, _.isInstanceOf[String], "obj1"))
+    assertEquals(OkArg(okJson2), checkForAllValues[String](okJson2, _.isInstanceOf[String], "obj2"))
+    assertEquals(OkArg(okJson3), checkForAllValues[String](okJson3, _.isInstanceOf[String], "obj3"))
+
+    assertEquals(FailArg(InvalidJsonException(
+      "Warning: obj4 has incorrectly typed value at key 'de_DE'.", "invalid")),
+      checkForAllValues[String](failJson1, _.isInstanceOf[String], "obj4"))
+
+    assertEquals(FailArg(InvalidJsonException(
+      "Warning: obj5 has incorrectly typed value at key 'en_US'.", "invalid")),
+      checkForAllValues[String](failJson2, _.isInstanceOf[String], "obj5"))
+
+    assertEquals(FailArg(InvalidJsonException(
+      "Warning: obj6 has value 'de_DE' pointing at null.", "invalid")),
+      checkForAllValues[String](failJson3, _.isInstanceOf[String], "obj6"))
+
+  }
 }

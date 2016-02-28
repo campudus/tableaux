@@ -45,22 +45,17 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   def asyncEmptyReply: AsyncReplyFunction = asyncReply(EmptyReturn)(_)
 
   private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject]): AsyncReply = AsyncReply {
-    val futureReply = replyFunction map {
+    replyFunction.map({
       result =>
-        val resultJson = result.toJson(returnType)
-        val replyBody = resultJson.mergeIn(baseResult)
-        Ok(replyBody)
-    } recover {
-      case ex: CustomException => Error(RouterException(ex.message, ex, ex.id, ex.statusCode))
+        Ok(result.toJson(returnType).mergeIn(baseResult))
+    }).map({
+      reply =>
+        Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))
+    }).recover({
+      case ex: CustomException => Error(ex.toRouterException)
       case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
       case ex: Throwable => Error(RouterException("unknown error", ex, "error.unknown", 500))
-    }
-
-    futureReply map { reply =>
-      Header("Expires", "-1",
-        Header("Cache-Control", "no-cache", reply)
-      )
-    }
+    })
   }
 
   def getJson(context: RoutingContext): Future[JsonObject] = futurify { p: Promise[JsonObject] =>

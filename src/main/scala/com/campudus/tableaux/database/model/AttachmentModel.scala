@@ -122,6 +122,15 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
     } yield ()
   }
 
+  def deleteAll(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Unit] = {
+    val delete = s"DELETE FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?"
+
+    for {
+      result <- connection.query(delete, Json.arr(tableId, columnId, rowId))
+      //_ = deleteNotNull(result)
+    } yield ()
+  }
+
   def retrieveFile(file: UUID, ordering: Ordering): Future[AttachmentFile] = {
     fileModel.retrieve(file).map(ExtendedFile).map(f => AttachmentFile(f, ordering))
   }

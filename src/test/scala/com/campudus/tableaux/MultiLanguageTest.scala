@@ -7,8 +7,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.concurrent.Future
-
 @RunWith(classOf[VertxUnitRunner])
 class MultiLanguageTest extends TableauxTestBase {
 
@@ -21,7 +19,9 @@ class MultiLanguageTest extends TableauxTestBase {
       "kind" -> "text",
       "ordering" -> columnId,
       "multilanguage" -> true,
-      "identifier" -> true
+      "identifier" -> true,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj()
     )
 
     for {

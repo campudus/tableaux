@@ -52,7 +52,7 @@ class TableauxControllerTest extends TableauxTestBase {
   @Test
   def checkFillCellWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createTableauxController()
-    illegalArgumentTest(controller.fillCell(0, 0, 0, null))
+    illegalArgumentTest(controller.replaceCellValue(0, 0, 0, null))
   }
 
   private def illegalArgumentTest[A](f: => Future[A])(implicit c: TestContext): Unit = {
