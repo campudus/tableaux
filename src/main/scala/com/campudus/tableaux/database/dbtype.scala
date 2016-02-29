@@ -125,7 +125,7 @@ case object MultiLanguage extends LanguageType {
 }
 
 object Mapper {
-  private def columnType(languageType: LanguageType, kind: TableauxDbType): Option[(Table, ColumnId, String, Ordering, Boolean) => ColumnType[_]] = {
+  private def columnType(languageType: LanguageType, kind: TableauxDbType): Option[(Table, ColumnId, String, Ordering, Boolean, Seq[DisplayInfo]) => ColumnType[_]] = {
     languageType match {
       case SingleLanguage => kind match {
         // primitive/simple types
@@ -157,7 +157,7 @@ object Mapper {
     }
   }
 
-  def apply(languageType: LanguageType, kind: TableauxDbType): (Table, ColumnId, String, Ordering, Boolean) => ColumnType[_] = columnType(languageType, kind).get
+  def apply(languageType: LanguageType, kind: TableauxDbType): (Table, ColumnId, String, Ordering, Boolean, Seq[DisplayInfo]) => ColumnType[_] = columnType(languageType, kind).get
 
   def getDatabaseType(kind: String): TableauxDbType = {
     kind match {

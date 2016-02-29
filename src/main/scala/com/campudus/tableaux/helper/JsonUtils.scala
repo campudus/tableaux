@@ -3,7 +3,7 @@ package com.campudus.tableaux.helper
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 import com.campudus.tableaux.{ArgumentCheck, InvalidJsonException}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
@@ -49,18 +49,19 @@ object JsonUtils {
           val ordering = Try(json.getInteger("ordering").longValue()).toOption
           val multilanguage = Try[Boolean](json.getBoolean("multilanguage")).getOrElse(false)
           val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
+          val di = DisplayInfos.allInfos(json)
 
           dbType match {
-            case AttachmentType => CreateAttachmentColumn(name, ordering, identifier)
+            case AttachmentType => CreateAttachmentColumn(name, ordering, identifier, di)
             case LinkType =>
               // link specific fields
               val toName = Try(Option(json.getString("toName"))).toOption.flatten
               val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
               val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
 
-              CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier)
+              CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier, di)
 
-            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage), identifier)
+            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage), identifier, di)
           }
         }
     })
@@ -99,12 +100,14 @@ object JsonUtils {
     valueList <- nonEmpty(valueAsAnyList, "values")
   } yield valueList
 
-  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean]) = {
+  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean], Option[JsonObject], Option[JsonObject]) = {
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
-    val identifier = Try[Boolean](json.getBoolean("identifier")).toOption
+    val identifier = Try(json.getBoolean("identifier").booleanValue()).toOption
+    val displayNames = Try(checkForAllValues[String](json.getJsonObject("displayName"), n => n == null || n.isInstanceOf[String], "displayName").get).toOption
+    val descriptions = Try(checkForAllValues[String](json.getJsonObject("description"), d => d == null || d.isInstanceOf[String], "description").get).toOption
 
-    (name, ord, kind, identifier)
+    (name, ord, kind, identifier, displayNames, descriptions)
   }
 }

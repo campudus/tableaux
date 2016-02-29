@@ -6,6 +6,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
+import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
 
@@ -43,7 +44,6 @@ class StructureController(override val config: TableauxConfig, override protecte
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
       sorted = retrieved.sortBy(_.ordering)
     } yield {
-      logger.info(s"$columns")
       ColumnSeq(sorted)
     }
   }
@@ -138,14 +138,13 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield EmptyObject()
   }
 
-  def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean]): Future[ColumnType[_]] = {
+  def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean], displayName: Option[JsonObject], description: Option[JsonObject]): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
-    logger.info(s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier")
+    logger.info(s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier displayName=${displayName.map(_.encode())} description=${description.map(_.encode())}")
 
     for {
       table <- tableStruc.retrieve(tableId)
-      changed <- columnStruc.change(table, columnId, columnName, ordering, kind, identifier)
-      column <- columnStruc.retrieve(changed.table, changed.id)
-    } yield column
+      changed <- columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayName, description)
+    } yield changed
   }
 }

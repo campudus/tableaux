@@ -7,6 +7,7 @@ object RequestCreation {
 
   sealed abstract class ColType(val kind: String) {
     val name: String
+
     def json: JsonObject = Json.obj("kind" -> kind, "name" -> name)
   }
 
@@ -16,11 +17,14 @@ object RequestCreation {
 
   case class Multilanguage(column: ColType) extends ColType(column.kind) {
     val name: String = column.name
+
     override def json: JsonObject = column.json.mergeIn(Json.obj("multilanguage" -> true))
   }
 
   case class Identifier(column: ColType) extends ColType(column.kind) {
     val name: String = column.name
+
     override def json: JsonObject = column.json.mergeIn(Json.obj("identifier" -> true))
   }
+
 }

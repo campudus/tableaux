@@ -94,6 +94,20 @@ object ArgumentChecker {
     }
   }
 
+  def checkForAllValues[A](json: JsonObject, p: (A => Boolean), name: String): ArgumentCheck[JsonObject] = {
+    import scala.collection.JavaConverters._
+    val fields = json.fieldNames().asScala
+    val tail = fields.dropWhile(key => Try(p(json.getValue(key).asInstanceOf[A])).getOrElse(false))
+
+    if (tail.isEmpty) {
+      OkArg(json)
+    } else if (json.getValue(tail.head) == null) {
+      FailArg(InvalidJsonException(s"Warning: $name has value '${tail.head}' pointing at null.", "invalid"))
+    } else {
+      FailArg(InvalidJsonException(s"Warning: $name has incorrectly typed value at key '${tail.head}'.", "invalid"))
+    }
+  }
+
   def sequence[A](argChecks: Seq[ArgumentCheck[A]]): ArgumentCheck[Seq[A]] = {
     argChecks match {
       case Nil => OkArg(Nil)

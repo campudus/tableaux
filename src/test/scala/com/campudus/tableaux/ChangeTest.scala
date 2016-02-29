@@ -35,11 +35,11 @@ class ChangeTest extends TableauxTestBase {
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequest("POST", "/tables/1/columns/1", postJson)
-      test2 <- sendRequest("GET", "/tables/1/columns/1")
+      resultPost <- sendRequest("POST", "/tables/1/columns/1", postJson)
+      resultGet <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedString, test2.getString("name"))
+      assertEquals(expectedString, resultGet.getString("name"))
+      assertEquals(resultPost, resultGet)
     }
   }
 
@@ -50,11 +50,11 @@ class ChangeTest extends TableauxTestBase {
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequest("POST", "/tables/1/columns/1", postJson)
-      test2 <- sendRequest("GET", "/tables/1/columns/1")
+      resultPost <- sendRequest("POST", "/tables/1/columns/1", postJson)
+      resultGet <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedOrdering, test2.getInteger("ordering"))
+      assertEquals(expectedOrdering, resultGet.getInteger("ordering"))
+      assertEquals(resultPost, resultGet)
     }
   }
 
@@ -65,11 +65,11 @@ class ChangeTest extends TableauxTestBase {
 
     for {
       _ <- setupDefaultTable()
-      test <- sendRequest("POST", "/tables/1/columns/2", postJson)
-      test2 <- sendRequest("GET", "/tables/1/columns/2")
+      resultPost <- sendRequest("POST", "/tables/1/columns/2", postJson)
+      resultGet <- sendRequest("GET", "/tables/1/columns/2")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedKind, test2.getString("kind"))
+      assertEquals(expectedKind, resultGet.getString("kind"))
+      assertEquals(resultPost, resultGet)
     }
   }
 
@@ -98,7 +98,7 @@ class ChangeTest extends TableauxTestBase {
 
       columns <- sendRequest("GET", "/tables/1/columns")
     } yield {
-      assertEquals(expectedJson, changeToText)
+      assertEquals(columns.getJsonArray("columns").getJsonObject(1).mergeIn(Json.obj("status" -> "ok")), changeToText)
 
       assertEquals(failed, failedChangeToNumeric)
 
@@ -110,15 +110,15 @@ class ChangeTest extends TableauxTestBase {
   @Test
   def changeColumn(implicit c: TestContext): Unit = okTest {
     val postJson = Json.obj("name" -> "New testname", "ordering" -> 5, "kind" -> "text")
-    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5, "multilanguage" -> false, "identifier" -> false)
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())
 
     for {
-      _ <- setupDefaultTable()
-      test <- sendRequest("POST", "/tables/1/columns/2", postJson)
-      test2 <- sendRequest("GET", "/tables/1/columns/2")
+      tableId <- setupDefaultTable()
+      resultPost <- sendRequest("POST", s"/tables/$tableId/columns/2", postJson)
+      resultGet <- sendRequest("GET", s"/tables/$tableId/columns/2")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedJson2, test2)
+      assertEquals(expectedJson2, resultGet)
+      assertEquals(resultPost, resultGet)
     }
   }
 }

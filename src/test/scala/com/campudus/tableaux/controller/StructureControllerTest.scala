@@ -1,13 +1,12 @@
 package com.campudus.tableaux.controller
 
+import com.campudus.tableaux.TableauxTestBase
 import com.campudus.tableaux.database.domain.CreateSimpleColumn
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.{DatabaseConnection, SingleLanguage, TextType}
-import com.campudus.tableaux.{TableauxTestBase, Starter, TestConfig}
-import io.vertx.core.Vertx
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.{SQLConnection, VertxExecutionContext}
+import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -33,7 +32,7 @@ class StructureControllerTest extends TableauxTestBase {
   @Test
   def checkCreateLinkColumnWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, null, null, SingleLanguage, identifier = false))))
+    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, null, null, SingleLanguage, identifier = false, List()))))
   }
 
   @Test
@@ -45,13 +44,13 @@ class StructureControllerTest extends TableauxTestBase {
   @Test
   def checkCreateColumnWithNullName(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, None, TextType, SingleLanguage, identifier = false))))
+    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, None, TextType, SingleLanguage, identifier = false, List()))))
   }
 
   @Test
   def checkCreateColumnWithNullType(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn("", None, null, SingleLanguage, identifier = false))))
+    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn("", None, null, SingleLanguage, identifier = false, List()))))
   }
 
   @Test
