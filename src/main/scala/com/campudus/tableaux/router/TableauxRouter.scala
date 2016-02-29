@@ -1,6 +1,7 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.database.Filter
 import com.campudus.tableaux.database.domain.Pagination
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
@@ -36,12 +37,19 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get Rows
       */
     case Get(Rows(tableId)) => asyncGetReply {
+      val filter: Option[Filter] = getStringParam("filter", context) match {
+        case Some(x) if x.nonEmpty => Some(Filter(x))
+        case _ => None
+      }
+
+      logger.info(s"Get rows with filter $filter")
+
       val limit = getLongParam("limit", context)
       val offset = getLongParam("offset", context)
 
       val pagination = Pagination(offset, limit)
 
-      controller.retrieveRows(tableId.toLong, pagination)
+      controller.retrieveRows(tableId.toLong, pagination, filter)
     }
 
     /**
