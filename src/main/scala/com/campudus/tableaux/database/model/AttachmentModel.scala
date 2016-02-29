@@ -91,14 +91,13 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
     for {
       (t, ordering: Ordering) <- a.ordering match {
         case Some(i: Ordering) => Future((t, i: Ordering))
-        case None => {
+        case None =>
           for {
             (t, result) <- t.query(s"SELECT COALESCE(MAX(ordering),0) + 1 FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?", Json.arr(a.tableId, a.columnId, a.rowId))
             resultArr <- Future(selectNotNull(result))
           } yield {
             (t, resultArr.head.get[Ordering](0))
           }
-        }
       }
     } yield (t, ordering)
   }
@@ -119,6 +118,15 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
     for {
       result <- connection.query(delete, Json.arr(a.tableId, a.columnId, a.rowId, a.uuid.toString))
       resultArr <- Future(deleteNotNull(result))
+    } yield ()
+  }
+
+  def deleteAll(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Unit] = {
+    val delete = s"DELETE FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?"
+
+    for {
+      result <- connection.query(delete, Json.arr(tableId, columnId, rowId))
+    //_ = deleteNotNull(result)
     } yield ()
   }
 

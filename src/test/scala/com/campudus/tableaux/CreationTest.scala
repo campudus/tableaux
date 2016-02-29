@@ -273,6 +273,32 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
+  def duplicateRowWithConcatColumn(implicit c: TestContext): Unit = okTest {
+    val postIdentifier = Json.obj("identifier" -> true)
+
+    for {
+      table <- setupDefaultTable()
+
+      _ <- sendRequest("POST", s"/tables/$table/columns/1", postIdentifier)
+      _ <- sendRequest("POST", s"/tables/$table/columns/2", postIdentifier)
+
+      expected <- sendRequest("GET", "/tables/1/rows/1")
+
+      duplicated <- sendRequest("POST", "/tables/1/rows/1/duplicate")
+      result <- sendRequest("GET", s"/tables/1/rows/${duplicated.getNumber("id")}")
+    } yield {
+      assertEquals(result, duplicated)
+
+      assertNotSame(expected.getNumber("id"), result.getNumber("id"))
+
+      expected.remove("id")
+      result.remove("id")
+
+      assertEquals(expected, result)
+    }
+  }
+
+  @Test
   def duplicateRowWithLink(implicit c: TestContext): Unit = okTest {
     val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
     def fillLinkCellJson(c: Integer) = Json.obj("value" -> Json.obj("to" -> c))
