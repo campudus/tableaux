@@ -1,19 +1,21 @@
+import java.nio.file.Paths
+
 plugins {
     id 'java'
     id 'scala'
     id 'application'
     id 'com.github.johnrengelman.shadow' version '1.2.3'
-    id 'com.github.ksoichiro.build.info' version '0.1.3'
-    id 'org.scoverage' version '2.0.0'
+    id 'com.github.ksoichiro.build.info' version '0.1.5'
+    id 'org.scoverage' version '2.0.1'
     id 'com.github.kt3k.coveralls' version '2.6.3'
 }
 
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-def vertxVersion = '3.2.0'
-def vertxDbVersion = '3.2.0'
-def scalaVersion = '2.11.7'
+def vertxVersion = '3.2.1'
+def vertxDbVersion = '3.2.1'
+def scalaVersion = '2.11.8'
 
 if (!JavaVersion.current().java8Compatible) {
     throw new IllegalStateException("This needs Java 8.")
@@ -37,9 +39,9 @@ dependencies {
     compile "io.vertx:vertx-web:${vertxVersion}"
     compile "io.vertx:vertx-mysql-postgresql-client:${vertxDbVersion}"
 
-    compile 'joda-time:joda-time:2.9.1'
+    compile 'joda-time:joda-time:2.9.2'
     compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'
-    compile 'org.slf4j:slf4j-jdk14:1.7.13'
+    compile 'org.slf4j:slf4j-jdk14:1.7.19'
 
     compile 'com.jcabi:jcabi-manifests:1.1'
 
@@ -54,10 +56,6 @@ dependencies {
 
 mainClassName = "io.vertx.core.Launcher"
 def mainVerticle = "com.campudus.tableaux.Starter"
-
-checkScoverage {
-    minimumRate = 0.85
-}
 
 test {
     maxHeapSize = "512m"
@@ -92,18 +90,17 @@ task runRedeploy(type: JavaExec) {
     ]
 }
 
-// activate Zinc incremental compilation
+// activate Zinc (sbt) incremental compilation
 tasks.withType(ScalaCompile) {
     scalaCompileOptions.useAnt = false
-    scalaCompileOptions.useCompileDaemon = true
-    scalaCompileOptions.daemonServer = "localhost:4243"
+    scalaCompileOptions.useCompileDaemon = false
 }
 
-// let Scala compiler do everything – even java stuff
 sourceSets {
     main {
         compileClasspath += configurations.compileOnly
 
+        // let Scala compiler do everything – even java stuff
         scala {
             srcDirs = ['src/main/scala', 'src/main/java']
         }
@@ -116,17 +113,23 @@ sourceSets {
     }
 }
 
-def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
+/**
+ * Code coverage
+ */
+checkScoverage {
+    minimumRate = 0.85
+}
 
 coveralls {
     service = "travis-ci"
 
+    def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
+
     def sourceDirStrings = new ArrayList()
     subprojects.sourceSets.main.allSource.srcDirs.each {
         it.each {
-            java.nio.file.Path absPath = Paths.get(it.toString())
-            java.nio.file.Path basePath = Paths.get(System.getProperty("user.dir"))
-            java.nio.file.Path relPath = basePath.relativize(absPath)
+            def basePath = Paths.get(System.getProperty("user.dir"))
+            def relPath = basePath.relativize(Paths.get(it.toString()))
             sourceDirStrings.add(relPath.toString())
         }
     }
@@ -136,6 +139,9 @@ coveralls {
     coberturaReportPath = coverageReportPath
 }
 
+/**
+ * Jar stuff
+ */
 jar {
     manifest {
         attributes 'Main-Class': mainClassName
@@ -156,6 +162,9 @@ shadowJar {
 
 assemble.dependsOn shadowJar
 
+/**
+ * Gradle wrapper
+ */
 task wrapper(type: Wrapper) {
     gradleVersion = '2.11'
 }
