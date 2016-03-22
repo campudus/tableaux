@@ -90,6 +90,12 @@ task runRedeploy(type: JavaExec) {
     ]
 }
 
+// activate Zinc (sbt) incremental compilation
+tasks.withType(ScalaCompile) {
+    scalaCompileOptions.useAnt = false
+    scalaCompileOptions.useCompileDaemon = false
+}
+
 sourceSets {
     main {
         compileClasspath += configurations.compileOnly
@@ -160,5 +166,5 @@ assemble.dependsOn shadowJar
  * Gradle wrapper
  */
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.12'
+    gradleVersion = '2.11'
 }
