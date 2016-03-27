@@ -34,8 +34,8 @@ sealed trait ModelHelper {
 
       case ((s, m, l, a), (c: SimpleValueColumn[_], v)) => ((c, v) :: s, m, l, a)
 
-      case ((s, m, l, a), (c: MultiLanguageColumn[_], v: Seq[(String, Map[String, _])])) =>
-        val valueAsMap = v.toMap
+      case ((s, m, l, a), (c: MultiLanguageColumn[_], v: Seq[_])) =>
+        val valueAsMap = v.asInstanceOf[Seq[(String, Map[String, _])]].toMap
         (s, (c, valueAsMap) :: m, l, a)
 
       case ((s, m, l, a), (c: MultiLanguageColumn[_], v: JsonObject)) =>
@@ -45,7 +45,10 @@ sealed trait ModelHelper {
 
       case ((s, m, l, a), (c: LinkColumn[_], v)) =>
         val toIds: Seq[RowId] = v match {
-          case x: Seq[RowId] => x
+          case x: Seq[_] => x.map {
+            case id: RowId => id
+            case obj: JsonObject => obj.getLong("id").toLong
+          }
           case x: JsonObject if x.containsKey("to") =>
             import ArgumentChecker._
             hasLong("to", x) match {
@@ -70,6 +73,9 @@ sealed trait ModelHelper {
           case x: JsonArray =>
             import scala.collection.JavaConverters._
             x.asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
+
+          case x =>
+            throw InvalidJsonException(s"A link column expects a JSON object with values, but got $x", "link-value")
         }
         (s, m, (c, toIds) :: l, a)
 
@@ -277,9 +283,8 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   val attachmentModel = AttachmentModel(connection)
 
   def createRow(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
-    val (simple, multis, links, attachments) = splitIntoDatabaseTypesWithValues(values)
-
     for {
+      (simple, multis, links, attachments) <- Future.apply(splitIntoDatabaseTypesWithValues(values))
       rowId <- if (simple.isEmpty) createEmpty(tableId) else createFull(tableId, simple)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
       _ <- if (links.isEmpty) Future.successful(()) else createLinks(tableId, rowId, links)
@@ -376,7 +381,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
 class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with ModelHelper {
 
-  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[AnyRef])] = {
+  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[Any])] = {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
@@ -384,20 +389,20 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
       result <- connection.query(s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id", Json.arr(rowId))
     } yield {
       val row = jsonArrayToSeq(selectNotNull(result).head)
-      (row.head, mapResultRow(columns, row.drop(1)))
+      (rowId, mapResultRow(columns, row.drop(1)))
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, Seq[AnyRef])]] = {
+  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, Seq[Any])]] = {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
-      getSeqOfJsonArray(result).map(jsonArrayToSeq).map {
+      resultObjectToJsonArray(result).map(jsonArrayToSeq).map {
         row =>
-          (row.head, mapResultRow(columns, row.drop(1)))
+          (row.head.asInstanceOf[RowId], mapResultRow(columns, row.drop(1)))
       }
     }
   }
@@ -416,7 +421,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     }
   }
 
-  private def mapValueByColumnType(column: ColumnType[_], value: AnyRef): AnyRef = {
+  private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
     column match {
       case _: MultiLanguageColumn[_] =>
         if (value == null)
@@ -435,7 +440,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     }
   }
 
-  private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[AnyRef]): Seq[AnyRef] = {
+  private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[Any]): Seq[Any] = {
     val (concatColumnOpt, zipped) = columns.headOption match {
       case Some(c: ConcatColumn) => (Some(c), (columns.drop(1), result.drop(1)).zipped)
       case _ => (None, (columns, result).zipped)
@@ -450,7 +455,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
 
         import scala.collection.JavaConverters._
 
-        val joinedValue = identifierColumns.foldLeft(List.empty[AnyRef])({
+        val joinedValue = identifierColumns.foldLeft(List.empty[Any])({
           (joined, columnValue) =>
             joined.:+(mapValueByColumnType(columnValue._1, columnValue._2))
         }).asJava

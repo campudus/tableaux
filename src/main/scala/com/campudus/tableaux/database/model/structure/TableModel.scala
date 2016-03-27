@@ -44,7 +44,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table ORDER BY ordering, table_id")
     } yield {
-      getSeqOfJsonArray(result).map { row =>
+      resultObjectToJsonArray(result).map { row =>
         Table(row.get[TableId](0), row.getString(1), row.getBoolean(2))
       }
     }

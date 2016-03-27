@@ -107,7 +107,7 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
 
     for {
       result <- connection.query(select, Json.arr(tableId, columnId, rowId))
-      attachments <- Future(getSeqOfJsonArray(result).map(e => (e.get[String](0), e.get[Ordering](1))))
+      attachments <- Future(resultObjectToJsonArray(result).map(e => (e.get[String](0), e.get[Ordering](1))))
       files <- Future.sequence(attachments.map(attachment => retrieveFile(UUID.fromString(attachment._1), attachment._2)))
     } yield files
   }

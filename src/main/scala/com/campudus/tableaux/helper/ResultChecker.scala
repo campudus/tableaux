@@ -9,13 +9,13 @@ import org.vertx.scala.core.json.{JsonArray, JsonObject}
  */
 object ResultChecker {
 
-  def getSeqOfJsonArray(json: JsonObject): Seq[JsonArray] = {
-    jsonArrayToSeq(json.getJsonArray("results"))
+  def resultObjectToJsonArray(json: JsonObject): Seq[JsonArray] = {
+    jsonArrayToSeq(json.getJsonArray("results")).map(_.asInstanceOf[JsonArray])
   }
 
-  def jsonArrayToSeq[A](json: JsonArray): Seq[A] = {
+  def jsonArrayToSeq(json: JsonArray): Seq[Any] = {
     import scala.collection.JavaConverters._
-    json.asScala.toSeq.asInstanceOf[Seq[A]]
+    json.asScala.toSeq.asInstanceOf[Seq[Any]]
   }
 
   def deleteNotNull(json: JsonObject): Seq[JsonArray] = checkNotNull(json, "delete")
@@ -32,7 +32,7 @@ object ResultChecker {
     if (json.getString("message") == message) {
       throw NotFoundInDatabaseException(s"Warning: $message query failed", queryType)
     } else {
-      getSeqOfJsonArray(json)
+      resultObjectToJsonArray(json)
     }
   }
 
@@ -44,7 +44,7 @@ object ResultChecker {
     if (json.getInteger("rows") != size) {
       throw DatabaseException(s"Error: query failed because result size (${json.getInteger("rows")}) doesn't match expected size ($size)", "checkSize")
     } else {
-      getSeqOfJsonArray(json)
+      resultObjectToJsonArray(json)
     }
   }
 }

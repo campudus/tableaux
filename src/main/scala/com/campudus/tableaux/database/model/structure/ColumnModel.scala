@@ -183,7 +183,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         json.map(selectNotNull(_).head)
       }
       resultLang <- connection.query(selectLang, Json.arr(table.id, columnId))
-      dis = getSeqOfJsonArray(resultLang).flatMap { arr =>
+      dis = resultObjectToJsonArray(resultLang).flatMap { arr =>
         val langtag = arr.getString(0)
         val name = arr.getString(1)
         val description = arr.getString(2)
@@ -244,7 +244,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       result <- connection.query(select, Json.arr(table.id))
       mappedColumns <- {
-        val futures = getSeqOfJsonArray(result).map { arr =>
+        val futures = resultObjectToJsonArray(result).map { arr =>
           val columnId = arr.get[ColumnId](0)
           val columnName = arr.get[String](1)
           val kind = Mapper.getDatabaseType(arr.get[String](2))
@@ -259,7 +259,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
           for {
             result <- connection.query(selectLang, Json.arr(table.id, columnId))
-            dis = getSeqOfJsonArray(result).map { arr =>
+            dis = resultObjectToJsonArray(result).map { arr =>
               DisplayInfos.fromString(arr.getString(0), arr.getString(1), arr.getString(2))
             }
             res <- mapColumn(depth, table, columnId, columnName, kind, ordering, languageType, identifier, dis)
