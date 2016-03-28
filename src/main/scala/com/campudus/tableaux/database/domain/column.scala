@@ -4,11 +4,13 @@ import com.campudus.tableaux.database.CheckValidValue._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
-import org.joda.time.{DateTime, LocalDate}
+import org.joda.time.{DateTime, LocalDate, LocalDateTime}
 import org.vertx.scala.core.json._
 
 // TODO We should put all infos into a ColumnInfo case class or similar: Every change in a column needs a lot of changes elsewhere
-sealed trait ColumnType[+A] extends DomainObject {
+sealed trait ColumnType extends DomainObject {
+  type ScalaType
+
   val kind: TableauxDbType
 
   val id: ColumnId
@@ -46,12 +48,12 @@ sealed trait ColumnType[+A] extends DomainObject {
   def checkValidValue[B](value: B): Option[String] = if (value == null) None else kind.checkValidValue(value)
 }
 
-sealed trait ValueColumn[+A] extends ColumnType[A]
+sealed trait ValueColumn extends ColumnType
 
 /*
  * Single-language column types
  */
-sealed trait SimpleValueColumn[+A] extends ValueColumn[A] {
+sealed trait SimpleValueColumn extends ValueColumn {
   override val multilanguage = false
 }
 
@@ -61,28 +63,38 @@ object TextColumn {
   }
 }
 
-case class TextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[String]
+case class TextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn {
+  override type ScalaType = String
+}
 
-case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[Number] {
+case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn {
+  override type ScalaType = Number
   override val kind = NumericType
 }
 
-case class BooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[Boolean] {
+case class BooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn {
+  override type ScalaType = Boolean
   override val kind = BooleanType
 }
 
-case class DateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[LocalDate] {
+case class DateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn {
+  override type ScalaType = LocalDate
   override val kind = DateType
 }
 
-case class DateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[DateTime] {
+case class DateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn {
+  override type ScalaType = LocalDateTime
   override val kind = DateTimeType
 }
 
 /*
  * Multi-language column types
  */
-sealed trait MultiLanguageColumn[A] extends ValueColumn[A] {
+trait Multilingual
+
+sealed trait MultiLanguageColumn extends ValueColumn {
+  type ScalaType = Multilingual
+
   override val multilanguage = true
 
   override def checkValidValue[B](value: B): Option[String] = try {
@@ -103,40 +115,40 @@ object MultiTextColumn {
   }
 }
 
-case class MultiTextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[String]
+case class MultiTextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn
 
-case class MultiNumericColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[Number] {
+case class MultiNumericColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn {
   override val kind = NumericType
 }
 
-case class MultiBooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[Boolean] {
+case class MultiBooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn {
   override val kind = BooleanType
 }
 
-case class MultiDateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[LocalDate] {
+case class MultiDateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn {
   override val kind = DateType
 }
 
-case class MultiDateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[DateTime] {
+case class MultiDateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn {
   override val kind = DateTimeType
 }
 
 /*
  * Special column types
  */
-case class LinkColumn[A](table: Table, id: ColumnId, to: ValueColumn[A], linkId: LinkId, linkDirection: LinkDirection, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends ColumnType[Link[A]] {
+case class LinkColumn(table: Table, id: ColumnId, to: ValueColumn, linkId: LinkId, linkDirection: LinkDirection, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends ColumnType {
   override val kind = LinkType
   override val multilanguage = to.multilanguage
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.getJson)
 }
 
-case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends ColumnType[AttachmentFile] {
+case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends ColumnType {
   override val kind = AttachmentType
   override val multilanguage = false
 }
 
-case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]]) extends ValueColumn[String] {
+case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType]) extends ValueColumn {
   override val kind = ConcatType
 
   // ConcatColumn will be a multi-language
@@ -159,6 +171,6 @@ case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]])
   *
   * @param columns The sequence of columns.
   */
-case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
+case class ColumnSeq(columns: Seq[ColumnType]) extends DomainObject {
   override def getJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
 }

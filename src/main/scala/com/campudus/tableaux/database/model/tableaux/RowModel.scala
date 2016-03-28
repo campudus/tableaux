@@ -19,31 +19,31 @@ sealed trait ModelHelper {
   /**
     * Parses { "value": ... } depending on column type
     */
-  def splitIntoDatabaseTypesWithValues(values: Seq[(ColumnType[_], _)]): (
-    List[(SimpleValueColumn[_], _)],
-      List[(MultiLanguageColumn[_], Map[String, _])],
-      List[(LinkColumn[_], Seq[RowId])],
+  def splitIntoDatabaseTypesWithValues(values: Seq[(ColumnType, _)]): (
+    List[(SimpleValueColumn, _)],
+      List[(MultiLanguageColumn, Map[String, _])],
+      List[(LinkColumn, Seq[RowId])],
       List[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
     ) = {
 
     values.foldLeft((
-      List[(SimpleValueColumn[_], _)](),
-      List[(MultiLanguageColumn[_], Map[String, _])](),
-      List[(LinkColumn[_], Seq[RowId])](),
+      List[(SimpleValueColumn, _)](),
+      List[(MultiLanguageColumn, Map[String, _])](),
+      List[(LinkColumn, Seq[RowId])](),
       List[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]())) {
 
-      case ((s, m, l, a), (c: SimpleValueColumn[_], v)) => ((c, v) :: s, m, l, a)
+      case ((s, m, l, a), (c: SimpleValueColumn, v)) => ((c, v) :: s, m, l, a)
 
-      case ((s, m, l, a), (c: MultiLanguageColumn[_], v: Seq[_])) =>
+      case ((s, m, l, a), (c: MultiLanguageColumn, v: Seq[_])) =>
         val valueAsMap = v.asInstanceOf[Seq[(String, Map[String, _])]].toMap
         (s, (c, valueAsMap) :: m, l, a)
 
-      case ((s, m, l, a), (c: MultiLanguageColumn[_], v: JsonObject)) =>
+      case ((s, m, l, a), (c: MultiLanguageColumn, v: JsonObject)) =>
         import scala.collection.JavaConverters._
         val valueAsMap = v.getMap.asScala.toMap
         (s, (c, valueAsMap) :: m, l, a)
 
-      case ((s, m, l, a), (c: LinkColumn[_], v)) =>
+      case ((s, m, l, a), (c: LinkColumn, v)) =>
         val toIds: Seq[RowId] = v match {
           case x: Seq[_] => x.map {
             case id: RowId => id
@@ -105,26 +105,26 @@ sealed trait ModelHelper {
     }
   }
 
-  def splitIntoDatabaseTypes(columns: Seq[ColumnType[_]]): (
-    List[SimpleValueColumn[_]],
-      List[MultiLanguageColumn[_]],
-      List[LinkColumn[_]],
+  def splitIntoDatabaseTypes(columns: Seq[ColumnType]): (
+    List[SimpleValueColumn],
+      List[MultiLanguageColumn],
+      List[LinkColumn],
       List[AttachmentColumn]
     ) = {
 
     columns.foldLeft((
-      List[SimpleValueColumn[_]](),
-      List[MultiLanguageColumn[_]](),
-      List[LinkColumn[_]](),
+      List[SimpleValueColumn](),
+      List[MultiLanguageColumn](),
+      List[LinkColumn](),
       List[AttachmentColumn]())) {
 
-      case ((s, m, l, a), c: SimpleValueColumn[_]) =>
+      case ((s, m, l, a), c: SimpleValueColumn) =>
         (c :: s, m, l, a)
 
-      case ((s, m, l, a), c: MultiLanguageColumn[_]) =>
+      case ((s, m, l, a), c: MultiLanguageColumn) =>
         (s, c :: m, l, a)
 
-      case ((s, m, l, a), c: LinkColumn[_]) =>
+      case ((s, m, l, a), c: LinkColumn) =>
         (s, m, c :: l, a)
 
       case ((s, m, l, a), c: AttachmentColumn) =>
@@ -139,7 +139,7 @@ sealed trait ModelHelper {
 class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with ModelHelper {
   val attachmentModel = AttachmentModel(connection)
 
-  def clearRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_])]): Future[Unit] = {
+  def clearRow(table: Table, rowId: RowId, values: Seq[(ColumnType)]): Future[Unit] = {
     val (simple, multis, links, attachments) = splitIntoDatabaseTypes(values)
 
     for {
@@ -150,9 +150,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  private def clearTranslation(table: Table, rowId: RowId, columns: Seq[MultiLanguageColumn[_]]): Future[_] = {
+  private def clearTranslation(table: Table, rowId: RowId, columns: Seq[MultiLanguageColumn]): Future[_] = {
     val setExpression = columns.map({
-      case column: MultiLanguageColumn[_] => s"column_${column.id} = NULL"
+      case column: MultiLanguageColumn => s"column_${column.id} = NULL"
     }).mkString(", ")
 
     for {
@@ -161,9 +161,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  private def clearLinks(table: Table, rowId: RowId, columns: Seq[LinkColumn[_]]): Future[_] = {
+  private def clearLinks(table: Table, rowId: RowId, columns: Seq[LinkColumn]): Future[_] = {
     val futureSequence = columns.map({
-      case column: LinkColumn[_] =>
+      case column: LinkColumn =>
         val linkId = column.linkId
         val direction = column.linkDirection
 
@@ -180,7 +180,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(cleared)
   }
 
-  def updateRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  def updateRow(table: Table, rowId: RowId, values: Seq[(ColumnType, _)]): Future[Unit] = {
     val (simple, multis, links, attachments) = splitIntoDatabaseTypesWithValues(values)
 
     for {
@@ -191,9 +191,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  private def updateSimple(table: Table, rowId: RowId, simple: List[(SimpleValueColumn[_], _)]): Future[Unit] = {
+  private def updateSimple(table: Table, rowId: RowId, simple: List[(SimpleValueColumn, _)]): Future[Unit] = {
     val setExpression = simple.map({
-      case (column: SimpleValueColumn[_], _) => s"column_${column.id} = ?"
+      case (column: SimpleValueColumn, _) => s"column_${column.id} = ?"
     }).mkString(", ")
 
     val binds = simple.map(_._2) ++ List(rowId)
@@ -204,7 +204,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  private def updateTranslations(table: Table, rowId: RowId, values: Seq[(MultiLanguageColumn[_], Map[String, _])]): Future[_] = {
+  private def updateTranslations(table: Table, rowId: RowId, values: Seq[(MultiLanguageColumn, Map[String, _])]): Future[_] = {
     val entries = for {
       (column, langs) <- values
       (langTag: String, value) <- langs
@@ -233,7 +233,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn[_], Seq[RowId])]): Future[Unit] = {
+  private def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[Unit] = {
     val futureSequence = values.map({
       case (column, toIds) =>
         val linkId = column.linkId
@@ -282,7 +282,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with ModelHelper {
   val attachmentModel = AttachmentModel(connection)
 
-  def createRow(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+  def createRow(tableId: TableId, values: Seq[(ColumnType, _)]): Future[RowId] = {
     for {
       (simple, multis, links, attachments) <- Future.apply(splitIntoDatabaseTypesWithValues(values))
       rowId <- if (simple.isEmpty) createEmpty(tableId) else createFull(tableId, simple)
@@ -300,9 +300,9 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def createFull(tableId: TableId, values: Seq[(SimpleValueColumn[_], _)]): Future[RowId] = {
+  private def createFull(tableId: TableId, values: Seq[(SimpleValueColumn, _)]): Future[RowId] = {
     val placeholder = values.map(_ => "?").mkString(", ")
-    val columns = values.map { case (column: ColumnType[_], _) => s"column_${column.id}" }.mkString(", ")
+    val columns = values.map { case (column: ColumnType, _) => s"column_${column.id}" }.mkString(", ")
     val binds = values.map { case (_, value) => value }
 
     for {
@@ -312,7 +312,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(MultiLanguageColumn[_], Map[String, _])]): Future[_] = {
+  private def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(MultiLanguageColumn, Map[String, _])]): Future[_] = {
     val entries = for {
       (column, langs) <- values
       (langTag: String, value) <- langs
@@ -336,9 +336,9 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn[_], Seq[RowId])]): Future[_] = {
+  private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[_] = {
     val futureSequence = values.map({
-      case (column: LinkColumn[_], toIds) =>
+      case (column: LinkColumn, toIds) =>
         val linkId = column.linkId
         val direction = column.linkDirection
 
@@ -381,7 +381,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
 class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with ModelHelper {
 
-  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[Any])] = {
+  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType]): Future[(RowId, Seq[Any])] = {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
@@ -393,7 +393,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, Seq[Any])]] = {
+  def retrieveAll(tableId: TableId, columns: Seq[ColumnType], pagination: Pagination): Future[Seq[(RowId, Seq[Any])]] = {
     val projection = generateProjection(columns)
     val fromClause = generateFromClause(tableId)
 
@@ -421,15 +421,15 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     }
   }
 
-  private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
+  private def mapValueByColumnType(column: ColumnType, value: Any): Any = {
     column match {
-      case _: MultiLanguageColumn[_] =>
+      case _: MultiLanguageColumn =>
         if (value == null)
           Json.emptyObj()
         else
           Json.fromObjectString(value.toString)
 
-      case _: LinkColumn[_] =>
+      case _: LinkColumn =>
         if (value == null)
           Json.emptyArr()
         else
@@ -440,7 +440,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     }
   }
 
-  private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[Any]): Seq[Any] = {
+  private def mapResultRow(columns: Seq[ColumnType], result: Seq[Any]): Seq[Any] = {
     val (concatColumnOpt, zipped) = columns.headOption match {
       case Some(c: ConcatColumn) => (Some(c), (columns.drop(1), result.drop(1)).zipped)
       case _ => (None, (columns, result).zipped)
@@ -449,7 +449,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     concatColumnOpt match {
       case None => zipped.map(mapValueByColumnType)
       case Some(concatColumn) =>
-        val identifierColumns = zipped.filter({ (column: ColumnType[_], _) =>
+        val identifierColumns = zipped.filter({ (column: ColumnType, _) =>
           concatColumn.columns.exists(_.id == column.id)
         }).zipped
 
@@ -479,13 +479,13 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
     s"TO_CHAR($column, '$dateFormat')"
   }
 
-  private def generateProjection(columns: Seq[ColumnType[_]]): String = {
+  private def generateProjection(columns: Seq[ColumnType]): String = {
     val projection = columns map {
       case _: ConcatColumn | _: AttachmentColumn =>
         // Values will be calculated or added after select
         "NULL"
 
-      case c: MultiLanguageColumn[_] =>
+      case c: MultiLanguageColumn =>
         val column = c match {
           case _: MultiDateTimeColumn =>
             parseDateTimeSql(s"utl.column_${c.id}")
@@ -503,10 +503,10 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
       case c: DateColumn =>
         parseDateSql(s"ut.column_${c.id}") + s" AS column_${c.id}"
 
-      case c: SimpleValueColumn[_] =>
+      case c: SimpleValueColumn =>
         s"ut.column_${c.id}"
 
-      case c: LinkColumn[_] =>
+      case c: LinkColumn =>
         val linkId = c.linkId
         val direction = c.linkDirection
         val toTableId = c.to.table.id
@@ -515,7 +515,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
           case _: ConcatColumn =>
             (s"''", "NULL")
 
-          case to: MultiLanguageColumn[_] =>
+          case to: MultiLanguageColumn =>
             val linkedColumn = to match {
               case _: MultiDateTimeColumn =>
                 parseDateTimeSql(s"utl$toTableId.column_${to.id}")
@@ -534,7 +534,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
           case _: DateColumn =>
             (s"column_${c.to.id}", parseDateSql(s"ut$toTableId.column_${c.id}"))
 
-          case _: SimpleValueColumn[_] =>
+          case _: SimpleValueColumn =>
             (s"column_${c.to.id}", s"ut$toTableId.column_${c.to.id}")
         }
 
