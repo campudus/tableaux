@@ -48,7 +48,7 @@ class StructureController(override val config: TableauxConfig, override protecte
     }
   }
 
-  def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
+  def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"))
     logger.info(s"retrieveColumn $tableId $columnId")
 
@@ -89,7 +89,7 @@ class StructureController(override val config: TableauxConfig, override protecte
       // only delete special column before deleting table;
       // e.g. link column are based on simple columns
       _ <- columns.foldLeft(Future.successful(())) {
-        case (future, column: LinkColumn[_]) =>
+        case (future, column: LinkColumn) =>
           future.flatMap(_ => columnStruc.deleteLinkBothDirections(table, column.id))
         case (future, column: AttachmentColumn) =>
           future.flatMap(_ => columnStruc.delete(table, column.id))
@@ -138,7 +138,7 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield EmptyObject()
   }
 
-  def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean], displayName: Option[JsonObject], description: Option[JsonObject]): Future[ColumnType[_]] = {
+  def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean], displayName: Option[JsonObject], description: Option[JsonObject]): Future[ColumnType] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     logger.info(s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier displayName=${displayName.map(_.encode())} description=${description.map(_.encode())}")
 

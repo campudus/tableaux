@@ -32,6 +32,7 @@ object TableauxModel {
 sealed trait StructureDelegateModel extends DatabaseQuery {
 
   import TableauxModel._
+  import scala.language.existentials
 
   protected val connection: DatabaseConnection
 
@@ -105,6 +106,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
+      cell <- updateCellValue(table, column, rowId, value)
+    } yield cell
+  }
+
+  // TODO make A dependent of column.ScalaType
+  private def updateCellValue[A](table: Table, column: ColumnType, rowId: RowId, value: A): Future[Cell[_]] = {
+    for {
       _ <- checkValueTypeForColumn(column, value)
 
       _ <- updateRowModel.updateRow(column.table, rowId, Seq((column, value)))
@@ -113,9 +121,16 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield updatedCell
   }
 
-  def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[A]] = {
+  def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
+      cell <- replaceCellValue(table, column, rowId, value)
+    } yield cell
+  }
+
+  // TODO make A dependent of column.ScalaType
+  private def replaceCellValue[A](table: Table, column: ColumnType, rowId: RowId, value: A): Future[Cell[_]] = {
+    for {
       _ <- checkValueTypeForColumn(column, value)
 
       _ <- updateRowModel.clearRow(table, rowId, Seq(column))
@@ -132,7 +147,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield cell
   }
 
-  private def retrieveCell(column: ColumnType, rowId: RowId): Future[Cell[column.ScalaType]] = {
+  // TODO make A dependent of column.ScalaType
+  private def retrieveCell(column: ColumnType, rowId: RowId): Future[Cell[_]] = {
     // In case of a ConcatColumn we need to retrieve the
     // other values too, so the ConcatColumn can be build.
     val columns = column match {
