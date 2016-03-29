@@ -32,6 +32,7 @@ object TableauxModel {
 sealed trait StructureDelegateModel extends DatabaseQuery {
 
   import TableauxModel._
+  import scala.language.existentials
 
   protected val connection: DatabaseConnection
 
@@ -45,21 +46,21 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.tableStruc.retrieve(tableId)
   }
 
-  def createColumns(table: Table, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
+  def createColumns(table: Table, columns: Seq[CreateColumn]): Future[Seq[ColumnType]] = {
     for {
       result <- structureModel.columnStruc.createColumns(table, columns)
     } yield result
   }
 
-  def retrieveColumn(table: Table, columnId: ColumnId): Future[ColumnType[_]] = for {
+  def retrieveColumn(table: Table, columnId: ColumnId): Future[ColumnType] = for {
     column <- structureModel.columnStruc.retrieve(table, columnId)
   } yield column
 
-  def retrieveColumns(table: Table): Future[Seq[ColumnType[_]]] = for {
+  def retrieveColumns(table: Table): Future[Seq[ColumnType]] = for {
     columns <- structureModel.columnStruc.retrieveAll(table)
   } yield columns
 
-  def checkValueTypeForColumn[A](column: ColumnType[_], value: A): Future[Unit] = {
+  def checkValueTypeForColumn[A](column: ColumnType, value: A): Future[Unit] = {
     val checked = column.checkValidValue(value)
     checked.map(err => Future.failed(InvalidJsonException("malformed value provided", err))).getOrElse(Future.successful(()))
   }
@@ -105,6 +106,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
+      cell <- updateCellValue(table, column, rowId, value)
+    } yield cell
+  }
+
+  // TODO make A dependent of column.ScalaType
+  private def updateCellValue[A](table: Table, column: ColumnType, rowId: RowId, value: A): Future[Cell[_]] = {
+    for {
       _ <- checkValueTypeForColumn(column, value)
 
       _ <- updateRowModel.updateRow(column.table, rowId, Seq((column, value)))
@@ -116,6 +124,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
+      cell <- replaceCellValue(table, column, rowId, value)
+    } yield cell
+  }
+
+  // TODO make A dependent of column.ScalaType
+  private def replaceCellValue[A](table: Table, column: ColumnType, rowId: RowId, value: A): Future[Cell[_]] = {
+    for {
       _ <- checkValueTypeForColumn(column, value)
 
       _ <- updateRowModel.clearRow(table, rowId, Seq(column))
@@ -125,14 +140,15 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield replacedCell
   }
 
-  def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
+  def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
 
-  private def retrieveCell(column: ColumnType[_], rowId: RowId): Future[Cell[Any]] = {
+  // TODO make A dependent of column.ScalaType
+  private def retrieveCell(column: ColumnType, rowId: RowId): Future[Cell[_]] = {
     // In case of a ConcatColumn we need to retrieve the
     // other values too, so the ConcatColumn can be build.
     val columns = column match {
@@ -149,7 +165,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       // Because we only want a cell's value other
       // potential rows and columns can be ignored.
       value = rowSeq.head.values.head
-    } yield Cell(column, rowId, value)
+    } yield Cell(column, rowId, value.asInstanceOf[column.ScalaType])
   }
 
   def retrieveRow(table: Table, rowId: RowId): Future[Row] = {
@@ -159,7 +175,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield row
   }
 
-  private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId): Future[Row] = {
+  private def retrieveRow(table: Table, columns: Seq[ColumnType], rowId: RowId): Future[Row] = {
     for {
       rawRow <- rowModel.retrieve(table.id, rowId, columns)
       rowSeq <- mapRawRows(table, columns, Seq(rawRow))
@@ -180,7 +196,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield rows
   }
 
-  private def retrieveRows(table: Table, columns: Seq[ColumnType[_]], pagination: Pagination): Future[RowSeq] = {
+  private def retrieveRows(table: Table, columns: Seq[ColumnType], pagination: Pagination): Future[RowSeq] = {
     for {
       totalSize <- rowModel.size(table.id)
       rawRows <- rowModel.retrieveAll(table.id, columns, pagination)
@@ -207,7 +223,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield duplicatedRow
   }
 
-  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[Any])]): Future[Seq[Row]] = {
+  private def mapRawRows(table: Table, columns: Seq[ColumnType], rawRows: Seq[(RowId, Seq[Any])]): Future[Seq[Row]] = {
 
     def mapNullValueForLinkToConcat(concatColumn: ConcatColumn, array: JsonArray): Future[List[Any]] = {
       import scala.collection.JavaConverters._
@@ -228,7 +244,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       case (rowId, rawValues) =>
 
         val mergedValues = Future.sequence(columns.zip(rawValues).map {
-          case (c: ConcatColumn, value) if c.columns.exists(col => col.kind == LinkType && col.asInstanceOf[LinkColumn[_]].to.isInstanceOf[ConcatColumn]) =>
+          case (c: ConcatColumn, value) if c.columns.exists(col => col.kind == LinkType && col.asInstanceOf[LinkColumn].to.isInstanceOf[ConcatColumn]) =>
             import scala.collection.JavaConverters._
 
             // Because of the guard we only handle ConcatColumns
@@ -246,7 +262,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             // Now we iterate over the zipped sequence and
             // check for LinkColumns which point to ConcatColumns
             val mappedColumnValues = zippedColumnsValues map {
-              case (column: LinkColumn[_], array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
+              case (column: LinkColumn, array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
                 // Iterate over each linked row and
                 // replace json's value with ConcatColumn value
                 mapNullValueForLinkToConcat(column.to.asInstanceOf[ConcatColumn], array)
@@ -256,7 +272,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
             Future.sequence(mappedColumnValues)
 
-          case (c: LinkColumn[_], array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
+          case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
 
             // Iterate over each linked row and
             // replace json's value with ConcatColumn value

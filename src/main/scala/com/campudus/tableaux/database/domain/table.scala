@@ -11,6 +11,6 @@ case class TableSeq(tables: Seq[Table]) extends DomainObject {
   override def getJson: JsonObject = Json.obj("tables" -> compatibilityGet(tables))
 }
 
-case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: RowSeq) extends DomainObject {
+case class CompleteTable(table: Table, columns: Seq[ColumnType], rowList: RowSeq) extends DomainObject {
   override def getJson: JsonObject = table.getJson.mergeIn(Json.obj("columns" -> columns.map {_.getJson})).mergeIn(rowList.getJson)
 }
