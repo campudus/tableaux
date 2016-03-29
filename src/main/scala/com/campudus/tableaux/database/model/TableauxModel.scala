@@ -149,7 +149,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       // Because we only want a cell's value other
       // potential rows and columns can be ignored.
       value = rowSeq.head.values.head
-    } yield Cell(column.asInstanceOf[ColumnType[Any]], rowId, value)
+    } yield Cell(column, rowId, value)
   }
 
   def retrieveRow(table: Table, rowId: RowId): Future[Row] = {
@@ -190,13 +190,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def duplicateRow(table: Table, rowId: RowId): Future[Row] = {
     for {
-      columns <- retrieveColumns(table).map({
-        _.filter({
-          // ConcatColumn can't be duplicated
-          case _: ConcatColumn => false
-          case _ => true
-        })
-      })
+      columns <- retrieveColumns(table).map(_.filter({
+        // ConcatColumn can't be duplicated
+        case _: ConcatColumn => false
+        case _ => true
+      }))
 
       // Retrieve row without ConcatColumn
       row <- retrieveRow(table, columns, rowId)
@@ -209,29 +207,28 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield duplicatedRow
   }
 
-  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[AnyRef])]): Future[Seq[Row]] = {
+  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[Any])]): Future[Seq[Row]] = {
 
     def mapNullValueForLinkToConcat(concatColumn: ConcatColumn, array: JsonArray): Future[List[Any]] = {
-      import scala.collection.JavaConversions._
+      import scala.collection.JavaConverters._
 
       // Iterate over each linked row and
       // replace json's value with ConcatColumn value
-      Future.sequence(array.toList.map({
+      Future.sequence(array.asScala.map({
         case obj: JsonObject =>
           // ConcatColumn's value is always a
           // json array with the linked row ids
           val rowId = obj.getLong("id").longValue()
           retrieveCell(concatColumn, rowId).map(cell => Json.obj("id" -> rowId, "value" -> cell.value))
-      }))
+      }).toList)
     }
 
     // TODO potential performance problem: foreach row every attachment column is mapped and attachments will be fetched!
     val mergedRows = rawRows map {
       case (rowId, rawValues) =>
 
-        val mergedValues = Future.sequence((columns, rawValues).zipped map {
+        val mergedValues = Future.sequence(columns.zip(rawValues).map {
           case (c: ConcatColumn, value) if c.columns.exists(col => col.kind == LinkType && col.asInstanceOf[LinkColumn[_]].to.isInstanceOf[ConcatColumn]) =>
-            import scala.collection.JavaConversions._
             import scala.collection.JavaConverters._
 
             // Because of the guard we only handle ConcatColumns
@@ -240,7 +237,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             // Zip concatenated columns with there values
             val concats = c.columns
             // value is a Java List because of RowModel.mapResultRow
-            val values = value.asInstanceOf[java.util.List[Object]].toList
+            val values = value.asInstanceOf[java.util.List[Object]].asScala.toList
 
             assert(concats.size == values.size)
 
@@ -252,22 +249,18 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
               case (column: LinkColumn[_], array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
                 // Iterate over each linked row and
                 // replace json's value with ConcatColumn value
-                mapNullValueForLinkToConcat(column.to.asInstanceOf[ConcatColumn], array).map(_.asJava)
+                mapNullValueForLinkToConcat(column.to.asInstanceOf[ConcatColumn], array)
 
               case (column, v) => Future.successful(v)
             }
 
-            // We need a Java collection so it
-            // can be serialized to JsonArray by vertx
-            Future.sequence(mappedColumnValues).map(_.asJava)
+            Future.sequence(mappedColumnValues)
 
           case (c: LinkColumn[_], array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
-            import scala.collection.JavaConverters._
 
             // Iterate over each linked row and
             // replace json's value with ConcatColumn value
-
-            mapNullValueForLinkToConcat(c.to.asInstanceOf[ConcatColumn], array).map(_.asJava)
+            mapNullValueForLinkToConcat(c.to.asInstanceOf[ConcatColumn], array)
 
           case (c: AttachmentColumn, _) => attachmentModel.retrieveAll(c.table.id, c.id, rowId)
           case (_, value) => Future(value)

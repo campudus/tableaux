@@ -95,7 +95,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
     for {
       result <- connection.query(select)
-      resultArr <- Future(getSeqOfJsonArray(result))
+      resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFolder)
     }
@@ -116,7 +116,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
         case None => connection.query(select("idparent IS NULL"))
         case Some(id) => connection.query(select("idparent = ?"), Json.arr(id.toString))
       }
-      resultArr <- Future(getSeqOfJsonArray(result))
+      resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFolder)
     }

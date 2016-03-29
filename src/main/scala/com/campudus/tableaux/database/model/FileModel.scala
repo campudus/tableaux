@@ -150,7 +150,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
         connection.query(select("f.idfolder = ? AND f.tmp = FALSE"), Json.arr(folder.get))
       }
 
-      resultRows = getSeqOfJsonArray(resultJson)
+      resultRows = resultObjectToJsonArray(resultJson)
     } yield {
       resultRows.map(convertRowToFile)
     }
@@ -164,7 +164,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
         connection.query(selectOrdered("f.idfolder = ? AND f.tmp = FALSE", sortByLangtag), Json.arr(folder.get))
       }
 
-      resultRows = getSeqOfJsonArray(resultJson)
+      resultRows = resultObjectToJsonArray(resultJson)
     } yield {
       resultRows.map(convertRowToFile)
     }

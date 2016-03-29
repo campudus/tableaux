@@ -209,7 +209,7 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
   }
 
   private def mapUpdateResult(msg: String, obj: JsonObject): JsonObject = {
-    import scala.collection.JavaConversions._
+    import scala.collection.JavaConverters._
 
     val updated = obj.getInteger("updated", 0)
     val keys = obj.getJsonArray("keys", Json.arr())
@@ -220,7 +220,7 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
       Json.arr()
     }
 
-    val results = new JsonArray(keys.getList.toList.map({ v: Any => Json.arr(v) }))
+    val results = Json.arr(keys.getList.asScala.map({ v: Any => Json.arr(v) }): _*)
 
     Json.obj(
       "status" -> "ok",

@@ -326,6 +326,36 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
+  def duplicateRowWithLinkWithConcatColumn(implicit c: TestContext): Unit = okTest {
+    val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
+    def fillLinkCellJson(c: Integer) = Json.obj("value" -> Json.obj("to" -> c))
+    val postIdentifier = Json.obj("identifier" -> true)
+
+    for {
+      tableId1 <- setupDefaultTable()
+      tableId2 <- setupDefaultTable("Test Table 2", 2)
+      _ <- sendRequest("POST", s"/tables/$tableId2/columns/1", postIdentifier)
+      _ <- sendRequest("POST", s"/tables/$tableId2/columns/2", postIdentifier)
+      linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkCol)
+      linkColumnId = linkColumn.getArray("columns").getJsonObject(0).getNumber("id")
+      _ <- sendRequest("POST", s"/tables/$tableId1/columns/$linkColumnId/rows/1", fillLinkCellJson(1))
+      _ <- sendRequest("POST", s"/tables/$tableId1/columns/$linkColumnId/rows/1", fillLinkCellJson(2))
+      expected <- sendRequest("GET", s"/tables/$tableId1/rows/1")
+      duplicatedPost <- sendRequest("POST", s"/tables/$tableId1/rows/1/duplicate")
+      result <- sendRequest("GET", s"/tables/1/rows/${duplicatedPost.getNumber("id")}")
+    } yield {
+      assertEquals(result, duplicatedPost)
+
+      assertNotSame(expected.getNumber("id"), result.getNumber("id"))
+      expected.remove("id")
+      result.remove("id")
+      logger.info(s"expected without id=${expected.encode()}")
+      logger.info(s"result without id=${result.encode()}")
+      assertEquals(expected, result)
+    }
+  }
+
+  @Test
   def duplicateRowWithMultiLanguageAttachment(implicit c: TestContext): Unit = okTest {
     val postAttachmentColumn = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "attachment",
