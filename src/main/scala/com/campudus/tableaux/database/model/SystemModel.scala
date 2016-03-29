@@ -25,10 +25,13 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
       // retrieve but ignore version
       (t, _) <- retrieveCurrentVersion(t)
 
-      t <- version.map(i => setupFunctions.take(i)).getOrElse(setupFunctions).foldLeft(Future(t)) {
-        case (t, setup) =>
-          t.flatMap(setup)
-      }
+      t <- version
+        .map(i => setupFunctions.take(i))
+        .getOrElse(setupFunctions)
+        .foldLeft(Future(t)) {
+          case (t, setup) =>
+            t.flatMap(setup)
+        }
 
       _ <- t.commit()
     } yield ()
@@ -47,10 +50,12 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
       // retrieve current schema version
       (t, version) <- retrieveCurrentVersion(t)
 
-      t <- setupFunctions.drop(version).foldLeft(Future(t)) {
-        case (t, setup) =>
-          t.flatMap(setup)
-      }
+      t <- setupFunctions
+        .drop(version)
+        .foldLeft(Future(t)) {
+          case (t, setup) =>
+            t.flatMap(setup)
+        }
 
       _ <- t.commit()
     } yield ()

@@ -95,7 +95,7 @@ sealed trait ModelHelper {
             attachments.map({
               case file: AttachmentFile =>
                 (file.file.file.uuid.get, Some(file.ordering))
-            }).toSeq
+            })
         }
 
         (s, m, l, (c, attachments) :: a)
@@ -285,14 +285,14 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   def createRow(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
     for {
       (simple, multis, links, attachments) <- Future.apply(splitIntoDatabaseTypesWithValues(values))
-      rowId <- if (simple.isEmpty) createEmpty(tableId) else createFull(tableId, simple)
+      rowId <- if (simple.isEmpty) createEmpty(tableId) else createSimple(tableId, simple)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
       _ <- if (links.isEmpty) Future.successful(()) else createLinks(tableId, rowId, links)
       _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(tableId, rowId, attachments)
     } yield rowId
   }
 
-  def createEmpty(tableId: TableId): Future[RowId] = {
+  private def createEmpty(tableId: TableId): Future[RowId] = {
     for {
       result <- connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id")
     } yield {
@@ -300,7 +300,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def createFull(tableId: TableId, values: Seq[(SimpleValueColumn[_], _)]): Future[RowId] = {
+  private def createSimple(tableId: TableId, values: Seq[(SimpleValueColumn[_], _)]): Future[RowId] = {
     val placeholder = values.map(_ => "?").mkString(", ")
     val columns = values.map { case (column: ColumnType[_], _) => s"column_${column.id}" }.mkString(", ")
     val binds = values.map { case (_, value) => value }

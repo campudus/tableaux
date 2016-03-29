@@ -86,11 +86,13 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, columnInfo) <- insertSystemColumn(t, tableId, name, LinkType, ordering, Some(linkId), SingleLanguage, identifier, displayInfos)
 
         // only add the second link column if tableId != toTableId or singleDirection is false
-        (t, _) <- {
+        t <- {
           if (!singleDirection && tableId != toTableId) {
             insertSystemColumn(t, toTableId, toName.getOrElse(table.name), LinkType, None, Some(linkId), SingleLanguage, identifier, displayInfos)
+              // ColumnInfo will be ignored, so we can lose it
+              .map(_._1)
           } else {
-            Future((t, Json.emptyObj()))
+            Future(t)
           }
         }
 
