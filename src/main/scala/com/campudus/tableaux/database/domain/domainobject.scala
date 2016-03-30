@@ -100,7 +100,6 @@ object MultiLanguageValue {
     * to Map(langtag -> Map(column -> value))
     */
   def merge(map: Map[String, Map[String, Any]]): Map[String, Map[String, Any]] = {
-    // TODO refactor
     val result = mutable.Map.empty[String, mutable.Map[String, Any]]
 
     map.foreach({
@@ -118,6 +117,7 @@ object MultiLanguageValue {
         })
     })
 
+    // convert to immutable map
     result.map({
       case (langtag, columnsValueMap) =>
         (langtag, columnsValueMap.toMap)

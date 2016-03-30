@@ -83,18 +83,23 @@ class Starter extends ScalaVerticle {
     FileUtils(this).mkdirs(config.uploadsDirectoryPath())
   }
 
-  private def deployHttpServer(port: Int, host: String, tableauxConfig: TableauxConfig, connection: SQLConnection): Future[HttpServer] = futurify { p: Promise[HttpServer] =>
-    val dbConnection = DatabaseConnection(this, connection)
-    val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
+  private def deployHttpServer(port: Int,
+                               host: String,
+                               tableauxConfig: TableauxConfig,
+                               connection: SQLConnection): Future[HttpServer] = {
+    futurify { p: Promise[HttpServer] =>
+      val dbConnection = DatabaseConnection(this, connection)
+      val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
 
-    val router = Router.router(vertx)
+      val router = Router.router(vertx)
 
-    router.route().handler(routerRegistry)
+      router.route().handler(routerRegistry)
 
-    vertx.createHttpServer().requestHandler(router.accept(_: HttpServerRequest)).listen(port, host, {
-      case Success(server) => p.success(server)
-      case Failure(x) => p.failure(x)
-    }: Try[HttpServer] => Unit)
+      vertx.createHttpServer().requestHandler(router.accept(_: HttpServerRequest)).listen(port, host, {
+        case Success(s) => p.success(s)
+        case Failure(x) => p.failure(x)
+      }: Try[HttpServer] => Unit)
+    }
   }
 
   private def getStringDefault(config: JsonObject, field: String, default: String): String = {

@@ -133,9 +133,10 @@ class SystemController(override val config: TableauxConfig,
   private def manifestValue(field: String): Option[String] = {
     import com.jcabi.manifests.Manifests
 
-    if (Manifests.exists(field))
+    if (Manifests.exists(field)) {
       Some(Manifests.read(field))
-    else
+    } else {
       None
+    }
   }
 }
