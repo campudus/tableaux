@@ -1,7 +1,9 @@
 package com.campudus.tableaux
 
+import java.util.UUID
+
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.domain.{File, Folder, MultiLanguageValue}
+import com.campudus.tableaux.database.domain.{Folder, MultiLanguageValue, TableauxFile}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{FileModel, FolderModel}
 import io.vertx.core.buffer.Buffer
@@ -39,8 +41,8 @@ class MediaTest extends TableauxTestBase {
 
   @Test
   def testFileModel(implicit c: TestContext): Unit = okTest {
-    def file = File(
-      None,
+    def file = TableauxFile(
+      UUID.randomUUID(),
       None,
       MultiLanguageValue("de_DE" -> "Test"),
       MultiLanguageValue.empty(),
@@ -62,8 +64,8 @@ class MediaTest extends TableauxTestBase {
       insertedFile1 <- model.update(tempFile1)
       insertedFile2 <- model.update(tempFile2)
 
-      retrievedFile <- model.retrieve(insertedFile1.uuid.get)
-      updatedFile <- model.update(File(uuid = retrievedFile.uuid.get, MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "external.pdf"), None))
+      retrievedFile <- model.retrieve(insertedFile1.uuid)
+      updatedFile <- model.update(TableauxFile(uuid = retrievedFile.uuid, MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "Changed"), MultiLanguageValue("de_DE" -> "external.pdf"), None))
 
       allFiles <- model.retrieveAll()
 
@@ -93,15 +95,13 @@ class MediaTest extends TableauxTestBase {
 
   @Test
   def testFolderModel(implicit c: TestContext): Unit = okTest {
-    val folder = Folder(None, name = "hallo", description = "Test", None, None, None)
-
     for {
       model <- Future.successful(createFolderModel())
 
-      insertedFolder1 <- model.add(folder)
-      insertedFolder2 <- model.add(folder)
+      insertedFolder1 <- model.add(name = "hallo", description = "Test", parent = None)
+      insertedFolder2 <- model.add(name = "hallo", description = "Test", parent = None)
 
-      retrievedFolder <- model.retrieve(insertedFolder1.id.get)
+      retrievedFolder <- model.retrieve(insertedFolder1.id)
       updatedFolder <- model.update(Folder(retrievedFolder.id, name = "blub", description = "flab", None, None, None))
 
       folders <- model.retrieveAll()
@@ -130,7 +130,7 @@ class MediaTest extends TableauxTestBase {
     for {
       rootFolder <- sendRequest("GET", "/folders?langtag=de-DE")
     } yield {
-      assertNull(rootFolder.getString("id"))
+      assertEquals(0, rootFolder.getInteger("id"))
       assertEquals("root", rootFolder.getString("name"))
       assertNull(rootFolder.getString("parent"))
     }

@@ -15,6 +15,13 @@ import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
 object MediaController {
+  /**
+    * Alias for None which represents
+    * the root folder (which doesn't
+    * really exist)
+    */
+  val ROOT_FOLDER = Folder(0, "root", "", None, None, None)
+
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
     new MediaController(config, folderModel, fileModel)
   }
@@ -24,14 +31,9 @@ class MediaController(override val config: TableauxConfig,
                       override protected val repository: FolderModel,
                       protected val fileModel: FileModel) extends Controller[FolderModel] {
 
-  lazy val uploadsDirectory = config.uploadsDirectoryPath()
+  import MediaController.ROOT_FOLDER
 
-  /**
-    * Alias for None which represents
-    * the root folder (which doesn't
-    * really exist)
-    */
-  val rootFolder = Folder(None, "root", "", None, None, None)
+  lazy val uploadsDirectory = config.uploadsDirectoryPath()
 
   def retrieveFolder(id: FolderId, sortByLangtag: String): Future[ExtendedFolder] = {
     for {
@@ -41,22 +43,22 @@ class MediaController(override val config: TableauxConfig,
   }
 
   def retrieveRootFolder(sortByLangtag: String): Future[ExtendedFolder] = {
-    retrieveExtendedFolder(rootFolder, sortByLangtag)
+    retrieveExtendedFolder(ROOT_FOLDER, sortByLangtag)
   }
 
   private def retrieveExtendedFolder(folder: Folder, sortByLangtag: String): Future[ExtendedFolder] = {
     for {
-      subfolders <- repository.retrieveSubfolders(folder.id)
-      files <- fileModel.retrieveFromFolder(folder.id, sortByLangtag)
+      subfolders <- repository.retrieveSubfolders(folder)
+      files <- fileModel.retrieveFromFolder(folder, sortByLangtag)
     } yield ExtendedFolder(folder, subfolders, files map ExtendedFile)
   }
 
   def addNewFolder(name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
-    repository.add(Folder(name, description, parent))
+    repository.add(name, description, parent)
   }
 
   def changeFolder(id: FolderId, name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
-    repository.update(Folder(Some(id), name, description, parent, None, None))
+    repository.update(Folder(id, name, description, parent, None, None))
   }
 
   def deleteFolder(id: FolderId): Future[Folder] = {
@@ -64,29 +66,32 @@ class MediaController(override val config: TableauxConfig,
       folder <- repository.retrieve(id)
 
       // delete files & subfolders
-      _ <- deleteFilesOfFolder(id).zip(deleteSubfolders(id))
+      _ <- deleteFilesOfFolder(folder).zip(deleteSubfolders(folder))
 
       // delete the folder finally
       _ <- repository.delete(folder)
     } yield folder
   }
 
-  private def deleteSubfolders(id: FolderId): Future[Unit] = {
+  private def deleteSubfolders(folder: Folder): Future[Unit] = {
     for {
-      folders <- repository.retrieveSubfolders(Some(id))
-      _ <- Future.sequence(folders.map(f => deleteFolder(f.id.get)))
+      folders <- repository.retrieveSubfolders(folder)
+      _ <- Future.sequence(folders.map(f => deleteFolder(f.id)))
     } yield ()
   }
 
-  private def deleteFilesOfFolder(id: FolderId): Future[Unit] = {
+  private def deleteFilesOfFolder(folder: Folder): Future[Unit] = {
     for {
-      files <- fileModel.retrieveFromFolder(Some(id))
-      _ <- Future.sequence(files.map(f => deleteFile(f.uuid.get)))
+      files <- fileModel.retrieveFromFolder(folder)
+      _ <- Future.sequence(files.map(f => deleteFile(f.uuid)))
     } yield ()
   }
 
-  def addFile(title: MultiLanguageValue[String], description: MultiLanguageValue[String], externalName: MultiLanguageValue[String], folder: Option[FolderId]): Future[TemporaryFile] = {
-    val file = File(UUID.randomUUID(), title, description, externalName, folder)
+  def addFile(title: MultiLanguageValue[String],
+              description: MultiLanguageValue[String],
+              externalName: MultiLanguageValue[String],
+              folder: Option[FolderId]): Future[TemporaryFile] = {
+    val file = TableauxFile(UUID.randomUUID(), title, description, externalName, folder)
     fileModel.add(file).map(TemporaryFile)
   }
 
@@ -146,7 +151,13 @@ class MediaController(override val config: TableauxConfig,
     upload.streamToFile(filePath.toString())
   }
 
-  def changeFile(uuid: UUID, title: MultiLanguageValue[String], description: MultiLanguageValue[String], externalName: MultiLanguageValue[String], internalName: MultiLanguageValue[String], mimeType: MultiLanguageValue[String], folder: Option[FolderId]): Future[ExtendedFile] = {
+  def changeFile(uuid: UUID,
+                 title: MultiLanguageValue[String],
+                 description: MultiLanguageValue[String],
+                 externalName: MultiLanguageValue[String],
+                 internalName: MultiLanguageValue[String],
+                 mimeType: MultiLanguageValue[String],
+                 folder: Option[FolderId]): Future[ExtendedFile] = {
     def checkInternalName(internalName: String): Future[Unit] = {
       val p: Promise[Unit] = Promise()
       vertx.fileSystem().exists((uploadsDirectory / Path(internalName)).toString(), {
@@ -173,7 +184,7 @@ class MediaController(override val config: TableauxConfig,
         }
       }
     }).flatMap { _ =>
-      fileModel.update(File(uuid, title, description, externalName, folder, internalName, mimeType)).map(ExtendedFile)
+      fileModel.update(TableauxFile(uuid, title, description, externalName, folder, internalName, mimeType)).map(ExtendedFile)
     }
   }
 
@@ -191,7 +202,7 @@ class MediaController(override val config: TableauxConfig,
     }
   }
 
-  def deleteFile(uuid: UUID): Future[File] = {
+  def deleteFile(uuid: UUID): Future[TableauxFile] = {
     for {
       (file, paths) <- retrieveFile(uuid, withTmp = true)
       _ <- fileModel.deleteById(uuid)
@@ -207,7 +218,7 @@ class MediaController(override val config: TableauxConfig,
     }
   }
 
-  def deleteFile(uuid: UUID, langtag: String): Future[File] = {
+  def deleteFile(uuid: UUID, langtag: String): Future[TableauxFile] = {
     for {
       (file, paths) <- retrieveFile(uuid, withTmp = true)
       _ <- fileModel.deleteByIdAndLangtag(uuid, langtag)
@@ -290,7 +301,7 @@ class MediaController(override val config: TableauxConfig,
     } yield ExtendedFile(mergedFile)
   }
 
-  private def isSingleLanguage(file: File): Option[String] = {
+  private def isSingleLanguage(file: TableauxFile): Option[String] = {
     file.internalName.size == 1 match {
       case true => Some(file.internalName.values.head._1)
       case false => None

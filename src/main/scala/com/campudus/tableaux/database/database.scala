@@ -1,8 +1,6 @@
 package com.campudus.tableaux.database
 
 import com.campudus.tableaux.DatabaseException
-import com.campudus.tableaux.database.domain.DomainObject
-import com.campudus.tableaux.database.model.FolderModel._
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
@@ -12,7 +10,6 @@ import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonCompatible, JsonObject}
 
 import scala.concurrent.Future
-import scala.util.Random
 
 trait DatabaseQuery extends JsonCompatible with LazyLogging {
   protected[this] val connection: DatabaseConnection
@@ -27,38 +24,10 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
     case Some(x) => someCase(x)
     case None => Future.successful(trans, Json.obj())
   }
-}
 
-sealed trait DatabaseHelper {
-
-  implicit def con(id: java.lang.Long): Option[FolderId] = {
-    id.toLong
-  }
-
-  implicit def convertLongToFolderId(id: Long): Option[FolderId] = {
-    //TODO still, not cool!
-    Option(id).filter(_ != 0)
-  }
-
-  implicit def convertStringToDateTime(str: String): Option[DateTime] = {
+  protected[this] def convertStringToDateTime(str: String): Option[DateTime] = {
     Option(str).map(DateTime.parse)
   }
-}
-
-trait DatabaseHandler[O <: DomainObject, ID] extends DatabaseQuery with DatabaseHelper {
-  def add(o: O): Future[O]
-
-  def retrieve(id: ID): Future[O]
-
-  def retrieveAll(): Future[Seq[O]]
-
-  def update(o: O): Future[O]
-
-  def delete(o: O): Future[Unit]
-
-  def deleteById(id: ID): Future[Unit]
-
-  def size(): Future[Long]
 }
 
 object DatabaseConnection {
@@ -116,7 +85,7 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
 
       (transaction, result) <- {
         fn(transaction) recoverWith {
-          case e =>
+          case e: Throwable =>
             logger.error("Failed executing transactional. Rollback and fail.", e)
             transaction.rollback()
             Future.failed(e)

@@ -94,7 +94,7 @@ sealed trait ModelHelper {
           case attachments: Stream[_] =>
             attachments.map({
               case file: AttachmentFile =>
-                (file.file.file.uuid.get, Some(file.ordering))
+                (file.file.file.uuid, Some(file.ordering))
             })
         }
 
@@ -265,7 +265,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
             case (future, (uuid, ordering)) =>
               for {
                 list <- future
-                addedOrUpdatedAttachment <- if (currentAttachments.exists(_.file.file.uuid.contains(uuid))) {
+                addedOrUpdatedAttachment <- if (currentAttachments.exists(_.file.file.uuid.equals(uuid))) {
                   attachmentModel.update(Attachment(table.id, column.id, rowId, uuid, ordering))
                 } else {
                   attachmentModel.add(Attachment(table.id, column.id, rowId, uuid, ordering))

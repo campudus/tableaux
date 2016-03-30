@@ -2,9 +2,10 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
-import com.campudus.tableaux.database.domain.{File, MultiLanguageValue}
+import com.campudus.tableaux.controller.MediaController
+import com.campudus.tableaux.database.domain.{Folder, MultiLanguageValue, TableauxFile}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseHandler}
+import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
@@ -18,16 +19,13 @@ object FileModel {
   }
 }
 
-class FileModel(override protected[this] val connection: DatabaseConnection) extends DatabaseHandler[File, UUID] {
+class FileModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
   val table: String = "file"
 
   /**
     * Will add a new entity marked as temporary!
     */
-  override def add(o: File): Future[File] = {
-    //if a UUID is already defined use this one
-    val uuid = o.uuid.getOrElse(UUID.randomUUID())
-
+  def add(o: TableauxFile): Future[TableauxFile] = {
     val insert =
       s"""INSERT INTO $table (
           |uuid,
@@ -41,14 +39,14 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     ))
 
     for {
-      resultJson <- connection.query(insert, Json.arr(uuid.toString, o.folder.orNull))
+      resultJson <- connection.query(insert, Json.arr(o.uuid.toString, o.folder.orNull))
       resultRow = insertNotNull(resultJson).head
 
-      _ <- addTranslations(uuid, b)
+      _ <- addTranslations(o.uuid, b)
 
     } yield {
       val createdAt = DateTime.parse(resultRow.get[String](0))
-      o.copy(uuid = Some(uuid), createdAt = Some(createdAt))
+      o.copy(createdAt = Some(createdAt))
     }
   }
 
@@ -85,42 +83,38 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     })
   }
 
-  private def json_agg(tableAlias: String, column: String, languageColumn: String = "langtag"): String = {
+  private def jsonObjectAgg(tableAlias: String, column: String, languageColumn: String = "langtag"): String = {
     s"CASE WHEN COUNT(fl.uuid) = 0 THEN NULL ELSE json_object_agg(DISTINCT COALESCE($tableAlias.$languageColumn,'IGNORE'), $tableAlias.$column) FILTER (WHERE $tableAlias.$column IS NOT NULL) END as $column"
   }
 
   private def select(where: String): String = {
     s"""SELECT
-        |	f.uuid,
-        |	f.idfolder,
-        |	f.created_at,
-        |	f.updated_at,
-        |
-        |	${json_agg("fl", "title")},
-        |	${json_agg("fl", "description")},
-        |	${json_agg("fl", "internal_name")},
-        |	${json_agg("fl", "external_name")},
-        |	${json_agg("fl", "mime_type")}
-        |
+        | f.uuid,
+        | f.idfolder,
+        | f.created_at,
+        | f.updated_at,
+        | ${jsonObjectAgg("fl", "title")},
+        | ${jsonObjectAgg("fl", "description")},
+        | ${jsonObjectAgg("fl", "internal_name")},
+        | ${jsonObjectAgg("fl", "external_name")},
+        | ${jsonObjectAgg("fl", "mime_type")}
         |FROM file f LEFT JOIN file_lang fl ON (f.uuid = fl.uuid)
         |WHERE $where
         |GROUP BY f.uuid""".stripMargin
   }
 
   private def selectOrdered(where: String, langtag: String): String = {
-    s"""
-       |SELECT
-       |	s.*
-       |FROM (
-       | ${select(where)}
-       |) s
-       |ORDER BY s.external_name->>'${langtag}' ASC NULLS FIRST
-     """.stripMargin
+    s"""|SELECT
+        | s.*
+        |FROM (
+        | ${select(where)}
+        |) s
+        |ORDER BY s.external_name->>'$langtag' ASC NULLS FIRST""".stripMargin
   }
 
-  override def retrieve(id: UUID): Future[File] = retrieve(id, withTmp = false)
+  def retrieve(id: UUID): Future[TableauxFile] = retrieve(id, withTmp = false)
 
-  def retrieve(id: UUID, withTmp: Boolean): Future[File] = {
+  def retrieve(id: UUID, withTmp: Boolean): Future[TableauxFile] = {
     for {
       resultJson <- if (withTmp) {
         connection.query(select("f.uuid = ?"), Json.arr(id.toString))
@@ -133,7 +127,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     }
   }
 
-  override def retrieveAll(): Future[Seq[File]] = {
+  def retrieveAll(): Future[Seq[TableauxFile]] = {
     for {
       resultJson <- connection.query(select("f.tmp = FALSE"))
       resultRows = selectNotNull(resultJson)
@@ -142,12 +136,13 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     }
   }
 
-  def retrieveFromFolder(folder: Option[FolderId]): Future[Seq[File]] = {
+  def retrieveFromFolder(folder: Folder): Future[Seq[TableauxFile]] = {
     for {
-      resultJson <- if (folder.isEmpty) {
-        connection.query(select("f.idfolder IS NULL AND f.tmp = FALSE"))
-      } else {
-        connection.query(select("f.idfolder = ? AND f.tmp = FALSE"), Json.arr(folder.get))
+      resultJson <- folder match {
+        case MediaController.ROOT_FOLDER =>
+          connection.query(select("f.idfolder IS NULL AND f.tmp = FALSE"))
+        case f =>
+          connection.query(select("f.idfolder = ? AND f.tmp = FALSE"), Json.arr(f.id))
       }
 
       resultRows = resultObjectToJsonArray(resultJson)
@@ -156,12 +151,13 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     }
   }
 
-  def retrieveFromFolder(folder: Option[FolderId], sortByLangtag: String): Future[Seq[File]] = {
+  def retrieveFromFolder(folder: Folder, sortByLangtag: String): Future[Seq[TableauxFile]] = {
     for {
-      resultJson <- if (folder.isEmpty) {
-        connection.query(selectOrdered("f.idfolder IS NULL AND f.tmp = FALSE", sortByLangtag))
-      } else {
-        connection.query(selectOrdered("f.idfolder = ? AND f.tmp = FALSE", sortByLangtag), Json.arr(folder.get))
+      resultJson <- folder match {
+        case MediaController.ROOT_FOLDER =>
+          connection.query(selectOrdered("f.idfolder IS NULL AND f.tmp = FALSE", sortByLangtag))
+        case f =>
+          connection.query(selectOrdered("f.idfolder = ? AND f.tmp = FALSE", sortByLangtag), Json.arr(f.id))
       }
 
       resultRows = resultObjectToJsonArray(resultJson)
@@ -170,31 +166,27 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     }
   }
 
-  def convertRowToFile(row: JsonArray): File = {
-    File(
-      row.get[String](0), //uuid
-      row.get[Long](1), //idfolder
+  def convertRowToFile(row: JsonArray): TableauxFile = {
+    TableauxFile(
+      UUID.fromString(row.get[String](0)), //uuid
+      Option(row.get[FolderId](1)), //idfolder
 
-      row.get[String](4), //title
-      row.get[String](5), //description
-      row.get[String](6), //internal_name
-      row.get[String](7), //external_name
-      row.get[String](8), //mime_type
+      convertStringToMultiLanguage(row.get[String](4)), //title
+      convertStringToMultiLanguage(row.get[String](5)), //description
+      convertStringToMultiLanguage(row.get[String](6)), //internal_name
+      convertStringToMultiLanguage(row.get[String](7)), //external_name
+      convertStringToMultiLanguage(row.get[String](8)), //mime_type
 
-      row.get[String](2), //created_at
-      row.get[String](3) //updated_at
+      convertStringToDateTime(row.get[String](2)), //created_at
+      convertStringToDateTime(row.get[String](3)) //updated_at
     )
   }
 
-  implicit def convertStringToMultiLanguage[A](str: String): MultiLanguageValue[A] = {
+  def convertStringToMultiLanguage[A](str: String): MultiLanguageValue[A] = {
     MultiLanguageValue[A](Try(Json.fromObjectString(str)).toOption)
   }
 
-  implicit def convertStringToUUID(str: String): Option[UUID] = {
-    Some(UUID.fromString(str))
-  }
-
-  override def update(o: File): Future[File] = {
+  def update(o: TableauxFile): Future[TableauxFile] = {
     val update =
       s"""UPDATE $table SET
           |idfolder = ?,
@@ -211,28 +203,28 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     ))
 
     for {
-      resultJson <- connection.query(update, Json.arr(o.folder.orNull, o.uuid.get.toString))
+      resultJson <- connection.query(update, Json.arr(o.folder.orNull, o.uuid.toString))
 
       _ <- {
         updateNotNull(resultJson)
-        addTranslations(o.uuid.get, b)
+        addTranslations(o.uuid, b)
       }
 
-      file <- retrieve(o.uuid.get)
+      file <- retrieve(o.uuid)
     } yield file
   }
 
-  override def size(): Future[Long] = {
+  def size(): Future[Long] = {
     val select = s"SELECT COUNT(*) FROM $table WHERE tmp = FALSE"
 
     connection.selectSingleValue(select)
   }
 
-  override def delete(o: File): Future[Unit] = {
-    deleteById(o.uuid.get)
+  def delete(o: TableauxFile): Future[Unit] = {
+    deleteById(o.uuid)
   }
 
-  override def deleteById(id: UUID): Future[Unit] = {
+  def deleteById(id: UUID): Future[Unit] = {
     val delete = s"DELETE FROM $table WHERE uuid = ?"
 
     for {
