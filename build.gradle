@@ -4,8 +4,10 @@ plugins {
     id 'java'
     id 'scala'
     id 'application'
+
     id 'com.github.johnrengelman.shadow' version '1.2.3'
     id 'com.github.ksoichiro.build.info' version '0.1.5'
+
     id 'org.scoverage' version '2.0.1'
     id 'com.github.kt3k.coveralls' version '2.6.3'
 }
@@ -23,9 +25,6 @@ if (!JavaVersion.current().java8Compatible) {
 
 repositories {
     mavenCentral()
-    maven {
-        url 'https://oss.sonatype.org/content/repositories/snapshots'
-    }
 }
 
 configurations {
@@ -93,7 +92,7 @@ task runRedeploy(type: JavaExec) {
 // activate Zinc (sbt) incremental compilation
 tasks.withType(ScalaCompile) {
     scalaCompileOptions.useAnt = false
-    scalaCompileOptions.useCompileDaemon = false
+    scalaCompileOptions.additionalParameters = ["-feature"]
 }
 
 sourceSets {
