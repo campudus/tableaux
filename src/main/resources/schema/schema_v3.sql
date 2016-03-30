@@ -1,0 +1,3 @@
+ALTER TABLE system_table
+ADD COLUMN
+is_hidden BOOLEAN DEFAULT FALSE;
