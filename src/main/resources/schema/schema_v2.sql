@@ -1,0 +1,3 @@
+ALTER TABLE system_columns
+ADD COLUMN
+identifier BOOLEAN DEFAULT FALSE;

@@ -138,7 +138,14 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield EmptyObject()
   }
 
-  def changeColumn(tableId: TableId, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean], displayName: Option[JsonObject], description: Option[JsonObject]): Future[ColumnType[_]] = {
+  def changeColumn(tableId: TableId,
+                   columnId: ColumnId,
+                   columnName: Option[String],
+                   ordering: Option[Ordering],
+                   kind: Option[TableauxDbType],
+                   identifier: Option[Boolean],
+                   displayName: Option[JsonObject],
+                   description: Option[JsonObject]): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     logger.info(s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier displayName=${displayName.map(_.encode())} description=${description.map(_.encode())}")
 

@@ -6,7 +6,10 @@ import io.vertx.scala.FutureHelper._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
+
 trait FunctionConverters {
+
+  import scala.language.implicitConversions
 
   type AsyncVoid = Handler[AsyncResult[Void]]
   type AsyncValue[A] = Handler[AsyncResult[A]]

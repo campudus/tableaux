@@ -126,7 +126,6 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
 
     for {
       result <- connection.query(delete, Json.arr(tableId, columnId, rowId))
-    //_ = deleteNotNull(result)
     } yield ()
   }
 

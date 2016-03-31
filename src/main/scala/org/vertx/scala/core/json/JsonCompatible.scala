@@ -17,6 +17,9 @@ class ScalaJsonObject(map: java.util.Map[String, Object]) extends JsonObject(map
 }
 
 trait JsonCompatible {
+
+  import scala.language.implicitConversions
+
   implicit def mapToCompatibleJsonArray(arr: JsonArray): ScalaJsonArray = new ScalaJsonArray(arr.getList)
 
   implicit def mapToCompatibleJsonObject(obj: JsonObject): ScalaJsonObject = new ScalaJsonObject(obj.getMap)

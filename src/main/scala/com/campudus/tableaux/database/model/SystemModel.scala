@@ -2,9 +2,10 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+import scala.io.Source
 import scala.util.Try
 
 object SystemModel {
@@ -25,10 +26,13 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
       // retrieve but ignore version
       (t, _) <- retrieveCurrentVersion(t)
 
-      t <- version.map(i => setupFunctions.take(i)).getOrElse(setupFunctions).foldLeft(Future(t)) {
-        case (t, setup) =>
-          t.flatMap(setup)
-      }
+      t <- version
+        .map(i => setupFunctions.take(i))
+        .getOrElse(setupFunctions)
+        .foldLeft(Future(t)) {
+          case (t, setup) =>
+            t.flatMap(setup)
+        }
 
       _ <- t.commit()
     } yield ()
@@ -47,10 +51,12 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
       // retrieve current schema version
       (t, version) <- retrieveCurrentVersion(t)
 
-      t <- setupFunctions.drop(version).foldLeft(Future(t)) {
-        case (t, setup) =>
-          t.flatMap(setup)
-      }
+      t <- setupFunctions
+        .drop(version)
+        .foldLeft(Future(t)) {
+          case (t, setup) =>
+            t.flatMap(setup)
+        }
 
       _ <- t.commit()
     } yield ()
@@ -112,261 +118,36 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     } yield (t, version)
   }
 
-  // TODO Get rid of hardcoded number in saveVersion(X) in all setupVersionX
-  private val setupFunctions = Seq(
-    setupVersion1(_),
-    setupVersion2(_),
-    setupVersion3(_),
-    setupVersion4(_),
-    setupVersion5(_),
-    setupVersion6(_),
-    setupVersion7(_)
+  private val setupFunctions: Seq[connection.Transaction => Future[connection.Transaction]] = Seq(
+    setupVersion(readSchemaFile("schema_v1"), 1),
+    setupVersion(readSchemaFile("schema_v2"), 2),
+    setupVersion(readSchemaFile("schema_v3"), 3),
+    setupVersion(readSchemaFile("schema_v4"), 4),
+    setupVersion(readSchemaFile("schema_v5"), 5),
+    setupVersion(readSchemaFile("schema_v6"), 6),
+    setupVersion(readSchemaFile("schema_v7"), 7)
   )
 
-  private def saveVersion(t: connection.Transaction, version: Int): Future[connection.Transaction] = {
+  private def readSchemaFile(name: String): String = {
+    Source.fromInputStream(getClass.getResourceAsStream(s"/schema/$name.sql"), "UTF-8").mkString
+  }
+
+  private def setupVersion(stmt: String, versionId: Int)(t: connection.Transaction): Future[connection.Transaction] = {
+    logger.info(s"Setup schema version $versionId")
+
+    for {
+      t <- t.query(stmt).map(_._1)
+      t <- saveVersion(t, versionId)
+    } yield t
+  }
+
+  private def saveVersion(t: connection.Transaction, versionId: Int): Future[connection.Transaction] = {
     t.query(
       s"""
          |INSERT INTO system_version (version)
          |SELECT ? WHERE NOT EXISTS (SELECT version FROM system_version WHERE version = ?)
-       """.stripMargin, Json.arr(version, version)) map {
+       """.stripMargin, Json.arr(versionId, versionId)) map {
       case (t, _) => t
     }
-  }
-
-  private def setupVersion1(t: connection.Transaction): Future[connection.Transaction] = {
-    logger.info("Setup schema version 1")
-
-    for {
-      (t, _) <- t.query(
-        s"""
-           |CREATE TABLE system_table (
-           |table_id BIGSERIAL,
-           |user_table_name VARCHAR(255) NOT NULL,
-           |
-           |PRIMARY KEY(table_id)
-           |)""".stripMargin)
-
-      (t, _) <- t.query(
-        s"""
-           |CREATE TABLE system_columns(
-           |table_id BIGINT,
-           |column_id BIGINT,
-           |column_type VARCHAR(255) NOT NULL,
-           |user_column_name VARCHAR(255) NOT NULL,
-           |ordering BIGINT NOT NULL,
-           |link_id BIGINT,
-           |multilanguage BOOLEAN,
-           |
-           |PRIMARY KEY(table_id, column_id),
-           |FOREIGN KEY(table_id)
-           |REFERENCES system_table(table_id)
-           |ON DELETE CASCADE
-           |)""".stripMargin)
-
-      (t, _) <- t.query(
-        s"""
-           |CREATE TABLE system_link_table(
-           |link_id BIGSERIAL,
-           |table_id_1 BIGINT,
-           |table_id_2 BIGINT,
-           |column_id_1 BIGINT,
-           |column_id_2 BIGINT,
-           |
-           |PRIMARY KEY(link_id),
-           |FOREIGN KEY(table_id_1, column_id_1)
-           |REFERENCES system_columns(table_id, column_id)
-           |ON DELETE CASCADE,
-           |FOREIGN KEY(table_id_2, column_id_2)
-           |REFERENCES system_columns(table_id, column_id)
-           |ON DELETE CASCADE
-           |)""".stripMargin)
-
-      (t, _) <- t.query(
-        s"""
-           |CREATE TABLE folder(
-           |id BIGSERIAL NOT NULL,
-           |name VARCHAR(255) NOT NULL,
-           |description VARCHAR(255) NOT NULL,
-           |idparent BIGINT NULL,
-           |created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-           |updated_at TIMESTAMP WITHOUT TIME ZONE,
-           |
-           |PRIMARY KEY(id),
-           |FOREIGN KEY(idparent)
-           |REFERENCES folder(id) MATCH SIMPLE
-           |ON UPDATE NO ACTION ON DELETE NO ACTION
-           |)""".stripMargin)
-
-      (t, _) <- t.query(
-        s"""
-           |CREATE TABLE file(
-           |uuid UUID NOT NULL,
-           |idfolder BIGINT NULL,
-           |tmp BOOLEAN NOT NULL DEFAULT TRUE,
-           |created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-           |updated_at TIMESTAMP WITHOUT TIME ZONE,
-           |
-           |PRIMARY KEY(uuid),
-           |FOREIGN KEY(idfolder) REFERENCES folder(id) MATCH SIMPLE
-           |ON UPDATE NO ACTION ON DELETE NO ACTION
-           |)""".stripMargin)
-
-      (t, _) <- t.query(
-        s"""
-           |CREATE TABLE file_lang(
-           |uuid UUID NOT NULL,
-           |langtag VARCHAR(50) NOT NULL,
-           |title VARCHAR(255) NULL,
-           |description VARCHAR(255) NULL,
-           |internal_name VARCHAR(255) NULL UNIQUE,
-           |external_name VARCHAR(255) NULL,
-           |mime_type VARCHAR(255) NULL,
-           |
-           |PRIMARY KEY(uuid, langtag),
-           |FOREIGN KEY(uuid) REFERENCES file(uuid)
-           |ON DELETE CASCADE
-           |)""".stripMargin)
-
-      (t, _) <- t.query(
-        s"""
-           |CREATE TABLE system_attachment(
-           |table_id BIGINT NOT NULL,
-           |column_id BIGINT NOT NULL,
-           |row_id BIGINT NOT NULL,
-           |attachment_uuid UUID NOT NULL,
-           |
-           |ordering BIGINT NOT NULL,
-           |
-           |created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-           |updated_at TIMESTAMP WITHOUT TIME ZONE,
-           |
-           |PRIMARY KEY(table_id, column_id, row_id, attachment_uuid),
-           |
-           |FOREIGN KEY(table_id, column_id)
-           |REFERENCES system_columns(table_id, column_id)
-           |ON DELETE CASCADE,
-           |
-           |FOREIGN KEY(attachment_uuid)
-           |REFERENCES file(uuid) MATCH SIMPLE
-           |ON DELETE CASCADE
-           |)""".stripMargin)
-
-      (t, _) <- t.query(
-        s"""
-           |ALTER TABLE system_columns
-           |ADD FOREIGN KEY(link_id)
-           |REFERENCES system_link_table(link_id)
-           |ON DELETE CASCADE""".stripMargin)
-
-      t <- saveVersion(t, 1)
-    } yield t
-  }
-
-  private def setupVersion2(t: connection.Transaction): Future[connection.Transaction] = {
-    logger.info("Setup schema version 2")
-
-    for {
-      (t, _) <- t.query(
-        s"""
-           |ALTER TABLE system_columns
-           |ADD COLUMN
-           |identifier BOOLEAN DEFAULT FALSE
-           |""".stripMargin)
-
-      t <- saveVersion(t, 2)
-    } yield t
-  }
-
-  private def setupVersion3(t: connection.Transaction): Future[connection.Transaction] = {
-    logger.info("Setup schema version 3")
-
-    for {
-      (t, _) <- t.query(
-        s"""
-           |ALTER TABLE system_table
-           |ADD COLUMN
-           |is_hidden BOOLEAN DEFAULT FALSE
-           |""".stripMargin)
-
-      t <- saveVersion(t, 3)
-    } yield t
-  }
-
-  private def setupVersion4(t: connection.Transaction): Future[connection.Transaction] = {
-    logger.info("Setup schema version 4")
-
-    for {
-      (t, _) <- t.query(
-        s"""
-           |ALTER TABLE system_table
-           |ADD COLUMN
-           |ordering BIGINT
-           |""".stripMargin)
-
-      (t, _) <- t.query("UPDATE system_table SET ordering = table_id")
-
-      (t, _) <- t.query(
-        s"""
-           |ALTER TABLE system_table
-           |ALTER COLUMN ordering
-           |SET DEFAULT currval('system_table_table_id_seq')
-           |""".stripMargin)
-
-      t <- saveVersion(t, 4)
-    } yield t
-  }
-
-  private def setupVersion5(t: connection.Transaction): Future[connection.Transaction] = {
-    logger.info("Setup schema version 5")
-
-    for {
-      (t, _) <- t.query(
-        s"""
-           |ALTER TABLE file_lang
-           |DROP CONSTRAINT
-           |file_lang_internal_name_key
-           |""".stripMargin)
-
-      t <- saveVersion(t, 5)
-    } yield t
-  }
-
-  private def setupVersion6(t: connection.Transaction): Future[connection.Transaction] = {
-    logger.info("Setup schema version 6")
-
-    for {
-      (t, _) <- t.query(
-        """
-          |ALTER TABLE system_link_table
-          |DROP COLUMN column_id_1,
-          |DROP COLUMN column_id_2,
-          |ADD FOREIGN KEY (table_id_1) REFERENCES system_table(table_id) ON DELETE CASCADE,
-          |ADD FOREIGN KEY (table_id_2) REFERENCES system_table(table_id) ON DELETE CASCADE
-          |""".stripMargin)
-
-      t <- saveVersion(t, 6)
-    } yield t
-  }
-
-  private def setupVersion7(t: connection.Transaction): Future[connection.Transaction] = {
-    logger.info("Setup schema version 7")
-
-    for {
-      (t, _) <- t.query(
-        """
-          |CREATE TABLE system_columns_lang (
-          |  table_id BIGINT NOT NULL,
-          |  column_id BIGINT NOT NULL,
-          |  langtag VARCHAR(50) NOT NULL,
-          |  name VARCHAR(255),
-          |  description TEXT,
-          |
-          |  PRIMARY KEY (table_id, column_id, langtag),
-          |  FOREIGN KEY (table_id, column_id) REFERENCES system_columns (table_id, column_id) ON DELETE CASCADE
-          |)
-          |""".stripMargin)
-
-      t <- saveVersion(t, 7)
-    } yield t
   }
 }

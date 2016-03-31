@@ -61,7 +61,8 @@ class SQLConnection(val verticle: ScalaVerticle, private val config: JsonObject)
 
   import com.campudus.tableaux.helper.TimeoutScheduler._
 
-  /* TODO: For now it's createNonShared, otherwise stopping the verticle will last for ever because Test will create many SQLConnection not just the verticle */
+  // It's non shared, otherwise stopping the verticle will last forever.
+  // Test will create many SQLConnection not just the verticle
   val client = PostgreSQLClient.createNonShared(vertx, config)
 
   def transaction(): Future[Transaction] = {

@@ -80,7 +80,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   } yield EmptyObject()
 
   def createRow(table: Table): Future[Row] = for {
-    rowId <- createRowModel.createEmpty(table.id)
+    rowId <- createRowModel.createRow(table.id, Seq.empty)
     row <- retrieveRow(table, rowId)
   } yield row
 

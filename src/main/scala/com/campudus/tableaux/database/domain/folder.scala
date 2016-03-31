@@ -4,13 +4,7 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
-object Folder {
-  def apply(name: String, description: String, parent: Option[FolderId]): Folder = {
-    new Folder(None, name, description, parent, None, None)
-  }
-}
-
-case class Folder(id: Option[FolderId],
+case class Folder(id: FolderId,
                   name: String,
                   description: String,
                   parent: Option[FolderId],
@@ -18,7 +12,7 @@ case class Folder(id: Option[FolderId],
                   updatedAt: Option[DateTime]) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
-    "id" -> id.orNull,
+    "id" -> id,
     "name" -> name,
     "description" -> description,
     "parent" -> parent.orNull,
