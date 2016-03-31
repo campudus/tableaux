@@ -58,6 +58,22 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
         .recoverWith(rollbackAndFail())
     }
 
+
+    def selectSingleValue[A](select: String): Future[(Transaction, A)] = selectSingleValue(select, None)
+
+    def selectSingleValue[A](select: String, parameter: JsonArray): Future[(Transaction, A)] = selectSingleValue(select, Some(parameter))
+
+    private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[(Transaction, A)] = {
+      for {
+        (t, resultJson) <- parameter match {
+          case None => query(select)
+          case Some(p) => query(select, p)
+        }
+      } yield {
+        (t, selectNotNull(resultJson).head.getValue(0).asInstanceOf[A])
+      }
+    }
+
     def commit(): Future[Unit] = transaction.commit()
 
     def rollback(): Future[Unit] = transaction.rollback()
@@ -116,12 +132,18 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     })
   }
 
-  def selectSingleValue[A](select: String): Future[A] = {
+  def selectSingleValue[A](select: String): Future[A] = selectSingleValue(select, None)
+
+  def selectSingleValue[A](select: String, parameter: JsonArray): Future[A] = selectSingleValue(select, Some(parameter))
+
+  private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[A] = {
     for {
-      resultJson <- query(select)
-      resultRow = selectNotNull(resultJson).head
+      resultJson <- parameter match {
+        case None => query(select)
+        case Some(p) => query(select, p)
+      }
     } yield {
-      resultRow.getValue(0).asInstanceOf[A]
+      selectNotNull(resultJson).head.getValue(0).asInstanceOf[A]
     }
   }
 
@@ -157,15 +179,9 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     }
 
     future.map({
-      case r: UpdateResult => {
-        mapUpdateResult(command, r.toJson)
-      }
-      case r: ResultSet => {
-        mapResultSet(r.toJson)
-      }
-      case _ => {
-        createExecuteResult(command)
-      }
+      case r: UpdateResult => mapUpdateResult(command, r.toJson)
+      case r: ResultSet => mapResultSet(r.toJson)
+      case _ => createExecuteResult(command)
     })
   }
 

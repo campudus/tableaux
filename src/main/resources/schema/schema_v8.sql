@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX system_columns_name ON system_columns USING BTREE (table_id, user_column_name);

@@ -1,5 +1,6 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.testtools.RequestCreation
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -12,8 +13,8 @@ import scala.concurrent.Future
 class DeleteTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
-  val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
-  val createIdentifierStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
+  val createStringColumnJson = RequestCreation.Columns().add(RequestCreation.Text("Test Column 1")).getJson
+  val createIdentifierStringColumnJson = RequestCreation.Columns().add(RequestCreation.Identifier(RequestCreation.Text("Test Column 1"))).getJson
 
   val expectedOkJson = Json.obj("status" -> "ok")
 
@@ -42,9 +43,9 @@ class DeleteTest extends TableauxTestBase {
   def deleteColumn(implicit c: TestContext): Unit = okTest {
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", RequestCreation.Columns().add(RequestCreation.Text("Test Column 1")).getJson)
       // Create a second column because we can't delete the only and last column of a table
-      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", RequestCreation.Columns().add(RequestCreation.Text("Test Column 2")).getJson)
       test <- sendRequest("DELETE", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedOkJson, test)
