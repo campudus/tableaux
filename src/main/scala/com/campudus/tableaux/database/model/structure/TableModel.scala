@@ -27,7 +27,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       (t, _) <- t.query(
         s"""
            | CREATE TABLE user_table_lang_$id (
-           |   id BIGSERIAL,
+           |   id BIGINT,
            |   langtag VARCHAR(255),
            |
            |   PRIMARY KEY (id, langtag),
