@@ -18,7 +18,7 @@ class SystemControllerTest extends TableauxTestBase {
     val nonce = SystemRouter.generateNonce()
 
     for {
-      result <- sendRequest("POST", s"/reset?nonce=$nonce")
+      result <- sendRequest("POST", s"/system/reset?nonce=$nonce")
     } yield {
       assertEquals(expectedJson, result)
     }
@@ -29,7 +29,7 @@ class SystemControllerTest extends TableauxTestBase {
     val expectedJson1 = Json.obj(
       "status" -> "ok",
       "tables" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Bundesländer Deutschlands", "hidden" -> false),
+        Json.obj("id" -> 1, "name" -> "Bundesländer", "hidden" -> false),
         Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false)
       )
     )
@@ -37,7 +37,7 @@ class SystemControllerTest extends TableauxTestBase {
     val expectedJson2 = Json.obj(
       "status" -> "ok",
       "tables" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Bundesländer Deutschlands", "hidden" -> false),
+        Json.obj("id" -> 1, "name" -> "Bundesländer", "hidden" -> false),
         Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false)
       )
     )
@@ -45,11 +45,11 @@ class SystemControllerTest extends TableauxTestBase {
     for {
       _ <- {
         val nonce = SystemRouter.generateNonce()
-        sendRequest("POST", s"/reset?nonce=$nonce")
+        sendRequest("POST", s"/system/reset?nonce=$nonce")
       }
       result <- {
         val nonce = SystemRouter.generateNonce()
-        sendRequest("POST", s"/resetDemo?nonce=$nonce")
+        sendRequest("POST", s"/system/resetDemo?nonce=$nonce")
       }
       tablesResult <- sendRequest("GET", "/tables")
     } yield {
@@ -70,11 +70,11 @@ class SystemControllerTest extends TableauxTestBase {
     for {
       _ <- {
         val nonce = SystemRouter.generateNonce()
-        sendRequest("POST", s"/reset?nonce=$nonce")
+        sendRequest("POST", s"/system/reset?nonce=$nonce")
       }
       _ <- {
         val nonce = SystemRouter.generateNonce()
-        sendRequest("POST", s"/resetDemo?nonce=$nonce")
+        sendRequest("POST", s"/system/resetDemo?nonce=$nonce")
       }
       versions <- sendRequest("GET", "/system/versions")
     } yield {
@@ -85,12 +85,12 @@ class SystemControllerTest extends TableauxTestBase {
   @Test
   def resetWithOutNonce(implicit c: TestContext): Unit = exceptionTest("error.nonce.none") {
     SystemRouter.nonce = null
-    sendRequest("POST", s"/reset")
+    sendRequest("POST", s"/system/reset")
   }
 
   @Test
   def resetWithNonceButInvalidRequestNonce(implicit c: TestContext): Unit = exceptionTest("error.nonce.invalid") {
     val nonce = SystemRouter.generateNonce()
-    sendRequest("POST", s"/reset?nonce=asdf")
+    sendRequest("POST", s"/system/reset?nonce=asdf")
   }
 }
