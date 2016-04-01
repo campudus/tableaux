@@ -2,6 +2,7 @@ package com.campudus.tableaux
 
 import java.util
 
+import com.campudus.tableaux.testtools.RequestCreation
 import com.campudus.tableaux.testtools.RequestCreation.{Identifier, Text}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -16,12 +17,15 @@ class CreationTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
 
-  val createTextColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
-  val createShortTextColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "shorttext", "name" -> "Test Column 1")))
-  val createRichTextColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "richtext", "name" -> "Test Column 1")))
+  def createTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.Text(name)).getJson
 
-  val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
-  val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
+  def createShortTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.ShortText(name)).getJson
+
+  def createRichTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.RichText(name)).getJson
+
+  def createNumberColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.Numeric(name)).getJson
+
+  def createBooleanColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.Boolean(name)).getJson
 
   @Test
   def createTable(implicit c: TestContext): Unit = okTest {
@@ -39,13 +43,16 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createTextColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createTextColumnJson.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createTextColumnJson.getJsonArray("columns").getJsonObject(0))))
+    val createColumn1 = createTextColumnJson("column1")
+    val createColumn2 = createTextColumnJson("column2")
+
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
-      test2 <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -54,13 +61,16 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createShortTextColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createShortTextColumnJson.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createShortTextColumnJson.getJsonArray("columns").getJsonObject(0))))
+    val createColumn1 = createShortTextColumnJson("column1")
+    val createColumn2 = createShortTextColumnJson("column2")
+
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createShortTextColumnJson)
-      test2 <- sendRequest("POST", "/tables/1/columns", createShortTextColumnJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -69,13 +79,16 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createRichTextColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createRichTextColumnJson.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createRichTextColumnJson.getJsonArray("columns").getJsonObject(0))))
+    val createColumn1 = createRichTextColumnJson("column1")
+    val createColumn2 = createRichTextColumnJson("column2")
+
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createRichTextColumnJson)
-      test2 <- sendRequest("POST", "/tables/1/columns", createRichTextColumnJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -84,13 +97,15 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createNumberColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createNumberColumnJson.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createNumberColumnJson.getJsonArray("columns").getJsonObject(0))))
+    val createColumn1 = createNumberColumnJson("column1")
+    val createColumn2 = createNumberColumnJson("column2")
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
-      test2 <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -99,13 +114,16 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createBooleanColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createBooleanColumnJson.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createBooleanColumnJson.getJsonArray("columns").getJsonObject(0))))
+    val createColumn1 = createBooleanColumnJson("column1")
+    val createColumn2 = createBooleanColumnJson("column2")
+
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson)
-      test2 <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
@@ -169,8 +187,8 @@ class CreationTest extends TableauxTestBase {
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson("Test Column 1"))
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Test Column 2"))
       test <- sendRequest("POST", "/tables/1/rows", valuesRow)
     } yield {
       assertContains(expectedJson, test)
@@ -179,11 +197,6 @@ class CreationTest extends TableauxTestBase {
 
   @Test
   def createComplexRow(implicit c: TestContext): Unit = okTest {
-    val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
-    val postAttachmentColumn = Json.obj("columns" -> Json.arr(Json.obj(
-      "kind" -> "attachment",
-      "name" -> "Downloads"
-    )))
     val fileName = "Scr$en Shot.pdf"
     val filePath = s"/com/campudus/tableaux/uploads/$fileName"
     val mimeType = "application/pdf"
@@ -365,17 +378,12 @@ class CreationTest extends TableauxTestBase {
     val filePath = s"/com/campudus/tableaux/uploads/$fileName"
     val mimeType = "application/pdf"
     val de = "de_DE"
-    val en = "en_GB"
 
     val putOne = Json.obj(
       "title" -> Json.obj(de -> "Ein schöner deutscher Titel."),
       "description" -> Json.obj(de -> "Und hier folgt eine tolle hochdeutsche Beschreibung.")
     )
 
-    val putTwo = Json.obj(
-      "title" -> Json.obj(en -> "A beautiful German title."),
-      "description" -> Json.obj(en -> "And here is a great High German description.")
-    )
     def insertRow(uuid: String) = Json.obj(
       "columns" -> Json.arr(
         Json.obj("id" -> 1),
@@ -419,8 +427,8 @@ class CreationTest extends TableauxTestBase {
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson)
-      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson("Test Column 1"))
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Test Column 2"))
       test <- sendRequest("POST", "/tables/1/rows", valuesRow)
     } yield {
       assertContains(expectedJson, test)

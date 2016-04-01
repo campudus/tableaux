@@ -69,3 +69,8 @@ case class UnknownServerException(override val message: String) extends CustomEx
   override val id = "error.unknown"
   override val statusCode = 500
 }
+
+case class ShouldBeUniqueException(override val message: String, subId: String) extends CustomException {
+  override val id = s"error.request.unique.$subId"
+  override val statusCode = 400
+}

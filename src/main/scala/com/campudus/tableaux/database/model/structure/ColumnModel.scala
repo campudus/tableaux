@@ -6,7 +6,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{DatabaseException, NotFoundInDatabaseException}
+import com.campudus.tableaux.{DatabaseException, NotFoundInDatabaseException, ShouldBeUniqueException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -134,6 +134,16 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     def insertColumn(t: connection.Transaction): Future[(connection.Transaction, ColumnInfo)] = {
       for {
+        t <- t.selectSingleValue[Long]("SELECT COUNT(*) FROM system_columns WHERE table_id = ? AND user_column_name = ?", Json.arr(tableId, name))
+          .flatMap({
+            case (t, count) =>
+              if (count > 0) {
+                Future.failed(new ShouldBeUniqueException("Column name should be unique for each table", "column"))
+              } else {
+                Future.successful(t)
+              }
+          })
+
         (t, result) <- ordering match {
           case None => t.query(insertStatement(tableId, s"currval('system_columns_column_id_table_$tableId')"), Json.arr(tableId, kind.name, name, linkId.orNull, languageType.toBoolean, identifier))
           case Some(ord) => t.query(insertStatement(tableId, "?"), Json.arr(tableId, kind.name, name, ord, linkId.orNull, languageType.toBoolean, identifier))

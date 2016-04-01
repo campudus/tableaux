@@ -71,7 +71,6 @@ class FillTest extends TableauxTestBase {
     }
   }
 
-  @Ignore("Bug is in underlying driver - cannot fix here https://github.com/mauricio/postgresql-async/pull/164")
   @Test
   def fillNumberCellWithFloatingNumber(implicit c: TestContext): Unit = okTest {
     val expectOk = Json.obj("status" -> "ok")
@@ -85,9 +84,9 @@ class FillTest extends TableauxTestBase {
       test3 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 123.123))
       getResult3 <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
     } yield {
-      assertEquals(expectOk, test0)
+      assertEquals(Json.obj("status" -> "ok", "value" -> 1234), test0)
       assertEquals(Json.obj("status" -> "ok", "value" -> 1234), getResult0)
-      assertEquals(expectOk, test3)
+      assertEquals(Json.obj("status" -> "ok", "value" -> 123.123), test3)
       assertEquals(Json.obj("status" -> "ok", "value" -> 123.123), getResult3)
     }
   }

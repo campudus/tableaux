@@ -3,15 +3,15 @@ package com.campudus.tableaux
 
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
-import com.campudus.tableaux.database.model.TableauxModel.{RowId, ColumnId, TableId}
-import com.campudus.tableaux.testtools.RequestCreation._
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.file.{OpenOptions, AsyncFile}
+import io.vertx.core.file.{AsyncFile, OpenOptions}
 import io.vertx.core.http.{HttpClient, HttpClientRequest, HttpClientResponse, HttpMethod}
 import io.vertx.core.json.JsonObject
 import io.vertx.core.streams.Pump
-import io.vertx.core.{AsyncResult, Handler, DeploymentOptions, Vertx}
+import io.vertx.core.{AsyncResult, DeploymentOptions, Handler, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FunctionConverters._
@@ -425,11 +425,11 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     } yield (tableId, columnIds, linkColumnId)
   }
 
-  protected def createSimpleTableWithCell(tableName: String, columnType: ColType): Future[(TableId, ColumnId, RowId)] = {
+  protected def createSimpleTableWithCell(tableName: String, columnType: ColumnType): Future[(TableId, ColumnId, RowId)] = {
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
-      column <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(columnType.json)))
+      column <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(columnType.getJson)))
       columnId = column.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
       rowPost <- sendRequest("POST", s"/tables/$tableId/rows")
       rowId = rowPost.getLong("id").toLong
@@ -437,12 +437,12 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
 
-  protected def createSimpleTableWithValues(tableName: String, columnTypes: Seq[ColType], rows: Seq[Seq[Any]]): Future[(TableId, Seq[ColumnId], Seq[RowId])] = {
+  protected def createSimpleTableWithValues(tableName: String, columnTypes: Seq[ColumnType], rows: Seq[Seq[Any]]): Future[(TableId, Seq[ColumnId], Seq[RowId])] = {
     import scala.collection.JavaConverters._
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
-      column <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(columnTypes.map(_.json): _*)))
+      column <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(columnTypes.map(_.getJson): _*)))
       columnIds = column.getJsonArray("columns").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
       columnsPost = Json.arr(columnIds.map(id => Json.obj("id" -> id)): _*)
       rowsPost = Json.arr(rows.map(values => Json.obj("values" -> Json.arr(values: _*))): _*)

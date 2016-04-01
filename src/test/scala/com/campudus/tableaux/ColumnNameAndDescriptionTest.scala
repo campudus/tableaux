@@ -2,12 +2,43 @@ package com.campudus.tableaux
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.{Ignore, Test}
-import org.vertx.scala.core.json.{JsonObject, Json}
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 @RunWith(classOf[VertxUnitRunner])
 class ColumnNameAndDescriptionTest extends TableauxTestBase {
+
+  @Test
+  def createColumnsWithIdenticalInternalNames(implicit c: TestContext): Unit = exceptionTest("error.request.unique.column") {
+    val postSimpleTable = Json.obj("name" -> "table1")
+    val columnWithDisplayName1 = Json.obj(
+      "name" -> "column1",
+      "kind" -> "shorttext",
+      "displayName" -> Json.obj(
+        "de_DE" -> "Spalte Eins",
+        "en_US" -> "Column One"
+      )
+    )
+    val columnWithDisplayName2 = Json.obj(
+      "name" -> "column1",
+      "kind" -> "shorttext",
+      "displayName" -> Json.obj(
+        "de_DE" -> "Spalte Zwei",
+        "en_US" -> "Column Two"
+      )
+    )
+    val postColumnWithDisplayNames1 = Json.obj("columns" -> Json.arr(columnWithDisplayName1))
+    val postColumnWithDisplayNames2 = Json.obj("columns" -> Json.arr(columnWithDisplayName2))
+
+    for {
+      table <- sendRequest("POST", "/tables", postSimpleTable)
+      tableId = table.getLong("id")
+
+      postColumnResult <- sendRequest("POST", s"/tables/$tableId/columns", postColumnWithDisplayNames1)
+      postColumnResult <- sendRequest("POST", s"/tables/$tableId/columns", postColumnWithDisplayNames2)
+    } yield ()
+  }
 
   @Test
   def createMultilanguageNamesForColumn(implicit c: TestContext): Unit = okTest {
