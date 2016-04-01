@@ -25,6 +25,8 @@ object RequestCreation {
     def getJson: JsonObject = Json.obj("kind" -> kind, "name" -> name)
   }
 
+  case class Attachment(name: String) extends ColumnType("attachment")
+
   case class Text(name: String) extends ColumnType("text")
 
   case class ShortText(name: String) extends ColumnType("shorttext")
