@@ -1,30 +1,106 @@
 {
-  "name" : "Bundesländer Deutschlands",
-  "columns" : [ {
-    "kind" : "text",
-    "name" : "Land",
-    "ordering" : 1,
-    "identifier" : true
-  }, {
-    "kind" : "text",
-    "name" : "Hauptstadt",
-    "ordering" : 2
-  }, {
-    "kind" : "numeric",
-    "name" : "Fläche in km²",
-    "ordering" : 3
-  }, {
-    "kind" : "numeric",
-    "name" : "Einwohner",
-    "ordering" : 4
-  } ],
-  "rows" : [ {
-    "values" : [ "Baden-Württemberg", "Stuttgart", 35751, 10631278 ]
-  }, {
-    "values" : [ "Bayern", "München", 70550, 12604244 ]
-  }, {
-    "values" : [ "Berlin", "Berlin", 892, 3440991 ]
-  }, {
-    "values" : [ "Brandenburg", "Potsdam", 29655, 2449193 ]
-  } ]
+  "name": "Bundesländer",
+  "columns": [
+    {
+      "kind": "shorttext",
+      "name": "state",
+      "displayName": {
+        "de-DE": "Bundesland",
+        "en-GB": "federal state"
+      },
+      "description": {
+        "de-DE": "Ein Land ist nach der föderalen Verfassungsordnung der Bundesrepublik Deutschland einer ihrer teilsouveränen Gliedstaaten.",
+        "en-GB": "Germany is a federal republic consisting of sixteen federal states (German: Bundesland, or Land)."
+      },
+      "ordering": 1,
+      "identifier": true
+    },
+    {
+      "kind": "shorttext",
+      "name": "capital",
+      "displayName": {
+        "de-DE": "Hauptstadt",
+        "en-GB": "capital city"
+      },
+      "description": {
+        "de-DE": "Eine Hauptstadt ist ein politisches Zentrum eines Staates und oft Sitz der obersten Staatsgewalten: Parlament, Monarch, Regierung, Oberstes Gericht.",
+        "en-GB": "A capital city (or simply capital) is the municipality enjoying primary status in a country, state, province, or other region, usually as its seat of government."
+      },
+      "ordering": 2,
+      "identifier": true,
+      "multilanguage": true
+    },
+    {
+      "kind": "numeric",
+      "name": "population",
+      "displayName": {
+        "de-DE": "Bevölkerung",
+        "en-GB": "population"
+      },
+      "description": {
+        "de-DE": "Der Begriff Bevölkerung wird als Bezeichnung für die menschliche Population innerhalb geografischer Grenzen verwendet[1] und unterscheidet sich von abstammungsbezogenen Gruppierungen wie Stamm, Volk und Ethnie.",
+        "en-GB": "A population is a summation of all the organisms of the same group or species, which live in a particular geographical area, and have the capability of interbreeding."
+      },
+      "ordering": 3
+    },
+    {
+      "kind": "numeric",
+      "name": "area",
+      "displayName": {
+        "de-DE": "Fläche in km²",
+        "en-GB": "area in km²"
+      },
+      "description": {
+        "de-DE": "Als Katasterfläche bezeichnet man in den Geowissenschaften den vermessungstechnisch ermittelten Flächeninhalt eines geographischen Raumes.",
+        "en-GB": "Area is the quantity that expresses the extent of a two-dimensional figure or shape, or planar lamina, in the plane."
+      },
+      "ordering": 4
+    }
+  ],
+  "rows": [
+    {
+      "values": [
+        "Baden-Württemberg",
+        {
+          "de-DE": "Stuttgart",
+          "en-GB": "Stuttgart"
+        },
+        10631278,
+        35751
+      ]
+    },
+    {
+      "values": [
+        "Bayern",
+        {
+          "de-DE": "München",
+          "en-GB": "Munich"
+        },
+        12604244,
+        70550
+      ]
+    },
+    {
+      "values": [
+        "Berlin",
+        {
+          "de-DE": "Berlin",
+          "en-GB": "Berlin"
+        },
+        3440991,
+        892
+      ]
+    },
+    {
+      "values": [
+        "Brandenburg",
+        {
+          "de-DE": "Potsdam",
+          "en-GB": "Potsdam"
+        },
+        2449193,
+        29655
+      ]
+    }
+  ]
 }

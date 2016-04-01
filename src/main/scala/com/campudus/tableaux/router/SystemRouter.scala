@@ -8,7 +8,6 @@ import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing.{Get, Post}
 
 import scala.concurrent.Future
-import scala.util.Try
 
 object SystemRouter {
   var nonce: String = null
@@ -32,7 +31,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     /**
       * Resets the database (needs nonce)
       */
-    case Post("/reset") => asyncGetReply {
+    case Post("/system/reset") => asyncGetReply {
       for {
         _ <- Future(checkNonce)
         result <- controller.resetDB()
@@ -42,7 +41,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     /**
       * Create the demo tables (needs nonce)
       */
-    case Post("/resetDemo") => asyncGetReply {
+    case Post("/system/resetDemo") => asyncGetReply {
       for {
         _ <- Future(checkNonce)
         result <- controller.createDemoTables()

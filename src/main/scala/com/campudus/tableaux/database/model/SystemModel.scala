@@ -110,7 +110,6 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
       (t, version) <- {
         t.query("SELECT max_version FROM (SELECT MAX(version) AS max_version FROM system_version) sub WHERE max_version IS NOT NULL") map {
           case (t, result) =>
-            logger.info(result.encode())
             val version = Try(selectNotNull(result).head.getInteger(0).toInt).getOrElse(-1)
             (t, version)
         }

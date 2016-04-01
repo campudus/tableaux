@@ -1,38 +1,125 @@
 {
-  "name" : "Regierungsbezirke",
-  "columns" : [ {
-    "kind" : "text",
-    "name" : "Regierungsbezirk",
-    "ordering" : 1,
-    "identifier" : true
-  }, {
-    "kind" : "text",
-    "name" : "Hauptstadt",
-    "ordering" : 2
-  }, {
-    "kind" : "numeric",
-    "name" : "Einwohner",
-    "ordering" : 3
-  }, {
-    "kind" : "numeric",
-    "name" : "Fläche in km²",
-    "ordering" : 4
-  } ],
-  "rows" : [ {
-    "values" : [ "Oberbayern", "München", 4469342, 17530.21 ]
-  }, {
-    "values" : [ "Niederbayern", "Landshut", 1189153, 10328.65 ]
-  }, {
-    "values" : [ "Oberpfalz", "Regensburg", 1077991, 9690.19 ]
-  }, {
-    "values" : [ "Oberfranken", "Bayreuth", 1056365, 7231.49 ]
-  }, {
-    "values" : [ "Tübingen", "Tübingen", 1809373, 8918 ]
-  }, {
-    "values" : [ "Karlsruhe", "Karlsruhe", 2740279, 6919 ]
-  }, {
-    "values" : [ "Stuttgart", "Stuttgart", 3947568, 10558 ]
-  }, {
-    "values" : [ "Freiburg", "Freiburg", 2198970, 9347 ]
-  } ]
+  "name": "Regierungsbezirke",
+  "columns": [
+    {
+      "kind": "shorttext",
+      "name": "region",
+      "displayName": {
+        "de-DE": "Regierungsbezirk",
+        "en-GB": "administrative region"
+      },
+      "description": {
+        "de-DE": "In Deutschland ist ein Regierungsbezirk der Bezirk einer allgemeinen Landesmittelbehörde, in der ressortverschiedene Aufgaben gebündelt werden.",
+        "en-GB": "Regierungsbezirk (pronounced [ʁeˈɡiːʁʊŋsbəˈt͡sɪʁk], abbreviated Reg.-Bez.) is an administrative region on federal state level in Germany."
+      },
+      "ordering": 1,
+      "identifier": true
+    },
+    {
+      "kind": "shorttext",
+      "name": "centre",
+      "displayName": {
+        "de-DE": "Verwaltungssitz",
+        "en-GB": "administrative centre"
+      },
+      "description": {
+        "de-DE": "Der Verwaltungssitz beschreibt im Verwaltungsrecht den Ort, von dem aus das zu verwaltende Gebiet (der sog. Verwaltungsbezirk) verwaltet wird.",
+        "en-GB": "An administrative centre is a seat of regional administration or local government, or a county town, or the place where the central administration of a commune is located."
+      },
+      "ordering": 2,
+      "identifier": true
+    },
+    {
+      "kind": "numeric",
+      "name": "population",
+      "displayName": {
+        "de-DE": "Bevölkerung",
+        "en-GB": "population"
+      },
+      "description": {
+        "de-DE": "Der Begriff Bevölkerung wird als Bezeichnung für die menschliche Population innerhalb geografischer Grenzen verwendet[1] und unterscheidet sich von abstammungsbezogenen Gruppierungen wie Stamm, Volk und Ethnie.",
+        "en-GB": "A population is a summation of all the organisms of the same group or species, which live in a particular geographical area, and have the capability of interbreeding."
+      },
+      "ordering": 3
+    },
+    {
+      "kind": "numeric",
+      "name": "area",
+      "displayName": {
+        "de-DE": "Fläche in km²",
+        "en-GB": "area in km²"
+      },
+      "description": {
+        "de-DE": "Als Katasterfläche bezeichnet man in den Geowissenschaften den vermessungstechnisch ermittelten Flächeninhalt eines geographischen Raumes.",
+        "en-GB": "Area is the quantity that expresses the extent of a two-dimensional figure or shape, or planar lamina, in the plane."
+      },
+      "ordering": 4
+    }
+  ],
+  "rows": [
+    {
+      "values": [
+        "Oberbayern",
+        "München",
+        4469342,
+        17530.21
+      ]
+    },
+    {
+      "values": [
+        "Niederbayern",
+        "Landshut",
+        1189153,
+        10328.65
+      ]
+    },
+    {
+      "values": [
+        "Oberpfalz",
+        "Regensburg",
+        1077991,
+        9690.19
+      ]
+    },
+    {
+      "values": [
+        "Oberfranken",
+        "Bayreuth",
+        1056365,
+        7231.49
+      ]
+    },
+    {
+      "values": [
+        "Tübingen",
+        "Tübingen",
+        1809373,
+        8918
+      ]
+    },
+    {
+      "values": [
+        "Karlsruhe",
+        "Karlsruhe",
+        2740279,
+        6919
+      ]
+    },
+    {
+      "values": [
+        "Stuttgart",
+        "Stuttgart",
+        3947568,
+        10558
+      ]
+    },
+    {
+      "values": [
+        "Freiburg",
+        "Freiburg",
+        2198970,
+        9347
+      ]
+    }
+  ]
 }
