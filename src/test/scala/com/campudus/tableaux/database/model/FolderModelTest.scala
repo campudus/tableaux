@@ -2,7 +2,6 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.TableauxTestBase
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.domain.Folder
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
@@ -30,7 +29,7 @@ class FolderModelTest extends TableauxTestBase {
       insertedFolder2 <- model.add(name = "hallo", description = "Test", parent = None)
 
       retrievedFolder <- model.retrieve(insertedFolder1.id)
-      updatedFolder <- model.update(Folder(retrievedFolder.id, name = "blub", description = "flab", None, None, None))
+      updatedFolder <- model.update(retrievedFolder.id, name = "blub", description = "flab", parent = None)
 
       folders <- model.retrieveAll()
 
@@ -50,6 +49,34 @@ class FolderModelTest extends TableauxTestBase {
 
       assertEquals(2L, size)
       assertEquals(1L, sizeAfterDelete)
+    }
+  }
+
+  @Test
+  def testRetrievingParentIds(implicit c: TestContext): Unit = okTest {
+    for {
+      model <- Future.successful(createFolderModel())
+
+      root <- model.add(name = "root", description = "Test", parent = None)
+
+      root_lustig <- model.add(name = "root.lustig", description = "Test", parent = Some(root.id))
+
+      root_lustig_peter <- model.add(name = "root.lustig.peter", description = "Test", parent = Some(root_lustig.id))
+      root_lustig_sepp <- model.add(name = "root.lustig.sepp", description = "Test", parent = Some(root_lustig.id))
+
+      root_hallo <- model.add(name = "root.hallo", description = "Test", parent = Some(root.id))
+
+      root_hallo_mueller <- model.add(name = "root.hallo.müller", description = "Test", parent = Some(root_hallo.id))
+
+      root_hallo_mueller_folder <- model.retrieve(root_hallo_mueller.id)
+
+      root_lustig_peter_folder <- model.retrieve(root_lustig_peter.id)
+      root_lustig_sepp_folder <- model.retrieve(root_lustig_sepp.id)
+    } yield {
+      assertEquals(Seq(root.id, root_hallo.id), root_hallo_mueller_folder.parents)
+
+      assertEquals(Seq(root.id, root_lustig.id), root_lustig_peter_folder.parents)
+      assertEquals(Seq(root.id, root_lustig.id), root_lustig_sepp_folder.parents)
     }
   }
 }

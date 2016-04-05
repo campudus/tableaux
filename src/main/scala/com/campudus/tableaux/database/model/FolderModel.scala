@@ -5,7 +5,6 @@ import com.campudus.tableaux.database.domain.Folder
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
-import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray}
 
 import scala.concurrent.Future
@@ -30,32 +29,15 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
           |created_at,
           |updated_at) VALUES (?,?,?,CURRENT_TIMESTAMP,NULL) RETURNING id, created_at""".stripMargin
 
-    connection.transactional { t =>
-      for {
-        (t, result) <- t.query(insert, Json.arr(name, description, parent.orNull))
-      } yield {
-        val inserted = insertNotNull(result).head
+    for {
+      result <- connection.query(insert, Json.arr(name, description, parent.orNull))
+      id = insertNotNull(result).head.get[Long](0)
 
-        val id = inserted.get[Long](0)
-        val createdAt = DateTime.parse(inserted.get[String](1))
-
-        (t, Folder(id, name, description, parent, Some(createdAt), None))
-      }
-    }
+      folder <- retrieve(id)
+    } yield folder
   }
 
-  def convertJsonArrayToFolder(arr: JsonArray): Folder = {
-    Folder(
-      arr.get[FolderId](0), //id
-      arr.get[String](1), //name
-      arr.get[String](2), //description
-      Option(arr.get[FolderId](3)), //idparent
-      convertStringToDateTime(arr.get[String](4)), //created_at
-      convertStringToDateTime(arr.get[String](5)) //updated_at
-    )
-  }
-
-  def update(o: Folder): Future[Folder] = {
+  def update(id: FolderId, name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
     val update =
       s"""UPDATE $table SET
           |name = ?,
@@ -64,18 +46,11 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
           |updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING created_at, updated_at""".stripMargin
 
     for {
-      result <- connection.query(update, Json.arr(o.name, o.description, o.parent.orNull, o.id.toString))
-      resultArr <- Future(updateNotNull(result))
-    } yield {
-      Folder(
-        o.id,
-        o.name,
-        o.description,
-        o.parent,
-        convertStringToDateTime(resultArr.head.get[String](0)), //created_at
-        convertStringToDateTime(resultArr.head.get[String](1)) //updated_at
-      )
-    }
+      result <- connection.query(update, Json.arr(name, description, parent.orNull, id))
+      _ = updateNotNull(result)
+
+      folder <- retrieve(id)
+    } yield folder
   }
 
   def size(): Future[Long] = {
@@ -84,18 +59,59 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     connection.selectSingleValue(select)
   }
 
-  def retrieveAll(): Future[Seq[Folder]] = {
-    val select =
-      s"""SELECT
-          |id,
-          |name,
-          |description,
-          |idparent,
-          |created_at,
-          |updated_at FROM $table ORDER BY name""".stripMargin
+  private def selectStatement(conditions: Option[String]): String = {
+    val where = if (conditions.isDefined) {
+      s"WHERE ${conditions.get}"
+    } else {
+      ""
+    }
 
+    s"""SELECT
+        |id,
+        |name,
+        |description,
+        |(
+        |  WITH RECURSIVE prev AS (
+        |    SELECT folder.id, ARRAY[]::bigint[] AS parents, FALSE AS cycle
+        |    FROM folder WHERE folder.idparent IS NULL
+        |    UNION ALL
+        |    SELECT folder.id, parents || folder.idparent AS parents, folder.id = ANY(parents) AS cycle
+        |    FROM prev INNER JOIN folder ON (prev.id = idparent AND prev.cycle = FALSE)
+        |  )
+        |  SELECT ARRAY_TO_JSON(parents) FROM prev WHERE cycle IS FALSE AND id = f.id
+        |) AS parents,
+        |created_at,
+        |updated_at FROM $table f $where ORDER BY name""".stripMargin
+  }
+
+  private def convertJsonArrayToFolder(arr: JsonArray): Folder = {
+    import scala.collection.JavaConverters._
+    val parents = Json.fromArrayString(arr.getString(3)).asScala.toSeq.map({
+      case f: java.lang.Integer => f.toLong
+    })
+
+    Folder(
+      arr.get[FolderId](0), //id
+      arr.get[String](1), //name
+      arr.get[String](2), //description
+      parents, //parents
+      convertStringToDateTime(arr.get[String](4)), //created_at
+      convertStringToDateTime(arr.get[String](5)) //updated_at
+    )
+  }
+
+  def retrieve(id: FolderId): Future[Folder] = {
     for {
-      result <- connection.query(select)
+      result <- connection.query(selectStatement(Some("id = ?")), Json.arr(id.toString))
+      resultArr <- Future(selectNotNull(result))
+    } yield {
+      convertJsonArrayToFolder(resultArr.head)
+    }
+  }
+
+  def retrieveAll(): Future[Seq[Folder]] = {
+    for {
+      result <- connection.query(selectStatement(None))
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFolder)
@@ -103,19 +119,10 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
   }
 
   def retrieveSubfolders(folder: Folder): Future[Seq[Folder]] = {
-    def select(condition: String) =
-      s"""SELECT
-          |id,
-          |name,
-          |description,
-          |idparent,
-          |created_at,
-          |updated_at FROM $table WHERE $condition ORDER BY name""".stripMargin
-
     for {
       result <- folder match {
-        case MediaController.ROOT_FOLDER => connection.query(select("idparent IS NULL"))
-        case f => connection.query(select("idparent = ?"), Json.arr(f.id.toString))
+        case MediaController.ROOT_FOLDER => connection.query(selectStatement(Some("idparent IS NULL")))
+        case f => connection.query(selectStatement(Some("idparent = ?")), Json.arr(f.id.toString))
       }
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
@@ -123,29 +130,11 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     }
   }
 
-  def delete(o: Folder): Future[Unit] = {
-    deleteById(o.id)
+  def delete(folder: Folder): Future[Unit] = {
+    deleteById(folder.id)
   }
 
-  def retrieve(id: FolderId): Future[Folder] = {
-    val select =
-      s"""SELECT
-          |id,
-          |name,
-          |description,
-          |idparent,
-          |created_at,
-          |updated_at FROM $table WHERE id = ?""".stripMargin
-
-    for {
-      result <- connection.query(select, Json.arr(id.toString))
-      resultArr <- Future(selectNotNull(result))
-    } yield {
-      convertJsonArrayToFolder(resultArr.head)
-    }
-  }
-
-  def deleteById(id: FolderId): Future[Unit] = {
+  private def deleteById(id: FolderId): Future[Unit] = {
     val delete = s"DELETE FROM $table WHERE id = ?"
 
     for {

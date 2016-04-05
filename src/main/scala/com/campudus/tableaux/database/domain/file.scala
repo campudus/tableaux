@@ -7,14 +7,9 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
-object TableauxFile {
-  def apply(uuid: UUID, name: MultiLanguageValue[String], description: MultiLanguageValue[String], externalName: MultiLanguageValue[String], folder: Option[FolderId], internalName: MultiLanguageValue[String] = MultiLanguageValue.empty(), mimeType: MultiLanguageValue[String] = MultiLanguageValue.empty()): TableauxFile = {
-    TableauxFile(uuid, folder, name, description, internalName, externalName, mimeType, None, None)
-  }
-}
-
 case class TableauxFile(uuid: UUID,
-                        folder: Option[FolderId],
+
+                        folders: Seq[FolderId],
 
                         title: MultiLanguageValue[String],
                         description: MultiLanguageValue[String],
@@ -29,7 +24,9 @@ case class TableauxFile(uuid: UUID,
 
   override def getJson: JsonObject = Json.obj(
     "uuid" -> uuid.toString,
-    "folder" -> folder.orNull,
+
+    "folder" -> folders.headOption.orNull,
+    "folders" -> compatibilityGet(folders),
 
     "title" -> title.getJson,
     "description" -> description.getJson,
