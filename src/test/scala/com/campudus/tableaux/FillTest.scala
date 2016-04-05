@@ -3,7 +3,7 @@ package com.campudus.tableaux
 import com.campudus.tableaux.testtools.RequestCreation._
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
@@ -88,6 +88,27 @@ class FillTest extends TableauxTestBase {
       assertEquals(Json.obj("status" -> "ok", "value" -> 1234), getResult0)
       assertEquals(Json.obj("status" -> "ok", "value" -> 123.123), test3)
       assertEquals(Json.obj("status" -> "ok", "value" -> 123.123), getResult3)
+    }
+  }
+
+  @Test
+  def fillNumberCellWithMaxValueNumbers(implicit c: TestContext): Unit = okTest {
+    val expectOk = Json.obj("status" -> "ok")
+
+    for {
+      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", Numeric("num-column"))
+
+      testShort <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Short.MaxValue))
+      testInt <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
+      testLong <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Long.MaxValue))
+      testDouble <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Double.MaxValue))
+      testFloat <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
+    } yield {
+      assertTrue("Short is not equal after retrieving from tableaux", Short.MaxValue == testShort.getNumber("value").shortValue())
+      assertTrue("Int is not equal after retrieving from tableaux", Int.MaxValue == testInt.getNumber("value").intValue())
+      assertTrue("Long is not equal after retrieving from tableaux", Long.MaxValue == testLong.getNumber("value").longValue())
+      assertTrue("Double is not equal after retrieving from tableaux", Double.MaxValue == testDouble.getNumber("value").doubleValue())
+      assertTrue("Float is not equal after retrieving from tableaux", Float.MaxValue == testFloat.getNumber("value").floatValue())
     }
   }
 
