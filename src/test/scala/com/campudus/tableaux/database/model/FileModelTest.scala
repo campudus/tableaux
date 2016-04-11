@@ -1,6 +1,7 @@
 package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.TableauxTestBase
+import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.MultiLanguageValue
 import io.vertx.ext.unit.TestContext
@@ -12,15 +13,29 @@ import org.junit.runner.RunWith
 @RunWith(classOf[VertxUnitRunner])
 class FileModelTest extends TableauxTestBase {
 
-  def createFileModel(): FileModel = {
+  private def createFileModel(): FileModel = {
     val sqlConnection = SQLConnection(verticle, databaseConfig)
     val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
     new FileModel(dbConnection)
   }
 
+  private def createFolderModel(): FolderModel = {
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+
+    new FolderModel(dbConnection)
+  }
+
+  private def createMediaController(): MediaController = {
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+
+    new MediaController(tableauxConfig, createFolderModel(), createFileModel())
+  }
+
   @Test
-  def testFileModel(implicit c: TestContext): Unit = okTest {
+  def testCreateAndUpdateOfFile(implicit c: TestContext): Unit = okTest {
     val model = createFileModel()
 
     for {
@@ -68,5 +83,25 @@ class FileModelTest extends TableauxTestBase {
 
       assertEquals(0L, sizeAfterDeleteOne)
     }
+  }
+
+  @Test
+  def testChangeToInvalidInternalName(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
+    val controller = createMediaController()
+
+    for {
+      insertedFile <- controller.addFile(MultiLanguageValue("de_DE" -> "Test 1"), MultiLanguageValue.empty(), MultiLanguageValue("de_DE" -> "external1.pdf"), None)
+
+      _ <- controller.changeFile(
+        insertedFile.uuid,
+        title = MultiLanguageValue("de_DE" -> "Changed 1"),
+        description = MultiLanguageValue("de_DE" -> "Changed 1"),
+        internalName = MultiLanguageValue("de_DE" -> "invalid.png"),
+        externalName = MultiLanguageValue("de_DE" -> "external1.pdf"),
+        folder = None,
+        mimeType = insertedFile.mimeType
+      )
+
+    } yield ()
   }
 }

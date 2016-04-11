@@ -159,8 +159,11 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       case Failure(ex: TestCustomException) =>
         context.assertEquals(id, ex.id)
         async.complete()
+      case Failure(ex: CustomException) =>
+        context.assertEquals(id, ex.id)
+        async.complete()
       case Failure(ex) =>
-        val msg = s"Test with id $id failed but got wrong exception (${ex.getMessage})."
+        val msg = s"Test with id $id failed but got wrong exception (${ex.getClass.toString}: ${ex.getMessage})."
         logger.error(msg)
         context.fail(msg)
         async.complete()

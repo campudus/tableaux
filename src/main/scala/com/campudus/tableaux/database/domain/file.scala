@@ -42,24 +42,52 @@ case class TableauxFile(uuid: UUID,
 }
 
 case class TemporaryFile(file: TableauxFile) extends DomainObject {
+  val _file = ExtendedFile(file)
 
-  override def getJson: JsonObject = Json.obj("tmp" -> true).mergeIn(ExtendedFile(file).getJson)
+  val uuid: UUID = _file.uuid
+  val folders: Seq[FolderId] = _file.folders
+
+  val title: MultiLanguageValue[String] = _file.title
+  val description: MultiLanguageValue[String] = _file.description
+
+  val internalName: MultiLanguageValue[String] = _file.internalName
+  val externalName: MultiLanguageValue[String] = _file.externalName
+
+  val mimeType: MultiLanguageValue[String] = _file.mimeType
+
+  val createdAt: Option[DateTime] = _file.createdAt
+  val updatedAt: Option[DateTime] = _file.updatedAt
+
+  override def getJson: JsonObject = Json.obj("tmp" -> true).mergeIn(_file.getJson)
 }
 
 case class ExtendedFile(file: TableauxFile) extends DomainObject {
 
+  val uuid: UUID = file.uuid
+  val folders: Seq[FolderId] = file.folders
+
+  val title: MultiLanguageValue[String] = file.title
+  val description: MultiLanguageValue[String] = file.description
+
+  val internalName: MultiLanguageValue[String] = file.internalName
+  val externalName: MultiLanguageValue[String] = file.externalName
+
+  val mimeType: MultiLanguageValue[String] = file.mimeType
+
+  val createdAt: Option[DateTime] = file.createdAt
+  val updatedAt: Option[DateTime] = file.updatedAt
+
   override def getJson: JsonObject = Json.obj("url" -> getUrl.getJson).mergeIn(file.getJson)
 
   private def getUrl: MultiLanguageValue[String] = {
-    val urls = file.externalName.values.map({
-      case (langtag, filename) =>
-        if (filename == null || filename.isEmpty) {
-          (langtag, null)
-        } else {
-          val encodedFilename = URLEncoder.encode(filename, "UTF-8")
-          (langtag, s"/files/${file.uuid}/$langtag/$encodedFilename")
-        }
-    })
+    val langtags = (internalName.langtags ++ externalName.langtags).distinct
+
+    val urls = langtags.map({
+      langtag =>
+        val filename = externalName.get(langtag).getOrElse(internalName.get(langtag).orNull)
+        val encodedFilename = URLEncoder.encode(filename, "UTF-8")
+        (langtag, s"/files/${file.uuid}/$langtag/$encodedFilename")
+    }).toMap
 
     MultiLanguageValue[String](urls)
   }

@@ -13,7 +13,7 @@ import scala.concurrent.Future
 @RunWith(classOf[VertxUnitRunner])
 class FolderModelTest extends TableauxTestBase {
 
-  def createFolderModel(): FolderModel = {
+  private def createFolderModel(): FolderModel = {
     val sqlConnection = SQLConnection(verticle, databaseConfig)
     val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
