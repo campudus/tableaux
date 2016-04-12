@@ -20,7 +20,7 @@ object MediaController {
     * the root folder (which doesn't
     * really exist)
     */
-  val ROOT_FOLDER = Folder(0, "root", "", None, None, None)
+  val ROOT_FOLDER = Folder(0, "root", "", Seq.empty[FolderId], None, None)
 
   def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
     new MediaController(config, folderModel, fileModel)
@@ -58,7 +58,7 @@ class MediaController(override val config: TableauxConfig,
   }
 
   def changeFolder(id: FolderId, name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
-    repository.update(Folder(id, name, description, parent, None, None))
+    repository.update(id, name, description, parent)
   }
 
   def deleteFolder(id: FolderId): Future[Folder] = {
@@ -91,8 +91,7 @@ class MediaController(override val config: TableauxConfig,
               description: MultiLanguageValue[String],
               externalName: MultiLanguageValue[String],
               folder: Option[FolderId]): Future[TemporaryFile] = {
-    val file = TableauxFile(UUID.randomUUID(), title, description, externalName, folder)
-    fileModel.add(file).map(TemporaryFile)
+    fileModel.add(title, description, externalName, folder).map(TemporaryFile)
   }
 
   def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[ExtendedFile] = futurify { p: Promise[ExtendedFile] =>
@@ -120,7 +119,6 @@ class MediaController(override val config: TableauxConfig,
           retrieveFile(uuid, withTmp = true)
         }
 
-        file = oldFile.file.copy(internalName = internalName, externalName = externalName, mimeType = mimeType)
         path = paths.get(langtag)
 
         _ <- {
@@ -133,8 +131,15 @@ class MediaController(override val config: TableauxConfig,
         }
 
         updatedFile <- {
-          logger.info(s"update file! $file")
-          fileModel.update(file).map(ExtendedFile)
+          fileModel.update(
+            uuid = oldFile.file.uuid,
+            title = oldFile.file.title,
+            description = oldFile.file.description,
+            internalName = internalName,
+            externalName = externalName,
+            folder = oldFile.file.folders.headOption,
+            mimeType = mimeType
+          ).map(ExtendedFile)
         }
       } yield {
         p.success(updatedFile)
@@ -184,7 +189,7 @@ class MediaController(override val config: TableauxConfig,
         }
       }
     }).flatMap { _ =>
-      fileModel.update(TableauxFile(uuid, title, description, externalName, folder, internalName, mimeType)).map(ExtendedFile)
+      fileModel.update(uuid, title, description, internalName, externalName, folder, mimeType).map(ExtendedFile)
     }
   }
 
@@ -288,15 +293,15 @@ class MediaController(override val config: TableauxConfig,
 
         val mimeType = toMerge.mimeType.get(mergeLangtag)
 
-        val mergedFile = file.copy(
-          externalName = file.externalName.add(langtag, externalName.getOrElse("")),
-          internalName = file.internalName.add(langtag, internalName.getOrElse("")),
+        fileModel.update(
+          uuid = uuid,
           title = file.title.add(langtag, title.getOrElse("")),
           description = file.description.add(langtag, description.getOrElse("")),
+          internalName = file.internalName.add(langtag, internalName.getOrElse("")),
+          externalName = file.externalName.add(langtag, externalName.getOrElse("")),
+          folder = file.folders.headOption,
           mimeType = file.mimeType.add(langtag, mimeType.getOrElse(""))
         )
-
-        fileModel.update(mergedFile)
       }
     } yield ExtendedFile(mergedFile)
   }

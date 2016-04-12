@@ -7,7 +7,6 @@ import com.campudus.tableaux.database.domain.{Folder, MultiLanguageValue, Tablea
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
-import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
@@ -25,7 +24,12 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   /**
     * Will add a new entity marked as temporary!
     */
-  def add(o: TableauxFile): Future[TableauxFile] = {
+  def add(title: MultiLanguageValue[String],
+          description: MultiLanguageValue[String],
+          externalName: MultiLanguageValue[String],
+          folder: Option[FolderId]): Future[TableauxFile] = {
+    val uuid = UUID.randomUUID()
+
     val insert =
       s"""INSERT INTO $table (
           |uuid,
@@ -33,20 +37,20 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |tmp) VALUES (?,?,true) RETURNING created_at""".stripMargin
 
     val b = MultiLanguageValue.merge(Map(
-      "title" -> o.title.values,
-      "description" -> o.description.values,
-      "external_name" -> o.externalName.values
+      "title" -> title.values,
+      "description" -> description.values,
+      "external_name" -> externalName.values
     ))
 
     for {
-      resultJson <- connection.query(insert, Json.arr(o.uuid.toString, o.folder.orNull))
+      resultJson <- connection.query(insert, Json.arr(uuid.toString, folder.orNull))
       resultRow = insertNotNull(resultJson).head
 
-      _ <- addTranslations(o.uuid, b)
+      _ <- addTranslations(uuid, b)
 
+      file <- retrieve(uuid, withTmp = true)
     } yield {
-      val createdAt = DateTime.parse(resultRow.get[String](0))
-      o.copy(createdAt = Some(createdAt))
+      file
     }
   }
 
@@ -91,6 +95,16 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     s"""SELECT
         | f.uuid,
         | f.idfolder,
+        | (
+        |   WITH RECURSIVE prev AS (
+        |     SELECT folder.id, ARRAY[]::bigint[] AS parents, FALSE AS cycle
+        |     FROM folder WHERE folder.idparent IS NULL
+        |     UNION ALL
+        |     SELECT folder.id, parents || folder.idparent AS parents, folder.id = ANY(parents) AS cycle
+        |     FROM prev INNER JOIN folder ON (prev.id = idparent AND prev.cycle = FALSE)
+        |   )
+        |   SELECT ARRAY_TO_JSON(parents || f.idfolder) FROM prev WHERE cycle IS FALSE AND id = f.idfolder
+        | ) AS folders,
         | f.created_at,
         | f.updated_at,
         | ${jsonObjectAgg("fl", "title")},
@@ -166,19 +180,29 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     }
   }
 
-  def convertRowToFile(row: JsonArray): TableauxFile = {
+  private def convertRowToFile(row: JsonArray): TableauxFile = {
+    import scala.collection.JavaConverters._
+
+    val folders: Seq[Long] = if (row.getString(2) == null) {
+      Seq.empty[Long]
+    } else {
+      Json.fromArrayString(row.getString(2)).asScala.toSeq.map({
+        case f: java.lang.Integer => f.toLong
+      })
+    }
+
     TableauxFile(
       UUID.fromString(row.get[String](0)), //uuid
-      Option(row.get[FolderId](1)), //idfolder
+      folders, // folders
 
-      convertStringToMultiLanguage(row.get[String](4)), //title
-      convertStringToMultiLanguage(row.get[String](5)), //description
-      convertStringToMultiLanguage(row.get[String](6)), //internal_name
-      convertStringToMultiLanguage(row.get[String](7)), //external_name
-      convertStringToMultiLanguage(row.get[String](8)), //mime_type
+      convertStringToMultiLanguage(row.get[String](5)), //title
+      convertStringToMultiLanguage(row.get[String](6)), //description
+      convertStringToMultiLanguage(row.get[String](7)), //internal_name
+      convertStringToMultiLanguage(row.get[String](8)), //external_name
+      convertStringToMultiLanguage(row.get[String](9)), //mime_type
 
-      convertStringToDateTime(row.get[String](2)), //created_at
-      convertStringToDateTime(row.get[String](3)) //updated_at
+      convertStringToDateTime(row.get[String](3)), //created_at
+      convertStringToDateTime(row.get[String](4)) //updated_at
     )
   }
 
@@ -186,7 +210,13 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     MultiLanguageValue[A](Try(Json.fromObjectString(str)).toOption)
   }
 
-  def update(o: TableauxFile): Future[TableauxFile] = {
+  def update(uuid: UUID,
+             title: MultiLanguageValue[String],
+             description: MultiLanguageValue[String],
+             internalName: MultiLanguageValue[String],
+             externalName: MultiLanguageValue[String],
+             folder: Option[FolderId],
+             mimeType: MultiLanguageValue[String]): Future[TableauxFile] = {
     val update =
       s"""UPDATE $table SET
           |idfolder = ?,
@@ -195,22 +225,20 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
           |WHERE uuid = ?""".stripMargin
 
     val b = MultiLanguageValue.merge(Map(
-      "title" -> o.title.values,
-      "description" -> o.description.values,
-      "internal_name" -> o.internalName.values,
-      "external_name" -> o.externalName.values,
-      "mime_type" -> o.mimeType.values
+      "title" -> title.values,
+      "description" -> description.values,
+      "internal_name" -> internalName.values,
+      "external_name" -> externalName.values,
+      "mime_type" -> mimeType.values
     ))
 
     for {
-      resultJson <- connection.query(update, Json.arr(o.folder.orNull, o.uuid.toString))
+      resultJson <- connection.query(update, Json.arr(folder.orNull, uuid.toString))
+      _ = updateNotNull(resultJson)
 
-      _ <- {
-        updateNotNull(resultJson)
-        addTranslations(o.uuid, b)
-      }
+      _ <- addTranslations(uuid, b)
 
-      file <- retrieve(o.uuid)
+      file <- retrieve(uuid)
     } yield file
   }
 
@@ -218,10 +246,6 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     val select = s"SELECT COUNT(*) FROM $table WHERE tmp = FALSE"
 
     connection.selectSingleValue(select)
-  }
-
-  def delete(o: TableauxFile): Future[Unit] = {
-    deleteById(o.uuid)
   }
 
   def deleteById(id: UUID): Future[Unit] = {

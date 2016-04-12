@@ -136,6 +136,8 @@ case class MultiLanguageValue[A](values: Map[String, A]) extends DomainObject {
     }
   }
 
+  def langtags: Seq[String] = values.keys.toSeq
+
   def get(langtag: String): Option[A] = values.get(langtag)
 
   def size = values.size

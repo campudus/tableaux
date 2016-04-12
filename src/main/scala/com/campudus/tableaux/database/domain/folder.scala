@@ -7,7 +7,7 @@ import org.vertx.scala.core.json._
 case class Folder(id: FolderId,
                   name: String,
                   description: String,
-                  parent: Option[FolderId],
+                  parents: Seq[FolderId],
                   createdAt: Option[DateTime],
                   updatedAt: Option[DateTime]) extends DomainObject {
 
@@ -15,7 +15,8 @@ case class Folder(id: FolderId,
     "id" -> id,
     "name" -> name,
     "description" -> description,
-    "parent" -> parent.orNull,
+    "parent" -> parents.headOption.orNull, // for compatibility
+    "parents" -> compatibilityGet(parents),
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )

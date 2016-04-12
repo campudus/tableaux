@@ -496,6 +496,35 @@ class FolderTest extends MediaTestBase {
     }
   }
 
+
+  @Test
+  def testCreateAndRetrieveFolderWithParents(implicit c: TestContext): Unit = okTest {
+    def createFolderPutJson(name: String, parent: Option[Int]): JsonObject = {
+      Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parent.orNull)
+    }
+
+    for {
+      rootId <- sendRequest("POST", s"/folders", createFolderPutJson("Test", None)).map(_.getInteger("id"))
+      rootSubId <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootId))).map(_.getInteger("id"))
+      rootSubSubId <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootSubId))).map(_.getInteger("id"))
+      rootSubSubSubId <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootSubSubId))).map(_.getInteger("id"))
+
+      rootSubSubSubSub1Id <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootSubSubSubId))).map(_.getInteger("id"))
+      rootSubSubSubSub2Id <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootSubSubSubId))).map(_.getInteger("id"))
+
+      sub1 <- sendRequest("GET", s"/folders/$rootSubSubSubSub1Id?langtag=de-DE")
+      sub2 <- sendRequest("GET", s"/folders/$rootSubSubSubSub2Id?langtag=de-DE")
+    } yield {
+      assertEquals(Json.arr(rootId, rootSubId, rootSubSubId, rootSubSubSubId), sub1.getJsonArray("parents"))
+      assertEquals(Json.arr(rootId, rootSubId, rootSubSubId, rootSubSubSubId), sub2.getJsonArray("parents"))
+
+      assertEquals(sub1.getJsonArray("parents"), sub2.getJsonArray("parents"))
+
+      // for compatibilty reasons
+      assertEquals(sub1.getInteger("parent"), sub2.getInteger("parent"))
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -669,19 +698,24 @@ class FileTest extends MediaTestBase {
       folder21 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder2))).map(_.getInteger("id"))
       folder22 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder2))).map(_.getInteger("id"))
 
-      file1 <- sendRequest("POST", "/files", createFilePutJson(folder11)).map(f => f.getString("uuid"))
-      _ <- replaceFile(file1, "de_DE", filePath, mimetype)
-      puttedFile1 <- sendRequest("PUT", s"/files/$file1", createFilePutJson(folder11))
+      file1 <- sendRequest("POST", "/files", createFilePutJson(folder11))
+      file1Uuid = file1.getString("uuid")
+      _ <- replaceFile(file1Uuid, "de_DE", filePath, mimetype)
+      puttedFile1 <- sendRequest("PUT", s"/files/$file1Uuid", createFilePutJson(folder11))
 
-      file2 <- sendRequest("POST", "/files", createFilePutJson(folder21)).map(f => f.getString("uuid"))
-      _ <- replaceFile(file2, "de_DE", filePath, mimetype)
-      puttedFile2 <- sendRequest("PUT", s"/files/$file2", createFilePutJson(folder21))
+      file2 <- sendRequest("POST", "/files", createFilePutJson(folder21))
+      file2Uuid = file2.getString("uuid")
+      _ <- replaceFile(file2Uuid, "de_DE", filePath, mimetype)
+      puttedFile2 <- sendRequest("PUT", s"/files/$file2Uuid", createFilePutJson(folder21))
 
       deleteFolder1 <- sendRequest("DELETE", s"/folders/$folder1")
       deleteFolder2 <- sendRequest("DELETE", s"/folders/$folder2")
     } yield {
       assertEquals(folder1, deleteFolder1.getInteger("id"))
       assertEquals(folder2, deleteFolder2.getInteger("id"))
+
+      assertEquals(Json.arr(folder1, folder11), file1.getJsonArray("folders"))
+      assertEquals(Json.arr(folder2, folder21), file2.getJsonArray("folders"))
     }
   }
 

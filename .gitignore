@@ -3,6 +3,7 @@ conf.json
 conf-test.json
 uploads/
 .vertx/
+uploads*/
 
 # Gradle
 .gradle/
