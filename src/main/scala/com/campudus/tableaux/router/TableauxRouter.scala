@@ -113,6 +113,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Duplicate Row
       */
     case Post(RowDuplicate(tableId, rowId)) => asyncGetReply {
+      logger.info(s"POST request duplicate mit body=${context.getBodyAsString}")
       controller.duplicateRow(tableId.toLong, rowId.toLong)
     }
 
