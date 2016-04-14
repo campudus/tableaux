@@ -1,7 +1,6 @@
 package com.campudus.tableaux
 
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.http.HttpClientResponse
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FunctionConverters._
@@ -16,11 +15,9 @@ class StaticFileTest extends TableauxTestBase {
 
   @Test
   def checkIndexHtml(implicit c: TestContext): Unit = okTest {
-    val p1 = readFile()
-    val p2 = httpGetIndex()
-
     for {
-      (expected, actual) <- p1.zip(p2)
+      expected <- readFile()
+      actual <- sendStringRequest("GET", "/")
     } yield {
       assertEquals(expected, actual)
     }
@@ -37,18 +34,5 @@ class StaticFileTest extends TableauxTestBase {
         p1.failure(ex)
     }: Try[Buffer] => Unit)
     p1.future
-  }
-
-  private def httpGetIndex(): Future[String] = {
-    val p = Promise[String]()
-
-    def responseHandler(resp: HttpClientResponse): Unit = {
-      logger.info("Got a response: " + resp.statusCode())
-      resp.bodyHandler({ buf: Buffer => p.success(buf.toString); return; })
-    }
-
-    httpRequest("GET", "/", responseHandler, { x => p.failure(x) }).end()
-
-    p.future
   }
 }

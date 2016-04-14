@@ -8,7 +8,7 @@ import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.file.{AsyncFile, OpenOptions}
-import io.vertx.core.http.{HttpClient, HttpClientRequest, HttpClientResponse, HttpMethod}
+import io.vertx.core.http._
 import io.vertx.core.json.JsonObject
 import io.vertx.core.streams.Pump
 import io.vertx.core.{AsyncResult, DeploymentOptions, Handler, Vertx}
@@ -21,6 +21,7 @@ import org.junit.runner.RunWith
 import org.junit.{After, Before}
 import org.vertx.scala.core.json._
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -170,10 +171,6 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     }
   }
 
-  def createClient(): HttpClient = {
-    vertx.createHttpClient()
-  }
-
   def sendRequest(method: String, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
     httpJsonRequest(method, path, p).end()
@@ -182,65 +179,96 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
 
   def sendRequest(method: String, path: String, jsonObj: JsonObject): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).setChunked(true).write(jsonObj.encode()).end()
+    httpJsonRequest(method, path, p).end(jsonObj.encode())
     p.future
   }
 
   def sendRequest(method: String, path: String, body: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).setChunked(true).write(body).end()
+    httpJsonRequest(method, path, p).end(body)
     p.future
   }
 
-  def jsonResponse(p: Promise[JsonObject]): HttpClientResponse => Unit = { resp: HttpClientResponse =>
-    def jsonBodyHandler(buf: Buffer): Unit = {
-      if (resp.statusCode() != 200) {
-        p.failure(TestCustomException(buf.toString, resp.statusMessage(), resp.statusCode()))
-      } else {
-        try {
-          p.success(Json.fromObjectString(buf.toString))
-        } catch {
-          case ex: Exception => p.failure(ex)
+  def sendStringRequest(method: String, path: String): Future[String] = {
+    val p = Promise[String]()
+    httpStringRequest(method, path, p).end()
+    p.future
+  }
+
+  def sendStringRequest(method: String, path: String, jsonObj: JsonObject): Future[String] = {
+    val p = Promise[String]()
+    httpStringRequest(method, path, p).end(jsonObj.encode())
+    p.future
+  }
+
+  private def createJsonResponseHandler(p: Promise[JsonObject]): (HttpClient, HttpClientResponse) => Unit = {
+    (client: HttpClient, resp: HttpClientResponse) =>
+      def jsonBodyHandler(buf: Buffer): Unit = {
+        val body = buf.toString()
+
+        client.close()
+
+        if (resp.statusCode() != 200) {
+          p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
+        } else {
+          try {
+            p.success(Json.fromObjectString(body))
+          } catch {
+            case ex: Exception => p.failure(ex)
+          }
         }
       }
-    }
 
-    resp.bodyHandler(jsonBodyHandler(_: Buffer))
+      resp.bodyHandler(jsonBodyHandler(_: Buffer))
+  }
+
+  private def createStringResponseHandler(p: Promise[String]): (HttpClient, HttpClientResponse) => Unit = {
+    (client: HttpClient, resp: HttpClientResponse) =>
+      def stringBodyHandler(buf: Buffer): Unit = {
+        val body = buf.toString()
+
+        client.close()
+
+        if (resp.statusCode() != 200) {
+          p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
+        } else {
+          try {
+            p.success(body)
+          } catch {
+            case ex: Exception => p.failure(ex)
+          }
+        }
+      }
+
+      resp.bodyHandler(stringBodyHandler(_: Buffer))
+  }
+
+  private def createExceptionHandler[A](p: Promise[A]): (HttpClient, Throwable) => Unit = {
+    (client: HttpClient, x: Throwable) =>
+      client.close()
+      p.failure(x)
+  }
+
+  private def httpStringRequest(method: String, path: String, p: Promise[String]): HttpClientRequest = {
+    httpRequest(method, path, createStringResponseHandler(p), createExceptionHandler[String](p))
   }
 
   private def httpJsonRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = {
-    httpRequest(method, path, jsonResponse(p), { x => p.failure(x) })
+    httpRequest(method, path, createJsonResponseHandler(p), createExceptionHandler[JsonObject](p))
   }
 
-  def httpRequest(method: String, path: String, responseHandler: HttpClientResponse => Unit, exceptionHandler: Throwable => Unit): HttpClientRequest = {
+  def httpRequest(method: String, path: String, responseHandler: (HttpClient, HttpClientResponse) => Unit, exceptionHandler: (HttpClient, Throwable) => Unit): HttpClientRequest = {
     val _method = HttpMethod.valueOf(method.toUpperCase)
 
-    createClient()
+    val options = new HttpClientOptions()
+      .setKeepAlive(false)
+
+    val client = vertx.createHttpClient(options)
+
+    client
       .request(_method, port, "localhost", path)
-      .handler(responseHandler)
-      .exceptionHandler(exceptionHandler)
-  }
-
-  def setupDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[TableId] = {
-    val postTable = Json.obj("name" -> name)
-    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
-    val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
-    val fillStringCellJson = Json.obj("value" -> s"table${tableNum}row1")
-    val fillStringCellJson2 = Json.obj("value" -> s"table${tableNum}row2")
-    val fillNumberCellJson = Json.obj("value" -> 1)
-    val fillNumberCellJson2 = Json.obj("value" -> 2)
-
-    for {
-      tableId <- sendRequest("POST", "/tables", postTable) map { js => js.getLong("id") }
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", createStringColumnJson)
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
-      _ <- sendRequest("POST", s"/tables/$tableId/rows")
-      _ <- sendRequest("POST", s"/tables/$tableId/rows")
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", fillStringCellJson)
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/2", fillStringCellJson2)
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/1", fillNumberCellJson)
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/2", fillNumberCellJson2)
-    } yield tableId
+      .handler(responseHandler(client, _: HttpClientResponse))
+      .exceptionHandler(exceptionHandler(client, _: Throwable))
   }
 
   protected def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = futurify {
@@ -296,12 +324,29 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
         })
       }
 
-      requestHandler(httpRequest(method, url, jsonResponse(p), {
-        x =>
-          if (!p.isCompleted) {
-            p.failure(x)
-          }
-      }))
+      requestHandler(httpJsonRequest(method, url, p))
+  }
+
+  protected def createDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[TableId] = {
+    val postTable = Json.obj("name" -> name)
+    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
+    val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+    val fillStringCellJson = Json.obj("value" -> s"table${tableNum}row1")
+    val fillStringCellJson2 = Json.obj("value" -> s"table${tableNum}row2")
+    val fillNumberCellJson = Json.obj("value" -> 1)
+    val fillNumberCellJson2 = Json.obj("value" -> 2)
+
+    for {
+      tableId <- sendRequest("POST", "/tables", postTable) map { js => js.getLong("id") }
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createStringColumnJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", fillStringCellJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/2", fillStringCellJson2)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/1", fillNumberCellJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/2", fillNumberCellJson2)
+    } yield tableId
   }
 
   protected def createFullTableWithMultilanguageColumns(tableName: String): Future[(TableId, Seq[ColumnId], Seq[RowId])] = {
@@ -346,8 +391,6 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
         )
       )
     )
-
-    import scala.collection.JavaConverters._
     for {
       (tableId, columnIds) <- createTableWithMultilanguageColumns(tableName)
       rows <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow(columnIds))
@@ -382,8 +425,6 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
           Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "multilanguage" -> true)
         )
     )
-
-    import scala.collection.JavaConverters._
     for {
       tableId <- sendRequest("POST", "/tables", Json.obj("name" -> tableName)) map (_.getLong("id"))
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn)
@@ -413,8 +454,6 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       "name" -> "column 10 (link)",
       "toTable" -> linkTo
     )))
-
-    import scala.collection.JavaConverters._
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
@@ -439,9 +478,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     } yield (tableId, columnId, rowId)
   }
 
-
   protected def createSimpleTableWithValues(tableName: String, columnTypes: Seq[ColumnType], rows: Seq[Seq[Any]]): Future[(TableId, Seq[ColumnId], Seq[RowId])] = {
-    import scala.collection.JavaConverters._
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
@@ -453,5 +490,4 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       rowIds = rowPost.getJsonArray("rows").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
     } yield (tableId, columnIds, rowIds)
   }
-
 }

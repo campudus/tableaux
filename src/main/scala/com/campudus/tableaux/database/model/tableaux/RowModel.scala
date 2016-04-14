@@ -333,7 +333,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       }
     } else {
       // No values put into multilanguage columns, should be okay
-      Future.successful()
+      Future.successful(())
     }
   }
 

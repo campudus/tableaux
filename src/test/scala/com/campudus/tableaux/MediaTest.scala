@@ -3,7 +3,7 @@ package com.campudus.tableaux
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.testtools.RequestCreation
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.http.HttpClientResponse
+import io.vertx.core.http.{HttpClient, HttpClientResponse}
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -62,7 +62,7 @@ class AttachmentTest extends MediaTestBase {
     )))
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
 
       column <- sendRequest("POST", s"/tables/$tableId/columns", column)
     } yield {
@@ -83,7 +83,7 @@ class AttachmentTest extends MediaTestBase {
     val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"), "description" -> Json.obj("de_DE" -> "A description about that PDF."))
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
 
       columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
 
@@ -132,7 +132,7 @@ class AttachmentTest extends MediaTestBase {
     val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"), "description" -> Json.obj("de_DE" -> "A description about that PDF."))
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
 
       columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
 
@@ -217,7 +217,7 @@ class AttachmentTest extends MediaTestBase {
     )))
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
       columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
       rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
@@ -242,7 +242,7 @@ class AttachmentTest extends MediaTestBase {
     val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"), "description" -> Json.obj("de_DE" -> "A description about that PDF."))
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
 
       columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
 
@@ -327,7 +327,7 @@ class AttachmentTest extends MediaTestBase {
     )
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
 
       columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
 
@@ -403,7 +403,7 @@ class AttachmentTest extends MediaTestBase {
     )
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
 
       columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
 
@@ -470,7 +470,7 @@ class FolderTest extends MediaTestBase {
     for {
       rootFolder <- sendRequest("GET", "/folders?langtag=de-DE")
     } yield {
-      assertEquals(0, rootFolder.getInteger("id"))
+      assertEquals(null, rootFolder.getInteger("id"))
       assertEquals("root", rootFolder.getString("name"))
       assertNull(rootFolder.getString("parent"))
     }
@@ -597,19 +597,24 @@ class FileTest extends MediaTestBase {
         val url = file.getObject("url").getString("de_DE")
 
         httpRequest("GET", s"$url", {
-          resp: HttpClientResponse =>
+          (client: HttpClient, resp: HttpClientResponse) =>
+
             assertEquals(200, resp.statusCode())
 
             assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
             assertEquals("Should get the correct content length", s"$size", resp.getHeader("content-length"))
 
             resp.bodyHandler { buf: Buffer =>
+              client.close()
+
               assertEquals("Should get the same size back as the file really is", size, buf.length())
               p.success(())
             }
-        }, { x =>
-          c.fail(x)
-          p.failure(x)
+        }, {
+          (client: HttpClient, x: Throwable) =>
+            client.close()
+            c.fail(x)
+            p.failure(x)
         }).end()
       }
 

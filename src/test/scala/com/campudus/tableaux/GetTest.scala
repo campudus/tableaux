@@ -154,7 +154,7 @@ class GetTest extends TableauxTestBase {
     )
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -169,8 +169,8 @@ class GetTest extends TableauxTestBase {
     ))
 
     for {
-      _ <- setupDefaultTable("Test Table 1")
-      _ <- setupDefaultTable("Test Table 2")
+      _ <- createDefaultTable("Test Table 1")
+      _ <- createDefaultTable("Test Table 2")
       test <- sendRequest("GET", "/tables")
     } yield {
       assertEquals(expectedJson, test)
@@ -185,7 +185,7 @@ class GetTest extends TableauxTestBase {
     ))
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/columns")
     } yield {
       assertEquals(expectedJson, test)
@@ -197,7 +197,7 @@ class GetTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> true, "displayName" -> Json.obj(), "description" -> Json.obj())
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -209,7 +209,7 @@ class GetTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/columns/2")
     } yield {
       assertEquals(expectedJson, test)
@@ -221,7 +221,7 @@ class GetTest extends TableauxTestBase {
     val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "values" -> Json.arr("table1row1", 1))
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/rows/1")
     } yield {
       assertEquals(expectedJson, test)
@@ -244,7 +244,7 @@ class GetTest extends TableauxTestBase {
     )
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/rows")
     } yield {
       assertEquals(expectedJson, test)
@@ -266,7 +266,7 @@ class GetTest extends TableauxTestBase {
     )
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/rows?offset=1&limit=1")
     } yield {
       assertEquals(expectedJson, test)
@@ -279,7 +279,7 @@ class GetTest extends TableauxTestBase {
     val expectedJson2 = Json.obj("status" -> "ok", "value" -> 1)
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/columns/1/rows/1")
       test2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
     } yield {
@@ -304,7 +304,7 @@ class GetTest extends TableauxTestBase {
     )
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/columns/2/rows")
     } yield {
       assertEquals(expectedJson, test)
