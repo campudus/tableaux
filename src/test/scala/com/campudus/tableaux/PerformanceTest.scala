@@ -4,14 +4,15 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
-import scala.concurrent.{Future, Promise}
-
+import scala.collection.JavaConverters._
+import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
+@Ignore
 class PerformanceTest extends TableauxTestBase {
 
   private def createTableWithMultilanguageColumnsAndConcatColumn(tableName: String): Future[(TableId, Seq[ColumnId])] = {
@@ -39,13 +40,28 @@ class PerformanceTest extends TableauxTestBase {
   }
 
   private def createPerformanceTestData(rows: Int): Future[Unit] = {
-    def createLinkColumn(linkTo: TableId) = Json.obj("columns" -> Json.arr(Json.obj(
-      "kind" -> "link",
-      "name" -> "column 10 (link)",
-      "toTable" -> linkTo
-    )))
+    def createLinkColumns(linkTo: TableId) = Json.obj("columns" -> Json.arr(
+      Json.obj(
+        "kind" -> "link",
+        "name" -> "Test Column 8",
+        "toTable" -> linkTo,
+        "toName" -> "Test Column 8"
+      ),
+      Json.obj(
+        "kind" -> "link",
+        "name" -> "Test Column 9",
+        "toTable" -> linkTo,
+        "toName" -> "Test Column 9"
+      ),
+      Json.obj(
+        "kind" -> "link",
+        "name" -> "Test Column 10",
+        "toTable" -> linkTo,
+        "toName" -> "Test Column 10"
+      )
+    ))
 
-    val valuesRow = Json.obj(
+    def valuesRow = Json.obj(
       "columns" -> Json.arr(
         Json.obj("id" -> 1),
         Json.obj("id" -> 2),
@@ -59,32 +75,90 @@ class PerformanceTest extends TableauxTestBase {
         Json.obj("values" ->
           Json.arr(
             Json.obj(
-              "de_DE" -> "Hallo, Welt!",
-              "en_US" -> "Hello, World!"
+              "de-DE" -> "Hallo, Welt!",
+              "en-GB" -> "Hello, World!"
             ),
             Json.obj(
-              "de_DE" -> true,
-              "en_US" -> false
+              "de-DE" -> true,
+              "en-GB" -> false
             ),
             Json.obj(
-              "de_DE" -> 1.234,
-              "en_US" -> 4.321
+              "de-DE" -> 1.234,
+              "en-GB" -> 4.321
             ),
             Json.obj(
-              "de_DE" -> "Hallo, Welt!",
-              "en_US" -> "Hello, World!"
+              "de-DE" -> "Hallo, Welt!",
+              "en-GB" -> "Hello, World!"
             ),
             Json.obj(
-              "de_DE" -> "Hallo, Welt!",
-              "en_US" -> "Hello, World!"
+              "de-DE" -> "Hallo, Welt!",
+              "en-GB" -> "Hello, World!"
             ),
             Json.obj(
-              "de_DE" -> "2015-01-01",
-              "en_US" -> "2016-01-01"
+              "de-DE" -> "2015-01-01",
+              "en-GB" -> "2016-01-01"
             ),
             Json.obj(
-              "de_DE" -> "2015-01-01T13:37:47.110Z",
-              "en_US" -> "2016-01-01T13:37:47.110Z"
+              "de-DE" -> "2015-01-01T13:37:47.110Z",
+              "en-GB" -> "2016-01-01T13:37:47.110Z"
+            )
+          )
+        )
+      )
+    )
+
+    def valuesRowWithLink(linkColumnId1: Long, linkColumnId2: Long, linkColumnId3: Long, linkRowId: RowId) = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("id" -> 1),
+        Json.obj("id" -> 2),
+        Json.obj("id" -> 3),
+        Json.obj("id" -> 4),
+        Json.obj("id" -> 5),
+        Json.obj("id" -> 6),
+        Json.obj("id" -> 7),
+        Json.obj("id" -> linkColumnId1),
+        Json.obj("id" -> linkColumnId2),
+        Json.obj("id" -> linkColumnId3)
+      ),
+      "rows" -> Json.arr(
+        Json.obj("values" ->
+          Json.arr(
+            Json.obj(
+              "de-DE" -> "Hallo, Welt!",
+              "en-GB" -> "Hello, World!"
+            ),
+            Json.obj(
+              "de-DE" -> true,
+              "en-GB" -> false
+            ),
+            Json.obj(
+              "de-DE" -> 1.234,
+              "en-GB" -> 4.321
+            ),
+            Json.obj(
+              "de-DE" -> "Hallo, Welt!",
+              "en-GB" -> "Hello, World!"
+            ),
+            Json.obj(
+              "de-DE" -> "Hallo, Welt!",
+              "en-GB" -> "Hello, World!"
+            ),
+            Json.obj(
+              "de-DE" -> "2015-01-01",
+              "en-GB" -> "2016-01-01"
+            ),
+            Json.obj(
+              "de-DE" -> "2015-01-01T13:37:47.110Z",
+              "en-GB" -> "2016-01-01T13:37:47.110Z"
+            ),
+            Json.obj(
+              "values" -> Json.arr(linkRowId)
+            ),
+            Json.obj(
+              "values" -> Json.arr(linkRowId)
+            ),
+            Json.obj(
+              "values" -> Json.arr(linkRowId)
             )
           )
         )
@@ -95,20 +169,51 @@ class PerformanceTest extends TableauxTestBase {
       table1 <- createTableWithMultilanguageColumnsAndConcatColumn("Table 1")
       table2 <- createTableWithMultilanguageColumnsAndConcatColumn("Table 2")
 
-      linkColumn <- sendRequest("POST", s"/tables/${table1._1}/columns", createLinkColumn(table2._1))
-      linkColumnId = linkColumn.getArray("columns").getJsonObject(0).getLong("id").toLong
+      linkColumns <- sendRequest("POST", s"/tables/${table1._1}/columns", createLinkColumns(table2._1))
+      (linkColumnId1, linkColumnId2, linkColumnId3) = linkColumns.getArray("columns").asScala.toList.map({
+        case t: JsonObject =>
+          t.getLong("id").toLong
+      }) match {
+        case List(id1, id2, id3) =>
+          (id1, id2, id3)
+      }
 
-      table1Rows <- Range(1, rows).foldLeft(Future.successful(Seq.empty[JsonObject]))({
-        case (results, row) =>
-          results.flatMap({
-            resultRows =>
-              sendRequest("POST", s"/tables/${table1._1}/rows", valuesRow).map({
-                json =>
-                  resultRows ++ Seq(json)
+      // Split range in groups & do as many request in parallel as big each group is
+
+      // Fill table 2
+      _ <- Range(1, rows).grouped(100).foldLeft(Future.successful(())) {
+        case (future, group) =>
+          future.flatMap({
+            _ =>
+              Future.sequence(group.map({ _ =>
+                sendStringRequest("POST", s"/tables/${table2._1}/rows", valuesRow)
+              })).map({ _ =>
+                logger.info(s"Finished table 2 group ${group.head}")
+                ()
               })
           })
-      })
+      }
+
+      // Fill table 1
+      _ <- Range(1, rows).grouped(100).foldLeft(Future.successful(())) {
+        case (future, group) =>
+          future.flatMap({
+            _ =>
+              Future.sequence(group.map({ rowId: Int =>
+                sendStringRequest("POST", s"/tables/${table1._1}/rows", valuesRowWithLink(linkColumnId1, linkColumnId2, linkColumnId3, rowId))
+              })).map({ _ =>
+                logger.info(s"Finished table 1 group ${group.head}")
+                ()
+              })
+          })
+      }
     } yield ()
+  }
+
+  private def sendTimedRequest(method: String, path: String): Future[Long] = {
+    val startTime = System.currentTimeMillis()
+    sendStringRequest("GET", "/tables/1/rows")
+      .map(_ => System.currentTimeMillis - startTime)
   }
 
   private def doPerformanceTest(times: Int, rows: Int): Future[Seq[Long]] = {
@@ -121,26 +226,16 @@ class PerformanceTest extends TableauxTestBase {
         case (resultsFuture, x) =>
           resultsFuture.flatMap({
             results =>
-              val startTime = System.currentTimeMillis()
-
-              val p = Promise[Seq[Long]]()
-              httpRequest("GET", "/tables/1/rows", {
-                response =>
-                  val elapsedTime = System.currentTimeMillis - startTime
-                  logger.info(s"\n=====\nperformance test $x with $rows rows took $elapsedTime ms\n=====")
-                  p.success(results ++ Seq(elapsedTime))
-              }, {
-                ex =>
-                  val elapsedTime = System.currentTimeMillis - startTime
-                  logger.info(s"\n=====\nperformance test $x with $rows rows took $elapsedTime ms\n=====")
-                  p.failure(ex)
-              })
-              p.future
+              // Send request and measure round-trip time in ms
+              sendTimedRequest("GET", "/tables/1/rows")
+                .flatMap({
+                  duration =>
+                    Future(results ++ Seq(duration))
+                })
           })
-
       })
-
     } yield {
+      // Drop measurements of warmup phase
       val withoutWarmup = elapsedTimes.drop(warmUp)
 
       val average = elapsedTimes.sum / elapsedTimes.length
@@ -149,9 +244,6 @@ class PerformanceTest extends TableauxTestBase {
       withoutWarmup
     }
   }
-
-  @Test
-  def testPerformanceWith10Rows(implicit context: TestContext): Unit = okTest(doPerformanceTest(10, 10))
 
   @Test
   def testPerformanceWith100Rows(implicit context: TestContext): Unit = okTest(doPerformanceTest(10, 100))
@@ -163,8 +255,8 @@ class PerformanceTest extends TableauxTestBase {
   def testPerformanceWith1000Rows(implicit context: TestContext): Unit = okTest(doPerformanceTest(10, 1000))
 
   @Test
-  def testPerformanceWith10000Rows(implicit context: TestContext): Unit = okTest(doPerformanceTest(10, 10000))
+  def testPerformanceWith2000Rows(implicit context: TestContext): Unit = okTest(doPerformanceTest(10, 2000))
 
   @Test
-  def testPerformanceWith100000Rows(implicit context: TestContext): Unit = okTest(doPerformanceTest(10, 100000))
+  def testPerformanceWith3000Rows(implicit context: TestContext): Unit = okTest(doPerformanceTest(10, 3000))
 }
