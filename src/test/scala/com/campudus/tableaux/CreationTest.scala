@@ -421,7 +421,7 @@ class CreationTest extends TableauxTestBase {
   @Test
   def duplicateEmptyRow(implicit c: TestContext): Unit = okTest {
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
 
       emptyRow <- sendRequest("POST", s"/tables/$tableId/rows")
       emptyRowId = emptyRow.getLong("id")
