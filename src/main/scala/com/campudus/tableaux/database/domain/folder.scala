@@ -12,7 +12,9 @@ case class Folder(id: FolderId,
                   updatedAt: Option[DateTime]) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
-    "id" -> id,
+    "id" -> {
+      if (id == 0) null else id
+    },
     "name" -> name,
     "description" -> description,
     "parent" -> parents.headOption.orNull, // for compatibility

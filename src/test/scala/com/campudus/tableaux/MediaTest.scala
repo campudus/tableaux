@@ -470,7 +470,7 @@ class FolderTest extends MediaTestBase {
     for {
       rootFolder <- sendRequest("GET", "/folders?langtag=de-DE")
     } yield {
-      assertEquals(0, rootFolder.getInteger("id"))
+      assertEquals(null, rootFolder.getInteger("id"))
       assertEquals("root", rootFolder.getString("name"))
       assertNull(rootFolder.getString("parent"))
     }
