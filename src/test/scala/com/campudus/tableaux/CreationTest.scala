@@ -419,6 +419,52 @@ class CreationTest extends TableauxTestBase {
   }
 
   @Test
+  def duplicateEmptyRow(implicit c: TestContext): Unit = okTest {
+    for {
+      tableId <- setupDefaultTable()
+
+      emptyRow <- sendRequest("POST", s"/tables/$tableId/rows")
+      emptyRowId = emptyRow.getLong("id")
+
+      duplicatedRow <- sendRequest("POST", s"/tables/$tableId/rows/$emptyRowId/duplicate")
+      duplicatedRowId = duplicatedRow.getLong("id")
+
+      expected <- sendRequest("GET", s"/tables/$tableId/rows/$emptyRowId")
+      actual <- sendRequest("GET", s"/tables/$tableId/rows/$duplicatedRowId")
+    } yield {
+      logger.info(s"expected=${expected.encode()}")
+      logger.info(s"actual=${actual.encode()}")
+      assertNotSame(expected, actual)
+      expected.remove("id")
+      actual.remove("id")
+      assertEquals(expected, actual)
+    }
+  }
+
+  @Test
+  def duplicateEmptyRowWithMultilanguageValues(implicit c: TestContext): Unit = okTest {
+    for {
+      (tableId, _) <- createTableWithMultilanguageColumns("some_table")
+
+      emptyRow <- sendRequest("POST", s"/tables/$tableId/rows")
+      emptyRowId = emptyRow.getLong("id")
+
+      duplicatedRow <- sendRequest("POST", s"/tables/$tableId/rows/$emptyRowId/duplicate")
+      duplicatedRowId = duplicatedRow.getLong("id")
+
+      expected <- sendRequest("GET", s"/tables/$tableId/rows/$emptyRowId")
+      actual <- sendRequest("GET", s"/tables/$tableId/rows/$duplicatedRowId")
+    } yield {
+      logger.info(s"expected=${expected.encode()}")
+      logger.info(s"actual=${actual.encode()}")
+      assertNotSame(expected, actual)
+      expected.remove("id")
+      actual.remove("id")
+      assertEquals(expected, actual)
+    }
+  }
+
+  @Test
   def createMultipleFullRows(implicit c: TestContext): Unit = okTest {
     val valuesRow = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
       "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)), Json.obj("values" -> Json.arr("Test Field 2", 5))))
