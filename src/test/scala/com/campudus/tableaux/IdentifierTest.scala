@@ -13,7 +13,7 @@ class IdentifierTest extends TableauxTestBase {
   @Test
   def retrieveColumnsWithOneIdentifierColumn(implicit c: TestContext): Unit = okTest {
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
 
       // make the last (ordering) column an identifier column
       _ <- sendRequest("POST", "/tables/1/columns/1", Json.obj("identifier" -> false))
@@ -32,7 +32,7 @@ class IdentifierTest extends TableauxTestBase {
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3")))
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
 
       // create a third column
       _ <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson)
@@ -61,7 +61,7 @@ class IdentifierTest extends TableauxTestBase {
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3")))
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
 
       // create a third column
       _ <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson)
@@ -327,7 +327,7 @@ class IdentifierTest extends TableauxTestBase {
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3")))
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
 
       // create a third column
       _ <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson)
@@ -371,8 +371,8 @@ class IdentifierTest extends TableauxTestBase {
     )
 
     for {
-      _ <- setupDefaultTable()
-      _ <- setupDefaultTable("Test Table 2", 2)
+      _ <- createDefaultTable()
+      _ <- createDefaultTable("Test Table 2", 2)
 
       // create link column
       linkColumnId <- sendRequest("POST", "/tables/1/columns", linkColumn) map {
@@ -460,9 +460,9 @@ class IdentifierTest extends TableauxTestBase {
     )
 
     for {
-      table1 <- setupDefaultTable()
-      table2 <- setupDefaultTable("Test Table 2", 2)
-      table3 <- setupDefaultTable("Test Table 3", 3)
+      table1 <- createDefaultTable()
+      table2 <- createDefaultTable("Test Table 2", 2)
+      table3 <- createDefaultTable("Test Table 3", 3)
 
       // create multi-language column and fill cell
       table1column3 <- sendRequest("POST", "/tables/1/columns", multilangTextColumn) map {

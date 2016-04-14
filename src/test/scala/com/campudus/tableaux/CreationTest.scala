@@ -290,7 +290,7 @@ class CreationTest extends TableauxTestBase {
     val postIdentifier = Json.obj("identifier" -> true)
 
     for {
-      table <- setupDefaultTable()
+      table <- createDefaultTable()
 
       _ <- sendRequest("POST", s"/tables/$table/columns/1", postIdentifier)
       _ <- sendRequest("POST", s"/tables/$table/columns/2", postIdentifier)
@@ -317,8 +317,8 @@ class CreationTest extends TableauxTestBase {
     def fillLinkCellJson(c: Integer) = Json.obj("value" -> Json.obj("to" -> c))
 
     for {
-      tableId1 <- setupDefaultTable()
-      tableId2 <- setupDefaultTable("Test Table 2", 2)
+      tableId1 <- createDefaultTable()
+      tableId2 <- createDefaultTable("Test Table 2", 2)
       linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkCol)
       linkColumnId = linkColumn.getArray("columns").getJsonObject(0).getNumber("id")
       _ <- sendRequest("POST", s"/tables/$tableId1/columns/$linkColumnId/rows/1", fillLinkCellJson(1))
@@ -345,8 +345,8 @@ class CreationTest extends TableauxTestBase {
     val postIdentifier = Json.obj("identifier" -> true)
 
     for {
-      tableId1 <- setupDefaultTable()
-      tableId2 <- setupDefaultTable("Test Table 2", 2)
+      tableId1 <- createDefaultTable()
+      tableId2 <- createDefaultTable("Test Table 2", 2)
       _ <- sendRequest("POST", s"/tables/$tableId2/columns/1", postIdentifier)
       _ <- sendRequest("POST", s"/tables/$tableId2/columns/2", postIdentifier)
       linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkCol)
@@ -397,7 +397,7 @@ class CreationTest extends TableauxTestBase {
     )
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
       column <- sendRequest("POST", s"/tables/$tableId/columns", postAttachmentColumn)
       columnId = column.getArray("columns").getJsonObject(0).getInteger("id")
       file <- sendRequest("POST", "/files", putOne)

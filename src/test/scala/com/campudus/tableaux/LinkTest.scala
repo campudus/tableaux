@@ -691,7 +691,7 @@ class LinkTest extends TableauxTestBase {
   }
 
   private def setupTwoTables(): Future[Seq[Long]] = for {
-    id1 <- setupDefaultTable()
-    id2 <- setupDefaultTable("Test Table 2", 2)
+    id1 <- createDefaultTable()
+    id2 <- createDefaultTable("Test Table 2", 2)
   } yield List(id1, id2)
 }

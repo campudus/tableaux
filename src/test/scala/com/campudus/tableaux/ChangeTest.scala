@@ -19,7 +19,7 @@ class ChangeTest extends TableauxTestBase {
     val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "New testname", "hidden" -> false)
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       test1 <- sendRequest("POST", "/tables/1", postJson)
       test2 <- sendRequest("GET", "/tables/1")
     } yield {
@@ -34,7 +34,7 @@ class ChangeTest extends TableauxTestBase {
     val expectedString = "New testname"
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       resultPost <- sendRequest("POST", "/tables/1/columns/1", postJson)
       resultGet <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
@@ -49,7 +49,7 @@ class ChangeTest extends TableauxTestBase {
     val expectedOrdering = 5
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       resultPost <- sendRequest("POST", "/tables/1/columns/1", postJson)
       resultGet <- sendRequest("GET", "/tables/1/columns/1")
     } yield {
@@ -64,7 +64,7 @@ class ChangeTest extends TableauxTestBase {
     val expectedKind = "text"
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
       resultPost <- sendRequest("POST", "/tables/1/columns/2", postJson)
       resultGet <- sendRequest("GET", "/tables/1/columns/2")
     } yield {
@@ -81,7 +81,7 @@ class ChangeTest extends TableauxTestBase {
     val failed = Json.obj("failed" -> "failed")
 
     for {
-      _ <- setupDefaultTable()
+      _ <- createDefaultTable()
 
       _ <- sendRequest("POST", "/tables/1/rows", Json.obj("rows" ->
         Json.obj("values" ->
@@ -113,7 +113,7 @@ class ChangeTest extends TableauxTestBase {
     val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())
 
     for {
-      tableId <- setupDefaultTable()
+      tableId <- createDefaultTable()
       resultPost <- sendRequest("POST", s"/tables/$tableId/columns/2", postJson)
       resultGet <- sendRequest("GET", s"/tables/$tableId/columns/2")
     } yield {
