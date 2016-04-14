@@ -119,6 +119,13 @@ checkScoverage {
     minimumRate = 0.85
 }
 
+scoverage {
+    excludedPackages = [
+            'io.vertx.scala.*',
+            'org.vertx.scala.*'
+    ]
+}
+
 coveralls {
     service = "travis-ci"
 
