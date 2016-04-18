@@ -1,7 +1,8 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.api.system
 
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
+import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection

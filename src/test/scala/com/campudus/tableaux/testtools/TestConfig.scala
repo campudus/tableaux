@@ -1,7 +1,8 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.testtools
 
 import java.net.ServerSocket
 
+import com.campudus.tableaux.TableauxConfig
 import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.core.json._
 

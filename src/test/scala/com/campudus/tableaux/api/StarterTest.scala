@@ -1,5 +1,7 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.api
 
+import com.campudus.tableaux.Starter
+import com.campudus.tableaux.testtools.TestAssertionHelper
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext

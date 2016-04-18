@@ -1,6 +1,5 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.database.domain.{DescriptionOnly, DisplayInfos, NameAndDescription, NameOnly}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import org.junit.Assert._
 import org.junit.Test

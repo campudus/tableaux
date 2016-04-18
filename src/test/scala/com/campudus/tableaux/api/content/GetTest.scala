@@ -1,5 +1,6 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -139,78 +140,6 @@ class GetTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables/1/rows", Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row2", 2, true)))))
       _ <- sendRequest("POST", "/tables/1/rows", Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row3", 3, false)))))
       test <- sendRequest("GET", "/completetable/1")
-    } yield {
-      assertEquals(expectedJson, test)
-    }
-  }
-
-  @Test
-  def retrieveTable(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj(
-      "status" -> "ok",
-      "id" -> 1,
-      "name" -> "Test Table 1",
-      "hidden" -> false
-    )
-
-    for {
-      _ <- createDefaultTable()
-      test <- sendRequest("GET", "/tables/1")
-    } yield {
-      assertEquals(expectedJson, test)
-    }
-  }
-
-  @Test
-  def retrieveAllTables(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "tables" -> Json.arr(
-      Json.obj("id" -> 1, "name" -> "Test Table 1", "hidden" -> false),
-      Json.obj("id" -> 2, "name" -> "Test Table 2", "hidden" -> false)
-    ))
-
-    for {
-      _ <- createDefaultTable("Test Table 1")
-      _ <- createDefaultTable("Test Table 2")
-      test <- sendRequest("GET", "/tables")
-    } yield {
-      assertEquals(expectedJson, test)
-    }
-  }
-
-  @Test
-  def retrieveColumns(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
-      Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> true, "displayName" -> Json.obj(), "description" -> Json.obj()),
-      Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())
-    ))
-
-    for {
-      _ <- createDefaultTable()
-      test <- sendRequest("GET", "/tables/1/columns")
-    } yield {
-      assertEquals(expectedJson, test)
-    }
-  }
-
-  @Test
-  def retrieveStringColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> true, "displayName" -> Json.obj(), "description" -> Json.obj())
-
-    for {
-      _ <- createDefaultTable()
-      test <- sendRequest("GET", "/tables/1/columns/1")
-    } yield {
-      assertEquals(expectedJson, test)
-    }
-  }
-
-  @Test
-  def retrieveNumberColumn(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())
-
-    for {
-      _ <- createDefaultTable()
-      test <- sendRequest("GET", "/tables/1/columns/2")
     } yield {
       assertEquals(expectedJson, test)
     }

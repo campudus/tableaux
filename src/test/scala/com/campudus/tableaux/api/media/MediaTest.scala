@@ -1,7 +1,7 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.api.media
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
-import com.campudus.tableaux.testtools.RequestCreation
+import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.{HttpClient, HttpClientResponse}
 import io.vertx.core.json.JsonObject
@@ -314,7 +314,7 @@ class AttachmentTest extends MediaTestBase {
   @Test
   def testDeleteAllAttachmentsFromCell(implicit c: TestContext): Unit = okTest {
     val columns = RequestCreation.Columns()
-      .add(RequestCreation.Attachment("Downloads"))
+      .add(RequestCreation.AttachmentCol("Downloads"))
       .getJson
 
     val fileName = "Scr$en Shot.pdf"
@@ -390,7 +390,7 @@ class AttachmentTest extends MediaTestBase {
   @Test
   def testDeleteLinkedFiles(implicit c: TestContext): Unit = okTest {
     val columns = RequestCreation.Columns()
-      .add(RequestCreation.Attachment("Downloads"))
+      .add(RequestCreation.AttachmentCol("Downloads"))
       .getJson
 
     val fileName = "Scr$en Shot.pdf"

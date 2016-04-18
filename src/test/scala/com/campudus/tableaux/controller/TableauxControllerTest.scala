@@ -3,11 +3,10 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.TableauxModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.{TableauxTestBase, Starter, TestConfig}
-import io.vertx.core.Vertx
+import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.{SQLConnection, VertxExecutionContext}
+import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
 
