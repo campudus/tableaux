@@ -1,5 +1,6 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.api
 
+import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.core.buffer.Buffer
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner

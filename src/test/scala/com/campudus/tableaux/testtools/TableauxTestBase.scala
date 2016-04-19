@@ -1,10 +1,10 @@
-package com.campudus.tableaux
-
+package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
+import com.campudus.tableaux.{CustomException, Starter}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.file.{AsyncFile, OpenOptions}

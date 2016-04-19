@@ -1,12 +1,11 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.api.structure
 
+import com.campudus.tableaux.testtools.{TableauxTestBase, TestCustomException}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
-
-import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class TableOrderingTest extends TableauxTestBase {

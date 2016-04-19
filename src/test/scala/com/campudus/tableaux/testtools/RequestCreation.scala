@@ -25,17 +25,17 @@ object RequestCreation {
     def getJson: JsonObject = Json.obj("kind" -> kind, "name" -> name)
   }
 
-  case class Attachment(name: String) extends ColumnType("attachment")
+  case class AttachmentCol(name: String) extends ColumnType("attachment")
 
-  case class Text(name: String) extends ColumnType("text")
+  case class TextCol(name: String) extends ColumnType("text")
 
-  case class ShortText(name: String) extends ColumnType("shorttext")
+  case class ShortTextCol(name: String) extends ColumnType("shorttext")
 
-  case class RichText(name: String) extends ColumnType("richtext")
+  case class RichTextCol(name: String) extends ColumnType("richtext")
 
-  case class Numeric(name: String) extends ColumnType("numeric")
+  case class NumericCol(name: String) extends ColumnType("numeric")
 
-  case class Boolean(name: String) extends ColumnType("boolean")
+  case class BooleanCol(name: String) extends ColumnType("boolean")
 
   case class Multilanguage(column: ColumnType) extends ColumnType(column.kind) {
     val name: String = column.name

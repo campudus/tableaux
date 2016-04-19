@@ -1,6 +1,7 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.testtools.RequestCreation._
+import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -8,7 +9,7 @@ import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
 @RunWith(classOf[VertxUnitRunner])
-class FillTest extends TableauxTestBase {
+class FillCellTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
@@ -74,7 +75,7 @@ class FillTest extends TableauxTestBase {
   @Test
   def fillNumberCellWithFloatingNumber(implicit c: TestContext): Unit = okTest {
     for {
-      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", Numeric("num-column"))
+      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", NumericCol("num-column"))
 
       testInt <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 1234))
       resultInt <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
@@ -92,7 +93,7 @@ class FillTest extends TableauxTestBase {
   @Test
   def fillNumberCellWithMaxValueNumbers(implicit c: TestContext): Unit = okTest {
     for {
-      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", Numeric("num-column"))
+      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", NumericCol("num-column"))
 
       testShort <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Short.MaxValue))
       testInt <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
@@ -111,7 +112,7 @@ class FillTest extends TableauxTestBase {
   @Test
   def fillNumberCellWithAlternatingNumberType(implicit c: TestContext): Unit = okTest {
     for {
-      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", Numeric("num-column"))
+      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", NumericCol("num-column"))
 
       testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
       testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
