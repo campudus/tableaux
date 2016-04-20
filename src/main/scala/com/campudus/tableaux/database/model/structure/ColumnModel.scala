@@ -40,7 +40,17 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       case CreateLinkColumn(name, orderingOpt, toTableId, toName, singleDirection, identifier, di) => for {
         toTable <- tableStruc.retrieve(toTableId)
-        toCol <- retrieveAll(toTable).map(_.head.asInstanceOf[ValueColumn[_]])
+        toTableColumns <- retrieveAll(toTable).flatMap({
+          columns =>
+            if (columns.isEmpty) {
+              Future.failed(new NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
+            } else {
+              Future.successful(columns)
+            }
+        })
+
+        toCol = toTableColumns.head.asInstanceOf[ValueColumn[_]]
+
         (linkId, ColumnInfo(_, id, ordering, displayInfos)) <- createLinkColumn(table, name, toName, toTableId, orderingOpt, singleDirection, identifier, di)
       } yield LinkColumn(table, id, toCol, linkId, LeftToRight(table.id, toTableId), name, ordering, identifier, displayInfos)
 
@@ -317,7 +327,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       toColumnOpt = foreignColumns.headOption
     } yield {
       if (toColumnOpt.isEmpty) {
-        throw new NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "not_found")
+        throw new NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns")
       }
 
       val toColumn = toColumnOpt.get.asInstanceOf[ValueColumn[_]]
