@@ -240,4 +240,20 @@ class FillCellTest extends TableauxTestBase {
       assertEquals(expectedCell2, getResult2)
     }
   }
+
+  @Test
+  def replaceMultiLanguageCell(implicit c: TestContext): Unit = okTest {
+    val fillCellJson = Json.obj("value" -> Json.obj("de-DE" -> "Hallo"))
+
+    for {
+      (table, _, _) <- createFullTableWithMultilanguageColumns("Test")
+
+      cell <- sendRequest("GET", s"/tables/$table/columns/1/rows/1")
+
+      replacedCell <- sendRequest("PUT", s"/tables/$table/columns/1/rows/1", fillCellJson)
+    } yield {
+      assertNotSame(cell, replacedCell)
+      assertContains(fillCellJson, replacedCell)
+    }
+  }
 }

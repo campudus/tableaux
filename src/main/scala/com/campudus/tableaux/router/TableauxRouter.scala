@@ -155,6 +155,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
+      * Clear Cell value
+      */
+    case Delete(Cell(tableId, columnId, rowId)) => asyncGetReply {
+      controller.clearCellValue(tableId.toLong, columnId.toLong, rowId.toLong)
+    }
+
+    /**
       * Delete Attachment from Cell
       */
     case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) => asyncEmptyReply {

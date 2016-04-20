@@ -94,7 +94,7 @@ class TableauxController(override val config: TableauxConfig, override protected
 
   def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
-    logger.info(s"fillCell $tableId $columnId $rowId $value")
+    logger.info(s"replaceCellValue $tableId $columnId $rowId $value")
     for {
       table <- repository.retrieveTable(tableId)
       filled <- repository.replaceCellValue(table, columnId, rowId, value)
@@ -103,12 +103,22 @@ class TableauxController(override val config: TableauxConfig, override protected
 
   def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
-    logger.info(s"updateCell $tableId $columnId $rowId $value")
+    logger.info(s"updateCellValue $tableId $columnId $rowId $value")
 
     for {
       table <- repository.retrieveTable(tableId)
       updated <- repository.updateCellValue(table, columnId, rowId, value)
     } yield updated
+  }
+
+  def clearCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_]] =  {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    logger.info(s"clearCellValue $tableId $columnId $rowId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      cleared <- repository.clearCellValue(table, columnId, rowId)
+    } yield cleared
   }
 
   def deleteAttachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: String): Future[EmptyObject] = {

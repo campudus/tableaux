@@ -122,6 +122,16 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield replacedCell
   }
 
+  def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+
+      _ <- updateRowModel.clearRow(table, rowId, Seq(column))
+
+      replacedCell <- retrieveCell(column, rowId)
+    } yield replacedCell
+  }
+
   def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(table, columnId)
