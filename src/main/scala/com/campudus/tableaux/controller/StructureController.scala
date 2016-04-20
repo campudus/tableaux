@@ -4,7 +4,7 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.StructureModel
+import com.campudus.tableaux.database.model.{StructureModel, SystemModel}
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json.JsonObject
 
@@ -68,12 +68,12 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield ColumnSeq(columns)
   }
 
-  def createTable(tableName: String, hidden: Option[Boolean]): Future[Table] = {
+  def createTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]]): Future[Table] = {
     checkArguments(notNull(tableName, "tableName"))
-    logger.info(s"createTable $tableName")
+    logger.info(s"createTable $tableName $hidden $langtags")
 
     for {
-      created <- tableStruc.create(tableName, hidden.getOrElse(false))
+      created <- tableStruc.create(tableName, hidden, langtags)
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
   }
@@ -111,12 +111,12 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield EmptyObject()
   }
 
-  def changeTable(tableId: TableId, tableName: Option[String], hidden: Option[Boolean]): Future[Table] = {
-    checkArguments(greaterZero(tableId), isDefined(Seq(tableName, hidden), "tableName,hidden"))
-    logger.info(s"changeTable $tableId $tableName $hidden")
+  def changeTable(tableId: TableId, tableName: Option[String], hidden: Option[Boolean], langtags: Option[Option[Seq[String]]]): Future[Table] = {
+    checkArguments(greaterZero(tableId), isDefined(Seq(tableName, hidden, langtags), "tableName, hidden, langtags"))
+    logger.info(s"changeTable $tableId $tableName $hidden $langtags")
 
     for {
-      _ <- tableStruc.change(tableId, tableName, hidden)
+      _ <- tableStruc.change(tableId, tableName, hidden, langtags)
       table <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $table")

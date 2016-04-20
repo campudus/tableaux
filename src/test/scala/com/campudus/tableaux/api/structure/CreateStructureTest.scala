@@ -151,11 +151,13 @@ class CreateColumnTest extends TableauxTestBase {
 class CreateTableTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
+  val createTableJsonWithHiddenFlag = Json.obj("name" -> "Test Nr. 1", "hidden" -> true)
+  val createTableJsonWithLangtags = Json.obj("name" -> "Test Nr. 1", "langtags" -> Json.arr("de-DE", "en-GB", "en-US"))
 
   @Test
-  def createTable(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "hidden" -> false).mergeIn(createTableJson)
-    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "hidden" -> false).mergeIn(createTableJson)
+  def createTableWithName(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB")).mergeIn(createTableJson)
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB")).mergeIn(createTableJson)
 
     for {
       test1 <- sendRequest("POST", "/tables", createTableJson)
@@ -163,6 +165,40 @@ class CreateTableTest extends TableauxTestBase {
     } yield {
       assertEquals(expectedJson, test1)
       assertEquals(expectedJson2, test2)
+    }
+  }
+
+  @Test
+  def createTableWithHiddenFlag(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "langtags" -> Json.arr("de-DE", "en-GB")).mergeIn(createTableJsonWithHiddenFlag)
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "langtags" -> Json.arr("de-DE", "en-GB")).mergeIn(createTableJsonWithHiddenFlag)
+
+    for {
+      test1 <- sendRequest("POST", "/tables", createTableJsonWithHiddenFlag)
+      test2 <- sendRequest("POST", "/tables", createTableJsonWithHiddenFlag)
+    } yield {
+      assertEquals(expectedJson, test1)
+      assertEquals(expectedJson2, test2)
+    }
+  }
+
+  @Test
+  def createTableWithLangtags(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "hidden" -> false).mergeIn(createTableJsonWithLangtags)
+    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "hidden" -> false).mergeIn(createTableJsonWithLangtags)
+
+    for {
+      test1Post <- sendRequest("POST", "/tables", createTableJsonWithLangtags)
+      test2Post <- sendRequest("POST", "/tables", createTableJsonWithLangtags)
+
+      test1Get <- sendRequest("GET", "/tables/1")
+      test2Get <- sendRequest("GET", "/tables/2")
+    } yield {
+      assertEquals(expectedJson, test1Post)
+      assertEquals(expectedJson2, test2Post)
+
+      assertEquals(test1Get, test1Post)
+      assertEquals(test2Get, test2Post)
     }
   }
 }

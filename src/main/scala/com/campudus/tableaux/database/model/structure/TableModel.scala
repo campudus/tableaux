@@ -1,24 +1,32 @@
 package com.campudus.tableaux.database.model.structure
 
+import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database.domain.Table
+import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def create(name: String, hidden: Boolean): Future[Table] = {
+  val systemModel = SystemModel(connection)
+
+  def create(name: String, hidden: Boolean, langtags: Option[Option[Seq[String]]]): Future[Table] = {
     connection.transactional { t =>
       for {
-        (t, result) <- t.query("INSERT INTO system_table (user_table_name, is_hidden) VALUES (?, ?) RETURNING table_id", Json.arr(name, hidden))
-        id <- Future(insertNotNull(result).head.get[TableId](0))
+        defaultLangtags <- retrieveGlobalLangtags()
+
+        (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags) VALUES (?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull))
+        id = insertNotNull(result).head.get[TableId](0)
+
         (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
-      } yield (t, Table(id, name, hidden))
+      } yield (t, Table(id, name, hidden, Option(langtags.flatten.getOrElse(defaultLangtags))))
     }
   }
 
@@ -40,23 +48,40 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield t
   }
 
+  private def retrieveGlobalLangtags(): Future[Seq[String]] = {
+    // TODO don't really like dependend models
+    systemModel.retrieveSetting(SystemController.SETTING_LANGTAGS)
+      .map(f => Option(f).map(f => Json.fromArrayString(f).asScala.map(_.toString).toSeq).getOrElse(Seq.empty))
+  }
+
   def retrieveAll(): Future[Seq[Table]] = {
     for {
-      result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table ORDER BY ordering, table_id")
+      defaultLangtags <- retrieveGlobalLangtags()
+
+      result <- connection.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags) FROM system_table ORDER BY ordering, table_id")
     } yield {
-      resultObjectToJsonArray(result).map { row =>
-        Table(row.get[TableId](0), row.getString(1), row.getBoolean(2))
-      }
+      resultObjectToJsonArray(result).map(convertRowToTable(_, defaultLangtags))
     }
   }
 
   def retrieve(tableId: TableId): Future[Table] = {
     for {
-      result <- connection.query("SELECT table_id, user_table_name, is_hidden FROM system_table WHERE table_id = ?", Json.arr(tableId))
+      defaultLangtags <- retrieveGlobalLangtags()
+
+      result <- connection.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags) FROM system_table WHERE table_id = ?", Json.arr(tableId))
+      row = selectNotNull(result).head
     } yield {
-      val json = selectNotNull(result).head
-      Table(json.getLong(0), json.getString(1), json.getBoolean(2))
+      convertRowToTable(row, defaultLangtags)
     }
+  }
+
+  private def convertRowToTable(row: JsonArray, defaultLangtags: Seq[String]): Table = {
+    Table(
+      row.getLong(0),
+      row.getString(1),
+      row.getBoolean(2),
+      Option(Option(row.getString(3)).map(s => convertJsonArrayToSeq(Json.fromArrayString(s), { case f: String => f })).getOrElse(defaultLangtags))
+    )
   }
 
   def delete(tableId: TableId): Future[Unit] = {
@@ -76,14 +101,15 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def change(tableId: TableId, tableName: Option[String], hidden: Option[Boolean]): Future[Unit] = {
+  def change(tableId: TableId, tableName: Option[String], hidden: Option[Boolean], langtags: Option[Option[Seq[String]]]): Future[Unit] = {
     for {
       t <- connection.begin()
 
       (t, result1) <- optionToValidFuture(tableName, t, { name: String => t.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId)) })
       (t, result2) <- optionToValidFuture(hidden, t, { hidden: Boolean => t.query(s"UPDATE system_table SET is_hidden = ? WHERE table_id = ?", Json.arr(hidden, tableId)) })
+      (t, result3) <- optionToValidFuture(langtags, t, { langtags: Option[Seq[String]] => t.query(s"UPDATE system_table SET langtags = ? WHERE table_id = ?", Json.arr(langtags.map(f => Json.arr(f: _*)).orNull, tableId)) })
 
-      _ <- Future(checkUpdateResults(result1, result2)) recoverWith t.rollbackAndFail()
+      _ <- Future(checkUpdateResults(result1, result2, result3)) recoverWith t.rollbackAndFail()
 
       _ <- t.commit()
     } yield ()

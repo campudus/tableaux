@@ -125,7 +125,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     setupVersion(readSchemaFile("schema_v5"), 5),
     setupVersion(readSchemaFile("schema_v6"), 6),
     setupVersion(readSchemaFile("schema_v7"), 7),
-    setupVersion(readSchemaFile("schema_v8"), 8)
+    setupVersion(readSchemaFile("schema_v8"), 8),
+    setupVersion(readSchemaFile("schema_v9"), 9)
   )
 
   private def readSchemaFile(name: String): String = {
@@ -149,5 +150,10 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
        """.stripMargin, Json.arr(versionId, versionId)) map {
       case (t, _) => t
     }
+  }
+
+  def retrieveSetting(key: String): Future[String] = {
+    connection.query("SELECT value FROM system_settings WHERE key = ?", Json.arr(key))
+      .map(json => selectNotNull(json).head.getString(0))
   }
 }
