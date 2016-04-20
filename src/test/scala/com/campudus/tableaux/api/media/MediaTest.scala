@@ -496,6 +496,10 @@ class FolderTest extends MediaTestBase {
     }
   }
 
+  @Test
+  def testRetrieveFolderWithoutLangtag(implicit c: TestContext): Unit = exceptionTest("error.param.notfound") {
+    sendRequest("GET", s"/folders/1")
+  }
 
   @Test
   def testCreateAndRetrieveFolderWithParents(implicit c: TestContext): Unit = okTest {
