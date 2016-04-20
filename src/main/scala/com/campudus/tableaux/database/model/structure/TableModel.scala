@@ -18,14 +18,14 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   def create(name: String, hidden: Boolean, langtags: Option[Option[Seq[String]]]): Future[Table] = {
     connection.transactional { t =>
       for {
-        defaultLangtags <- retrieveGlobalLangtags()
-
         (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags) VALUES (?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull))
         id = insertNotNull(result).head.get[TableId](0)
 
         (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
+
+        defaultLangtags <- retrieveGlobalLangtags()
       } yield (t, Table(id, name, hidden, Option(langtags.flatten.getOrElse(defaultLangtags))))
     }
   }
@@ -56,9 +56,9 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieveAll(): Future[Seq[Table]] = {
     for {
-      defaultLangtags <- retrieveGlobalLangtags()
-
       result <- connection.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags) FROM system_table ORDER BY ordering, table_id")
+
+      defaultLangtags <- retrieveGlobalLangtags()
     } yield {
       resultObjectToJsonArray(result).map(convertRowToTable(_, defaultLangtags))
     }
@@ -66,10 +66,10 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieve(tableId: TableId): Future[Table] = {
     for {
-      defaultLangtags <- retrieveGlobalLangtags()
-
       result <- connection.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags) FROM system_table WHERE table_id = ?", Json.arr(tableId))
       row = selectNotNull(result).head
+
+      defaultLangtags <- retrieveGlobalLangtags()
     } yield {
       convertRowToTable(row, defaultLangtags)
     }
