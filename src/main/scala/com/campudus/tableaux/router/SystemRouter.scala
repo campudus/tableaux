@@ -3,7 +3,7 @@ package com.campudus.tableaux.router
 import java.util.UUID
 
 import com.campudus.tableaux.controller.SystemController
-import com.campudus.tableaux.{InvalidNonceException, NoNonceException, TableauxConfig}
+import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing.{Get, Post}
 
@@ -76,7 +76,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         case SystemController.SETTING_LANGTAGS =>
           controller.retrieveLangtags()
         case _ =>
-          Future.failed(new IllegalArgumentException(s"No system setting for key $key"))
+          Future.failed(InvalidRequestException(s"No system setting for key $key"))
       }
     }
   }

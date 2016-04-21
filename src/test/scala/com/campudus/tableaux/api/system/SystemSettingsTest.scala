@@ -26,4 +26,9 @@ class SystemSettingsTest extends TableauxTestBase {
       assertEquals(Json.arr("en-GB"), langtagsAfterUpdate.getJsonArray("value", Json.emptyArr()))
     }
   }
+
+  @Test
+  def testRetrievingInvalidSetting(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
+    sendRequest("GET", "/system/settings/invalid")
+  }
 }
