@@ -1,6 +1,8 @@
 package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.InvalidJsonException
+import com.campudus.tableaux.cache.CacheClient
+import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RowModel, UpdateRowModel}
@@ -60,6 +62,10 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     val checked = column.checkValidValue(value)
     checked.map(err => Future.failed(InvalidJsonException("malformed value provided", err))).getOrElse(Future.successful(()))
   }
+
+  def retrieveDependencies(tableId: TableId): Future[Seq[(TableId, ColumnId)]] = {
+    structureModel.columnStruc.retrieveDependencies(tableId)
+  }
 }
 
 class TableauxModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery with StructureDelegateModel {
@@ -106,6 +112,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
       _ <- updateRowModel.updateRow(column.table, rowId, Seq((column, value)))
 
+      _ <- invalidateCellAndDependentColumns(table, columnId, rowId)
+
       updatedCell <- retrieveCell(column, rowId)
     } yield updatedCell
   }
@@ -118,6 +126,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       _ <- updateRowModel.clearRow(table, rowId, Seq(column))
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
 
+      _ <- invalidateCellAndDependentColumns(table, columnId, rowId)
+
       replacedCell <- retrieveCell(column, rowId)
     } yield replacedCell
   }
@@ -128,8 +138,35 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
       _ <- updateRowModel.clearRow(table, rowId, Seq(column))
 
+      _ <- invalidateCellAndDependentColumns(table, columnId, rowId)
+
       replacedCell <- retrieveCell(column, rowId)
     } yield replacedCell
+  }
+
+  val CACHING = true
+
+  private def invalidateCellAndDependentColumns(table: Table, columnId: ColumnId, rowId: RowId): Future[Unit] = {
+    implicit val eventBus = this.connection.vertx.eventBus()
+
+    if (!CACHING) {
+      return Future.successful(())
+    }
+
+    for {
+      _ <- CacheClient(this.connection.vertx).invalidateCellValue(table.id, columnId, rowId)
+      _ <- CacheClient(this.connection.vertx).invalidateCellValue(table.id, 0, rowId)
+
+      dependentColumns <- retrieveDependencies(table.id)
+      _ = logger.info(dependentColumns.toList.toString())
+
+      _ <- Future.sequence(dependentColumns.map({
+        case (tableId, columnId) =>
+          CacheClient(this.connection.vertx).invalidateColumn(tableId, columnId)
+            .zip(CacheClient(this.connection.vertx).invalidateColumn(tableId, 0))
+      }))
+
+    } yield ()
   }
 
   def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
@@ -150,12 +187,34 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
 
     for {
-      rawRow <- rowModel.retrieve(column.table.id, rowId, columns)
-      rowSeq <- mapRawRows(column.table, columns, Seq(rawRow))
+      valueCache <- CACHING match {
+        case true => CacheClient(this.connection.vertx).retrieveCellValue(column.table.id, column.id, rowId)
+          .map(_.map(_.getJsonObject("value").getValue("cell")))
+        case false => Future.successful(None)
+      }
 
-      // Because we only want a cell's value other
-      // potential rows and columns can be ignored.
-      value = rowSeq.head.values.head
+      value <- valueCache match {
+        case Some(obj) =>
+          //logger.info(s"Cache hit")
+          Future.successful(obj)
+        case None => {
+          //logger.info("Cache miss")
+          for {
+            rawRow <- rowModel.retrieve(column.table.id, rowId, columns)
+
+            rowSeq <- mapRawRows(column.table, columns, Seq(rawRow))
+
+            // Because we only want a cell's value other
+            // potential rows and columns can be ignored.
+            value = rowSeq.head.values.head
+
+            _ <- CACHING match {
+              case true => CacheClient(this.connection.vertx).setCellValue(column.table.id, column.id, rowId, Json.obj("cell" -> value))
+              case false => Future.successful(())
+            }
+          } yield value
+        }
+      }
     } yield Cell(column, rowId, value)
   }
 
