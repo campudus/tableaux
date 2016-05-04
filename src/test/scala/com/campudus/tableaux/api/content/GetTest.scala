@@ -248,6 +248,25 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
+  def retrieveRowsOfConcatColumn(implicit c: TestContext): Unit = okTest {
+    val expectedJsonAfterOrdering = Json.arr(
+      Json.obj("id" -> 1, "values" -> Json.arr(Json.arr(1, "table1row1"))),
+      Json.obj("id" -> 2, "values" -> Json.arr(Json.arr(2, "table1row2")))
+    )
+
+    for {
+      _ <- createDefaultTable()
+      _ <- sendRequest("GET", "/tables/1/columns/first/rows")
+
+      _ <- sendRequest("POST", "/tables/1/columns/2", Json.obj("ordering" -> 0, "identifier" -> true))
+
+      testAfterOrdering <- sendRequest("GET", "/tables/1/columns/0/rows")
+    } yield {
+      assertEquals(expectedJsonAfterOrdering, testAfterOrdering.getJsonArray("rows"))
+    }
+  }
+
+  @Test
   def retrieveRowsOfFirstColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.arr(
       Json.obj("id" -> 1, "values" -> Json.arr("table1row1")),
