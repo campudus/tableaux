@@ -1,7 +1,8 @@
 package com.campudus.tableaux.cache
 
+import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
-import io.vertx.core.eventbus.{EventBus, Message}
+import io.vertx.core.eventbus._
 import io.vertx.core.{AsyncResult, Handler, Vertx}
 import io.vertx.scala.VertxExecutionContext
 import org.vertx.scala.core.json._
@@ -20,6 +21,8 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
 
   type AsyncMessage[A] = Handler[AsyncResult[Message[A]]]
 
+  private val eventBus = _vertx.eventBus()
+
   private def key(tableId: TableId, columnId: ColumnId, rowId: RowId) = {
     Json.obj(
       "tableId" -> tableId,
@@ -28,37 +31,61 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
     )
   }
 
-  def setCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId, value: JsonObject)(implicit eventBus: EventBus): Future[Unit] = {
-    val obj = key(tableId, columnId, rowId).copy().mergeIn(Json.obj("value" -> value))
+  def setCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId, value: Any): Future[Unit] = {
+    val encodedValue = value match {
+      case v: Seq[_] => v.map({
+        case e: DomainObject => e.getJson
+        case e => e
+      })
+      case v: DomainObject => v.getJson
+      case _ => value
+    }
 
-    //(eventBus.send(CacheVerticle.ADDRESS_SET, obj, _: AsyncMessage[JsonObject]))
+    val obj = key(tableId, columnId, rowId).copy().mergeIn(Json.obj("value" -> encodedValue))
+
+    val options = new DeliveryOptions()
+      .setSendTimeout(200)
+
+    eventBus.send(CacheVerticle.ADDRESS_SET, obj, options)
+
+    //(eventBus.send(CacheVerticle.ADDRESS_SET, obj, options, _: AsyncMessage[JsonObject]))
     //  .map(_ => ())
-
-    eventBus.send(CacheVerticle.ADDRESS_SET, obj)
 
     Future.successful(())
   }
 
-  def retrieveCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId)(implicit eventbus: EventBus): Future[Option[JsonObject]] = {
+  def retrieveCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Option[Any]] = {
     val obj = key(tableId, columnId, rowId)
 
-    (eventbus.send(CacheVerticle.ADDRESS_RETRIEVE, obj, _: AsyncMessage[JsonObject]))
+    val options = new DeliveryOptions()
+      .setSendTimeout(200)
+
+    (eventBus.send(CacheVerticle.ADDRESS_RETRIEVE, obj, options, _: AsyncMessage[JsonObject]))
       .map({
-        v => Some(v.body())
+        case v if v.body().containsKey("value") =>
+          Some(v.body().getValue("value"))
+        case _ =>
+          None
       })
       .recoverWith({
-        case _ => Future.successful(None)
+        case ex: ReplyException if ex.failureCode() == CacheVerticle.NOT_FOUND_FAILURE =>
+          Future.successful(None)
+        case ex =>
+          Future.failed(ex)
       })
   }
 
-  def invalidateCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId)(implicit eventBus: EventBus): Future[Unit] = {
+  def invalidateCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Unit] = {
     val obj = key(tableId, columnId, rowId)
 
-    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE, obj, _: AsyncMessage[JsonObject]))
+    val options = new DeliveryOptions()
+      .setSendTimeout(200)
+
+    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE, obj, options, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 
-  def invalidateColumn(tableId: TableId, columnId: ColumnId)(implicit eventBus: EventBus): Future[Unit] = {
+  def invalidateColumn(tableId: TableId, columnId: ColumnId): Future[Unit] = {
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId)
 
     (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE, obj, _: AsyncMessage[JsonObject]))

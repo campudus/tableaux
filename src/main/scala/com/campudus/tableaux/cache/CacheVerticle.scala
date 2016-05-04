@@ -16,6 +16,9 @@ import scalacache.guava._
 import scalacache.serialization.InMemoryRepr
 
 object CacheVerticle {
+  val NOT_FOUND_FAILURE = 404
+  val INVALID_MESSAGE = 400
+
   val ADDRESS_SET = "cache.set"
   val ADDRESS_RETRIEVE = "cache.retrieve"
   val ADDRESS_INVALIDATE = "cache.invalidate"
@@ -86,21 +89,17 @@ class CacheVerticle extends ScalaVerticle {
                 "rowId" -> rowId
               )
 
-              //logger.info(s"messageHandlerSet $tableId, $columnId, $rowId $value")
-
               message.reply(reply)
           })
 
       case None =>
-        logger.error("tableId, columnId, rowId should be a Long")
-        message.fail(400, "tableId, columnId, rowId should be a Long")
+        logger.error("Message invalid: Fields (tableId, columnId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId, rowId) should be a Long")
     }
   }
 
   private def messageHandlerRetrieve(message: Message[JsonObject]): Unit = {
     val obj = message.body()
-
-    val value = obj.getValue("value")
 
     (for {
       tableId <- Option(obj.getLong("tableId")).map(_.toLong)
@@ -111,7 +110,7 @@ class CacheVerticle extends ScalaVerticle {
 
         implicit val scalaCache = cache(tableId, columnId)
 
-        get[JsonObject, NoSerialization](rowId)
+        get[AnyRef, NoSerialization](rowId)
           .map({
             case Some(value) =>
               val reply = Json.obj(
@@ -121,18 +120,17 @@ class CacheVerticle extends ScalaVerticle {
                 "value" -> value
               )
 
-              //logger.info(s"messageHandlerRetrieve $tableId, $columnId, $rowId $value")
-
               message.reply(reply)
             case None =>
 
               logger.warn(s"messageHandlerRetrieve $tableId, $columnId, $rowId not found")
 
-              message.fail(404, "Not found")
+              message.fail(NOT_FOUND_FAILURE, "Not found")
           })
 
       case None =>
-        logger.error("tableId, columnId, rowId should be a Long")
+        logger.error("Message invalid: Fields (tableId, columnId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId, rowId) should be a Long")
     }
   }
 
@@ -156,8 +154,6 @@ class CacheVerticle extends ScalaVerticle {
                 "rowId" -> rowId
               )
 
-              //logger.info(s"messageHandlerInvalidate $tableId, $columnId, $rowId")
-
               message.reply(reply)
           })
 
@@ -173,14 +169,12 @@ class CacheVerticle extends ScalaVerticle {
                 "columnId" -> columnId
               )
 
-              //logger.info(s"messageHandlerInvalidate $tableId, $columnId")
-
               message.reply(reply)
           })
 
       case None =>
-        logger.error("tableId, columnId should be a Long")
-        message.fail(400, "tableId, columnId should be a Long")
+        logger.error("Message invalid: Fields (tableId, columnId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId) should be a Long")
     }
   }
 }
