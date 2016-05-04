@@ -2,9 +2,10 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.{StructureModel, SystemModel}
+import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json.JsonObject
 
@@ -98,6 +99,10 @@ class StructureController(override val config: TableauxConfig, override protecte
       }
 
       _ <- tableStruc.delete(tableId)
+
+      _ <- Future.sequence(columns.map({
+        column => CacheClient(this.vertx).invalidateColumn(tableId, column.id)
+      }))
     } yield EmptyObject()
   }
 
@@ -108,6 +113,8 @@ class StructureController(override val config: TableauxConfig, override protecte
     for {
       table <- tableStruc.retrieve(tableId)
       _ <- columnStruc.delete(table, columnId)
+
+      _ <- CacheClient(this.vertx).invalidateColumn(tableId, columnId)
     } yield EmptyObject()
   }
 
@@ -152,6 +159,8 @@ class StructureController(override val config: TableauxConfig, override protecte
     for {
       table <- tableStruc.retrieve(tableId)
       changed <- columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayName, description)
+
+      _ <- CacheClient(this.vertx).invalidateColumn(tableId, columnId)
     } yield changed
   }
 }
