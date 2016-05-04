@@ -1,10 +1,11 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.RouterRegistry
 import io.vertx.core.http.{HttpServer, HttpServerRequest}
-import io.vertx.core.{AsyncResult, Handler}
+import io.vertx.core.{AsyncResult, DeploymentOptions, Handler}
 import io.vertx.ext.web.Router
 import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
@@ -40,6 +41,11 @@ class Starter extends ScalaVerticle {
         p.failure(new Exception("Provide a database config please!"))
       }
 
+      val cacheConfig = config.getJsonObject("cache", Json.obj())
+      if (cacheConfig.isEmpty) {
+        logger.warn("Cache config is empty use default settings!")
+      }
+
       val host = getStringDefault(config, "host", Starter.DEFAULT_HOST)
       val port = getIntDefault(config, "port", Starter.DEFAULT_PORT)
       val workingDirectory = getStringDefault(config, "workingDirectory", Starter.DEFAULT_WORKING_DIRECTORY)
@@ -57,6 +63,7 @@ class Starter extends ScalaVerticle {
       val initialize = for {
         _ <- createUploadsDirectories(tableauxConfig)
         server <- deployHttpServer(port, host, tableauxConfig, connection)
+        _ <- deployCacheVerticle(cacheConfig)
       } yield {
         this.server = server
         p.success(())
@@ -100,6 +107,28 @@ class Starter extends ScalaVerticle {
         case Failure(x) => p.failure(x)
       }: Try[HttpServer] => Unit)
     }
+  }
+
+  private def deployCacheVerticle(config: JsonObject): Future[String] = {
+    val promise = Promise[String]()
+
+    val options = new DeploymentOptions()
+      .setConfig(config)
+
+    val completionHandler = {
+      case Success(id) =>
+        logger.info(s"CacheVerticle deployed with ID $id")
+        promise.success(id)
+
+      case Failure(e) =>
+        logger.error("CacheVerticle couldn't be deployed.", e)
+        promise.failure(e)
+
+    }: Try[String] => Unit
+
+    vertx.deployVerticle(new CacheVerticle, options, completionHandler)
+
+    promise.future
   }
 
   private def getStringDefault(config: JsonObject, field: String, default: String): String = {

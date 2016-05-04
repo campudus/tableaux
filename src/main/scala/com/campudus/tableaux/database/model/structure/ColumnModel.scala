@@ -180,6 +180,41 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield (t, result.copy(displayInfos = displayInfos))
   }
 
+  def retrieveDependencies(tableId: TableId, depth: Int = MAX_DEPTH): Future[Seq[(TableId, ColumnId)]] = {
+    val select =
+      s"""SELECT table_id, column_id, identifier
+          | FROM system_link_table l JOIN system_columns d ON (l.link_id = d.link_id)
+          | WHERE (l.table_id_1 = ? OR l.table_id_2 = ?) AND d.table_id != ? ORDER BY ordering, column_id""".stripMargin
+
+    for {
+      dependentColumns <- connection.query(select, Json.arr(tableId, tableId, tableId))
+      mappedColumns <- {
+        val futures = resultObjectToJsonArray(dependentColumns)
+          .map({
+            arr =>
+              val tableId = arr.get[TableId](0)
+              val columnId = arr.get[ColumnId](1)
+              val identifier = arr.get[Boolean](2)
+
+              identifier match {
+                case false =>
+                  Future.successful(Seq((tableId, columnId)))
+                case true =>
+                  if (depth > 0) {
+                    retrieveDependencies(tableId, depth - 1)
+                      .map(_ ++ Seq((tableId, columnId)))
+                  } else {
+                    Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
+                  }
+              }
+          })
+
+        Future.sequence(futures)
+          .map(_.flatten)
+      }
+    } yield mappedColumns
+  }
+
   def retrieve(table: Table, columnId: ColumnId): Future[ColumnType[_]] = {
     columnId match {
       case 0 =>

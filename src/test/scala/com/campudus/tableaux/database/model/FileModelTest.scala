@@ -17,21 +17,27 @@ class FileModelTest extends TableauxTestBase {
     val sqlConnection = SQLConnection(verticle, databaseConfig)
     val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
-    new FileModel(dbConnection)
+    FileModel(dbConnection)
   }
 
   private def createFolderModel(): FolderModel = {
     val sqlConnection = SQLConnection(verticle, databaseConfig)
     val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
-    new FolderModel(dbConnection)
+    FolderModel(dbConnection)
+  }
+
+  private def createAttachmentModel(): AttachmentModel = {
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+
+    AttachmentModel(dbConnection)
   }
 
   private def createMediaController(): MediaController = {
     val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
-    new MediaController(tableauxConfig, createFolderModel(), createFileModel())
+    MediaController(tableauxConfig, createFolderModel(), createFileModel(), createAttachmentModel())
   }
 
   @Test

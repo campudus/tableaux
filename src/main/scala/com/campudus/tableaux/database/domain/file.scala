@@ -39,6 +39,16 @@ case class TableauxFile(uuid: UUID,
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )
+
+  /**
+    * @return None if multi-language and Some('de-DE') if single-language
+    */
+  def isSingleLanguage(): Option[String] = {
+    internalName.size == 1 match {
+      case true => Some(internalName.values.head._1)
+      case false => None
+    }
+  }
 }
 
 case class TemporaryFile(file: TableauxFile) extends DomainObject {

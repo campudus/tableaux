@@ -17,14 +17,14 @@ case class AttachmentFile(file: ExtendedFile, ordering: Ordering) extends Domain
 }
 
 object AttachmentModel {
-  def apply(connection: DatabaseConnection) = {
-    new AttachmentModel(connection)
+  def apply(connection: DatabaseConnection): AttachmentModel = apply(connection, FileModel(connection))
+
+  def apply(connection: DatabaseConnection, fileModel: FileModel): AttachmentModel = {
+    new AttachmentModel(connection, fileModel)
   }
 }
 
-class AttachmentModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
-  val fileModel: FileModel = FileModel(connection)
-
+class AttachmentModel(protected[this] val connection: DatabaseConnection, protected[this] val fileModel: FileModel) extends DatabaseQuery {
   val table = "system_attachment"
 
   def replace(tableId: TableId, columnId: ColumnId, rowId: RowId, attachments: Seq[Attachment]): Future[Unit] = {
@@ -131,5 +131,14 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection) extend
 
   def retrieveFile(file: UUID, ordering: Ordering): Future[AttachmentFile] = {
     fileModel.retrieve(file).map(ExtendedFile).map(f => AttachmentFile(f, ordering))
+  }
+
+  def retrieveCells(file: UUID): Future[Seq[(TableId, ColumnId, RowId)]] = {
+    val select = s"SELECT table_id, column_id, row_id FROM $table WHERE attachment_uuid = ?"
+
+    for {
+      result <- connection.query(select, Json.arr(file.toString))
+      cells = resultObjectToJsonArray(result).map(e => (e.get[TableId](0), e.get[ColumnId](1), e.get[RowId](2)))
+    } yield cells
   }
 }

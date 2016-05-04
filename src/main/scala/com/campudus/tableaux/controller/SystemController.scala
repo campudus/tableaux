@@ -2,7 +2,9 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.JsonUtils
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -145,5 +147,15 @@ class SystemController(override val config: TableauxConfig,
   def retrieveLangtags(): Future[DomainObject] = {
     repository.retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(value => PlainDomainObject(Json.obj("value" -> Option(value).map(f => Json.fromArrayString(f)).orNull)))
+  }
+
+  def invalidateCache(): Future[DomainObject] = {
+    CacheClient(this.vertx).invalidateAll()
+      .map(_ => EmptyObject())
+  }
+
+  def invalidateCache(tableId: TableId, columnId: ColumnId): Future[DomainObject] = {
+    CacheClient(this.vertx).invalidateColumn(tableId, columnId)
+      .map(_ => EmptyObject())
   }
 }
