@@ -91,4 +91,9 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
     (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE, obj, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
+
+  def invalidateAll(): Future[Unit] = {
+    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_ALL, Json.emptyObj(), _: AsyncMessage[JsonObject]))
+      .map(_ => ())
+  }
 }

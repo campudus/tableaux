@@ -9,7 +9,7 @@ import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.mutable
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import scala.language.implicitConversions
 import scalacache._
 import scalacache.guava._
@@ -22,6 +22,7 @@ object CacheVerticle {
   val ADDRESS_SET = "cache.set"
   val ADDRESS_RETRIEVE = "cache.retrieve"
   val ADDRESS_INVALIDATE = "cache.invalidate"
+  val ADDRESS_INVALIDATE_ALL = "cache.invalidate_all"
 }
 
 class CacheVerticle extends ScalaVerticle {
@@ -48,6 +49,7 @@ class CacheVerticle extends ScalaVerticle {
     eventBus.localConsumer(ADDRESS_SET, messageHandlerSet(_: Message[JsonObject]))
     eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve(_: Message[JsonObject]))
     eventBus.localConsumer(ADDRESS_INVALIDATE, messageHandlerInvalidate(_: Message[JsonObject]))
+    eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll(_: Message[JsonObject]))
   }
 
   private def getCache(tableId: TableId, columnId: ColumnId): ScalaCache[InMemoryRepr] = {
@@ -180,5 +182,21 @@ class CacheVerticle extends ScalaVerticle {
         logger.error("Message invalid: Fields (tableId, columnId) should be a Long")
         message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId) should be a Long")
     }
+  }
+
+  private def messageHandlerInvalidateAll(message: Message[JsonObject]): Unit = {
+    Future.sequence(caches.map({
+      case ((tableId, columnId), cache) =>
+        removeAll()(cache)
+          .map({
+            _ =>
+              removeCache(tableId, columnId)
+          })
+    })).onComplete({
+      case _ =>
+        caches.clear()
+
+        message.reply(Json.emptyObj())
+    })
   }
 }

@@ -27,6 +27,7 @@ object SystemRouter {
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
+  private val CacheColumnInvalidate: Regex = "/system/cache/invalidate/tables/(\\d+)/columns/(\\d+)".r
   private val Settings: Regex = "/system/settings/(\\w+)".r
 
   override def routes(implicit context: RoutingContext): Routing = {
@@ -66,6 +67,20 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         _ <- Future(checkNonce)
         result <- controller.updateDB()
       } yield result
+    }
+
+    /**
+      * Invalidate all caches
+      */
+    case Post("/system/cache/invalidate") => asyncGetReply {
+      controller.invalidateCache()
+    }
+
+    /**
+      * Invalidate column cache
+      */
+    case Post(CacheColumnInvalidate(tableId, columnId)) => asyncGetReply {
+      controller.invalidateCache(tableId.toLong, tableId.toLong)
     }
 
     /**

@@ -149,4 +149,26 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         })
     } yield ()
   }
+
+  @Test
+  def testInvalidateWholeCache(implicit context: TestContext): Unit = okTest {
+    for {
+      _ <- vertx.eventBus().send(CacheVerticle.ADDRESS_SET, Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> Json.obj("test" -> "hallo")), _: Handler[AsyncResult[Message[JsonObject]]])
+      _ <- vertx.eventBus().send(CacheVerticle.ADDRESS_SET, Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 2, "value" -> Json.obj("test" -> "hallo")), _: Handler[AsyncResult[Message[JsonObject]]])
+
+      _ <- vertx.eventBus().send(CacheVerticle.ADDRESS_INVALIDATE_ALL, Json.emptyObj(), _: Handler[AsyncResult[Message[JsonObject]]])
+
+      _ <- (vertx.eventBus().send(CacheVerticle.ADDRESS_RETRIEVE, Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1), _: Handler[AsyncResult[Message[JsonObject]]]))
+        .flatMap({
+          json =>
+            fail("Shouldn't reply anything")
+            Future.failed(new Exception("Shouldn't reply anything"))
+        })
+        .recoverWith({
+          case ex =>
+            logger.info("Retrieving cache entry failed", ex)
+            Future.successful(())
+        })
+    } yield ()
+  }
 }
