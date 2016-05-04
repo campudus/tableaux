@@ -2,9 +2,10 @@ package com.campudus.tableaux.controller
 
 import java.util.UUID
 
+import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.FolderModel.FolderId
-import com.campudus.tableaux.database.model.{FileModel, FolderModel}
+import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
 import io.vertx.scala.FunctionConverters._
@@ -22,14 +23,15 @@ object MediaController {
     */
   val ROOT_FOLDER = Folder(0, "root", "", Seq.empty[FolderId], None, None)
 
-  def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel): MediaController = {
-    new MediaController(config, folderModel, fileModel)
+  def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel, attachmentModel: AttachmentModel): MediaController = {
+    new MediaController(config, folderModel, fileModel, attachmentModel)
   }
 }
 
 class MediaController(override val config: TableauxConfig,
                       override protected val repository: FolderModel,
-                      protected val fileModel: FileModel) extends Controller[FolderModel] {
+                      protected val fileModel: FileModel,
+                      protected val attachmentModel: AttachmentModel) extends Controller[FolderModel] {
 
   import MediaController.ROOT_FOLDER
 
@@ -65,26 +67,17 @@ class MediaController(override val config: TableauxConfig,
     for {
       folder <- repository.retrieve(id)
 
-      // delete files & subfolders
-      _ <- deleteFilesOfFolder(folder).zip(deleteSubfolders(folder))
+      // delete files
+      files <- fileModel.retrieveFromFolder(folder)
+      _ <- Future.sequence(files.map(f => deleteFile(f.uuid)))
+
+      // delete subfolders
+      folders <- repository.retrieveSubfolders(folder)
+      _ <- Future.sequence(folders.map(f => deleteFolder(f.id)))
 
       // delete the folder finally
       _ <- repository.delete(folder)
     } yield folder
-  }
-
-  private def deleteSubfolders(folder: Folder): Future[Unit] = {
-    for {
-      folders <- repository.retrieveSubfolders(folder)
-      _ <- Future.sequence(folders.map(f => deleteFolder(f.id)))
-    } yield ()
-  }
-
-  private def deleteFilesOfFolder(folder: Folder): Future[Unit] = {
-    for {
-      files <- fileModel.retrieveFromFolder(folder)
-      _ <- Future.sequence(files.map(f => deleteFile(f.uuid)))
-    } yield ()
   }
 
   def addFile(title: MultiLanguageValue[String],
@@ -209,11 +202,20 @@ class MediaController(override val config: TableauxConfig,
 
   def deleteFile(uuid: UUID): Future[TableauxFile] = {
     for {
+    // retrieve cells with this file for cache invalidation
+      cellsForFiles <- attachmentModel.retrieveCells(uuid)
+
       (file, paths) <- retrieveFile(uuid, withTmp = true)
       _ <- fileModel.deleteById(uuid)
+
       _ <- Future.sequence(paths.toSeq.map({
         case (_, path) =>
           deleteFile(path)
+      }))
+
+      // invalidate cache for cells with this file
+      _ <- Future.sequence(cellsForFiles.map({
+        case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
       }))
     } yield {
       // return only File not
@@ -225,6 +227,9 @@ class MediaController(override val config: TableauxConfig,
 
   def deleteFile(uuid: UUID, langtag: String): Future[TableauxFile] = {
     for {
+    // retrieve cells with this file for cache invalidation
+      cellsForFiles <- attachmentModel.retrieveCells(uuid)
+
       (file, paths) <- retrieveFile(uuid, withTmp = true)
       _ <- fileModel.deleteByIdAndLangtag(uuid, langtag)
 
@@ -235,6 +240,11 @@ class MediaController(override val config: TableauxConfig,
       } else {
         Future(())
       }
+
+      // invalidate cache for cells with this file
+      _ <- Future.sequence(cellsForFiles.map({
+        case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+      }))
 
       (file, _) <- retrieveFile(uuid, withTmp = true)
     } yield {
@@ -273,6 +283,10 @@ class MediaController(override val config: TableauxConfig,
 
   def mergeFile(uuid: UUID, langtag: String, mergeWith: UUID): Future[ExtendedFile] = {
     for {
+    // retrieve cells with this file for cache invalidation
+      cellsForFile1 <- attachmentModel.retrieveCells(uuid)
+      cellsForFile2 <- attachmentModel.retrieveCells(uuid)
+
       toMerge <- fileModel.retrieve(mergeWith)
       file <- fileModel.retrieve(uuid)
 
@@ -280,7 +294,7 @@ class MediaController(override val config: TableauxConfig,
       _ <- fileModel.deleteById(mergeWith)
 
       mergedFile <- {
-        val mergeLangtag = isSingleLanguage(toMerge) match {
+        val mergeLangtag = toMerge.isSingleLanguage() match {
           case Some(l) => l
           case None => throw new IllegalArgumentException("Can't merge a multi language file.")
         }
@@ -303,13 +317,12 @@ class MediaController(override val config: TableauxConfig,
           mimeType = file.mimeType.add(langtag, mimeType.getOrElse(""))
         )
       }
-    } yield ExtendedFile(mergedFile)
-  }
 
-  private def isSingleLanguage(file: TableauxFile): Option[String] = {
-    file.internalName.size == 1 match {
-      case true => Some(file.internalName.values.head._1)
-      case false => None
-    }
+      // invalidate cache for cells with this file
+      cellsForFiles = cellsForFile1 ++ cellsForFile2
+      _ <- Future.sequence(cellsForFiles.map({
+        case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+      }))
+    } yield ExtendedFile(mergedFile)
   }
 }
