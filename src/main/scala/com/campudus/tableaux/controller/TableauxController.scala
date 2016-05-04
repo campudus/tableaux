@@ -4,6 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
@@ -128,6 +129,7 @@ class TableauxController(override val config: TableauxConfig, override protected
     //TODO introduce a Cell identifier with tableId, columnId and rowId
     for {
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
+      _ <- CacheClient(vertx).invalidateCellValue(tableId, columnId, rowId)
     } yield EmptyObject()
   }
 
