@@ -267,8 +267,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
           Seq(column)
       }
 
-      rows <- retrieveRows(table, columns, pagination)
-    } yield rows
+      rowsSeq <- retrieveRows(table, columns, pagination)
+    } yield {
+      rowsSeq.copy(rows = rowsSeq.rows.map({
+        row =>
+          row.copy(values = row.values.take(1))
+      }))
+    }
   }
 
   private def retrieveRows(table: Table, columns: Seq[ColumnType[_]], pagination: Pagination): Future[RowSeq] = {

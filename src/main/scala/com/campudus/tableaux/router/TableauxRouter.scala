@@ -26,6 +26,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val RowDuplicate: Regex = "/tables/(\\d+)/rows/(\\d+)/duplicate".r
   private val Rows: Regex = "/tables/(\\d+)/rows".r
   private val RowsOfColumn: Regex = "/tables/(\\d+)/columns/(\\d+)/rows".r
+  private val RowsOfFirstColumn: Regex = "/tables/(\\d+)/columns/first/rows".r
 
   private val CompleteTable: Regex = "/completetable".r
   private val CompleteTableId: Regex = "/completetable/(\\d+)".r
@@ -45,7 +46,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-      * Get Rows
+      * Get rows of column
       */
     case Get(RowsOfColumn(tableId, columnId)) => asyncGetReply {
       val limit = getLongParam("limit", context)
@@ -53,7 +54,19 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
       val pagination = Pagination(offset, limit)
 
-      controller.retrieveRows(tableId.toLong, columnId.toLong, pagination)
+      controller.retrieveRowsOfColumn(tableId.toLong, columnId.toLong, pagination)
+    }
+
+    /**
+      * Get rows of first column
+      */
+    case Get(RowsOfFirstColumn(tableId)) => asyncGetReply {
+      val limit = getLongParam("limit", context)
+      val offset = getLongParam("offset", context)
+
+      val pagination = Pagination(offset, limit)
+
+      controller.retrieveRowsOfFirstColumn(tableId.toLong, pagination)
     }
 
     /**
