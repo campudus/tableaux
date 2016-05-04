@@ -110,4 +110,12 @@ object JsonUtils {
 
     (name, ord, kind, identifier, displayNames, descriptions)
   }
+
+  def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {
+    if (boolean) {
+      Some(value)
+    } else {
+      None
+    }
+  }
 }

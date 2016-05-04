@@ -36,7 +36,10 @@ dependencies {
 
     compile "io.vertx:vertx-core:${vertxVersion}"
     compile "io.vertx:vertx-web:${vertxVersion}"
-    compile "io.vertx:vertx-mysql-postgresql-client:${vertxDbVersion}"
+    compile("io.vertx:vertx-mysql-postgresql-client:${vertxDbVersion}") {
+        exclude group: 'com.github.mauricio'
+    }
+    compile 'com.github.mauricio:postgresql-async_2.11:0.2.19'
 
     compile 'joda-time:joda-time:2.9.2'
     compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'

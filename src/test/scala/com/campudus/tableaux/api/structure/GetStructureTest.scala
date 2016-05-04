@@ -21,7 +21,8 @@ class GetStructureTest extends TableauxTestBase {
       "status" -> "ok",
       "id" -> 1,
       "name" -> "Test Table 1",
-      "hidden" -> false
+      "hidden" -> false,
+      "langtags" -> Json.arr("de-DE", "en-GB")
     )
 
     for {
@@ -35,8 +36,8 @@ class GetStructureTest extends TableauxTestBase {
   @Test
   def retrieveAllTables(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj("status" -> "ok", "tables" -> Json.arr(
-      Json.obj("id" -> 1, "name" -> "Test Table 1", "hidden" -> false),
-      Json.obj("id" -> 2, "name" -> "Test Table 2", "hidden" -> false)
+      Json.obj("id" -> 1, "name" -> "Test Table 1", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB")),
+      Json.obj("id" -> 2, "name" -> "Test Table 2", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB"))
     ))
 
     for {

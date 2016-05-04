@@ -29,16 +29,16 @@ class SystemControllerTest extends TableauxTestBase {
     val expectedJson1 = Json.obj(
       "status" -> "ok",
       "tables" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Bundesländer", "hidden" -> false),
-        Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false)
+        Json.obj("id" -> 1, "name" -> "Bundesländer", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB")),
+        Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB"))
       )
     )
 
     val expectedJson2 = Json.obj(
       "status" -> "ok",
       "tables" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Bundesländer", "hidden" -> false),
-        Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false)
+        Json.obj("id" -> 1, "name" -> "Bundesländer", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB")),
+        Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB"))
       )
     )
 
@@ -62,8 +62,8 @@ class SystemControllerTest extends TableauxTestBase {
   def retrieveVersions(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
       "database" -> Json.obj(
-        "current" -> 8,
-        "specification" -> 8
+        "current" -> 9,
+        "specification" -> 9
       )
     )
 

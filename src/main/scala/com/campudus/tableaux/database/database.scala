@@ -28,6 +28,12 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
   protected[this] def convertStringToDateTime(str: String): Option[DateTime] = {
     Option(str).map(DateTime.parse)
   }
+
+  protected[this] def convertJsonArrayToSeq[A](arr: JsonArray, converter: AnyRef => A): Seq[A] = {
+    import scala.collection.JavaConverters._
+
+    Option(arr).getOrElse(Json.emptyArr()).asScala.toSeq.map(converter)
+  }
 }
 
 object DatabaseConnection {

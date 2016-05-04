@@ -2,12 +2,11 @@ package com.campudus.tableaux.router
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.database.domain.ColumnSeq
 import com.campudus.tableaux.helper.JsonUtils._
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
-import scala.concurrent.Future
+import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 
 object StructureRouter {
@@ -61,7 +60,23 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     case Post(Tables()) => asyncGetReply {
       for {
         json <- getJson(context)
-        created <- controller.createTable(json.getString("name"), Option(json.getBoolean("hidden")).map(_.booleanValue()))
+
+        name = json.getString("name")
+        hidden = json.getBoolean("hidden", false).booleanValue()
+
+        // if contains than user wants langtags to be set
+        // but then langtags could be null so that's the second option
+        //
+        // langtags == null => global langtags
+        // langtags == [] => [] table without langtags
+        // langtags == ['de-DE', 'en-GB'] => table with two langtags
+        //
+        // {} => None => db: null
+        // {langtags:null} => Some(None) => db: null
+        // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: ['de-DE']
+        langtags = booleanToValueOption(json.containsKey("langtags"), Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
+
+        created <- controller.createTable(name, hidden, langtags)
       } yield created
     }
 
@@ -81,7 +96,23 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     case Post(Table(tableId)) => asyncGetReply {
       for {
         json <- getJson(context)
-        updated <- controller.changeTable(tableId.toLong, Option(json.getString("name")), Option(json.getBoolean("hidden")).map(_.booleanValue()))
+
+        name = Option(json.getString("name"))
+        hidden = Option(json.getBoolean("hidden")).map(_.booleanValue())
+
+        // if contains than user wants langtags to be set
+        // but then langtags could be null so that's the second option
+        //
+        // langtags == null => global langtags
+        // langtags == [] => [] table without langtags
+        // langtags == ['de-DE', 'en-GB'] => table with two langtags
+        //
+        // {} => None => db: do nothing
+        // {langtags:null} => Some(None) => db: overwrite with null
+        // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: overwrite with ['de-DE']
+        langtags = booleanToValueOption(json.containsKey("langtags"), Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
+
+        updated <- controller.changeTable(tableId.toLong, name, hidden, langtags)
       } yield updated
     }
 

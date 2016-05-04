@@ -1,15 +1,12 @@
 package com.campudus.tableaux.database.model
 
-import java.util.UUID
-
+import com.campudus.tableaux.InvalidJsonException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RowModel, UpdateRowModel}
-import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
-import scala.util.Try
 
 object TableauxModel {
   type LinkId = Long
@@ -38,7 +35,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   private lazy val structureModel = StructureModel(connection)
 
   def createTable(name: String, hidden: Boolean): Future[Table] = {
-    structureModel.tableStruc.create(name, hidden)
+    structureModel.tableStruc.create(name, hidden, None)
   }
 
   def retrieveTable(tableId: TableId): Future[Table] = {
@@ -120,6 +117,16 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
       _ <- updateRowModel.clearRow(table, rowId, Seq(column))
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
+
+      replacedCell <- retrieveCell(column, rowId)
+    } yield replacedCell
+  }
+
+  def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+
+      _ <- updateRowModel.clearRow(table, rowId, Seq(column))
 
       replacedCell <- retrieveCell(column, rowId)
     } yield replacedCell

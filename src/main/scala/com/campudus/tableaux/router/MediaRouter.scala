@@ -64,7 +64,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     case Get("/folders") => asyncGetReply {
       import ArgumentChecker._
 
-      //TODO this will result in a unhandled exception error
       val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
       controller.retrieveRootFolder(sortByLangtag)
     }
@@ -75,7 +74,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     case Get(FolderId(id)) => asyncGetReply {
       import ArgumentChecker._
 
-      //TODO this will result in a unhandled exception error
       val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
       controller.retrieveFolder(id.toLong, sortByLangtag)
     }

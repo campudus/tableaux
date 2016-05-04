@@ -14,7 +14,12 @@ class TableOrderingTest extends TableauxTestBase {
     sendRequest("POST", "/tables", Json.obj("name" -> name)).map(_.getLong("id"))
   }
 
-  private def regularTableJson(id: Long, name: String) = Json.obj("id" -> id, "name" -> name, "hidden" -> false)
+  private def regularTableJson(id: Long, name: String) = Json.obj(
+    "id" -> id,
+    "name" -> name,
+    "hidden" -> false,
+    "langtags" -> Json.arr("de-DE", "en-GB")
+  )
 
   @Test
   def createTablesShouldStayInOrderOfCreation(implicit c: TestContext): Unit = okTest {

@@ -1,6 +1,6 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -194,6 +194,44 @@ class LinkTest extends TableauxTestBase {
       assertEquals(3, columnsA.getArray("columns").size())
       assertEquals(2, columnsB.getArray("columns").size())
     }
+  }
+
+  @Test
+  def createLinkColumnToTableWithoutColumns(implicit c: TestContext): Unit = exceptionTest("NOT FOUND") {
+    for {
+      table1 <- createDefaultTable()
+      table2 <- sendRequest("POST", "/tables", Json.obj("name" -> "Empty Table"))
+
+      test <- sendRequest("POST", "/tables/1/columns", postLinkCol)
+    } yield ()
+  }
+
+  @Test
+  def createLinkColumnToTableWithoutIdentifier(implicit c: TestContext): Unit = exceptionTest("error.database.missing-identifier") {
+    for {
+      table1 <- createDefaultTable()
+      table2 <- sendRequest("POST", "/tables", Json.obj("name" -> "Empty Table"))
+
+      _ <- sendRequest("POST", "/tables/2/columns", RequestCreation.Columns().add(RequestCreation.TextCol("Spalte")).getJson)
+
+      test <- sendRequest("POST", "/tables/1/columns", postLinkCol)
+    } yield ()
+  }
+
+  @Test
+  def createLinkColumnToTableWithIdentifierAndRemoveIt(implicit c: TestContext): Unit = exceptionTest("error.database.missing-identifier") {
+    for {
+      table1 <- createDefaultTable()
+      table2 <- sendRequest("POST", "/tables", Json.obj("name" -> "Empty Table"))
+
+      _ <- sendRequest("POST", "/tables/2/columns", RequestCreation.Columns().add(RequestCreation.Identifier(RequestCreation.TextCol("Spalte"))).getJson)
+
+      _ <- sendRequest("POST", "/tables/1/columns", postLinkCol)
+
+      _ <- sendRequest("DELETE", "/tables/2/columns/1")
+
+      _ <- sendRequest("GET", "/tables/1/columns")
+    } yield ()
   }
 
   @Test

@@ -29,7 +29,9 @@ class GetTest extends TableauxTestBase {
         "limit" -> null,
         "totalSize" -> 0
       ),
-      "rows" -> Json.arr())
+      "rows" -> Json.arr(),
+      "langtags" -> Json.arr("de-DE", "en-GB")
+    )
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -55,7 +57,9 @@ class GetTest extends TableauxTestBase {
         "limit" -> null,
         "totalSize" -> 0
       ),
-      "rows" -> Json.arr())
+      "rows" -> Json.arr(),
+      "langtags" -> Json.arr("de-DE", "en-GB")
+    )
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -85,7 +89,9 @@ class GetTest extends TableauxTestBase {
         "totalSize" -> 1
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr(null, null, null))))
+        Json.obj("id" -> 1, "values" -> Json.arr(null, null, null))),
+      "langtags" -> Json.arr("de-DE", "en-GB")
+    )
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -124,7 +130,8 @@ class GetTest extends TableauxTestBase {
         "limit" -> null,
         "totalSize" -> 3
       ),
-      "rows" -> rows
+      "rows" -> rows,
+      "langtags" -> Json.arr("de-DE", "en-GB")
     )
 
     def valuesObj(values: Any*): JsonObject = {

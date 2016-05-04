@@ -11,6 +11,8 @@ import scala.concurrent.Future
 import scala.io.Source
 
 object SystemController {
+  val SETTING_LANGTAGS = "langtags"
+
   def apply(config: TableauxConfig, repository: SystemModel, tableauxModel: TableauxModel, structureModel: StructureModel): SystemController = {
     new SystemController(config, repository, tableauxModel, structureModel)
   }
@@ -120,7 +122,7 @@ class SystemController(override val config: TableauxConfig,
     logger.info(s"createTable $tableName columns $rows")
 
     for {
-      table <- structureModel.tableStruc.create(tableName, hidden = false)
+      table <- structureModel.tableStruc.create(tableName, hidden = false, None)
       columns <- structureModel.columnStruc.createColumns(table, columns)
 
       columnIds = columns.map(_.id)
@@ -138,5 +140,10 @@ class SystemController(override val config: TableauxConfig,
     } else {
       None
     }
+  }
+
+  def retrieveLangtags(): Future[DomainObject] = {
+    repository.retrieveSetting(SystemController.SETTING_LANGTAGS)
+      .map(value => PlainDomainObject(Json.obj("value" -> Option(value).map(f => Json.fromArrayString(f)).orNull)))
   }
 }

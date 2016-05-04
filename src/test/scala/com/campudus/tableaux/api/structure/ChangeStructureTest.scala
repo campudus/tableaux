@@ -17,7 +17,13 @@ class ChangeStructureTest extends TableauxTestBase {
   @Test
   def changeTableName(implicit c: TestContext): Unit = okTest {
     val postJson = Json.obj("name" -> "New testname")
-    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "name" -> "New testname", "hidden" -> false)
+    val expectedTableJson = Json.obj(
+      "status" -> "ok",
+      "id" -> 1,
+      "name" -> "New testname",
+      "hidden" -> false,
+      "langtags" -> Json.arr("de-DE", "en-GB")
+    )
 
     for {
       _ <- createDefaultTable()

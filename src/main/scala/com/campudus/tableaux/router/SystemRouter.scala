@@ -3,11 +3,12 @@ package com.campudus.tableaux.router
 import java.util.UUID
 
 import com.campudus.tableaux.controller.SystemController
-import com.campudus.tableaux.{InvalidNonceException, NoNonceException, TableauxConfig}
+import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing.{Get, Post}
 
 import scala.concurrent.Future
+import scala.util.matching.Regex
 
 object SystemRouter {
   var nonce: String = null
@@ -25,6 +26,8 @@ object SystemRouter {
 }
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
+
+  private val Settings: Regex = "/system/settings/(\\w+)".r
 
   override def routes(implicit context: RoutingContext): Routing = {
 
@@ -63,6 +66,18 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         _ <- Future(checkNonce)
         result <- controller.updateDB()
       } yield result
+    }
+
+    /**
+      * Retrieves system settings
+      */
+    case Get(Settings(key)) => asyncGetReply {
+      key match {
+        case SystemController.SETTING_LANGTAGS =>
+          controller.retrieveLangtags()
+        case _ =>
+          Future.failed(InvalidRequestException(s"No system setting for key $key"))
+      }
     }
   }
 
