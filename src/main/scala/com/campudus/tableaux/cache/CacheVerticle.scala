@@ -50,11 +50,11 @@ class CacheVerticle extends ScalaVerticle {
     eventBus.localConsumer(ADDRESS_INVALIDATE, messageHandlerInvalidate(_: Message[JsonObject]))
   }
 
-  private def cache(tableId: TableId, columnId: ColumnId): ScalaCache[InMemoryRepr] = {
+  private def getCache(tableId: TableId, columnId: ColumnId): ScalaCache[InMemoryRepr] = {
     def createCache() = CacheBuilder
       .newBuilder()
-      .expireAfterAccess(120, TimeUnit.SECONDS)
-      .maximumSize(10000L)
+      .expireAfterAccess(config().getLong("expireAfterAccess", 3600l).toLong, TimeUnit.SECONDS)
+      .maximumSize(config().getLong("maximumSize", 10000l).toLong)
       .recordStats()
       .build[String, Object]
 
@@ -65,6 +65,10 @@ class CacheVerticle extends ScalaVerticle {
         caches.put((tableId, columnId), cache)
         cache
     }
+  }
+
+  private def removeCache(tableId: TableId, columnId: ColumnId): Unit = {
+    caches.remove((tableId, columnId))
   }
 
   private def messageHandlerSet(message: Message[JsonObject]): Unit = {
@@ -79,7 +83,7 @@ class CacheVerticle extends ScalaVerticle {
     } yield (tableId, columnId, rowId)) match {
       case Some((tableId, columnId, rowId)) =>
 
-        implicit val scalaCache = cache(tableId, columnId)
+        implicit val scalaCache = getCache(tableId, columnId)
         put(rowId)(value)
           .map({
             _ =>
@@ -108,7 +112,7 @@ class CacheVerticle extends ScalaVerticle {
     } yield (tableId, columnId, rowId)) match {
       case Some((tableId, columnId, rowId)) =>
 
-        implicit val scalaCache = cache(tableId, columnId)
+        implicit val scalaCache = getCache(tableId, columnId)
 
         get[AnyRef, NoSerialization](rowId)
           .map({
@@ -122,9 +126,7 @@ class CacheVerticle extends ScalaVerticle {
 
               message.reply(reply)
             case None =>
-
               logger.warn(s"messageHandlerRetrieve $tableId, $columnId, $rowId not found")
-
               message.fail(NOT_FOUND_FAILURE, "Not found")
           })
 
@@ -143,7 +145,7 @@ class CacheVerticle extends ScalaVerticle {
     } yield (tableId, columnId, Option(obj.getLong("rowId")).map(_.toLong))) match {
       case Some((tableId, columnId, Some(rowId))) =>
 
-        implicit val scalaCache = cache(tableId, columnId)
+        implicit val scalaCache = getCache(tableId, columnId)
 
         remove(rowId)
           .map({
@@ -159,11 +161,13 @@ class CacheVerticle extends ScalaVerticle {
 
       case Some((tableId, columnId, None)) =>
 
-        implicit val scalaCache = cache(tableId, columnId)
+        implicit val scalaCache = getCache(tableId, columnId)
 
         removeAll()
           .map({
             _ =>
+              removeCache(tableId, columnId)
+
               val reply = Json.obj(
                 "tableId" -> tableId,
                 "columnId" -> columnId

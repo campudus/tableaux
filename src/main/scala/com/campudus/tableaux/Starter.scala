@@ -41,6 +41,11 @@ class Starter extends ScalaVerticle {
         p.failure(new Exception("Provide a database config please!"))
       }
 
+      val cacheConfig = config.getJsonObject("cache", Json.obj())
+      if (cacheConfig.isEmpty) {
+        logger.warn("Cache config is empty use default settings!")
+      }
+
       val host = getStringDefault(config, "host", Starter.DEFAULT_HOST)
       val port = getIntDefault(config, "port", Starter.DEFAULT_PORT)
       val workingDirectory = getStringDefault(config, "workingDirectory", Starter.DEFAULT_WORKING_DIRECTORY)
@@ -58,7 +63,7 @@ class Starter extends ScalaVerticle {
       val initialize = for {
         _ <- createUploadsDirectories(tableauxConfig)
         server <- deployHttpServer(port, host, tableauxConfig, connection)
-        _ <- deployCacheVerticle()
+        _ <- deployCacheVerticle(cacheConfig)
       } yield {
         this.server = server
         p.success(())
@@ -104,11 +109,11 @@ class Starter extends ScalaVerticle {
     }
   }
 
-  private def deployCacheVerticle(): Future[String] = {
+  private def deployCacheVerticle(config: JsonObject): Future[String] = {
     val promise = Promise[String]()
 
     val options = new DeploymentOptions()
-      .setConfig(Json.emptyObj())
+      .setConfig(config)
 
     val completionHandler = {
       case Success(id) =>
