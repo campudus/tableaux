@@ -71,6 +71,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   import TableauxModel._
 
+  /**
+    * Should be removed in near future
+    */
+  val CACHING = true
+
   val rowModel = new RowModel(connection)
   val createRowModel = new CreateRowModel(connection)
   val updateRowModel = new UpdateRowModel(connection)
@@ -151,8 +156,6 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield replacedCell
   }
 
-  val CACHING = true
-
   private def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
     if (!CACHING) {
       return Future.successful(())
@@ -203,9 +206,10 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
 
     for {
-      valueCache <- CACHING match {
-        case true => CacheClient(this.connection.vertx).retrieveCellValue(column.table.id, column.id, rowId)
-        case false => Future.successful(None)
+      valueCache <- if (CACHING) {
+        CacheClient(this.connection.vertx).retrieveCellValue(column.table.id, column.id, rowId)
+      } else {
+        Future.successful(None)
       }
 
       value <- valueCache match {
@@ -215,18 +219,27 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         case None => {
           // Cache miss
           for {
-            rawRow <- rowModel.retrieve(column.table.id, rowId, columns)
+            rowSeq <- column match {
+              case _: AttachmentColumn =>
+                // Special case for AttachmentColumns
+                // Can't be handled by RowModel
+                for {
+                  attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
+                } yield Seq(Row(column.table, rowId, Seq(attachments)))
 
-            rowSeq <- mapRawRows(column.table, columns, Seq(rawRow))
+              case _ =>
+                for {
+                  rawRows <- rowModel.retrieve(column.table.id, rowId, columns)
+                  mappedRows <- mapRawRows(column.table, columns, Seq(rawRows))
+                } yield mappedRows
+            }
 
             // Because we only want a cell's value other
             // potential rows and columns can be ignored.
             value = rowSeq.head.values.head
 
-            _ <- CACHING match {
-              case true => CacheClient(this.connection.vertx).setCellValue(column.table.id, column.id, rowId, value)
-              case false => Future.successful(())
-            }
+            // fire-and-forget don't need to wait for this to return
+            _ = if (CACHING) CacheClient(this.connection.vertx).setCellValue(column.table.id, column.id, rowId, value)
           } yield value
         }
       }
@@ -364,7 +377,9 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
                 mapNullValueForLinkToConcat(c.to.asInstanceOf[ConcatColumn], array)
 
               case (c: AttachmentColumn, _) =>
-                attachmentModel.retrieveAll(c.table.id, c.id, rowId)
+                retrieveCell(c, rowId)
+                  .map(_.value)
+
               case (_, value) =>
                 Future(value)
             })
