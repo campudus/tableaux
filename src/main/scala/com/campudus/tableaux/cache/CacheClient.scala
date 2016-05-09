@@ -46,12 +46,8 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
     val options = new DeliveryOptions()
       .setSendTimeout(200)
 
-    eventBus.send(CacheVerticle.ADDRESS_SET, obj, options)
-
-    //(eventBus.send(CacheVerticle.ADDRESS_SET, obj, options, _: AsyncMessage[JsonObject]))
-    //  .map(_ => ())
-
-    Future.successful(())
+    (eventBus.send(CacheVerticle.ADDRESS_SET, obj, options, _: AsyncMessage[JsonObject]))
+      .map(_ => ())
   }
 
   def retrieveCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Option[Any]] = {

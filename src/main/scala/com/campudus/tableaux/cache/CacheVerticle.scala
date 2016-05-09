@@ -16,6 +16,9 @@ import scalacache.guava._
 import scalacache.serialization.InMemoryRepr
 
 object CacheVerticle {
+  val DEFAULT_EXPIRE_AFTER_ACCESS = 3600l
+  val DEFAULT_MAXIMUM_SIZE = 10000l
+
   val NOT_FOUND_FAILURE = 404
   val INVALID_MESSAGE = 400
 
@@ -55,8 +58,8 @@ class CacheVerticle extends ScalaVerticle {
   private def getCache(tableId: TableId, columnId: ColumnId): ScalaCache[InMemoryRepr] = {
     def createCache() = CacheBuilder
       .newBuilder()
-      .expireAfterAccess(config().getLong("expireAfterAccess", 3600l).toLong, TimeUnit.SECONDS)
-      .maximumSize(config().getLong("maximumSize", 10000l).toLong)
+      .expireAfterAccess(config().getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong, TimeUnit.SECONDS)
+      .maximumSize(config().getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong)
       .recordStats()
       .build[String, Object]
 
@@ -128,7 +131,7 @@ class CacheVerticle extends ScalaVerticle {
 
               message.reply(reply)
             case None =>
-              logger.warn(s"messageHandlerRetrieve $tableId, $columnId, $rowId not found")
+              logger.debug(s"messageHandlerRetrieve $tableId, $columnId, $rowId not found")
               message.fail(NOT_FOUND_FAILURE, "Not found")
           })
 

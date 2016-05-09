@@ -168,22 +168,34 @@ class MediaController(override val config: TableauxConfig,
       p.future
     }
 
-    Future.sequence(internalName.values.map { x =>
-      val internalFileName = x._2
-      if (internalFileName == null) {
-        Future.successful(())
-      } else {
-        if (!internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
-          internalFileName.equals("..") ||
-          internalFileName.equals(".")) {
-          Future.failed(InvalidRequestException(s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
-        } else {
-          checkInternalName(internalFileName)
-        }
-      }
-    }).flatMap { _ =>
-      fileModel.update(uuid, title, description, internalName, externalName, folder, mimeType).map(ExtendedFile)
-    }
+    val internalNameChecks = internalName.values
+      .map({
+        case (_, internalFileName) =>
+          if (internalFileName == null) {
+            Future.successful(())
+          } else {
+            if (!internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
+              internalFileName.equals("..") ||
+              internalFileName.equals(".")) {
+              Future.failed(InvalidRequestException(s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
+            } else {
+              checkInternalName(internalFileName)
+            }
+          }
+      })
+
+    for {
+      _ <- Future.sequence(internalNameChecks)
+
+      file <- fileModel.update(uuid, title, description, internalName, externalName, folder, mimeType)
+
+      // retrieve cells with this file for cache invalidation
+      cellsForFiles <- attachmentModel.retrieveCells(uuid)
+      // invalidate cache for cells with this file
+      _ <- Future.sequence(cellsForFiles.map({
+        case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+      }))
+    } yield ExtendedFile(file)
   }
 
   def retrieveFile(uuid: UUID, withTmp: Boolean = false): Future[(ExtendedFile, Map[String, Path])] = {
@@ -202,10 +214,11 @@ class MediaController(override val config: TableauxConfig,
 
   def deleteFile(uuid: UUID): Future[TableauxFile] = {
     for {
-    // retrieve cells with this file for cache invalidation
+      (file, paths) <- retrieveFile(uuid, withTmp = true)
+
+      // retrieve cells with this file for cache invalidation
       cellsForFiles <- attachmentModel.retrieveCells(uuid)
 
-      (file, paths) <- retrieveFile(uuid, withTmp = true)
       _ <- fileModel.deleteById(uuid)
 
       _ <- Future.sequence(paths.toSeq.map({
@@ -227,10 +240,11 @@ class MediaController(override val config: TableauxConfig,
 
   def deleteFile(uuid: UUID, langtag: String): Future[TableauxFile] = {
     for {
-    // retrieve cells with this file for cache invalidation
+      (file, paths) <- retrieveFile(uuid, withTmp = true)
+
+      // retrieve cells with this file for cache invalidation
       cellsForFiles <- attachmentModel.retrieveCells(uuid)
 
-      (file, paths) <- retrieveFile(uuid, withTmp = true)
       _ <- fileModel.deleteByIdAndLangtag(uuid, langtag)
 
       path = paths.get(langtag)
@@ -283,12 +297,12 @@ class MediaController(override val config: TableauxConfig,
 
   def mergeFile(uuid: UUID, langtag: String, mergeWith: UUID): Future[ExtendedFile] = {
     for {
-    // retrieve cells with this file for cache invalidation
-      cellsForFile1 <- attachmentModel.retrieveCells(uuid)
-      cellsForFile2 <- attachmentModel.retrieveCells(uuid)
-
       toMerge <- fileModel.retrieve(mergeWith)
       file <- fileModel.retrieve(uuid)
+
+      // retrieve cells with this file for cache invalidation
+      cellsForFile1 <- attachmentModel.retrieveCells(uuid)
+      cellsForFile2 <- attachmentModel.retrieveCells(mergeWith)
 
       // only delete database entry but not file
       _ <- fileModel.deleteById(mergeWith)

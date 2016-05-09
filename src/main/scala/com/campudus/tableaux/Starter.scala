@@ -43,7 +43,7 @@ class Starter extends ScalaVerticle {
 
       val cacheConfig = config.getJsonObject("cache", Json.obj())
       if (cacheConfig.isEmpty) {
-        logger.warn("Cache config is empty use default settings!")
+        logger.warn("Cache config is empty, using default settings.")
       }
 
       val host = getStringDefault(config, "host", Starter.DEFAULT_HOST)
