@@ -85,12 +85,17 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
     for {
       columns <- retrieveColumns(table)
+      // Clear special cells before delete.
+      // For example AttachmentColumns will
+      // not be deleted by DELETE CASCADE.
+      _ <- updateRowModel.clearRow(table, rowId, columns.filter({
+        case _: AttachmentColumn => true
+      }))
+
       _ <- rowModel.delete(table.id, rowId)
 
-      // invalidate concat cell
-      _ <- CacheClient(this.connection.vertx).invalidateCellValue(table.id, 0, rowId)
-      // invalidate other cells
-      _ <- Future.sequence(columns.map(column => CacheClient(this.connection.vertx).invalidateCellValue(table.id, column.id, rowId)))
+      // invalidate row
+      _ <- CacheClient(this.connection.vertx).invalidateRow(table.id, rowId)
     } yield EmptyObject()
   }
 

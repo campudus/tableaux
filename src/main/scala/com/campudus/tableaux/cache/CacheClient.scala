@@ -77,14 +77,28 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
     val options = new DeliveryOptions()
       .setSendTimeout(200)
 
-    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE, obj, options, _: AsyncMessage[JsonObject]))
+    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_CELL, obj, options, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 
   def invalidateColumn(tableId: TableId, columnId: ColumnId): Future[Unit] = {
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId)
 
-    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE, obj, _: AsyncMessage[JsonObject]))
+    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_COLUMN, obj, _: AsyncMessage[JsonObject]))
+      .map(_ => ())
+  }
+
+  def invalidateRow(tableId: TableId, rowId: RowId): Future[Unit] = {
+    val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
+
+    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_ROW, obj, _: AsyncMessage[JsonObject]))
+      .map(_ => ())
+  }
+
+  def invalidateTable(tableId: TableId): Future[Unit] = {
+    val obj = Json.obj("tableId" -> tableId)
+
+    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_TABLE, obj, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 

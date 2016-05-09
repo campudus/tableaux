@@ -16,7 +16,14 @@ import scalacache.guava._
 import scalacache.serialization.InMemoryRepr
 
 object CacheVerticle {
-  val DEFAULT_EXPIRE_AFTER_ACCESS = 3600l
+  /**
+    * Default never expire
+    */
+  val DEFAULT_EXPIRE_AFTER_ACCESS = -1l
+
+  /**
+    * Max. 10k cached values per column
+    */
   val DEFAULT_MAXIMUM_SIZE = 10000l
 
   val NOT_FOUND_FAILURE = 404
@@ -24,8 +31,12 @@ object CacheVerticle {
 
   val ADDRESS_SET = "cache.set"
   val ADDRESS_RETRIEVE = "cache.retrieve"
-  val ADDRESS_INVALIDATE = "cache.invalidate"
-  val ADDRESS_INVALIDATE_ALL = "cache.invalidate_all"
+
+  val ADDRESS_INVALIDATE_CELL = "cache.invalidate.cell"
+  val ADDRESS_INVALIDATE_COLUMN = "cache.invalidate.column"
+  val ADDRESS_INVALIDATE_ROW = "cache.invalidate.row"
+  val ADDRESS_INVALIDATE_TABLE = "cache.invalidate.table"
+  val ADDRESS_INVALIDATE_ALL = "cache.invalidate.all"
 }
 
 class CacheVerticle extends ScalaVerticle {
@@ -51,17 +62,35 @@ class CacheVerticle extends ScalaVerticle {
 
     eventBus.localConsumer(ADDRESS_SET, messageHandlerSet(_: Message[JsonObject]))
     eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve(_: Message[JsonObject]))
-    eventBus.localConsumer(ADDRESS_INVALIDATE, messageHandlerInvalidate(_: Message[JsonObject]))
+
+    eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell(_: Message[JsonObject]))
+    eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn(_: Message[JsonObject]))
+    eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow(_: Message[JsonObject]))
+    eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable(_: Message[JsonObject]))
     eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll(_: Message[JsonObject]))
   }
 
   private def getCache(tableId: TableId, columnId: ColumnId): ScalaCache[InMemoryRepr] = {
-    def createCache() = CacheBuilder
-      .newBuilder()
-      .expireAfterAccess(config().getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong, TimeUnit.SECONDS)
-      .maximumSize(config().getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong)
-      .recordStats()
-      .build[String, Object]
+    def createCache() = {
+      val builder = CacheBuilder
+        .newBuilder()
+
+      val expireAfterAccess = config().getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
+      if (expireAfterAccess > 0) {
+        builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
+      } else {
+        logger.info("Cache will not expire!")
+      }
+
+      val maximumSize = config().getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
+      if (maximumSize > 0) {
+        builder.maximumSize(config().getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong)
+      }
+
+      builder.recordStats()
+
+      builder.build[String, Object]
+    }
 
     caches.get((tableId, columnId)) match {
       case Some(cache) => cache
@@ -141,15 +170,16 @@ class CacheVerticle extends ScalaVerticle {
     }
   }
 
-  private def messageHandlerInvalidate(message: Message[JsonObject]): Unit = {
+  private def messageHandlerInvalidateCell(message: Message[JsonObject]): Unit = {
     val obj = message.body()
 
     (for {
       tableId <- Option(obj.getLong("tableId")).map(_.toLong)
       columnId <- Option(obj.getLong("columnId")).map(_.toLong)
-    } yield (tableId, columnId, Option(obj.getLong("rowId")).map(_.toLong))) match {
-      case Some((tableId, columnId, Some(rowId))) =>
-
+      rowId <- Option(obj.getLong("rowId")).map(_.toLong)
+    } yield (tableId, columnId, rowId)) match {
+      case Some((tableId, columnId, rowId)) =>
+        // invalidate cell
         implicit val scalaCache = getCache(tableId, columnId)
 
         remove(rowId)
@@ -164,8 +194,21 @@ class CacheVerticle extends ScalaVerticle {
               message.reply(reply)
           })
 
-      case Some((tableId, columnId, None)) =>
+      case None =>
+        logger.error("Message invalid: Fields (tableId, columnId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId, rowId) should be a Long")
+    }
+  }
 
+  private def messageHandlerInvalidateColumn(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+
+    (for {
+      tableId <- Option(obj.getLong("tableId")).map(_.toLong)
+      columnId <- Option(obj.getLong("columnId")).map(_.toLong)
+    } yield (tableId, columnId)) match {
+      case Some((tableId, columnId)) =>
+        // invalidate column
         implicit val scalaCache = getCache(tableId, columnId)
 
         removeAll()
@@ -176,6 +219,74 @@ class CacheVerticle extends ScalaVerticle {
               val reply = Json.obj(
                 "tableId" -> tableId,
                 "columnId" -> columnId
+              )
+
+              message.reply(reply)
+          })
+
+      case None =>
+        logger.error("Message invalid: Fields (tableId, columnId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId) should be a Long")
+    }
+  }
+
+  private def messageHandlerInvalidateRow(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+
+    (for {
+      tableId <- Option(obj.getLong("tableId")).map(_.toLong)
+      rowId <- Option(obj.getLong("rowId")).map(_.toLong)
+    } yield (tableId, rowId)) match {
+      case Some((tableId, rowId)) =>
+        // invalidate table
+        val filterdCaches = caches
+          .filter(_._1._1 == tableId)
+          .values
+
+        Future.sequence(filterdCaches
+          .map({
+            cache =>
+              implicit val scalaCache = cache
+              remove(rowId)
+          }))
+          .map({
+            _ =>
+              val reply = Json.obj(
+                "tableId" -> tableId,
+                "rowId" -> rowId
+              )
+
+              message.reply(reply)
+          })
+
+      case None =>
+        logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
+    }
+  }
+
+  private def messageHandlerInvalidateTable(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+
+    (for {
+      tableId <- Option(obj.getLong("tableId")).map(_.toLong)
+    } yield tableId) match {
+      case Some(tableId) =>
+        // invalidate table
+        val filterdCaches = caches
+          .filter(_._1._1 == tableId)
+          .values
+
+        Future.sequence(filterdCaches
+          .map({
+            cache =>
+              implicit val scalaCache = cache
+              removeAll()
+          }))
+          .map({
+            _ =>
+              val reply = Json.obj(
+                "tableId" -> tableId
               )
 
               message.reply(reply)
