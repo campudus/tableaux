@@ -90,6 +90,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       // not be deleted by DELETE CASCADE.
       _ <- updateRowModel.clearRow(table, rowId, columns.filter({
         case _: AttachmentColumn => true
+        case _ => false
       }))
 
       _ <- rowModel.delete(table.id, rowId)
