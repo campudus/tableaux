@@ -483,7 +483,8 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
   private def generateProjection(columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
       case _: ConcatColumn | _: AttachmentColumn =>
-        // Values will be calculated or added after select
+        // Values will be calculated/fetched after select
+        // See TableauxModel.mapRawRows
         "NULL"
 
       case c: MultiLanguageColumn[_] =>
@@ -514,6 +515,8 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
 
         val column = c.to match {
           case _: ConcatColumn =>
+            // Values will be calculated/fetched after select
+            // See TableauxModel.mapRawRows
             (s"''", "NULL")
 
           case to: MultiLanguageColumn[_] =>
