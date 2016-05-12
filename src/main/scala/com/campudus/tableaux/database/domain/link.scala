@@ -41,16 +41,28 @@ sealed trait LinkDirection {
   def fromSql: String
 
   def toSql: String
+
+  def fromOrdering: String
+
+  def toOrdering: String
 }
 
 case class LeftToRight(from: Long, to: Long) extends LinkDirection {
   override def fromSql: String = "id_1"
 
   override def toSql: String = "id_2"
+
+  override def fromOrdering: String = "ordering_1"
+
+  override def toOrdering: String = "ordering_2"
 }
 
 case class RightToLeft(from: Long, to: Long) extends LinkDirection {
   override def fromSql: String = "id_2"
 
   override def toSql: String = "id_1"
+
+  override def fromOrdering: String = "ordering_2"
+
+  override def toOrdering: String = "ordering_1"
 }

@@ -109,17 +109,18 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, _) <- t.query(
           s"""
              |CREATE TABLE link_table_$linkId (
-             |id_1 bigint,
-             |id_2 bigint,
-             |PRIMARY KEY(id_1, id_2),
-             |CONSTRAINT link_table_${linkId}_foreign_1
-             |FOREIGN KEY(id_1)
-             |REFERENCES user_table_$tableId (id)
-             |ON DELETE CASCADE,
-             |CONSTRAINT link_table_${linkId}_foreign_2
-             |FOREIGN KEY(id_2)
-             |REFERENCES user_table_$toTableId (id)
-             |ON DELETE CASCADE
+             | id_1 bigint,
+             | id_2 bigint,
+             | ordering_1 serial,
+             | ordering_2 serial,
+             |
+             | PRIMARY KEY(id_1, id_2),
+             |
+             | CONSTRAINT link_table_${linkId}_foreign_1
+             | FOREIGN KEY(id_1) REFERENCES user_table_$tableId (id) ON DELETE CASCADE,
+             |
+             | CONSTRAINT link_table_${linkId}_foreign_2
+             | FOREIGN KEY(id_2) REFERENCES user_table_$toTableId (id) ON DELETE CASCADE
              |)""".stripMargin)
       } yield {
         (t, (linkId, columnInfo))

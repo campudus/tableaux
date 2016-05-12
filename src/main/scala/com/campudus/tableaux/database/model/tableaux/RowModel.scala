@@ -513,7 +513,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
         val direction = c.linkDirection
         val toTableId = c.to.table.id
 
-        val column = c.to match {
+        val (column, value) = c.to match {
           case _: ConcatColumn =>
             // Values will be calculated/fetched after select
             // See TableauxModel.mapRawRows
@@ -544,19 +544,19 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
 
         s"""(
             |SELECT
-            | json_agg(sub.column_${c.to.id})
+            | json_agg(sub.value)
             |FROM
             |(
             | SELECT
             |   lt$linkId.${direction.fromSql} AS ${direction.fromSql},
-            |   json_build_object('id', ut$toTableId.id, 'value', ${column._2}) AS column_${c.to.id}
+            |   json_build_object('id', ut$toTableId.id, 'value', $value) AS value
             | FROM
-            |   link_table_$linkId lt$linkId JOIN
-            |   user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
+            |   link_table_$linkId lt$linkId
+            |   JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
             |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
-            | WHERE ${column._1} IS NOT NULL
-            | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}
-            | ORDER BY ut$toTableId.id
+            | WHERE $column IS NOT NULL
+            | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.fromOrdering}
+            | ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.fromOrdering}
             |) sub
             |WHERE sub.${direction.fromSql} = ut.id
             |GROUP BY sub.${direction.fromSql}
