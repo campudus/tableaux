@@ -17,7 +17,7 @@ case class Folder(id: FolderId,
     },
     "name" -> name,
     "description" -> description,
-    "parent" -> parents.headOption.orNull, // for compatibility
+    "parent" -> parents.lastOption.orNull, // for compatibility
     "parents" -> compatibilityGet(parents),
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)

@@ -25,7 +25,7 @@ case class TableauxFile(uuid: UUID,
   override def getJson: JsonObject = Json.obj(
     "uuid" -> uuid.toString,
 
-    "folder" -> folders.headOption.orNull,
+    "folder" -> folders.lastOption.orNull,
     "folders" -> compatibilityGet(folders),
 
     "title" -> title.getJson,

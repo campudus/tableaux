@@ -130,7 +130,7 @@ class MediaController(override val config: TableauxConfig,
             description = oldFile.file.description,
             internalName = internalName,
             externalName = externalName,
-            folder = oldFile.file.folders.headOption,
+            folder = oldFile.file.folders.lastOption,
             mimeType = mimeType
           ).map(ExtendedFile)
         }
@@ -327,7 +327,7 @@ class MediaController(override val config: TableauxConfig,
           description = file.description.add(langtag, description.getOrElse("")),
           internalName = file.internalName.add(langtag, internalName.getOrElse("")),
           externalName = file.externalName.add(langtag, externalName.getOrElse("")),
-          folder = file.folders.headOption,
+          folder = file.folders.lastOption,
           mimeType = file.mimeType.add(langtag, mimeType.getOrElse(""))
         )
       }
