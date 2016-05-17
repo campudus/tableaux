@@ -124,6 +124,21 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield RowSeq(rows)
 
+  def updateCellLinkOrder(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Cell[_]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+
+      _ <- column match {
+        case linkColumn: LinkColumn[_] => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, location, id)
+        case _ => throw new Exception("fuck it!")
+      }
+
+      _ <- invalidateCellAndDependentColumns(column, rowId)
+
+      updatedCell <- retrieveCell(column, rowId)
+    } yield updatedCell
+  }
+
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)

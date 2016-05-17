@@ -180,6 +180,49 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(cleared)
   }
 
+  def updateLinkOrder(table: Table, column: LinkColumn[_], rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Unit] = {
+    val rowIdColumn = column.linkDirection.fromSql
+    val toIdColumn = column.linkDirection.toSql
+    val orderColumn = column.linkDirection.fromOrdering
+    val linkTable = s"link_table_${column.linkId}"
+
+    val listOfStatements: List[(String, JsonArray)] = location match {
+      case "start" => List(
+        (s"UPDATE $linkTable SET $orderColumn = (SELECT MIN($orderColumn) - 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)", Json.arr(rowId, rowId, toId, rowId))
+      )
+      case "end" => List(
+        (s"UPDATE $linkTable SET $orderColumn = (SELECT MAX($orderColumn) + 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)", Json.arr(rowId, rowId, toId, rowId))
+      )
+      case "before" => List(
+        (s"UPDATE $linkTable SET $orderColumn = (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ?", Json.arr(rowId, id.get, rowId, toId)),
+        (s"UPDATE $linkTable SET $orderColumn = $orderColumn + 1 WHERE ($orderColumn >= (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) AND ($rowIdColumn = ? AND $toIdColumn != ?))", Json.arr(rowId, id.get, rowId, toId))
+      )
+    }
+
+    val normalize = (
+      s"""
+         |UPDATE $linkTable
+         |SET $orderColumn = r.ordering
+         |FROM (SELECT $rowIdColumn, $toIdColumn, row_number() OVER (ORDER BY $rowIdColumn, $orderColumn) AS ordering FROM $linkTable WHERE $rowIdColumn = ?) r
+         |WHERE $linkTable.$rowIdColumn = r.$rowIdColumn AND $linkTable.$toIdColumn = r.$toIdColumn
+       """.stripMargin, Json.arr(rowId))
+
+    for {
+      t <- connection.begin()
+
+      (t, results) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+        case (fTuple, (query, bindParams)) =>
+          for {
+            (latestTransaction, results) <- fTuple
+            (lastT, result) <- latestTransaction.query(query, bindParams)
+          } yield (lastT, results :+ result)
+      }
+
+      //_ <- Future(checkUpdateResults(results: _*)) recoverWith t.rollbackAndFail()
+      _ <- t.commit()
+    } yield ()
+  }
+
   def updateRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
     val (simple, multis, links, attachments) = splitIntoDatabaseTypesWithValues(values)
 
