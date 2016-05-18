@@ -1,5 +1,6 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.database.model.TableauxModel.RowId
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -9,11 +10,59 @@ import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 
-@RunWith(classOf[VertxUnitRunner])
-class LinkTest extends TableauxTestBase {
+sealed trait LinkTestBase extends TableauxTestBase {
 
   val postLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
   val postSingleDirectionLinkCol = Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "singleDirection" -> true)))
+
+  protected def setupTwoTablesWithEmptyLinks(): Future[Number] = {
+    val linkColumn = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "toTable" -> 2
+        )
+      )
+    )
+
+    def addRow(tableId: Long, values: JsonObject): Future[Number] = for {
+      res <- sendRequest("POST", s"/tables/$tableId/rows", values)
+      table1RowId1 <- Future.apply(res.getArray("rows").get[JsonObject](0).getNumber("id"))
+    } yield table1RowId1
+
+    def valuesRow(c: String) = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2)))
+    )
+
+    for {
+      tables <- setupTwoTables()
+
+      // create link column
+      res <- sendRequest("POST", "/tables/1/columns", linkColumn)
+      linkColumnId <- Future.apply(res.getArray("columns").get[JsonObject](0).getNumber("id"))
+
+      // add rows to tables
+      table1RowId1 <- addRow(1, valuesRow("table1RowId1"))
+      table1RowId2 <- addRow(1, valuesRow("table1RowId2"))
+      table1RowId2 <- addRow(1, valuesRow("table1RowId3"))
+
+      table2RowId1 <- addRow(2, valuesRow("table2RowId1"))
+      table2RowId2 <- addRow(2, valuesRow("table2RowId2"))
+      table2RowId2 <- addRow(2, valuesRow("table2RowId3"))
+
+    } yield linkColumnId
+  }
+
+  protected def setupTwoTables(): Future[Seq[Long]] = for {
+    id1 <- createDefaultTable()
+    id2 <- createDefaultTable("Test Table 2", 2)
+  } yield List(id1, id2)
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class LinkColumnTest extends LinkTestBase {
 
   @Test
   def retrieveLinkColumn(implicit c: TestContext): Unit = okTest {
@@ -234,6 +283,11 @@ class LinkTest extends TableauxTestBase {
     } yield ()
   }
 
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class LinkTest extends LinkTestBase {
+
   @Test
   def fillAndRetrieveLinkCell(implicit c: TestContext): Unit = okTest {
     def valuesRow(c: String) =
@@ -247,8 +301,6 @@ class LinkTest extends TableauxTestBase {
         ))
 
     def fillLinkCellJson(c: Integer) = Json.obj("value" -> Json.obj("to" -> c))
-
-    val expectedJson = Json.obj("status" -> "ok")
 
     for {
       tables <- setupTwoTables()
@@ -367,42 +419,6 @@ class LinkTest extends TableauxTestBase {
 
       assertEquals(expectedJsonForResult2, linkValueForTable2)
     }
-  }
-
-  private def setupTwoTablesWithEmptyLinks(): Future[Number] = {
-    val linkColumn = Json.obj(
-      "columns" -> Json.arr(
-        Json.obj(
-          "name" -> "Test Link 1",
-          "kind" -> "link",
-          "toTable" -> 2
-        )
-      )
-    )
-
-    def addRow(tableId: Long, values: JsonObject): Future[Number] = for {
-      res <- sendRequest("POST", s"/tables/$tableId/rows", values)
-      table1RowId1 <- Future.apply(res.getArray("rows").get[JsonObject](0).getNumber("id"))
-    } yield table1RowId1
-
-    def valuesRow(c: String) = Json.obj(
-      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-      "rows" -> Json.arr(Json.obj("values" -> Json.arr(c, 2)))
-    )
-
-    for {
-      tables <- setupTwoTables()
-
-      // create link column
-      res <- sendRequest("POST", "/tables/1/columns", linkColumn)
-      linkColumnId <- Future.apply(res.getArray("columns").get[JsonObject](0).getNumber("id"))
-
-      // add rows to tables
-      table1RowId1 <- addRow(1, valuesRow("table1RowId1"))
-      table1RowId2 <- addRow(1, valuesRow("table1RowId2"))
-      table2RowId1 <- addRow(2, valuesRow("table2RowId1"))
-      table2RowId2 <- addRow(2, valuesRow("table2RowId2"))
-    } yield linkColumnId
   }
 
   @Test
@@ -729,8 +745,127 @@ class LinkTest extends TableauxTestBase {
     }
   }
 
-  private def setupTwoTables(): Future[Seq[Long]] = for {
-    id1 <- createDefaultTable()
-    id2 <- createDefaultTable("Test Table 2", 2)
-  } yield List(id1, id2)
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class LinkOrderTest extends LinkTestBase {
+  @Test
+  def testInsertionLinkOrder(implicit c: TestContext): Unit = okTest {
+
+    def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(1))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(2))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(3))
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(3))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(2))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(1))
+
+      getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+      getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
+
+      getFromTable2Row1 <- sendRequest("GET", s"/tables/2/columns/$linkColumnId/rows/1")
+      getFromTable2Row2 <- sendRequest("GET", s"/tables/2/columns/$linkColumnId/rows/2")
+    } yield {
+
+      import scala.collection.JavaConverters._
+
+      assertEquals(List(1, 2, 3), getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+      assertEquals(List(3, 2, 1), getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+
+      assertEquals(List(1, 2), getFromTable2Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+      assertEquals(List(1, 2), getFromTable2Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+    }
+  }
+
+  @Test
+  def testChangeOrderLocationEnd(implicit c: TestContext): Unit = okTest {
+
+    def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(1))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(2))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(3))
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(3))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(2))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(1))
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/1/order", Json.obj("location" -> "end"))
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/2/link/3/order", Json.obj("location" -> "end"))
+
+      getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+      getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
+    } yield {
+      import scala.collection.JavaConverters._
+
+      assertEquals(List(2, 3, 1), getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+      assertEquals(List(2, 1, 3), getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+    }
+  }
+
+  @Test
+  def testChangeOrderLocationStart(implicit c: TestContext): Unit = okTest {
+
+    def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(1))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(2))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(3))
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(3))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(2))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(1))
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/3/order", Json.obj("location" -> "start"))
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/2/link/1/order", Json.obj("location" -> "start"))
+
+      getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+      getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
+    } yield {
+      import scala.collection.JavaConverters._
+
+      assertEquals(List(3, 1, 2), getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+      assertEquals(List(1, 3, 2), getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+    }
+  }
+
+  @Test
+  def testChangeOrderLocationBefore(implicit c: TestContext): Unit = okTest {
+
+    def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(1))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(2))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(3))
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(3))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(2))
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(1))
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/2/order", Json.obj("location" -> "before", "id" -> 1))
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/2/link/2/order", Json.obj("location" -> "before", "id" -> 3))
+
+      getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+      getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
+    } yield {
+      import scala.collection.JavaConverters._
+
+      assertEquals(List(2, 1, 3), getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+      assertEquals(List(2, 3, 1), getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+    }
+  }
 }
