@@ -1,6 +1,6 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.database.model.TableauxModel.RowId
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -28,7 +28,7 @@ sealed trait LinkTestBase extends TableauxTestBase {
 
     def addRow(tableId: Long, values: JsonObject): Future[Number] = for {
       res <- sendRequest("POST", s"/tables/$tableId/rows", values)
-      table1RowId1 <- Future.apply(res.getArray("rows").get[JsonObject](0).getNumber("id"))
+      table1RowId1 = res.getArray("rows").get[JsonObject](0).getNumber("id")
     } yield table1RowId1
 
     def valuesRow(c: String) = Json.obj(
@@ -867,5 +867,41 @@ class LinkOrderTest extends LinkTestBase {
       assertEquals(List(2, 1, 3), getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       assertEquals(List(2, 3, 1), getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
     }
+  }
+
+  @Test
+  def testWrongColumnType(implicit c: TestContext): Unit = exceptionTest("error.request.column.wrongtype") {
+    for {
+      _ <- setupTwoTables()
+      _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1/link/1/order", Json.obj("location" -> "before", "id" -> 2))
+    } yield ()
+  }
+
+  @Test
+  def testWrongLocation(implicit c: TestContext): Unit = exceptionTest("error.arguments") {
+
+    def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(1))
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/1/order", Json.obj("location" -> "beef"))
+    } yield ()
+  }
+
+  @Test
+  def testWrongId(implicit c: TestContext): Unit = exceptionTest("NOT FOUND") {
+
+    def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(1))
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/1/order", Json.obj("location" -> "before", "id" -> 2))
+    } yield ()
   }
 }

@@ -183,7 +183,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   def updateLinkOrder(table: Table, column: LinkColumn[_], rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql
-    val orderColumn = column.linkDirection.fromOrdering
+    val orderColumn = column.linkDirection.orderingSql
     val linkTable = s"link_table_${column.linkId}"
 
     val listOfStatements: List[(String, JsonArray)] = location match {
@@ -210,6 +210,29 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     for {
       t <- connection.begin()
 
+      // Check if row exists
+      (t, result) <- t.query(s"SELECT id FROM user_table_${table.id} WHERE id = ?", Json.arr(rowId))
+      _ = selectNotNull(result)
+
+      // Check if row exists
+      (t, result) <- t.query(s"SELECT id FROM user_table_${column.to.table.id} WHERE id = ?", Json.arr(toId))
+      _ = selectNotNull(result)
+
+      t <- id match {
+        case Some(id) =>
+
+          // Check if row is linked
+          t.query(s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?", Json.arr(rowId, id))
+            .map({
+              case (t, result) =>
+                selectNotNull(result)
+                t
+            })
+
+        case None =>
+          Future.successful(t)
+      }
+
       (t, results) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
         case (fTuple, (query, bindParams)) =>
           for {
@@ -218,7 +241,6 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           } yield (lastT, results :+ result)
       }
 
-      //_ <- Future(checkUpdateResults(results: _*)) recoverWith t.rollbackAndFail()
       _ <- t.commit()
     } yield ()
   }
@@ -598,8 +620,8 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
             |   JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
             |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
             | WHERE $column IS NOT NULL
-            | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.fromOrdering}
-            | ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.fromOrdering}
+            | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+            | ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
             |) sub
             |WHERE sub.${direction.fromSql} = ut.id
             |GROUP BY sub.${direction.fromSql}

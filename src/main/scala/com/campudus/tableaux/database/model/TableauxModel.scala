@@ -1,10 +1,10 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.InvalidJsonException
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RowModel, UpdateRowModel}
+import com.campudus.tableaux.{InvalidJsonException, WrongColumnKindException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -130,7 +130,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
       _ <- column match {
         case linkColumn: LinkColumn[_] => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, location, id)
-        case _ => throw new Exception("fuck it!")
+        case _ => Future.failed(new WrongColumnKindException(column, classOf[LinkColumn[_]]))
       }
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
