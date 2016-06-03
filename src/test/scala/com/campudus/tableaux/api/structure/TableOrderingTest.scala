@@ -18,6 +18,8 @@ class TableOrderingTest extends TableauxTestBase {
     "id" -> id,
     "name" -> name,
     "hidden" -> false,
+    "displayName" -> Json.obj(),
+    "description" -> Json.obj(),
     "langtags" -> Json.arr("de-DE", "en-GB")
   )
 

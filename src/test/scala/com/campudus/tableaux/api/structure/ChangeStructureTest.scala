@@ -22,6 +22,8 @@ class ChangeStructureTest extends TableauxTestBase {
       "id" -> 1,
       "name" -> "New testname",
       "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj(),
       "langtags" -> Json.arr("de-DE", "en-GB")
     )
 
