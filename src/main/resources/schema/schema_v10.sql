@@ -24,3 +24,6 @@ CREATE TABLE system_table_lang (
   PRIMARY KEY (table_id, langtag),
   FOREIGN KEY (table_id) REFERENCES system_table (table_id) ON DELETE CASCADE
 );
+
+INSERT INTO system_table_lang (table_id, langtag, name, description)
+  SELECT table_id, (SELECT value::json->0 from system_settings where key = 'langtags'), user_table_name, null FROM system_table;
