@@ -26,4 +26,4 @@ CREATE TABLE system_table_lang (
 );
 
 INSERT INTO system_table_lang (table_id, langtag, name, description)
-  SELECT table_id, (SELECT value::json->0 from system_settings where key = 'langtags'), user_table_name, null FROM system_table;
+  SELECT table_id, (SELECT value::json->>0 from system_settings where key = 'langtags'), user_table_name, null FROM system_table;
