@@ -26,19 +26,25 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def resetDemoData(implicit c: TestContext): Unit = okTest {
+    val baseTable = Json.obj(
+      "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj(),
+      "langtags" -> Json.arr("de-DE", "en-GB")
+    )
     val expectedJson1 = Json.obj(
       "status" -> "ok",
       "tables" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Bundesländer", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB")),
-        Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB"))
+        baseTable.copy().mergeIn(Json.obj("id" -> 1, "name" -> "Bundesländer")),
+        baseTable.copy().mergeIn(Json.obj("id" -> 2, "name" -> "Regierungsbezirke"))
       )
     )
 
     val expectedJson2 = Json.obj(
       "status" -> "ok",
       "tables" -> Json.arr(
-        Json.obj("id" -> 1, "name" -> "Bundesländer", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB")),
-        Json.obj("id" -> 2, "name" -> "Regierungsbezirke", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB"))
+        baseTable.copy().mergeIn(Json.obj("id" -> 1, "name" -> "Bundesländer")),
+        baseTable.copy().mergeIn(Json.obj("id" -> 2, "name" -> "Regierungsbezirke"))
       )
     )
 

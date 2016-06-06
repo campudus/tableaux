@@ -23,6 +23,8 @@ class GetTest extends TableauxTestBase {
       "id" -> 1,
       "name" -> "Test Table 1",
       "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj(),
       "columns" -> Json.arr(),
       "page" -> Json.obj(
         "offset" -> null,
@@ -48,6 +50,8 @@ class GetTest extends TableauxTestBase {
       "id" -> 1,
       "name" -> "Test Table 1",
       "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj(),
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
@@ -79,6 +83,8 @@ class GetTest extends TableauxTestBase {
       "id" -> 1,
       "name" -> "Test Table 1",
       "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj(),
       "columns" -> Json.arr(
         Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
         Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
@@ -124,6 +130,8 @@ class GetTest extends TableauxTestBase {
       "id" -> 1,
       "name" -> "Test Table 1",
       "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj(),
       "columns" -> columns,
       "page" -> Json.obj(
         "offset" -> null,

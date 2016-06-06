@@ -1,11 +1,12 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import com.campudus.tableaux.testtools.AssertionHelpers
 import org.junit.Assert._
 import org.junit.Test
 import org.vertx.scala.core.json.Json
 
-abstract class AbstractDisplayInfosTest {
+abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
 
   @Test
   def checkSingleName(): Unit = {
@@ -24,7 +25,10 @@ abstract class AbstractDisplayInfosTest {
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
           |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
-    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", null, 1, 1, "en_US", "Column 1", null), di.binds)
+    checkPartsInRandomOrder(Seq(
+      Seq(1, 1, "de_DE", "Spalte 1", null),
+      Seq(1, 1, "en_US", "Column 1", null)
+    ), di.binds)
   }
 
   @Test
@@ -44,7 +48,10 @@ abstract class AbstractDisplayInfosTest {
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
           |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
-    assertEquals(Seq(1, 1, "de_DE", null, "Spalte 1 Beschreibung", 1, 1, "en_US", null, "Column 1 Description"), di.binds)
+    checkPartsInRandomOrder(Seq(
+      Seq(1, 1, "de_DE", null, "Spalte 1 Beschreibung"),
+      Seq(1, 1, "en_US", null, "Column 1 Description")
+    ), di.binds)
   }
 
   @Test
@@ -65,7 +72,10 @@ abstract class AbstractDisplayInfosTest {
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
           |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
-    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung", 1, 1, "en_US", "Column 1", "Column 1 Description"), di.binds)
+    checkPartsInRandomOrder(Seq(
+      Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung"),
+      Seq(1, 1, "en_US", "Column 1", "Column 1 Description")
+    ), di.binds)
   }
 
   @Test
@@ -75,7 +85,10 @@ abstract class AbstractDisplayInfosTest {
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
           |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
-    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", null, 1, 1, "en_US", null, "Column 1 Description"), di.binds)
+    checkPartsInRandomOrder(Seq(
+      Seq(1, 1, "de_DE", "Spalte 1", null),
+      Seq(1, 1, "en_US", null, "Column 1 Description")
+    ), di.binds)
   }
 
   @Test
@@ -95,7 +108,7 @@ abstract class AbstractDisplayInfosTest {
       Seq(1, 1, "fr_FR", "Colonne 1", null)
     )
 
-    assertTrue(all.forall(s => di.binds.indexOfSlice(s) >= 0))
+    checkPartsInRandomOrder(all, di.binds)
   }
 
   @Test
@@ -104,43 +117,43 @@ abstract class AbstractDisplayInfosTest {
     assertFalse(di.nonEmpty)
   }
 
-  def emptyDisplayInfo(tableId: TableId, columnId: ColumnId): DisplayInfos
+  def emptyDisplayInfo(tableId: TableId, columnId: ColumnId): ColumnDisplayInfos
 
-  def singleName(tableId: TableId, columnId: ColumnId, langtag: String, name: String): DisplayInfos
+  def singleName(tableId: TableId, columnId: ColumnId, langtag: String, name: String): ColumnDisplayInfos
 
-  def multipleNames(tableId: TableId, columnId: ColumnId, langNames: List[(String, String)]): DisplayInfos
+  def multipleNames(tableId: TableId, columnId: ColumnId, langNames: List[(String, String)]): ColumnDisplayInfos
 
-  def singleDesc(tableId: TableId, columnId: ColumnId, langtag: String, desc: String): DisplayInfos
+  def singleDesc(tableId: TableId, columnId: ColumnId, langtag: String, desc: String): ColumnDisplayInfos
 
-  def multipleDescs(tableId: TableId, columnId: ColumnId, langDescs: List[(String, String)]): DisplayInfos
+  def multipleDescs(tableId: TableId, columnId: ColumnId, langDescs: List[(String, String)]): ColumnDisplayInfos
 
-  def singleNameAndDesc(tableId: TableId, columnId: ColumnId, langtag: String, name: String, desc: String): DisplayInfos
+  def singleNameAndDesc(tableId: TableId, columnId: ColumnId, langtag: String, name: String, desc: String): ColumnDisplayInfos
 
-  def multipleNameAndDesc(tableId: TableId, columnId: ColumnId, infos: List[(String, String, String)]): DisplayInfos
+  def multipleNameAndDesc(tableId: TableId, columnId: ColumnId, infos: List[(String, String, String)]): ColumnDisplayInfos
 
 }
 
-class DisplayInfoTestDirect extends AbstractDisplayInfosTest {
+class ColumnDisplayInfosTestDirect extends AbstractColumnDisplayInfosTest {
 
-  override def emptyDisplayInfo(tableId: TableId, columnId: ColumnId): DisplayInfos =
+  override def emptyDisplayInfo(tableId: TableId, columnId: ColumnId): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, List())
 
-  override def singleName(tableId: TableId, columnId: ColumnId, langtag: String, name: String): DisplayInfos =
+  override def singleName(tableId: TableId, columnId: ColumnId, langtag: String, name: String): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, List(NameOnly(langtag, name)))
 
-  override def multipleNames(tableId: TableId, columnId: ColumnId, langNames: List[(String, String)]): DisplayInfos =
+  override def multipleNames(tableId: TableId, columnId: ColumnId, langNames: List[(String, String)]): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, langNames.map(t => NameOnly(t._1, t._2)))
 
-  override def singleDesc(tableId: TableId, columnId: ColumnId, langtag: String, desc: String): DisplayInfos =
+  override def singleDesc(tableId: TableId, columnId: ColumnId, langtag: String, desc: String): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, List(DescriptionOnly(langtag, desc)))
 
-  override def multipleDescs(tableId: TableId, columnId: ColumnId, langDescs: List[(String, String)]): DisplayInfos =
+  override def multipleDescs(tableId: TableId, columnId: ColumnId, langDescs: List[(String, String)]): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, langDescs.map(t => DescriptionOnly(t._1, t._2)))
 
-  override def singleNameAndDesc(tableId: TableId, columnId: ColumnId, langtag: String, name: String, desc: String): DisplayInfos =
+  override def singleNameAndDesc(tableId: TableId, columnId: ColumnId, langtag: String, name: String, desc: String): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, List(NameAndDescription(langtag, name, desc)))
 
-  override def multipleNameAndDesc(tableId: TableId, columnId: ColumnId, infos: List[(String, String, String)]): DisplayInfos =
+  override def multipleNameAndDesc(tableId: TableId, columnId: ColumnId, infos: List[(String, String, String)]): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, infos.map {
       case (lang, name, null) => NameOnly(lang, name)
       case (lang, null, desc) => DescriptionOnly(lang, desc)
@@ -149,35 +162,35 @@ class DisplayInfoTestDirect extends AbstractDisplayInfosTest {
 
 }
 
-class DisplayInfoTestJsonObject extends AbstractDisplayInfosTest {
+class ColumnDisplayInfosTestJsonObject extends AbstractColumnDisplayInfosTest {
 
-  override def emptyDisplayInfo(tableId: TableId, columnId: ColumnId): DisplayInfos =
+  override def emptyDisplayInfo(tableId: TableId, columnId: ColumnId): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, Json.obj())
 
-  override def singleName(tableId: TableId, columnId: ColumnId, langtag: String, name: String): DisplayInfos =
+  override def singleName(tableId: TableId, columnId: ColumnId, langtag: String, name: String): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, Json.obj("displayName" -> Json.obj(langtag -> name)))
 
-  override def multipleNames(tableId: TableId, columnId: ColumnId, langNames: List[(String, String)]): DisplayInfos = {
+  override def multipleNames(tableId: TableId, columnId: ColumnId, langNames: List[(String, String)]): ColumnDisplayInfos = {
     DisplayInfos(tableId, columnId, Json.obj("displayName" -> langNames.foldLeft(Json.obj()) {
       case (json, (langtag, name)) => json.mergeIn(Json.obj(langtag -> name))
     }))
   }
 
-  override def singleDesc(tableId: TableId, columnId: ColumnId, langtag: String, desc: String): DisplayInfos =
+  override def singleDesc(tableId: TableId, columnId: ColumnId, langtag: String, desc: String): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, Json.obj("description" -> Json.obj(langtag -> desc)))
 
-  override def multipleDescs(tableId: TableId, columnId: ColumnId, langDescs: List[(String, String)]): DisplayInfos =
+  override def multipleDescs(tableId: TableId, columnId: ColumnId, langDescs: List[(String, String)]): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, Json.obj("description" -> langDescs.foldLeft(Json.obj()) {
       case (json, (langtag, desc)) => json.mergeIn(Json.obj(langtag -> desc))
     }))
 
-  override def singleNameAndDesc(tableId: TableId, columnId: ColumnId, langtag: String, name: String, desc: String): DisplayInfos =
+  override def singleNameAndDesc(tableId: TableId, columnId: ColumnId, langtag: String, name: String, desc: String): ColumnDisplayInfos =
     DisplayInfos(tableId, columnId, Json.obj(
       "displayName" -> Json.obj(langtag -> name),
       "description" -> Json.obj(langtag -> desc)
     ))
 
-  override def multipleNameAndDesc(tableId: TableId, columnId: ColumnId, infos: List[(String, String, String)]): DisplayInfos = {
+  override def multipleNameAndDesc(tableId: TableId, columnId: ColumnId, infos: List[(String, String, String)]): ColumnDisplayInfos = {
     val result = infos.foldLeft(Json.obj()) {
       case (json, (lang, name, null)) => json.mergeIn(Json.obj("displayName" -> json.getJsonObject("displayName", Json.obj()).mergeIn(Json.obj(lang -> name))))
       case (json, (lang, null, desc)) => json.mergeIn(Json.obj("description" -> json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc))))

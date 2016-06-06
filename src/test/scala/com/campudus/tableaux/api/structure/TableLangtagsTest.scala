@@ -15,7 +15,13 @@ class TableLangtagsTest extends TableauxTestBase {
     val createTableJson = Json.obj("name" -> "Table without langtags")
     val updateTableJson = Json.obj("name" -> "Table with langtags", "langtags" -> Json.arr("de-DE", "en-GB"))
 
-    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "hidden" -> false)
+    val expectedTableJson = Json.obj(
+      "status" -> "ok",
+      "id" -> 1,
+      "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj()
+    )
 
     for {
       langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.emptyArr()))
@@ -38,7 +44,13 @@ class TableLangtagsTest extends TableauxTestBase {
     val createTableJson = Json.obj("name" -> "Table with one langtag", "langtags" -> Json.arr("de-DE"))
     val updateTableJson = Json.obj("name" -> "Table with two langtags", "langtags" -> Json.arr("de-DE", "en-GB"))
 
-    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "hidden" -> false)
+    val expectedTableJson = Json.obj(
+      "status" -> "ok",
+      "id" -> 1,
+      "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj()
+    )
 
     for {
       tablePost <- sendRequest("POST", "/tables", createTableJson)
@@ -59,7 +71,13 @@ class TableLangtagsTest extends TableauxTestBase {
     val createTableJson = Json.obj("name" -> "Table with one langtag", "langtags" -> Json.arr("de-DE"))
     val updateTableJson = Json.obj("name" -> "Table with explicitly no langtags", "langtags" -> Json.arr())
 
-    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "hidden" -> false)
+    val expectedTableJson = Json.obj(
+      "status" -> "ok",
+      "id" -> 1,
+      "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj()
+    )
 
     for {
       tablePost <- sendRequest("POST", "/tables", createTableJson)
@@ -80,7 +98,13 @@ class TableLangtagsTest extends TableauxTestBase {
     val createTableJson = Json.obj("name" -> "Table with one langtag", "langtags" -> Json.arr("de-DE"))
     val updateTableJson = Json.obj("name" -> "Table with no langtags", "langtags" -> null)
 
-    val expectedTableJson = Json.obj("status" -> "ok", "id" -> 1, "hidden" -> false)
+    val expectedTableJson = Json.obj(
+      "status" -> "ok",
+      "id" -> 1,
+      "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj()
+    )
 
     for {
       langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.emptyArr()))

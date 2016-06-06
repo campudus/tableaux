@@ -165,7 +165,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       }
     }
 
-    def insertColumnLang(t: connection.Transaction, displayInfos: DisplayInfos): Future[(connection.Transaction, Seq[DisplayInfo])] = {
+    def insertColumnLang(t: connection.Transaction, displayInfos: ColumnDisplayInfos): Future[(connection.Transaction, Seq[DisplayInfo])] = {
       if (displayInfos.nonEmpty) {
         for {
           (t, result) <- t.query(displayInfos.statement, Json.arr(displayInfos.binds: _*))
@@ -546,7 +546,6 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             insertStatementFromOptions(nameOpt, descOpt)
           }
           binds = nameOpt.toList ::: descOpt.toList ::: List(table.id, columnId, key)
-          _ = logger.info(s"stmt=$stmt")
           (t, inserted) <- t.query(stmt, Json.arr(binds: _*))
         } yield t
     }

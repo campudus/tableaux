@@ -22,6 +22,8 @@ class GetStructureTest extends TableauxTestBase {
       "id" -> 1,
       "name" -> "Test Table 1",
       "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj(),
       "langtags" -> Json.arr("de-DE", "en-GB")
     )
 
@@ -35,9 +37,15 @@ class GetStructureTest extends TableauxTestBase {
 
   @Test
   def retrieveAllTables(implicit c: TestContext): Unit = okTest {
+    val baseExpected = Json.obj(
+      "hidden" -> false,
+      "displayName" -> Json.obj(),
+      "description" -> Json.obj(),
+      "langtags" -> Json.arr("de-DE", "en-GB")
+    )
     val expectedJson = Json.obj("status" -> "ok", "tables" -> Json.arr(
-      Json.obj("id" -> 1, "name" -> "Test Table 1", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB")),
-      Json.obj("id" -> 2, "name" -> "Test Table 2", "hidden" -> false, "langtags" -> Json.arr("de-DE", "en-GB"))
+      baseExpected.copy().mergeIn(Json.obj("id" -> 1, "name" -> "Test Table 1")),
+      baseExpected.copy().mergeIn(Json.obj("id" -> 2, "name" -> "Test Table 2"))
     ))
 
     for {

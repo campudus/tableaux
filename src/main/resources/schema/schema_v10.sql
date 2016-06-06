@@ -14,3 +14,16 @@ WHERE table_schema = 'public' AND table_name LIKE 'link_table_%'
 ORDER BY table_name;
 
 DROP FUNCTION create_ordering_for_link_table( REGCLASS );
+
+CREATE TABLE system_table_lang (
+  table_id    BIGINT      NOT NULL,
+  langtag     VARCHAR(50) NOT NULL,
+  name        VARCHAR(255),
+  description TEXT,
+
+  PRIMARY KEY (table_id, langtag),
+  FOREIGN KEY (table_id) REFERENCES system_table (table_id) ON DELETE CASCADE
+);
+
+INSERT INTO system_table_lang (table_id, langtag, name, description)
+  SELECT table_id, (SELECT value::json->>0 from system_settings where key = 'langtags'), user_table_name, null FROM system_table;

@@ -69,12 +69,12 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield ColumnSeq(columns)
   }
 
-  def createTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]]): Future[Table] = {
-    checkArguments(notNull(tableName, "tableName"))
-    logger.info(s"createTable $tableName $hidden $langtags")
+  def createTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo]): Future[Table] = {
+    checkArguments(notNull(tableName, "name"))
+    logger.info(s"createTable $tableName $hidden $langtags $displayInfos")
 
     for {
-      created <- tableStruc.create(tableName, hidden, langtags)
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos)
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
   }
@@ -118,12 +118,12 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield EmptyObject()
   }
 
-  def changeTable(tableId: TableId, tableName: Option[String], hidden: Option[Boolean], langtags: Option[Option[Seq[String]]]): Future[Table] = {
-    checkArguments(greaterZero(tableId), isDefined(Seq(tableName, hidden, langtags), "tableName, hidden, langtags"))
+  def changeTable(tableId: TableId, tableName: Option[String], hidden: Option[Boolean], langtags: Option[Option[Seq[String]]], displayInfos: Option[Seq[DisplayInfo]]): Future[Table] = {
+    checkArguments(greaterZero(tableId), isDefined(Seq(tableName, hidden, langtags, displayInfos), "name, hidden, langtags, displayName, description"))
     logger.info(s"changeTable $tableId $tableName $hidden $langtags")
 
     for {
-      _ <- tableStruc.change(tableId, tableName, hidden, langtags)
+      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos)
       table <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $table")

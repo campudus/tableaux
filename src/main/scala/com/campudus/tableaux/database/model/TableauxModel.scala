@@ -36,7 +36,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   private lazy val structureModel = StructureModel(connection)
 
   def createTable(name: String, hidden: Boolean): Future[Table] = {
-    structureModel.tableStruc.create(name, hidden, None)
+    structureModel.tableStruc.create(name, hidden, None, List())
   }
 
   def retrieveTable(tableId: TableId): Future[Table] = {
