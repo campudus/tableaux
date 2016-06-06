@@ -19,6 +19,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   private val AttachmentOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/attachment/($uuidRegex)".r
   private val LinkOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/link/(\\d+)".r
+  private val LinkOrderOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/link/(\\d+)/order".r
 
   private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
 
@@ -157,6 +158,16 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       for {
         json <- getJson(context)
         updated <- controller.replaceCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+      } yield updated
+    }
+
+    /**
+      * Change order of link
+      */
+    case Put(LinkOrderOfCell(tableId, columnId, rowId, toId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        updated <- controller.updateCellLinkOrder(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong, json.getString("location"), Option(json.getLong("id")).map(_.toLong))
       } yield updated
     }
 

@@ -180,6 +180,71 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(cleared)
   }
 
+  def updateLinkOrder(table: Table, column: LinkColumn[_], rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Unit] = {
+    val rowIdColumn = column.linkDirection.fromSql
+    val toIdColumn = column.linkDirection.toSql
+    val orderColumn = column.linkDirection.orderingSql
+    val linkTable = s"link_table_${column.linkId}"
+
+    val listOfStatements: List[(String, JsonArray)] = location match {
+      case "start" => List(
+        (s"UPDATE $linkTable SET $orderColumn = (SELECT MIN($orderColumn) - 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)", Json.arr(rowId, rowId, toId, rowId))
+      )
+      case "end" => List(
+        (s"UPDATE $linkTable SET $orderColumn = (SELECT MAX($orderColumn) + 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)", Json.arr(rowId, rowId, toId, rowId))
+      )
+      case "before" => List(
+        (s"UPDATE $linkTable SET $orderColumn = (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ?", Json.arr(rowId, id.get, rowId, toId)),
+        (s"UPDATE $linkTable SET $orderColumn = $orderColumn + 1 WHERE ($orderColumn >= (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) AND ($rowIdColumn = ? AND $toIdColumn != ?))", Json.arr(rowId, id.get, rowId, toId))
+      )
+    }
+
+    val normalize = (
+      s"""
+         |UPDATE $linkTable
+         |SET $orderColumn = r.ordering
+         |FROM (SELECT $rowIdColumn, $toIdColumn, row_number() OVER (ORDER BY $rowIdColumn, $orderColumn) AS ordering FROM $linkTable WHERE $rowIdColumn = ?) r
+         |WHERE $linkTable.$rowIdColumn = r.$rowIdColumn AND $linkTable.$toIdColumn = r.$toIdColumn
+       """.stripMargin, Json.arr(rowId))
+
+    for {
+      t <- connection.begin()
+
+      // Check if row exists
+      (t, result) <- t.query(s"SELECT id FROM user_table_${table.id} WHERE id = ?", Json.arr(rowId))
+      _ = selectNotNull(result)
+
+      // Check if row exists
+      (t, result) <- t.query(s"SELECT id FROM user_table_${column.to.table.id} WHERE id = ?", Json.arr(toId))
+      _ = selectNotNull(result)
+
+      t <- id match {
+        case Some(id) =>
+
+          // Check if row is linked
+          t.query(s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?", Json.arr(rowId, id))
+            .map({
+              case (t, result) =>
+                selectNotNull(result)
+                t
+            })
+
+        case None =>
+          Future.successful(t)
+      }
+
+      (t, results) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+        case (fTuple, (query, bindParams)) =>
+          for {
+            (latestTransaction, results) <- fTuple
+            (lastT, result) <- latestTransaction.query(query, bindParams)
+          } yield (lastT, results :+ result)
+      }
+
+      _ <- t.commit()
+    } yield ()
+  }
+
   def updateRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
     val (simple, multis, links, attachments) = splitIntoDatabaseTypesWithValues(values)
 
@@ -483,7 +548,8 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
   private def generateProjection(columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
       case _: ConcatColumn | _: AttachmentColumn =>
-        // Values will be calculated or added after select
+        // Values will be calculated/fetched after select
+        // See TableauxModel.mapRawRows
         "NULL"
 
       case c: MultiLanguageColumn[_] =>
@@ -512,8 +578,10 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
         val direction = c.linkDirection
         val toTableId = c.to.table.id
 
-        val column = c.to match {
+        val (column, value) = c.to match {
           case _: ConcatColumn =>
+            // Values will be calculated/fetched after select
+            // See TableauxModel.mapRawRows
             (s"''", "NULL")
 
           case to: MultiLanguageColumn[_] =>
@@ -541,19 +609,19 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
 
         s"""(
             |SELECT
-            | json_agg(sub.column_${c.to.id})
+            | json_agg(sub.value)
             |FROM
             |(
             | SELECT
             |   lt$linkId.${direction.fromSql} AS ${direction.fromSql},
-            |   json_build_object('id', ut$toTableId.id, 'value', ${column._2}) AS column_${c.to.id}
+            |   json_build_object('id', ut$toTableId.id, 'value', $value) AS value
             | FROM
-            |   link_table_$linkId lt$linkId JOIN
-            |   user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
+            |   link_table_$linkId lt$linkId
+            |   JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
             |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
-            | WHERE ${column._1} IS NOT NULL
-            | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}
-            | ORDER BY ut$toTableId.id
+            | WHERE $column IS NOT NULL
+            | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+            | ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
             |) sub
             |WHERE sub.${direction.fromSql} = ut.id
             |GROUP BY sub.${direction.fromSql}

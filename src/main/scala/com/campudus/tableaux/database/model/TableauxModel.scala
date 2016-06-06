@@ -1,10 +1,10 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.InvalidJsonException
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RowModel, UpdateRowModel}
+import com.campudus.tableaux.{InvalidJsonException, WrongColumnKindException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -110,6 +110,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     rows <- rows.foldLeft(Future.successful(Vector[Row]())) {
       (futureRows, row) =>
         // replace ColumnId with ColumnType
+        // TODO fail nice if columnid doesn't exist
         val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
         futureRows.flatMap { rows =>
@@ -122,6 +123,21 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         }
     }
   } yield RowSeq(rows)
+
+  def updateCellLinkOrder(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Cell[_]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+
+      _ <- column match {
+        case linkColumn: LinkColumn[_] => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, location, id)
+        case _ => Future.failed(new WrongColumnKindException(column, classOf[LinkColumn[_]]))
+      }
+
+      _ <- invalidateCellAndDependentColumns(column, rowId)
+
+      updatedCell <- retrieveCell(column, rowId)
+    } yield updatedCell
+  }
 
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
@@ -324,18 +340,22 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[Any])]): Future[Seq[Row]] = {
 
-    def mapNullValueForLinkToConcat(concatColumn: ConcatColumn, array: JsonArray): Future[List[JsonObject]] = {
+    /**
+      * Fetches ConcatColumn values for
+      * linked rows
+      */
+    def fetchConcatValuesForLinkedRows(concatColumn: ConcatColumn, linkedRows: JsonArray): Future[List[JsonObject]] = {
       import scala.collection.JavaConverters._
 
       // Iterate over each linked row and
       // replace json's value with ConcatColumn value
-      array.asScala.foldLeft(Future.successful(List.empty[JsonObject])) {
-        case (futureList, obj: JsonObject) =>
+      linkedRows.asScala.foldLeft(Future.successful(List.empty[JsonObject])) {
+        case (futureList, linkedRow: JsonObject) =>
           futureList.flatMap({
             case list =>
               // ConcatColumn's value is always a
               // json array with the linked row ids
-              val rowId = obj.getLong("id").longValue()
+              val rowId = linkedRow.getLong("id").longValue()
               retrieveCell(concatColumn, rowId)
                 .map(cell => Json.obj("id" -> rowId, "value" -> cell.value))
                 .map(json => list ++ List(json))
@@ -343,26 +363,29 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       }
     }
 
-    // TODO potential performance problem: foreach row every attachment column is mapped and attachments will be fetched!
+    def isLinkColumnToConcatColumn(col: ColumnType[_]): Boolean = {
+      col.kind == LinkType && col.asInstanceOf[LinkColumn[_]].to.isInstanceOf[ConcatColumn]
+    }
+
     val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[(RowId, Seq[Any])])) {
       case (futureList, (rowId, rawValues)) =>
         futureList.flatMap({
           case list =>
             val mappedRow = columns.zip(rawValues).map({
-              case (c: ConcatColumn, value) if c.columns.exists(col => col.kind == LinkType && col.asInstanceOf[LinkColumn[_]].to.isInstanceOf[ConcatColumn]) =>
+              case (c: ConcatColumn, value) if c.columns.exists(isLinkColumnToConcatColumn) =>
                 import scala.collection.JavaConverters._
 
                 // Because of the guard we only handle ConcatColumns
                 // with LinkColumns to another ConcatColumns
 
                 // Zip concatenated columns with there values
-                val concats = c.columns
+                val concatColumns = c.columns
                 // value is a Java List because of RowModel.mapResultRow
                 val values = value.asInstanceOf[java.util.List[Object]].asScala.toList
 
-                assert(concats.size == values.size)
+                assert(concatColumns.size == values.size)
 
-                val zippedColumnsValues = concats.zip(values)
+                val zippedColumnsValues = concatColumns.zip(values)
 
                 // Now we iterate over the zipped sequence and
                 // check for LinkColumns which point to ConcatColumns
@@ -370,7 +393,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
                   case (column: LinkColumn[_], array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
                     // Iterate over each linked row and
                     // replace json's value with ConcatColumn value
-                    mapNullValueForLinkToConcat(column.to.asInstanceOf[ConcatColumn], array)
+                    fetchConcatValuesForLinkedRows(column.to.asInstanceOf[ConcatColumn], array)
 
                   case (column, v) => Future.successful(v)
                 }
@@ -380,13 +403,15 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
               case (c: LinkColumn[_], array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
                 // Iterate over each linked row and
                 // replace json's value with ConcatColumn value
-                mapNullValueForLinkToConcat(c.to.asInstanceOf[ConcatColumn], array)
+                fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatColumn], array)
 
               case (c: AttachmentColumn, _) =>
+                // AttachmentColumns are fetch via AttachmentModel
                 retrieveCell(c, rowId)
                   .map(_.value)
 
               case (_, value) =>
+                // All other column types are fetch via SQL
                 Future(value)
             })
 

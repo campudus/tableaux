@@ -28,11 +28,11 @@ object JsonUtils {
 
   private def toJsonObjectSeq(field: String, json: JsonObject): ArgumentCheck[Seq[JsonObject]] = {
     for {
-      columns <- checkNotNullArray(json, field)
-      columnsAsJsonObjectList <- asCastedList[JsonObject](columns)
-      columnList <- nonEmpty(columnsAsJsonObjectList, field)
-      checkedColumnList <- checkForJsonObject(columnList)
-    } yield checkedColumnList
+      jsonArray <- checkNotNullArray(json, field)
+      jsonObjectList <- asCastedList[JsonObject](jsonArray)
+      nonEmptyJsonObjectList <- nonEmpty(jsonObjectList, field)
+      checkedNonEmptyJsonObjectList <- checkForJsonObject(nonEmptyJsonObjectList)
+    } yield checkedNonEmptyJsonObjectList
   }
 
   def toCreateColumnSeq(json: JsonObject): Seq[CreateColumn] = (for {

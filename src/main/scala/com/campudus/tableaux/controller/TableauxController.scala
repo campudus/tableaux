@@ -104,6 +104,15 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield EmptyObject()
   }
 
+  def updateCellLinkOrder(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Cell[_]] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId), notNull(location, "location"), oneOf(location, List("start", "end", "before"), "location"))
+    logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $location $id")
+    for {
+      table <- repository.retrieveTable(tableId)
+      filled <- repository.updateCellLinkOrder(table, columnId, rowId, toId, location, id)
+    } yield filled
+  }
+
   def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"replaceCellValue $tableId $columnId $rowId $value")

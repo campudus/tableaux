@@ -1,5 +1,6 @@
 package com.campudus.tableaux
 
+import com.campudus.tableaux.database.domain.ColumnType
 import org.vertx.scala.router.RouterException
 
 sealed trait CustomException extends Throwable {
@@ -73,4 +74,10 @@ case class UnknownServerException(override val message: String) extends CustomEx
 case class ShouldBeUniqueException(override val message: String, subId: String) extends CustomException {
   override val id = s"error.request.unique.$subId"
   override val statusCode = 400
+}
+
+case class WrongColumnKindException[T <: ColumnType[_]](column: ColumnType[_], shouldBe: Class[T]) extends CustomException {
+  override val id: String = s"error.request.column.wrongtype"
+  override val statusCode: Int = 400
+  override val message: String = s"This action is not possible on ${column.name}. Action only available for columns of kind ${shouldBe.toString}."
 }
