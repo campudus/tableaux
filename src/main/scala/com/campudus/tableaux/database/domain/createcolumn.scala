@@ -17,7 +17,8 @@ case class CreateSimpleColumn(override val name: String,
                               override val kind: TableauxDbType,
                               override val languageType: LanguageType,
                               override val identifier: Boolean,
-                              override val displayInfos: Seq[DisplayInfo]) extends CreateColumn
+                              override val displayInfos: Seq[DisplayInfo],
+                              countryCodes: Option[Seq[String]]) extends CreateColumn
 
 case class CreateLinkColumn(override val name: String,
                             override val ordering: Option[Ordering],

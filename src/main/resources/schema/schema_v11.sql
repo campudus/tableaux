@@ -11,3 +11,5 @@ ALTER TABLE system_columns
   ALTER COLUMN multilanguage TYPE VARCHAR(255) USING convertMultilanguageToString(multilanguage);
 
 DROP FUNCTION convertMultilanguageToString( BOOLEAN );
+
+ALTER TABLE system_columns ADD COLUMN country_codes TEXT ARRAY;

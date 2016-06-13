@@ -46,15 +46,24 @@ object JsonUtils extends LazyLogging {
 
           dbType <- toTableauxType(kind)
         } yield {
+          import scala.collection.JavaConverters._
+
           // optional fields
           val ordering = Try(json.getInteger("ordering").longValue()).toOption
           val languagetype = parseMultilanguageField(json)
           val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
 
+          val countryCodes = ifContainsDo(json, "countryCodes", {
+            json =>
+              checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2}|[A-Z]{3}"), "countryCodes").get
+          }).map(_.asScala.toSeq.map({ case code: String => code }))
+
           val di = DisplayInfos.allInfos(json)
 
           dbType match {
-            case AttachmentType => CreateAttachmentColumn(name, ordering, identifier, di)
+            case AttachmentType =>
+              CreateAttachmentColumn(name, ordering, identifier, di)
+
             case LinkType =>
               // link specific fields
               val toName = Try(Option(json.getString("toName"))).toOption.flatten
@@ -63,7 +72,8 @@ object JsonUtils extends LazyLogging {
 
               CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier, di)
 
-            case _ => CreateSimpleColumn(name, ordering, dbType, languagetype, identifier, di)
+            case _ =>
+              CreateSimpleColumn(name, ordering, dbType, languagetype, identifier, di, countryCodes)
           }
         }
     })
@@ -126,7 +136,9 @@ object JsonUtils extends LazyLogging {
     valueList <- nonEmpty(valueAsAnyList, "values")
   } yield valueList
 
-  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean], Option[JsonObject], Option[JsonObject]) = {
+  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean], Option[JsonObject], Option[JsonObject], Option[Seq[String]]) = {
+    import scala.collection.JavaConverters._
+
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
@@ -134,7 +146,20 @@ object JsonUtils extends LazyLogging {
     val displayNames = Try(checkForAllValues[String](json.getJsonObject("displayName"), n => n == null || n.isInstanceOf[String], "displayName").get).toOption
     val descriptions = Try(checkForAllValues[String](json.getJsonObject("description"), d => d == null || d.isInstanceOf[String], "description").get).toOption
 
-    (name, ord, kind, identifier, displayNames, descriptions)
+    val countryCodes = ifContainsDo(json, "countryCodes", {
+      json =>
+        checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2}|[A-Z]{3}"), "countryCodes").get
+    }).map(_.asScala.toSeq.map({ case code: String => code }))
+
+    (name, ord, kind, identifier, displayNames, descriptions, countryCodes)
+  }
+
+  def ifContainsDo[A](json: JsonObject, field: String, fn: JsonObject => A): Option[A] = {
+    if (json.containsKey(field)) {
+      Some(fn(json))
+    } else {
+      None
+    }
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {
