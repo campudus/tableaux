@@ -5,11 +5,12 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 import com.campudus.tableaux.{ArgumentCheck, InvalidJsonException}
+import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
 import scala.util.Try
 
-object JsonUtils {
+object JsonUtils extends LazyLogging {
 
   private def asCastedList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     import scala.collection.JavaConverters._
@@ -47,8 +48,9 @@ object JsonUtils {
         } yield {
           // optional fields
           val ordering = Try(json.getInteger("ordering").longValue()).toOption
-          val multilanguage = Try[Boolean](json.getBoolean("multilanguage")).getOrElse(false)
+          val languagetype = parseMultilanguageField(json)
           val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
+
           val di = DisplayInfos.allInfos(json)
 
           dbType match {
@@ -61,11 +63,35 @@ object JsonUtils {
 
               CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier, di)
 
-            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage), identifier, di)
+            case _ => CreateSimpleColumn(name, ordering, dbType, languagetype, identifier, di)
           }
         }
     })
   } yield tuples).get
+
+  private def parseMultilanguageField(json: JsonObject): LanguageType = {
+    if (json.containsKey("languageType")) {
+      val option = json.getString("languageType") match {
+        case "single" => None
+        case "language" => Some("language")
+        case "country" => Some("country")
+        case _ => throw new InvalidJsonException("Field 'languageType' should only contain 'single', 'language' or 'country'", "languagetype")
+      }
+
+      LanguageType(option)
+    } else if (json.containsKey("multilanguage")) {
+      logger.warn("JSON contains deprecated field 'multilanguage' use 'languageType' instead.")
+
+      val option = json.getValue("multilanguage") match {
+        case boolean: java.lang.Boolean if boolean => Some("language")
+        case _ => None
+      }
+
+      LanguageType(option)
+    } else {
+      LanguageType(None)
+    }
+  }
 
   def toRowValueSeq(json: JsonObject): Seq[Seq[_]] = (for {
     checkedRowList <- toJsonObjectSeq("rows", json)

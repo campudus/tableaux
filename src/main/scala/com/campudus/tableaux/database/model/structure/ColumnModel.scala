@@ -67,7 +67,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, columnInfo) <- insertSystemColumn(t, tableId, name, kind, ordering, None, languageType, identifier, displayInfos)
 
         (t, _) <- languageType match {
-          case MultiLanguage => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${columnInfo.columnId} ${kind.toDbType}")
+          case MultiLanguage | MultiCountry => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${columnInfo.columnId} ${kind.toDbType}")
           case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${columnInfo.columnId} ${kind.toDbType}")
         }
       } yield {
@@ -156,8 +156,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           })
 
         (t, result) <- ordering match {
-          case None => t.query(insertStatement(tableId, s"currval('system_columns_column_id_table_$tableId')"), Json.arr(tableId, kind.name, name, linkId.orNull, languageType.toBoolean, identifier))
-          case Some(ord) => t.query(insertStatement(tableId, "?"), Json.arr(tableId, kind.name, name, ord, linkId.orNull, languageType.toBoolean, identifier))
+          case None => t.query(insertStatement(tableId, s"currval('system_columns_column_id_table_$tableId')"), Json.arr(tableId, kind.name, name, linkId.orNull, languageType.name.orNull, identifier))
+          case Some(ord) => t.query(insertStatement(tableId, "?"), Json.arr(tableId, kind.name, name, ord, linkId.orNull, languageType.name.orNull, identifier))
         }
       } yield {
         val resultRow = insertNotNull(result).head
@@ -252,7 +252,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           Seq.empty
         }
       }
-      mappedColumn <- mapColumn(depth, table, result.get[ColumnId](0), result.get[String](1), Mapper.getDatabaseType(result.get[String](2)), result.get[Ordering](3), LanguageType(result.get[Boolean](4)), result.get[Boolean](5), dis)
+      mappedColumn <- mapColumn(depth, table, result.get[ColumnId](0), result.get[String](1), Mapper.getDatabaseType(result.get[String](2)), result.get[Ordering](3), LanguageType(Option(result.get[String](4))), result.get[Boolean](5), dis)
     } yield mappedColumn
   }
 
@@ -307,7 +307,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           val columnName = arr.get[String](1)
           val kind = Mapper.getDatabaseType(arr.get[String](2))
           val ordering = arr.get[Ordering](3)
-          val languageType = LanguageType(arr.get[Boolean](4))
+          val languageType = LanguageType(Option(arr.get[String](4)))
           val identifier = arr.get[Boolean](5)
 
           val selectLang =

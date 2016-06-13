@@ -20,6 +20,7 @@ class MultiLanguageTest extends TableauxTestBase {
       "kind" -> "text",
       "ordering" -> columnId,
       "multilanguage" -> true,
+      "languageType" -> "language",
       "identifier" -> true,
       "displayName" -> Json.obj(),
       "description" -> Json.obj()

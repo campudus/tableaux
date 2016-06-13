@@ -2,14 +2,13 @@ package com.campudus.tableaux.database
 
 import java.util.Date
 
+import com.campudus.tableaux.database.CheckValidValue._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
-import io.vertx.core.json.{JsonObject, JsonArray}
+import io.vertx.core.json.{JsonArray, JsonObject}
 import org.joda.time.DateTime
 
 import scala.util.{Success, Try}
-
-import CheckValidValue._
 
 sealed trait TableauxDbType {
   val name: String
@@ -103,25 +102,29 @@ case object ConcatType extends TableauxDbType {
 }
 
 sealed trait LanguageType {
-  def toBoolean: Boolean
+  val name: Option[String]
 }
 
 object LanguageType {
-  def apply(multiLanguage: Boolean): LanguageType = {
-    if (multiLanguage) {
-      MultiLanguage
-    } else {
-      SingleLanguage
+  def apply(languageType: Option[String]): LanguageType = {
+    languageType match {
+      case MultiLanguage.name => MultiLanguage
+      case MultiCountry.name => MultiCountry
+      case _ => SingleLanguage
     }
   }
 }
 
 case object SingleLanguage extends LanguageType {
-  override def toBoolean: Boolean = false
+  override final val name: Option[String] = None
 }
 
 case object MultiLanguage extends LanguageType {
-  override def toBoolean: Boolean = true
+  override final val name: Option[String] = Some("language")
+}
+
+case object MultiCountry extends LanguageType {
+  override final val name: Option[String] = Some("country")
 }
 
 object Mapper {
@@ -130,10 +133,10 @@ object Mapper {
       case SingleLanguage => kind match {
         // primitive/simple types
         case TextType | RichTextType | ShortTextType => Some(TextColumn(kind))
-        case NumericType => Some(NumberColumn.apply)
-        case BooleanType => Some(BooleanColumn.apply)
-        case DateType => Some(DateColumn.apply)
-        case DateTimeType => Some(DateTimeColumn.apply)
+        case NumericType => Some(NumberColumn)
+        case BooleanType => Some(BooleanColumn)
+        case DateType => Some(DateColumn)
+        case DateTimeType => Some(DateTimeColumn)
 
         // complex types
         case AttachmentType => None
@@ -141,13 +144,13 @@ object Mapper {
         case ConcatType => None
       }
 
-      case MultiLanguage => kind match {
+      case MultiLanguage | MultiCountry => kind match {
         // primitive/simple types
-        case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind))
-        case NumericType => Some(MultiNumericColumn.apply)
-        case BooleanType => Some(MultiBooleanColumn.apply)
-        case DateType => Some(MultiDateColumn.apply)
-        case DateTimeType => Some(MultiDateTimeColumn.apply)
+        case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind)(languageType))
+        case NumericType => Some(MultiNumericColumn(languageType))
+        case BooleanType => Some(MultiBooleanColumn(languageType))
+        case DateType => Some(MultiDateColumn(languageType))
+        case DateTimeType => Some(MultiDateTimeColumn(languageType))
 
         // complex types
         case AttachmentType => None
