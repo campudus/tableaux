@@ -89,7 +89,6 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
         table = convertRowToTable(row, defaultLangtags)
         (t, result) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
       } yield {
-        logger.info(s"result = ${result.encodePrettily()}")
         val displayInfoTable = resultObjectToJsonArray(result)
           .groupBy(_.getLong(0).toLong)
           .mapValues(
