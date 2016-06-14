@@ -66,7 +66,7 @@ class ColumnLanguageTypeTest extends TableauxTestBase {
     val postSimpleTable = Json.obj("name" -> "table1")
     val columnWithInvalidLanguageType = Json.obj(
       "name" -> "column1",
-      "kind" -> "shorttext",
+      "kind" -> "currency",
       "languageType" -> "country",
       "countryCodes" -> Json.arr("DE", "AT", "GB")
     )

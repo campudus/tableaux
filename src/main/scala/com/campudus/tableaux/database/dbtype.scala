@@ -147,13 +147,11 @@ object Mapper {
         case DateType => Some(DateColumn)
         case DateTimeType => Some(DateTimeColumn)
 
-        // complex types
-        case AttachmentType => None
-        case LinkType => None
-        case ConcatType => None
+        // complex types e.g AttachmentType
+        case _ => None
       }
 
-      case MultiCountry => kind match {
+      case MultiCountry | MultiLanguage => kind match {
         // primitive/simple types
         case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind)(languageType))
         case NumericType => Some(MultiNumericColumn(languageType))
@@ -162,25 +160,8 @@ object Mapper {
         case DateTimeType => Some(MultiDateTimeColumn(languageType))
         case CurrencyType => Some(MultiCurrencyColumn(languageType))
 
-        // complex types
-        case AttachmentType => None
-        case LinkType => None
-        case ConcatType => None
-      }
-
-      case MultiLanguage => kind match {
-        // primitive/simple types
-        case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind)(languageType))
-        case NumericType => Some(MultiNumericColumn(languageType))
-        case BooleanType => Some(MultiBooleanColumn(languageType))
-        case DateType => Some(MultiDateColumn(languageType))
-        case DateTimeType => Some(MultiDateTimeColumn(languageType))
-        case CurrencyType => Some(MultiCurrencyColumn(languageType))
-
-        // complex types
-        case AttachmentType => None
-        case LinkType => None
-        case ConcatType => None
+        // complex types e.g AttachmentType
+        case _ => None
       }
     }
   }

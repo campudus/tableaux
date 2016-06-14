@@ -123,13 +123,6 @@ object JsonUtils extends LazyLogging {
     })
   }
 
-  def toTupleSeq[A](json: JsonObject): Seq[(String, A)] = {
-    import scala.collection.JavaConverters._
-
-    val fields = json.fieldNames().asScala.toSeq
-    fields.map(field => (field, json.getValue(field).asInstanceOf[A]))
-  }
-
   private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[Any]] = for {
     values <- checkNotNullArray(json, "values")
     valueAsAnyList <- asCastedList[Any](values)

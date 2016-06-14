@@ -13,19 +13,95 @@ import org.vertx.scala.core.json.Json
 import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
-class CreationTest extends TableauxTestBase {
+class CreateCompleteTableTest extends TableauxTestBase {
+
+  @Test
+  def createCompleteTable(implicit c: TestContext): Unit = okTest {
+    val createCompleteTableJson = Json.obj(
+      "name" -> "Test Nr. 1",
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "Test Column 1"),
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 2")),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("Test Field 1", 1)),
+        Json.obj("values" -> Json.arr("Test Field 2", 2))))
+
+    val expectedJson = Json.obj(
+      "status" -> "ok",
+      "id" -> 1,
+      "columns" -> Json.arr(
+        Json.obj("id" -> 1, "ordering" -> 1, "kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
+        Json.obj("id" -> 2, "ordering" -> 2, "kind" -> "numeric", "name" -> "Test Column 2", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 1, "values" -> Json.arr("Test Field 1", 1)),
+        Json.obj("id" -> 2, "values" -> Json.arr("Test Field 2", 2))))
+
+    for {
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
+    } yield {
+      assertContains(expectedJson, test)
+    }
+  }
+
+  @Test
+  def createCompleteTableWithOrdering(implicit c: TestContext): Unit = okTest {
+    val createCompleteTableJson = Json.obj(
+      "name" -> "Test Nr. 1",
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "Test Column 1", "ordering" -> 2),
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 2", "ordering" -> 1)),
+      "rows" -> Json.arr(
+        Json.obj("values" -> Json.arr("Test Field 1", 1)),
+        Json.obj("values" -> Json.arr("Test Field 2", 2))))
+
+    val expectedJson = Json.obj(
+      "id" -> 1,
+      "columns" -> Json.arr(
+        Json.obj("id" -> 2, "ordering" -> 1, "kind" -> "numeric", "name" -> "Test Column 2", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
+        Json.obj("id" -> 1, "ordering" -> 2, "kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())
+      ),
+      "rows" -> Json.arr(
+        Json.obj("id" -> 1, "values" -> Json.arr(1, "Test Field 1")),
+        Json.obj("id" -> 2, "values" -> Json.arr(2, "Test Field 2"))))
+
+    for {
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
+    } yield {
+      assertContains(expectedJson, test)
+    }
+  }
+
+  @Test
+  def createCompleteTableWithoutRows(implicit c: TestContext): Unit = okTest {
+    val createCompleteTableJson = Json.obj(
+      "name" -> "Test Nr. 1",
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "text", "name" -> "Test Column 1"),
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+
+    val expectedJson = Json.obj(
+      "id" -> 1,
+      "columns" -> Json.arr(
+        Json.obj("id" -> 1, "ordering" -> 1, "kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
+        Json.obj("id" -> 2, "ordering" -> 2, "kind" -> "numeric", "name" -> "Test Column 2", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())),
+      "rows" -> Json.arr())
+
+    for {
+      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
+    } yield {
+      assertContains(expectedJson, test)
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateRowTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
 
   def createTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.TextCol(name)).getJson
 
-  def createShortTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.ShortTextCol(name)).getJson
-
-  def createRichTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.RichTextCol(name)).getJson
-
   def createNumberColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.NumericCol(name)).getJson
-
-  def createBooleanColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.BooleanCol(name)).getJson
 
   @Test
   def createRow(implicit c: TestContext): Unit = okTest {
@@ -159,84 +235,6 @@ class CreationTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables/1/columns", createTextColumnJson("Test Column 1"))
       _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Test Column 2"))
       test <- sendRequest("POST", "/tables/1/rows", valuesRow)
-    } yield {
-      assertContains(expectedJson, test)
-    }
-  }
-
-  @Test
-  def createCompleteTable(implicit c: TestContext): Unit = okTest {
-    val createCompleteTableJson = Json.obj(
-      "name" -> "Test Nr. 1",
-      "columns" -> Json.arr(
-        Json.obj("kind" -> "text", "name" -> "Test Column 1"),
-        Json.obj("kind" -> "numeric", "name" -> "Test Column 2")),
-      "rows" -> Json.arr(
-        Json.obj("values" -> Json.arr("Test Field 1", 1)),
-        Json.obj("values" -> Json.arr("Test Field 2", 2))))
-
-    val expectedJson = Json.obj(
-      "status" -> "ok",
-      "id" -> 1,
-      "columns" -> Json.arr(
-        Json.obj("id" -> 1, "ordering" -> 1, "kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
-        Json.obj("id" -> 2, "ordering" -> 2, "kind" -> "numeric", "name" -> "Test Column 2", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())),
-      "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr("Test Field 1", 1)),
-        Json.obj("id" -> 2, "values" -> Json.arr("Test Field 2", 2))))
-
-    for {
-      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
-    } yield {
-      assertContains(expectedJson, test)
-    }
-  }
-
-  @Test
-  def createCompleteTableWithOrdering(implicit c: TestContext): Unit = okTest {
-    val createCompleteTableJson = Json.obj(
-      "name" -> "Test Nr. 1",
-      "columns" -> Json.arr(
-        Json.obj("kind" -> "text", "name" -> "Test Column 1", "ordering" -> 2),
-        Json.obj("kind" -> "numeric", "name" -> "Test Column 2", "ordering" -> 1)),
-      "rows" -> Json.arr(
-        Json.obj("values" -> Json.arr("Test Field 1", 1)),
-        Json.obj("values" -> Json.arr("Test Field 2", 2))))
-
-    val expectedJson = Json.obj(
-      "id" -> 1,
-      "columns" -> Json.arr(
-        Json.obj("id" -> 2, "ordering" -> 1, "kind" -> "numeric", "name" -> "Test Column 2", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
-        Json.obj("id" -> 1, "ordering" -> 2, "kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())
-      ),
-      "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr(1, "Test Field 1")),
-        Json.obj("id" -> 2, "values" -> Json.arr(2, "Test Field 2"))))
-
-    for {
-      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
-    } yield {
-      assertContains(expectedJson, test)
-    }
-  }
-
-  @Test
-  def createCompleteTableWithoutRows(implicit c: TestContext): Unit = okTest {
-    val createCompleteTableJson = Json.obj(
-      "name" -> "Test Nr. 1",
-      "columns" -> Json.arr(
-        Json.obj("kind" -> "text", "name" -> "Test Column 1"),
-        Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
-
-    val expectedJson = Json.obj(
-      "id" -> 1,
-      "columns" -> Json.arr(
-        Json.obj("id" -> 1, "ordering" -> 1, "kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
-        Json.obj("id" -> 2, "ordering" -> 2, "kind" -> "numeric", "name" -> "Test Column 2", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())),
-      "rows" -> Json.arr())
-
-    for {
-      test <- sendRequest("POST", "/completetable", createCompleteTableJson)
     } yield {
       assertContains(expectedJson, test)
     }
