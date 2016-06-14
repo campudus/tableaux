@@ -77,6 +77,10 @@ case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Orde
   override val kind = NumericType
 }
 
+case class CurrencyColumn(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends SimpleValueColumn[Number] {
+  override val kind = CurrencyType
+}
+
 case class BooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends SimpleValueColumn[Boolean] {
   override val kind = BooleanType
 }
@@ -109,6 +113,10 @@ case class MultiTextColumn(override val kind: TableauxDbType)(override val langu
 
 case class MultiNumericColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[Number] {
   override val kind = NumericType
+}
+
+case class MultiCurrencyColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[Number] {
+  override val kind = CurrencyType
 }
 
 case class MultiBooleanColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[Boolean] {

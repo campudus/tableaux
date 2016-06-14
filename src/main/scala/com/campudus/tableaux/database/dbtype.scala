@@ -101,6 +101,14 @@ case object ConcatType extends TableauxDbType {
   override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[JsonArray])
 }
 
+case object CurrencyType extends TableauxDbType {
+  override val name = "currency"
+
+  override def toDbType = "numeric"
+
+  override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[Number])
+}
+
 sealed trait LanguageType {
   val name: Option[String]
 }
@@ -134,6 +142,7 @@ object Mapper {
         // primitive/simple types
         case TextType | RichTextType | ShortTextType => Some(TextColumn(kind))
         case NumericType => Some(NumberColumn)
+        case CurrencyType => Some(CurrencyColumn)
         case BooleanType => Some(BooleanColumn)
         case DateType => Some(DateColumn)
         case DateTimeType => Some(DateTimeColumn)
@@ -144,13 +153,29 @@ object Mapper {
         case ConcatType => None
       }
 
-      case MultiLanguage | MultiCountry => kind match {
+      case MultiCountry => kind match {
         // primitive/simple types
         case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind)(languageType))
         case NumericType => Some(MultiNumericColumn(languageType))
         case BooleanType => Some(MultiBooleanColumn(languageType))
         case DateType => Some(MultiDateColumn(languageType))
         case DateTimeType => Some(MultiDateTimeColumn(languageType))
+        case CurrencyType => Some(MultiCurrencyColumn(languageType))
+
+        // complex types
+        case AttachmentType => None
+        case LinkType => None
+        case ConcatType => None
+      }
+
+      case MultiLanguage => kind match {
+        // primitive/simple types
+        case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind)(languageType))
+        case NumericType => Some(MultiNumericColumn(languageType))
+        case BooleanType => Some(MultiBooleanColumn(languageType))
+        case DateType => Some(MultiDateColumn(languageType))
+        case DateTimeType => Some(MultiDateTimeColumn(languageType))
+        case CurrencyType => Some(MultiCurrencyColumn(languageType))
 
         // complex types
         case AttachmentType => None
@@ -168,6 +193,7 @@ object Mapper {
       case ShortTextType.name => ShortTextType
       case RichTextType.name => RichTextType
       case NumericType.name => NumericType
+      case CurrencyType.name => CurrencyType
       case LinkType.name => LinkType
       case AttachmentType.name => AttachmentType
       case BooleanType.name => BooleanType

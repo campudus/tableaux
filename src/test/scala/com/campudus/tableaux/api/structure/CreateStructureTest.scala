@@ -20,6 +20,8 @@ class CreateColumnTest extends TableauxTestBase {
 
   def createNumberColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.NumericCol(name)).getJson
 
+  def createCurrencyColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.CurrencyCol(name)).getJson
+
   def createBooleanColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.BooleanCol(name)).getJson
 
   @Test
@@ -80,6 +82,23 @@ class CreateColumnTest extends TableauxTestBase {
   def createNumberColumn(implicit c: TestContext): Unit = okTest {
     val createColumn1 = createNumberColumnJson("column1")
     val createColumn2 = createNumberColumnJson("column2")
+    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
+    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+    } yield {
+      assertEquals(expectedJson, test1)
+      assertEquals(expectedJson2, test2)
+    }
+  }
+
+  @Test
+  def createCurrencyColumn(implicit c: TestContext): Unit = okTest {
+    val createColumn1 = createCurrencyColumnJson("column1")
+    val createColumn2 = createCurrencyColumnJson("column2")
     val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
     val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
 

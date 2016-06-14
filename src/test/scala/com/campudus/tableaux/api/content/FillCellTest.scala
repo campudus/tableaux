@@ -14,6 +14,7 @@ class FillCellTest extends TableauxTestBase {
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
   val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+  val createCurrencyColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
   val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
   val createDateColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "date", "name" -> "Test Column 4")))
   val createDateTimeColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "datetime", "name" -> "Test Column 5")))
@@ -254,6 +255,19 @@ class FillCellTest extends TableauxTestBase {
     } yield {
       assertNotSame(cell, replacedCell)
       assertContains(fillCellJson, replacedCell)
+    }
+  }
+
+  @Test
+  def fillCurrencyCell(implicit c: TestContext): Unit = okTest {
+    for {
+      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", CurrencyCol("currency-column"))
+
+      test <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 2999.99))
+      result <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+    } yield {
+      assertEquals(Json.obj("status" -> "ok", "value" -> 2999.99), test)
+      assertEquals(Json.obj("status" -> "ok", "value" -> 2999.99), result)
     }
   }
 }
