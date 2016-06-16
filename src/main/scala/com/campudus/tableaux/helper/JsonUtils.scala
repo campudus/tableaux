@@ -5,11 +5,12 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 import com.campudus.tableaux.{ArgumentCheck, InvalidJsonException}
+import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
 import scala.util.Try
 
-object JsonUtils {
+object JsonUtils extends LazyLogging {
 
   private def asCastedList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     import scala.collection.JavaConverters._
@@ -45,14 +46,24 @@ object JsonUtils {
 
           dbType <- toTableauxType(kind)
         } yield {
+          import scala.collection.JavaConverters._
+
           // optional fields
           val ordering = Try(json.getInteger("ordering").longValue()).toOption
-          val multilanguage = Try[Boolean](json.getBoolean("multilanguage")).getOrElse(false)
+          val languagetype = parseMultilanguageField(json)
           val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
+
+          val countryCodes = ifContainsDo(json, "countryCodes", {
+            json =>
+              checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2}|[A-Z]{3}"), "countryCodes").get
+          }).map(_.asScala.toSeq.map({ case code: String => code }))
+
           val di = DisplayInfos.allInfos(json)
 
           dbType match {
-            case AttachmentType => CreateAttachmentColumn(name, ordering, identifier, di)
+            case AttachmentType =>
+              CreateAttachmentColumn(name, ordering, identifier, di)
+
             case LinkType =>
               // link specific fields
               val toName = Try(Option(json.getString("toName"))).toOption.flatten
@@ -61,11 +72,36 @@ object JsonUtils {
 
               CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier, di)
 
-            case _ => CreateSimpleColumn(name, ordering, dbType, LanguageType(multilanguage), identifier, di)
+            case _ =>
+              CreateSimpleColumn(name, ordering, dbType, languagetype, identifier, di, countryCodes)
           }
         }
     })
   } yield tuples).get
+
+  private def parseMultilanguageField(json: JsonObject): LanguageType = {
+    if (json.containsKey("languageType")) {
+      val option = json.getString("languageType") match {
+        case "single" => None
+        case "language" => Some("language")
+        case "country" => Some("country")
+        case _ => throw new InvalidJsonException("Field 'languageType' should only contain 'single', 'language' or 'country'", "languagetype")
+      }
+
+      LanguageType(option)
+    } else if (json.containsKey("multilanguage")) {
+      logger.warn("JSON contains deprecated field 'multilanguage' use 'languageType' instead.")
+
+      val option = json.getValue("multilanguage") match {
+        case boolean: java.lang.Boolean if boolean => Some("language")
+        case _ => None
+      }
+
+      LanguageType(option)
+    } else {
+      LanguageType(None)
+    }
+  }
 
   def toRowValueSeq(json: JsonObject): Seq[Seq[_]] = (for {
     checkedRowList <- toJsonObjectSeq("rows", json)
@@ -87,20 +123,15 @@ object JsonUtils {
     })
   }
 
-  def toTupleSeq[A](json: JsonObject): Seq[(String, A)] = {
-    import scala.collection.JavaConverters._
-
-    val fields = json.fieldNames().asScala.toSeq
-    fields.map(field => (field, json.getValue(field).asInstanceOf[A]))
-  }
-
   private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[Any]] = for {
     values <- checkNotNullArray(json, "values")
     valueAsAnyList <- asCastedList[Any](values)
     valueList <- nonEmpty(valueAsAnyList, "values")
   } yield valueList
 
-  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean], Option[JsonObject], Option[JsonObject]) = {
+  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean], Option[JsonObject], Option[JsonObject], Option[Seq[String]]) = {
+    import scala.collection.JavaConverters._
+
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
@@ -108,7 +139,20 @@ object JsonUtils {
     val displayNames = Try(checkForAllValues[String](json.getJsonObject("displayName"), n => n == null || n.isInstanceOf[String], "displayName").get).toOption
     val descriptions = Try(checkForAllValues[String](json.getJsonObject("description"), d => d == null || d.isInstanceOf[String], "description").get).toOption
 
-    (name, ord, kind, identifier, displayNames, descriptions)
+    val countryCodes = ifContainsDo(json, "countryCodes", {
+      json =>
+        checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2}|[A-Z]{3}"), "countryCodes").get
+    }).map(_.asScala.toSeq.map({ case code: String => code }))
+
+    (name, ord, kind, identifier, displayNames, descriptions, countryCodes)
+  }
+
+  def ifContainsDo[A](json: JsonObject, field: String, fn: JsonObject => A): Option[A] = {
+    if (json.containsKey(field)) {
+      Some(fn(json))
+    } else {
+      None
+    }
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {

@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
 @RunWith(classOf[VertxUnitRunner])
-class GetTest extends TableauxTestBase {
+class RetrieveTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Table 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
@@ -17,7 +17,7 @@ class GetTest extends TableauxTestBase {
   val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
 
   @Test
-  def retrieveEmptyTable(implicit c: TestContext): Unit = okTest {
+  def retrieveCompleteTableWhichIsEmpty(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -44,7 +44,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveWithColumnTable(implicit c: TestContext): Unit = okTest {
+  def retrieveCompleteTableWithNoRows(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -77,7 +77,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveWithColumnAndRowTable(implicit c: TestContext): Unit = okTest {
+  def retrieveCompleteTableWithRows(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -112,7 +112,7 @@ class GetTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveFullTable(implicit c: TestContext): Unit = okTest {
+  def retrieveCompleteTable(implicit c: TestContext): Unit = okTest {
     val columns = Json.arr(
       Json.obj("id" -> 1, "name" -> "Test Column 1", "kind" -> "text", "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
       Json.obj("id" -> 2, "name" -> "Test Column 2", "kind" -> "numeric", "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
@@ -159,6 +159,11 @@ class GetTest extends TableauxTestBase {
       assertEquals(expectedJson, test)
     }
   }
+
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveRowsTest extends TableauxTestBase {
 
   @Test
   def retrieveRow(implicit c: TestContext): Unit = okTest {
@@ -214,21 +219,6 @@ class GetTest extends TableauxTestBase {
       test <- sendRequest("GET", "/tables/1/rows?offset=1&limit=1")
     } yield {
       assertEquals(expectedJson, test)
-    }
-  }
-
-  @Test
-  def retrieveCell(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "value" -> "table1row1")
-    val expectedJson2 = Json.obj("status" -> "ok", "value" -> 1)
-
-    for {
-      _ <- createDefaultTable()
-      test <- sendRequest("GET", "/tables/1/columns/1/rows/1")
-      test2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
-    } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedJson2, test2)
     }
   }
 
@@ -301,6 +291,25 @@ class GetTest extends TableauxTestBase {
       test <- sendRequest("GET", "/tables/1/columns/first/rows")
     } yield {
       assertEquals(expectedJson, test.getJsonArray("rows"))
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveCellTest extends TableauxTestBase {
+
+  @Test
+  def retrieveCell(implicit c: TestContext): Unit = okTest {
+    val expectedJson = Json.obj("status" -> "ok", "value" -> "table1row1")
+    val expectedJson2 = Json.obj("status" -> "ok", "value" -> 1)
+
+    for {
+      _ <- createDefaultTable()
+      test <- sendRequest("GET", "/tables/1/columns/1/rows/1")
+      test2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
+    } yield {
+      assertEquals(expectedJson, test)
+      assertEquals(expectedJson2, test2)
     }
   }
 }

@@ -8,7 +8,7 @@ import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
 @RunWith(classOf[VertxUnitRunner])
-class DuplicateTest extends TableauxTestBase {
+class DuplicateRowTest extends TableauxTestBase {
 
   @Test
   def duplicateRowWithConcatColumn(implicit c: TestContext): Unit = okTest {

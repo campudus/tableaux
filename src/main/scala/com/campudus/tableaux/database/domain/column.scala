@@ -19,13 +19,21 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   val ordering: Ordering
 
-  val multilanguage: Boolean
+  val languageType: LanguageType = SingleLanguage
 
   val identifier: Boolean = false
 
   val displayInfos: Seq[DisplayInfo]
 
+  val countryCodes: Option[Seq[String]] = None
+
   override def getJson: JsonObject = {
+    // backward compatibility
+    val multilanguage: Boolean = languageType match {
+      case SingleLanguage => false
+      case MultiCountry | MultiLanguage => true
+    }
+
     val json = Json.obj(
       "id" -> id,
       "ordering" -> ordering,
@@ -36,10 +44,20 @@ sealed trait ColumnType[+A] extends DomainObject {
       "displayName" -> Json.obj(),
       "description" -> Json.obj()
     )
+
+    if (languageType.name.isDefined) {
+      json.mergeIn(Json.obj("languageType" -> languageType.name.orNull))
+    }
+
+    if (countryCodes.isDefined) {
+      json.mergeIn(Json.obj("countryCodes" -> Json.arr(countryCodes.get: _*)))
+    }
+
     displayInfos.foreach { di =>
       di.optionalName.map(name => json.mergeIn(Json.obj("displayName" -> json.getJsonObject("displayName").mergeIn(Json.obj(di.langtag -> name)))))
       di.optionalDescription.map(desc => json.mergeIn(Json.obj("description" -> json.getJsonObject("description").mergeIn(Json.obj(di.langtag -> desc)))))
     }
+
     json
   }
 
@@ -51,31 +69,27 @@ sealed trait ValueColumn[+A] extends ColumnType[A]
 /*
  * Single-language column types
  */
-sealed trait SimpleValueColumn[+A] extends ValueColumn[A] {
-  override val multilanguage = false
-}
+sealed trait SimpleValueColumn[+A] extends ValueColumn[A]
 
-object TextColumn {
-  def apply(kind: TableauxDbType): (Table, ColumnId, String, Ordering, Boolean, Seq[DisplayInfo]) => TextColumn = {
-    TextColumn(kind, _, _, _, _, _, _)
-  }
-}
+case class TextColumn(override val kind: TableauxDbType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends SimpleValueColumn[String]
 
-case class TextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[String]
-
-case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[Number] {
+case class NumberColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends SimpleValueColumn[Number] {
   override val kind = NumericType
 }
 
-case class BooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[Boolean] {
+case class CurrencyColumn(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends SimpleValueColumn[Number] {
+  override val kind = CurrencyType
+}
+
+case class BooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends SimpleValueColumn[Boolean] {
   override val kind = BooleanType
 }
 
-case class DateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[LocalDate] {
+case class DateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends SimpleValueColumn[LocalDate] {
   override val kind = DateType
 }
 
-case class DateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[DateTime] {
+case class DateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends SimpleValueColumn[DateTime] {
   override val kind = DateTimeType
 }
 
@@ -83,8 +97,6 @@ case class DateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Or
  * Multi-language column types
  */
 sealed trait MultiLanguageColumn[A] extends ValueColumn[A] {
-  override val multilanguage = true
-
   override def checkValidValue[B](value: B): Option[String] = try {
     import scala.collection.JavaConverters._
     val json = value.asInstanceOf[JsonObject]
@@ -97,27 +109,25 @@ sealed trait MultiLanguageColumn[A] extends ValueColumn[A] {
   }
 }
 
-object MultiTextColumn {
-  def apply(kind: TableauxDbType): (Table, ColumnId, String, Ordering, Boolean, Seq[DisplayInfo]) => MultiTextColumn = {
-    MultiTextColumn(kind, _, _, _, _, _, _)
-  }
-}
+case class MultiTextColumn(override val kind: TableauxDbType)(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[String]
 
-case class MultiTextColumn(override val kind: TableauxDbType, table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[String]
-
-case class MultiNumericColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[Number] {
+case class MultiNumericColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[Number] {
   override val kind = NumericType
 }
 
-case class MultiBooleanColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[Boolean] {
+case class MultiCurrencyColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[Number] {
+  override val kind = CurrencyType
+}
+
+case class MultiBooleanColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[Boolean] {
   override val kind = BooleanType
 }
 
-case class MultiDateColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[LocalDate] {
+case class MultiDateColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[LocalDate] {
   override val kind = DateType
 }
 
-case class MultiDateTimeColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends MultiLanguageColumn[DateTime] {
+case class MultiDateTimeColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo], override val countryCodes: Option[Seq[String]]) extends MultiLanguageColumn[DateTime] {
   override val kind = DateTimeType
 }
 
@@ -126,14 +136,13 @@ case class MultiDateTimeColumn(table: Table, id: ColumnId, name: String, orderin
  */
 case class LinkColumn[A](table: Table, id: ColumnId, to: ValueColumn[A], linkId: LinkId, linkDirection: LinkDirection, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends ColumnType[Link[A]] {
   override val kind = LinkType
-  override val multilanguage = to.multilanguage
+  override val languageType = to.languageType
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.getJson)
 }
 
 case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends ColumnType[AttachmentFile] {
   override val kind = AttachmentType
-  override val multilanguage = false
 }
 
 case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]]) extends ValueColumn[String] {
@@ -141,7 +150,10 @@ case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]])
 
   // ConcatColumn will be a multi-language
   // column in case any columns is also multi-language
-  override val multilanguage = columns.exists(_.multilanguage)
+  override val languageType = !columns.exists(_.languageType match { case MultiLanguage | MultiCountry => true case _ => false }) match {
+    case true => MultiLanguage
+    case false => SingleLanguage
+  }
 
   // Right now, every concat column is
   // an identifier

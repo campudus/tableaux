@@ -57,11 +57,6 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     columns <- structureModel.columnStruc.retrieveAll(table)
   } yield columns
 
-  def checkValueTypeForColumn[A](column: ColumnType[_], value: A): Future[Unit] = {
-    val checked = column.checkValidValue(value)
-    checked.map(err => Future.failed(InvalidJsonException("malformed value provided", err))).getOrElse(Future.successful(()))
-  }
-
   def retrieveDependencies(tableId: TableId): Future[Seq[(TableId, ColumnId)]] = {
     structureModel.columnStruc.retrieveDependencies(tableId)
   }
@@ -137,6 +132,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
       updatedCell <- retrieveCell(column, rowId)
     } yield updatedCell
+  }
+
+  private def checkValueTypeForColumn[A](column: ColumnType[_], value: A): Future[Unit] = {
+    val checked = column.checkValidValue(value)
+    checked
+      .map(err => Future.failed(InvalidJsonException("malformed value provided", err)))
+      .getOrElse(Future.successful(()))
   }
 
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {

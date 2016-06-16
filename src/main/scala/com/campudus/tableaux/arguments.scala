@@ -109,6 +109,17 @@ object ArgumentChecker {
     }
   }
 
+  def checkAllValuesOfArray[A](arr: JsonArray, p: (A => Boolean), name: String): ArgumentCheck[JsonArray] = {
+    import scala.collection.JavaConverters._
+    val tail = arr.asScala.dropWhile(value => Try(p(value.asInstanceOf[A])).getOrElse(false))
+
+    if (tail.isEmpty) {
+      OkArg(arr)
+    } else {
+      FailArg(InvalidJsonException(s"Warning: $name has incorrectly typed value or value is wrong.", "invalid"))
+    }
+  }
+
   def sequence[A](argChecks: Seq[ArgumentCheck[A]]): ArgumentCheck[Seq[A]] = {
     argChecks match {
       case Nil => OkArg(Nil)

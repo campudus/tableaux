@@ -35,6 +35,8 @@ object RequestCreation {
 
   case class NumericCol(name: String) extends ColumnType("numeric")
 
+  case class CurrencyCol(name: String) extends ColumnType("currency")
+
   case class BooleanCol(name: String) extends ColumnType("boolean")
 
   case class Multilanguage(column: ColumnType) extends ColumnType(column.kind) {
