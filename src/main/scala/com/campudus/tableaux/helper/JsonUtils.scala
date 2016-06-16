@@ -24,7 +24,7 @@ object JsonUtils extends LazyLogging {
   }
 
   private def toTableauxType(kind: String): ArgumentCheck[TableauxDbType] = {
-    tryMap(Mapper.getDatabaseType, InvalidJsonException("Warning: No such type", "type"))(kind)
+    tryMap(TableauxDbType.apply, InvalidJsonException("Warning: No such type", "type"))(kind)
   }
 
   private def toJsonObjectSeq(field: String, json: JsonObject): ArgumentCheck[Seq[JsonObject]] = {

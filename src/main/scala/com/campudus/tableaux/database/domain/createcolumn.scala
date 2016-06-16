@@ -38,4 +38,4 @@ case class CreateAttachmentColumn(override val name: String,
   override val languageType = LanguageNeutral()
 }
 
-case class ColumnInfo(tableId: TableId, columnId: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo] = List())
+case class CreatedColumnInformation(tableId: TableId, columnId: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo] = List())

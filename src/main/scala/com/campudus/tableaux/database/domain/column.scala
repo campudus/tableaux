@@ -7,24 +7,51 @@ import com.campudus.tableaux.database.{LanguageNeutral, _}
 import org.joda.time.{DateTime, LocalDate}
 import org.vertx.scala.core.json._
 
-// TODO We should put all infos into a ColumnInfo case class or similar: Every change in a column needs a lot of changes elsewhere
+sealed trait ColumnInformation {
+  val table: Table
+  val id: ColumnId
+  val name: String
+  val ordering: Ordering
+  val identifier: Boolean
+  val displayInfos: Seq[DisplayInfo]
+}
+
+case class BasicColumnInformation(override val table: Table,
+                                  override val id: ColumnId,
+                                  override val name: String,
+                                  override val ordering: Ordering,
+                                  override val identifier: Boolean,
+                                  override val displayInfos: Seq[DisplayInfo]) extends ColumnInformation
+
+case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
+  override val name = "ID"
+
+  // Right now, every concat column is
+  // an identifier
+  override val identifier = true
+
+  override val id: ColumnId = 0
+  override val ordering: Ordering = 0
+  override val displayInfos: Seq[DisplayInfo] = List()
+}
+
 sealed trait ColumnType[+A] extends DomainObject {
 
   val kind: TableauxDbType
 
-  val id: ColumnId
-
-  val name: String
-
-  val table: Table
-
-  val ordering: Ordering
-
   val languageType: LanguageType
 
-  val identifier: Boolean
+  protected val columnInformation: ColumnInformation
 
-  val displayInfos: Seq[DisplayInfo]
+  final def table: Table = columnInformation.table
+
+  final def id: ColumnId = columnInformation.id
+
+  final def name: String = columnInformation.name
+
+  final def ordering: Ordering = columnInformation.ordering
+
+  final def identifier: Boolean = columnInformation.identifier
 
   override def getJson: JsonObject = {
     // backward compatibility
@@ -60,7 +87,7 @@ sealed trait ColumnType[+A] extends DomainObject {
       // do nothing
     }
 
-    displayInfos.foreach { displayInfo =>
+    columnInformation.displayInfos.foreach { displayInfo =>
       displayInfo
         .optionalName
         .map(name => json.mergeIn(Json.obj("displayName" -> json.getJsonObject("displayName").mergeIn(Json.obj(displayInfo.langtag -> name)))))
@@ -85,6 +112,25 @@ object MultiLanguageColumn {
       case (simpleValueColumn: SimpleValueColumn[_], _: MultiLanguage | _: MultiCountry) => Some(simpleValueColumn)
       case _ => None
     }
+  }
+}
+
+object SimpleValueColumn {
+  def apply(kind: TableauxDbType, languageType: LanguageType, columnInformation: ColumnInformation): SimpleValueColumn[_] = {
+    val applyFn: (LanguageType) => (ColumnInformation) => SimpleValueColumn[_] = kind match {
+      case TextType => TextColumn.apply
+      case RichTextType => RichTextColumn.apply
+      case ShortTextType => ShortTextColumn.apply
+      case NumericType => NumberColumn.apply
+      case CurrencyType => CurrencyColumn.apply
+      case BooleanType => BooleanColumn.apply
+      case DateType => DateColumn.apply
+      case DateTimeType => DateTimeColumn.apply
+
+      case _ => throw new IllegalArgumentException("Can only map type to SimpleValueColumn")
+    }
+
+    applyFn(languageType)(columnInformation)
   }
 }
 
@@ -118,38 +164,38 @@ sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(o
   }
 }
 
-case class TextColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[String](TextType)(languageType)
+case class TextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](TextType)(languageType)
 
-case class ShortTextColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[String](ShortTextType)(languageType)
+case class ShortTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](ShortTextType)(languageType)
 
-case class RichTextColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[String](RichTextType)(languageType)
+case class RichTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](RichTextType)(languageType)
 
-case class NumberColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[Number](NumericType)(languageType)
+case class NumberColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Number](NumericType)(languageType)
 
-case class CurrencyColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[Number](CurrencyType)(languageType)
+case class CurrencyColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Number](CurrencyType)(languageType)
 
-case class BooleanColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[Boolean](BooleanType)(languageType)
+case class BooleanColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Boolean](BooleanType)(languageType)
 
-case class DateColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[LocalDate](DateType)(languageType)
+case class DateColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[LocalDate](DateType)(languageType)
 
-case class DateTimeColumn(override val languageType: LanguageType)(override val table: Table, override val id: ColumnId, override val name: String, override val ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends SimpleValueColumn[DateTime](DateTimeType)(languageType)
+case class DateTimeColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[DateTime](DateTimeType)(languageType)
 
 /*
  * Special column types
  */
-case class LinkColumn[A](table: Table, id: ColumnId, to: ColumnType[A], linkId: LinkId, linkDirection: LinkDirection, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends ColumnType[Link[A]] {
+case class LinkColumn[A](override val columnInformation: ColumnInformation, to: ColumnType[A], linkId: LinkId, linkDirection: LinkDirection) extends ColumnType[Link[A]] {
   override val kind = LinkType
   override val languageType = to.languageType
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.getJson)
 }
 
-case class AttachmentColumn(table: Table, id: ColumnId, name: String, ordering: Ordering, override val identifier: Boolean, override val displayInfos: Seq[DisplayInfo]) extends ColumnType[AttachmentFile] {
+case class AttachmentColumn(override val columnInformation: ColumnInformation) extends ColumnType[AttachmentFile] {
   override val kind = AttachmentType
   override val languageType = LanguageNeutral()
 }
 
-case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]]) extends ColumnType[String] {
+case class ConcatColumn(override val columnInformation: ConcatColumnInformation, columns: Seq[ColumnType[_]]) extends ColumnType[String] {
   override val kind = ConcatType
 
   // ConcatColumn will be a multi-language
@@ -158,14 +204,6 @@ case class ConcatColumn(table: Table, name: String, columns: Seq[ColumnType[_]])
     case true => MultiLanguage()
     case false => LanguageNeutral()
   }
-
-  // Right now, every concat column is
-  // an identifier
-  override val identifier = true
-
-  override val id: ColumnId = 0
-  override val ordering: Ordering = 0
-  override val displayInfos: Seq[DisplayInfo] = List()
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("concats" -> columns.map(_.getJson))
 }
