@@ -41,28 +41,26 @@ object JsonUtils extends LazyLogging {
     tuples <- sequence(seq map {
       json =>
         for {
+        // required fields
           name <- notNull(json.getString("name"), "name")
           kind <- notNull(json.getString("kind"), "kind")
 
           dbType <- toTableauxType(kind)
         } yield {
-          import scala.collection.JavaConverters._
-
           // optional fields
           val ordering = Try(json.getInteger("ordering").longValue()).toOption
-          val languagetype = parseMultilanguageField(json)
           val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
 
-          val countryCodes = ifContainsDo(json, "countryCodes", {
-            json =>
-              checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2}|[A-Z]{3}"), "countryCodes").get
-          }).map(_.asScala.toSeq.map({ case code: String => code }))
+          // languageType or deprecated multilanguage
+          // if languageType == 'country' countryCodes must be specified
+          val languageType = parseJsonForLanguageType(json)
 
-          val di = DisplayInfos.allInfos(json)
+          // displayName and description; both multi-language objects
+          val displayInfos = DisplayInfos.allInfos(json)
 
           dbType match {
             case AttachmentType =>
-              CreateAttachmentColumn(name, ordering, identifier, di)
+              CreateAttachmentColumn(name, ordering, identifier, displayInfos)
 
             case LinkType =>
               // link specific fields
@@ -70,36 +68,44 @@ object JsonUtils extends LazyLogging {
               val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
               val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
 
-              CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier, di)
+              CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier, displayInfos)
 
             case _ =>
-              CreateSimpleColumn(name, ordering, dbType, languagetype, identifier, di, countryCodes)
+              CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)
           }
         }
     })
   } yield tuples).get
 
-  private def parseMultilanguageField(json: JsonObject): LanguageType = {
+  private def parseJsonForLanguageType(json: JsonObject): LanguageType = {
     if (json.containsKey("languageType")) {
-      val option = json.getString("languageType") match {
-        case "single" => None
-        case "language" => Some("language")
-        case "country" => Some("country")
-        case _ => throw new InvalidJsonException("Field 'languageType' should only contain 'single', 'language' or 'country'", "languagetype")
-      }
+      json.getString("languageType") match {
+        case LanguageType.LANGUAGE => MultiLanguage()
+        case LanguageType.COUNTRY =>
+          if (json.containsKey("countryCodes")) {
+            import scala.collection.JavaConverters._
 
-      LanguageType(option)
+            val countryCodeSeq = checkAllValuesOfArray[String](json.getJsonArray("countryCodes"),
+              d => d.isInstanceOf[String] && d.matches("[A-Z]{2}|[A-Z]{3}"), "countryCodes")
+              .map(_.asScala.toSeq.map({ case code: String => code }))
+              .get
+
+            MultiCountry(CountryCodes(countryCodeSeq))
+          } else {
+            throw new InvalidJsonException("If 'languageType' is 'country' the field 'countryCodes' must be specified.", "countrycodes")
+          }
+        case LanguageType.NEUTRAL => LanguageNeutral()
+        case _ => throw new InvalidJsonException("Field 'languageType' should only contain 'neutral', 'language' or 'country'", "languagetype")
+      }
     } else if (json.containsKey("multilanguage")) {
       logger.warn("JSON contains deprecated field 'multilanguage' use 'languageType' instead.")
 
-      val option = json.getValue("multilanguage") match {
-        case boolean: java.lang.Boolean if boolean => Some("language")
-        case _ => None
+      json.getBoolean("multilanguage") match {
+        case java.lang.Boolean.TRUE => MultiLanguage()
+        case _ => LanguageNeutral()
       }
-
-      LanguageType(option)
     } else {
-      LanguageType(None)
+      LanguageNeutral()
     }
   }
 

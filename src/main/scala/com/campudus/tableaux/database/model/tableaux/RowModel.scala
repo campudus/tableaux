@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -19,29 +19,30 @@ sealed trait ModelHelper {
   /**
     * Parses { "value": ... } depending on column type
     */
-  def splitIntoDatabaseTypesWithValues(values: Seq[(ColumnType[_], _)]): (
+  def splitIntoDatabaseTypesWithValues(values: Seq[(ColumnType[_], _)]):
+  (
     List[(SimpleValueColumn[_], _)],
-      List[(MultiLanguageColumn[_], Map[String, _])],
+      List[(SimpleValueColumn[_], Map[String, _])],
       List[(LinkColumn[_], Seq[RowId])],
       List[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
     ) = {
 
     values.foldLeft((
       List[(SimpleValueColumn[_], _)](),
-      List[(MultiLanguageColumn[_], Map[String, _])](),
+      List[(SimpleValueColumn[_], Map[String, _])](),
       List[(LinkColumn[_], Seq[RowId])](),
       List[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]())) {
 
-      case ((s, m, l, a), (c: SimpleValueColumn[_], v)) => ((c, v) :: s, m, l, a)
-
-      case ((s, m, l, a), (c: MultiLanguageColumn[_], v: Seq[_])) =>
+      case ((s, m, l, a), (MultiLanguageColumn(c), v: Seq[_])) =>
         val valueAsMap = v.asInstanceOf[Seq[(String, Map[String, _])]].toMap
         (s, (c, valueAsMap) :: m, l, a)
 
-      case ((s, m, l, a), (c: MultiLanguageColumn[_], v: JsonObject)) =>
+      case ((s, m, l, a), (MultiLanguageColumn(c), v: JsonObject)) =>
         import scala.collection.JavaConverters._
         val valueAsMap = v.getMap.asScala.toMap
         (s, (c, valueAsMap) :: m, l, a)
+
+      case ((s, m, l, a), (c: SimpleValueColumn[_], v)) => ((c, v) :: s, m, l, a)
 
       case ((s, m, l, a), (c: LinkColumn[_], v)) =>
         val toIds: Seq[RowId] = v match {
@@ -107,22 +108,22 @@ sealed trait ModelHelper {
 
   def splitIntoDatabaseTypes(columns: Seq[ColumnType[_]]): (
     List[SimpleValueColumn[_]],
-      List[MultiLanguageColumn[_]],
+      List[SimpleValueColumn[_]],
       List[LinkColumn[_]],
       List[AttachmentColumn]
     ) = {
 
     columns.foldLeft((
       List[SimpleValueColumn[_]](),
-      List[MultiLanguageColumn[_]](),
+      List[SimpleValueColumn[_]](),
       List[LinkColumn[_]](),
       List[AttachmentColumn]())) {
 
+      case ((s, m, l, a), MultiLanguageColumn(c)) =>
+        (s, c :: m, l, a)
+
       case ((s, m, l, a), c: SimpleValueColumn[_]) =>
         (c :: s, m, l, a)
-
-      case ((s, m, l, a), c: MultiLanguageColumn[_]) =>
-        (s, c :: m, l, a)
 
       case ((s, m, l, a), c: LinkColumn[_]) =>
         (s, m, c :: l, a)
@@ -150,9 +151,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  private def clearTranslation(table: Table, rowId: RowId, columns: Seq[MultiLanguageColumn[_]]): Future[_] = {
+  private def clearTranslation(table: Table, rowId: RowId, columns: Seq[SimpleValueColumn[_]]): Future[_] = {
     val setExpression = columns.map({
-      case column: MultiLanguageColumn[_] => s"column_${column.id} = NULL"
+      case MultiLanguageColumn(column) => s"column_${column.id} = NULL"
     }).mkString(", ")
 
     for {
@@ -269,7 +270,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  private def updateTranslations(table: Table, rowId: RowId, values: Seq[(MultiLanguageColumn[_], Map[String, _])]): Future[_] = {
+  private def updateTranslations(table: Table, rowId: RowId, values: Seq[(SimpleValueColumn[_], Map[String, _])]): Future[_] = {
     val entries = for {
       (column, langs) <- values
       (langTag: String, value) <- langs
@@ -377,7 +378,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(MultiLanguageColumn[_], Map[String, _])]): Future[_] = {
+  private def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(SimpleValueColumn[_], Map[String, _])]): Future[_] = {
     val entries = for {
       (column, langs) <- values
       (langTag: String, value) <- langs
@@ -489,7 +490,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
 
   private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
     column match {
-      case _: MultiLanguageColumn[_] =>
+      case MultiLanguageColumn(_) =>
         if (value == null)
           Json.emptyObj()
         else
@@ -552,11 +553,11 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
         // See TableauxModel.mapRawRows
         "NULL"
 
-      case c: MultiLanguageColumn[_] =>
+      case MultiLanguageColumn(c) =>
         val column = c match {
-          case _: MultiDateTimeColumn =>
+          case _: DateTimeColumn =>
             parseDateTimeSql(s"utl.column_${c.id}")
-          case _: MultiDateColumn =>
+          case _: DateColumn =>
             parseDateSql(s"utl.column_${c.id}")
           case _ =>
             s"utl.column_${c.id}"
@@ -584,14 +585,14 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
             // See TableauxModel.mapRawRows
             (s"''", "NULL")
 
-          case to: MultiLanguageColumn[_] =>
-            val linkedColumn = to match {
-              case _: MultiDateTimeColumn =>
-                parseDateTimeSql(s"utl$toTableId.column_${to.id}")
-              case _: MultiDateColumn =>
-                parseDateSql(s"utl$toTableId.column_${to.id}")
+          case MultiLanguageColumn(_) =>
+            val linkedColumn = c.to match {
+              case _: DateTimeColumn =>
+                parseDateTimeSql(s"utl$toTableId.column_${c.to.id}")
+              case _: DateColumn =>
+                parseDateSql(s"utl$toTableId.column_${c.to.id}")
               case _ =>
-                s"utl$toTableId.column_${to.id}"
+                s"utl$toTableId.column_${c.to.id}"
             }
 
             // No distinct needed, just one result

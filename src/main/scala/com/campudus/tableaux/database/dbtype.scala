@@ -5,8 +5,9 @@ import java.util.Date
 import com.campudus.tableaux.database.CheckValidValue._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
-import io.vertx.core.json.{JsonArray, JsonObject}
+import io.vertx.core.json.JsonArray
 import org.joda.time.DateTime
+import org.vertx.scala.core.json.JsonObject
 
 import scala.util.{Success, Try}
 
@@ -109,64 +110,25 @@ case object CurrencyType extends TableauxDbType {
   override def checkValidValue[B](value: B): Option[String] = boolToOption(value.isInstanceOf[Number])
 }
 
-sealed trait LanguageType {
-  val name: Option[String]
-}
-
-object LanguageType {
-  def apply(languageType: Option[String]): LanguageType = {
-    languageType match {
-      case MultiLanguage.name => MultiLanguage
-      case MultiCountry.name => MultiCountry
-      case _ => SingleLanguage
-    }
-  }
-}
-
-case object SingleLanguage extends LanguageType {
-  override final val name: Option[String] = None
-}
-
-case object MultiLanguage extends LanguageType {
-  override final val name: Option[String] = Some("language")
-}
-
-case object MultiCountry extends LanguageType {
-  override final val name: Option[String] = Some("country")
-}
-
 object Mapper {
-  private def columnType(languageType: LanguageType, kind: TableauxDbType): Option[(Table, ColumnId, String, Ordering, Boolean, Seq[DisplayInfo], Option[Seq[String]]) => ColumnType[_]] = {
-    languageType match {
-      case SingleLanguage => kind match {
-        // primitive/simple types
-        case TextType | RichTextType | ShortTextType => Some(TextColumn(kind))
-        case NumericType => Some(NumberColumn)
-        case CurrencyType => Some(CurrencyColumn)
-        case BooleanType => Some(BooleanColumn)
-        case DateType => Some(DateColumn)
-        case DateTimeType => Some(DateTimeColumn)
+  private def columnType(kind: TableauxDbType, languageType: LanguageType): Option[(Table, ColumnId, String, Ordering, Boolean, Seq[DisplayInfo]) => ColumnType[_]] = {
+    kind match {
+      // primitive/simple types
+      case TextType => Some(TextColumn(languageType))
+      case RichTextType => Some(RichTextColumn(languageType))
+      case ShortTextType => Some(ShortTextColumn(languageType))
+      case NumericType => Some(NumberColumn(languageType))
+      case CurrencyType => Some(CurrencyColumn(languageType))
+      case BooleanType => Some(BooleanColumn(languageType))
+      case DateType => Some(DateColumn(languageType))
+      case DateTimeType => Some(DateTimeColumn(languageType))
 
-        // complex types e.g AttachmentType
-        case _ => None
-      }
-
-      case MultiCountry | MultiLanguage => kind match {
-        // primitive/simple types
-        case TextType | RichTextType | ShortTextType => Some(MultiTextColumn(kind)(languageType))
-        case NumericType => Some(MultiNumericColumn(languageType))
-        case BooleanType => Some(MultiBooleanColumn(languageType))
-        case DateType => Some(MultiDateColumn(languageType))
-        case DateTimeType => Some(MultiDateTimeColumn(languageType))
-        case CurrencyType => Some(MultiCurrencyColumn(languageType))
-
-        // complex types e.g AttachmentType
-        case _ => None
-      }
+      // complex types e.g AttachmentType
+      case _ => None
     }
   }
 
-  def apply(languageType: LanguageType, kind: TableauxDbType): (Table, ColumnId, String, Ordering, Boolean, Seq[DisplayInfo], Option[Seq[String]]) => ColumnType[_] = columnType(languageType, kind).get
+  def apply(languageType: LanguageType, kind: TableauxDbType): (Table, ColumnId, String, Ordering, Boolean, Seq[DisplayInfo]) => ColumnType[_] = columnType(kind, languageType).get
 
   def getDatabaseType(kind: String): TableauxDbType = {
     kind match {
