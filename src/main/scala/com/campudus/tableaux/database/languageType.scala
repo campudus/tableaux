@@ -9,19 +9,19 @@ object LanguageType {
 
   def apply(typeOption: Option[String]): LanguageType = {
     typeOption match {
-      case Some(LANGUAGE) => MultiLanguage()
+      case Some(LANGUAGE) => MultiLanguage
       case Some(COUNTRY) => MultiCountry(CountryCodes(Seq.empty))
-      case Some(NEUTRAL) | None => LanguageNeutral()
+      case Some(NEUTRAL) | None => LanguageNeutral
       case _ => throw new IllegalArgumentException("Invalid argument for LanguageType.apply")
     }
   }
 }
 
-case class LanguageNeutral() extends LanguageType {
+case object LanguageNeutral extends LanguageType {
   override def toString = LanguageType.NEUTRAL
 }
 
-case class MultiLanguage() extends LanguageType {
+case object MultiLanguage extends LanguageType {
   override def toString = LanguageType.LANGUAGE
 }
 

@@ -67,8 +67,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None)
 
         (t, _) <- simpleColumnInfo.languageType match {
-          case _: MultiLanguage | _: MultiCountry => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
-          case _: LanguageNeutral => t.query(s"ALTER TABLE user_table_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
+          case MultiLanguage | _: MultiCountry => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
+          case LanguageNeutral => t.query(s"ALTER TABLE user_table_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
         }
       } yield {
         (t, columnInfo)
@@ -353,8 +353,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val identifier = row.get[Boolean](5)
 
     val languageType = LanguageType(Option(row.get[String](4))) match {
-      case n: LanguageNeutral => n
-      case m: MultiLanguage => m
+      case LanguageNeutral => LanguageNeutral
+      case MultiLanguage => MultiLanguage
       case c: MultiCountry =>
         val codes = Option(row.get[String](6))
           .map(str => Json.fromArrayString(str).asScala.map({ case code: String => code }).toSeq)

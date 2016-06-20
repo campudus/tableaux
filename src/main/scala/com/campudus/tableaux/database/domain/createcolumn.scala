@@ -27,7 +27,7 @@ case class CreateLinkColumn(override val name: String,
                             override val identifier: Boolean,
                             override val displayInfos: Seq[DisplayInfo]) extends CreateColumn {
   override val kind = LinkType
-  override val languageType = LanguageNeutral()
+  override val languageType = LanguageNeutral
 }
 
 case class CreateAttachmentColumn(override val name: String,
@@ -35,7 +35,7 @@ case class CreateAttachmentColumn(override val name: String,
                                   override val identifier: Boolean,
                                   override val displayInfos: Seq[DisplayInfo]) extends CreateColumn {
   override val kind = AttachmentType
-  override val languageType = LanguageNeutral()
+  override val languageType = LanguageNeutral
 }
 
 case class CreatedColumnInformation(tableId: TableId, columnId: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo] = List())

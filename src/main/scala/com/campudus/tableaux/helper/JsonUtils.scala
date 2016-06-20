@@ -80,7 +80,7 @@ object JsonUtils extends LazyLogging {
   private def parseJsonForLanguageType(json: JsonObject): LanguageType = {
     if (json.containsKey("languageType")) {
       json.getString("languageType") match {
-        case LanguageType.LANGUAGE => MultiLanguage()
+        case LanguageType.LANGUAGE => MultiLanguage
         case LanguageType.COUNTRY =>
           if (json.containsKey("countryCodes")) {
             import scala.collection.JavaConverters._
@@ -94,19 +94,19 @@ object JsonUtils extends LazyLogging {
           } else {
             throw new InvalidJsonException("If 'languageType' is 'country' the field 'countryCodes' must be specified.", "countrycodes")
           }
-        case LanguageType.NEUTRAL => LanguageNeutral()
+        case LanguageType.NEUTRAL => LanguageNeutral
         case _ => throw new InvalidJsonException("Field 'languageType' should only contain 'neutral', 'language' or 'country'", "languagetype")
       }
     } else if (json.containsKey("multilanguage")) {
       logger.warn("JSON contains deprecated field 'multilanguage' use 'languageType' instead.")
 
       if (json.getBoolean("multilanguage")) {
-        MultiLanguage()
+        MultiLanguage
       } else {
-        LanguageNeutral()
+        LanguageNeutral
       }
     } else {
-      LanguageNeutral()
+      LanguageNeutral
     }
   }
 

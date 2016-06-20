@@ -55,7 +55,7 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   override def getJson: JsonObject = {
     // backward compatibility
-    val multilanguage = !languageType.isInstanceOf[LanguageNeutral]
+    val multilanguage = languageType != LanguageNeutral
 
     val json = Json.obj(
       "id" -> id,
@@ -69,7 +69,7 @@ sealed trait ColumnType[+A] extends DomainObject {
     )
 
     languageType match {
-      case _: MultiLanguage =>
+      case MultiLanguage =>
         json.mergeIn(Json.obj("languageType" -> LanguageType.LANGUAGE))
 
       case MultiCountry(countryCodes) =>
@@ -106,7 +106,7 @@ sealed trait ColumnType[+A] extends DomainObject {
 object MultiLanguageColumn {
   def unapply(columnType: ColumnType[_]): Option[SimpleValueColumn[_]] = {
     (columnType, columnType.languageType) match {
-      case (simpleValueColumn: SimpleValueColumn[_], _: MultiLanguage | _: MultiCountry) => Some(simpleValueColumn)
+      case (simpleValueColumn: SimpleValueColumn[_], MultiLanguage | MultiCountry(_)) => Some(simpleValueColumn)
       case _ => None
     }
   }
@@ -138,7 +138,7 @@ sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(o
 
   override def checkValidValue[B](value: B): Option[String] = {
     languageType match {
-      case _: MultiCountry | _: MultiLanguage => checkValidMultiValue(value)
+      case MultiLanguage | MultiCountry(_) => checkValidMultiValue(value)
       case _ => checkValidSingleValue(value)
     }
   }
@@ -189,7 +189,7 @@ case class LinkColumn[A](override val columnInformation: ColumnInformation, to: 
 
 case class AttachmentColumn(override val columnInformation: ColumnInformation) extends ColumnType[AttachmentFile] {
   override val kind = AttachmentType
-  override val languageType = LanguageNeutral()
+  override val languageType = LanguageNeutral
 }
 
 case class ConcatColumn(override val columnInformation: ConcatColumnInformation, columns: Seq[ColumnType[_]]) extends ColumnType[String] {
@@ -199,14 +199,14 @@ case class ConcatColumn(override val columnInformation: ConcatColumnInformation,
   // the ConcatColumn will be MultiLanguage
   override val languageType = {
     val isMultiLanguageOrMultiCountry = columns.forall(_.languageType match {
-      case _: MultiLanguage | _: MultiCountry => false
+      case MultiLanguage | MultiCountry(_) => false
       case _ => true
     })
 
     if (isMultiLanguageOrMultiCountry) {
-      MultiLanguage()
+      MultiLanguage
     } else {
-      LanguageNeutral()
+      LanguageNeutral
     }
   }
 
