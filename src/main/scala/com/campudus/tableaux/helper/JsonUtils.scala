@@ -86,7 +86,7 @@ object JsonUtils extends LazyLogging {
             import scala.collection.JavaConverters._
 
             val countryCodeSeq = checkAllValuesOfArray[String](json.getJsonArray("countryCodes"),
-              d => d.isInstanceOf[String] && d.matches("[A-Z]{2}|[A-Z]{3}"), "countryCodes")
+              d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"), "countryCodes")
               .map(_.asScala.toSeq.map({ case code: String => code }))
               .get
 
@@ -100,9 +100,10 @@ object JsonUtils extends LazyLogging {
     } else if (json.containsKey("multilanguage")) {
       logger.warn("JSON contains deprecated field 'multilanguage' use 'languageType' instead.")
 
-      json.getBoolean("multilanguage") match {
-        case java.lang.Boolean.TRUE => MultiLanguage()
-        case _ => LanguageNeutral()
+      if (json.getBoolean("multilanguage")) {
+        MultiLanguage()
+      } else {
+        LanguageNeutral()
       }
     } else {
       LanguageNeutral()
@@ -147,7 +148,7 @@ object JsonUtils extends LazyLogging {
 
     val countryCodes = ifContainsDo(json, "countryCodes", {
       json =>
-        checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2}|[A-Z]{3}"), "countryCodes").get
+        checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"), "countryCodes").get
     }).map(_.asScala.toSeq.map({ case code: String => code }))
 
     (name, ord, kind, identifier, displayNames, descriptions, countryCodes)
