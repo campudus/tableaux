@@ -51,7 +51,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         json <- getJson(context)
         name = json.getString("name")
         description = json.getString("description")
-        parent = getNullableField("parent")(json)
+        parent = getNullableLong("parent")(json)
 
         added <- controller.addNewFolder(name, description, parent)
         // TODO sortByLangtag should be removed and the real folder should be fetched
@@ -86,7 +86,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         json <- getJson(context)
         name = json.getString("name")
         description = json.getString("description")
-        parent = getNullableField("parent")(json)
+        parent = getNullableLong("parent")(json)
 
         changed <- controller.changeFolder(id.toLong, name, description, parent)
       // TODO sortByLangtag should be removed and the real folder should be fetched
@@ -107,10 +107,10 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       for {
         json <- getJson(context)
 
-        title = MultiLanguageValue[String](getNullableField("title")(json))
-        description = MultiLanguageValue[String](getNullableField("description")(json))
-        externalName = MultiLanguageValue[String](getNullableField("externalName")(json))
-        folder = getNullableField("folder")(json)
+        title = MultiLanguageValue[String](getNullableObject("title")(json))
+        description = MultiLanguageValue[String](getNullableObject("description")(json))
+        externalName = MultiLanguageValue[String](getNullableObject("externalName")(json))
+        folder = getNullableLong("folder")(json)
 
         added <- controller.addFile(title, description, externalName, folder)
       } yield added
@@ -146,13 +146,13 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       for {
         json <- getJson(context)
 
-        title = MultiLanguageValue[String](getNullableField("title")(json))
-        description = MultiLanguageValue[String](getNullableField("description")(json))
-        externalName = MultiLanguageValue[String](getNullableField("externalName")(json))
-        internalName = MultiLanguageValue[String](getNullableField("internalName")(json))
-        mimeType = MultiLanguageValue[String](getNullableField("mimeType")(json))
+        title = MultiLanguageValue[String](getNullableObject("title")(json))
+        description = MultiLanguageValue[String](getNullableObject("description")(json))
+        externalName = MultiLanguageValue[String](getNullableObject("externalName")(json))
+        internalName = MultiLanguageValue[String](getNullableObject("internalName")(json))
+        mimeType = MultiLanguageValue[String](getNullableObject("mimeType")(json))
 
-        folder = getNullableField[FolderId]("folder")(json)
+        folder = getNullableLong("folder")(json)
 
         changed <- controller.changeFile(UUID.fromString(uuid), title, description, externalName, internalName, mimeType, folder)
       } yield changed
@@ -195,8 +195,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     }
   }
 
-  private def getNullableField[A](field: String)(implicit json: JsonObject): Option[A] = {
-    Option(json.getValue(field).asInstanceOf[A])
+  private def getNullableObject(field: String)(implicit json: JsonObject): Option[JsonObject] = {
+    Option(json.getJsonObject(field))
+  }
+
+  private def getNullableLong(field: String)(implicit json: JsonObject): Option[Long] = {
+    Option(json.getLong(field)).map(_.toLong)
   }
 
   private def handleUpload(implicit context: RoutingContext, fn: (UploadAction) => Future[DomainObject]): Future[DomainObject] = {
