@@ -17,8 +17,7 @@ case class CreateSimpleColumn(override val name: String,
                               override val kind: TableauxDbType,
                               override val languageType: LanguageType,
                               override val identifier: Boolean,
-                              override val displayInfos: Seq[DisplayInfo],
-                              countryCodes: Option[Seq[String]]) extends CreateColumn
+                              override val displayInfos: Seq[DisplayInfo]) extends CreateColumn
 
 case class CreateLinkColumn(override val name: String,
                             override val ordering: Option[Ordering],
@@ -28,7 +27,7 @@ case class CreateLinkColumn(override val name: String,
                             override val identifier: Boolean,
                             override val displayInfos: Seq[DisplayInfo]) extends CreateColumn {
   override val kind = LinkType
-  override val languageType = SingleLanguage
+  override val languageType = LanguageNeutral
 }
 
 case class CreateAttachmentColumn(override val name: String,
@@ -36,7 +35,7 @@ case class CreateAttachmentColumn(override val name: String,
                                   override val identifier: Boolean,
                                   override val displayInfos: Seq[DisplayInfo]) extends CreateColumn {
   override val kind = AttachmentType
-  override val languageType = SingleLanguage
+  override val languageType = LanguageNeutral
 }
 
-case class ColumnInfo(tableId: TableId, columnId: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo] = List())
+case class CreatedColumnInformation(tableId: TableId, columnId: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo] = List())

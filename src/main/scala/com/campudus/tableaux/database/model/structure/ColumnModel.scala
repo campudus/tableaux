@@ -34,8 +34,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     createColumn match {
       case simpleColumnInfo: CreateSimpleColumn =>
         createValueColumn(table.id, simpleColumnInfo).map({
-          case ColumnInfo(tableId, id, ordering, displayInfos) =>
-            Mapper(simpleColumnInfo.languageType, simpleColumnInfo.kind).apply(table, id, simpleColumnInfo.name, ordering, simpleColumnInfo.identifier, displayInfos, simpleColumnInfo.countryCodes)
+          case CreatedColumnInformation(tableId, id, ordering, displayInfos) =>
+            SimpleValueColumn(simpleColumnInfo.kind, simpleColumnInfo.languageType, BasicColumnInformation(table, id, simpleColumnInfo.name, ordering, simpleColumnInfo.identifier, displayInfos))
         })
 
       case linkColumnInfo: CreateLinkColumn => for {
@@ -49,26 +49,26 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             }
         })
 
-        toCol = toTableColumns.head.asInstanceOf[ValueColumn[_]]
+        toCol = toTableColumns.head
 
-        (linkId, ColumnInfo(_, id, ordering, displayInfos)) <- createLinkColumn(table, linkColumnInfo)
-      } yield LinkColumn(table, id, toCol, linkId, LeftToRight(table.id, linkColumnInfo.toTable), linkColumnInfo.name, ordering, linkColumnInfo.identifier, displayInfos)
+        (linkId, CreatedColumnInformation(_, id, ordering, displayInfos)) <- createLinkColumn(table, linkColumnInfo)
+      } yield LinkColumn(BasicColumnInformation(table, id, linkColumnInfo.name, ordering, linkColumnInfo.identifier, displayInfos), toCol, linkId, LeftToRight(table.id, linkColumnInfo.toTable))
 
       case attachmentColumnInfo: CreateAttachmentColumn =>
         createAttachmentColumn(table.id, attachmentColumnInfo).map({
-          case ColumnInfo(tableId, id, ordering, displayInfos) => AttachmentColumn(table, id, attachmentColumnInfo.name, ordering, attachmentColumnInfo.identifier, displayInfos)
+          case CreatedColumnInformation(tableId, id, ordering, displayInfos) => AttachmentColumn(BasicColumnInformation(table, id, attachmentColumnInfo.name, ordering, attachmentColumnInfo.identifier, displayInfos))
         })
     }
   }
 
-  private def createValueColumn(tableId: TableId, simpleColumnInfo: CreateSimpleColumn): Future[ColumnInfo] = {
+  private def createValueColumn(tableId: TableId, simpleColumnInfo: CreateSimpleColumn): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
-        (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None, simpleColumnInfo.countryCodes)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None)
 
         (t, _) <- simpleColumnInfo.languageType match {
-          case MultiLanguage | MultiCountry => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
-          case SingleLanguage => t.query(s"ALTER TABLE user_table_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
+          case MultiLanguage | _: MultiCountry => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
+          case LanguageNeutral => t.query(s"ALTER TABLE user_table_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
         }
       } yield {
         (t, columnInfo)
@@ -76,15 +76,15 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createAttachmentColumn(tableId: TableId, attachmentColumnInfo: CreateAttachmentColumn): Future[ColumnInfo] = {
+  private def createAttachmentColumn(tableId: TableId, attachmentColumnInfo: CreateAttachmentColumn): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
-        (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None)
       } yield (t, columnInfo)
     }
   }
 
-  private def createLinkColumn(table: Table, linkColumnInfo: CreateLinkColumn): Future[(LinkId, ColumnInfo)] = {
+  private def createLinkColumn(table: Table, linkColumnInfo: CreateLinkColumn): Future[(LinkId, CreatedColumnInformation)] = {
     val tableId = table.id
 
     connection.transactional { t =>
@@ -93,7 +93,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
-        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId))
 
         // only add the second link column if tableId != toTableId or singleDirection is false
         t <- {
@@ -101,7 +101,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             val copiedLinkColumnInfo = linkColumnInfo.copy(
               name = linkColumnInfo.toName.getOrElse(table.name)
             )
-            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId), None)
+            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
               // ColumnInfo will be ignored, so we can lose it
               .map(_._1)
           } else {
@@ -131,7 +131,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def insertSystemColumn(t: connection.Transaction, tableId: TableId, createColumn: CreateColumn, linkId: Option[LinkId], countryCodes: Option[Seq[String]]): Future[(connection.Transaction, ColumnInfo)] = {
+  private def insertSystemColumn(t: connection.Transaction, tableId: TableId, createColumn: CreateColumn, linkId: Option[LinkId]): Future[(connection.Transaction, CreatedColumnInformation)] = {
     def insertStatement(tableId: TableId, ordering: String) =
       s"""INSERT INTO system_columns (
           |table_id,
@@ -147,7 +147,12 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           |VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?)
           |RETURNING column_id, ordering""".stripMargin
 
-    def insertColumn(t: connection.Transaction): Future[(connection.Transaction, ColumnInfo)] = {
+    val countryCodes = createColumn.languageType match {
+      case MultiCountry(codes) => Some(codes.codes)
+      case _ => None
+    }
+
+    def insertColumn(t: connection.Transaction): Future[(connection.Transaction, CreatedColumnInformation)] = {
       for {
         t <- t.selectSingleValue[Long]("SELECT COUNT(*) FROM system_columns WHERE table_id = ? AND user_column_name = ?", Json.arr(tableId, createColumn.name))
           .flatMap({
@@ -160,12 +165,12 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           })
 
         (t, result) <- createColumn.ordering match {
-          case None => t.query(insertStatement(tableId, s"currval('system_columns_column_id_table_$tableId')"), Json.arr(tableId, createColumn.kind.name, createColumn.name, linkId.orNull, createColumn.languageType.name.orNull, createColumn.identifier, countryCodes.map(f => Json.arr(f: _*)).orNull))
-          case Some(ord) => t.query(insertStatement(tableId, "?"), Json.arr(tableId, createColumn.kind.name, createColumn.name, ord, linkId.orNull, createColumn.languageType.name.orNull, createColumn.identifier, countryCodes.map(f => Json.arr(f: _*)).orNull))
+          case None => t.query(insertStatement(tableId, s"currval('system_columns_column_id_table_$tableId')"), Json.arr(tableId, createColumn.kind.name, createColumn.name, linkId.orNull, createColumn.languageType.toString, createColumn.identifier, countryCodes.map(f => Json.arr(f: _*)).orNull))
+          case Some(ord) => t.query(insertStatement(tableId, "?"), Json.arr(tableId, createColumn.kind.name, createColumn.name, ord, linkId.orNull, createColumn.languageType.toString, createColumn.identifier, countryCodes.map(f => Json.arr(f: _*)).orNull))
         }
       } yield {
         val resultRow = insertNotNull(result).head
-        (t, ColumnInfo(tableId, resultRow.getLong(0), resultRow.getLong(1)))
+        (t, CreatedColumnInformation(tableId, resultRow.getLong(0), resultRow.getLong(1)))
       }
     }
 
@@ -234,41 +239,12 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int): Future[ColumnType[_]] = {
     val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier, array_to_json(country_codes) FROM system_columns WHERE table_id = ? AND column_id = ?"
-    val selectLang =
-      s"""SELECT langtag, name, description
-          | FROM system_columns_lang
-          | WHERE table_id = ? AND column_id = ?""".stripMargin
-
-    import scala.collection.JavaConverters._
 
     for {
-      result <- {
-        val json = connection.query(select, Json.arr(table.id, columnId))
-        json.map(selectNotNull(_).head)
-      }
-      resultLang <- connection.query(selectLang, Json.arr(table.id, columnId))
-      dis = resultObjectToJsonArray(resultLang).flatMap { arr =>
-        val langtag = arr.getString(0)
-        val name = arr.getString(1)
-        val description = arr.getString(2)
+      result <- connection.query(select, Json.arr(table.id, columnId))
+      row = selectNotNull(result).head
 
-        if (name != null || description != null) {
-          Seq(DisplayInfos.fromString(langtag, name, description))
-        } else {
-          Seq.empty
-        }
-      }
-      mappedColumn <- {
-        val columnId = result.get[ColumnId](0)
-        val columnName = result.get[String](1)
-        val kind = Mapper.getDatabaseType(result.get[String](2))
-        val ordering = result.get[Ordering](3)
-        val languageType = LanguageType(Option(result.get[String](4)))
-        val identifier = result.get[Boolean](5)
-        val countryCodes = Option(result.get[String](6)).map(str => Json.fromArrayString(str).asScala.map({ case code: String => code }).toSeq)
-
-        mapColumn(depth, table, columnId, columnName, kind, ordering, languageType, identifier, dis, countryCodes)
-      }
+      mappedColumn <- mapRowResultToColumnType(table, row, depth)
     } yield mappedColumn
   }
 
@@ -297,7 +273,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       case x if x >= 2 =>
         // in case of two or more identifier columns we preserve the order of column
         // and a concatcolumn in front of all columns
-        columns.+:(ConcatColumn(table, "ID", concatColumns))
+        columns.+:(ConcatColumn(ConcatColumnInformation(table), concatColumns))
       case x if x == 1 =>
         // in case of one identifier column we don't get a concat column
         // but the identifier column will be the first
@@ -315,58 +291,35 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           | FROM system_columns
           | WHERE table_id = ? $identCondition ORDER BY ordering, column_id""".stripMargin
 
-    import scala.collection.JavaConverters._
-
     for {
       result <- connection.query(select, Json.arr(table.id))
       mappedColumns <- {
-        val futures = resultObjectToJsonArray(result).map { arr =>
-          val columnId = arr.get[ColumnId](0)
-          val columnName = arr.get[String](1)
-          val kind = Mapper.getDatabaseType(arr.get[String](2))
-          val ordering = arr.get[Ordering](3)
-          val languageType = LanguageType(Option(arr.get[String](4)))
-          val identifier = arr.get[Boolean](5)
-          val countryCodes = Option(arr.get[String](6)).map(str => Json.fromArrayString(str).asScala.map({ case code: String => code }).toSeq)
-
-          val selectLang =
-            s"""SELECT langtag, name, description
-                | FROM system_columns_lang
-                | WHERE table_id = ? AND column_id = ?""".stripMargin
-
-          for {
-            result <- connection.query(selectLang, Json.arr(table.id, columnId))
-            dis = resultObjectToJsonArray(result).map { arr =>
-              DisplayInfos.fromString(arr.getString(0), arr.getString(1), arr.getString(2))
-            }
-            res <- mapColumn(depth, table, columnId, columnName, kind, ordering, languageType, identifier, dis, countryCodes)
-          } yield res
-        }
+        val futures = resultObjectToJsonArray(result).map(mapRowResultToColumnType(table, _, depth))
         Future.sequence(futures)
       }
     } yield (mappedColumns.filter(_.identifier), mappedColumns)
   }
 
-  private def mapColumn(depth: Int, table: Table, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean, displayInfos: Seq[DisplayInfo], countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
+  private def mapColumn(depth: Int, kind: TableauxDbType, languageType: LanguageType, columnInformation: ColumnInformation): Future[ColumnType[_]] = {
     kind match {
-      case AttachmentType => mapAttachmentColumn(table, columnId, columnName, ordering, identifier, displayInfos)
-      case LinkType => mapLinkColumn(depth, table, columnId, columnName, ordering, identifier, displayInfos)
+      case AttachmentType => mapAttachmentColumn(columnInformation)
+      case LinkType => mapLinkColumn(depth, columnInformation)
 
-      case _ => mapValueColumn(table, columnId, columnName, kind, ordering, languageType, identifier, displayInfos, countryCodes)
+      case _ => mapValueColumn(kind, languageType, columnInformation)
     }
   }
 
-  private def mapValueColumn(table: Table, columnId: ColumnId, columnName: String, kind: TableauxDbType, ordering: Ordering, languageType: LanguageType, identifier: Boolean, displayInfos: Seq[DisplayInfo], countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
-    Future(Mapper(languageType, kind).apply(table, columnId, columnName, ordering, identifier, displayInfos, countryCodes))
+  private def mapValueColumn(kind: TableauxDbType, languageType: LanguageType, columnInformation: ColumnInformation): Future[SimpleValueColumn[_]] = {
+    Future(SimpleValueColumn(kind, languageType, columnInformation))
   }
 
-  private def mapAttachmentColumn(table: Table, columnId: ColumnId, columnName: String, ordering: Ordering, identifier: Boolean, displayInfos: Seq[DisplayInfo]): Future[AttachmentColumn] = {
-    Future(AttachmentColumn(table, columnId, columnName, ordering, identifier, displayInfos))
+  private def mapAttachmentColumn(columnInformation: ColumnInformation): Future[AttachmentColumn] = {
+    Future(AttachmentColumn(columnInformation))
   }
 
-  private def mapLinkColumn(depth: Int, fromTable: Table, linkColumnId: ColumnId, columnName: String, ordering: Ordering, identifier: Boolean, displayInfos: Seq[DisplayInfo]): Future[LinkColumn[_]] = {
+  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation): Future[LinkColumn[_]] = {
     for {
-      (linkId, linkDirection, toTable) <- getLinkInformation(fromTable, linkColumnId)
+      (linkId, linkDirection, toTable) <- retrieveLinkInformation(columnInformation.table, columnInformation.id)
 
       foreignColumns <- {
         if (depth > 0) {
@@ -385,12 +338,60 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         throw new NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns")
       }
 
-      val toColumn = toColumnOpt.get.asInstanceOf[ValueColumn[_]]
-      LinkColumn(fromTable, linkColumnId, toColumn, linkId, linkDirection, columnName, ordering, identifier, displayInfos)
+      val toColumn = toColumnOpt.get
+      LinkColumn(columnInformation, toColumn, linkId, linkDirection)
     }
   }
 
-  private def getLinkInformation(fromTable: Table, columnId: ColumnId): Future[(LinkId, LinkDirection, Table)] = {
+  private def mapRowResultToColumnType(table: Table, row: JsonArray, depth: Int): Future[ColumnType[_]] = {
+    import scala.collection.JavaConverters._
+
+    val columnId = row.get[ColumnId](0)
+    val columnName = row.get[String](1)
+    val kind = TableauxDbType(row.get[String](2))
+    val ordering = row.get[Ordering](3)
+    val identifier = row.get[Boolean](5)
+
+    val languageType = LanguageType(Option(row.get[String](4))) match {
+      case LanguageNeutral => LanguageNeutral
+      case MultiLanguage => MultiLanguage
+      case c: MultiCountry =>
+        val codes = Option(row.get[String](6))
+          .map(str => Json.fromArrayString(str).asScala.map({ case code: String => code }).toSeq)
+          .getOrElse(Seq.empty[String])
+
+        MultiCountry(CountryCodes(codes))
+    }
+
+    for {
+      displayInfoSeq <- retrieveDisplayInfo(table, columnId)
+      column <- mapColumn(depth, kind, languageType, BasicColumnInformation(table, columnId, columnName, ordering, identifier, displayInfoSeq))
+    } yield column
+  }
+
+  private def retrieveDisplayInfo(table: Table, columnId: ColumnId): Future[Seq[DisplayInfo]] = {
+    val selectLang =
+      s"""SELECT langtag, name, description
+          | FROM system_columns_lang
+          | WHERE table_id = ? AND column_id = ?""".stripMargin
+
+    for {
+      resultLang <- connection.query(selectLang, Json.arr(table.id, columnId))
+      displayInfos = resultObjectToJsonArray(resultLang).flatMap({ arr =>
+        val langtag = arr.getString(0)
+        val name = arr.getString(1)
+        val description = arr.getString(2)
+
+        if (name != null || description != null) {
+          Seq(DisplayInfos.fromString(langtag, name, description))
+        } else {
+          Seq.empty
+        }
+      })
+    } yield displayInfos
+  }
+
+  private def retrieveLinkInformation(fromTable: Table, columnId: ColumnId): Future[(LinkId, LinkDirection, Table)] = {
     for {
       result <- connection.query(
         """

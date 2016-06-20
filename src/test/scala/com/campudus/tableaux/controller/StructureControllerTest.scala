@@ -2,7 +2,7 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.database.domain.CreateSimpleColumn
 import com.campudus.tableaux.database.model.StructureModel
-import com.campudus.tableaux.database.{DatabaseConnection, SingleLanguage, TextType}
+import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -32,7 +32,7 @@ class StructureControllerTest extends TableauxTestBase {
   @Test
   def checkCreateLinkColumnWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, null, null, SingleLanguage, identifier = false, List(), None))))
+    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test
@@ -44,13 +44,13 @@ class StructureControllerTest extends TableauxTestBase {
   @Test
   def checkCreateColumnWithNullName(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, None, TextType, SingleLanguage, identifier = false, List(), None))))
+    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, None, TextType, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test
   def checkCreateColumnWithNullType(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn("", None, null, SingleLanguage, identifier = false, List(), None))))
+    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test
