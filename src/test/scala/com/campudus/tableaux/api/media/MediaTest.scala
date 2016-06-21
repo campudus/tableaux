@@ -513,8 +513,8 @@ class FolderTest extends MediaTestBase {
       rootSubSubId <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootSubId))).map(_.getInteger("id"))
       rootSubSubSubId <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootSubSubId))).map(_.getInteger("id"))
 
-      rootSubSubSubSub1Id <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootSubSubSubId))).map(_.getInteger("id"))
-      rootSubSubSubSub2Id <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(rootSubSubSubId))).map(_.getInteger("id"))
+      rootSubSubSubSub1Id <- sendRequest("POST", s"/folders", createFolderPutJson("Test 1", Some(rootSubSubSubId))).map(_.getInteger("id"))
+      rootSubSubSubSub2Id <- sendRequest("POST", s"/folders", createFolderPutJson("Test 2", Some(rootSubSubSubId))).map(_.getInteger("id"))
 
       sub1 <- sendRequest("GET", s"/folders/$rootSubSubSubSub1Id?langtag=de-DE")
       sub2 <- sendRequest("GET", s"/folders/$rootSubSubSubSub2Id?langtag=de-DE")
@@ -529,6 +529,45 @@ class FolderTest extends MediaTestBase {
     }
   }
 
+  @Test
+  def testCreateFolderWithDuplicateName(implicit c: TestContext): Unit = exceptionTest("error.request.unique.foldername") {
+    def createFolderPutJson(name: String): JsonObject = {
+      Json.obj("name" -> name, "description" -> "Test Description", "parent" -> null)
+    }
+
+    for {
+      _ <- sendRequest("POST", s"/folders", createFolderPutJson("Test"))
+      _ <- sendRequest("POST", s"/folders", createFolderPutJson("Test"))
+    } yield ()
+  }
+
+  @Test
+  def testCreateFolderWithDuplicateNameAndParent(implicit c: TestContext): Unit = exceptionTest("error.request.unique.foldername") {
+    def createFolderPutJson(name: String, parentId: Option[FolderId]): JsonObject = {
+      Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parentId.orNull)
+    }
+
+    for {
+      folderId <- sendRequest("POST", s"/folders", createFolderPutJson("Test", None)).map(_.getLong("id"))
+
+      _ <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(folderId)))
+      _ <- sendRequest("POST", s"/folders", createFolderPutJson("Test", Some(folderId)))
+    } yield ()
+  }
+
+  @Test
+  def testChangeFolderWithDuplicateName(implicit c: TestContext): Unit = exceptionTest("error.request.unique.foldername") {
+    def createFolderPutJson(name: String, parentId: Option[FolderId]): JsonObject = {
+      Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parentId.orNull)
+    }
+
+    for {
+      _ <- sendRequest("POST", s"/folders", createFolderPutJson("Test 1", None))
+      folderId <- sendRequest("POST", s"/folders", createFolderPutJson("Test 2", None)).map(_.getLong("id"))
+
+      _ <- sendRequest("PUT", s"/folders/$folderId", createFolderPutJson("Test 1", None))
+    } yield ()
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -689,8 +728,8 @@ class FileTest extends MediaTestBase {
     val filePath = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
     val mimetype = "image/jpeg"
 
-    def createFolderPutJson(parent: Option[Int] = None): JsonObject = {
-      Json.obj("name" -> "Test Folder", "description" -> "Test Description", "parent" -> parent.orNull)
+    def createFolderPutJson(name: String, parent: Option[Int] = None): JsonObject = {
+      Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parent.orNull)
     }
 
     def createFilePutJson(folder: Int): JsonObject = {
@@ -698,14 +737,14 @@ class FileTest extends MediaTestBase {
     }
 
     for {
-      folder1 <- sendRequest("POST", s"/folders", createFolderPutJson()).map(_.getInteger("id"))
-      folder2 <- sendRequest("POST", s"/folders", createFolderPutJson()).map(_.getInteger("id"))
+      folder1 <- sendRequest("POST", s"/folders", createFolderPutJson("Test 1")).map(_.getInteger("id"))
+      folder2 <- sendRequest("POST", s"/folders", createFolderPutJson("Test 2")).map(_.getInteger("id"))
 
-      folder11 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder1))).map(_.getInteger("id"))
-      folder12 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder1))).map(_.getInteger("id"))
+      folder11 <- sendRequest("POST", s"/folders", createFolderPutJson("Test 1", Some(folder1))).map(_.getInteger("id"))
+      folder12 <- sendRequest("POST", s"/folders", createFolderPutJson("Test 2", Some(folder1))).map(_.getInteger("id"))
 
-      folder21 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder2))).map(_.getInteger("id"))
-      folder22 <- sendRequest("POST", s"/folders", createFolderPutJson(Some(folder2))).map(_.getInteger("id"))
+      folder21 <- sendRequest("POST", s"/folders", createFolderPutJson("Test 1", Some(folder2))).map(_.getInteger("id"))
+      folder22 <- sendRequest("POST", s"/folders", createFolderPutJson("Test 2", Some(folder2))).map(_.getInteger("id"))
 
       file1 <- sendRequest("POST", "/files", createFilePutJson(folder11))
       file1Uuid = file1.getString("uuid")

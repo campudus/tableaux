@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.ShouldBeUniqueException
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.Folder
 import com.campudus.tableaux.database.model.FolderModel.FolderId
@@ -30,6 +31,8 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
           |updated_at) VALUES (?,?,?,CURRENT_TIMESTAMP,NULL) RETURNING id, created_at""".stripMargin
 
     for {
+      _ <- checkUniqueName(parent, None, name)
+
       result <- connection.query(insert, Json.arr(name, description, parent.orNull))
       id = insertNotNull(result).head.get[Long](0)
 
@@ -46,6 +49,8 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
           |updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING created_at, updated_at""".stripMargin
 
     for {
+      _ <- checkUniqueName(parent, Some(id), name)
+
       result <- connection.query(update, Json.arr(name, description, parent.orNull, id))
       _ = updateNotNull(result)
 
@@ -141,5 +146,26 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
       result <- connection.query(delete, Json.arr(id.toString))
       resultArr <- Future(deleteNotNull(result))
     } yield ()
+  }
+
+  private def checkUniqueName(parent: Option[FolderId], folder: Option[FolderId], name: String): Future[Unit] = {
+    val (condition, parameter) = (parent, folder) match {
+      case (Some(parentId), Some(folderId)) =>
+        ("idparent = ? AND id != ? AND name = ?", Json.arr(parentId, folderId, name))
+      case (None, Some(folderId)) =>
+        ("idparent IS NULL AND id != ? AND name = ?", Json.arr(folderId, name))
+      case (Some(parentId), None) =>
+        ("idparent = ? AND name = ?", Json.arr(parentId, name))
+      case (None, None) =>
+        ("idparent IS NULL AND name = ?", Json.arr(name))
+    }
+
+    val sql = s"SELECT COUNT(*) = 0 FROM $table WHERE $condition"
+    connection
+      .selectSingleValue[Boolean](sql, parameter)
+      .flatMap({
+        case true => Future.successful(())
+        case false => Future.failed(new ShouldBeUniqueException(s"Name of folder should be unique ($parent, $folder, $name).", "foldername"))
+      })
   }
 }

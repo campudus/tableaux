@@ -25,8 +25,8 @@ class FolderModelTest extends TableauxTestBase {
     for {
       model <- Future.successful(createFolderModel())
 
-      insertedFolder1 <- model.add(name = "hallo", description = "Test", parent = None)
-      insertedFolder2 <- model.add(name = "hallo", description = "Test", parent = None)
+      insertedFolder1 <- model.add(name = "Hallo 1", description = "Test", parent = None)
+      insertedFolder2 <- model.add(name = "Hallo 2", description = "Test", parent = None)
 
       retrievedFolder <- model.retrieve(insertedFolder1.id)
       updatedFolder <- model.update(retrievedFolder.id, name = "blub", description = "flab", parent = None)
