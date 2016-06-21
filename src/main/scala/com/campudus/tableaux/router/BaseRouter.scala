@@ -27,9 +27,9 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   val uuidRegex: String = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 
   /**
-    * Regex for a Language tag e.g. de_DE, de-DE, or en_GB
+    * Regex for a Language tag e.g. de, en, de_DE, de-DE, or en_GB
     */
-  val langtagRegex: String = "[a-z]{2,3}[-_][A-Z]{2,3}"
+  val langtagRegex: String = "[a-z]{2,3}|[a-z]{2,3}[-_][A-Z]{2,3}"
 
   /**
     * Base result JSON

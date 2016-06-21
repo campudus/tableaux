@@ -669,6 +669,62 @@ class FileTest extends MediaTestBase {
   }
 
   @Test
+  def testFileUploadAndFileDownloadWithShortLangtags(implicit c: TestContext): Unit = okTest {
+    val fileName = "Scr$en Shot.pdf"
+    val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+    val size = vertx.fileSystem.propsBlocking(getClass.getResource(filePath).toURI.getPath).size()
+
+    val meta = Json.obj(
+      "title" -> Json.obj(
+        "de" -> "Test PDF"
+      ),
+      "description" -> Json.obj(
+        "de" -> "A description about that PDF."
+      )
+    )
+
+    for {
+      file <- sendRequest("POST", "/files", meta)
+
+      uploadedFile <- replaceFile(file.getString("uuid"), "de", filePath, mimetype)
+      puttedFile <- sendRequest("PUT", s"/files/${file.getString("uuid")}", meta)
+
+      file <- sendRequest("GET", s"/files/${file.getString("uuid")}")
+
+      _ <- futurify { p: Promise[Unit] =>
+        val url = file.getObject("url").getString("de")
+
+        httpRequest("GET", s"$url", {
+          (client: HttpClient, resp: HttpClientResponse) =>
+
+            assertEquals(200, resp.statusCode())
+
+            assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
+            assertEquals("Should get the correct content length", s"$size", resp.getHeader("content-length"))
+
+            resp.bodyHandler { buf: Buffer =>
+              client.close()
+
+              assertEquals("Should get the same size back as the file really is", size, buf.length())
+              p.success(())
+            }
+        }, {
+          (client: HttpClient, x: Throwable) =>
+            client.close()
+            c.fail(x)
+            p.failure(x)
+        }).end()
+      }
+
+      _ <- sendRequest("DELETE", s"/files/${file.getString("uuid")}")
+    } yield {
+      assertEquals(meta.getObject("title"), file.getObject("title"))
+      assertEquals(meta.getObject("description"), file.getObject("description"))
+    }
+  }
+
+  @Test
   def testFileWithMultiLanguageMetaInformation(implicit c: TestContext): Unit = okTest {
     val fileName = "Scr$en Shot.pdf"
     val filePath = s"/com/campudus/tableaux/uploads/$fileName"
