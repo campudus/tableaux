@@ -4,6 +4,7 @@ import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RowModel, UpdateRowModel}
+import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{InvalidJsonException, WrongColumnKindException}
 import org.vertx.scala.core.json._
 
@@ -44,21 +45,23 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   }
 
   def createColumns(table: Table, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
-    for {
-      result <- structureModel.columnStruc.createColumns(table, columns)
-    } yield result
+    structureModel.columnStruc.createColumns(table, columns)
   }
 
-  def retrieveColumn(table: Table, columnId: ColumnId): Future[ColumnType[_]] = for {
-    column <- structureModel.columnStruc.retrieve(table, columnId)
-  } yield column
+  def retrieveColumn(table: Table, columnId: ColumnId): Future[ColumnType[_]] = {
+    structureModel.columnStruc.retrieve(table, columnId)
+  }
 
-  def retrieveColumns(table: Table): Future[Seq[ColumnType[_]]] = for {
-    columns <- structureModel.columnStruc.retrieveAll(table)
-  } yield columns
+  def retrieveColumns(table: Table): Future[Seq[ColumnType[_]]] = {
+    structureModel.columnStruc.retrieveAll(table)
+  }
 
-  def retrieveDependencies(tableId: TableId): Future[Seq[(TableId, ColumnId)]] = {
-    structureModel.columnStruc.retrieveDependencies(tableId)
+  def retrieveDependencies(table: Table): Future[Seq[(TableId, ColumnId)]] = {
+    structureModel.columnStruc.retrieveDependencies(table.id)
+  }
+
+  def retrieveDependentLinks(table: Table): Future[Seq[(LinkId, LinkDirection)]] = {
+    structureModel.columnStruc.retrieveDependentLinks(table.id)
   }
 }
 
@@ -76,6 +79,55 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   val updateRowModel = new UpdateRowModel(connection)
 
   val attachmentModel = AttachmentModel(connection)
+
+  def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
+    def selectDependentRows(linkId: LinkId, linkDirection: LinkDirection) = {
+      s"SELECT ${linkDirection.toSql} FROM link_table_$linkId WHERE ${linkDirection.fromSql} = ?"
+    }
+
+    for {
+      links <- retrieveDependentLinks(table)
+      result <- {
+        val futures = links.map({
+          case (linkId, linkDirection) =>
+            connection
+              .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
+              .map({
+                result =>
+                  resultObjectToJsonArray(result)
+              })
+              .map({
+                rows =>
+                  rows.map({
+                    row =>
+                      val rowId: RowId = row.getLong(0).toLong
+                      rowId
+                  })
+              })
+              .map({
+                dependentRows =>
+                  (linkDirection.to, dependentRows)
+              })
+        })
+
+        Future.sequence(futures)
+      }
+    } yield {
+      val objects = result
+        .groupBy(_._1)
+        .map({
+          case (tableId, groupedDependentRows) =>
+            (tableId, groupedDependentRows.flatMap(_._2))
+        })
+        .map({
+          case (tableId, dependentRows) =>
+            DependentRows(tableId, dependentRows)
+        })
+        .toSeq
+
+      DependentRowsSeq(objects)
+    }
+  }
 
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
     for {
@@ -195,7 +247,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         case false => Future.successful(())
       }
 
-      dependentColumns <- retrieveDependencies(column.table.id)
+      dependentColumns <- retrieveDependencies(column.table)
 
       _ <- Future.sequence(dependentColumns.map({
         case (tableId, columnId) =>

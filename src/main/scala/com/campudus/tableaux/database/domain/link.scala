@@ -34,9 +34,9 @@ object LinkDirection {
   * More less it depends on the point of view.
   **/
 sealed trait LinkDirection {
-  val from: Long
+  val from: TableId
 
-  val to: Long
+  val to: TableId
 
   def fromSql: String
 
@@ -45,7 +45,7 @@ sealed trait LinkDirection {
   def orderingSql: String
 }
 
-case class LeftToRight(from: Long, to: Long) extends LinkDirection {
+case class LeftToRight(from: TableId, to: TableId) extends LinkDirection {
   override def fromSql: String = "id_1"
 
   override def toSql: String = "id_2"
@@ -53,7 +53,7 @@ case class LeftToRight(from: Long, to: Long) extends LinkDirection {
   override def orderingSql: String = "ordering_1"
 }
 
-case class RightToLeft(from: Long, to: Long) extends LinkDirection {
+case class RightToLeft(from: TableId, to: TableId) extends LinkDirection {
   override def fromSql: String = "id_2"
 
   override def toSql: String = "id_1"

@@ -225,6 +225,24 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield mappedColumns
   }
 
+  def retrieveDependentLinks(tableId: TableId): Future[Seq[(LinkId, LinkDirection)]] = {
+    val select = s"SELECT link_id, table_id_1, table_id_2 FROM system_link_table WHERE (table_id_1 = ? OR table_id_2 = ?)".stripMargin
+
+    for {
+      result <- connection.query(select, Json.arr(tableId, tableId))
+    } yield {
+      resultObjectToJsonArray(result)
+        .map({
+          row =>
+            val linkId = row.get[LinkId](0)
+            val tableId1 = row.get[TableId](1)
+            val tableId2 = row.get[TableId](2)
+
+            (linkId, LinkDirection(tableId, tableId1, tableId2))
+        })
+    }
+  }
+
   def retrieve(table: Table, columnId: ColumnId): Future[ColumnType[_]] = {
     columnId match {
       case 0 =>
