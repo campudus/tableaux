@@ -327,19 +327,26 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       requestHandler(httpJsonRequest(method, url, p))
   }
 
-  protected def createDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[TableId] = {
+  protected def createEmptyDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[TableId] = {
     val postTable = Json.obj("name" -> name)
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
     val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+
+    for {
+      tableId <- sendRequest("POST", "/tables", postTable) map { js => js.getLong("id") }
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createStringColumnJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
+    } yield tableId
+  }
+
+  protected def createDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[TableId] = {
     val fillStringCellJson = Json.obj("value" -> s"table${tableNum}row1")
     val fillStringCellJson2 = Json.obj("value" -> s"table${tableNum}row2")
     val fillNumberCellJson = Json.obj("value" -> 1)
     val fillNumberCellJson2 = Json.obj("value" -> 2)
 
     for {
-      tableId <- sendRequest("POST", "/tables", postTable) map { js => js.getLong("id") }
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", createStringColumnJson)
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
+      tableId <- createEmptyDefaultTable(name, tableNum)
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", fillStringCellJson)

@@ -95,6 +95,16 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield cell
   }
 
+  def retrieveDependentRows(tableId: TableId, rowId: RowId): Future[DependentRowsSeq] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"retrieveDependentRows $tableId $rowId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      dependentRows <- repository.retrieveDependentRows(table, rowId)
+    } yield dependentRows
+  }
+
   def deleteRow(tableId: TableId, rowId: RowId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"deleteRow $tableId $rowId")

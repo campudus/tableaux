@@ -3,10 +3,6 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
-case class Link[A](id: RowId, value: A) extends DomainObject {
-  override def getJson: JsonObject = Json.obj("id" -> id, "value" -> value)
-}
-
 object LinkDirection {
   /**
     * Depending on the point of view, the link may be in different directions (left-to-right or right-to-left). This
@@ -34,9 +30,9 @@ object LinkDirection {
   * More less it depends on the point of view.
   **/
 sealed trait LinkDirection {
-  val from: Long
+  val from: TableId
 
-  val to: Long
+  val to: TableId
 
   def fromSql: String
 
@@ -45,7 +41,7 @@ sealed trait LinkDirection {
   def orderingSql: String
 }
 
-case class LeftToRight(from: Long, to: Long) extends LinkDirection {
+case class LeftToRight(from: TableId, to: TableId) extends LinkDirection {
   override def fromSql: String = "id_1"
 
   override def toSql: String = "id_2"
@@ -53,7 +49,7 @@ case class LeftToRight(from: Long, to: Long) extends LinkDirection {
   override def orderingSql: String = "ordering_1"
 }
 
-case class RightToLeft(from: Long, to: Long) extends LinkDirection {
+case class RightToLeft(from: TableId, to: TableId) extends LinkDirection {
   override def fromSql: String = "id_2"
 
   override def toSql: String = "id_1"

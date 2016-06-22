@@ -225,6 +225,24 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield mappedColumns
   }
 
+  def retrieveDependentLinks(tableId: TableId): Future[Seq[(LinkId, LinkDirection)]] = {
+    val select = s"SELECT link_id, table_id_1, table_id_2 FROM system_link_table WHERE (table_id_1 = ? OR table_id_2 = ?)".stripMargin
+
+    for {
+      result <- connection.query(select, Json.arr(tableId, tableId))
+    } yield {
+      resultObjectToJsonArray(result)
+        .map({
+          row =>
+            val linkId = row.get[LinkId](0)
+            val tableId1 = row.get[TableId](1)
+            val tableId2 = row.get[TableId](2)
+
+            (linkId, LinkDirection(tableId, tableId1, tableId2))
+        })
+    }
+  }
+
   def retrieve(table: Table, columnId: ColumnId): Future[ColumnType[_]] = {
     columnId match {
       case 0 =>
@@ -317,7 +335,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     Future(AttachmentColumn(columnInformation))
   }
 
-  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation): Future[LinkColumn[_]] = {
+  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation): Future[LinkColumn] = {
     for {
       (linkId, linkDirection, toTable) <- retrieveLinkInformation(columnInformation.table, columnInformation.id)
 
@@ -448,7 +466,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       _ <- {
         column match {
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
-          case c: LinkColumn[_] => deleteLink(c, bothDirections)
+          case c: LinkColumn => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
@@ -456,7 +474,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  private def deleteLink(column: LinkColumn[_], bothDirections: Boolean): Future[Unit] = {
+  private def deleteLink(column: LinkColumn, bothDirections: Boolean): Future[Unit] = {
     for {
       t <- connection.begin()
 

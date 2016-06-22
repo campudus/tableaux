@@ -23,14 +23,14 @@ sealed trait ModelHelper {
   (
     List[(SimpleValueColumn[_], _)],
       List[(SimpleValueColumn[_], Map[String, _])],
-      List[(LinkColumn[_], Seq[RowId])],
+      List[(LinkColumn, Seq[RowId])],
       List[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
     ) = {
 
     values.foldLeft((
       List[(SimpleValueColumn[_], _)](),
       List[(SimpleValueColumn[_], Map[String, _])](),
-      List[(LinkColumn[_], Seq[RowId])](),
+      List[(LinkColumn, Seq[RowId])](),
       List[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]())) {
 
       case ((s, m, l, a), (MultiLanguageColumn(c), v: Seq[_])) =>
@@ -44,7 +44,7 @@ sealed trait ModelHelper {
 
       case ((s, m, l, a), (c: SimpleValueColumn[_], v)) => ((c, v) :: s, m, l, a)
 
-      case ((s, m, l, a), (c: LinkColumn[_], v)) =>
+      case ((s, m, l, a), (c: LinkColumn, v)) =>
         val toIds: Seq[RowId] = v match {
           case x: Seq[_] => x.map {
             case id: RowId => id
@@ -109,14 +109,14 @@ sealed trait ModelHelper {
   def splitIntoDatabaseTypes(columns: Seq[ColumnType[_]]): (
     List[SimpleValueColumn[_]],
       List[SimpleValueColumn[_]],
-      List[LinkColumn[_]],
+      List[LinkColumn],
       List[AttachmentColumn]
     ) = {
 
     columns.foldLeft((
       List[SimpleValueColumn[_]](),
       List[SimpleValueColumn[_]](),
-      List[LinkColumn[_]](),
+      List[LinkColumn](),
       List[AttachmentColumn]())) {
 
       case ((s, m, l, a), MultiLanguageColumn(c)) =>
@@ -125,7 +125,7 @@ sealed trait ModelHelper {
       case ((s, m, l, a), c: SimpleValueColumn[_]) =>
         (c :: s, m, l, a)
 
-      case ((s, m, l, a), c: LinkColumn[_]) =>
+      case ((s, m, l, a), c: LinkColumn) =>
         (s, m, c :: l, a)
 
       case ((s, m, l, a), c: AttachmentColumn) =>
@@ -162,9 +162,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  private def clearLinks(table: Table, rowId: RowId, columns: Seq[LinkColumn[_]]): Future[_] = {
+  private def clearLinks(table: Table, rowId: RowId, columns: Seq[LinkColumn]): Future[_] = {
     val futureSequence = columns.map({
-      case column: LinkColumn[_] =>
+      case column: LinkColumn =>
         val linkId = column.linkId
         val direction = column.linkDirection
 
@@ -181,7 +181,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(cleared)
   }
 
-  def updateLinkOrder(table: Table, column: LinkColumn[_], rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Unit] = {
+  def updateLinkOrder(table: Table, column: LinkColumn, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql
     val orderColumn = column.linkDirection.orderingSql
@@ -299,7 +299,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn[_], Seq[RowId])]): Future[Unit] = {
+  private def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[Unit] = {
     val futureSequence = values.map({
       case (column, toIds) =>
         val linkId = column.linkId
@@ -403,9 +403,9 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn[_], Seq[RowId])]): Future[_] = {
+  private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[_] = {
     val futureSequence = values.map({
-      case (column: LinkColumn[_], toIds) =>
+      case (column: LinkColumn, toIds) =>
         val linkId = column.linkId
         val direction = column.linkDirection
 
@@ -496,7 +496,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
         else
           Json.fromObjectString(value.toString)
 
-      case _: LinkColumn[_] =>
+      case _: LinkColumn =>
         if (value == null)
           Json.emptyArr()
         else
@@ -574,7 +574,7 @@ class RowModel(val connection: DatabaseConnection) extends DatabaseQuery with Mo
       case c: SimpleValueColumn[_] =>
         s"ut.column_${c.id}"
 
-      case c: LinkColumn[_] =>
+      case c: LinkColumn =>
         val linkId = c.linkId
         val direction = c.linkDirection
         val toTableId = c.to.table.id

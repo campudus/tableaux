@@ -25,6 +25,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
   private val RowDuplicate: Regex = "/tables/(\\d+)/rows/(\\d+)/duplicate".r
+  private val RowDependent: Regex = "/tables/(\\d+)/rows/(\\d+)/dependent".r
   private val Rows: Regex = "/tables/(\\d+)/rows".r
   private val RowsOfColumn: Regex = "/tables/(\\d+)/columns/(\\d+)/rows".r
   private val RowsOfFirstColumn: Regex = "/tables/(\\d+)/columns/first/rows".r
@@ -75,6 +76,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       */
     case Get(Row(tableId, rowId)) => asyncGetReply {
       controller.retrieveRow(tableId.toLong, rowId.toLong)
+    }
+
+    /**
+      * Get dependent rows
+      */
+    case Get(RowDependent(tableId, rowId)) => asyncGetReply {
+      controller.retrieveDependentRows(tableId.toLong, rowId.toLong)
     }
 
     /**
