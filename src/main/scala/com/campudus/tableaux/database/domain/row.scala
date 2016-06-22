@@ -11,8 +11,8 @@ case class RowSeq(rows: Seq[Row], page: Page = Page(Pagination(None, None), None
   override def getJson: JsonObject = Json.obj("page" -> compatibilityGet(page), "rows" -> (rows map (_.getJson)))
 }
 
-case class DependentRows(tableId: TableId, rows: Seq[RowId]) extends DomainObject {
-  override def getJson: JsonObject = Json.obj("tableId" -> tableId, "rows" -> compatibilityGet(rows))
+case class DependentRows(table: Table, column: ColumnType[_], rows: Seq[JsonObject]) extends DomainObject {
+  override def getJson: JsonObject = Json.obj("table" -> table.getJson, "column" -> compatibilityGet(column), "rows" -> compatibilityGet(rows))
 }
 
 case class DependentRowsSeq(dependentRowsSeq: Seq[DependentRows]) extends DomainObject {

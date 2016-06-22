@@ -104,23 +104,38 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
                 dependentRows =>
                   (linkDirection.to, dependentRows)
               })
+              .flatMap({
+                case (tableId, rows) =>
+                  for {
+                    table <- retrieveTable(tableId)
+                    columns <- retrieveColumns(table)
+                    rowObjects <- Future.sequence(rows.map({
+                      rowId =>
+                        retrieveCell(columns.head, rowId)
+                          .map({
+                            cell =>
+                              Json.obj("id" -> rowId, "value" -> cell.value)
+                          })
+                    }))
+                  } yield (table, columns.head, rowObjects)
+              })
         })
 
         Future.sequence(futures)
       }
     } yield {
       val objects = result
-        .groupBy(_._1)
+        .groupBy({ t => (t._1, t._2) })
         .map({
-          case (tableId, groupedDependentRows) =>
-            (tableId, groupedDependentRows.flatMap(_._2))
+          case ((groupedByTable, groupedByColumn), dependentRowInformation) =>
+            (groupedByTable, groupedByColumn, dependentRowInformation.flatMap(_._3))
         })
         .filter({
-          _._2.nonEmpty
+          _._3.nonEmpty
         })
         .map({
-          case (tableId, dependentRows) =>
-            DependentRows(tableId, dependentRows)
+          case (groupedByTable, groupedByColumn, dependentRows) =>
+            DependentRows(groupedByTable, groupedByColumn, dependentRows)
         })
         .toSeq
 
