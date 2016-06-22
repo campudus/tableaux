@@ -226,7 +226,18 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def retrieveDependentLinks(tableId: TableId): Future[Seq[(LinkId, LinkDirection)]] = {
-    val select = s"SELECT link_id, table_id_1, table_id_2 FROM system_link_table WHERE (table_id_1 = ? OR table_id_2 = ?)".stripMargin
+    val select =
+      s"""
+         |SELECT
+         |  l.link_id,
+         |  l.table_id_1,
+         |  l.table_id_2,
+         |  COUNT(c.*) > 1 AS bidirectional
+         |FROM
+         |  system_link_table l
+         |  LEFT JOIN system_columns c ON (l.link_id = c.link_id)
+         |WHERE (table_id_1 = ? OR table_id_2 = ?)
+         |GROUP BY l.link_id, l.table_id_1, l.table_id_2""".stripMargin
 
     for {
       result <- connection.query(select, Json.arr(tableId, tableId))
@@ -237,8 +248,20 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             val linkId = row.get[LinkId](0)
             val tableId1 = row.get[TableId](1)
             val tableId2 = row.get[TableId](2)
+            val bidirectional = row.get[Boolean](3)
 
-            (linkId, LinkDirection(tableId, tableId1, tableId2))
+            val result = (linkId, LinkDirection(tableId, tableId1, tableId2), bidirectional)
+            logger.info(s"Dependent Links $result")
+            result
+        })
+        .filter({
+          case (_, LeftToRight(from, to), false) if from == to => true // self link
+          case (_, _: LeftToRight, true) => true
+          case (_, _: LeftToRight, false) => false
+          case (_, _: RightToLeft, _) => true
+        })
+        .map({
+          case (linkId, linkDirection, _) => (linkId, linkDirection)
         })
     }
   }
