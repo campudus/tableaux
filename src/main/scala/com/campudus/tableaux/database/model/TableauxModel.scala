@@ -94,11 +94,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
               .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
               .map({
                 result =>
-                  resultObjectToJsonArray(result)
-              })
-              .map({
-                rows =>
-                  rows.map({
+                  resultObjectToJsonArray(result).map({
                     row =>
                       val rowId: RowId = row.getLong(0).toLong
                       rowId
@@ -118,6 +114,9 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         .map({
           case (tableId, groupedDependentRows) =>
             (tableId, groupedDependentRows.flatMap(_._2))
+        })
+        .filter({
+          _._2.nonEmpty
         })
         .map({
           case (tableId, dependentRows) =>

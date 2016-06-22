@@ -788,13 +788,15 @@ class LinkTest extends LinkTestBase {
       row33 <- addRow(table3)
 
       linkColumn1From1To2 <- createLinkColumn(table1, table2, singleDirection = true)
-      linkColumn2From1To3 <- createLinkColumn(table1, table3, singleDirection = true)
+      linkColumn2From1To3 <- createLinkColumn(table3, table1, singleDirection = true)
 
+      // Test for link from/to table 1.
+      // Point of view doesn't matter.
       _ <- putLink(table1, linkColumn1From1To2, row11, row21)
       _ <- putLink(table1, linkColumn1From1To2, row11, row23)
 
-      _ <- putLink(table1, linkColumn2From1To3, row11, row32)
-      _ <- putLink(table1, linkColumn2From1To3, row11, row33)
+      _ <- putLink(table3, linkColumn2From1To3, row32, row11)
+      _ <- putLink(table3, linkColumn2From1To3, row33, row11)
 
       result <- sendRequest("GET", s"/tables/$table1/rows/$row11/dependent")
       dependentRows = result.getJsonArray("dependentRows")
@@ -952,6 +954,40 @@ class LinkTest extends LinkTestBase {
       )
 
       assertEquals(expectedDependentRows13, dependentRows13)
+    }
+  }
+
+  @Test
+  def retrieveDependentRowsOfRowWithoutDependencies(implicit c: TestContext): Unit = okTest {
+    for {
+      table1 <- createEmptyDefaultTable("Table 1", 1)
+      row11 <- addRow(table1)
+      row12 <- addRow(table1)
+      row13 <- addRow(table1)
+
+      linkColumn1From1To1 <- createLinkColumn(table1, table1, singleDirection = true)
+
+      result <- sendRequest("GET", s"/tables/$table1/rows/$row11/dependent")
+      dependentRows11 = result.getJsonArray("dependentRows")
+    } yield {
+      val expectedDependentRows11 = Json.emptyArr()
+      assertEquals(expectedDependentRows11, dependentRows11)
+    }
+  }
+
+  @Test
+  def retrieveDependentRowsOfTableWithoutLinks(implicit c: TestContext): Unit = okTest {
+    for {
+      table1 <- createEmptyDefaultTable("Table 1", 1)
+      row11 <- addRow(table1)
+      row12 <- addRow(table1)
+      row13 <- addRow(table1)
+
+      result <- sendRequest("GET", s"/tables/$table1/rows/$row11/dependent")
+      dependentRows11 = result.getJsonArray("dependentRows")
+    } yield {
+      val expectedDependentRows11 = Json.emptyArr()
+      assertEquals(expectedDependentRows11, dependentRows11)
     }
   }
 }
