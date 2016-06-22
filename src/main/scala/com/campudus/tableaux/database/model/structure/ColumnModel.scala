@@ -335,7 +335,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     Future(AttachmentColumn(columnInformation))
   }
 
-  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation): Future[LinkColumn[_]] = {
+  private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation): Future[LinkColumn] = {
     for {
       (linkId, linkDirection, toTable) <- retrieveLinkInformation(columnInformation.table, columnInformation.id)
 
@@ -466,7 +466,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       _ <- {
         column match {
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
-          case c: LinkColumn[_] => deleteLink(c, bothDirections)
+          case c: LinkColumn => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
@@ -474,7 +474,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  private def deleteLink(column: LinkColumn[_], bothDirections: Boolean): Future[Unit] = {
+  private def deleteLink(column: LinkColumn, bothDirections: Boolean): Future[Unit] = {
     for {
       t <- connection.begin()
 

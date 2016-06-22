@@ -180,7 +180,7 @@ case class DateTimeColumn(override val languageType: LanguageType)(override val 
 /*
  * Special column types
  */
-case class LinkColumn[A](override val columnInformation: ColumnInformation, to: ColumnType[A], linkId: LinkId, linkDirection: LinkDirection) extends ColumnType[Link[A]] {
+case class LinkColumn(override val columnInformation: ColumnInformation, to: ColumnType[_], linkId: LinkId, linkDirection: LinkDirection) extends ColumnType[JsonArray] {
   override val kind = LinkType
   override val languageType = to.languageType
 

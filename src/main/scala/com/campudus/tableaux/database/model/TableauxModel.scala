@@ -176,8 +176,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       column <- retrieveColumn(table, columnId)
 
       _ <- column match {
-        case linkColumn: LinkColumn[_] => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, location, id)
-        case _ => Future.failed(new WrongColumnKindException(column, classOf[LinkColumn[_]]))
+        case linkColumn: LinkColumn => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, location, id)
+        case _ => Future.failed(new WrongColumnKindException(column, classOf[LinkColumn]))
       }
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
@@ -418,7 +418,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
 
     def isLinkColumnToConcatColumn(col: ColumnType[_]): Boolean = {
-      col.kind == LinkType && col.asInstanceOf[LinkColumn[_]].to.isInstanceOf[ConcatColumn]
+      col.kind == LinkType && col.asInstanceOf[LinkColumn].to.isInstanceOf[ConcatColumn]
     }
 
     val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[(RowId, Seq[Any])])) {
@@ -444,7 +444,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
                 // Now we iterate over the zipped sequence and
                 // check for LinkColumns which point to ConcatColumns
                 val mappedColumnValues = zippedColumnsValues map {
-                  case (column: LinkColumn[_], array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
+                  case (column: LinkColumn, array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
                     // Iterate over each linked row and
                     // replace json's value with ConcatColumn value
                     fetchConcatValuesForLinkedRows(column.to.asInstanceOf[ConcatColumn], array)
@@ -454,7 +454,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
                 Future.sequence(mappedColumnValues)
 
-              case (c: LinkColumn[_], array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
+              case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
                 // Iterate over each linked row and
                 // replace json's value with ConcatColumn value
                 fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatColumn], array)
