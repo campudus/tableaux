@@ -181,6 +181,18 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(cleared)
   }
 
+  def deleteLink(table: Table, column: LinkColumn, rowId: RowId, toRowId: RowId): Future[Unit] = {
+    val rowIdColumn = column.linkDirection.fromSql
+    val toIdColumn = column.linkDirection.toSql
+    val linkTable = s"link_table_${column.linkId}"
+
+    val sql = s"DELETE FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?"
+
+    for {
+      _ <- connection.query(sql, Json.arr(rowId, toRowId))
+    } yield ()
+  }
+
   def updateLinkOrder(table: Table, column: LinkColumn, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql

@@ -114,6 +114,16 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield EmptyObject()
   }
 
+  def deleteLink(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
+    logger.info(s"deleteLink $tableId $columnId $rowId $toId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      updated <- repository.deleteLink(table, columnId, rowId, toId)
+    } yield updated
+  }
+
   def updateCellLinkOrder(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId), notNull(location, "location"), oneOf(location, List("start", "end", "before"), "location"))
     logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $location $id")

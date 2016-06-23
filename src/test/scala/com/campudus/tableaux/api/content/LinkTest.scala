@@ -577,6 +577,55 @@ class LinkTest extends LinkTestBase {
   }
 
   @Test
+  def deleteLinkValue(implicit c: TestContext): Unit = okTest {
+    val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+      resPut1 <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+      // check first table for the link (links to t2, r1 and t2, r2)
+      resGet1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+
+      //remove link to t2, r1
+      resDelete2 <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/1")
+      // check first table for links left (link to r2 should be left)
+      resGet2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+
+      //remove link to t2, r2
+      resDelete3 <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/2")
+      // check first table for links left (no link values anymore)
+      resGet3 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      val expected1 = Json.obj(
+        "status" -> "ok",
+        "value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table2row1"),
+          Json.obj("id" -> 2, "value" -> "table2row2")
+        )
+      )
+
+      val expected2 = Json.obj(
+        "status" -> "ok",
+        "value" -> Json.arr(
+          Json.obj("id" -> 2, "value" -> "table2row2")
+        )
+      )
+
+      val expected3 = Json.obj("status" -> "ok", "value" -> Json.arr())
+
+      assertEquals(expected1, resPut1)
+      assertEquals(expected1, resGet1)
+
+      assertEquals(expected2, resDelete2)
+      assertEquals(expected2, resGet2)
+
+      assertEquals(expected3, resDelete3)
+      assertEquals(expected3, resGet3)
+    }
+  }
+
+  @Test
   def deleteAllLinkValues(implicit c: TestContext): Unit = okTest {
     val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
     val putOneLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))

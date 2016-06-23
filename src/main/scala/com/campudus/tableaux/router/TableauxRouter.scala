@@ -203,6 +203,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     /**
       * Delete Link from Cell
       */
-    case Delete(LinkOfCell(tableId, columnId, fromId, toId)) => ???
+    case Delete(LinkOfCell(tableId, columnId, rowId, toId)) => asyncGetReply {
+      controller.deleteLink(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong)
+    }
   }
 }

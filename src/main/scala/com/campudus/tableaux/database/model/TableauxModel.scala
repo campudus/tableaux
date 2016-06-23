@@ -185,6 +185,21 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield RowSeq(rows)
 
+  def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+
+      _ <- column match {
+        case linkColumn: LinkColumn => updateRowModel.deleteLink(table, linkColumn, rowId, toId)
+        case _ => Future.failed(new WrongColumnKindException(column, classOf[LinkColumn]))
+      }
+
+      _ <- invalidateCellAndDependentColumns(column, rowId)
+
+      updatedCell <- retrieveCell(column, rowId)
+    } yield updatedCell
+  }
+
   def updateCellLinkOrder(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
