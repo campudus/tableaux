@@ -128,7 +128,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         .groupBy({ t => (t._1, t._2) })
         .map({
           case ((groupedByTable, groupedByColumn), dependentRowInformation) =>
-            (groupedByTable, groupedByColumn, dependentRowInformation.flatMap(_._3))
+            (groupedByTable, groupedByColumn, dependentRowInformation.flatMap(_._3).distinct)
         })
         .filter({
           _._3.nonEmpty

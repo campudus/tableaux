@@ -9,6 +9,7 @@ import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
+import scala.util.Random
 
 sealed trait LinkTestBase extends TableauxTestBase {
 
@@ -56,10 +57,12 @@ sealed trait LinkTestBase extends TableauxTestBase {
   } yield (id1, id2)
 
   protected def createLinkColumn(tableId: TableId, toTableId: TableId, singleDirection: Boolean): Future[ColumnId] = {
+    val rand = Random.nextInt()
+
     val json = if (singleDirection) {
-      postSingleDirectionLinkCol(toTableId, s"Link $tableId, $toTableId, $singleDirection")
+      postSingleDirectionLinkCol(toTableId, s"Link $tableId, $toTableId, $singleDirection, $rand")
     } else {
-      postLinkCol(toTableId, s"Link $tableId, $toTableId, $singleDirection")
+      postLinkCol(toTableId, s"Link $tableId, $toTableId, $singleDirection, $rand")
     }
 
     sendRequest("POST", s"/tables/$tableId/columns", json)
@@ -998,6 +1001,66 @@ class LinkTest extends LinkTestBase {
       )
 
       assertEquals(Some(expectedDependentRows32OfTable1), dependentRows32OfTable1)
+    }
+  }
+
+  @Test
+  def retrieveDependentRowsWithTwoLinkColumns(implicit c: TestContext): Unit = okTest {
+    for {
+      table1 <- createEmptyDefaultTable("Table 1", 1)
+      row11 <- addRow(table1, postDefaultTableRow("Row 1 in Table 1", 1))
+      row12 <- addRow(table1, postDefaultTableRow("Row 2 in Table 1", 2))
+      row13 <- addRow(table1, postDefaultTableRow("Row 3 in Table 1", 3))
+
+      table2 <- createEmptyDefaultTable("Table 2", 2)
+      row21 <- addRow(table2, postDefaultTableRow("Row 1 in Table 2", 1))
+      row22 <- addRow(table2, postDefaultTableRow("Row 2 in Table 2", 2))
+      row23 <- addRow(table2, postDefaultTableRow("Row 3 in Table 2", 3))
+
+      linkColumn1From1To2 <- createLinkColumn(table2, table1, singleDirection = true)
+      linkColumn2From1To2 <- createLinkColumn(table2, table1, singleDirection = true)
+
+      _ <- putLink(table2, linkColumn1From1To2, row21, row11)
+      _ <- putLink(table2, linkColumn1From1To2, row23, row11)
+      _ <- putLink(table2, linkColumn1From1To2, row22, row11)
+
+      _ <- putLink(table2, linkColumn2From1To2, row23, row11)
+      _ <- putLink(table2, linkColumn2From1To2, row21, row11)
+      _ <- putLink(table2, linkColumn2From1To2, row22, row11)
+
+      result <- sendRequest("GET", s"/tables/$table1/rows/$row11/dependent")
+      dependentRowObjects = result
+        .getJsonArray("dependentRows")
+        .asScala
+        .map({
+          case o: JsonObject => o
+        })
+    } yield {
+      val dependentRows = dependentRowObjects
+        .find({
+          case o: JsonObject =>
+            o.getJsonObject("table").getLong("id") == 2
+        })
+        .map({
+          _.getJsonArray("rows")
+        })
+
+      val expectedDependentRows = Json.arr(
+        Json.obj(
+          "id" -> 1,
+          "value" -> "Row 1 in Table 2"
+        ),
+        Json.obj(
+          "id" -> 3,
+          "value" -> "Row 3 in Table 2"
+        ),
+        Json.obj(
+          "id" -> 2,
+          "value" -> "Row 2 in Table 2"
+        )
+      )
+
+      assertEquals(Some(expectedDependentRows), dependentRows)
     }
   }
 
