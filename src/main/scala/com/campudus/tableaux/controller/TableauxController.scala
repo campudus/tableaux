@@ -5,6 +5,7 @@ import java.util.UUID
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheClient
+import com.campudus.tableaux.database.LocationType
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
@@ -124,12 +125,12 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield updated
   }
 
-  def updateCellLinkOrder(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Cell[_]] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId), notNull(location, "location"), oneOf(location, List("start", "end", "before"), "location"))
-    logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $location $id")
+  def updateCellLinkOrder(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId, locationType: LocationType): Future[Cell[_]] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
+    logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $locationType")
     for {
       table <- repository.retrieveTable(tableId)
-      filled <- repository.updateCellLinkOrder(table, columnId, rowId, toId, location, id)
+      filled <- repository.updateCellLinkOrder(table, columnId, rowId, toId, locationType)
     } yield filled
   }
 

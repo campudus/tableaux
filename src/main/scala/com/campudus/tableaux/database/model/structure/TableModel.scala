@@ -1,10 +1,10 @@
 package com.campudus.tableaux.database.model.structure
 
 import com.campudus.tableaux.controller.SystemController
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{DisplayInfo, DisplayInfos, Table, TableDisplayInfos}
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
@@ -187,19 +187,19 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def changeOrder(tableId: TableId, location: String, id: Option[Long]): Future[Unit] = {
-    val listOfStatements: List[(String, JsonArray)] = location match {
-      case "start" => List(
+  def changeOrder(tableId: TableId, locationType: LocationType): Future[Unit] = {
+    val listOfStatements: List[(String, JsonArray)] = locationType match {
+      case LocationStart => List(
         (s"UPDATE system_table SET ordering = ordering + 1 WHERE ordering >= 1", Json.emptyArr()),
         (s"UPDATE system_table SET ordering = 1 WHERE table_id = ?", Json.arr(tableId))
       )
-      case "end" => List(
+      case LocationEnd => List(
         (s"UPDATE system_table SET ordering = ordering - 1 WHERE ordering >= (SELECT ordering FROM system_table WHERE table_id = ?)", Json.arr(tableId)),
         (s"UPDATE system_table SET ordering = (SELECT MAX(ordering) + 1 FROM system_table) WHERE table_id = ?", Json.arr(tableId))
       )
-      case "before" => List(
-        (s"UPDATE system_table SET ordering = (SELECT ordering FROM system_table WHERE table_id = ?) WHERE table_id = ?", Json.arr(id.get, tableId)),
-        (s"UPDATE system_table SET ordering = ordering + 1 WHERE (ordering >= (SELECT ordering FROM system_table WHERE table_id = ?) AND table_id != ?)", Json.arr(id.get, tableId))
+      case LocationBefore(relativeTo) => List(
+        (s"UPDATE system_table SET ordering = (SELECT ordering FROM system_table WHERE table_id = ?) WHERE table_id = ?", Json.arr(relativeTo, tableId)),
+        (s"UPDATE system_table SET ordering = ordering + 1 WHERE (ordering >= (SELECT ordering FROM system_table WHERE table_id = ?) AND table_id != ?)", Json.arr(relativeTo, tableId))
       )
     }
 

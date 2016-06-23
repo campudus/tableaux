@@ -128,7 +128,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     case Post(TableOrder(tableId)) => asyncEmptyReply {
       for {
         json <- getJson(context)
-        result <- controller.changeTableOrder(tableId.toLong, json.getString("location"), Option(json.getLong("id")).map(_.toLong))
+        result <- controller.changeTableOrder(tableId.toLong, toLocationType(json))
       } yield result
     }
 

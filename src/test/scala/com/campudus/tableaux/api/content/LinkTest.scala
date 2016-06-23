@@ -1346,7 +1346,7 @@ class LinkOrderTest extends LinkTestBase {
   }
 
   @Test
-  def testWrongLocation(implicit c: TestContext): Unit = exceptionTest("error.arguments") {
+  def testWrongLocation(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
 
     def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
 

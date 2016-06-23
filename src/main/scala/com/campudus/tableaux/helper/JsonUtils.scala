@@ -4,7 +4,7 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
-import com.campudus.tableaux.{ArgumentCheck, InvalidJsonException}
+import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
@@ -168,5 +168,23 @@ object JsonUtils extends LazyLogging {
     } else {
       None
     }
+  }
+
+  def toLocationType(json: JsonObject): LocationType = {
+    (for {
+      location <- notNull(json.getString("location"), "location")
+      location <- oneOf(location, List("start", "end", "before"), "location")
+    } yield {
+      val relativeTo = if ("before" == location) {
+        isDefined(Option(json.getLong("id")).map(_.toLong), "id") match {
+          case FailArg(ex) => throw ex
+          case OkArg(id) => Some(id)
+        }
+      } else {
+        None
+      }
+
+      LocationType(location, relativeTo)
+    }).get
   }
 }

@@ -200,12 +200,12 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield updatedCell
   }
 
-  def updateCellLinkOrder(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Cell[_]] = {
+  def updateCellLinkOrder(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId, locationType: LocationType): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
 
       _ <- column match {
-        case linkColumn: LinkColumn => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, location, id)
+        case linkColumn: LinkColumn => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
         case _ => Future.failed(new WrongColumnKindException(column, classOf[LinkColumn]))
       }
 

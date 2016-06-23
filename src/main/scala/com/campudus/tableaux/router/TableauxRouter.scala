@@ -175,7 +175,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Put(LinkOrderOfCell(tableId, columnId, rowId, toId)) => asyncGetReply {
       for {
         json <- getJson(context)
-        updated <- controller.updateCellLinkOrder(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong, json.getString("location"), Option(json.getLong("id")).map(_.toLong))
+        updated <- controller.updateCellLinkOrder(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong, toLocationType(json))
       } yield updated
     }
 

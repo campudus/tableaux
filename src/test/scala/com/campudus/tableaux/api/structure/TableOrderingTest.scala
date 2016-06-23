@@ -175,7 +175,7 @@ class TableOrderingTest extends TableauxTestBase {
       tables1 <- sendRequest("GET", "/tables")
     } yield {
 
-      assertEquals(("(0) query parameter id not found", "error.arguments", 422), orderResult)
+      assertEquals(("query parameter id not found", "error.param.notfound", 400), orderResult)
 
       val expected1 = Json.obj("status" -> "ok", "tables" -> Json.arr(
         regularTableJson(1, "First"),
@@ -198,7 +198,7 @@ class TableOrderingTest extends TableauxTestBase {
       tables1 <- sendRequest("GET", "/tables")
     } yield {
 
-      assertEquals(("(1) 'location' value needs to be one of 'start', 'end', 'before'.", "error.arguments", 422), orderResult)
+      assertEquals(("'location' value needs to be one of 'start', 'end', 'before'.", "error.request.invalid", 400), orderResult)
 
       val expected1 = Json.obj("status" -> "ok", "tables" -> Json.arr(
         regularTableJson(1, "First"),
@@ -221,8 +221,7 @@ class TableOrderingTest extends TableauxTestBase {
       tables1 <- sendRequest("GET", "/tables")
     } yield {
 
-      assertEquals(("(0) Warning: location is null\n" +
-        "(1) 'location' value needs to be one of 'start', 'end', 'before'.", "error.arguments", 422), orderResult)
+      assertEquals(("Warning: location is null", "error.json.null", 400), orderResult)
 
       val expected1 = Json.obj("status" -> "ok", "tables" -> Json.arr(
         regularTableJson(1, "First"),

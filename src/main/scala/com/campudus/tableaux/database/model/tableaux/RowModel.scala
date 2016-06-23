@@ -193,22 +193,22 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  def updateLinkOrder(table: Table, column: LinkColumn, rowId: RowId, toId: RowId, location: String, id: Option[Long]): Future[Unit] = {
+  def updateLinkOrder(table: Table, column: LinkColumn, rowId: RowId, toId: RowId, locationType: LocationType): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql
     val orderColumn = column.linkDirection.orderingSql
     val linkTable = s"link_table_${column.linkId}"
 
-    val listOfStatements: List[(String, JsonArray)] = location match {
-      case "start" => List(
+    val listOfStatements: List[(String, JsonArray)] = locationType match {
+      case LocationStart => List(
         (s"UPDATE $linkTable SET $orderColumn = (SELECT MIN($orderColumn) - 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)", Json.arr(rowId, rowId, toId, rowId))
       )
-      case "end" => List(
+      case LocationEnd => List(
         (s"UPDATE $linkTable SET $orderColumn = (SELECT MAX($orderColumn) + 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)", Json.arr(rowId, rowId, toId, rowId))
       )
-      case "before" => List(
-        (s"UPDATE $linkTable SET $orderColumn = (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ?", Json.arr(rowId, id.get, rowId, toId)),
-        (s"UPDATE $linkTable SET $orderColumn = $orderColumn + 1 WHERE ($orderColumn >= (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) AND ($rowIdColumn = ? AND $toIdColumn != ?))", Json.arr(rowId, id.get, rowId, toId))
+      case LocationBefore(relativeTo) => List(
+        (s"UPDATE $linkTable SET $orderColumn = (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ?", Json.arr(rowId, relativeTo, rowId, toId)),
+        (s"UPDATE $linkTable SET $orderColumn = $orderColumn + 1 WHERE ($orderColumn >= (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) AND ($rowIdColumn = ? AND $toIdColumn != ?))", Json.arr(rowId, relativeTo, rowId, toId))
       )
     }
 
@@ -231,18 +231,18 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       (t, result) <- t.query(s"SELECT id FROM user_table_${column.to.table.id} WHERE id = ?", Json.arr(toId))
       _ = selectNotNull(result)
 
-      t <- id match {
-        case Some(id) =>
+      t <- locationType match {
+        case LocationBefore(relativeTo) =>
 
           // Check if row is linked
-          t.query(s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?", Json.arr(rowId, id))
+          t.query(s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?", Json.arr(rowId, relativeTo))
             .map({
               case (t, result) =>
                 selectNotNull(result)
                 t
             })
 
-        case None =>
+        case _ =>
           Future.successful(t)
       }
 
