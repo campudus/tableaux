@@ -626,6 +626,59 @@ class LinkTest extends LinkTestBase {
   }
 
   @Test
+  def putLinkValuesInDifferentWays(implicit c: TestContext): Unit = okTest {
+    val oneValue = Json.obj("value" -> 1)
+    val objOneValue = Json.obj("value" -> Json.obj("to" -> 2))
+    val objTwoValues = Json.obj("value" -> Json.obj("values" -> Json.arr(2, 1)))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", oneValue)
+      // check first table for the link (links to t2, r1 and t2, r2)
+      resGet1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+
+      _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1")
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", objOneValue)
+      // check first table for the link (links to t2, r1 and t2, r2)
+      resGet2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+
+      _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1")
+
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", objTwoValues)
+      // check first table for the link (links to t2, r1 and t2, r2)
+      resGet3 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+    } yield {
+      val expected1 = Json.obj(
+        "status" -> "ok",
+        "value" -> Json.arr(
+          Json.obj("id" -> 1, "value" -> "table2row1")
+        )
+      )
+
+      val expected2 = Json.obj(
+        "status" -> "ok",
+        "value" -> Json.arr(
+          Json.obj("id" -> 2, "value" -> "table2row2")
+        )
+      )
+
+      val expected3 = Json.obj(
+        "status" -> "ok",
+        "value" -> Json.arr(
+          Json.obj("id" -> 2, "value" -> "table2row2"),
+          Json.obj("id" -> 1, "value" -> "table2row1")
+        )
+      )
+
+      assertEquals(expected1, resGet1)
+      assertEquals(expected2, resGet2)
+      assertEquals(expected3, resGet3)
+    }
+  }
+
+  @Test
   def deleteAllLinkValues(implicit c: TestContext): Unit = okTest {
     val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
     val putOneLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))

@@ -1,14 +1,15 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.WrongColumnKindException
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RowModel, UpdateRowModel}
+import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{InvalidJsonException, WrongColumnKindException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 object TableauxModel {
   type LinkId = Long
@@ -74,7 +75,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     */
   val CACHING = true
 
-  val rowModel = new RowModel(connection)
+  val retrieveRowModel = new RetrieveRowModel(connection)
   val createRowModel = new CreateRowModel(connection)
   val updateRowModel = new UpdateRowModel(connection)
 
@@ -154,7 +155,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         case _ => false
       }))
 
-      _ <- rowModel.delete(table.id, rowId)
+      _ <- updateRowModel.deleteRow(table.id, rowId)
 
       // invalidate row
       _ <- CacheClient(this.connection.vertx).invalidateRow(table.id, rowId)
@@ -216,10 +217,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   }
 
   private def checkValueTypeForColumn[A](column: ColumnType[_], value: A): Future[Unit] = {
-    val checked = column.checkValidValue(value)
-    checked
-      .map(err => Future.failed(InvalidJsonException("malformed value provided", err)))
-      .getOrElse(Future.successful(()))
+    (column match {
+      case MultiLanguageColumn(c) => MultiLanguageColumn.checkValidValue(c, value)
+      case c => c.checkValidValue(value)
+    }) match {
+      case Success(_) => Future.successful(())
+      case Failure(ex) => Future.failed(ex)
+    }
   }
 
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
@@ -334,7 +338,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
               case _ =>
                 for {
-                  rawRows <- rowModel.retrieve(column.table.id, rowId, columns)
+                  rawRows <- retrieveRowModel.retrieve(column.table.id, rowId, columns)
                   mappedRows <- mapRawRows(column.table, columns, Seq(rawRows))
                 } yield mappedRows
             }
@@ -360,7 +364,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId): Future[Row] = {
     for {
-      rawRow <- rowModel.retrieve(table.id, rowId, columns)
+      rawRow <- retrieveRowModel.retrieve(table.id, rowId, columns)
       rowSeq <- mapRawRows(table, columns, Seq(rawRow))
     } yield rowSeq.head
   }
@@ -396,8 +400,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   private def retrieveRows(table: Table, columns: Seq[ColumnType[_]], pagination: Pagination): Future[RowSeq] = {
     for {
-      totalSize <- rowModel.size(table.id)
-      rawRows <- rowModel.retrieveAll(table.id, columns, pagination)
+      totalSize <- retrieveRowModel.size(table.id)
+      rawRows <- retrieveRowModel.retrieveAll(table.id, columns, pagination)
       rowSeq <- mapRawRows(table, columns, rawRows)
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }
