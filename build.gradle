@@ -41,13 +41,13 @@ dependencies {
     }
     compile 'com.github.mauricio:postgresql-async_2.11:0.2.19'
 
-    compile 'joda-time:joda-time:2.9.2'
-    compile 'com.typesafe.scala-logging:scala-logging_2.11:3.1.0'
-    compile 'org.slf4j:slf4j-jdk14:1.7.19'
+    compile 'joda-time:joda-time:2.9.4'
+    compile 'com.typesafe.scala-logging:scala-logging_2.11:3.4.0'
+    compile 'org.slf4j:slf4j-jdk14:1.7.21'
 
     compile 'com.jcabi:jcabi-manifests:1.1'
 
-    compile 'com.github.cb372:scalacache-guava_2.11:0.8.1'
+    compile 'com.github.cb372:scalacache-guava_2.11:0.9.1'
 
     compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
@@ -127,7 +127,8 @@ checkScoverage {
 scoverage {
     excludedPackages = [
             'io.vertx.scala.*',
-            'org.vertx.scala.*'
+            'org.vertx.scala.*',
+            'com.github.mauricio.async.db.*'
     ]
 }
 
