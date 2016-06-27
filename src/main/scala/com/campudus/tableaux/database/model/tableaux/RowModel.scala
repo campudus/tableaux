@@ -204,13 +204,13 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         val linkId = column.linkId
         val direction = column.linkDirection
 
-        val union = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
+        val union = toIds.map(_ => s"SELECT ?, ?, nextval('link_table_1_${direction.orderingSql}_seq') WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
         val binds = toIds.flatMap(to => List(rowId, to, rowId, to))
 
         for {
           _ <- {
             if (toIds.nonEmpty) {
-              connection.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}) $union", Json.arr(binds: _*))
+              connection.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union", Json.arr(binds: _*))
             } else {
               Future.successful(Json.emptyObj())
             }
@@ -313,8 +313,8 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         val linkId = column.linkId
         val direction = column.linkDirection
 
-        val paramStr = toIds.map(_ => s"SELECT ?, ? WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
-        val params = toIds.flatMap(to => List(rowId, to, rowId, to))
+        val union = toIds.map(_ => s"SELECT ?, ?, nextval('link_table_1_${direction.orderingSql}_seq') WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)").mkString(" UNION ")
+        val binds = toIds.flatMap(to => List(rowId, to, rowId, to))
 
         for {
           t <- connection.begin()
@@ -322,12 +322,13 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
           (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
 
           (t, _) <- {
-            if (params.nonEmpty) {
-              t.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}) $paramStr", Json.arr(params: _*))
+            if (toIds.nonEmpty) {
+              t.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union", Json.arr(binds: _*))
             } else {
-              Future((t, Json.emptyObj()))
+              Future.successful((t, Json.emptyObj()))
             }
           }
+
           _ <- t.commit()
         } yield ()
     })
