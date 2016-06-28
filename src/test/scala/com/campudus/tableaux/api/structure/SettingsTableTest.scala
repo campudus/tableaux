@@ -69,13 +69,35 @@ class SettingsTableTest extends TableauxTestBase {
   }
 
   @Test
-  def changeKeyCellOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.cell") {
+  def updateKeyCellOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.cell") {
     for {
       tableId <- createSettingsTable()
 
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
 
       _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", Json.obj("value" -> "another value"))
+    } yield ()
+  }
+
+  @Test
+  def replaceKeyCellOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.cell") {
+    for {
+      tableId <- createSettingsTable()
+
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+
+      _ <- sendRequest("PUT", s"/tables/$tableId/columns/1/rows/1", Json.obj("value" -> "another value"))
+    } yield ()
+  }
+
+  @Test
+  def clearKeyCellOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.cell") {
+    for {
+      tableId <- createSettingsTable()
+
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+
+      _ <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1")
     } yield ()
   }
 
