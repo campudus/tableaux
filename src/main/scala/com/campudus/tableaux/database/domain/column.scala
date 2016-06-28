@@ -8,6 +8,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{LanguageNeutral, _}
 import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException, OkArg}
 import com.typesafe.scalalogging.LazyLogging
+import org.joda.time.{DateTime, LocalDate}
 import org.vertx.scala.core.json._
 
 import scala.util.{Failure, Success, Try}
@@ -239,78 +240,35 @@ sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(o
 }
 
 case class TextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](TextType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[String] = Try {
-    value match {
-      case v: String => v
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
 case class ShortTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](ShortTextType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[String] = Try {
-    value match {
-      case v: String => v
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
 case class RichTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](RichTextType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[String] = Try {
-    value match {
-      case v: String => v
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
 case class NumberColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Number](NumericType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[Number] = Try {
-    value match {
-      case v: Number => v
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
 case class CurrencyColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Number](CurrencyType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[Number] = Try {
-    value match {
-      case v: Number => v
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
 case class BooleanColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[Boolean] = Try {
-    value match {
-      case v: java.lang.Boolean => v
-      case v: Boolean => v
-    }
-  }
+  override def checkValidSingleValue[B](value: B): Try[Boolean] = Try(value.asInstanceOf[Boolean])
 }
 
 case class DateColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](DateType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[String] = Try {
-    value match {
-      case v: String => v
-    }
-
-    /*value match {
-      case v: String => LocalDate.parse(v)
-      case v: LocalDate => v
-    }*/
-  }
+  override def checkValidSingleValue[B](value: B): Try[String] = Try(LocalDate.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
 }
 
 case class DateTimeColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](DateTimeType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[String] = Try {
-    value match {
-      case v: String => v
-    }
-
-    /*value match {
-      case v: String => DateTime.parse(v)
-      case v: DateTime => v
-    }*/
-  }
+  override def checkValidSingleValue[B](value: B): Try[String] = Try(DateTime.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
 }
 
 /*
@@ -324,9 +282,6 @@ case class LinkColumn(override val columnInformation: ColumnInformation, to: Col
 
   override def checkValidValue[B](value: B): Try[Option[Seq[RowId]]] = Try {
     val castedValue = value match {
-      case x: Long =>
-        Seq(x)
-
       case x: Int =>
         Seq(x.toLong)
 
@@ -364,8 +319,6 @@ case class LinkColumn(override val columnInformation: ColumnInformation, to: Col
       case x =>
         throw InvalidJsonException(s"A link column expects a JSON object with values, but got $x", "link-value")
     }
-
-    logger.info(s"### value $value ### castedValue $castedValue")
 
     Some(castedValue)
   }
@@ -418,7 +371,7 @@ case class ConcatColumn(override val columnInformation: ConcatColumnInformation,
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("concats" -> columns.map(_.getJson))
 
-  override def checkValidValue[B](value: B): Try[Option[JsonArray]] = Failure(new IllegalArgumentException("No value allowed for ConcatColumn"))
+  override def checkValidValue[B](value: B): Try[Option[JsonArray]] = Failure(new IllegalArgumentException("Cannot set a value for ConcatColumn. Value will be generated."))
 }
 
 /**
