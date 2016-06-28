@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model.structure
 
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{DisplayInfo, DisplayInfos, Table, TableDisplayInfos}
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
@@ -15,10 +15,10 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   val systemModel = SystemModel(connection)
 
-  def create(name: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo]): Future[Table] = {
+  def create(name: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableType: TableType): Future[Table] = {
     connection.transactional { t =>
       for {
-        (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags) VALUES (?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull))
+        (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type) VALUES (?, ?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull, tableType.NAME))
         id = insertNotNull(result).head.get[TableId](0)
 
         (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
@@ -28,7 +28,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, _) <- createTableDisplayInfos(t, DisplayInfos(id, displayInfos))
 
         defaultLangtags <- retrieveGlobalLangtags()
-      } yield (t, Table(id, name, hidden, Option(langtags.flatten.getOrElse(defaultLangtags)), displayInfos))
+      } yield (t, Table(id, name, hidden, Option(langtags.flatten.getOrElse(defaultLangtags)), displayInfos, tableType))
     }
   }
 
@@ -84,7 +84,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   private def getTableWithDisplayInfos(tableId: TableId, defaultLangtags: Seq[String]): Future[Table] = {
     connection.transactional { t: connection.Transaction =>
       for {
-        (t, result) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags) FROM system_table WHERE table_id = ?", Json.arr(tableId))
+        (t, result) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type FROM system_table WHERE table_id = ?", Json.arr(tableId))
         row = selectNotNull(result).head
         table = convertRowToTable(row, defaultLangtags)
         (t, result) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
@@ -105,7 +105,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   private def getTablesWithDisplayInfos(defaultLangtags: Seq[String]): Future[Seq[Table]] = {
     connection.transactional { t =>
       for {
-        (t, result) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags) FROM system_table ORDER BY ordering, table_id")
+        (t, result) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type FROM system_table ORDER BY ordering, table_id")
         tablesInRows = resultObjectToJsonArray(result)
         tableRows = tablesInRows.map(convertRowToTable(_, defaultLangtags))
         (t, result) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
@@ -128,7 +128,8 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       row.getString(1),
       row.getBoolean(2),
       Option(Option(row.getString(3)).map(s => convertJsonArrayToSeq(Json.fromArrayString(s), { case f: String => f })).getOrElse(defaultLangtags)),
-      List()
+      List(),
+      TableType(row.getString(4))
     )
   }
 

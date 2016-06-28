@@ -3,7 +3,29 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
-case class Table(id: TableId, name: String, hidden: Boolean, langtags: Option[Seq[String]], displayInfos: Seq[DisplayInfo]) extends DomainObject {
+object TableType {
+  def apply(string: String): TableType = {
+    string match {
+      case GenericTable.NAME => GenericTable
+      case SettingsTable.NAME => SettingsTable
+      case _ => throw new IllegalArgumentException("Unknown table type")
+    }
+  }
+}
+
+sealed trait TableType {
+  val NAME: String
+}
+
+case object GenericTable extends TableType {
+  override val NAME = "generic"
+}
+
+case object SettingsTable extends TableType {
+  override val NAME = "settings"
+}
+
+case class Table(id: TableId, name: String, hidden: Boolean, langtags: Option[Seq[String]], displayInfos: Seq[DisplayInfo], tableType: TableType) extends DomainObject {
   override def getJson: JsonObject = {
     val result = Json.obj(
       "id" -> id,
@@ -20,6 +42,10 @@ case class Table(id: TableId, name: String, hidden: Boolean, langtags: Option[Se
     displayInfos.foreach { di =>
       di.optionalName.map(name => result.mergeIn(Json.obj("displayName" -> result.getJsonObject("displayName").mergeIn(Json.obj(di.langtag -> name)))))
       di.optionalDescription.map(desc => result.mergeIn(Json.obj("description" -> result.getJsonObject("description").mergeIn(Json.obj(di.langtag -> desc)))))
+    }
+
+    if (tableType != GenericTable) {
+      result.mergeIn(Json.obj("type" -> tableType.NAME))
     }
 
     result

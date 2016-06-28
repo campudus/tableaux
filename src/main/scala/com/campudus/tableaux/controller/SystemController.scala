@@ -124,7 +124,7 @@ class SystemController(override val config: TableauxConfig,
     logger.info(s"createTable $tableName columns $rows")
 
     for {
-      table <- structureModel.tableStruc.create(tableName, hidden = false, None, List())
+      table <- structureModel.tableStruc.create(tableName, hidden = false, None, List(), GenericTable)
       columns <- structureModel.columnStruc.createColumns(table, columns)
 
       columnIds = columns.map(_.id)

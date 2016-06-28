@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.WrongColumnKindException
+import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
@@ -38,7 +38,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   private lazy val structureModel = StructureModel(connection)
 
   def createTable(name: String, hidden: Boolean): Future[Table] = {
-    structureModel.tableStruc.create(name, hidden, None, List())
+    structureModel.tableStruc.create(name, hidden, None, List(), GenericTable)
   }
 
   def retrieveTable(tableId: TableId): Future[Table] = {
@@ -146,6 +146,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
     for {
+      _ <- table.tableType match {
+        case GenericTable => Future.successful(())
+        case SettingsTable => Future.failed(new ForbiddenException("can't delete a row of a settings table", "row"))
+      }
+
       columns <- retrieveColumns(table)
       // Clear special cells before delete.
       // For example AttachmentColumns will
@@ -228,6 +233,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
+      _ <- (table.tableType, columnId) match {
+        case (SettingsTable, 1 | 2) => Future.failed(new ForbiddenException("can't update key cell of a settings table", "cell"))
+        case _ => Future.successful(())
+      }
+
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
@@ -241,6 +251,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
+      _ <- (table.tableType, columnId) match {
+        case (SettingsTable, 1 | 2) => Future.failed(new ForbiddenException("can't update key cell of a settings table", "cell"))
+        case _ => Future.successful(())
+      }
+
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
@@ -255,6 +270,11 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
   def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     for {
+      _ <- (table.tableType, columnId) match {
+        case (SettingsTable, 1 | 2) => Future.failed(new ForbiddenException("can't update key cell of a settings table", "cell"))
+        case _ => Future.successful(())
+      }
+
       column <- retrieveColumn(table, columnId)
 
       _ <- updateRowModel.clearRow(table, rowId, Seq(column))

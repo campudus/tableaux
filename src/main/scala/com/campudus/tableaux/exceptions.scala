@@ -81,3 +81,8 @@ case class WrongColumnKindException[T <: ColumnType[_]](column: ColumnType[_], s
   override val statusCode: Int = 400
   override val message: String = s"This action is not possible on ${column.name}. Action only available for columns of kind ${shouldBe.toString}."
 }
+
+case class ForbiddenException(override val message: String, subId: String) extends CustomException {
+  override val id: String = s"error.request.forbidden.$subId"
+  override val statusCode: Int = 403
+}

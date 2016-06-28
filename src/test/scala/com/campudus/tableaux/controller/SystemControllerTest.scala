@@ -68,8 +68,8 @@ class SystemControllerTest extends TableauxTestBase {
   def retrieveVersions(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
       "database" -> Json.obj(
-        "current" -> 12,
-        "specification" -> 12
+        "current" -> 13,
+        "specification" -> 13
       )
     )
 

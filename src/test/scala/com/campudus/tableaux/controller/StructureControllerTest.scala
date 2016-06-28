@@ -1,6 +1,6 @@
 package com.campudus.tableaux.controller
 
-import com.campudus.tableaux.database.domain.CreateSimpleColumn
+import com.campudus.tableaux.database.domain.{CreateSimpleColumn, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -26,7 +26,7 @@ class StructureControllerTest extends TableauxTestBase {
   @Test
   def checkCreateTableWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createTable(null, hidden = false, langtags = None, displayInfos = null))
+    illegalArgumentTest(controller.createTable(null, hidden = false, langtags = None, displayInfos = null, tableType = GenericTable))
   }
 
   @Test
