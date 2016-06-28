@@ -146,20 +146,11 @@ object JsonUtils extends LazyLogging {
     val displayNames = Try(checkForAllValues[String](json.getJsonObject("displayName"), n => n == null || n.isInstanceOf[String], "displayName").get).toOption
     val descriptions = Try(checkForAllValues[String](json.getJsonObject("description"), d => d == null || d.isInstanceOf[String], "description").get).toOption
 
-    val countryCodes = ifContainsDo(json, "countryCodes", {
-      json =>
-        checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"), "countryCodes").get
+    val countryCodes = booleanToValueOption(json.containsKey("countryCodes"), {
+      checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"), "countryCodes").get
     }).map(_.asScala.toSeq.map({ case code: String => code }))
 
     (name, ord, kind, identifier, displayNames, descriptions, countryCodes)
-  }
-
-  def ifContainsDo[A](json: JsonObject, field: String, fn: JsonObject => A): Option[A] = {
-    if (json.containsKey(field)) {
-      Some(fn(json))
-    } else {
-      None
-    }
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {
