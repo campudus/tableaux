@@ -626,6 +626,16 @@ class LinkTest extends LinkTestBase {
   }
 
   @Test
+  def tryToDeleteLinkValueOfInvalidColumnType(implicit c: TestContext): Unit = exceptionTest("error.request.column.wrongtype") {
+    for {
+      (tableId1, _) <- setupTwoTables()
+
+      //try to remove link
+      _ <- sendRequest("DELETE", s"/tables/$tableId1/columns/1/rows/1/link/2")
+    } yield ()
+  }
+
+  @Test
   def putLinkValuesInDifferentWays(implicit c: TestContext): Unit = okTest {
     val oneValue = Json.obj("value" -> 1)
     val objOneValue = Json.obj("value" -> Json.obj("to" -> 2))
