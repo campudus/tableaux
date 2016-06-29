@@ -42,6 +42,13 @@ class SettingsTableTest extends TableauxTestBase {
   }
 
   @Test
+  def createTableWithInvalidTableType(implicit c: TestContext): Unit = exceptionTest("error.arguments") {
+    for {
+      result <- sendRequest("POST", "/tables", Json.obj("name" -> "settings", "type" -> "sgnittes", "displayName" -> Json.obj("de" -> "Settings Table")))
+    } yield ()
+  }
+
+  @Test
   def addColumnToSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.column") {
     for {
       tableId <- createSettingsTable()
