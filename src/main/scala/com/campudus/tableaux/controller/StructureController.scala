@@ -1,7 +1,7 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.{ForbiddenException, TableauxConfig}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
@@ -41,7 +41,11 @@ class StructureController(override val config: TableauxConfig, override protecte
 
     for {
       table <- retrieveTable(tableId)
-      created <- columnStruc.createColumns(table, columns)
+      created <- table.tableType match {
+        case GenericTable => columnStruc.createColumns(table, columns)
+        case SettingsTable => Future.failed(new ForbiddenException("can't add a column to a settings table", "column"))
+      }
+
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
       sorted = retrieved.sortBy(_.ordering)
     } yield {
@@ -69,12 +73,37 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield ColumnSeq(columns)
   }
 
-  def createTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo]): Future[Table] = {
+  def createTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableType: TableType): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
-    logger.info(s"createTable $tableName $hidden $langtags $displayInfos")
+    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType")
 
+    tableType match {
+      case SettingsTable => createSettingsTable(tableName, hidden, langtags, displayInfos)
+      case _ => createGenericTable(tableName, hidden, langtags, displayInfos)
+    }
+  }
+
+  def createGenericTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo]): Future[Table] = {
     for {
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos)
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable)
+      retrieved <- tableStruc.retrieve(created.id)
+    } yield retrieved
+  }
+
+  def createSettingsTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo]): Future[Table] = {
+    for {
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable)
+
+      _ <- columnStruc.createColumn(created, CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty))
+      _ <- columnStruc.createColumn(created, CreateSimpleColumn("displayKey", None, ShortTextType, MultiLanguage, identifier = false, Seq(
+        NameOnly("de", "Bezeichnung"),
+        NameOnly("en", "Identifier")
+      )))
+      _ <- columnStruc.createColumn(created, CreateSimpleColumn("value", None, TextType, MultiLanguage, identifier = false, Seq(
+        NameOnly("de", "Inhalt"),
+        NameOnly("en", "Value")
+      )))
+
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
   }
@@ -112,7 +141,10 @@ class StructureController(override val config: TableauxConfig, override protecte
 
     for {
       table <- tableStruc.retrieve(tableId)
-      _ <- columnStruc.delete(table, columnId)
+      _ <- table.tableType match {
+        case GenericTable => columnStruc.delete(table, columnId)
+        case SettingsTable => Future.failed(new ForbiddenException("can't delete a column from a settings table", "column"))
+      }
 
       _ <- CacheClient(this.vertx).invalidateColumn(tableId, columnId)
     } yield EmptyObject()
@@ -154,7 +186,10 @@ class StructureController(override val config: TableauxConfig, override protecte
 
     for {
       table <- tableStruc.retrieve(tableId)
-      changed <- columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayName, description, countryCodes)
+      changed <- table.tableType match {
+        case GenericTable => columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayName, description, countryCodes)
+        case SettingsTable => Future.failed(new ForbiddenException("can't change a column of a settings table", "column"))
+      }
 
       _ <- CacheClient(this.vertx).invalidateColumn(tableId, columnId)
     } yield changed

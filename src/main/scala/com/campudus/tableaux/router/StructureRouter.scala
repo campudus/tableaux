@@ -2,7 +2,7 @@ package com.campudus.tableaux.router
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.database.domain.DisplayInfos
+import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
@@ -65,6 +65,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         name = json.getString("name")
         hidden = json.getBoolean("hidden", false).booleanValue()
         displayInfos = DisplayInfos.allInfos(json)
+        tableType = TableType(json.getString("type", GenericTable.NAME))
 
         // if contains than user wants langtags to be set
         // but then langtags could be null so that's the second option
@@ -78,7 +79,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: ['de-DE']
         langtags = booleanToValueOption(json.containsKey("langtags"), Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
 
-        created <- controller.createTable(name, hidden, langtags, displayInfos)
+        created <- controller.createTable(name, hidden, langtags, displayInfos, tableType)
       } yield created
     }
 

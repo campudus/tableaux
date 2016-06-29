@@ -48,6 +48,31 @@ trait TestAssertionHelper {
     c
   }
 
+  def assertContainsDeep(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
+    import scala.collection.JavaConverters._
+    expected
+      .fieldNames()
+      .asScala
+      .map({
+        key =>
+          (expected.getValue(key), actual.getValue(key)) match {
+            case (expectedObj: JsonObject, actualObj: JsonObject) =>
+              assertContainsDeep(expectedObj, actualObj)
+            case (expectedArr: JsonArray, actualArr: JsonArray) =>
+              expectedArr.asScala.zip(actualArr.asScala)
+                .map({
+                  case (expectedObj: JsonObject, actualObj: JsonObject) =>
+                    assertContainsDeep(expectedObj, actualObj)
+                  case (expectedVal, actualVal) =>
+                    c.assertEquals(expectedVal, actualVal)
+                })
+            case (expectedVal, actualVal) =>
+              c.assertEquals(expectedVal, actualVal)
+          }
+      })
+    c
+  }
+
   def assertNull(excepted: Any)(implicit c: TestContext): TestContext = {
     c.assertNull(excepted)
   }

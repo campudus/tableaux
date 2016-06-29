@@ -95,7 +95,7 @@ class RetrieveTest extends TableauxTestBase {
         "totalSize" -> 1
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr(null, null, null))),
+        Json.obj("id" -> 1, "values" -> Json.arr(null, null, false))),
       "langtags" -> Json.arr("de-DE", "en-GB")
     )
 

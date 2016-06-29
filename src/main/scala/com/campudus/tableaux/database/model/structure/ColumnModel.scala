@@ -65,10 +65,16 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     connection.transactional { t =>
       for {
         (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None)
+        tableSql = simpleColumnInfo.languageType match {
+          case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
+          case LanguageNeutral => s"user_table_$tableId"
+        }
 
-        (t, _) <- simpleColumnInfo.languageType match {
-          case MultiLanguage | _: MultiCountry => t.query(s"ALTER TABLE user_table_lang_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
-          case LanguageNeutral => t.query(s"ALTER TABLE user_table_$tableId ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
+        (t, _) <- simpleColumnInfo.kind match {
+          case BooleanType =>
+            t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} BOOLEAN DEFAULT false")
+          case _ =>
+            t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
         }
       } yield {
         (t, columnInfo)
