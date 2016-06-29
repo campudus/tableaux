@@ -56,6 +56,8 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
       reply =>
         Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))
     }).recover({
+      case ex: InvalidNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
+      case ex: NoNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
       case ex: CustomException => Error(ex.toRouterException)
       case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
       case ex: Throwable => Error(RouterException("unknown error", ex, "error.unknown", 500))
