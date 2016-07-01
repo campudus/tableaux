@@ -7,6 +7,7 @@ import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.{RowNotFoundException, UnprocessableEntityException}
 import org.vertx.scala.core.json.{Json, _}
 
 import scala.concurrent.Future
@@ -199,6 +200,14 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[Unit] = {
+    def rowExists(tableId: TableId, rowId: RowId): Future[Unit] = {
+      connection.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+        .flatMap({
+          case true => Future.successful(())
+          case false => Future.failed(RowNotFoundException(tableId, rowId))
+        })
+    }
+
     val futureSequence = values.map({
       case (column, toIds) =>
         val linkId = column.linkId
@@ -208,6 +217,14 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         val binds = toIds.flatMap(to => List(rowId, to, rowId, to))
 
         for {
+          _ <- rowExists(column.table.id, rowId)
+          _ <- Future.sequence(toIds.map({
+            toId =>
+              rowExists(column.to.table.id, toId)
+          })).recoverWith({
+            case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
+          })
+
           _ <- {
             if (toIds.nonEmpty) {
               connection.query(s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union", Json.arr(binds: _*))
@@ -308,6 +325,14 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[_] = {
+    def rowExists(t: connection.Transaction, tableId: TableId, rowId: RowId): Future[connection.Transaction] = {
+      t.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+        .flatMap({
+          case (t, true) => Future.successful(t)
+          case (_, false) => Future.failed(RowNotFoundException(tableId, rowId))
+        })
+    }
+
     val futureSequence = values.map({
       case (column: LinkColumn, toIds) =>
         val linkId = column.linkId
@@ -318,6 +343,15 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
         for {
           t <- connection.begin()
+
+          t <- rowExists(t, column.table.id, rowId)
+          t <- toIds.foldLeft(Future(t)) {
+            case (futureT, toId) =>
+              futureT.flatMap({
+                t =>
+                  rowExists(t, column.to.table.id, toId)
+              })
+          }
 
           (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
 

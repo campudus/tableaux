@@ -1,6 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.database.domain.ColumnType
+import com.campudus.tableaux.database.model.TableauxModel.{RowId, TableId}
 import org.vertx.scala.router.RouterException
 
 sealed trait CustomException extends Throwable {
@@ -9,6 +10,8 @@ sealed trait CustomException extends Throwable {
   val id: String
 
   val statusCode: Int
+
+  override def getMessage: String = message
 
   override def toString: String = s"${super.toString}: $message"
 
@@ -29,6 +32,21 @@ case class NotFoundInDatabaseException(msg: String, subId: String) extends Custo
   override val id = s"error.database.notfound.$subId"
   override val message = s"$id: $msg"
   override val statusCode = 404
+}
+
+case class RowNotFoundException(tableId: TableId, rowId: RowId) extends CustomException {
+  override val id = s"error.database.notfound.row"
+  override val message = s"Row $rowId not found in table $tableId"
+  override val statusCode = 404
+}
+
+/**
+  * The request was well-formed but was unable to be followed due to semantic errors.
+  */
+case class UnprocessableEntityException(msg: String) extends CustomException {
+  override val id = s"unprocessable.entity"
+  override val message = s"$msg"
+  override val statusCode = 422
 }
 
 case class DatabaseException(override val message: String, subId: String) extends CustomException {

@@ -477,6 +477,36 @@ class LinkTest extends LinkTestBase {
   }
 
   @Test
+  def putLinkInvalidValue(implicit c: TestContext): Unit = exceptionTest("unprocessable.entity") {
+    val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(10)))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
+    } yield ()
+  }
+
+  @Test
+  def putLinkInvalidValues(implicit c: TestContext): Unit = exceptionTest("unprocessable.entity") {
+    val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 12)))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
+    } yield ()
+  }
+
+  @Test
+  def putLinkValueInInvalidRow(implicit c: TestContext): Unit = exceptionTest("NOT FOUND") {
+    val putLinks = Json.obj("value" -> 1)
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/10", putLinks)
+    } yield ()
+  }
+
+  @Test
   def putLinkValuesOnMultiLanguageColumns(implicit c: TestContext): Unit = okTest {
     val postLinkColumn = Json.obj(
       "columns" -> Json.arr(
