@@ -460,6 +460,79 @@ class AttachmentTest extends MediaTestBase {
     }
   }
 
+  @Test
+  def testRetrieveAttachmentCellAfterReplacingFile(implicit c: TestContext): Unit = okTest {
+    val column = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "attachment",
+      "name" -> "Downloads"
+    )))
+
+    val fileName = "Scr$en Shot.pdf"
+    val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimetype = "application/pdf"
+    val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"), "description" -> Json.obj("de_DE" -> "A description about that PDF."))
+
+    val fileName2 = "Screen.Shot.png"
+    val filePath2 = s"/com/campudus/tableaux/uploads/$fileName2"
+    val mimetype2 = "image/png"
+
+    for {
+      tableId <- createDefaultTable()
+
+      // Create attachment column
+      columnId <- sendRequest("POST", s"/tables/$tableId/columns", column).map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+
+      // Create new empty row
+      rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
+
+      // Upload file
+      fileUuid <- createFile("de_DE", filePath, mimetype, None) map (_.getString("uuid"))
+      _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
+
+      // Add attachment
+      resultFill <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Json.obj("uuid" -> fileUuid)))
+
+      // Retrieve attachment
+      resultRetrieve1 <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      // Replace file
+      _ <- replaceFile(fileUuid, "de_DE", filePath2, mimetype2)
+
+      // Retrieve attachment after replace file
+      resultRetrieve2 <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+      _ <- sendRequest("DELETE", s"/files/$fileUuid")
+    } yield {
+      assertEquals(3, columnId)
+
+      val uuid = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
+      assertNotNull(uuid)
+      assertContains(Json.obj(
+        "ordering" -> 1,
+        "folder" -> null,
+        "uuid" -> uuid,
+        "title" -> Json.obj("de_DE" -> "Test PDF"),
+        "url" -> Json.obj("de_DE" -> s"/files/$uuid/de_DE/Scr%24en+Shot.pdf"),
+        "description" -> Json.obj("de_DE" -> "A description about that PDF."),
+        "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
+        "mimeType" -> Json.obj("de_DE" -> "application/pdf")),
+        resultFill.getJsonArray("value").getJsonObject(0))
+
+      val attachment1 = resultRetrieve1.getArray("value").get[JsonObject](0)
+      val attachment2 = resultRetrieve2.getArray("value").get[JsonObject](0)
+
+      assertEquals(fileUuid, attachment1.getString("uuid"))
+      assertEquals(fileUuid, attachment2.getString("uuid"))
+
+      assertNotSame(resultRetrieve1, resultRetrieve2)
+
+      assertEquals(attachment1.getJsonObject("title"), attachment2.getJsonObject("title"))
+      assertEquals(attachment1.getJsonObject("description"), attachment2.getJsonObject("description"))
+
+      assertEquals(Json.obj("de_DE" -> "Screen.Shot.png"), attachment2.getJsonObject("externalName"))
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])

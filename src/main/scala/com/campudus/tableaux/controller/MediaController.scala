@@ -134,6 +134,13 @@ class MediaController(override val config: TableauxConfig,
             mimeType = mimeType
           ).map(ExtendedFile)
         }
+
+        // retrieve cells with this file for cache invalidation
+        cellsForFiles <- attachmentModel.retrieveCells(uuid)
+        // invalidate cache for cells with this file
+        _ <- Future.sequence(cellsForFiles.map({
+          case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+        }))
       } yield {
         p.success(updatedFile)
       }) recover {
