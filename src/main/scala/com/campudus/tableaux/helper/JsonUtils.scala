@@ -14,7 +14,20 @@ object JsonUtils extends LazyLogging {
 
   private def asCastedList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     import scala.collection.JavaConverters._
-    sequence(array.asScala.toList.map(notNull(_, "some array value").flatMap(tryCast[A])))
+
+    val arrayAsList = array
+      .asScala
+      .toList
+      .zipWithIndex
+
+    sequence(
+      arrayAsList
+        .map({
+          case (value, index) =>
+            notNull(value, s"value at index $index in array with length ${array.size()}")
+              .flatMap(tryCast[A])
+        })
+    )
   }
 
   private def checkNotNullArray(json: JsonObject, field: String): ArgumentCheck[JsonArray] = notNull(json.getJsonArray(field), field)
