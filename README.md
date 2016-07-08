@@ -1,4 +1,4 @@
-# Tableaux [![Build Status](https://travis-ci.org/campudus/tableaux.svg)](https://travis-ci.org/campudus/tableaux) [![Coverage Status](https://coveralls.io/repos/campudus/tableaux/badge.svg?branch=master&service=github)](https://coveralls.io/github/campudus/tableaux?branch=master)
+# Tableaux [![Build Status](https://travis-ci.org/campudus/tableaux.svg)](https://travis-ci.org/campudus/tableaux) [![Coverage Status](https://coveralls.io/repos/campudus/tableaux/badge.svg?branch=master&service=github)](https://coveralls.io/github/campudus/tableaux?branch=master) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/86e7fdd23bc1405e84ae2950b772e309)](https://www.codacy.com/app/Campudus/tableaux?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=campudus/tableaux&amp;utm_campaign=Badge_Grade)
 
 Tableaux (pronounced /ta.blo/) is a restful service for storing data in tables. These tables can have links between them.
 
