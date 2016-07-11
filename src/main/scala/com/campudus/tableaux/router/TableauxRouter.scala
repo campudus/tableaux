@@ -26,6 +26,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
   private val RowDuplicate: Regex = "/tables/(\\d+)/rows/(\\d+)/duplicate".r
   private val RowDependent: Regex = "/tables/(\\d+)/rows/(\\d+)/dependent".r
+  private val RowFlags: Regex = "/tables/(\\d+)/rows/(\\d+)/flags".r
   private val Rows: Regex = "/tables/(\\d+)/rows".r
   private val RowsOfColumn: Regex = "/tables/(\\d+)/columns/(\\d+)/rows".r
   private val RowsOfFirstColumn: Regex = "/tables/(\\d+)/columns/first/rows".r
@@ -135,8 +136,20 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Duplicate Row
       */
     case Post(RowDuplicate(tableId, rowId)) => asyncGetReply {
-      logger.info(s"POST request duplicate mit body=${context.getBodyAsString}")
       controller.duplicateRow(tableId.toLong, rowId.toLong)
+    }
+
+    /**
+      * Row Flags
+      */
+    case Post(RowFlags(tableId, rowId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false)).map(_.booleanValue())
+        needsTranslationOpt = booleanToValueOption(json.containsKey("needsTranslation"), asCastedList[String](json.getJsonArray("needsTranslation")).get)
+
+        updated <- controller.updateRowFlags(tableId.toLong, rowId.toLong, finalFlagOpt, needsTranslationOpt)
+      } yield updated
     }
 
     /**

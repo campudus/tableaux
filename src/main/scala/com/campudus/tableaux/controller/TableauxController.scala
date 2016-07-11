@@ -37,6 +37,15 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield row
   }
 
+  def updateRowFlags(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean], needsTranslation: Option[Seq[String]]): Future[Row] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"updateRowFlags $tableId $rowId $finalFlag $needsTranslation")
+    for {
+      table <- repository.retrieveTable(tableId)
+      updatedRow <- repository.updateRowFlags(table, rowId, finalFlag, needsTranslation)
+    } yield updatedRow
+  }
+
   def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")

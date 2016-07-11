@@ -1,11 +1,11 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -191,6 +191,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield RowSeq(rows)
 
+  def updateRowFlags(table: Table, rowId: RowId, finalFlag: Option[Boolean], needsTranslation: Option[Seq[String]]): Future[Row] = {
+    for {
+      _ <- updateRowModel.updateRowFlags(table, rowId, finalFlag, needsTranslation)
+      row <- retrieveRow(table, rowId)
+    } yield row
+  }
+
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
@@ -353,8 +360,9 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
                 // Special case for AttachmentColumns
                 // Can't be handled by RowModel
                 for {
+                  rowLevelFlags <- retrieveRowModel.retrieveFlags(column.table.id, rowId, Seq(column))
                   attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
-                } yield Seq(Row(column.table, rowId, Seq(attachments)))
+                } yield Seq(Row(column.table, rowId, rowLevelFlags, Seq(attachments)))
 
               case _ =>
                 for {
@@ -445,7 +453,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield duplicatedRow
   }
 
-  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[Any])]): Future[Seq[Row]] = {
+  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, RowLevelFlags, Seq[Any])]): Future[Seq[Row]] = {
 
     /**
       * Fetches ConcatColumn values for
@@ -474,8 +482,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       col.kind == LinkType && col.asInstanceOf[LinkColumn].to.isInstanceOf[ConcatColumn]
     }
 
-    val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[(RowId, Seq[Any])])) {
-      case (futureList, (rowId, rawValues)) =>
+    val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[(RowId, RowLevelFlags, Seq[Any])])) {
+      case (futureList, (rowId, rowFlags, rawValues)) =>
         futureList.flatMap({
           case list =>
             val mappedRow = columns.zip(rawValues).map({
@@ -523,13 +531,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             })
 
             Future.sequence(mappedRow)
-              .map(mappedRow => list ++ List((rowId, mappedRow)))
+              .map(mappedRow => list ++ List((rowId, rowFlags, mappedRow)))
         })
     }
 
     val rows = mergedRowsFuture.map({
       mergedRows => mergedRows.map({
-        case (rowId, values) => Row(table, rowId, values)
+        case (rowId, rowFlags, values) => Row(table, rowId, rowFlags, values)
       })
     })
 

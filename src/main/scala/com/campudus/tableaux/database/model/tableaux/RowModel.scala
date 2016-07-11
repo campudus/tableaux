@@ -259,6 +259,44 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     Future.sequence(futureSequence)
   }
+
+  def updateRowFlags(table: Table, rowId: RowId, finalFlagOpt: Option[Boolean], needsTranslationOpt: Option[Seq[String]]): Future[_] = {
+    for {
+      _ <- finalFlagOpt match {
+        case None => Future.successful(())
+        case Some(finalFlag) =>
+          connection.query(s"UPDATE user_table_${table.id} SET final = ? WHERE id = ?", Json.arr(finalFlag, rowId))
+      }
+
+      _ <- needsTranslationOpt match {
+        case None => Future.successful(())
+        case Some(needsTranslation) =>
+          if (needsTranslation.nonEmpty) {
+            val binds = Json.arr(needsTranslation.+:(rowId): _*)
+
+            for {
+              _ <- {
+                val unions = needsTranslation.map({
+                  _ =>
+                    s"SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM user_table_lang_${table.id} WHERE id = ? AND langtag = ?)"
+                })
+
+                val insert = s"INSERT INTO user_table_lang_${table.id}(id, langtag) ${unions.mkString(" UNION ")}"
+
+                val binds = needsTranslation.flatMap(flag => Seq(rowId, flag, rowId, flag))
+
+                connection.query(insert, Json.arr(binds: _*))
+              }
+
+              _ <- connection.query(s"UPDATE user_table_lang_${table.id} SET needs_translation = TRUE WHERE id = ? AND langtag IN (${needsTranslation.map(_ => "?").mkString(",")})", binds)
+              _ <- connection.query(s"UPDATE user_table_lang_${table.id} SET needs_translation = FALSE WHERE id = ? AND langtag NOT IN (${needsTranslation.map(_ => "?").mkString(",")})", binds)
+            } yield ()
+          } else {
+            connection.query(s"UPDATE user_table_lang_${table.id} SET needs_translation = FALSE WHERE id = ?", Json.arr(rowId))
+          }
+      }
+    } yield ()
+  }
 }
 
 class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
@@ -390,29 +428,57 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   private val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
   private val dateFormat = "YYYY-MM-DD"
 
-  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, Seq[Any])] = {
-    val projection = generateProjection(columns)
+  def retrieveFlags(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RowLevelFlags] = {
+    for {
+      result <- connection.query(s"SELECT ut.id, ${generateFlagsProjection(tableId, columns)} FROM user_table_$tableId ut WHERE ut.id = ?", Json.arr(rowId))
+    } yield {
+      val row = jsonArrayToSeq(selectNotNull(result).head)
+
+      val finalFlag = row(1).asInstanceOf[Boolean]
+      val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+
+      val rowFlags = RowLevelFlags(finalFlag, needsTranslation)
+
+      rowFlags
+    }
+  }
+
+  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, RowLevelFlags, Seq[Any])] = {
+    val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
 
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id", Json.arr(rowId))
     } yield {
       val row = jsonArrayToSeq(selectNotNull(result).head)
-      (rowId, mapResultRow(columns, row.drop(1)))
+
+      val finalFlag = row(1).asInstanceOf[Boolean]
+      val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+
+      val rowFlags = RowLevelFlags(finalFlag, needsTranslation)
+
+      (row.head.asInstanceOf[RowId], rowFlags, mapResultRow(columns, row.drop(3)))
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, Seq[Any])]] = {
-    val projection = generateProjection(columns)
+  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, RowLevelFlags, Seq[Any])]] = {
+    val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
 
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
-      resultObjectToJsonArray(result).map(jsonArrayToSeq).map {
+      resultObjectToJsonArray(result)
+        .map(jsonArrayToSeq)
+        .map({
         row =>
-          (row.head.asInstanceOf[RowId], mapResultRow(columns, row.drop(1)))
-      }
+          val finalFlag = row(1).asInstanceOf[Boolean]
+          val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+
+          val rowFlags = RowLevelFlags(finalFlag, needsTranslation)
+
+          (row.head.asInstanceOf[RowId], rowFlags, mapResultRow(columns, row.drop(3)))
+        })
     }
   }
 
@@ -477,7 +543,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     s"TO_CHAR($column, '$dateFormat')"
   }
 
-  private def generateProjection(columns: Seq[ColumnType[_]]): String = {
+  private def generateProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
       case _: ConcatColumn | _: AttachmentColumn =>
         // Values will be calculated/fetched after select
@@ -564,9 +630,23 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     }
 
     if (projection.nonEmpty) {
-      s"ut.id,\n${projection.mkString(",\n")}"
+      s"""
+         |ut.id,
+         |${generateFlagsProjection(tableId, columns)},
+         |${projection.mkString(",")}
+         """.stripMargin
     } else {
-      s"ut.id"
+      s"""
+         |ut.id,
+         |${generateFlagsProjection(tableId, columns)}
+         """.stripMargin
     }
+  }
+
+  private def generateFlagsProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
+    s"""
+       |ut.final AS final_flag,
+       |(SELECT json_agg(langtag) FROM user_table_lang_$tableId WHERE id = ut.id AND needs_translation IS TRUE) AS needs_translation
+      """.stripMargin
   }
 }

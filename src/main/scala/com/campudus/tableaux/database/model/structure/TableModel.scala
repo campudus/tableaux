@@ -21,7 +21,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type) VALUES (?, ?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull, tableType.NAME))
         id = insertNotNull(result).head.get[TableId](0)
 
-        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
+        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
 
@@ -50,6 +50,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
            | CREATE TABLE user_table_lang_$id (
            |   id BIGINT,
            |   langtag VARCHAR(255),
+           |   needs_translation BOOLEAN DEFAULT false,
            |
            |   PRIMARY KEY (id, langtag),
            |
@@ -62,7 +63,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def retrieveGlobalLangtags(): Future[Seq[String]] = {
-    // TODO don't really like dependend models
+    // TODO don't really like dependent models
     systemModel.retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(f => Option(f).map(f => Json.fromArrayString(f).asScala.map(_.toString).toSeq).getOrElse(Seq.empty))
   }
