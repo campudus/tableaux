@@ -18,12 +18,13 @@ BEGIN
   EXECUTE 'CREATE TABLE user_table_flag_' || tableid || ' (
     row_id BIGINT NOT NULL,
     column_id BIGINT NOT NULL,
+    uuid UUID NOT NULL,
     langtag VARCHAR(255) NOT NULL DEFAULT ''neutral'',
     type VARCHAR(255) NOT NULL,
     value TEXT NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
 
-    PRIMARY KEY (row_id, column_id, langtag, type),
+    PRIMARY KEY (row_id, column_id, uuid),
     FOREIGN KEY (row_id) REFERENCES user_table_' || tableid || ' (id) ON DELETE CASCADE
   )';
 

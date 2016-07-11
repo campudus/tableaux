@@ -14,6 +14,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
+
   val attachmentModel = AttachmentModel(connection)
 
   def deleteRow(tableId: TableId, rowId: RowId): Future[Unit] = {
@@ -296,6 +297,20 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
           }
       }
     } yield ()
+  }
+
+  def addCellFlag(column: ColumnType[_], rowId: RowId, langtagOpt: Option[String], flagType: CellFlagType, value: String): Future[_] = {
+    val insert = s"INSERT INTO user_table_flag_${column.table.id} (row_id, column_id, uuid, langtag, type, value) VALUES (?, ?, ?, ?, ?, ?)"
+    val binds = Json.arr(rowId, column.id, UUID.randomUUID().toString, langtagOpt.getOrElse("neutral"), flagType.toString, value)
+
+    connection.query(insert, binds)
+  }
+
+  def deleteCellFlag(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[_] = {
+    val delete = s"DELETE FROM user_table_flag_${column.table.id} WHERE row_id = ? AND column_id = ? AND uuid = ?"
+    val binds = Json.arr(rowId, column.id, uuid.toString)
+
+    connection.query(delete, binds)
   }
 }
 
@@ -644,7 +659,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     s"""
        |ut.final AS final_flag,
        |(SELECT json_agg(langtag) FROM user_table_lang_$tableId WHERE id = ut.id AND needs_translation IS TRUE) AS needs_translation,
-       |(SELECT json_agg(json_build_object('column_id', column_id, 'langtag', langtag, 'type', type, 'value', value, 'created_at', ${parseDateTimeSql("created_at")})) FROM user_table_flag_$tableId WHERE row_id = ut.id) AS cell_flags
+       |(SELECT json_agg(json_build_object('column_id', column_id, 'uuid', uuid, 'langtag', langtag, 'type', type, 'value', value, 'created_at', ${parseDateTimeSql("created_at")})) FROM (SELECT * FROM user_table_flag_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_flags
       """.stripMargin
   }
 }

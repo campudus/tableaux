@@ -1,7 +1,9 @@
 package com.campudus.tableaux.router
 
+import java.util.UUID
+
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.database.domain.Pagination
+import com.campudus.tableaux.database.domain.{CellFlagType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
 import io.vertx.ext.web.RoutingContext
@@ -22,6 +24,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val LinkOrderOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/link/(\\d+)/order".r
 
   private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
+  private val CellFlags: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/flags".r
+  private val CellFlagsId: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/flags/($uuidRegex)".r
 
   private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
   private val RowDuplicate: Regex = "/tables/(\\d+)/rows/(\\d+)/duplicate".r
@@ -150,6 +154,30 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
         updated <- controller.updateRowFlags(tableId.toLong, rowId.toLong, finalFlagOpt, needsTranslationOpt)
       } yield updated
+    }
+
+    /**
+      * Add Cell Flag
+      */
+    case Post(CellFlags(tableId, columnId, rowId)) => asyncGetReply {
+      import com.campudus.tableaux.ArgumentChecker._
+
+      for {
+        json <- getJson(context)
+
+        langtagOpt = booleanToValueOption(json.containsKey("langtag"), json.getString("langtag"))
+        flagType = hasString("type", json).map(CellFlagType(_)).get
+        value = json.getString("value")
+
+        flagged <- controller.addCellFlag(tableId.toLong, columnId.toLong, rowId.toLong, langtagOpt, flagType, value)
+      } yield flagged
+    }
+
+    /**
+      * Delete Cell Flag
+      */
+    case Delete(CellFlagsId(tableId, columnId, rowId, uuid)) => asyncGetReply {
+      controller.deleteCellFlag(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid))
     }
 
     /**

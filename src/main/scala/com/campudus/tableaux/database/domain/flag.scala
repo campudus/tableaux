@@ -1,5 +1,7 @@
 package com.campudus.tableaux.database.domain
 
+import java.util.UUID
+
 import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
@@ -21,12 +23,14 @@ case class RowLevelFlags(finalFlag: Boolean, needsTranslationFlags: Seq[String])
 }
 
 object CellFlagType {
-  final val TRANSLATED = "translated"
-  final val FROZEN = "frozen"
+  final val ERROR = "error"
+  final val WARNING = "warning"
+  final val INFO = "info"
 
   def apply(flagStr: String): CellFlagType = flagStr match {
-    case CellFlagType.TRANSLATED => TranslatedFlagType
-    case CellFlagType.FROZEN => FrozenFlagType
+    case CellFlagType.ERROR => ErrorFlagType
+    case CellFlagType.WARNING => WarningFlagType
+    case CellFlagType.INFO => InfoFlagType
     case _ => throw new IllegalArgumentException(s"Invalid cell flag type $flagStr")
   }
 }
@@ -35,17 +39,24 @@ sealed trait CellFlagType {
   def toString: String
 }
 
-case object TranslatedFlagType extends CellFlagType {
-  override def toString: String = CellFlagType.TRANSLATED
+case object ErrorFlagType extends CellFlagType {
+  override def toString: String = CellFlagType.ERROR
 }
 
-case object FrozenFlagType extends CellFlagType {
-  override def toString: String = CellFlagType.FROZEN
+case object WarningFlagType extends CellFlagType {
+  override def toString: String = CellFlagType.WARNING
+}
+
+case object InfoFlagType extends CellFlagType {
+  override def toString: String = CellFlagType.INFO
 }
 
 object CellLevelFlag {
   def apply(flags: JsonArray): Map[ColumnId, Seq[CellLevelFlag]] = {
-    flags.asScala.toSeq.map({
+    flags
+      .asScala
+      .toSeq
+      .map({
       case obj: JsonObject =>
         val columnId = obj.getLong("column_id")
         obj.remove("column_id")
@@ -57,23 +68,26 @@ object CellLevelFlag {
           Some(obj.getString("langtag"))
         }
 
+        val uuid = obj.getString("uuid")
         val flagType = CellFlagType(obj.getString("type"))
-
         val value = obj.getString("value")
-
         val createdAt = DateTime.parse(obj.getString("created_at"))
 
-        (columnId, CellLevelFlag(langtag, flagType, value, createdAt))
-    }).groupBy(_._1).map({
-      case (columnId, flagsAsTupleSeq) =>
-        (columnId.toLong, flagsAsTupleSeq.map(_._2))
-    })
+        (columnId, CellLevelFlag(UUID.fromString(uuid), langtag, flagType, value, createdAt))
+      })
+      .groupBy({
+        case (columnId, _) => columnId
+      })
+      .map({
+        case (columnId, flagsAsTupleSeq) => (columnId.toLong, flagsAsTupleSeq.map({ case (_, flagSeq) => flagSeq }))
+      })
   }
 }
 
-case class CellLevelFlag(langtag: Option[String], flagType: CellFlagType, value: String, createdAt: DateTime) extends DomainObject {
+case class CellLevelFlag(uuid: UUID, langtag: Option[String], flagType: CellFlagType, value: String, createdAt: DateTime) extends DomainObject {
   override def getJson: JsonObject = {
     val json = Json.obj(
+      "uuid" -> uuid.toString,
       "type" -> flagType.toString,
       "value" -> value,
       "created_at" -> createdAt.toString()

@@ -1,8 +1,11 @@
 package com.campudus.tableaux.database.model
 
+import java.util.UUID
+
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.TableauxModel.RowId
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
@@ -190,6 +193,20 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
         }
     }
   } yield RowSeq(rows)
+
+  def addCellFlag(column: ColumnType[_], rowId: RowId, langtagOpt: Option[String], flagType: CellFlagType, value: String): Future[Cell[_]] = {
+    for {
+      _ <- updateRowModel.addCellFlag(column, rowId, langtagOpt, flagType, value)
+      cell <- retrieveCell(column, rowId)
+    } yield cell
+  }
+
+  def deleteCellFlag(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Cell[_]] = {
+    for {
+      _ <- updateRowModel.deleteCellFlag(column, rowId, uuid)
+      cell <- retrieveCell(column, rowId)
+    } yield cell
+  }
 
   def updateRowFlags(table: Table, rowId: RowId, finalFlag: Option[Boolean], needsTranslation: Option[Seq[String]]): Future[Row] = {
     for {
