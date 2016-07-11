@@ -360,9 +360,9 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
                 // Special case for AttachmentColumns
                 // Can't be handled by RowModel
                 for {
-                  rowLevelFlags <- retrieveRowModel.retrieveFlags(column.table.id, rowId, Seq(column))
+                  (rowLevelFlags, cellLevelFlags) <- retrieveRowModel.retrieveFlags(column.table.id, rowId, Seq(column))
                   attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
-                } yield Seq(Row(column.table, rowId, rowLevelFlags, Seq(attachments)))
+                } yield Seq(Row(column.table, rowId, rowLevelFlags, cellLevelFlags, Seq(attachments)))
 
               case _ =>
                 for {
@@ -453,7 +453,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield duplicatedRow
   }
 
-  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, RowLevelFlags, Seq[Any])]): Future[Seq[Row]] = {
+  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[RawRow]): Future[Seq[Row]] = {
 
     /**
       * Fetches ConcatColumn values for
@@ -482,8 +482,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       col.kind == LinkType && col.asInstanceOf[LinkColumn].to.isInstanceOf[ConcatColumn]
     }
 
-    val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[(RowId, RowLevelFlags, Seq[Any])])) {
-      case (futureList, (rowId, rowFlags, rawValues)) =>
+    val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[RawRow])) {
+      case (futureList, RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues)) =>
         futureList.flatMap({
           case list =>
             val mappedRow = columns.zip(rawValues).map({
@@ -531,13 +531,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             })
 
             Future.sequence(mappedRow)
-              .map(mappedRow => list ++ List((rowId, rowFlags, mappedRow)))
+              .map(mappedRow => list ++ List(RawRow(rowId, rowLevelFlags, cellLevelFlags, mappedRow)))
         })
     }
 
     val rows = mergedRowsFuture.map({
       mergedRows => mergedRows.map({
-        case (rowId, rowFlags, values) => Row(table, rowId, rowFlags, values)
+        case RawRow(rowId, rowLevelFlags, cellLevelFlags, values) => Row(table, rowId, rowLevelFlags, cellLevelFlags, values)
       })
     })
 

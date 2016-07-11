@@ -3,7 +3,9 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
-case class Row(table: Table, id: RowId, rowLevelFlags: RowLevelFlags, values: Seq[_]) extends DomainObject {
+case class RawRow(id: RowId, rowLevelFlags: RowLevelFlags, cellLevelFlags: CellLevelFlags, values: Seq[_])
+
+case class Row(table: Table, id: RowId, rowLevelFlags: RowLevelFlags, cellLevelFlags: CellLevelFlags, values: Seq[_]) extends DomainObject {
   override def getJson: JsonObject = {
     val json = Json.obj(
       "id" -> id,
@@ -12,6 +14,10 @@ case class Row(table: Table, id: RowId, rowLevelFlags: RowLevelFlags, values: Se
 
     if (rowLevelFlags.finalFlag || rowLevelFlags.needsTranslationFlags.nonEmpty) {
       json.mergeIn(rowLevelFlags.getJson)
+    }
+
+    if (cellLevelFlags.flags.exists(_._2.nonEmpty)) {
+      json.mergeIn(cellLevelFlags.getJson)
     }
 
     json

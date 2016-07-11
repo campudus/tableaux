@@ -23,6 +23,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
         (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
+        t <- createCellFlagsTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
 
         (t, _) <- createTableDisplayInfos(t, DisplayInfos(id, displayInfos))
@@ -57,6 +58,25 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
            |   FOREIGN KEY(id)
            |   REFERENCES user_table_$id(id)
            |   ON DELETE CASCADE
+           | )
+         """.stripMargin)
+    } yield t
+  }
+
+  private def createCellFlagsTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+    for {
+      (t, _) <- t.query(
+        s"""
+           | CREATE TABLE user_table_flag_$id (
+           |   row_id BIGINT NOT NULL,
+           |   column_id BIGINT NOT NULL,
+           |   langtag VARCHAR(255) NOT NULL DEFAULT 'neutral',
+           |   type VARCHAR(255) NOT NULL,
+           |   value TEXT NULL,
+           |   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+           |
+           |   PRIMARY KEY (row_id, column_id, langtag, type),
+           |   FOREIGN KEY (row_id) REFERENCES user_table_$id (id) ON DELETE CASCADE
            | )
          """.stripMargin)
     } yield t

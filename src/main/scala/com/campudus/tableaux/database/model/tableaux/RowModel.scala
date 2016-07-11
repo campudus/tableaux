@@ -428,22 +428,21 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   private val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
   private val dateFormat = "YYYY-MM-DD"
 
-  def retrieveFlags(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RowLevelFlags] = {
+  def retrieveFlags(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowLevelFlags, CellLevelFlags)] = {
     for {
-      result <- connection.query(s"SELECT ut.id, ${generateFlagsProjection(tableId, columns)} FROM user_table_$tableId ut WHERE ut.id = ?", Json.arr(rowId))
+      result <- connection.query(s"SELECT ut.id, ${generateFlagsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?", Json.arr(rowId))
     } yield {
       val row = jsonArrayToSeq(selectNotNull(result).head)
 
       val finalFlag = row(1).asInstanceOf[Boolean]
       val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+      val cellFlags = Option(row(3)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
 
-      val rowFlags = RowLevelFlags(finalFlag, needsTranslation)
-
-      rowFlags
+      (RowLevelFlags(finalFlag, needsTranslation), CellLevelFlags(columns, CellLevelFlag(cellFlags)))
     }
   }
 
-  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowId, RowLevelFlags, Seq[Any])] = {
+  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
 
@@ -454,14 +453,13 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
       val finalFlag = row(1).asInstanceOf[Boolean]
       val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+      val cellFlags = Option(row(3)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
 
-      val rowFlags = RowLevelFlags(finalFlag, needsTranslation)
-
-      (row.head.asInstanceOf[RowId], rowFlags, mapResultRow(columns, row.drop(3)))
+      RawRow(row.head.asInstanceOf[RowId], RowLevelFlags(finalFlag, needsTranslation), CellLevelFlags(columns, CellLevelFlag(cellFlags)), mapResultRow(columns, row.drop(4)))
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[(RowId, RowLevelFlags, Seq[Any])]] = {
+  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[RawRow]] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
 
@@ -474,10 +472,9 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         row =>
           val finalFlag = row(1).asInstanceOf[Boolean]
           val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+          val cellFlags = Option(row(3)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
 
-          val rowFlags = RowLevelFlags(finalFlag, needsTranslation)
-
-          (row.head.asInstanceOf[RowId], rowFlags, mapResultRow(columns, row.drop(3)))
+          RawRow(row.head.asInstanceOf[RowId], RowLevelFlags(finalFlag, needsTranslation), CellLevelFlags(columns, CellLevelFlag(cellFlags)), mapResultRow(columns, row.drop(4)))
         })
     }
   }
@@ -632,21 +629,22 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     if (projection.nonEmpty) {
       s"""
          |ut.id,
-         |${generateFlagsProjection(tableId, columns)},
+         |${generateFlagsProjection(tableId)},
          |${projection.mkString(",")}
          """.stripMargin
     } else {
       s"""
          |ut.id,
-         |${generateFlagsProjection(tableId, columns)}
+         |${generateFlagsProjection(tableId)}
          """.stripMargin
     }
   }
 
-  private def generateFlagsProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
+  private def generateFlagsProjection(tableId: TableId): String = {
     s"""
        |ut.final AS final_flag,
-       |(SELECT json_agg(langtag) FROM user_table_lang_$tableId WHERE id = ut.id AND needs_translation IS TRUE) AS needs_translation
+       |(SELECT json_agg(langtag) FROM user_table_lang_$tableId WHERE id = ut.id AND needs_translation IS TRUE) AS needs_translation,
+       |(SELECT json_agg(json_build_object('column_id', column_id, 'langtag', langtag, 'type', type, 'value', value, 'created_at', ${parseDateTimeSql("created_at")})) FROM user_table_flag_$tableId WHERE row_id = ut.id) AS cell_flags
       """.stripMargin
   }
 }
