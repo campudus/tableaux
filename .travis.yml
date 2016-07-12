@@ -1,26 +1,26 @@
 language: java
 jdk:
-  - oraclejdk8
+- oraclejdk8
 sudo: false
 cache:
   directories:
-    - $HOME/.m2
-    - $HOME/.gradle
+  - $HOME/.m2
+  - $HOME/.gradle
 addons:
   postgresql: '9.4'
 install: /bin/true
 before_script:
-  - psql -c 'SHOW SERVER_VERSION;' -U postgres
-  - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
-  - ./gradlew testScoverageClasses --info --stacktrace
+- psql -c 'SHOW SERVER_VERSION;' -U postgres
+- psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
+- ./gradlew testScoverageClasses --info --stacktrace
 script:
-  - export GRADLE_OPTS="-Xmx500m"
-  - export JAVA_OPTS="-Xmx500m"
-  - ./gradlew checkScoverage --info --stacktrace
+- export GRADLE_OPTS="-Xmx500m"
+- export JAVA_OPTS="-Xmx500m"
+- ./gradlew checkScoverage --info --stacktrace
 after_success:
-  - ./gradlew reportScoverage coveralls --info --stacktrace
+- ./gradlew reportScoverage coveralls --info --stacktrace
 env:
   global:
-    - CI_NAME=travis-ci
-    - MALLOC_ARENA_MAX=2
-    - secure: XX3paDhV+agMmuLFrMtTvsrmGJND+NuryJ0Py/mnne4z9ds3ABw5BN85zOG9l3VpffaM6RASv+pUaOyuSh379ocS2ge+CkoYcc7UprRhvFL+YwcMpeqnBQqgO+D9eF+Q9MvI9SuY6gQBsB0u9InkjGgWsXWAn0jpLgPmxbBMrgcxvxOJyffXTcKszv0YqAxESlOzTVgK+ZsaujZ34akqGNY2IbW2w6SQloQmkilp7rZ4my7VBP7rLGY/WRf42KHznCmaSCi5SPHtfdQWOsyF9vY6l8r7Y6VZQTu0C+I+ZbjqTYLJ4BTrXE4luV0sm18o/edf0300JKhwP1UZUhK0jRDMXQS/CJGRrzO94DkzbU1DWWlmQls/TtdgiKOUpXoVt8BdVNPMEAVLNl6efe8sPQXCkoOe1Zx5Tfe8swAbP06yG2slEWiINQFQjXJDIf1WZT0if6fJjId0qXbuSkCTaY25/rZVzgtQHUvWlasuK05gI8HfPTm3jIgCWzL+KN5oVuUfdVH7lOjyqdNDCEvHxdBSHfjBqeCHtGP65VVO72nD6pnm4aWsBzWU/sLCG0z3pd7638RpnnfCY3Kc9ous6NZnFmydXUq4tcX+4G1b8Y3o12pb2S5Ny50V/kIrIB144l0Ir3SEP8y1JqNfSPsvwoYfhUqC2CpptkQaYSGc3jw=
+  - CI_NAME=travis-ci
+  - MALLOC_ARENA_MAX=2
+  - secure: Ld8TSElGS54hAfrAQZcTWw47chK1lliOpDf7yluExco/K+W1Ddj2UzVrPspRJXCcl6bBZTwE4aosEB0P6EAX4IAQVyKOUvJVN2tlp8tq13/KltWCV7Wt0HWC96kVp4nZv8QpZhT3cyilDDE7h1WgKQY2NXB7JIyQDvO2NROjno0O8Nfi8Jf1/faSnfWqMj2W5Z7p+GIxYXiQS2LxUZ9YpCMrs0cEnL6EjJyVj+LkJgp3exCYNtmbD0jQ5uWxmKJaO1SijfPuztIq4F8SDcikKdOTaLpDvB2tj/aq9x4pcjVG/66TaX8RusVtrkh/L4G4oApAs9AFjXz3PUPqXQQ9e5WrTckrMRaOunPc5K0ajdCw3v6aWwAJyXpdP3M572vSPxn5EQCrOXaLJd+LotDiSTvRDTPvX2uaf3aSB+G405YGoJ6Y+xjZfSngcP8r1Hlnh+eGJ/lmlIvBYuYJeALa8Rmniog3mmhh0iavuLDENWszHOHgooxhcPy8cFI1AklaKgOyAXnbwQYWF+K633GgVD5AZxfGdfpjbvOSsnB+kge6JcxFYXI4z/mL02yckl+nBY7S40Z1rRjtvEkrN6ZbnMOA6dA83kjQfazvR0PxLvZntCsApaNcayrngZpIcvMzkznFGowzcSIFOQNKBKRg3ulgAQsl4WVnwg+WEd1ieY8=
