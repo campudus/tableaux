@@ -11,6 +11,8 @@ trait DomainObjectHelper {
 
   private def compatibility[A](returnType: ReturnType)(value: A): Any = {
     value match {
+      case Some(a) => compatibility(returnType)(a)
+      case None => null
       case s: Seq[_] => compatibilitySeq(returnType)(s)
       case d: DomainObject => d.toJson(returnType)
       case _ => value
@@ -21,7 +23,7 @@ trait DomainObjectHelper {
     values map {
       case s: Seq[_] => compatibilitySeq(returnType)(s)
       case d: DomainObject => d.toJson(returnType)
-      case e => e
+      case e => compatibility(returnType)(e)
     }
   }
 

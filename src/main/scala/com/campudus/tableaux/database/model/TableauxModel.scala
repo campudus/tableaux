@@ -1,11 +1,14 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
+import java.util.UUID
+
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.TableauxModel.RowId
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -191,6 +194,27 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
   } yield RowSeq(rows)
 
+  def addCellFlag(column: ColumnType[_], rowId: RowId, langtagOpt: Option[String], flagType: CellFlagType, value: String): Future[Cell[_]] = {
+    for {
+      _ <- updateRowModel.addCellFlag(column, rowId, langtagOpt, flagType, value)
+      cell <- retrieveCell(column, rowId)
+    } yield cell
+  }
+
+  def deleteCellFlag(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Cell[_]] = {
+    for {
+      _ <- updateRowModel.deleteCellFlag(column, rowId, uuid)
+      cell <- retrieveCell(column, rowId)
+    } yield cell
+  }
+
+  def updateRowFlags(table: Table, rowId: RowId, finalFlag: Option[Boolean], needsTranslation: Option[Seq[String]]): Future[Row] = {
+    for {
+      _ <- updateRowModel.updateRowFlags(table, rowId, finalFlag, needsTranslation)
+      row <- retrieveRow(table, rowId)
+    } yield row
+  }
+
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
@@ -353,8 +377,9 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
                 // Special case for AttachmentColumns
                 // Can't be handled by RowModel
                 for {
+                  (rowLevelFlags, cellLevelFlags) <- retrieveRowModel.retrieveFlags(column.table.id, rowId, Seq(column))
                   attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
-                } yield Seq(Row(column.table, rowId, Seq(attachments)))
+                } yield Seq(Row(column.table, rowId, rowLevelFlags, cellLevelFlags, Seq(attachments)))
 
               case _ =>
                 for {
@@ -445,7 +470,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     } yield duplicatedRow
   }
 
-  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[(RowId, Seq[Any])]): Future[Seq[Row]] = {
+  private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[RawRow]): Future[Seq[Row]] = {
 
     /**
       * Fetches ConcatColumn values for
@@ -474,8 +499,8 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       col.kind == LinkType && col.asInstanceOf[LinkColumn].to.isInstanceOf[ConcatColumn]
     }
 
-    val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[(RowId, Seq[Any])])) {
-      case (futureList, (rowId, rawValues)) =>
+    val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[RawRow])) {
+      case (futureList, RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues)) =>
         futureList.flatMap({
           case list =>
             val mappedRow = columns.zip(rawValues).map({
@@ -523,13 +548,13 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
             })
 
             Future.sequence(mappedRow)
-              .map(mappedRow => list ++ List((rowId, mappedRow)))
+              .map(mappedRow => list ++ List(RawRow(rowId, rowLevelFlags, cellLevelFlags, mappedRow)))
         })
     }
 
     val rows = mergedRowsFuture.map({
       mergedRows => mergedRows.map({
-        case (rowId, values) => Row(table, rowId, values)
+        case RawRow(rowId, rowLevelFlags, cellLevelFlags, values) => Row(table, rowId, rowLevelFlags, cellLevelFlags, values)
       })
     })
 

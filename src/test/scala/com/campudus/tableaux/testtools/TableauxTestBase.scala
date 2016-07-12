@@ -48,6 +48,22 @@ trait TestAssertionHelper {
     c
   }
 
+  def assertContainsDeep(excepted: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext = {
+    c.assertEquals(excepted.size(), actual.size(), s"Excepted size is ${excepted.size()} != ${actual.size()}")
+
+    excepted.asScala.zip(actual.asScala)
+      .map({
+        case (expectedArr: JsonArray, actualArr: JsonArray) =>
+          assertContainsDeep(expectedArr, actualArr)
+        case (expectedObj: JsonObject, actualObj: JsonObject) =>
+          assertContainsDeep(expectedObj, actualObj)
+        case (expectedVal, actualVal) =>
+          c.assertEquals(expectedVal, actualVal)
+      })
+
+    c
+  }
+
   def assertContainsDeep(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
     import scala.collection.JavaConverters._
     expected
@@ -59,17 +75,12 @@ trait TestAssertionHelper {
             case (expectedObj: JsonObject, actualObj: JsonObject) =>
               assertContainsDeep(expectedObj, actualObj)
             case (expectedArr: JsonArray, actualArr: JsonArray) =>
-              expectedArr.asScala.zip(actualArr.asScala)
-                .map({
-                  case (expectedObj: JsonObject, actualObj: JsonObject) =>
-                    assertContainsDeep(expectedObj, actualObj)
-                  case (expectedVal, actualVal) =>
-                    c.assertEquals(expectedVal, actualVal)
-                })
+              assertContainsDeep(expectedArr, actualArr)
             case (expectedVal, actualVal) =>
               c.assertEquals(expectedVal, actualVal)
           }
       })
+
     c
   }
 

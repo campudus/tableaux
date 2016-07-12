@@ -21,8 +21,9 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
         (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type) VALUES (?, ?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull, tableType.NAME))
         id = insertNotNull(result).head.get[TableId](0)
 
-        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, PRIMARY KEY (id))")
+        (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
+        t <- createCellFlagsTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
 
         (t, _) <- createTableDisplayInfos(t, DisplayInfos(id, displayInfos))
@@ -50,6 +51,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
            | CREATE TABLE user_table_lang_$id (
            |   id BIGINT,
            |   langtag VARCHAR(255),
+           |   needs_translation BOOLEAN DEFAULT false,
            |
            |   PRIMARY KEY (id, langtag),
            |
@@ -61,8 +63,28 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield t
   }
 
+  private def createCellFlagsTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+    for {
+      (t, _) <- t.query(
+        s"""
+           | CREATE TABLE user_table_flag_$id (
+           |   row_id BIGINT NOT NULL,
+           |   column_id BIGINT NOT NULL,
+           |   uuid UUID NOT NULL,
+           |   langtag VARCHAR(255) NOT NULL DEFAULT 'neutral',
+           |   type VARCHAR(255) NOT NULL,
+           |   value TEXT NULL,
+           |   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+           |
+           |   PRIMARY KEY (row_id, column_id, uuid),
+           |   FOREIGN KEY (row_id) REFERENCES user_table_$id (id) ON DELETE CASCADE
+           | )
+         """.stripMargin)
+    } yield t
+  }
+
   private def retrieveGlobalLangtags(): Future[Seq[String]] = {
-    // TODO don't really like dependend models
+    // TODO don't really like dependent models
     systemModel.retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(f => Option(f).map(f => Json.fromArrayString(f).asScala.map(_.toString).toSeq).getOrElse(Seq.empty))
   }
@@ -137,6 +159,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       t <- connection.begin()
 
+      (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_flag_$tableId")
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_lang_$tableId")
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId")
 

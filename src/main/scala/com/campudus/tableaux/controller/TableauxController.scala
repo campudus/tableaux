@@ -3,9 +3,9 @@ package com.campudus.tableaux.controller
 import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.cache.CacheClient
-import com.campudus.tableaux.database.LocationType
+import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
@@ -19,6 +19,33 @@ object TableauxController {
 }
 
 class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel) extends Controller[TableauxModel] {
+
+  def addCellFlag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtagOpt: Option[String], flagType: CellFlagType, value: String): Future[Cell[_]] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    logger.info(s"addCellFlag $tableId $columnId $rowId $langtagOpt $flagType $value")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      column <- repository.retrieveColumn(table, columnId)
+      _ = (column.languageType, langtagOpt) match {
+        case (LanguageNeutral, Some(_)) => throw UnprocessableEntityException("Cannot set a flag with langtag on a language neutral cell")
+        case _ => //ignore
+      }
+
+      flagged <- repository.addCellFlag(column, rowId, langtagOpt, flagType, value)
+    } yield flagged
+  }
+
+  def deleteCellFlag(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID): Future[Cell[_]] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    logger.info(s"deleteCellFlag $tableId $columnId $rowId $uuid")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      column <- repository.retrieveColumn(table, columnId)
+      flagged <- repository.deleteCellFlag(column, rowId, uuid)
+    } yield flagged
+  }
 
   def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
@@ -35,6 +62,15 @@ class TableauxController(override val config: TableauxConfig, override protected
           repository.createRow(table)
       }
     } yield row
+  }
+
+  def updateRowFlags(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean], needsTranslation: Option[Seq[String]]): Future[Row] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"updateRowFlags $tableId $rowId $finalFlag $needsTranslation")
+    for {
+      table <- repository.retrieveTable(tableId)
+      updatedRow <- repository.updateRowFlags(table, rowId, finalFlag, needsTranslation)
+    } yield updatedRow
   }
 
   def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
