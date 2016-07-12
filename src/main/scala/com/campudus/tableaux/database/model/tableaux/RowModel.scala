@@ -3,11 +3,11 @@ package com.campudus.tableaux.database.model.tableaux
 import java.util.UUID
 
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
+import com.campudus.tableaux.database.domain.{CellLevelFlag, MultiLanguageColumn, RowLevelFlags, _}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{RowNotFoundException, UnprocessableEntityException}
+import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
 import org.vertx.scala.core.json.{Json, _}
 
 import scala.concurrent.Future
@@ -29,7 +29,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(values)
 
     for {
-      _ <- if (simple.isEmpty) Future.successful(()) else updateRow(table, rowId, simple.map((_, null)))
+      _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.map((_, None)))
       _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis)
       _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links)
       _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
@@ -158,12 +158,14 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def updateSimple(table: Table, rowId: RowId, simple: List[(SimpleValueColumn[_], Option[_])]): Future[Unit] = {
+  private def updateSimple(table: Table, rowId: RowId, simple: List[(SimpleValueColumn[_], Option[Any])]): Future[Unit] = {
     val setExpression = simple.map({
       case (column: SimpleValueColumn[_], _) => s"column_${column.id} = ?"
     }).mkString(", ")
 
-    val binds = simple.map(_._2.getOrElse(null)) ++ List(rowId)
+    val binds = simple.map({
+      case (_, valueOpt) => valueOpt.orNull
+    }) ++ List(rowId)
 
     for {
       update <- connection.query(s"UPDATE user_table_${table.id} SET $setExpression WHERE id = ?", Json.arr(binds: _*))
@@ -173,22 +175,22 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def updateTranslations(table: Table, rowId: RowId, values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]): Future[_] = {
     val entries = for {
-      (column, langs) <- values
-      (langTag: String, value) <- langs
-    } yield (langTag, (column, value))
+      (column, langtagValueOptMap) <- values
+      (langtag: String, valueOpt) <- langtagValueOptMap
+    } yield (langtag, (column, valueOpt))
 
-    val columnsForLang = entries.groupBy(_._1).mapValues(_.map(_._2))
+    val columnsForLang = entries
+      .groupBy({ case (langtag, _) => langtag })
+      .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
 
     if (columnsForLang.nonEmpty) {
-      connection.transactionalFoldLeft(columnsForLang.toSeq) { (t, _, langValues) =>
-        val langtag = langValues._1
-        val values = langValues._2
-
-        val setExpression = values.map({
+      connection.transactionalFoldLeft(columnsForLang.toSeq) {
+        case (t, _, (langtag, columnValueOptSeq)) =>
+          val setExpression = columnValueOptSeq.map({
           case (column, _) => s"column_${column.id} = ?"
         }).mkString(", ")
 
-        val binds = values.map(_._2.orNull).toList ++ List(rowId, langtag)
+          val binds = columnValueOptSeq.map({ case (_, valueOpt) => valueOpt.orNull }).toList ++ List(rowId, langtag)
 
         for {
           (t, _) <- t.query(s"INSERT INTO user_table_lang_${table.id}(id, langtag) SELECT ?, ? WHERE NOT EXISTS (SELECT id FROM user_table_lang_${table.id} WHERE id = ? AND langtag = ?)", Json.arr(rowId, langtag, rowId, langtag))
@@ -340,10 +342,10 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createSimple(tableId: TableId, values: Seq[(SimpleValueColumn[_], Option[_])]): Future[RowId] = {
+  private def createSimple(tableId: TableId, values: Seq[(SimpleValueColumn[_], Option[Any])]): Future[RowId] = {
     val placeholder = values.map(_ => "?").mkString(", ")
-    val columns = values.map { case (column: ColumnType[_], _) => s"column_${column.id}" }.mkString(", ")
-    val binds = values.map { case (_, value) => value.getOrElse(null) }
+    val columns = values.map({ case (column: ColumnType[_], _) => s"column_${column.id}" }).mkString(", ")
+    val binds = values.map({ case (_, value) => value.orNull })
 
     for {
       result <- connection.query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($placeholder) RETURNING id", Json.arr(binds: _*))
@@ -354,22 +356,24 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def createTranslations(tableId: TableId, rowId: RowId, values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]): Future[_] = {
     val entries = for {
-      (column, langs) <- values
-      (langTag: String, value) <- langs
-    } yield (langTag, (column, value))
+      (column, langtagValueOptMap) <- values
+      (langtag: String, valueOpt) <- langtagValueOptMap
+    } yield (langtag, (column, valueOpt))
 
-    val columnsForLang = entries.groupBy(_._1).mapValues(_.map(_._2))
+    val columnsForLang = entries
+      .groupBy({ case (langtag, _) => langtag })
+      .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
 
     if (columnsForLang.nonEmpty) {
-      connection.transactionalFoldLeft(columnsForLang.toSeq) { (t, _, langValues) =>
-        val columns = langValues._2.map { case (col, _) => s"column_${col.id}" }.mkString(", ")
-        val placeholder = langValues._2.map(_ => "?").mkString(", ")
-        val insertStmt = s"INSERT INTO user_table_lang_$tableId (id, langtag, $columns) VALUES (?, ?, $placeholder)"
-        val insertBinds = List(rowId, langValues._1) ::: langValues._2.map(_._2.orNull).toList
+      connection.transactionalFoldLeft(columnsForLang.toSeq) {
+        case (t, _, (langtag, columnValueOptSeq)) =>
+          val columns = columnValueOptSeq.map({ case (column, _) => s"column_${column.id}" }).mkString(", ")
+          val placeholder = columnValueOptSeq.map(_ => "?").mkString(", ")
 
-        for {
-          (t, result) <- t.query(insertStmt, Json.arr(insertBinds: _*))
-        } yield (t, result)
+          val insert = s"INSERT INTO user_table_lang_$tableId (id, langtag, $columns) VALUES (?, ?, $placeholder)"
+          val binds = List(rowId, langtag) ::: columnValueOptSeq.map({ case (_, valueOpt) => valueOpt.orNull }).toList
+
+          t.query(insert, Json.arr(binds: _*))
       }
     } else {
       // No values put into multilanguage columns, should be okay
@@ -447,13 +451,8 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     for {
       result <- connection.query(s"SELECT ut.id, ${generateFlagsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?", Json.arr(rowId))
     } yield {
-      val row = jsonArrayToSeq(selectNotNull(result).head)
-
-      val finalFlag = row(1).asInstanceOf[Boolean]
-      val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
-      val cellFlags = Option(row(3)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
-
-      (RowLevelFlags(finalFlag, needsTranslation), CellLevelFlags(columns, CellLevelFlag(cellFlags)))
+      val rawRow = mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
+      (rawRow.rowLevelFlags, rawRow.cellLevelFlags)
     }
   }
 
@@ -464,13 +463,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id", Json.arr(rowId))
     } yield {
-      val row = jsonArrayToSeq(selectNotNull(result).head)
-
-      val finalFlag = row(1).asInstanceOf[Boolean]
-      val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
-      val cellFlags = Option(row(3)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
-
-      RawRow(row.head.asInstanceOf[RowId], RowLevelFlags(finalFlag, needsTranslation), CellLevelFlags(columns, CellLevelFlag(cellFlags)), mapResultRow(columns, row.drop(4)))
+      mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
     }
   }
 
@@ -481,16 +474,24 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
-      resultObjectToJsonArray(result)
-        .map(jsonArrayToSeq)
-        .map({
-        row =>
-          val finalFlag = row(1).asInstanceOf[Boolean]
-          val needsTranslation = Option(row(2)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
-          val cellFlags = Option(row(3)).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+      resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
+    }
+  }
 
-          RawRow(row.head.asInstanceOf[RowId], RowLevelFlags(finalFlag, needsTranslation), CellLevelFlags(columns, CellLevelFlag(cellFlags)), mapResultRow(columns, row.drop(4)))
-        })
+  private def mapRowToRawRow(columns: Seq[ColumnType[_]])(row: Seq[Any]): RawRow = {
+    // Row should have at least = row_id, final_flag, needs_translation, cell_flags
+    assert(row.size >= 4)
+    val liftedRow = row.lift
+    (row.headOption, liftedRow(1), liftedRow(2), liftedRow(3)) match {
+      case (Some(rowId: Long), Some(finalFlag: Boolean), Some(needsTranslationStr), Some(cellFlagsStr)) =>
+        val needsTranslation = Option(needsTranslationStr).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+        val cellFlags = Option(cellFlagsStr).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+        val rawValues = row.drop(4)
+
+        RawRow(rowId, RowLevelFlags(finalFlag, needsTranslation), CellLevelFlags(columns, CellLevelFlag(cellFlags)), mapResultRow(columns, rawValues))
+      case _ =>
+        // shouldn't happen b/c of assert
+        throw UnknownServerException(s"Please check generateProjection!")
     }
   }
 
@@ -501,45 +502,50 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   }
 
   private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
-    column match {
-      case MultiLanguageColumn(_) =>
-        if (value == null)
-          Json.emptyObj()
-        else
-          Json.fromObjectString(value.toString)
+    (column, Option(value)) match {
+      case (MultiLanguageColumn(_), None) =>
+        Json.emptyObj()
 
-      case _: LinkColumn =>
-        if (value == null)
-          Json.emptyArr()
-        else
-          Json.fromArrayString(value.toString)
+      case (MultiLanguageColumn(_), Some(v)) =>
+        Json.fromObjectString(v.toString)
+
+      case (_: LinkColumn, None) =>
+        Json.emptyArr()
+
+      case (_: LinkColumn, Some(v)) =>
+        Json.fromArrayString(v.toString)
 
       case _ =>
         value
     }
   }
 
-  private def mapResultRow(columns: Seq[ColumnType[_]], result: Seq[Any]): Seq[Any] = {
-    val (concatColumnOpt, zipped) = columns.headOption match {
-      case Some(c: ConcatColumn) => (Some(c), (columns.drop(1), result.drop(1)).zipped)
-      case _ => (None, (columns, result).zipped)
+  private def mapResultRow(columns: Seq[ColumnType[_]], rawValues: Seq[Any]): Seq[Any] = {
+    val (concatColumnOpt, columnsAndRawValues) = columns.headOption match {
+      case Some(c: ConcatColumn) =>
+        (Some(c), (columns.drop(1), rawValues.drop(1)).zipped)
+      case _ =>
+        (None, (columns, rawValues).zipped)
     }
 
     concatColumnOpt match {
-      case None => zipped.map(mapValueByColumnType)
+      case None =>
+        // No concat column
+        columnsAndRawValues.map(mapValueByColumnType)
       case Some(concatColumn) =>
-        val identifierColumns = zipped.filter({ (column: ColumnType[_], _) =>
+        // Aggregate values for concat column
+        val identifierColumns = columnsAndRawValues.filter({ (column: ColumnType[_], _) =>
           concatColumn.columns.exists(_.id == column.id)
         }).zipped
 
         import scala.collection.JavaConverters._
 
-        val joinedValue = identifierColumns.foldLeft(List.empty[Any])({
-          (joined, columnValue) =>
-            joined.:+(mapValueByColumnType(columnValue._1, columnValue._2))
+        val concatRawValues = identifierColumns.foldLeft(List.empty[Any])({
+          case (joinedValues, (column, rawValue)) =>
+            joinedValues.:+(mapValueByColumnType(column, rawValue))
         }).asJava
 
-        (columns.drop(1), result.drop(1)).zipped.map(mapValueByColumnType).+:(joinedValue)
+        (columns.drop(1), rawValues.drop(1)).zipped.map(mapValueByColumnType).+:(concatRawValues)
     }
   }
 
@@ -584,61 +590,10 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         s"ut.column_${c.id}"
 
       case c: LinkColumn =>
-        val linkId = c.linkId
-        val direction = c.linkDirection
-        val toTableId = c.to.table.id
+        generateLinkProjection(tableId, c)
 
-        val (column, value) = c.to match {
-          case _: ConcatColumn =>
-            // Values will be calculated/fetched after select
-            // See TableauxModel.mapRawRows
-            (s"''", "NULL")
-
-          case MultiLanguageColumn(_) =>
-            val linkedColumn = c.to match {
-              case _: DateTimeColumn =>
-                parseDateTimeSql(s"utl$toTableId.column_${c.to.id}")
-              case _: DateColumn =>
-                parseDateSql(s"utl$toTableId.column_${c.to.id}")
-              case _ =>
-                s"utl$toTableId.column_${c.to.id}"
-            }
-
-            // No distinct needed, just one result
-            (s"column_${c.to.id}", s"json_object_agg(utl$toTableId.langtag, $linkedColumn)")
-
-          case _: DateTimeColumn =>
-            (s"column_${c.to.id}", parseDateTimeSql(s"ut$toTableId.column_${c.id}") + s" AS column_${c.id}")
-
-          case _: DateColumn =>
-            (s"column_${c.to.id}", parseDateSql(s"ut$toTableId.column_${c.id}"))
-
-          case _: SimpleValueColumn[_] =>
-            (s"column_${c.to.id}", s"ut$toTableId.column_${c.to.id}")
-        }
-
-        s"""(
-            |SELECT
-            | json_agg(sub.value)
-            |FROM
-            |(
-            | SELECT
-            |   lt$linkId.${direction.fromSql} AS ${direction.fromSql},
-            |   json_build_object('id', ut$toTableId.id, 'value', $value) AS value
-            | FROM
-            |   link_table_$linkId lt$linkId
-            |   JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
-            |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
-            | WHERE $column IS NOT NULL
-            | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
-            | ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
-            |) sub
-            |WHERE sub.${direction.fromSql} = ut.id
-            |GROUP BY sub.${direction.fromSql}
-            |) AS column_${c.id}
-           """.stripMargin
-
-      case _ => "NULL"
+      case _ =>
+        "NULL"
     }
 
     if (projection.nonEmpty) {
@@ -653,6 +608,59 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
          |${generateFlagsProjection(tableId)}
          """.stripMargin
     }
+  }
+
+  private def generateLinkProjection(tableId: TableId, c: LinkColumn): String = {
+    val linkId = c.linkId
+    val direction = c.linkDirection
+    val toTableId = c.to.table.id
+
+    val (column, value) = c.to match {
+      case _: ConcatColumn =>
+        // Values will be calculated/fetched after select
+        // See TableauxModel.mapRawRows
+        (s"''", "NULL")
+
+      case MultiLanguageColumn(_) =>
+        val linkedColumn = c.to match {
+          case _: DateTimeColumn =>
+            parseDateTimeSql(s"utl$toTableId.column_${c.to.id}")
+          case _: DateColumn =>
+            parseDateSql(s"utl$toTableId.column_${c.to.id}")
+          case _ =>
+            s"utl$toTableId.column_${c.to.id}"
+        }
+
+        // No distinct needed, just one rawValues
+        (s"column_${c.to.id}", s"json_object_agg(utl$toTableId.langtag, $linkedColumn)")
+
+      case _: DateTimeColumn =>
+        (s"column_${c.to.id}", parseDateTimeSql(s"ut$toTableId.column_${c.id}") + s" AS column_${c.id}")
+
+      case _: DateColumn =>
+        (s"column_${c.to.id}", parseDateSql(s"ut$toTableId.column_${c.id}"))
+
+      case _: SimpleValueColumn[_] =>
+        (s"column_${c.to.id}", s"ut$toTableId.column_${c.to.id}")
+    }
+
+    s"""(
+        |SELECT
+        | json_agg(sub.value)
+        |FROM
+        |(SELECT
+        |   lt$linkId.${direction.fromSql} AS ${direction.fromSql},
+        |   json_build_object('id', ut$toTableId.id, 'value', $value) AS value
+        | FROM
+        |   link_table_$linkId lt$linkId
+        |   JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
+        |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
+        | WHERE $column IS NOT NULL
+        | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+        | ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+        |) sub
+        |WHERE sub.${direction.fromSql} = ut.id
+        |GROUP BY sub.${direction.fromSql}) AS column_${c.id}""".stripMargin
   }
 
   private def generateFlagsProjection(tableId: TableId): String = {
