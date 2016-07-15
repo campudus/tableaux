@@ -299,6 +299,38 @@ class LinkColumnTest extends LinkTestBase {
     } yield ()
   }
 
+  @Test
+  def createBiDirectionalLinkColumnAsIdentifier(implicit c: TestContext): Unit = okTest {
+    for {
+      table1 <- createEmptyDefaultTable()
+      table2 <- createEmptyDefaultTable()
+
+      identifierLinkColum = Json.obj("kind" -> "link", "name" -> "link", "toTable" -> table2, "identifier" -> true)
+      columns = Json.obj("columns" -> Json.arr(identifierLinkColum))
+
+      _ <- sendRequest("POST", s"/tables/$table1/columns", columns)
+      // both tables should only have one identifier column
+      _ <- sendRequest("POST", s"/tables/$table1/columns/1", Json.obj("identifier" -> false))
+
+      resultColumns1 <- sendRequest("GET", "/tables/1/columns")
+      resultColumns2 <- sendRequest("GET", "/tables/2/columns")
+    } yield {
+      import com.campudus.tableaux.helper.JsonUtils._
+
+      val columns1 = asCastedList[JsonObject](resultColumns1.getJsonArray("columns")).get
+      val columns2 = asCastedList[JsonObject](resultColumns2.getJsonArray("columns")).get
+
+      assertEquals(columns1.size, columns2.size)
+      // in table 1 the link column should be an identifier
+      assertEquals("link", columns1.head.getString("kind"))
+      assertTrue(s"identifier of ${columns1.head} should be true", columns1.head.getBoolean("identifier", false))
+
+      // in table 2 the link column should not be an identifier - otherwise we would have a cycle
+      assertEquals("link", columns2(2).getString("kind"))
+      assertFalse(s"identifier of ${columns2(2)} should be false", columns2(2).getBoolean("identifier", false))
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])

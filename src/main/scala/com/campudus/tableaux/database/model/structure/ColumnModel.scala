@@ -105,7 +105,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         t <- {
           if (!linkColumnInfo.singleDirection && tableId != linkColumnInfo.toTable) {
             val copiedLinkColumnInfo = linkColumnInfo.copy(
-              name = linkColumnInfo.toName.getOrElse(table.name)
+              name = linkColumnInfo.toName.getOrElse(table.name),
+              identifier = false
             )
             insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
               // ColumnInfo will be ignored, so we can lose it

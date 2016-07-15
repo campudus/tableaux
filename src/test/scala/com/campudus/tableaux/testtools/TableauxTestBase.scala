@@ -104,6 +104,10 @@ trait TestAssertionHelper {
     c.assertFalse(condition)
   }
 
+  def assertFalse(message: String, condition: Boolean)(implicit c: TestContext): TestContext = {
+    c.assertFalse(condition, message)
+  }
+
   def assertNotSame[A](first: A, second: A)(implicit c: TestContext): TestContext = {
     c.assertNotEquals(first, second)
   }
