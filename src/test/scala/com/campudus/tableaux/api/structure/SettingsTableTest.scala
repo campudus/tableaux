@@ -32,7 +32,8 @@ class SettingsTableTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json.obj("name" -> "key", "kind" -> "shorttext"),
           Json.obj("name" -> "displayKey", "kind" -> "shorttext"),
-          Json.obj("name" -> "value", "kind" -> "text")
+          Json.obj("name" -> "value", "kind" -> "text"),
+          Json.obj("name" -> "attachment", "kind" -> "attachment")
         ),
         "rows" -> Json.emptyArr()
       )
