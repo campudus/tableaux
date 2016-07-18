@@ -23,6 +23,7 @@ case class CreateLinkColumn(override val name: String,
                             override val ordering: Option[Ordering],
                             toTable: TableId,
                             toName: Option[String],
+                            toDisplayInfos: Option[Seq[DisplayInfo]],
                             singleDirection: Boolean,
                             override val identifier: Boolean,
                             override val displayInfos: Seq[DisplayInfo]) extends CreateColumn {

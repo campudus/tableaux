@@ -82,8 +82,9 @@ object JsonUtils extends LazyLogging {
               val toName = Try(Option(json.getString("toName"))).toOption.flatten
               val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
               val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
+              val toDisplayInfos = Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.allInfos)
 
-              CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier, displayInfos)
+              CreateLinkColumn(name, ordering, toTableId, toName, toDisplayInfos, singleDirection, identifier, displayInfos)
 
             case _ =>
               CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)

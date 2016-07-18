@@ -331,6 +331,56 @@ class LinkColumnTest extends LinkTestBase {
     }
   }
 
+  @Test
+  def createBiDirectionalLinkColumnWithoutDisplayInfos(implicit c: TestContext): Unit = okTest {
+    for {
+      table1 <- createEmptyDefaultTable(name = "Test Table 1", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 1")), None)
+      table2 <- createEmptyDefaultTable(name = "Test Table 2", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 2")), None)
+
+      linkColumn = Json.obj("kind" -> "link", "name" -> "link", "toTable" -> table2)
+      columns = Json.obj("columns" -> Json.arr(linkColumn))
+
+      createdLinkColumn <- sendRequest("POST", s"/tables/$table1/columns", columns)
+      linkColumnId = createdLinkColumn.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+
+      resultColumns1 <- sendRequest("GET", s"/tables/$table1/columns/$linkColumnId")
+      resultColumns2 <- sendRequest("GET", s"/tables/$table2/columns/$linkColumnId")
+    } yield {
+      assertEquals("link", resultColumns1.getString("name"))
+      assertEquals("Test Table 1", resultColumns2.getString("name"))
+      assertEquals(Json.obj("de" -> "Test Deutsch 1"), resultColumns2.getJsonObject("displayName"))
+    }
+  }
+
+  @Test
+  def createBiDirectionalLinkColumnWithDisplayInfos(implicit c: TestContext): Unit = okTest {
+    for {
+      table1 <- createEmptyDefaultTable(name = "Test Table 1", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 1")), None)
+      table2 <- createEmptyDefaultTable(name = "Test Table 2", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 2")), None)
+
+      linkColumn = Json.obj(
+        "kind" -> "link",
+        "name" -> "link",
+        "toTable" -> table2,
+        "toDisplayInfos" -> Json.obj(
+          "displayName" -> Json.obj("de" -> "displayName"),
+          "description" -> Json.obj("de" -> "description")
+        )
+      )
+      columns = Json.obj("columns" -> Json.arr(linkColumn))
+
+      createdLinkColumn <- sendRequest("POST", s"/tables/$table1/columns", columns)
+      linkColumnId = createdLinkColumn.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+
+      resultColumns1 <- sendRequest("GET", s"/tables/$table1/columns/$linkColumnId")
+      resultColumns2 <- sendRequest("GET", s"/tables/$table2/columns/$linkColumnId")
+    } yield {
+      assertEquals("link", resultColumns1.getString("name"))
+      assertEquals("Test Table 1", resultColumns2.getString("name"))
+      assertEquals(Json.obj("de" -> "displayName"), resultColumns2.getJsonObject("displayName"))
+      assertEquals(Json.obj("de" -> "description"), resultColumns2.getJsonObject("description"))
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])

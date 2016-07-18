@@ -51,7 +51,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
         toCol = toTableColumns.head
 
-        (linkId, CreatedColumnInformation(_, id, ordering, displayInfos)) <- createLinkColumn(table, linkColumnInfo)
+        (linkId, CreatedColumnInformation(_, id, ordering, displayInfos)) <- createLinkColumn(table, toTable, linkColumnInfo)
       } yield LinkColumn(BasicColumnInformation(table, id, linkColumnInfo.name, ordering, linkColumnInfo.identifier, displayInfos), toCol, linkId, LeftToRight(table.id, linkColumnInfo.toTable))
 
       case attachmentColumnInfo: CreateAttachmentColumn =>
@@ -90,7 +90,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createLinkColumn(table: Table, linkColumnInfo: CreateLinkColumn): Future[(LinkId, CreatedColumnInformation)] = {
+  private def createLinkColumn(table: Table, toTable: Table, linkColumnInfo: CreateLinkColumn): Future[(LinkId, CreatedColumnInformation)] = {
     val tableId = table.id
 
     connection.transactional { t =>
@@ -106,7 +106,13 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           if (!linkColumnInfo.singleDirection && tableId != linkColumnInfo.toTable) {
             val copiedLinkColumnInfo = linkColumnInfo.copy(
               name = linkColumnInfo.toName.getOrElse(table.name),
-              identifier = false
+              identifier = false,
+              displayInfos = linkColumnInfo.toDisplayInfos.getOrElse({
+                table.displayInfos.map({
+                  case DisplayInfo(langtag, Some(name), optDesc) =>
+                    NameOnly(langtag, name)
+                })
+              })
             )
             // ColumnInfo will be ignored, so we can lose it
             insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))

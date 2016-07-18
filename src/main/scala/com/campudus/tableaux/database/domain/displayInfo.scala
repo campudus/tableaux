@@ -10,12 +10,18 @@ sealed trait DisplayInfo {
   val optionalDescription: Option[String]
 }
 
-case class NameOnly(langtag: Langtag, name: String) extends DisplayInfo{
+object DisplayInfo {
+  def unapply(displayInfo: DisplayInfo): Option[(Langtag, Option[String], Option[String])] = {
+    Some(displayInfo.langtag, displayInfo.optionalName, displayInfo.optionalDescription)
+  }
+}
+
+case class NameOnly(langtag: Langtag, name: String) extends DisplayInfo {
   val optionalName = Some(name)
   val optionalDescription = None
 }
 
-case class DescriptionOnly(langtag: Langtag, description: String) extends DisplayInfo{
+case class DescriptionOnly(langtag: Langtag, description: String) extends DisplayInfo {
   val optionalName = None
   val optionalDescription = Some(description)
 }
@@ -109,10 +115,11 @@ object DisplayInfos {
     both.toList ::: nameOnly.toList ::: descOnly.toList
   }
 
-  def fromString(langtag: String, name: String, description: String): DisplayInfo = (langtag, name, description) match {
-    case (_, name, null) => NameOnly(langtag, name)
-    case (_, null, desc) => DescriptionOnly(langtag, description)
-    case (_, name, desc) => NameAndDescription(langtag, name, description)
+  def fromString(langtag: String, name: String, description: String): DisplayInfo = (Option(name), Option(description)) match {
+    case (Some(_), None) => NameOnly(langtag, name)
+    case (None, Some(_)) => DescriptionOnly(langtag, description)
+    case (Some(_), Some(_)) => NameAndDescription(langtag, name, description)
+    case (None, None) => NameOnly(langtag, name)
   }
 
   def apply(tableId: TableId, entries: Seq[DisplayInfo]): TableDisplayInfos =
