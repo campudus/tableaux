@@ -7,6 +7,7 @@ import io.vertx.core.Vertx
 import io.vertx.scala.FunctionConverters._
 
 import scala.concurrent.ExecutionContext
+import scala.util.control.NonFatal
 
 trait VertxExecutionContext extends LazyLogging {
 
@@ -37,7 +38,7 @@ class VertxEventLoopExecutionContext(val vertx: Vertx, val errorHandler: (Throwa
       try {
         runnable.run()
       } catch {
-        case e: Throwable =>
+        case NonFatal(e) =>
           reportFailure(e)
       } finally {
         _vertx.cancelTimer(timerId)
@@ -47,7 +48,7 @@ class VertxEventLoopExecutionContext(val vertx: Vertx, val errorHandler: (Throwa
         try {
           runnable.run()
         } catch {
-          case e: Throwable =>
+          case NonFatal(e) =>
             reportFailure(e)
         } finally {
           _vertx.cancelTimer(timerId)

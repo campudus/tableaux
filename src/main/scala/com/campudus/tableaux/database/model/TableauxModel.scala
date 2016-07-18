@@ -5,7 +5,6 @@ import java.util.UUID
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.RowId
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
@@ -129,13 +128,15 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
       }
     } yield {
       val objects = result
-        .groupBy({ t => (t._1, t._2) })
+        .groupBy({ case (dependentTable, column, _) => (dependentTable, column) })
         .map({
           case ((groupedByTable, groupedByColumn), dependentRowInformation) =>
-            (groupedByTable, groupedByColumn, dependentRowInformation.flatMap(_._3).distinct)
+            (groupedByTable, groupedByColumn, dependentRowInformation.flatMap({
+              case (_, _, values) => values
+            }).distinct)
         })
         .filter({
-          _._3.nonEmpty
+          case (_, _, values) => values.nonEmpty
         })
         .map({
           case (groupedByTable, groupedByColumn, dependentRows) =>
@@ -151,7 +152,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     for {
       _ <- table.tableType match {
         case GenericTable => Future.successful(())
-        case SettingsTable => Future.failed(new ForbiddenException("can't delete a row of a settings table", "row"))
+        case SettingsTable => Future.failed(ForbiddenException("can't delete a row of a settings table", "row"))
       }
 
       columns <- retrieveColumns(table)
@@ -221,7 +222,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
       _ <- column match {
         case linkColumn: LinkColumn => updateRowModel.deleteLink(table, linkColumn, rowId, toId)
-        case _ => Future.failed(new WrongColumnKindException(column, classOf[LinkColumn]))
+        case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
@@ -236,7 +237,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
 
       _ <- column match {
         case linkColumn: LinkColumn => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
-        case _ => Future.failed(new WrongColumnKindException(column, classOf[LinkColumn]))
+        case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
@@ -258,7 +259,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) => Future.failed(new ForbiddenException("can't update key cell of a settings table", "cell"))
+        case (SettingsTable, 1 | 2) => Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
         case _ => Future.successful(())
       }
 
@@ -276,7 +277,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) => Future.failed(new ForbiddenException("can't update key cell of a settings table", "cell"))
+        case (SettingsTable, 1 | 2) => Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
         case _ => Future.successful(())
       }
 
@@ -295,7 +296,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     for {
       _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) => Future.failed(new ForbiddenException("can't update key cell of a settings table", "cell"))
+        case (SettingsTable, 1 | 2) => Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
         case _ => Future.successful(())
       }
 

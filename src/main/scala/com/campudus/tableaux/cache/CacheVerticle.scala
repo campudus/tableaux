@@ -230,6 +230,16 @@ class CacheVerticle extends ScalaVerticle {
     }
   }
 
+  private def filterScalaCaches(tableId: TableId) = {
+    // invalidate table
+    caches
+      .filterKeys({
+        case (cachedTableId, _) =>
+          cachedTableId == tableId
+      })
+      .values
+  }
+
   private def messageHandlerInvalidateRow(message: Message[JsonObject]): Unit = {
     val obj = message.body()
 
@@ -238,16 +248,10 @@ class CacheVerticle extends ScalaVerticle {
       rowId <- Option(obj.getLong("rowId")).map(_.toLong)
     } yield (tableId, rowId)) match {
       case Some((tableId, rowId)) =>
-        // invalidate table
-        val filterdCaches = caches
-          .filter(_._1._1 == tableId)
-          .values
 
-        Future.sequence(filterdCaches
+        Future.sequence(filterScalaCaches(tableId)
           .map({
-            cache =>
-              implicit val scalaCache = cache
-              remove(rowId)
+            implicit cache => remove(rowId)
           }))
           .map({
             _ =>
@@ -272,16 +276,9 @@ class CacheVerticle extends ScalaVerticle {
       tableId <- Option(obj.getLong("tableId")).map(_.toLong)
     } yield tableId) match {
       case Some(tableId) =>
-        // invalidate table
-        val filterdCaches = caches
-          .filter(_._1._1 == tableId)
-          .values
-
-        Future.sequence(filterdCaches
+        Future.sequence(filterScalaCaches(tableId)
           .map({
-            cache =>
-              implicit val scalaCache = cache
-              removeAll()
+            implicit cache => removeAll()
           }))
           .map({
             _ =>
@@ -293,8 +290,8 @@ class CacheVerticle extends ScalaVerticle {
           })
 
       case None =>
-        logger.error("Message invalid: Fields (tableId, columnId) should be a Long")
-        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId) should be a Long")
+        logger.error("Message invalid: Fields (tableId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId) should be a Long")
     }
   }
 
@@ -307,9 +304,8 @@ class CacheVerticle extends ScalaVerticle {
               removeCache(tableId, columnId)
           })
     })).onComplete({
-      case _ =>
+      _ =>
         caches.clear()
-
         message.reply(Json.emptyObj())
     })
   }

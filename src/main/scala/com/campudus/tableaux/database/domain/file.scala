@@ -44,9 +44,9 @@ case class TableauxFile(uuid: UUID,
     * @return None if multi-language and Some('de-DE') if single-language
     */
   def isSingleLanguage(): Option[String] = {
-    internalName.size == 1 match {
-      case true => Some(internalName.values.head._1)
-      case false => None
+    internalName.values.toList match {
+      case (langtag, value) :: Nil => Some(langtag)
+      case _ => None
     }
   }
 }

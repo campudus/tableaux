@@ -43,7 +43,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         toTableColumns <- retrieveAll(toTable).flatMap({
           columns =>
             if (columns.isEmpty) {
-              Future.failed(new NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
+              Future.failed(NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
             } else {
               Future.successful(columns)
             }
@@ -108,9 +108,11 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
               name = linkColumnInfo.toName.getOrElse(table.name),
               identifier = false
             )
+            // ColumnInfo will be ignored, so we can lose it
             insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
-              // ColumnInfo will be ignored, so we can lose it
-              .map(_._1)
+              .map({
+                case (t, _) => t
+              })
           } else {
             Future(t)
           }
@@ -165,7 +167,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           .flatMap({
             case (t, count) =>
               if (count > 0) {
-                Future.failed(new ShouldBeUniqueException("Column name should be unique for each table", "column"))
+                Future.failed(ShouldBeUniqueException("Column name should be unique for each table", "column"))
               } else {
                 Future.successful(t)
               }
@@ -383,7 +385,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       toColumnOpt = foreignColumns.headOption
     } yield {
       if (toColumnOpt.isEmpty) {
-        throw new NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns")
+        throw NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns")
       }
 
       val toColumn = toColumnOpt.get

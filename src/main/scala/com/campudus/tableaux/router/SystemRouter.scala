@@ -11,18 +11,21 @@ import scala.concurrent.Future
 import scala.util.matching.Regex
 
 object SystemRouter {
-  var nonce: String = null
+  private var nonce: Option[String] = None
 
   def apply(config: TableauxConfig, controllerCurry: (TableauxConfig) => SystemController): SystemRouter = {
     new SystemRouter(config, controllerCurry(config))
   }
 
-  def retrieveNonce(): Option[String] = Option(nonce)
+  def retrieveNonce(): Option[String] = nonce
 
   def generateNonce(): String = {
-    nonce = UUID.randomUUID().toString
-    nonce
+    val nonceString = UUID.randomUUID().toString
+    nonce = Some(nonceString)
+    nonceString
   }
+
+  def invalidateNonce(): Unit = nonce = None
 }
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
@@ -103,12 +106,12 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       SystemRouter.generateNonce()
       logger.info(s"Generated a new nonce: ${SystemRouter.nonce}")
       throw NoNonceException("No nonce available. Generated new nonce.")
-    } else if (requestNonce.isEmpty || requestNonce.get != SystemRouter.retrieveNonce().get) {
-      SystemRouter.generateNonce()
+    } else if (requestNonce.isEmpty || requestNonce != SystemRouter.retrieveNonce()) {
       logger.info(s"Generated a new nonce: ${SystemRouter.nonce}")
+      SystemRouter.generateNonce()
       throw InvalidNonceException("Nonce can't be empty and must be valid. Generated new nonce.")
     }
 
-    SystemRouter.nonce = null
+    SystemRouter.invalidateNonce()
   }
 }

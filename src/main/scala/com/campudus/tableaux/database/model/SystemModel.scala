@@ -144,7 +144,9 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     logger.info(s"Setup schema version $versionId")
 
     for {
-      t <- t.query(stmt).map(_._1)
+      t <- t.query(stmt).map({
+        case (t, _) => t
+      })
       t <- saveVersion(t, versionId)
     } yield t
   }

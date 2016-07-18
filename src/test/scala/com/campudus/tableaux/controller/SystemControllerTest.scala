@@ -90,13 +90,13 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def resetWithOutNonce(implicit c: TestContext): Unit = exceptionTest("error.nonce.none") {
-    SystemRouter.nonce = null
+    SystemRouter.invalidateNonce()
     sendRequest("POST", s"/system/reset")
   }
 
   @Test
   def resetWithNonceButInvalidRequestNonce(implicit c: TestContext): Unit = exceptionTest("error.nonce.invalid") {
-    val nonce = SystemRouter.generateNonce()
+    SystemRouter.generateNonce()
     sendRequest("POST", s"/system/reset?nonce=asdf")
   }
 }

@@ -15,6 +15,7 @@ import org.vertx.scala.router.routing.{AsyncReply, Error, Header, Ok}
 import org.vertx.scala.router.{Router, RouterException}
 
 import scala.concurrent.{Future, Promise}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 trait BaseRouter extends Router with VertxAccess with LazyLogging {
@@ -46,7 +47,7 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
 
   private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject]): AsyncReply = AsyncReply {
     val catchedReplyFunction = try replyFunction catch {
-      case ex: Throwable => Future.failed(ex)
+      case NonFatal(ex) => Future.failed(ex)
     }
 
     catchedReplyFunction.map({
@@ -60,7 +61,7 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
       case ex: NoNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
       case ex: CustomException => Error(ex.toRouterException)
       case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
-      case ex: Throwable => Error(RouterException("unknown error", ex, "error.unknown", 500))
+      case NonFatal(ex) => Error(RouterException("unknown error", ex, "error.unknown", 500))
     })
   }
 

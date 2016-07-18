@@ -2,7 +2,7 @@ package com.campudus.tableaux
 
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 sealed trait ArgumentCheck[A] {
   def map[B](f: A => B): ArgumentCheck[B]
@@ -95,17 +95,25 @@ object ArgumentChecker {
     }
   }
 
-  def checkForAllValues[A](json: JsonObject, p: (A => Boolean), name: String): ArgumentCheck[JsonObject] = {
+  def checkForAllValues[A](json: JsonObject, predicate: (A => Boolean), name: String): ArgumentCheck[JsonObject] = {
     import scala.collection.JavaConverters._
-    val fields = json.fieldNames().asScala
-    val tail = fields.dropWhile(key => Try(p(json.getValue(key).asInstanceOf[A])).getOrElse(false))
+    val fields = json.fieldNames().asScala.toList
+    val failedFields = fields.filter(
+      field =>
+        Try(predicate(json.getValue(field).asInstanceOf[A])) match {
+          case Failure(_) | Success(false) =>
+            true
+          case _ =>
+            false
+        })
 
-    if (tail.isEmpty) {
-      OkArg(json)
-    } else if (json.getValue(tail.head) == null) {
-      FailArg(InvalidJsonException(s"Warning: $name has value '${tail.head}' pointing at null.", "invalid"))
-    } else {
-      FailArg(InvalidJsonException(s"Warning: $name has incorrectly typed value at key '${tail.head}'.", "invalid"))
+    failedFields match {
+      case Nil =>
+        OkArg(json)
+      case field :: _ if Option(json.getValue(field)).isEmpty =>
+        FailArg(InvalidJsonException(s"Warning: $name has value '$field' pointing at null.", "invalid"))
+      case field :: _ =>
+        FailArg(InvalidJsonException(s"Warning: $name has incorrectly typed value at key '$field'.", "invalid"))
     }
   }
 
