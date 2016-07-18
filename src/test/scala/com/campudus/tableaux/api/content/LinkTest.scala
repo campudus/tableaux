@@ -302,8 +302,8 @@ class LinkColumnTest extends LinkTestBase {
   @Test
   def createBiDirectionalLinkColumnAsIdentifier(implicit c: TestContext): Unit = okTest {
     for {
-      table1 <- createEmptyDefaultTable()
-      table2 <- createEmptyDefaultTable()
+      table1 <- createEmptyDefaultTable(name = "Test Table 1")
+      table2 <- createEmptyDefaultTable(name = "Test Table 2")
 
       identifierLinkColum = Json.obj("kind" -> "link", "name" -> "link", "toTable" -> table2, "identifier" -> true)
       columns = Json.obj("columns" -> Json.arr(identifierLinkColum))

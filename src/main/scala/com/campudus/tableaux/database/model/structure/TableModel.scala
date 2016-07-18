@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model.structure
 
+import com.campudus.tableaux.ShouldBeUniqueException
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
@@ -18,6 +19,16 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   def create(name: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableType: TableType): Future[Table] = {
     connection.transactional { t =>
       for {
+        t <- t.selectSingleValue[Long]("SELECT COUNT(*) FROM system_table WHERE user_table_name = ?", Json.arr(name))
+          .flatMap({
+            case (t, count) =>
+              if (count > 0) {
+                Future.failed(ShouldBeUniqueException("Table name should be unique", "table"))
+              } else {
+                Future.successful(t)
+              }
+          })
+
         (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type) VALUES (?, ?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull, tableType.NAME))
         id = insertNotNull(result).head.get[TableId](0)
 
@@ -177,7 +188,21 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       t <- connection.begin()
 
-      (t, result1) <- optionToValidFuture(tableName, t, { name: String => t.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId)) })
+      (t, result1) <- optionToValidFuture(tableName, t, {
+        name: String =>
+          for {
+            t <- t.selectSingleValue[Long]("SELECT COUNT(*) FROM system_table WHERE user_table_name = ? AND table_id != ?", Json.arr(name, tableId))
+              .flatMap({
+                case (t, count) =>
+                  if (count > 0) {
+                    Future.failed(ShouldBeUniqueException("Table name should be unique", "table"))
+                  } else {
+                    Future.successful(t)
+                  }
+              })
+            (t, result) <- t.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
+          } yield (t, result)
+      })
       (t, result2) <- optionToValidFuture(hidden, t, { hidden: Boolean => t.query(s"UPDATE system_table SET is_hidden = ? WHERE table_id = ?", Json.arr(hidden, tableId)) })
       (t, result3) <- optionToValidFuture(langtags, t, { langtags: Option[Seq[String]] => t.query(s"UPDATE system_table SET langtags = ? WHERE table_id = ?", Json.arr(langtags.map(f => Json.arr(f: _*)).orNull, tableId)) })
       t <- insertOrUpdateTableDisplayInfo(t, tableId, displayInfos)

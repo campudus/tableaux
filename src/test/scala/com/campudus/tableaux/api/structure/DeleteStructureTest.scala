@@ -2,6 +2,7 @@ package com.campudus.tableaux.api.structure
 
 
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -9,11 +10,16 @@ import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
+import scala.util.Random
 
 @RunWith(classOf[VertxUnitRunner])
 class DeleteStructureTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("name" -> "Test Nr. 1")
+  def createTableJson: JsonObject = {
+    val random = Random.nextInt()
+    Json.obj("name" -> s"Test Nr. $random")
+  }
+
   val createStringColumnJson = RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 1")).getJson
   val createIdentifierStringColumnJson = RequestCreation.Columns().add(RequestCreation.Identifier(RequestCreation.TextCol("Test Column 1"))).getJson
 
