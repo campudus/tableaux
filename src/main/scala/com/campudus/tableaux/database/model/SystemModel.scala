@@ -132,7 +132,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     setupVersion(readSchemaFile("schema_v12"), 12),
     setupVersion(readSchemaFile("schema_v13"), 13),
     setupVersion(readSchemaFile("schema_v14"), 14),
-    setupVersion(readSchemaFile("schema_v15"), 15)
+    setupVersion(readSchemaFile("schema_v15"), 15),
+    setupVersion(readSchemaFile("schema_v16"), 16)
   )
 
   private def readSchemaFile(name: String): String = {
@@ -143,7 +144,9 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     logger.info(s"Setup schema version $versionId")
 
     for {
-      t <- t.query(stmt).map(_._1)
+      t <- t.query(stmt).map({
+        case (t, _) => t
+      })
       t <- saveVersion(t, versionId)
     } yield t
   }

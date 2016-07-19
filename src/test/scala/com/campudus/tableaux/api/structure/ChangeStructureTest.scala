@@ -12,11 +12,8 @@ import scala.concurrent.Future
 @RunWith(classOf[VertxUnitRunner])
 class ChangeStructureTest extends TableauxTestBase {
 
-  val expectedJson = Json.obj("status" -> "ok")
-
   @Test
   def changeTableName(implicit c: TestContext): Unit = okTest {
-    val postJson = Json.obj("name" -> "New testname")
     val expectedTableJson = Json.obj(
       "status" -> "ok",
       "id" -> 1,
@@ -28,13 +25,23 @@ class ChangeStructureTest extends TableauxTestBase {
     )
 
     for {
-      _ <- createDefaultTable()
-      test1 <- sendRequest("POST", "/tables/1", postJson)
+      _ <- createDefaultTable(name = "Testname")
+      test1 <- sendRequest("POST", "/tables/1", Json.obj("name" -> "Testname"))
+      test1 <- sendRequest("POST", "/tables/1", Json.obj("name" -> "New testname"))
       test2 <- sendRequest("GET", "/tables/1")
     } yield {
       assertEquals(expectedTableJson, test1)
       assertEquals(expectedTableJson, test2)
     }
+  }
+
+  @Test
+  def changeTableNameToExistingTableName(implicit c: TestContext): Unit = exceptionTest("error.request.unique.table") {
+    for {
+      _ <- createDefaultTable(name = "Testname 1")
+      _ <- createDefaultTable(name = "Testname 2")
+      test1 <- sendRequest("POST", "/tables/2", Json.obj("name" -> "Testname 1"))
+    } yield ()
   }
 
   @Test

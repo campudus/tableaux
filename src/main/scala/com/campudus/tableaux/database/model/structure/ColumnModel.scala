@@ -43,7 +43,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         toTableColumns <- retrieveAll(toTable).flatMap({
           columns =>
             if (columns.isEmpty) {
-              Future.failed(new NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
+              Future.failed(NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
             } else {
               Future.successful(columns)
             }
@@ -51,7 +51,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
         toCol = toTableColumns.head
 
-        (linkId, CreatedColumnInformation(_, id, ordering, displayInfos)) <- createLinkColumn(table, linkColumnInfo)
+        (linkId, CreatedColumnInformation(_, id, ordering, displayInfos)) <- createLinkColumn(table, toTable, linkColumnInfo)
       } yield LinkColumn(BasicColumnInformation(table, id, linkColumnInfo.name, ordering, linkColumnInfo.identifier, displayInfos), toCol, linkId, LeftToRight(table.id, linkColumnInfo.toTable))
 
       case attachmentColumnInfo: CreateAttachmentColumn =>
@@ -90,7 +90,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createLinkColumn(table: Table, linkColumnInfo: CreateLinkColumn): Future[(LinkId, CreatedColumnInformation)] = {
+  private def createLinkColumn(table: Table, toTable: Table, linkColumnInfo: CreateLinkColumn): Future[(LinkId, CreatedColumnInformation)] = {
     val tableId = table.id
 
     connection.transactional { t =>
@@ -105,11 +105,20 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         t <- {
           if (!linkColumnInfo.singleDirection && tableId != linkColumnInfo.toTable) {
             val copiedLinkColumnInfo = linkColumnInfo.copy(
-              name = linkColumnInfo.toName.getOrElse(table.name)
+              name = linkColumnInfo.toName.getOrElse(table.name),
+              identifier = false,
+              displayInfos = linkColumnInfo.toDisplayInfos.getOrElse({
+                table.displayInfos.map({
+                  case DisplayInfo(langtag, Some(name), optDesc) =>
+                    NameOnly(langtag, name)
+                })
+              })
             )
+            // ColumnInfo will be ignored, so we can lose it
             insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
-              // ColumnInfo will be ignored, so we can lose it
-              .map(_._1)
+              .map({
+                case (t, _) => t
+              })
           } else {
             Future(t)
           }
@@ -164,7 +173,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           .flatMap({
             case (t, count) =>
               if (count > 0) {
-                Future.failed(new ShouldBeUniqueException("Column name should be unique for each table", "column"))
+                Future.failed(ShouldBeUniqueException("Column name should be unique for each table", "column"))
               } else {
                 Future.successful(t)
               }
@@ -382,7 +391,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       toColumnOpt = foreignColumns.headOption
     } yield {
       if (toColumnOpt.isEmpty) {
-        throw new NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns")
+        throw NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns")
       }
 
       val toColumn = toColumnOpt.get

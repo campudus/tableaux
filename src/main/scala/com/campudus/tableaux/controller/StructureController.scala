@@ -103,6 +103,10 @@ class StructureController(override val config: TableauxConfig, override protecte
         NameOnly("de", "Inhalt"),
         NameOnly("en", "Value")
       )))
+      _ <- columnStruc.createColumn(created, CreateAttachmentColumn("attachment", None, identifier = false, Seq(
+        NameOnly("de", "Anhang"),
+        NameOnly("en", "Attachment")
+      )))
 
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved

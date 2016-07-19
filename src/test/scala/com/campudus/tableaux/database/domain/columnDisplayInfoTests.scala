@@ -6,6 +6,8 @@ import org.junit.Assert._
 import org.junit.Test
 import org.vertx.scala.core.json.Json
 
+import scala.util.{Failure, Success, Try}
+
 abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
 
   @Test
@@ -202,4 +204,18 @@ class ColumnDisplayInfosTestJsonObject extends AbstractColumnDisplayInfosTest {
     DisplayInfos(tableId, columnId, result)
   }
 
+}
+
+class DisplayInfosTest {
+  @Test
+  def displayInfosFromString(): Unit = {
+    Try(DisplayInfos.fromString("de", None.orNull, None.orNull)) match {
+      case Failure(ex) => assertTrue(ex.isInstanceOf[IllegalArgumentException])
+      case Success(_) => fail("Should throw an IllegalArgumentException")
+    }
+
+    assertEquals(NameOnly("de", "hallo"), DisplayInfos.fromString("de", "hallo", None.orNull))
+    assertEquals(DescriptionOnly("de", "hallo"), DisplayInfos.fromString("de", None.orNull, "hallo"))
+    assertEquals(NameAndDescription("de", "hallo", "hello"), DisplayInfos.fromString("de", "hallo", "hello"))
+  }
 }

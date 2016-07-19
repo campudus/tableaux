@@ -16,7 +16,7 @@ case class Row(table: Table, id: RowId, rowLevelFlags: RowLevelFlags, cellLevelF
       json.mergeIn(rowLevelFlags.getJson)
     }
 
-    if (cellLevelFlags.flags.exists(_._2.nonEmpty)) {
+    if (cellLevelFlags.flags.values.exists(_.nonEmpty)) {
       json.mergeIn(cellLevelFlags.getJson)
     }
 

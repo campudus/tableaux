@@ -82,8 +82,9 @@ object JsonUtils extends LazyLogging {
               val toName = Try(Option(json.getString("toName"))).toOption.flatten
               val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
               val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
+              val toDisplayInfos = Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.allInfos)
 
-              CreateLinkColumn(name, ordering, toTableId, toName, singleDirection, identifier, displayInfos)
+              CreateLinkColumn(name, ordering, toTableId, toName, toDisplayInfos, singleDirection, identifier, displayInfos)
 
             case _ =>
               CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)
@@ -107,10 +108,10 @@ object JsonUtils extends LazyLogging {
 
             MultiCountry(CountryCodes(countryCodeSeq))
           } else {
-            throw new InvalidJsonException("If 'languageType' is 'country' the field 'countryCodes' must be specified.", "countrycodes")
+            throw InvalidJsonException("If 'languageType' is 'country' the field 'countryCodes' must be specified.", "countrycodes")
           }
         case LanguageType.NEUTRAL => LanguageNeutral
-        case _ => throw new InvalidJsonException("Field 'languageType' should only contain 'neutral', 'language' or 'country'", "languagetype")
+        case _ => throw InvalidJsonException("Field 'languageType' should only contain 'neutral', 'language' or 'country'", "languagetype")
       }
     } else if (json.containsKey("multilanguage")) {
       logger.warn("JSON contains deprecated field 'multilanguage' use 'languageType' instead.")
@@ -158,8 +159,8 @@ object JsonUtils extends LazyLogging {
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     val identifier = Try(json.getBoolean("identifier").booleanValue()).toOption
-    val displayNames = Try(checkForAllValues[String](json.getJsonObject("displayName"), n => n == null || n.isInstanceOf[String], "displayName").get).toOption
-    val descriptions = Try(checkForAllValues[String](json.getJsonObject("description"), d => d == null || d.isInstanceOf[String], "description").get).toOption
+    val displayNames = Try(checkForAllValues[String](json.getJsonObject("displayName"), n => Option(n).isEmpty || n.isInstanceOf[String], "displayName").get).toOption
+    val descriptions = Try(checkForAllValues[String](json.getJsonObject("description"), d => Option(d).isEmpty || d.isInstanceOf[String], "description").get).toOption
 
     val countryCodes = booleanToValueOption(json.containsKey("countryCodes"), {
       checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"), "countryCodes").get

@@ -104,6 +104,10 @@ trait TestAssertionHelper {
     c.assertFalse(condition)
   }
 
+  def assertFalse(message: String, condition: Boolean)(implicit c: TestContext): TestContext = {
+    c.assertFalse(condition, message)
+  }
+
   def assertNotSame[A](first: A, second: A)(implicit c: TestContext): TestContext = {
     c.assertNotEquals(first, second)
   }
@@ -363,26 +367,46 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       requestHandler(httpJsonRequest(method, url, p))
   }
 
-  protected def createEmptyDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[TableId] = {
-    val postTable = Json.obj("name" -> name)
+  protected def createDefaultColumns(tableId: TableId): Future[(ColumnId, ColumnId)] = {
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1", "identifier" -> true)))
     val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
     for {
+      column1 <- sendRequest("POST", s"/tables/$tableId/columns", createStringColumnJson)
+      columnId1 = column1.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+
+      column2 <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
+      columnId2 = column1.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+    } yield (columnId1, columnId2)
+  }
+
+  protected def createEmptyDefaultTable(name: String = "Test Table 1", tableNum: Int = 1, displayName: Option[JsonObject] = None, description: Option[JsonObject] = None): Future[TableId] = {
+    val postTable = Json.obj("name" -> name)
+
+    displayName.map({
+      obj =>
+        Json.obj("displayName" -> obj)
+    }).foreach(postTable.mergeIn)
+
+    description.map({
+      obj =>
+        Json.obj("description" -> obj)
+    }).foreach(postTable.mergeIn)
+
+    for {
       tableId <- sendRequest("POST", "/tables", postTable) map { js => js.getLong("id") }
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", createStringColumnJson)
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
+      _ <- createDefaultColumns(tableId)
     } yield tableId
   }
 
-  protected def createDefaultTable(name: String = "Test Table 1", tableNum: Int = 1): Future[TableId] = {
+  protected def createDefaultTable(name: String = "Test Table 1", tableNum: Int = 1, displayName: Option[JsonObject] = None, description: Option[JsonObject] = None): Future[TableId] = {
     val fillStringCellJson = Json.obj("value" -> s"table${tableNum}row1")
     val fillStringCellJson2 = Json.obj("value" -> s"table${tableNum}row2")
     val fillNumberCellJson = Json.obj("value" -> 1)
     val fillNumberCellJson2 = Json.obj("value" -> 2)
 
     for {
-      tableId <- createEmptyDefaultTable(name, tableNum)
+      tableId <- createEmptyDefaultTable(name, tableNum, displayName, description)
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", fillStringCellJson)

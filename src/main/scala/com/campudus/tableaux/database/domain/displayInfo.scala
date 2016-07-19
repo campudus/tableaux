@@ -10,12 +10,18 @@ sealed trait DisplayInfo {
   val optionalDescription: Option[String]
 }
 
-case class NameOnly(langtag: Langtag, name: String) extends DisplayInfo{
+object DisplayInfo {
+  def unapply(displayInfo: DisplayInfo): Option[(Langtag, Option[String], Option[String])] = {
+    Some(displayInfo.langtag, displayInfo.optionalName, displayInfo.optionalDescription)
+  }
+}
+
+case class NameOnly(langtag: Langtag, name: String) extends DisplayInfo {
   val optionalName = Some(name)
   val optionalDescription = None
 }
 
-case class DescriptionOnly(langtag: Langtag, description: String) extends DisplayInfo{
+case class DescriptionOnly(langtag: Langtag, description: String) extends DisplayInfo {
   val optionalName = None
   val optionalDescription = Some(description)
 }
@@ -92,27 +98,33 @@ object DisplayInfos {
 
   def allInfos(json: JsonObject): Seq[DisplayInfo] = {
     import scala.collection.JavaConverters._
-    val names = json.getJsonObject("displayName", Json.obj()).fieldNames().asScala
-    val descriptions = json.getJsonObject("description", Json.obj()).fieldNames().asScala
-    val both = names.intersect(descriptions) map { lang =>
+
+    val nameLangtags = json.getJsonObject("displayName", Json.obj()).fieldNames().asScala
+    val descriptionLangtags = json.getJsonObject("description", Json.obj()).fieldNames().asScala
+
+    val both = nameLangtags.intersect(descriptionLangtags) map { lang =>
       NameAndDescription(lang,
         json.getJsonObject("displayName").getString(lang),
-        json.getJsonObject("description").getString(lang))
+        json.getJsonObject("description").getString(lang)
+      )
     }
-    val nameOnly = names.diff(descriptions) map { lang =>
+
+    val nameOnly = nameLangtags.diff(descriptionLangtags) map { lang =>
       NameOnly(lang, json.getJsonObject("displayName").getString(lang))
     }
-    val descOnly = descriptions.diff(names) map { lang =>
+
+    val descOnly = descriptionLangtags.diff(nameLangtags) map { lang =>
       DescriptionOnly(lang, json.getJsonObject("description").getString(lang))
     }
 
     both.toList ::: nameOnly.toList ::: descOnly.toList
   }
 
-  def fromString(langtag: String, name: String, description: String): DisplayInfo = (langtag, name, description) match {
-    case (_, name, null) => NameOnly(langtag, name)
-    case (_, null, desc) => DescriptionOnly(langtag, description)
-    case (_, name, desc) => NameAndDescription(langtag, name, description)
+  def fromString(langtag: String, displayName: String, description: String): DisplayInfo = (Option(displayName), Option(description)) match {
+    case (Some(_), None) => NameOnly(langtag, displayName)
+    case (None, Some(_)) => DescriptionOnly(langtag, description)
+    case (Some(_), Some(_)) => NameAndDescription(langtag, displayName, description)
+    case (None, None) => throw new IllegalArgumentException("Either displayName or description must be defined.")
   }
 
   def apply(tableId: TableId, entries: Seq[DisplayInfo]): TableDisplayInfos =

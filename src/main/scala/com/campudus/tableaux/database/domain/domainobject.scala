@@ -12,7 +12,7 @@ trait DomainObjectHelper {
   private def compatibility[A](returnType: ReturnType)(value: A): Any = {
     value match {
       case Some(a) => compatibility(returnType)(a)
-      case None => null
+      case None => None.orNull
       case s: Seq[_] => compatibilitySeq(returnType)(s)
       case d: DomainObject => d.toJson(returnType)
       case _ => value
@@ -114,7 +114,7 @@ object MultiLanguageValue {
               columnsValueMap.get.put(column, value)
             } else {
               result.put(langtag, mutable.Map.empty[String, Any])
-              result.get(langtag).get.put(column, value)
+              result(langtag).put(column, value)
             }
         })
     })

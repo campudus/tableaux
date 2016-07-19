@@ -33,6 +33,11 @@ class ErrorTest extends TableauxTestBase {
   val notFound = "NOT FOUND"
 
   @Test
+  def sendInvalidJsonToValidRoute(implicit c: TestContext): Unit = exceptionTest(errorJsonInvalid) {
+    sendRequest("POST", "/tables", "{ 'invalid': true', funny' }{")
+  }
+
+  @Test
   def requestWrongRoute(implicit c: TestContext): Unit = exceptionTest(notFound) {
     sendRequest("GET", "/wrong/route")
   }

@@ -1,18 +1,32 @@
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.TableauxTestBase
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
+import scala.util.Random
+
 @RunWith(classOf[VertxUnitRunner])
 class CreateTableTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("name" -> "Test Nr. 1")
-  val createTableJsonWithHiddenFlag = Json.obj("name" -> "Test Nr. 1", "hidden" -> true)
-  val createTableJsonWithLangtags = Json.obj("name" -> "Test Nr. 1", "langtags" -> Json.arr("de-DE", "en-GB", "en-US"))
+  def createTableJson: JsonObject = {
+    val random = Random.nextInt()
+    Json.obj("name" -> s"Test Nr. $random")
+  }
+
+  def createTableJsonWithHiddenFlag: JsonObject = {
+    val random = Random.nextInt()
+    Json.obj("name" -> s"Test Nr. $random", "hidden" -> true)
+  }
+
+  def createTableJsonWithLangtags: JsonObject = {
+    val random = Random.nextInt()
+    Json.obj("name" -> s"Test Nr. $random", "langtags" -> Json.arr("de-DE", "en-GB", "en-US"))
+  }
 
   @Test
   def createTableWithName(implicit c: TestContext): Unit = okTest {
@@ -23,12 +37,16 @@ class CreateTableTest extends TableauxTestBase {
       "description" -> Json.obj(),
       "langtags" -> Json.arr("de-DE", "en-GB")
     )
-    val expectedJson1 = baseExpected.copy().put("id", 1).mergeIn(createTableJson)
-    val expectedJson2 = baseExpected.copy().put("id", 2).mergeIn(createTableJson)
+
+    val createTable1 = createTableJson
+    val createTable2 = createTableJson
+
+    val expectedJson1 = baseExpected.copy().put("id", 1).mergeIn(createTable1)
+    val expectedJson2 = baseExpected.copy().put("id", 2).mergeIn(createTable2)
 
     for {
-      test1 <- sendRequest("POST", "/tables", createTableJson)
-      test2 <- sendRequest("POST", "/tables", createTableJson)
+      test1 <- sendRequest("POST", "/tables", createTable1)
+      test2 <- sendRequest("POST", "/tables", createTable2)
     } yield {
       assertEquals(expectedJson1, test1)
       assertEquals(expectedJson2, test2)
@@ -43,12 +61,16 @@ class CreateTableTest extends TableauxTestBase {
       "description" -> Json.obj(),
       "langtags" -> Json.arr("de-DE", "en-GB")
     )
-    val expectedJson1 = baseExpected.copy().put("id", 1).mergeIn(createTableJsonWithHiddenFlag)
-    val expectedJson2 = baseExpected.copy().put("id", 2).mergeIn(createTableJsonWithHiddenFlag)
+
+    val createTable1 = createTableJsonWithHiddenFlag
+    val createTable2 = createTableJsonWithHiddenFlag
+
+    val expectedJson1 = baseExpected.copy().put("id", 1).mergeIn(createTable1)
+    val expectedJson2 = baseExpected.copy().put("id", 2).mergeIn(createTable2)
 
     for {
-      test1 <- sendRequest("POST", "/tables", createTableJsonWithHiddenFlag)
-      test2 <- sendRequest("POST", "/tables", createTableJsonWithHiddenFlag)
+      test1 <- sendRequest("POST", "/tables", createTable1)
+      test2 <- sendRequest("POST", "/tables", createTable2)
     } yield {
       assertEquals(expectedJson1, test1)
       assertEquals(expectedJson2, test2)
@@ -63,12 +85,16 @@ class CreateTableTest extends TableauxTestBase {
       "displayName" -> Json.obj(),
       "description" -> Json.obj()
     )
-    val expectedJson1 = baseExpected.copy().put("id", 1).mergeIn(createTableJsonWithLangtags)
-    val expectedJson2 = baseExpected.copy().put("id", 2).mergeIn(createTableJsonWithLangtags)
+
+    val createTable1 = createTableJsonWithLangtags
+    val createTable2 = createTableJsonWithLangtags
+
+    val expectedJson1 = baseExpected.copy().put("id", 1).mergeIn(createTable1)
+    val expectedJson2 = baseExpected.copy().put("id", 2).mergeIn(createTable2)
 
     for {
-      test1Post <- sendRequest("POST", "/tables", createTableJsonWithLangtags)
-      test2Post <- sendRequest("POST", "/tables", createTableJsonWithLangtags)
+      test1Post <- sendRequest("POST", "/tables", createTable1)
+      test2Post <- sendRequest("POST", "/tables", createTable2)
 
       test1Get <- sendRequest("GET", "/tables/1")
       test2Get <- sendRequest("GET", "/tables/2")
@@ -79,6 +105,14 @@ class CreateTableTest extends TableauxTestBase {
       assertEquals(test1Get, test1Post)
       assertEquals(test2Get, test2Post)
     }
+  }
+
+  @Test
+  def createTablesWithSameName(implicit c: TestContext): Unit = exceptionTest("error.request.unique.table") {
+    for {
+      _ <- sendRequest("POST", "/tables", Json.obj("name" -> s"Test"))
+      _ <- sendRequest("POST", "/tables", Json.obj("name" -> s"Test"))
+    } yield ()
   }
 
 }

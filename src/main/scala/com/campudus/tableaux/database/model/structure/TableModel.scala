@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model.structure
 
+import com.campudus.tableaux.ShouldBeUniqueException
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
@@ -18,6 +19,16 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   def create(name: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableType: TableType): Future[Table] = {
     connection.transactional { t =>
       for {
+        t <- t.selectSingleValue[Long]("SELECT COUNT(*) FROM system_table WHERE user_table_name = ?", Json.arr(name))
+          .flatMap({
+            case (t, count) =>
+              if (count > 0) {
+                Future.failed(ShouldBeUniqueException("Table name should be unique", "table"))
+              } else {
+                Future.successful(t)
+              }
+          })
+
         (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type) VALUES (?, ?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull, tableType.NAME))
         id = insertNotNull(result).head.get[TableId](0)
 
@@ -106,20 +117,11 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   private def getTableWithDisplayInfos(tableId: TableId, defaultLangtags: Seq[String]): Future[Table] = {
     connection.transactional { t: connection.Transaction =>
       for {
-        (t, result) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type FROM system_table WHERE table_id = ?", Json.arr(tableId))
-        row = selectNotNull(result).head
-        table = convertRowToTable(row, defaultLangtags)
-        (t, result) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
+        (t, tableResult) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type FROM system_table WHERE table_id = ?", Json.arr(tableId))
+        (t, displayInfoResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang WHERE table_id = ?", Json.arr(tableId))
       } yield {
-        val displayInfoTable = resultObjectToJsonArray(result)
-          .groupBy(_.getLong(0).toLong)
-          .mapValues(
-            _.filter(arr => arr.getString(2) != null || arr.getString(3) != null)
-              .map(arr => DisplayInfos.fromString(arr.getString(1), arr.getString(2), arr.getString(3)))
-          )
-
-        val filledTable = table.copy(displayInfos = displayInfoTable.get(table.id).toList.flatten)
-        (t, filledTable)
+        val table = convertRowToTable(selectNotNull(tableResult).head, defaultLangtags)
+        (t, mapDisplayInfosIntoTable(Seq(table), displayInfoResult).head)
       }
     }
   }
@@ -127,21 +129,27 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   private def getTablesWithDisplayInfos(defaultLangtags: Seq[String]): Future[Seq[Table]] = {
     connection.transactional { t =>
       for {
-        (t, result) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type FROM system_table ORDER BY ordering, table_id")
-        tablesInRows = resultObjectToJsonArray(result)
-        tableRows = tablesInRows.map(convertRowToTable(_, defaultLangtags))
-        (t, result) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
+        (t, tablesResult) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type FROM system_table ORDER BY ordering, table_id")
+        (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
       } yield {
-        val displayInfoTable = resultObjectToJsonArray(result)
-          .groupBy(_.getLong(0).toLong)
-          .mapValues(
-            _.filter(arr => arr.getString(2) != null || arr.getString(3) != null)
-              .map(arr => DisplayInfos.fromString(arr.getString(1), arr.getString(2), arr.getString(3)))
-          )
-        val filledTables = tableRows.map(table => table.copy(displayInfos = displayInfoTable.get(table.id).toList.flatten))
-        (t, filledTables)
+        val tables = resultObjectToJsonArray(tablesResult).map(convertRowToTable(_, defaultLangtags))
+        (t, mapDisplayInfosIntoTable(tables, displayInfosResult))
       }
     }
+  }
+
+  private def mapDisplayInfosIntoTable(tables: Seq[Table], result: JsonObject): Seq[(Table)] = {
+    val displayInfoTable = resultObjectToJsonArray(result)
+      .groupBy(_.getLong(0).toLong)
+      .mapValues(
+        _.filter(arr => Option(arr.getString(2)).isDefined || Option(arr.getString(3)).isDefined)
+          .map(arr => DisplayInfos.fromString(arr.getString(1), arr.getString(2), arr.getString(3)))
+      )
+
+    tables.map({
+      table =>
+        table.copy(displayInfos = displayInfoTable.get(table.id).toList.flatten)
+    })
   }
 
   private def convertRowToTable(row: JsonArray, defaultLangtags: Seq[String]): Table = {
@@ -177,7 +185,21 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       t <- connection.begin()
 
-      (t, result1) <- optionToValidFuture(tableName, t, { name: String => t.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId)) })
+      (t, result1) <- optionToValidFuture(tableName, t, {
+        name: String =>
+          for {
+            t <- t.selectSingleValue[Long]("SELECT COUNT(*) FROM system_table WHERE user_table_name = ? AND table_id != ?", Json.arr(name, tableId))
+              .flatMap({
+                case (t, count) =>
+                  if (count > 0) {
+                    Future.failed(ShouldBeUniqueException("Table name should be unique", "table"))
+                  } else {
+                    Future.successful(t)
+                  }
+              })
+            (t, result) <- t.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
+          } yield (t, result)
+      })
       (t, result2) <- optionToValidFuture(hidden, t, { hidden: Boolean => t.query(s"UPDATE system_table SET is_hidden = ? WHERE table_id = ?", Json.arr(hidden, tableId)) })
       (t, result3) <- optionToValidFuture(langtags, t, { langtags: Option[Seq[String]] => t.query(s"UPDATE system_table SET langtags = ? WHERE table_id = ?", Json.arr(langtags.map(f => Json.arr(f: _*)).orNull, tableId)) })
       t <- insertOrUpdateTableDisplayInfo(t, tableId, displayInfos)
