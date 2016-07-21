@@ -55,6 +55,7 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
     connection.transactional { t: connection.Transaction =>
       for {
         (t, displayInfoResult) <- t.query("SELECT id, langtag, name, description FROM system_tablegroup_lang WHERE id = ?", Json.arr(id))
+        _ = selectNotNull(displayInfoResult)
       } yield {
         (t, mapDisplayInfosIntoTableGroup(displayInfoResult).head)
       }

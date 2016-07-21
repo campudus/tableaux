@@ -1,6 +1,7 @@
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.TableauxTestBase
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -38,7 +39,7 @@ class TableGroupTest extends TableauxTestBase {
   }
 
   @Test
-  def changeTableGroup(implicit c: TestContext): Unit = okTest {
+  def changeTableGroupWithExistingLangtag(implicit c: TestContext): Unit = okTest {
     val createTableGroupJson = Json.obj(
       "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
       "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
@@ -50,7 +51,27 @@ class TableGroupTest extends TableauxTestBase {
       createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
       groupId = createdGroup.getInteger("id")
 
-      updatedGroup <- sendRequest("POST", s"/group/$groupId", changeTableGroupJson)
+      updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
+    } yield {
+      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
+      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson), updatedGroup)
+    }
+  }
+
+  @Test
+  def changeTableGroupWithNewLangtag(implicit c: TestContext): Unit = okTest {
+    val createTableGroupJson = Json.obj(
+      "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
+      "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
+    )
+
+    val changeTableGroupJson = Json.obj("displayName" -> Json.obj("fr" -> "lé unlustisch"))
+
+    for {
+      createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
+      groupId = createdGroup.getInteger("id")
+
+      updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
     } yield {
       assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
       assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson), updatedGroup)
@@ -70,7 +91,7 @@ class TableGroupTest extends TableauxTestBase {
       createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
       groupId = createdGroup.getInteger("id")
 
-      _ <- sendRequest("POST", s"/group/$groupId", invalidChangeTableGroupJson)
+      _ <- sendRequest("POST", s"/groups/$groupId", invalidChangeTableGroupJson)
     } yield ()
   }
 
@@ -136,6 +157,58 @@ class TableGroupTest extends TableauxTestBase {
     } yield {
       assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdTable.getJsonObject("group"))
       assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), retrieveTable.getJsonObject("group"))
+    }
+  }
+
+  @Test
+  def retrieveAllTablesWithTableGroups(implicit c: TestContext): Unit = okTest {
+    val createTableGroupJson = Json.obj(
+      "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
+      "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
+    )
+
+    for {
+      createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
+      groupId = createdGroup.getInteger("id")
+
+      createdTable <- sendRequest("POST", s"/tables", Json.obj("name" -> "test", "group" -> groupId))
+      tableId = createdTable.getInteger("id")
+
+      retrieveTables <- sendRequest("GET", s"/tables")
+    } yield {
+      import com.campudus.tableaux.helper.JsonUtils._
+      val tables = asCastedList[JsonObject](retrieveTables.getJsonArray("tables")).get
+
+      assertEquals(1, tables.size)
+
+      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), tables.head.getJsonObject("group"))
+    }
+  }
+
+  @Test
+  def retrieveAllTablesWithTableGroupsAfterDeletingTableGroup(implicit c: TestContext): Unit = okTest {
+    val createTableGroupJson = Json.obj(
+      "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
+      "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
+    )
+
+    for {
+      createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
+      groupId = createdGroup.getInteger("id")
+
+      createdTable <- sendRequest("POST", s"/tables", Json.obj("name" -> "test", "group" -> groupId))
+      tableId = createdTable.getInteger("id")
+
+      _ <- sendRequest("DELETE", s"/groups/$groupId")
+
+      retrieveTables <- sendRequest("GET", s"/tables")
+    } yield {
+      import com.campudus.tableaux.helper.JsonUtils._
+      val tables = asCastedList[JsonObject](retrieveTables.getJsonArray("tables")).get
+
+      assertEquals(1, tables.size)
+
+      assertFalse(tables.head.containsKey("group"))
     }
   }
 }

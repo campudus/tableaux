@@ -98,21 +98,10 @@ sealed trait DisplayInfos {
 
   protected def insertSql(table: String, idColumn: String, idValue: Long): Map[Langtag, (String, Seq[Any])] = {
     entries.foldLeft(Map.empty[Langtag, (String, Seq[Any])]) {
-      case (resultMap, NameOnly(langtag, name)) =>
-        val statement = s"INSERT INTO $table ($idColumn, langtag, name) VALUES (?, ?, ?)"
-        val binds = Seq(idValue, langtag, name)
-
-        resultMap + (langtag -> (statement, binds))
-
-      case (resultMap, DescriptionOnly(langtag, description)) =>
-        val statement = s"INSERT INTO $table ($idColumn, langtag, description) VALUES (?, ?, ?)"
-        val binds = Seq(idValue, langtag, description)
-
-        resultMap + (langtag -> (statement, binds))
-
-      case (resultMap, NameAndDescription(langtag, name, description)) =>
-        val statement = s"INSERT INTO $table ($idColumn, langtag, name, description) VALUES (?, ?, ?, ?)"
-        val binds = Seq(idValue, langtag, name, description)
+      case (resultMap, DisplayInfo(langtag, nameOpt, descriptionOpt)) =>
+        val nameAndDesc = nameOpt.map(_ => "name").toList ::: descriptionOpt.map(_ => "description").toList
+        val statement = s"INSERT INTO $table (${nameAndDesc.mkString(", ")}, $idColumn, langtag) VALUES (${nameAndDesc.map(_ => "?").mkString(", ")}, ?, ?)"
+        val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(idValue, langtag)
 
         resultMap + (langtag -> (statement, binds))
     }
@@ -122,21 +111,10 @@ sealed trait DisplayInfos {
 
   protected def updateSql(table: String, idColumn: String, idValue: Long): Map[Langtag, (String, Seq[Any])] = {
     entries.foldLeft(Map.empty[Langtag, (String, Seq[Any])]) {
-      case (resultMap, NameOnly(langtag, name)) =>
-        val statement = s"UPDATE $table SET name = ? WHERE $idColumn = ? AND langtag = ?"
-        val binds = Seq(name, idValue, langtag)
-
-        resultMap + (langtag -> (statement, binds))
-
-      case (resultMap, DescriptionOnly(langtag, description)) =>
-        val statement = s"UPDATE $table SET description = ? WHERE $idColumn = ? AND langtag = ?"
-        val binds = Seq(description, idValue, langtag)
-
-        resultMap + (langtag -> (statement, binds))
-
-      case (resultMap, NameAndDescription(langtag, name, description)) =>
-        val statement = s"UPDATE $table SET name = ?, description = ? WHERE $idColumn = ? AND langtag = ?"
-        val binds = Seq(name, description, idValue, langtag)
+      case (resultMap, DisplayInfo(langtag, nameOpt, descriptionOpt)) =>
+        val nameAndDesc = nameOpt.map(_ => "name = ?").toList ::: descriptionOpt.map(_ => "description = ?").toList
+        val statement = s"UPDATE $table SET ${nameAndDesc.mkString(", ")} WHERE $idColumn = ? AND langtag = ?"
+        val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(idValue, langtag)
 
         resultMap + (langtag -> (statement, binds))
     }

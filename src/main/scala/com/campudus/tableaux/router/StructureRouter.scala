@@ -25,7 +25,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   private val Tables: Regex = "/tables".r
   private val TableOrder: Regex = "/tables/(\\d+)/order".r
 
-  private val Group: Regex = "/group/(\\d+)".r
+  private val Group: Regex = "/groups/(\\d+)".r
   private val Groups: Regex = "/groups".r
 
   override def routes(implicit context: RoutingContext): Routing = {
@@ -185,7 +185,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Delete Group
       */
     case Delete(Group(tableGroupId)) => asyncEmptyReply {
-      controller.deleteTable(tableGroupId.toLong)
+      controller.deleteTableGroup(tableGroupId.toLong)
     }
 
     /**

@@ -217,13 +217,12 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield tableGroup
   }
 
-  def deleteTableGroup(tableGroupId: TableGroupId): Future[TableGroup] = {
+  def deleteTableGroup(tableGroupId: TableGroupId): Future[EmptyObject] = {
     checkArguments(greaterZero(tableGroupId))
     logger.info(s"deleteTableGroup $tableGroupId")
 
     for {
       _ <- tableGroupStruc.delete(tableGroupId)
-      tableGroup <- tableGroupStruc.retrieve(tableGroupId)
-    } yield tableGroup
+    } yield EmptyObject()
   }
 }
