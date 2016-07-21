@@ -71,7 +71,7 @@ object JsonUtils extends LazyLogging {
           val languageType = parseJsonForLanguageType(json)
 
           // displayName and description; both multi-language objects
-          val displayInfos = DisplayInfos.allInfos(json)
+          val displayInfos = DisplayInfos.fromJson(json)
 
           dbType match {
             case AttachmentType =>
@@ -82,7 +82,7 @@ object JsonUtils extends LazyLogging {
               val toName = Try(Option(json.getString("toName"))).toOption.flatten
               val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
               val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
-              val toDisplayInfos = Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.allInfos)
+              val toDisplayInfos = Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
 
               CreateLinkColumn(name, ordering, toTableId, toName, toDisplayInfos, singleDirection, identifier, displayInfos)
 
@@ -152,21 +152,23 @@ object JsonUtils extends LazyLogging {
     valueList <- nonEmpty(valueAsAnyList, "values")
   } yield valueList
 
-  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean], Option[JsonObject], Option[JsonObject], Option[Seq[String]]) = {
+  def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean], Option[Seq[DisplayInfo]], Option[Seq[String]]) = {
     import scala.collection.JavaConverters._
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     val identifier = Try(json.getBoolean("identifier").booleanValue()).toOption
-    val displayNames = Try(checkForAllValues[String](json.getJsonObject("displayName"), n => Option(n).isEmpty || n.isInstanceOf[String], "displayName").get).toOption
-    val descriptions = Try(checkForAllValues[String](json.getJsonObject("description"), d => Option(d).isEmpty || d.isInstanceOf[String], "description").get).toOption
+    val displayInfos = DisplayInfos.fromJson(json) match {
+      case list if list.isEmpty => None
+      case list => Some(list)
+    }
 
     val countryCodes = booleanToValueOption(json.containsKey("countryCodes"), {
       checkAllValuesOfArray[String](json.getJsonArray("countryCodes"), d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"), "countryCodes").get
     }).map(_.asScala.toSeq.map({ case code: String => code }))
 
-    (name, ord, kind, identifier, displayNames, descriptions, countryCodes)
+    (name, ord, kind, identifier, displayInfos, countryCodes)
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {

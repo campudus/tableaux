@@ -1,13 +1,12 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.{ForbiddenException, TableauxConfig}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import org.vertx.scala.core.json.JsonObject
+import com.campudus.tableaux.{ForbiddenException, TableauxConfig}
 
 import scala.concurrent.Future
 
@@ -183,16 +182,15 @@ class StructureController(override val config: TableauxConfig, override protecte
                    ordering: Option[Ordering],
                    kind: Option[TableauxDbType],
                    identifier: Option[Boolean],
-                   displayName: Option[JsonObject],
-                   description: Option[JsonObject],
+                   displayInfos: Option[Seq[DisplayInfo]],
                    countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId), isDefined(Seq(columnName, ordering, kind, identifier, displayName, description, countryCodes)))
-    logger.info(s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier displayName=${displayName.map(_.encode())} description=${description.map(_.encode())}, countryCodes=${countryCodes}")
+    checkArguments(greaterZero(tableId), greaterZero(columnId), isDefined(Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes)))
+    logger.info(s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier displayInfos=$displayInfos, countryCodes=$countryCodes")
 
     for {
       table <- tableStruc.retrieve(tableId)
       changed <- table.tableType match {
-        case GenericTable => columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayName, description, countryCodes)
+        case GenericTable => columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 

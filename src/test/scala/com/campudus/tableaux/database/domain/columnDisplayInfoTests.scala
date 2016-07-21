@@ -13,84 +13,91 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
   @Test
   def checkSingleName(): Unit = {
     val di = singleName(1, 1, "de_DE", "Spalte 1")
+    val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-          |VALUES (?, ?, ?, ?, ?)""".stripMargin, di.statement)
-    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", null), di.binds)
+          |VALUES (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "), statement)
+    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", null), binds)
   }
 
   @Test
   def checkMultipleNames(): Unit = {
     val di = multipleNames(1, 1, List("de_DE" -> "Spalte 1", "en_US" -> "Column 1"))
+    val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
+          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "), statement)
     checkPartsInRandomOrder(Seq(
       Seq(1, 1, "de_DE", "Spalte 1", null),
       Seq(1, 1, "en_US", "Column 1", null)
-    ), di.binds)
+    ), binds)
   }
 
   @Test
   def checkSingleDescription(): Unit = {
     val di = singleDesc(1, 1, "de_DE", "Spalte 1 Beschreibung")
+    val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-          |VALUES (?, ?, ?, ?, ?)""".stripMargin, di.statement)
-    assertEquals(Seq(1, 1, "de_DE", null, "Spalte 1 Beschreibung"), di.binds)
+          |VALUES (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "), statement)
+    assertEquals(Seq(1, 1, "de_DE", null, "Spalte 1 Beschreibung"), binds)
   }
 
   @Test
   def checkMultipleDescriptions(): Unit = {
     val di = multipleDescs(1, 1, List("de_DE" -> "Spalte 1 Beschreibung", "en_US" -> "Column 1 Description"))
+    val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
+          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "), statement)
     checkPartsInRandomOrder(Seq(
       Seq(1, 1, "de_DE", null, "Spalte 1 Beschreibung"),
       Seq(1, 1, "en_US", null, "Column 1 Description")
-    ), di.binds)
+    ), binds)
   }
 
   @Test
   def checkSingleNameAndDescription(): Unit = {
     val di = singleNameAndDesc(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung")
+    val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-          |VALUES (?, ?, ?, ?, ?)""".stripMargin, di.statement)
-    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung"), di.binds)
+          |VALUES (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "), statement)
+    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung"), binds)
   }
 
   @Test
   def checkMultipleNamesAndDescriptions(): Unit = {
     val di = multipleNameAndDesc(1, 1, List(("de_DE", "Spalte 1", "Spalte 1 Beschreibung"),
       ("en_US", "Column 1", "Column 1 Description")))
+    val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
+          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "), statement)
     checkPartsInRandomOrder(Seq(
       Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung"),
       Seq(1, 1, "en_US", "Column 1", "Column 1 Description")
-    ), di.binds)
+    ), binds)
   }
 
   @Test
   def checkNameAndOtherDesc(): Unit = {
     val di = multipleNameAndDesc(1, 1, List(("de_DE", "Spalte 1", null), ("en_US", null, "Column 1 Description")))
+    val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
+          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "), statement)
     checkPartsInRandomOrder(Seq(
       Seq(1, 1, "de_DE", "Spalte 1", null),
       Seq(1, 1, "en_US", null, "Column 1 Description")
-    ), di.binds)
+    ), binds)
   }
 
   @Test
@@ -100,17 +107,18 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
       ("en_US", null, "Column 1 Description"),
       ("fr_FR", "Colonne 1", null)
     ))
+    val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
       s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin, di.statement)
+          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "), statement)
     val all = Seq(
       Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung"),
       Seq(1, 1, "en_US", null, "Column 1 Description"),
       Seq(1, 1, "fr_FR", "Colonne 1", null)
     )
 
-    checkPartsInRandomOrder(all, di.binds)
+    checkPartsInRandomOrder(all, binds)
   }
 
   @Test
@@ -138,25 +146,25 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
 class ColumnDisplayInfosTestDirect extends AbstractColumnDisplayInfosTest {
 
   override def emptyDisplayInfo(tableId: TableId, columnId: ColumnId): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, List())
+    ColumnDisplayInfos(tableId, columnId, List())
 
   override def singleName(tableId: TableId, columnId: ColumnId, langtag: String, name: String): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, List(NameOnly(langtag, name)))
+    ColumnDisplayInfos(tableId, columnId, List(NameOnly(langtag, name)))
 
   override def multipleNames(tableId: TableId, columnId: ColumnId, langNames: List[(String, String)]): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, langNames.map(t => NameOnly(t._1, t._2)))
+    ColumnDisplayInfos(tableId, columnId, langNames.map(t => NameOnly(t._1, t._2)))
 
   override def singleDesc(tableId: TableId, columnId: ColumnId, langtag: String, desc: String): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, List(DescriptionOnly(langtag, desc)))
+    ColumnDisplayInfos(tableId, columnId, List(DescriptionOnly(langtag, desc)))
 
   override def multipleDescs(tableId: TableId, columnId: ColumnId, langDescs: List[(String, String)]): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, langDescs.map(t => DescriptionOnly(t._1, t._2)))
+    ColumnDisplayInfos(tableId, columnId, langDescs.map(t => DescriptionOnly(t._1, t._2)))
 
   override def singleNameAndDesc(tableId: TableId, columnId: ColumnId, langtag: String, name: String, desc: String): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, List(NameAndDescription(langtag, name, desc)))
+    ColumnDisplayInfos(tableId, columnId, List(NameAndDescription(langtag, name, desc)))
 
   override def multipleNameAndDesc(tableId: TableId, columnId: ColumnId, infos: List[(String, String, String)]): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, infos.map {
+    ColumnDisplayInfos(tableId, columnId, infos.map {
       case (lang, name, null) => NameOnly(lang, name)
       case (lang, null, desc) => DescriptionOnly(lang, desc)
       case (lang, name, desc) => NameAndDescription(lang, name, desc)
@@ -167,30 +175,30 @@ class ColumnDisplayInfosTestDirect extends AbstractColumnDisplayInfosTest {
 class ColumnDisplayInfosTestJsonObject extends AbstractColumnDisplayInfosTest {
 
   override def emptyDisplayInfo(tableId: TableId, columnId: ColumnId): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, Json.obj())
+    ColumnDisplayInfos(tableId, columnId, DisplayInfos.fromJson(Json.obj()))
 
   override def singleName(tableId: TableId, columnId: ColumnId, langtag: String, name: String): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, Json.obj("displayName" -> Json.obj(langtag -> name)))
+    ColumnDisplayInfos(tableId, columnId, DisplayInfos.fromJson(Json.obj("displayName" -> Json.obj(langtag -> name))))
 
   override def multipleNames(tableId: TableId, columnId: ColumnId, langNames: List[(String, String)]): ColumnDisplayInfos = {
-    DisplayInfos(tableId, columnId, Json.obj("displayName" -> langNames.foldLeft(Json.obj()) {
+    ColumnDisplayInfos(tableId, columnId, DisplayInfos.fromJson(Json.obj("displayName" -> langNames.foldLeft(Json.obj()) {
       case (json, (langtag, name)) => json.mergeIn(Json.obj(langtag -> name))
-    }))
+    })))
   }
 
   override def singleDesc(tableId: TableId, columnId: ColumnId, langtag: String, desc: String): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, Json.obj("description" -> Json.obj(langtag -> desc)))
+    ColumnDisplayInfos(tableId, columnId, DisplayInfos.fromJson(Json.obj("description" -> Json.obj(langtag -> desc))))
 
   override def multipleDescs(tableId: TableId, columnId: ColumnId, langDescs: List[(String, String)]): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, Json.obj("description" -> langDescs.foldLeft(Json.obj()) {
+    ColumnDisplayInfos(tableId, columnId, DisplayInfos.fromJson(Json.obj("description" -> langDescs.foldLeft(Json.obj()) {
       case (json, (langtag, desc)) => json.mergeIn(Json.obj(langtag -> desc))
-    }))
+    })))
 
   override def singleNameAndDesc(tableId: TableId, columnId: ColumnId, langtag: String, name: String, desc: String): ColumnDisplayInfos =
-    DisplayInfos(tableId, columnId, Json.obj(
+    ColumnDisplayInfos(tableId, columnId, DisplayInfos.fromJson(Json.obj(
       "displayName" -> Json.obj(langtag -> name),
       "description" -> Json.obj(langtag -> desc)
-    ))
+    )))
 
   override def multipleNameAndDesc(tableId: TableId, columnId: ColumnId, infos: List[(String, String, String)]): ColumnDisplayInfos = {
     val result = infos.foldLeft(Json.obj()) {
@@ -201,7 +209,7 @@ class ColumnDisplayInfosTestJsonObject extends AbstractColumnDisplayInfosTest {
         val d = json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc))
         json.mergeIn(Json.obj("displayName" -> n)).mergeIn(Json.obj("description" -> d))
     }
-    DisplayInfos(tableId, columnId, result)
+    ColumnDisplayInfos(tableId, columnId, DisplayInfos.fromJson(result))
   }
 
 }
@@ -227,16 +235,16 @@ class DisplayInfosTest {
         |  "displayName": {
         |    "en": "displayName en",
         |    "fr": "displayName fr"
-        |  }
+        |  },
         |  "description" : {
-        |    "en": "description en"
+        |    "en": "description en",
         |    "ch": "description ch"
         |  }
         |}
       """.stripMargin)
 
-    val expected = List(NameAndDescription("en", "displayName en", "description en"), NameOnly("fr", "displayName fr"), DescriptionOnly("ch", "description"))
+    val expected = List(NameAndDescription("en", "displayName en", "description en"), NameOnly("fr", "displayName fr"), DescriptionOnly("ch", "description ch"))
 
-    assertEquals(expected, DisplayInfos.allInfos(json))
+    assertEquals(expected, DisplayInfos.fromJson(json))
   }
 }

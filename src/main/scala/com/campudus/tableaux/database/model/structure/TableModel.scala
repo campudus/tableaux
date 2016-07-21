@@ -38,7 +38,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
         t <- createCellFlagsTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
 
-        (t, _) <- createTableDisplayInfos(t, DisplayInfos(id, displayInfos))
+        (t, _) <- createTableDisplayInfos(t, TableDisplayInfos(id, displayInfos))
 
         tableGroup <- tableGroupId match {
           case Some(tableGroupId) =>
@@ -148,7 +148,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   private def getTablesWithDisplayInfos(defaultLangtags: Seq[String]): Future[Seq[Table]] = {
     connection.transactional { t =>
       for {
-        (t, tablesResult) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type FROM system_table ORDER BY ordering, table_id")
+        (t, tablesResult) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id FROM system_table ORDER BY ordering, table_id")
         (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
 
         tableGroups <- tableGroupModel.retrieveAll().map({
@@ -244,7 +244,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     optDisplayInfos match {
       case Some(displayInfos) =>
-        val dis = DisplayInfos(tableId, displayInfos)
+        val dis = TableDisplayInfos(tableId, displayInfos)
         dis.entries.foldLeft(Future.successful(t)) {
           case (future, di) =>
             for {

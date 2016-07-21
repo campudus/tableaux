@@ -265,25 +265,25 @@ abstract class AbstractTableDisplayInfosTest extends AssertionHelpers {
 class TableDisplayInfosTestDirect extends AbstractTableDisplayInfosTest {
 
   override def emptyDisplayInfo(tableId: TableId): TableDisplayInfos =
-    DisplayInfos(tableId, List())
+    TableDisplayInfos(tableId, List())
 
   override def singleName(tableId: TableId, langtag: String, name: String): TableDisplayInfos =
-    DisplayInfos(tableId, List(NameOnly(langtag, name)))
+    TableDisplayInfos(tableId, List(NameOnly(langtag, name)))
 
   override def multipleNames(tableId: TableId, langNames: List[(String, String)]): TableDisplayInfos =
-    DisplayInfos(tableId, langNames.map(t => NameOnly(t._1, t._2)))
+    TableDisplayInfos(tableId, langNames.map(t => NameOnly(t._1, t._2)))
 
   override def singleDesc(tableId: TableId, langtag: String, desc: String): TableDisplayInfos =
-    DisplayInfos(tableId, List(DescriptionOnly(langtag, desc)))
+    TableDisplayInfos(tableId, List(DescriptionOnly(langtag, desc)))
 
   override def multipleDescs(tableId: TableId, langDescs: List[(String, String)]): TableDisplayInfos =
-    DisplayInfos(tableId, langDescs.map(t => DescriptionOnly(t._1, t._2)))
+    TableDisplayInfos(tableId, langDescs.map(t => DescriptionOnly(t._1, t._2)))
 
   override def singleNameAndDesc(tableId: TableId, langtag: String, name: String, desc: String): TableDisplayInfos =
-    DisplayInfos(tableId, List(NameAndDescription(langtag, name, desc)))
+    TableDisplayInfos(tableId, List(NameAndDescription(langtag, name, desc)))
 
   override def multipleNameAndDesc(tableId: TableId, infos: List[(String, String, String)]): TableDisplayInfos =
-    DisplayInfos(tableId, infos.map {
+    TableDisplayInfos(tableId, infos.map {
       case (lang, name, null) => NameOnly(lang, name)
       case (lang, null, desc) => DescriptionOnly(lang, desc)
       case (lang, name, desc) => NameAndDescription(lang, name, desc)
@@ -294,30 +294,30 @@ class TableDisplayInfosTestDirect extends AbstractTableDisplayInfosTest {
 class TableDisplayInfosTestJsonObject extends AbstractTableDisplayInfosTest {
 
   override def emptyDisplayInfo(tableId: TableId): TableDisplayInfos =
-    DisplayInfos(tableId, Json.obj())
+    TableDisplayInfos(tableId, DisplayInfos.fromJson(Json.obj()))
 
   override def singleName(tableId: TableId, langtag: String, name: String): TableDisplayInfos =
-    DisplayInfos(tableId, Json.obj("displayName" -> Json.obj(langtag -> name)))
+    TableDisplayInfos(tableId, DisplayInfos.fromJson(Json.obj("displayName" -> Json.obj(langtag -> name))))
 
   override def multipleNames(tableId: TableId, langNames: List[(String, String)]): TableDisplayInfos = {
-    DisplayInfos(tableId, Json.obj("displayName" -> langNames.foldLeft(Json.obj()) {
+    TableDisplayInfos(tableId, DisplayInfos.fromJson(Json.obj("displayName" -> langNames.foldLeft(Json.obj()) {
       case (json, (langtag, name)) => json.mergeIn(Json.obj(langtag -> name))
-    }))
+    })))
   }
 
   override def singleDesc(tableId: TableId, langtag: String, desc: String): TableDisplayInfos =
-    DisplayInfos(tableId, Json.obj("description" -> Json.obj(langtag -> desc)))
+    TableDisplayInfos(tableId, DisplayInfos.fromJson(Json.obj("description" -> Json.obj(langtag -> desc))))
 
   override def multipleDescs(tableId: TableId, langDescs: List[(String, String)]): TableDisplayInfos =
-    DisplayInfos(tableId, Json.obj("description" -> langDescs.foldLeft(Json.obj()) {
+    TableDisplayInfos(tableId, DisplayInfos.fromJson(Json.obj("description" -> langDescs.foldLeft(Json.obj()) {
       case (json, (langtag, desc)) => json.mergeIn(Json.obj(langtag -> desc))
-    }))
+    })))
 
   override def singleNameAndDesc(tableId: TableId, langtag: String, name: String, desc: String): TableDisplayInfos =
-    DisplayInfos(tableId, Json.obj(
+    TableDisplayInfos(tableId, DisplayInfos.fromJson(Json.obj(
       "displayName" -> Json.obj(langtag -> name),
       "description" -> Json.obj(langtag -> desc)
-    ))
+    )))
 
   override def multipleNameAndDesc(tableId: TableId, infos: List[(String, String, String)]): TableDisplayInfos = {
     val result = infos.foldLeft(Json.obj()) {
@@ -328,7 +328,7 @@ class TableDisplayInfosTestJsonObject extends AbstractTableDisplayInfosTest {
         val d = json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc))
         json.mergeIn(Json.obj("displayName" -> n)).mergeIn(Json.obj("description" -> d))
     }
-    DisplayInfos(tableId, result)
+    TableDisplayInfos(tableId, DisplayInfos.fromJson(result))
   }
 
 }

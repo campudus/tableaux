@@ -1,9 +1,9 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
+import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
@@ -67,7 +67,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
         name = json.getString("name")
         hidden = json.getBoolean("hidden", false).booleanValue()
-        displayInfos = DisplayInfos.allInfos(json)
+        displayInfos = DisplayInfos.fromJson(json)
         tableType = TableType(json.getString("type", GenericTable.NAME))
 
         // if contains than user wants langtags to be set
@@ -107,7 +107,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
         name = Option(json.getString("name"))
         hidden = Option(json.getBoolean("hidden")).map(_.booleanValue())
-        displayInfos = DisplayInfos.allInfos(json) match {
+        displayInfos = DisplayInfos.fromJson(json) match {
           case list if list.isEmpty => None
           case list => Some(list)
         }
@@ -146,8 +146,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     case Post(Column(tableId, columnId)) => asyncGetReply {
       for {
         json <- getJson(context)
-        (optName, optOrd, optKind, optIdent, optDisplayNames, optDescription, optCountryCodes) = toColumnChanges(json)
-        changed <- controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent, optDisplayNames, optDescription, optCountryCodes)
+        (optName, optOrd, optKind, optIdent, optDisplayInfos, optCountryCodes) = toColumnChanges(json)
+        changed <- controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent, optDisplayInfos, optCountryCodes)
       } yield changed
     }
 
@@ -157,7 +157,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     case Post(Groups()) => asyncGetReply {
       for {
         json <- getJson(context)
-        displayInfos = DisplayInfos.allInfos(json) match {
+        displayInfos = DisplayInfos.fromJson(json) match {
           case Nil => throw InvalidJsonException("Either displayName or description or both must be defined!", "groups")
           case list => list
         }
@@ -172,7 +172,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     case Post(Group(tableGroupId)) => asyncGetReply {
       for {
         json <- getJson(context)
-        displayInfos = DisplayInfos.allInfos(json) match {
+        displayInfos = DisplayInfos.fromJson(json) match {
           case list if list.isEmpty => None
           case list => Some(list)
         }
