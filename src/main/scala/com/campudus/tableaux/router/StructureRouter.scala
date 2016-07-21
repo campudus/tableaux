@@ -1,6 +1,6 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
@@ -24,6 +24,9 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   private val Table: Regex = "/tables/(\\d+)".r
   private val Tables: Regex = "/tables".r
   private val TableOrder: Regex = "/tables/(\\d+)/order".r
+
+  private val Group: Regex = "/group/(\\d+)".r
+  private val Groups: Regex = "/groups".r
 
   override def routes(implicit context: RoutingContext): Routing = {
 
@@ -79,7 +82,9 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: ['de-DE']
         langtags = booleanToValueOption(json.containsKey("langtags"), Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
 
-        created <- controller.createTable(name, hidden, langtags, displayInfos, tableType)
+        tableGroupId = booleanToValueOption(json.containsKey("group"), json.getLong("group")).map(_.toLong)
+
+        created <- controller.createTable(name, hidden, langtags, displayInfos, tableType, tableGroupId)
       } yield created
     }
 
@@ -119,7 +124,9 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: overwrite with ['de-DE']
         langtags = booleanToValueOption(json.containsKey("langtags"), Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
 
-        updated <- controller.changeTable(tableId.toLong, name, hidden, langtags, displayInfos)
+        tableGroupId = booleanToValueOption(json.containsKey("group"), Option(json.getLong("group")).map(_.toLong))
+
+        updated <- controller.changeTable(tableId.toLong, name, hidden, langtags, displayInfos, tableGroupId)
       } yield updated
     }
 
@@ -142,6 +149,43 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         (optName, optOrd, optKind, optIdent, optDisplayNames, optDescription, optCountryCodes) = toColumnChanges(json)
         changed <- controller.changeColumn(tableId.toLong, columnId.toLong, optName, optOrd, optKind, optIdent, optDisplayNames, optDescription, optCountryCodes)
       } yield changed
+    }
+
+    /**
+      * Create Group
+      */
+    case Post(Groups()) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        displayInfos = DisplayInfos.allInfos(json) match {
+          case Nil => throw InvalidJsonException("Either displayName or description or both must be defined!", "groups")
+          case list => list
+        }
+
+        created <- controller.createTableGroup(displayInfos)
+      } yield created
+    }
+
+    /**
+      * Update Group
+      */
+    case Post(Group(tableGroupId)) => asyncGetReply {
+      for {
+        json <- getJson(context)
+        displayInfos = DisplayInfos.allInfos(json) match {
+          case list if list.isEmpty => None
+          case list => Some(list)
+        }
+
+        changed <- controller.changeTableGroup(tableGroupId.toLong, displayInfos)
+      } yield changed
+    }
+
+    /**
+      * Delete Group
+      */
+    case Delete(Group(tableGroupId)) => asyncEmptyReply {
+      controller.deleteTable(tableGroupId.toLong)
     }
 
     /**

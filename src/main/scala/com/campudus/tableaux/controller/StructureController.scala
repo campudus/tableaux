@@ -21,6 +21,7 @@ class StructureController(override val config: TableauxConfig, override protecte
 
   val tableStruc = repository.tableStruc
   val columnStruc = repository.columnStruc
+  val tableGroupStruc = repository.tableGroupStruc
 
   def retrieveTable(tableId: TableId): Future[Table] = {
     checkArguments(greaterZero(tableId))
@@ -43,7 +44,7 @@ class StructureController(override val config: TableauxConfig, override protecte
       table <- retrieveTable(tableId)
       created <- table.tableType match {
         case GenericTable => columnStruc.createColumns(table, columns)
-        case SettingsTable => Future.failed(new ForbiddenException("can't add a column to a settings table", "column"))
+        case SettingsTable => Future.failed(ForbiddenException("can't add a column to a settings table", "column"))
       }
 
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
@@ -73,26 +74,26 @@ class StructureController(override val config: TableauxConfig, override protecte
     } yield ColumnSeq(columns)
   }
 
-  def createTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableType: TableType): Future[Table] = {
+  def createTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableType: TableType, tableGroupId: Option[TableGroupId]): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
-    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType")
+    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
 
     tableType match {
-      case SettingsTable => createSettingsTable(tableName, hidden, langtags, displayInfos)
-      case _ => createGenericTable(tableName, hidden, langtags, displayInfos)
+      case SettingsTable => createSettingsTable(tableName, hidden, langtags, displayInfos, tableGroupId)
+      case _ => createGenericTable(tableName, hidden, langtags, displayInfos, tableGroupId)
     }
   }
 
-  def createGenericTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo]): Future[Table] = {
+  def createGenericTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableGroupId: Option[TableGroupId]): Future[Table] = {
     for {
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable)
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId)
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
   }
 
-  def createSettingsTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo]): Future[Table] = {
+  def createSettingsTable(tableName: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableGroupId: Option[TableGroupId]): Future[Table] = {
     for {
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable)
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId)
 
       _ <- columnStruc.createColumn(created, CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty))
       _ <- columnStruc.createColumn(created, CreateSimpleColumn("displayKey", None, ShortTextType, MultiLanguage, identifier = false, Seq(
@@ -147,19 +148,19 @@ class StructureController(override val config: TableauxConfig, override protecte
       table <- tableStruc.retrieve(tableId)
       _ <- table.tableType match {
         case GenericTable => columnStruc.delete(table, columnId)
-        case SettingsTable => Future.failed(new ForbiddenException("can't delete a column from a settings table", "column"))
+        case SettingsTable => Future.failed(ForbiddenException("can't delete a column from a settings table", "column"))
       }
 
       _ <- CacheClient(this.vertx).invalidateColumn(tableId, columnId)
     } yield EmptyObject()
   }
 
-  def changeTable(tableId: TableId, tableName: Option[String], hidden: Option[Boolean], langtags: Option[Option[Seq[String]]], displayInfos: Option[Seq[DisplayInfo]]): Future[Table] = {
-    checkArguments(greaterZero(tableId), isDefined(Seq(tableName, hidden, langtags, displayInfos), "name, hidden, langtags, displayName, description"))
-    logger.info(s"changeTable $tableId $tableName $hidden $langtags")
+  def changeTable(tableId: TableId, tableName: Option[String], hidden: Option[Boolean], langtags: Option[Option[Seq[String]]], displayInfos: Option[Seq[DisplayInfo]], tableGroupId: Option[Option[TableGroupId]]): Future[Table] = {
+    checkArguments(greaterZero(tableId), isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId), "name, hidden, langtags, displayName, description, group"))
+    logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId")
 
     for {
-      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos)
+      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId)
       table <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $table")
@@ -192,10 +193,39 @@ class StructureController(override val config: TableauxConfig, override protecte
       table <- tableStruc.retrieve(tableId)
       changed <- table.tableType match {
         case GenericTable => columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayName, description, countryCodes)
-        case SettingsTable => Future.failed(new ForbiddenException("can't change a column of a settings table", "column"))
+        case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 
       _ <- CacheClient(this.vertx).invalidateColumn(tableId, columnId)
     } yield changed
+  }
+
+  def createTableGroup(displayInfos: Seq[DisplayInfo]): Future[TableGroup] = {
+    checkArguments(nonEmpty(displayInfos, "displayName or description"))
+    logger.info(s"createTableGroup $displayInfos")
+
+    for {
+      tableGroup <- tableGroupStruc.create(displayInfos)
+    } yield tableGroup
+  }
+
+  def changeTableGroup(tableGroupId: TableGroupId, displayInfos: Option[Seq[DisplayInfo]]): Future[TableGroup] = {
+    checkArguments(greaterZero(tableGroupId), isDefined(displayInfos, "displayName or description"))
+    logger.info(s"changeTableGroup $tableGroupId $displayInfos")
+
+    for {
+      _ <- tableGroupStruc.change(tableGroupId, displayInfos)
+      tableGroup <- tableGroupStruc.retrieve(tableGroupId)
+    } yield tableGroup
+  }
+
+  def deleteTableGroup(tableGroupId: TableGroupId): Future[TableGroup] = {
+    checkArguments(greaterZero(tableGroupId))
+    logger.info(s"deleteTableGroup $tableGroupId")
+
+    for {
+      _ <- tableGroupStruc.delete(tableGroupId)
+      tableGroup <- tableGroupStruc.retrieve(tableGroupId)
+    } yield tableGroup
   }
 }

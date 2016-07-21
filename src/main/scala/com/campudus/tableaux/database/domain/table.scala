@@ -25,7 +25,7 @@ case object SettingsTable extends TableType {
   override val NAME = "settings"
 }
 
-case class Table(id: TableId, name: String, hidden: Boolean, langtags: Option[Seq[String]], displayInfos: Seq[DisplayInfo], tableType: TableType) extends DomainObject {
+case class Table(id: TableId, name: String, hidden: Boolean, langtags: Option[Seq[String]], displayInfos: Seq[DisplayInfo], tableType: TableType, tableGroup: Option[TableGroup]) extends DomainObject {
   override def getJson: JsonObject = {
     val result = Json.obj(
       "id" -> id,
@@ -46,6 +46,10 @@ case class Table(id: TableId, name: String, hidden: Boolean, langtags: Option[Se
 
     if (tableType != GenericTable) {
       result.mergeIn(Json.obj("type" -> tableType.NAME))
+    }
+
+    if (tableGroup.isDefined) {
+      result.put("group", tableGroup.get.getJson)
     }
 
     result

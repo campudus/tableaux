@@ -208,7 +208,7 @@ class ColumnDisplayInfosTestJsonObject extends AbstractColumnDisplayInfosTest {
 
 class DisplayInfosTest {
   @Test
-  def displayInfosFromString(): Unit = {
+  def displayInfoFromString(): Unit = {
     Try(DisplayInfos.fromString("de", None.orNull, None.orNull)) match {
       case Failure(ex) => assertTrue(ex.isInstanceOf[IllegalArgumentException])
       case Success(_) => fail("Should throw an IllegalArgumentException")
@@ -217,5 +217,26 @@ class DisplayInfosTest {
     assertEquals(NameOnly("de", "hallo"), DisplayInfos.fromString("de", "hallo", None.orNull))
     assertEquals(DescriptionOnly("de", "hallo"), DisplayInfos.fromString("de", None.orNull, "hallo"))
     assertEquals(NameAndDescription("de", "hallo", "hello"), DisplayInfos.fromString("de", "hallo", "hello"))
+  }
+
+  @Test
+  def displayInfosFromJson(): Unit = {
+    val json = Json.fromObjectString(
+      """
+        |{
+        |  "displayName": {
+        |    "en": "displayName en",
+        |    "fr": "displayName fr"
+        |  }
+        |  "description" : {
+        |    "en": "description en"
+        |    "ch": "description ch"
+        |  }
+        |}
+      """.stripMargin)
+
+    val expected = List(NameAndDescription("en", "displayName en", "description en"), NameOnly("fr", "displayName fr"), DescriptionOnly("ch", "description"))
+
+    assertEquals(expected, DisplayInfos.allInfos(json))
   }
 }
