@@ -4,16 +4,16 @@ import com.campudus.tableaux.database.domain.DisplayInfos._
 import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
-sealed trait DisplayInfo {
-  val langtag: Langtag
-  val optionalName: Option[String]
-  val optionalDescription: Option[String]
-}
-
 object DisplayInfo {
   def unapply(displayInfo: DisplayInfo): Option[(Langtag, Option[String], Option[String])] = {
     Some(displayInfo.langtag, displayInfo.optionalName, displayInfo.optionalDescription)
   }
+}
+
+sealed trait DisplayInfo {
+  val langtag: Langtag
+  val optionalName: Option[String]
+  val optionalDescription: Option[String]
 }
 
 case class NameOnly(langtag: Langtag, name: String) extends DisplayInfo {
@@ -31,76 +31,28 @@ case class NameAndDescription(langtag: Langtag, name: String, description: Strin
   val optionalDescription = Some(description)
 }
 
-class ColumnDisplayInfos(tableId: TableId, columnId: ColumnId, val entries: Seq[DisplayInfo]) {
-
-  def nonEmpty: Boolean = entries.nonEmpty
-
-  def statement: String = {
-    s"""INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description)
-        |VALUES ${entries.map(_ => s"(?, ?, ?, ?, ?)").mkString(", ")}""".stripMargin
-  }
-
-  def binds: Seq[Any] = entries.flatMap {
-    di => List(tableId, columnId, di.langtag, di.optionalName.orNull, di.optionalDescription.orNull)
-  }
-
-}
-
-class TableDisplayInfos(tableId: TableId, val entries: Seq[DisplayInfo]) {
-
-  def nonEmpty: Boolean = entries.nonEmpty
-
-  def createSql: (String, Seq[Any]) = (
-    s"INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES ${entries.map(_ => "(?, ?, ?, ?)").mkString(", ")}",
-    entries.flatMap(di => List(tableId, di.langtag, di.optionalName.orNull, di.optionalDescription.orNull))
-    )
-
-  def insertSql: Map[Langtag, (String, Seq[Any])] = entries.foldLeft(Map[Langtag, (String, Seq[Any])]()) {
-    case (m, NameOnly(langtag, name)) =>
-      m + (langtag ->(
-        s"INSERT INTO system_table_lang (table_id, langtag, name) VALUES (?, ?, ?)",
-        Seq(tableId, langtag, name)
-        ))
-    case (m, DescriptionOnly(langtag, description)) =>
-      m + (langtag ->(
-        s"INSERT INTO system_table_lang (table_id, langtag, description) VALUES (?, ?, ?)",
-        Seq(tableId, langtag, description)
-        ))
-    case (m, NameAndDescription(langtag, name, description)) =>
-      m + (langtag ->(
-        s"INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?)",
-        Seq(tableId, langtag, name, description)
-        ))
-  }
-
-  def updateSql: Map[Langtag, (String, Seq[Any])] = entries.foldLeft(Map[Langtag, (String, Seq[Any])]()) {
-    case (m, NameOnly(langtag, name)) =>
-      m + (langtag ->(
-        s"UPDATE system_table_lang SET name = ? WHERE table_id = ? AND langtag = ?",
-        Seq(name, tableId, langtag)
-        ))
-    case (m, DescriptionOnly(langtag, description)) =>
-      m + (langtag ->(
-        s"UPDATE system_table_lang SET description = ? WHERE table_id = ? AND langtag = ?",
-        Seq(description, tableId, langtag)
-        ))
-    case (m, NameAndDescription(langtag, name, description)) =>
-      m + (langtag ->(
-        s"UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
-        Seq(name, description, tableId, langtag)
-        ))
-  }
-
-}
-
 object DisplayInfos {
   type Langtag = String
 
-  def allInfos(json: JsonObject): Seq[DisplayInfo] = {
+  private def getFieldNames(json: JsonObject, field: String): Seq[String] = {
     import scala.collection.JavaConverters._
 
-    val nameLangtags = json.getJsonObject("displayName", Json.obj()).fieldNames().asScala
-    val descriptionLangtags = json.getJsonObject("description", Json.obj()).fieldNames().asScala
+    Option(json.getJsonObject(field))
+      .map({
+        json =>
+          if (json.fieldNames().size() > 0) {
+            json.fieldNames().asScala.toSeq
+          } else {
+            Seq.empty
+          }
+      })
+      .getOrElse(Seq.empty)
+  }
+
+  def fromJson(json: JsonObject): Seq[DisplayInfo] = {
+
+    val nameLangtags = getFieldNames(json, "displayName")
+    val descriptionLangtags = getFieldNames(json, "description")
 
     val both = nameLangtags.intersect(descriptionLangtags) map { lang =>
       NameAndDescription(lang,
@@ -126,16 +78,101 @@ object DisplayInfos {
     case (Some(_), Some(_)) => NameAndDescription(langtag, displayName, description)
     case (None, None) => throw new IllegalArgumentException("Either displayName or description must be defined.")
   }
+}
 
-  def apply(tableId: TableId, entries: Seq[DisplayInfo]): TableDisplayInfos =
-    new TableDisplayInfos(tableId, entries)
+sealed trait DisplayInfos {
+  val entries: Seq[DisplayInfo]
 
-  def apply(tableId: TableId, json: JsonObject): TableDisplayInfos =
-    apply(tableId, allInfos(json))
+  def nonEmpty: Boolean = entries.nonEmpty
 
-  def apply(tableId: TableId, columnId: ColumnId, entries: Seq[DisplayInfo]): ColumnDisplayInfos =
-    new ColumnDisplayInfos(tableId, columnId, entries)
+  def createSql: (String, Seq[Any])
 
-  def apply(tableId: TableId, columnId: ColumnId, json: JsonObject): ColumnDisplayInfos =
-    apply(tableId, columnId, allInfos(json))
+  protected def createSql(table: String, idColumn: String, idValue: Long): (String, Seq[Any]) = {
+    val statement = s"INSERT INTO $table ($idColumn, langtag, name, description) VALUES ${entries.map(_ => "(?, ?, ?, ?)").mkString(", ")}"
+    val binds = entries.flatMap(di => List(idValue, di.langtag, di.optionalName.orNull, di.optionalDescription.orNull))
+
+    (statement, binds)
+  }
+
+  def insertSql: Map[Langtag, (String, Seq[Any])]
+
+  protected def insertSql(table: String, idColumn: String, idValue: Long): Map[Langtag, (String, Seq[Any])] = {
+    entries.foldLeft(Map.empty[Langtag, (String, Seq[Any])]) {
+      case (resultMap, DisplayInfo(langtag, nameOpt, descriptionOpt)) =>
+        val nameAndDesc = nameOpt.map(_ => "name").toList ::: descriptionOpt.map(_ => "description").toList
+        val statement = s"INSERT INTO $table (${nameAndDesc.mkString(", ")}, $idColumn, langtag) VALUES (${nameAndDesc.map(_ => "?").mkString(", ")}, ?, ?)"
+        val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(idValue, langtag)
+
+        resultMap + (langtag -> (statement, binds))
+    }
+  }
+
+  def updateSql: Map[Langtag, (String, Seq[Any])]
+
+  protected def updateSql(table: String, idColumn: String, idValue: Long): Map[Langtag, (String, Seq[Any])] = {
+    entries.foldLeft(Map.empty[Langtag, (String, Seq[Any])]) {
+      case (resultMap, DisplayInfo(langtag, nameOpt, descriptionOpt)) =>
+        val nameAndDesc = nameOpt.map(_ => "name = ?").toList ::: descriptionOpt.map(_ => "description = ?").toList
+        val statement = s"UPDATE $table SET ${nameAndDesc.mkString(", ")} WHERE $idColumn = ? AND langtag = ?"
+        val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(idValue, langtag)
+
+        resultMap + (langtag -> (statement, binds))
+    }
+  }
+}
+
+case class TableGroupDisplayInfos(tableGroupId: TableGroupId, override val entries: Seq[DisplayInfo]) extends DisplayInfos {
+  val table: String = "system_tablegroup_lang"
+  val idColumn: String = "id"
+  val idValue: TableGroupId = tableGroupId
+
+  override def createSql: (String, Seq[Any]) = createSql(table, idColumn, idValue)
+
+  override def insertSql: Map[Langtag, (String, Seq[Any])] = insertSql(table, idColumn, idValue)
+
+  override def updateSql: Map[Langtag, (String, Seq[Any])] = updateSql(table, idColumn, idValue)
+}
+
+case class TableDisplayInfos(tableId: TableId, override val entries: Seq[DisplayInfo]) extends DisplayInfos {
+  val table: String = "system_table_lang"
+  val idColumn: String = "table_id"
+  val idValue: TableId = tableId
+
+  override def createSql: (String, Seq[Any]) = createSql(table, idColumn, idValue)
+
+  override def insertSql: Map[Langtag, (String, Seq[Any])] = insertSql(table, idColumn, idValue)
+
+  override def updateSql: Map[Langtag, (String, Seq[Any])] = updateSql(table, idColumn, idValue)
+}
+
+case class ColumnDisplayInfos(tableId: TableId, columnId: ColumnId, override val entries: Seq[DisplayInfo]) extends DisplayInfos {
+
+  override def createSql: (String, Seq[Any]) = {
+    val statement = s"INSERT INTO system_columns_lang (table_id, column_id, langtag, name, description) VALUES ${entries.map(_ => "(?, ?, ?, ?, ?)").mkString(", ")}"
+    val binds = entries.flatMap(di => List(tableId, columnId, di.langtag, di.optionalName.orNull, di.optionalDescription.orNull))
+
+    (statement, binds)
+  }
+
+  override def insertSql: Map[Langtag, (String, Seq[Any])] = {
+    entries.foldLeft(Map.empty[Langtag, (String, Seq[Any])]) {
+      case (resultMap, DisplayInfo(langtag, nameOpt, descriptionOpt)) =>
+        val nameAndDesc = nameOpt.map(_ => "name").toList ::: descriptionOpt.map(_ => "description").toList
+        val statement = s"INSERT INTO system_columns_lang (${nameAndDesc.mkString(", ")}, table_id, column_id, langtag) VALUES (${nameAndDesc.map(_ => "?").mkString(", ")}, ?, ?, ?)"
+        val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(tableId, columnId, langtag)
+
+        resultMap + (langtag -> (statement, binds))
+    }
+  }
+
+  override def updateSql: Map[Langtag, (String, Seq[Any])] = {
+    entries.foldLeft(Map.empty[Langtag, (String, Seq[Any])]) {
+      case (resultMap, DisplayInfo(langtag, nameOpt, descriptionOpt)) =>
+        val nameAndDesc = nameOpt.map(_ => "name = ?").toList ::: descriptionOpt.map(_ => "description = ?").toList
+        val statement = s"UPDATE system_columns_lang SET ${nameAndDesc.mkString(", ")} WHERE table_id = ? AND column_id = ? AND langtag = ?"
+        val binds = nameOpt.toList ::: descriptionOpt.toList ::: List(tableId, columnId, langtag)
+
+        resultMap + (langtag -> (statement, binds))
+    }
+  }
 }

@@ -191,8 +191,9 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     def insertColumnLang(t: connection.Transaction, displayInfos: ColumnDisplayInfos): Future[(connection.Transaction, Seq[DisplayInfo])] = {
       if (displayInfos.nonEmpty) {
+        val (statement, binds) = displayInfos.createSql
         for {
-          (t, result) <- t.query(displayInfos.statement, Json.arr(displayInfos.binds: _*))
+          (t, result) <- t.query(statement, Json.arr(binds: _*))
         } yield (t, displayInfos.entries)
       } else {
         Future.successful((t, List()))
@@ -201,7 +202,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     for {
       (t, result) <- insertColumn(t)
-      (t, resultLang) <- insertColumnLang(t, DisplayInfos(tableId, result.columnId, createColumn.displayInfos))
+      (t, resultLang) <- insertColumnLang(t, ColumnDisplayInfos(tableId, result.columnId, createColumn.displayInfos))
     } yield (t, result.copy(displayInfos = createColumn.displayInfos))
   }
 
@@ -577,7 +578,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def change(table: Table, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean], displayName: Option[JsonObject], description: Option[JsonObject], countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
+  def change(table: Table, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean], displayInfos: Option[Seq[DisplayInfo]], countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
     val tableId = table.id
 
     for {
@@ -591,7 +592,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       (t, resultCountryCodes) <- optionToValidFuture(countryCodes, t, { codes: Seq[String] => t.query(s"UPDATE system_columns SET country_codes = ? WHERE table_id = ? AND column_id = ?", Json.arr(Json.arr(codes: _*), tableId, columnId)) })
 
       // change display information
-      t <- insertOrUpdateColumnLangInfo(t, table, columnId, displayName, description)
+      t <- insertOrUpdateColumnLangInfo(t, table.id, columnId, displayInfos)
 
       // change column kind
       (t, _) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}") })
@@ -606,54 +607,26 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield column
   }
 
-  private def insertOrUpdateColumnLangInfo(t: connection.Transaction, table: Table, columnId: ColumnId, displayName: Option[JsonObject], description: Option[JsonObject]): Future[connection.Transaction] = {
+  private def insertOrUpdateColumnLangInfo(t: connection.Transaction, tableId: TableId, columnId: ColumnId, optDisplayInfos: Option[Seq[DisplayInfo]]): Future[connection.Transaction] = {
 
-    val map: Map[String, (Option[String], Option[String])] = (displayName, description) match {
-      case (Some(name), Some(desc)) => zipMultilanguageObjects(name, desc)
-      case (Some(name), None) => zipMultilanguageObjects(name, Json.obj())
-      case (None, Some(desc)) => zipMultilanguageObjects(Json.obj(), desc)
-      case (None, None) => Map.empty
+    optDisplayInfos match {
+      case Some(displayInfos) =>
+        val dis = ColumnDisplayInfos(tableId, columnId, displayInfos)
+        dis.entries.foldLeft(Future.successful(t)) {
+          case (future, di) =>
+            for {
+              t <- future
+              (t, select) <- t.query("SELECT COUNT(*) FROM system_columns_lang WHERE table_id = ? AND column_id = ? AND langtag = ?", Json.arr(tableId, columnId, di.langtag))
+              count = select.getJsonArray("results").getJsonArray(0).getLong(0)
+              (statement, binds) = if (count > 0) {
+                dis.updateSql(di.langtag)
+              } else {
+                dis.insertSql(di.langtag)
+              }
+              (t, _) <- t.query(statement, Json.arr(binds: _*))
+            } yield t
+        }
+      case None => Future.successful(t)
     }
-
-    map.foldLeft(Future.successful(t)) {
-      case (future, (key, (nameOpt, descOpt))) =>
-        for {
-          t <- future
-          (t, select) <- t.query("SELECT COUNT(*) FROM system_columns_lang WHERE table_id = ? AND column_id = ? AND langtag = ?", Json.arr(table.id, columnId, key))
-          count = select.getJsonArray("results").getJsonArray(0).getLong(0)
-          stmt = if (count > 0) {
-            updateStatementFromOptions(nameOpt, descOpt)
-          } else {
-            insertStatementFromOptions(nameOpt, descOpt)
-          }
-          binds = nameOpt.toList ::: descOpt.toList ::: List(table.id, columnId, key)
-          (t, inserted) <- t.query(stmt, Json.arr(binds: _*))
-        } yield t
-    }
-  }
-
-  private def zipMultilanguageObjects(a: JsonObject, b: JsonObject): Map[String, (Option[String], Option[String])] = {
-    import scala.collection.JavaConverters._
-    Map((for {
-      key <- a.fieldNames().asScala ++ b.fieldNames().asScala
-    } yield {
-      (key,
-        (someNullIfExplicitlySet(a, key),
-          someNullIfExplicitlySet(b, key)))
-    }).toSeq: _*)
-  }
-
-  private def someNullIfExplicitlySet(json: JsonObject, key: String): Option[String] = {
-    if (json.fieldNames().contains(key)) Some(json.getString(key)) else Option(json.getString(key))
-  }
-
-  private def insertStatementFromOptions(nameOpt: Option[String], descOpt: Option[String]): String = {
-    val nameAndDesc = nameOpt.map(_ => "name").toList ::: descOpt.map(_ => "description").toList
-    s"INSERT INTO system_columns_lang (${nameAndDesc.mkString(", ")}, table_id, column_id, langtag) VALUES (${nameAndDesc.map(_ => "?").mkString(", ")}, ?, ?, ?)"
-  }
-
-  private def updateStatementFromOptions(nameOpt: Option[String], descOpt: Option[String]): String = {
-    val nameAndDesc = nameOpt.map(_ => "name = ?").toList ::: descOpt.map(_ => "description = ?").toList
-    s"UPDATE system_columns_lang SET ${nameAndDesc.mkString(", ")} WHERE table_id = ? AND column_id = ? AND langtag = ?"
   }
 }

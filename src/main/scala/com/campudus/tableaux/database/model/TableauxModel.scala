@@ -15,6 +15,7 @@ import scala.util.{Failure, Success}
 
 object TableauxModel {
   type LinkId = Long
+  type TableGroupId = Long
   type TableId = Long
   type ColumnId = Long
   type RowId = Long
@@ -40,7 +41,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   private lazy val structureModel = StructureModel(connection)
 
   def createTable(name: String, hidden: Boolean): Future[Table] = {
-    structureModel.tableStruc.create(name, hidden, None, List(), GenericTable)
+    structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None)
   }
 
   def retrieveTable(tableId: TableId): Future[Table] = {
