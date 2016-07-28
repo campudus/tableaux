@@ -29,7 +29,7 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
 
   private def createTableDisplayInfos(t: connection.Transaction, tableGroupId: TableGroupId, displayInfos: Seq[DisplayInfo]): Future[(connection.Transaction, JsonObject)] = {
     if (displayInfos.nonEmpty) {
-      val (statement, binds) = new TableGroupDisplayInfos(tableGroupId, displayInfos).createSql
+      val (statement, binds) = TableGroupDisplayInfos(tableGroupId, displayInfos).createSql
 
       for {
         (t, result) <- t.query(statement, Json.arr(binds: _*))
@@ -52,23 +52,19 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
   }
 
   private def retrieveWithDisplayInfos(id: TableGroupId): Future[TableGroup] = {
-    connection.transactional { t: connection.Transaction =>
-      for {
-        (t, displayInfoResult) <- t.query("SELECT id, langtag, name, description FROM system_tablegroup_lang WHERE id = ?", Json.arr(id))
-        _ = selectNotNull(displayInfoResult)
-      } yield {
-        (t, mapDisplayInfosIntoTableGroup(displayInfoResult).head)
-      }
+    for {
+      displayInfoResult <- connection.query("SELECT id, langtag, name, description FROM system_tablegroup_lang WHERE id = ?", Json.arr(id))
+      _ = selectNotNull(displayInfoResult)
+    } yield {
+      mapDisplayInfosIntoTableGroup(displayInfoResult).head
     }
   }
 
   private def retrieveAllWithDisplayInfos(): Future[Seq[TableGroup]] = {
-    connection.transactional { t: connection.Transaction =>
-      for {
-        (t, displayInfoResult) <- t.query("SELECT id, langtag, name, description FROM system_tablegroup_lang")
-      } yield {
-        (t, mapDisplayInfosIntoTableGroup(displayInfoResult))
-      }
+    for {
+      displayInfoResult <- connection.query("SELECT id, langtag, name, description FROM system_tablegroup_lang")
+    } yield {
+      mapDisplayInfosIntoTableGroup(displayInfoResult)
     }
   }
 
@@ -110,7 +106,7 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
   private def insertOrUpdateTableDisplayInfo(t: connection.Transaction, tableGroupId: TableGroupId, optDisplayInfos: Option[Seq[DisplayInfo]]): Future[connection.Transaction] = {
     optDisplayInfos match {
       case Some(displayInfos) =>
-        val dis = new TableGroupDisplayInfos(tableGroupId, displayInfos)
+        val dis = TableGroupDisplayInfos(tableGroupId, displayInfos)
         dis.entries.foldLeft(Future.successful(t)) {
           case (future, di) =>
             for {

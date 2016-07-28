@@ -124,44 +124,47 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def getTableWithDisplayInfos(tableId: TableId, defaultLangtags: Seq[String]): Future[Table] = {
-    connection.transactional { t: connection.Transaction =>
-      for {
-        (t, tableResult) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id FROM system_table WHERE table_id = ?", Json.arr(tableId))
-        (t, displayInfoResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang WHERE table_id = ?", Json.arr(tableId))
+    for {
+      t <- connection.begin()
 
-        row = selectNotNull(tableResult).head
+      (t, tableResult) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id FROM system_table WHERE table_id = ?", Json.arr(tableId))
+      (t, displayInfoResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang WHERE table_id = ?", Json.arr(tableId))
 
-        tableGroups: Map[TableGroupId, TableGroup] <- Option(row.getLong(5)).map(_.toLong) match {
-          case Some(tableGroupId) =>
-            tableGroupModel.retrieve(tableGroupId).map(tableGroup => Map(tableGroupId -> tableGroup))
-          case None =>
-            Future.successful(Map.empty[TableGroupId, TableGroup])
-        }
+      _ <- t.commit()
 
-      } yield {
-        val table = convertRowToTable(row, defaultLangtags, tableGroups)
-        (t, mapDisplayInfosIntoTable(Seq(table), displayInfoResult).head)
+      row = selectNotNull(tableResult).head
+
+      tableGroups: Map[TableGroupId, TableGroup] <- Option(row.getLong(5)).map(_.toLong) match {
+        case Some(tableGroupId) =>
+          tableGroupModel.retrieve(tableGroupId).map(tableGroup => Map(tableGroupId -> tableGroup))
+        case None =>
+          Future.successful(Map.empty[TableGroupId, TableGroup])
       }
+    } yield {
+      val table = convertRowToTable(row, defaultLangtags, tableGroups)
+      mapDisplayInfosIntoTable(Seq(table), displayInfoResult).head
     }
   }
 
   private def getTablesWithDisplayInfos(defaultLangtags: Seq[String]): Future[Seq[Table]] = {
-    connection.transactional { t =>
-      for {
-        (t, tablesResult) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id FROM system_table ORDER BY ordering, table_id")
-        (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
+    for {
+      t <- connection.begin()
 
-        tableGroups <- tableGroupModel.retrieveAll().map({
-          tableGroups =>
-            tableGroups.map({
-              tableGroup =>
-                (tableGroup.id, tableGroup)
-            }).toMap
-        })
-      } yield {
-        val tables = resultObjectToJsonArray(tablesResult).map(convertRowToTable(_, defaultLangtags, tableGroups))
-        (t, mapDisplayInfosIntoTable(tables, displayInfosResult))
-      }
+      (t, tablesResult) <- t.query("SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id FROM system_table ORDER BY ordering, table_id")
+      (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
+
+      _ <- t.commit()
+
+      tableGroups <- tableGroupModel.retrieveAll().map({
+        tableGroups =>
+          tableGroups.map({
+            tableGroup =>
+              (tableGroup.id, tableGroup)
+          }).toMap
+      })
+    } yield {
+      val tables = resultObjectToJsonArray(tablesResult).map(convertRowToTable(_, defaultLangtags, tableGroups))
+      mapDisplayInfosIntoTable(tables, displayInfosResult)
     }
   }
 
@@ -241,7 +244,6 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def insertOrUpdateTableDisplayInfo(t: connection.Transaction, tableId: TableId, optDisplayInfos: Option[Seq[DisplayInfo]]): Future[connection.Transaction] = {
-
     optDisplayInfos match {
       case Some(displayInfos) =>
         val dis = TableDisplayInfos(tableId, displayInfos)
