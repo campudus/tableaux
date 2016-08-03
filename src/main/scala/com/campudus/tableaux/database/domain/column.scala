@@ -357,9 +357,9 @@ case class ConcatColumn(override val columnInformation: ConcatColumnInformation,
   // If any of the columns is MultiLanguage or MultiCountry
   // the ConcatColumn will be MultiLanguage
   override val languageType = {
-    val isMultiLanguageOrMultiCountry = columns.forall(_.languageType match {
-      case MultiLanguage | MultiCountry(_) => false
-      case _ => true
+    val isMultiLanguageOrMultiCountry = columns.exists(_.languageType match {
+      case MultiLanguage | MultiCountry(_) => true
+      case _ => false
     })
 
     if (isMultiLanguageOrMultiCountry) {
