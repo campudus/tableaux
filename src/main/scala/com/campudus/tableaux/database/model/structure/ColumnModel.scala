@@ -540,7 +540,10 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             if (unidirectional || bothDirections) {
               // drop link_table if link is unidirectional or
               // both directions where forcefully deleted
-              t.query(s"DROP TABLE IF EXISTS link_table_$linkId")
+              for {
+                (t, _) <- t.query(s"DROP TABLE IF EXISTS link_table_$linkId")
+                (t, _) <- t.query(s"DELETE FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
+              } yield (t, Json.obj())
             } else {
               Future.successful((t, Json.obj()))
             }
