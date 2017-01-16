@@ -151,6 +151,22 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       } yield changed
     }
 
+    case Patch(Column(tableId, columnId)) => asyncGetReply{
+      for {
+        json <- getJson(context)
+        (optName, optOrd, optKind, optIdent, optDisplayInfos, optCountryCodes) = toColumnChanges(json)
+        changed <- controller
+          .changeColumn(tableId.toLong,
+            columnId.toLong,
+            optName,
+            optOrd,
+            optKind,
+            optIdent,
+            optDisplayInfos,
+            optCountryCodes)
+      } yield changed
+    }
+
     /**
       * Create Group
       */
