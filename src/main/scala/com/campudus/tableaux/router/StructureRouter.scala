@@ -2,6 +2,7 @@ package com.campudus.tableaux.router
 
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
+import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
 import io.vertx.ext.web.RoutingContext
@@ -101,34 +102,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     /**
       * Change Table
       */
-    case Post(Table(tableId)) => asyncGetReply {
-      for {
-        json <- getJson(context)
-
-        name = Option(json.getString("name"))
-        hidden = Option(json.getBoolean("hidden")).map(_.booleanValue())
-        displayInfos = DisplayInfos.fromJson(json) match {
-          case list if list.isEmpty => None
-          case list => Some(list)
-        }
-
-        // if contains than user wants langtags to be set
-        // but then langtags could be null so that's the second option
-        //
-        // langtags == null => global langtags
-        // langtags == [] => [] table without langtags
-        // langtags == ['de-DE', 'en-GB'] => table with two langtags
-        //
-        // {} => None => db: do nothing
-        // {langtags:null} => Some(None) => db: overwrite with null
-        // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: overwrite with ['de-DE']
-        langtags = booleanToValueOption(json.containsKey("langtags"), Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
-
-        tableGroupId = booleanToValueOption(json.containsKey("group"), Option(json.getLong("group")).map(_.toLong))
-
-        updated <- controller.changeTable(tableId.toLong, name, hidden, langtags, displayInfos, tableGroupId)
-      } yield updated
-    }
+    case Post(Table(tableId)) => changeTable(tableId.toLong)
+    case Patch(Table(tableId)) => changeTable(tableId.toLong)
 
     /**
       * Change Table ordering
@@ -219,4 +194,35 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
+  private def changeTable(tableId: TableId)(implicit context: RoutingContext) = {
+    asyncGetReply{
+      for {
+        json <- getJson(context)
+
+        name = Option(json.getString("name"))
+        hidden = Option(json.getBoolean("hidden")).map(_.booleanValue())
+        displayInfos = DisplayInfos.fromJson(json) match {
+          case list if list.isEmpty => None
+          case list => Some(list)
+        }
+
+        // if contains than user wants langtags to be set
+        // but then langtags could be null so that's the second option
+        //
+        // langtags == null => global langtags
+        // langtags == [] => [] table without langtags
+        // langtags == ['de-DE', 'en-GB'] => table with two langtags
+        //
+        // {} => None => db: do nothing
+        // {langtags:null} => Some(None) => db: overwrite with null
+        // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: overwrite with ['de-DE']
+        langtags = booleanToValueOption(json.containsKey("langtags"),
+          Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
+
+        tableGroupId = booleanToValueOption(json.containsKey("group"), Option(json.getLong("group")).map(_.toLong))
+
+        updated <- controller.changeTable(tableId, name, hidden, langtags, displayInfos, tableGroupId)
+      } yield updated
+    }
+  }
 }
