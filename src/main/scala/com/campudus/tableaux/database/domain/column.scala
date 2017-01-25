@@ -280,47 +280,55 @@ case class LinkColumn(override val columnInformation: ColumnInformation, to: Col
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.getJson)
 
-  override def checkValidValue[B](value: B): Try[Option[Seq[RowId]]] = Try {
-    val castedValue = value match {
-      case x: Int =>
-        Seq(x.toLong)
+  override def checkValidValue[B](value: B): Try[Option[Seq[RowId]]] = {
+    Try{
+      val castedValue = value match {
+        case x: Int =>
+          Seq(x.toLong)
 
-      case x: Seq[_] =>
-        x.map {
-          case id: RowId => id
-          case obj: JsonObject => obj.getLong("id").toLong
-        }
+        case x: Seq[_] =>
+          x.map{
+            case id: RowId => id
+            case obj: JsonObject => obj.getLong("id").toLong
+          }
 
-      case x: JsonObject if x.containsKey("to") =>
-        import ArgumentChecker._
-        hasLong("to", x) match {
-          case arg: OkArg[Long] =>
-            Seq(arg.get)
-          case _ =>
-            throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
-        }
+        case x: JsonObject if x.containsKey("to") =>
+          import ArgumentChecker._
+          hasLong("to", x) match {
+            case arg: OkArg[Long] =>
+              Seq(arg.get)
+            case _ =>
+              throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x",
+                "link-value")
+          }
 
-      case x: JsonObject if x.containsKey("values") =>
-        import scala.collection.JavaConverters._
-        Try(checked(hasArray("values", x)).asScala.map(_.asInstanceOf[java.lang.Integer].toLong).toSeq) match {
-          case Success(ids) =>
-            ids
-          case Failure(_) =>
-            throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
-        }
+        case x: JsonObject if x.containsKey("values") =>
+          import scala.collection.JavaConverters._
+          Try(checked(hasArray("values", x)).asScala.map(_.asInstanceOf[java.lang.Integer].toLong).toSeq) match {
+            case Success(ids) =>
+              ids
+            case Failure(_) =>
+              throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x",
+                "link-value")
+          }
 
-      case x: JsonObject =>
-        throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
+        case x: JsonObject =>
+          throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x", "link-value")
 
-      case x: JsonArray =>
-        import scala.collection.JavaConverters._
-        x.asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
+        case x: JsonArray =>
+          import scala.collection.JavaConverters._
+          x.asScala.map({
+            // need to check for java.lang.Integer because we are mapping over AnyRefs
+            case id: Integer => id.toLong
+            case obj: JsonObject => obj.getLong("id").toLong
+          }).toSeq
 
-      case x =>
-        throw InvalidJsonException(s"A link column expects a JSON object with values, but got $x", "link-value")
+        case x =>
+          throw InvalidJsonException(s"A link column expects a JSON object with values, but got $x", "link-value")
+      }
+
+      Some(castedValue)
     }
-
-    Some(castedValue)
   }
 }
 
