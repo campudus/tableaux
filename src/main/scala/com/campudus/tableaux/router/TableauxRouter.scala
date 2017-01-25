@@ -125,9 +125,10 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       for {
         optionalValues <- (for {
           json <- getJson(context)
-          option = json.containsKey("columns") && json.containsKey("rows") match {
-            case true => Some(toColumnValueSeq(json))
-            case false => None
+          option = if (json.containsKey("columns") && json.containsKey("rows")) {
+            Some(toColumnValueSeq(json))
+          } else {
+            None
           }
         } yield option) recover {
           case _: NoJsonFoundException => None

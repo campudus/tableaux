@@ -97,42 +97,92 @@ class DeleteStructureTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteLinkColumn(implicit c: TestContext): Unit = okTest {
-    val createLinkColumnJson = Json.obj(
-      "columns" -> Json.arr(
-        Json.obj(
-          "name" -> "Test Link 1",
-          "kind" -> "link",
-          "toTable" -> 2
+  def deleteLinkColumn(implicit c: TestContext): Unit = {
+    okTest{
+      val createLinkColumnJson = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Test Link 1",
+            "kind" -> "link",
+            "toTable" -> 2
+          )
         )
       )
-    )
 
-    for {
-      table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
-      table2 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
+      for {
+        table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
+        table2 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
 
-      _ <- sendRequest("POST", s"/tables/$table1/columns", createIdentifierStringColumnJson)
-      _ <- sendRequest("POST", s"/tables/$table2/columns", createIdentifierStringColumnJson)
+        _ <- sendRequest("POST", s"/tables/$table1/columns", createIdentifierStringColumnJson)
+        _ <- sendRequest("POST", s"/tables/$table2/columns", createIdentifierStringColumnJson)
 
-      _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
+        _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
 
-      deleteResult <- sendRequest("DELETE", "/tables/1/columns/2")
+        deleteResult <- sendRequest("DELETE", "/tables/1/columns/2")
 
-      table1Columns <- sendRequest("GET", "/tables/1/columns")
-      table2Columns <- sendRequest("GET", "/tables/2/columns")
-    } yield {
-      assertEquals(expectedOkJson, deleteResult)
+        table1Columns <- sendRequest("GET", "/tables/1/columns")
+        table2Columns <- sendRequest("GET", "/tables/2/columns")
+      } yield {
+        assertEquals(expectedOkJson, deleteResult)
 
-      assertEquals(1, table1Columns.getJsonArray("columns").size())
-      assertEquals(2, table2Columns.getJsonArray("columns").size())
+        assertEquals(1, table1Columns.getJsonArray("columns").size())
+        assertEquals(2, table2Columns.getJsonArray("columns").size())
 
-      val backlink = Json.obj(
-        "kind" -> "link",
-        "toTable" -> 1
+        val backlink = Json.obj(
+          "kind" -> "link",
+          "toTable" -> 1
+        )
+
+        assertContains(backlink, table2Columns.getJsonArray("columns").getJsonObject(1))
+      }
+    }
+  }
+
+  @Test
+  def deleteLinkInBothDirectionsAndCheckForDependentRows(implicit c: TestContext): Unit = {
+    okTest{
+      val createLinkColumnJson = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Test Link 1",
+            "kind" -> "link",
+            "toTable" -> 2
+          )
+        )
       )
 
-      assertContains(backlink, table2Columns.getJsonArray("columns").getJsonObject(1))
+      for {
+        table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
+        table2 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
+
+        _ <- sendRequest("POST", s"/tables/$table1/columns", createIdentifierStringColumnJson)
+        _ <- sendRequest("POST", s"/tables/$table2/columns", createIdentifierStringColumnJson)
+
+        _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
+
+        _ <- sendRequest("POST", s"/tables/$table2/rows", Json.obj(
+          "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+          "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test", Json.emptyArr())))
+        ))
+
+        _ <- sendRequest("POST", s"/tables/$table1/rows", Json.obj(
+          "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+          "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test", Json.arr(1))))
+        ))
+
+        _ <- sendRequest("DELETE", "/tables/1/columns/2")
+        _ <- sendRequest("DELETE", "/tables/2/columns/2")
+
+        dependentRows <- sendRequest("GET", s"/tables/$table2/rows/1/dependent")
+
+        table1Columns <- sendRequest("GET", "/tables/1/columns")
+        table2Columns <- sendRequest("GET", "/tables/2/columns")
+      } yield {
+        assertTrue(dependentRows.getJsonArray("dependentRows").isEmpty)
+
+        assertEquals(1, table1Columns.getJsonArray("columns").size())
+        assertEquals(1, table2Columns.getJsonArray("columns").size())
+      }
     }
   }
 
