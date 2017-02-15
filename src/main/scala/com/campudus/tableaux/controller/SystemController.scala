@@ -149,6 +149,13 @@ class SystemController(override val config: TableauxConfig,
       .map(value => PlainDomainObject(Json.obj("value" -> Option(value).map(f => Json.fromArrayString(f)).orNull)))
   }
 
+  def updateLangtags(langtags: Seq[String]): Future[DomainObject] = {
+    for {
+      _ <- repository.updateSetting(SystemController.SETTING_LANGTAGS, Json.arr(langtags: _*).toString)
+      updatedLangtags <- retrieveLangtags()
+    } yield updatedLangtags
+  }
+
   def invalidateCache(): Future[DomainObject] = {
     CacheClient(this.vertx).invalidateAll()
       .map(_ => EmptyObject())

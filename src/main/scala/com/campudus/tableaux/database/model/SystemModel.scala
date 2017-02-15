@@ -166,4 +166,9 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     connection.query("SELECT value FROM system_settings WHERE key = ?", Json.arr(key))
       .map(json => selectNotNull(json).head.getString(0))
   }
+
+  def updateSetting(key: String, value: String): Future[Unit] = {
+    connection.query("UPDATE system_settings SET value = ? WHERE key = ?", Json.arr(value, key))
+      .map(json => updateNotNull(json))
+  }
 }
