@@ -77,6 +77,8 @@ run {
             mainVerticle,
             "-conf", "conf.json"
     ]
+
+    environment ENV: "development"
 }
 
 task runRedeploy(type: JavaExec) {
@@ -92,6 +94,8 @@ task runRedeploy(type: JavaExec) {
             "--launcher-class=${mainClassName}",
             "--on-redeploy=./gradlew shadowJar"
     ]
+
+    environment ENV: "development"
 }
 
 // activate Zinc (sbt) incremental compilation

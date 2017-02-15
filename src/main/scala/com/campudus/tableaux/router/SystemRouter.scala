@@ -117,7 +117,9 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   private def checkNonce(implicit context: RoutingContext): Unit = {
     val requestNonce = getStringParam("nonce", context)
 
-    if (SystemRouter.retrieveNonce().isEmpty) {
+    if (sys.env.get("ENV").isDefined && sys.env("ENV") == "development") {
+      logger.warn(s"Seems like you are in development mode. Nonce is not checked.")
+    } else if (SystemRouter.retrieveNonce().isEmpty) {
       SystemRouter.generateNonce()
       logger.info(s"Generated a new nonce: ${SystemRouter.nonce}")
       throw NoNonceException("No nonce available. Generated new nonce.")
