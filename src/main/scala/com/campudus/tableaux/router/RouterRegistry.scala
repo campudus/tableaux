@@ -13,11 +13,11 @@ object RouterRegistry {
   def apply(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection): RouterRegistry = {
 
     val systemModel = SystemModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection)
+    val structureModel = StructureModel(dbConnection)
+    val tableauxModel = TableauxModel(dbConnection, structureModel)
     val folderModel = FolderModel(dbConnection)
     val fileModel = FileModel(dbConnection)
     val attachmentModel = AttachmentModel(dbConnection, fileModel)
-    val structureModel = StructureModel(dbConnection)
 
     val routers = Seq(
       SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel)),

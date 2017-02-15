@@ -22,8 +22,8 @@ object TableauxModel {
 
   type Ordering = Long
 
-  def apply(connection: DatabaseConnection): TableauxModel = {
-    new TableauxModel(connection)
+  def apply(connection: DatabaseConnection, structureModel: StructureModel): TableauxModel = {
+    new TableauxModel(connection, structureModel)
   }
 }
 
@@ -38,7 +38,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
   protected val connection: DatabaseConnection
 
-  private lazy val structureModel = StructureModel(connection)
+  protected val structureModel: StructureModel
 
   def createTable(name: String, hidden: Boolean): Future[Table] = {
     structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None)
@@ -69,7 +69,10 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   }
 }
 
-class TableauxModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery with StructureDelegateModel {
+class TableauxModel(
+  override protected[this] val connection: DatabaseConnection,
+  override protected[this] val structureModel: StructureModel
+) extends DatabaseQuery with StructureDelegateModel {
 
   import TableauxModel._
 

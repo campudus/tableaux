@@ -1,15 +1,136 @@
 package com.campudus.tableaux.database.model.structure
 
 import java.util.NoSuchElementException
+import java.util.concurrent.TimeUnit
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{DatabaseException, NotFoundInDatabaseException, ShouldBeUniqueException}
+import com.google.common.cache.CacheBuilder
+import com.google.common.cache.{Cache => GuavaBuiltCache}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+
+object CachedColumnModel {
+
+  /**
+    * Default never expire
+    */
+  val DEFAULT_EXPIRE_AFTER_ACCESS: Long = -1l
+
+  /**
+    * Max. 10k cached values per column
+    */
+  val DEFAULT_MAXIMUM_SIZE: Long = 10000l
+}
+
+class CachedColumnModel(val config: JsonObject, override val connection: DatabaseConnection)
+  extends ColumnModel(connection) {
+
+  import CachedColumnModel._
+  import scalacache.caching
+  import scalacache.ScalaCache
+  import scalacache.guava.GuavaCache
+
+  implicit val scalaCache = ScalaCache(GuavaCache(createCache()))
+
+  private def createCache(): GuavaBuiltCache[String, Object] = {
+    val builder = CacheBuilder
+      .newBuilder()
+
+    val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
+    if (expireAfterAccess > 0) {
+      builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
+    } else {
+      logger.info("Cache will not expire!")
+    }
+
+    val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
+    if (maximumSize > 0) {
+      builder.maximumSize(maximumSize)
+    }
+
+    builder.recordStats()
+
+    builder.build[String, Object]
+  }
+
+  private def removeCache(tableId: TableId, columnId: Option[ColumnId]): Future[Unit] = {
+    import scalacache.remove
+
+    for {
+      _ <- columnId match {
+        case Some(id) => remove("retrieve", tableId, id)
+        case None => Future.successful(())
+      }
+      _ <- remove("retrieveAll", tableId)
+
+      dependencies <- retrieveDependencies(tableId)
+
+      _ <- Future.sequence(dependencies.map({
+        case (_tableId, _columnId) =>
+          for {
+            _ <- remove("retrieve", _tableId, _columnId)
+            _ <- remove("retrieveAll", _tableId)
+          } yield ()
+      }))
+    } yield ()
+  }
+
+  override def retrieve(table: Table, columnId: ColumnId): Future[ColumnType[_]] = {
+    caching("retrieve",
+      table.id,
+      columnId){
+      super.retrieve(table, columnId)
+    }
+  }
+
+  override def retrieveAll(table: Table): Future[Seq[ColumnType[_]]] = {
+    caching("retrieveAll", table.id){
+      super.retrieveAll(table)
+    }
+  }
+
+  override def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
+    for {
+      r <- super.createColumns(table, createColumns)
+      _ <- removeCache(table.id, None)
+    } yield r
+  }
+
+  override def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
+    for {
+      r <- super.createColumn(table, createColumn)
+      _ <- removeCache(table.id, None)
+    } yield r
+  }
+
+  override def delete(table: Table, columnId: ColumnId, bothDirections: Boolean): Future[Unit] = {
+    for {
+      r <- super.delete(table, columnId, bothDirections)
+      _ <- removeCache(table.id, Some(columnId))
+    } yield r
+  }
+
+  override def change(
+    table: Table,
+    columnId: ColumnId,
+    columnName: Option[String],
+    ordering: Option[Ordering],
+    kind: Option[TableauxDbType],
+    identifier: Option[Boolean],
+    displayInfos: Option[Seq[DisplayInfo]],
+    countryCodes: Option[Seq[String]]
+  ): Future[ColumnType[_]] = {
+    for {
+      _ <- removeCache(table.id, Some(columnId))
+      r <- super.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
+    } yield r
+  }
+}
 
 
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
@@ -482,7 +603,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   def delete(table: Table, columnId: ColumnId): Future[Unit] = delete(table, columnId, bothDirections = false)
 
-  private def delete(table: Table, columnId: ColumnId, bothDirections: Boolean): Future[Unit] = {
+  protected def delete(table: Table, columnId: ColumnId, bothDirections: Boolean): Future[Unit] = {
     // Retrieve all filter for columnId and check if columns is not empty
     // If columns is empty last column would be deleted => error
     for {
