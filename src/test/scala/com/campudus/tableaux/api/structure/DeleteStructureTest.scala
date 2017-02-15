@@ -47,15 +47,34 @@ class DeleteStructureTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteColumn(implicit c: TestContext): Unit = okTest {
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      _ <- sendRequest("POST", "/tables/1/columns", RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 1")).getJson)
-      // Create a second column because we can't delete the only and last column of a table
-      _ <- sendRequest("POST", "/tables/1/columns", RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 2")).getJson)
-      test <- sendRequest("DELETE", "/tables/1/columns/1")
-    } yield {
-      assertEquals(expectedOkJson, test)
+  def deleteColumn(implicit c: TestContext): Unit = {
+    okTest{
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        shouldBeZeroColumns <- sendRequest("GET", "/tables/1/columns")
+
+        _ <- sendRequest("POST",
+          "/tables/1/columns",
+          RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 1")).getJson)
+        shouldBeOneColumns <- sendRequest("GET", "/tables/1/columns")
+
+        // Create a second column because we can't delete the only and last column of a table
+        _ <- sendRequest("POST",
+          "/tables/1/columns",
+          RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 2")).getJson)
+        shouldBeTwoColumns <- sendRequest("GET", "/tables/1/columns")
+
+        test <- sendRequest("DELETE", "/tables/1/columns/1")
+        afterDelete <- sendRequest("GET", "/tables/1/columns")
+      } yield {
+        assertEquals(expectedOkJson, test)
+
+        assertEquals(0, shouldBeZeroColumns.getJsonArray("columns", Json.emptyArr()).size())
+        assertEquals(1, shouldBeOneColumns.getJsonArray("columns", Json.emptyArr()).size())
+        assertEquals(2, shouldBeTwoColumns.getJsonArray("columns", Json.emptyArr()).size())
+        assertEquals(1, afterDelete.getJsonArray("columns", Json.emptyArr()).size())
+      }
     }
   }
 
