@@ -12,6 +12,19 @@ import scala.util.Try
 
 object JsonUtils extends LazyLogging {
 
+  def asCastedNullableList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
+    Option(array).map({
+      array => {
+        import scala.collection.JavaConverters._
+
+        val arrayAsList = array.asScala
+          .toList
+
+        sequence(arrayAsList.map(tryCast[A]))
+      }
+    }).getOrElse(OkArg(Seq.empty))
+  }
+
   def asCastedList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     Option(array).map({
       array =>
@@ -146,11 +159,13 @@ object JsonUtils extends LazyLogging {
     })
   }
 
-  private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[Any]] = for {
-    values <- checkNotNullArray(json, "values")
-    valueAsAnyList <- asCastedList[Any](values)
-    valueList <- nonEmpty(valueAsAnyList, "values")
-  } yield valueList
+  private def toValueSeq(json: JsonObject): ArgumentCheck[Seq[Any]] = {
+    for {
+      values <- checkNotNullArray(json, "values")
+      valueAsAnyList <- asCastedNullableList[Any](values)
+      valueList <- nonEmpty(valueAsAnyList, "values")
+    } yield valueList
+  }
 
   def toColumnChanges(json: JsonObject): (Option[String], Option[Ordering], Option[TableauxDbType], Option[Boolean], Option[Seq[DisplayInfo]], Option[Seq[String]]) = {
     import scala.collection.JavaConverters._
