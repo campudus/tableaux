@@ -13,6 +13,7 @@ import scala.util.matching.Regex
 
 object SystemRouter {
   private var nonce: Option[String] = None
+  private var devMode: Boolean = sys.env.get("ENV").isDefined && sys.env("ENV") == "development"
 
   def apply(config: TableauxConfig, controllerCurry: (TableauxConfig) => SystemController): SystemRouter = {
     new SystemRouter(config, controllerCurry(config))
@@ -27,6 +28,13 @@ object SystemRouter {
   }
 
   def invalidateNonce(): Unit = nonce = None
+
+  def isDevMode: Boolean = devMode
+
+  def setDevMode(boolean: Boolean): Boolean = {
+    devMode = boolean
+    devMode
+  }
 }
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
@@ -117,18 +125,24 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   private def checkNonce(implicit context: RoutingContext): Unit = {
     val requestNonce = getStringParam("nonce", context)
 
-    if (sys.env.get("ENV").isDefined && sys.env("ENV") == "development") {
+    if (SystemRouter.isDevMode) {
       logger.warn(s"Seems like you are in development mode. Nonce is not checked.")
     } else if (SystemRouter.retrieveNonce().isEmpty) {
       SystemRouter.generateNonce()
-      logger.info(s"Generated a new nonce: ${SystemRouter.nonce}")
+      logger.warn(s"Generated a new nonce: ${SystemRouter.nonce}")
       throw NoNonceException("No nonce available. Generated new nonce.")
     } else if (requestNonce.isEmpty || requestNonce != SystemRouter.retrieveNonce()) {
-      logger.info(s"Generated a new nonce: ${SystemRouter.nonce}")
       SystemRouter.generateNonce()
+      logger.warn(s"Generated a new nonce: ${SystemRouter.nonce}")
       throw InvalidNonceException("Nonce can't be empty and must be valid. Generated new nonce.")
-    }
+    } else {
+      if (requestNonce == SystemRouter.retrieveNonce()) {
+        logger.info("Nonce is correct and will be invalidated now.")
+      }
 
-    SystemRouter.invalidateNonce()
+      // in this case nonce and requestNonce must be the same
+      // so nonce was used, let's invalidate it
+      SystemRouter.invalidateNonce()
+    }
   }
 }

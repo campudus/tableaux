@@ -89,14 +89,61 @@ class SystemControllerTest extends TableauxTestBase {
   }
 
   @Test
-  def resetWithOutNonce(implicit c: TestContext): Unit = exceptionTest("error.nonce.none") {
-    SystemRouter.invalidateNonce()
-    sendRequest("POST", s"/system/reset")
+  def resetWithInvalidatedNonceAndNoRequestNonce(implicit c: TestContext): Unit = {
+    exceptionTest("error.nonce.none"){
+      SystemRouter.invalidateNonce()
+      sendRequest("POST", s"/system/reset")
+    }
   }
 
   @Test
-  def resetWithNonceButInvalidRequestNonce(implicit c: TestContext): Unit = exceptionTest("error.nonce.invalid") {
-    SystemRouter.generateNonce()
-    sendRequest("POST", s"/system/reset?nonce=asdf")
+  def resetWithNonceAndNoRequestNonce(implicit c: TestContext): Unit = {
+    exceptionTest("error.nonce.invalid"){
+      SystemRouter.generateNonce()
+      sendRequest("POST", s"/system/reset")
+    }
+  }
+
+  @Test
+  def resetWithNonceButInvalidRequestNonce(implicit c: TestContext): Unit = {
+    exceptionTest("error.nonce.invalid"){
+      SystemRouter.generateNonce()
+      sendRequest("POST", s"/system/reset?nonce=asdf")
+    }
+  }
+
+  @Test
+  def resetWithInvalidatedNonceAndInvalidRequestNonce(implicit c: TestContext): Unit = {
+    exceptionTest("error.nonce.none"){
+      SystemRouter.invalidateNonce()
+      sendRequest("POST", s"/system/reset?nonce=asdf")
+    }
+  }
+
+  @Test
+  def resetWithNonceAndInvalidRequestNonce(implicit c: TestContext): Unit = {
+    exceptionTest("error.nonce.invalid"){
+      SystemRouter.generateNonce()
+      sendRequest("POST", s"/system/reset?nonce=asdf")
+    }
+  }
+
+  @Test
+  def resetInDevModeWithInvalidRequestNonce(implicit c: TestContext): Unit = {
+    okTest{
+      val expectedJson = Json.obj("status" -> "ok")
+
+      SystemRouter.generateNonce()
+      SystemRouter.setDevMode(true)
+
+      for {
+        result <- sendRequest("POST", s"/system/reset?nonce=asdf")
+      } yield {
+        assertEquals(expectedJson, result)
+        assertTrue(SystemRouter.isDevMode)
+        SystemRouter.setDevMode(false)
+        assertFalse(SystemRouter.isDevMode)
+      }
+    }
   }
 }
