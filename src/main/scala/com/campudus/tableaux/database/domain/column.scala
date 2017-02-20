@@ -190,7 +190,18 @@ object MultiLanguageColumn {
               (key, columnType.checkValidValue(v))
           }).collect({
             case (key: String, Success(castedValue)) => (key, castedValue)
-            case (key: String, Failure(ex)) => throw new IllegalArgumentException("Invalid value for MultiLanguage or MultiCountry column", ex)
+            case (key: String, Failure(ex)) => {
+              columnType.languageType match {
+                case MultiLanguage => throw new IllegalArgumentException(s"Invalid value at key $key for MultiLanguage column ${
+                  columnType
+                    .name
+                }", ex)
+                case MultiCountry(_) | LanguageNeutral => throw new IllegalArgumentException(s"Invalid value at key $key for MultiCountry column ${
+                  columnType
+                    .name
+                }", ex)
+              }
+            }
           }).toMap
         }
     }
