@@ -4,6 +4,7 @@ conf-test.json
 uploads/
 .vertx/
 uploads*
+classes/
 !src/test/resources/com/campudus/tableaux/uploads
 
 # Gradle

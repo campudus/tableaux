@@ -183,6 +183,8 @@ sealed trait ColumnType[+A] extends DomainObject {
 object MultiLanguageColumn {
   def checkValidValue[A, B](columnType: ColumnType[A], value: B): Try[Map[String, Option[A]]] = {
     value match {
+      case null =>
+        Success(Map.empty)
       case json: JsonObject =>
         Try[Map[String, Option[A]]] {
           json.asMap.map({
