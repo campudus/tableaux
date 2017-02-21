@@ -1,22 +1,21 @@
-import java.nio.file.Paths
+#!groovy
 
 plugins {
     id 'java'
     id 'scala'
     id 'application'
 
-    id 'com.github.johnrengelman.shadow' version '1.2.3'
-    id 'com.github.ksoichiro.build.info' version '0.1.5'
+    id 'com.github.johnrengelman.shadow' version '1.2.4'
+    id 'com.github.ksoichiro.build.info' version '0.2.0'
 
-    id 'org.scoverage' version '2.0.1'
-    id 'com.github.kt3k.coveralls' version '2.6.3'
+    id 'org.scoverage' version '2.1.0'
+    id 'com.github.kt3k.coveralls' version '2.7.1'
 }
 
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
 def vertxVersion = '3.2.1'
-def vertxDbVersion = '3.2.1'
 def scalaVersion = '2.11.8'
 
 if (!JavaVersion.current().java8Compatible) {
@@ -36,23 +35,23 @@ dependencies {
 
     compile "io.vertx:vertx-core:${vertxVersion}"
     compile "io.vertx:vertx-web:${vertxVersion}"
-    compile("io.vertx:vertx-mysql-postgresql-client:${vertxDbVersion}") {
+    compile("io.vertx:vertx-mysql-postgresql-client:${vertxVersion}") {
         exclude group: 'com.github.mauricio'
     }
     compile 'com.github.mauricio:postgresql-async_2.11:0.2.19'
 
-    compile 'joda-time:joda-time:2.9.4'
-    compile 'com.typesafe.scala-logging:scala-logging_2.11:3.4.0'
-    compile 'org.slf4j:slf4j-jdk14:1.7.21'
+    compile 'joda-time:joda-time:2.9.7'
+    compile 'com.typesafe.scala-logging:scala-logging_2.11:3.5.0'
+    compile 'org.slf4j:slf4j-jdk14:1.7.22'
 
     compile 'com.jcabi:jcabi-manifests:1.1'
 
-    compile 'com.github.cb372:scalacache-guava_2.11:0.9.1'
+    compile 'com.github.cb372:scalacache-guava_2.11:0.9.3'
 
     compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
-    scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.1.1'
-    scoverage 'org.scoverage:scalac-scoverage-runtime_2.11:1.1.1'
+    scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.3.0'
+    scoverage 'org.scoverage:scalac-scoverage-runtime_2.11:1.3.0'
 
     testCompile "io.vertx:vertx-unit:${vertxVersion}"
     testCompile 'junit:junit:4.12'
@@ -98,9 +97,7 @@ task runRedeploy(type: JavaExec) {
     environment ENV: "development"
 }
 
-// activate Zinc (sbt) incremental compilation
 tasks.withType(ScalaCompile) {
-    scalaCompileOptions.useAnt = false
     scalaCompileOptions.additionalParameters = ["-feature"]
 }
 
@@ -182,5 +179,5 @@ assemble.dependsOn shadowJar
  * Gradle wrapper
  */
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.11'
+    gradleVersion = '3.3'
 }

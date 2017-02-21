@@ -1,7 +1,7 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
@@ -19,7 +19,7 @@ class TableauxControllerTest extends TableauxTestBase {
     val sqlConnection = SQLConnection(verticle, databaseConfig)
     val dbConnection = DatabaseConnection(verticle, sqlConnection)
 
-    val model = TableauxModel(dbConnection)
+    val model = TableauxModel(dbConnection, StructureModel(dbConnection))
 
     TableauxController(tableauxConfig, model)
   }

@@ -22,8 +22,8 @@ object TableauxModel {
 
   type Ordering = Long
 
-  def apply(connection: DatabaseConnection): TableauxModel = {
-    new TableauxModel(connection)
+  def apply(connection: DatabaseConnection, structureModel: StructureModel): TableauxModel = {
+    new TableauxModel(connection, structureModel)
   }
 }
 
@@ -38,7 +38,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
   protected val connection: DatabaseConnection
 
-  private lazy val structureModel = StructureModel(connection)
+  protected val structureModel: StructureModel
 
   def createTable(name: String, hidden: Boolean): Future[Table] = {
     structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None)
@@ -69,14 +69,12 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   }
 }
 
-class TableauxModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery with StructureDelegateModel {
+class TableauxModel(
+  override protected[this] val connection: DatabaseConnection,
+  override protected[this] val structureModel: StructureModel
+) extends DatabaseQuery with StructureDelegateModel {
 
   import TableauxModel._
-
-  /**
-    * Should be removed in near future
-    */
-  val CACHING = true
 
   val retrieveRowModel = new RetrieveRowModel(connection)
   val createRowModel = new CreateRowModel(connection)
@@ -312,10 +310,6 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
   }
 
   private def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
-    if (!CACHING) {
-      return Future.successful(())
-    }
-
     for {
     // invalidate the cell itself
       _ <- CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, column.id, rowId)
@@ -361,11 +355,7 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
     }
 
     for {
-      valueCache <- if (CACHING) {
-        CacheClient(this.connection.vertx).retrieveCellValue(column.table.id, column.id, rowId)
-      } else {
-        Future.successful(None)
-      }
+      valueCache <- CacheClient(this.connection.vertx).retrieveCellValue(column.table.id, column.id, rowId)
 
       value <- valueCache match {
         case Some(obj) =>
@@ -389,14 +379,16 @@ class TableauxModel(override protected[this] val connection: DatabaseConnection)
                   mappedRows <- mapRawRows(column.table, columns, Seq(rawRows))
                 } yield mappedRows
             }
-
+          } yield {
             // Because we only want a cell's value other
             // potential rows and columns can be ignored.
-            value = rowSeq.head.values.head
+            val value = rowSeq.head.values.head
 
             // fire-and-forget don't need to wait for this to return
-            _ = if (CACHING) CacheClient(this.connection.vertx).setCellValue(column.table.id, column.id, rowId, value)
-          } yield value
+            CacheClient(this.connection.vertx).setCellValue(column.table.id, column.id, rowId, value)
+
+            value
+          }
         }
       }
     } yield Cell(column, rowId, value)
