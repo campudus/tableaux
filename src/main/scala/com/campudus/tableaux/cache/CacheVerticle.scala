@@ -4,7 +4,8 @@ import java.util.concurrent.TimeUnit
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.google.common.cache.CacheBuilder
-import io.vertx.core.eventbus.Message
+import io.vertx.core.{AsyncResult, Handler}
+import io.vertx.core.eventbus.{Message, MessageConsumer}
 import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -47,6 +48,8 @@ class CacheVerticle extends ScalaVerticle {
 
   val caches: mutable.Map[(TableId, ColumnId), ScalaCache[InMemoryRepr]] = mutable.Map.empty
 
+  var consumers: Seq[MessageConsumer[JsonObject]] = _
+
   override def start(promise: Promise[Unit]): Unit = {
     registerOnEventBus()
 
@@ -54,20 +57,39 @@ class CacheVerticle extends ScalaVerticle {
   }
 
   override def stop(promise: Promise[Unit]): Unit = {
-    promise.success(())
+    import io.vertx.scala.FunctionConverters._
+
+    // This should be done automatically by Vert.x.
+    // But because of https://github.com/eclipse/vert.x/issues/1625 we need to do this manually.
+    // TODO Remove with Vert.x > 3.3.3
+    val unregisterFuture = Future.sequence(consumers.map({
+      consumer => {
+        asyncVoidToFuture(consumer.unregister(_: Handler[AsyncResult[Void]]))
+          .recoverWith({
+            case _ => {
+              logger.warn(s"Unregister consumer failed ${consumer.isRegistered} ${consumer.toString}")
+              Future.successful(())
+            }
+          })
+      }
+    })).map(_ => ())
+
+    promise.completeWith(unregisterFuture)
   }
 
   private def registerOnEventBus(): Unit = {
     import io.vertx.scala.FunctionConverters._
 
-    eventBus.localConsumer(ADDRESS_SET, messageHandlerSet(_: Message[JsonObject]))
-    eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve(_: Message[JsonObject]))
+    consumers = Seq(
+      eventBus.localConsumer(ADDRESS_SET, messageHandlerSet(_: Message[JsonObject])),
+      eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve(_: Message[JsonObject])),
 
-    eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell(_: Message[JsonObject]))
-    eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn(_: Message[JsonObject]))
-    eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow(_: Message[JsonObject]))
-    eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable(_: Message[JsonObject]))
-    eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll(_: Message[JsonObject]))
+      eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell(_: Message[JsonObject])),
+      eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn(_: Message[JsonObject])),
+      eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow(_: Message[JsonObject])),
+      eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable(_: Message[JsonObject])),
+      eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll(_: Message[JsonObject]))
+    )
   }
 
   private def getCache(tableId: TableId, columnId: ColumnId): ScalaCache[InMemoryRepr] = {

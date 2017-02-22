@@ -214,11 +214,14 @@ class CreateRowTest extends TableauxTestBase {
       result <- sendRequest("GET", s"/tables/$tableId2/rows/$rowId")
     } yield {
       val expect = expectedWithoutAttachment(rowId, fileUuid, rowIds.head)
-      val resultAttachment = result.getJsonArray("values").remove(8).asInstanceOf[util.ArrayList[_]]
+
+      val resultAttachment = result.getJsonArray("values").getJsonArray(8)
       logger.info(s"expect=${expect.encode()}")
       logger.info(s"result=${result.encode()}")
       assertEquals(1, resultAttachment.size)
-      assertEquals(fileUuid, resultAttachment.get(0).asInstanceOf[util.Map[String, _]].get("uuid"))
+      assertEquals(fileUuid, resultAttachment.getJsonObject(0).getString("uuid"))
+
+      result.getJsonArray("values").remove(8)
       assertEquals(expect, result)
     }
   }
