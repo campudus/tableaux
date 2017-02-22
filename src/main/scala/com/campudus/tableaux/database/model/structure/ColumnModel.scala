@@ -71,19 +71,17 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
       dependencies <- retrieveDependencies(tableId)
 
       _ <- Future.sequence(dependencies.map({
-        case (_tableId, _columnId) =>
+        case (dependentTableId, dependentColumnId) =>
           for {
-            _ <- remove("retrieve", _tableId, _columnId)
-            _ <- remove("retrieveAll", _tableId)
+            _ <- remove("retrieve", dependentTableId, dependentColumnId)
+            _ <- remove("retrieveAll", dependentTableId)
           } yield ()
       }))
     } yield ()
   }
 
   override def retrieve(table: Table, columnId: ColumnId): Future[ColumnType[_]] = {
-    caching("retrieve",
-      table.id,
-      columnId){
+    caching("retrieve", table.id, columnId){
       super.retrieve(table, columnId)
     }
   }
