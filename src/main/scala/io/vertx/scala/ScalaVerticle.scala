@@ -23,7 +23,7 @@ abstract class ScalaVerticle extends AbstractVerticle with VertxExecutionContext
 
     p.future onComplete {
       case Success(_) =>
-        logger.info("ScalaVerticle successfully started.")
+        logger.debug("ScalaVerticle successfully started.")
         future.complete()
       case Failure(ex) =>
         logger.error("ScalaVerticle failed to start.", ex)
@@ -38,7 +38,7 @@ abstract class ScalaVerticle extends AbstractVerticle with VertxExecutionContext
 
     p.future onComplete {
       case Success(_) =>
-        logger.info("ScalaVerticle successfully stopped.")
+        logger.debug("ScalaVerticle successfully stopped.")
         future.complete()
       case Failure(ex) =>
         logger.error("ScalaVerticle failed to stopped.", ex)
