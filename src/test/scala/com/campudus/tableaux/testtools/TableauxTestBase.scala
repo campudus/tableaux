@@ -306,7 +306,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     val client = vertx.createHttpClient(options)
 
     client
-      .request(_method, port, "localhost", path)
+      .request(_method, port, config.getString("host"), path)
       .handler(responseHandler(client, _: HttpClientResponse))
       .exceptionHandler(exceptionHandler(client, _: Throwable))
   }

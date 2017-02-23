@@ -14,7 +14,10 @@ trait TestConfig {
   val verticle: ScalaVerticle
 
   lazy val config = {
-    jsonFromFile("conf-test.json", "conf-travis.json", "../conf-test.json", "../conf-travis.json")
+    val json = jsonFromFile("conf-test.json", "conf-travis.json", "../conf-test.json", "../conf-travis.json")
+
+    json
+      .put("host", json.getString("host", "127.0.0.1"))
       .put("port", port)
   }
 
