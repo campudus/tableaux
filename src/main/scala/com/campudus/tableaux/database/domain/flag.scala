@@ -8,108 +8,124 @@ import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 
-object RowLevelFlags {
-  def apply(finalFlag: Boolean, needsTranslationFlags: JsonArray): RowLevelFlags = {
-    val seq = needsTranslationFlags.asScala.toSeq.map({ case langtag: String => langtag })
-    RowLevelFlags(finalFlag, seq)
+case class RowLevelAnnotations(finalFlag: Boolean) extends DomainObject {
+
+  def isDefined: Boolean = finalFlag
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      "final" -> finalFlag
+    )
   }
 }
 
-case class RowLevelFlags(finalFlag: Boolean, needsTranslationFlags: Seq[String]) extends DomainObject {
-  override def getJson: JsonObject = Json.obj(
-    "final" -> finalFlag,
-    "needsTranslation" -> compatibilityGet(needsTranslationFlags)
-  )
-}
+object CellAnnotationType {
 
-object CellFlagType {
   final val ERROR = "error"
   final val WARNING = "warning"
   final val INFO = "info"
+  final val FLAG = "flag"
 
-  def apply(flagStr: String): CellFlagType = flagStr match {
-    case CellFlagType.ERROR => ErrorFlagType
-    case CellFlagType.WARNING => WarningFlagType
-    case CellFlagType.INFO => InfoFlagType
-    case _ => throw new IllegalArgumentException(s"Invalid cell flag type $flagStr")
+  def apply(annotationName: String): CellAnnotationType = {
+    annotationName match {
+      case CellAnnotationType.ERROR => ErrorAnnotationType
+      case CellAnnotationType.WARNING => WarningAnnotationType
+      case CellAnnotationType.INFO => InfoFlagType
+      case CellAnnotationType.FLAG => FlagAnnotationType
+
+      case _ => throw new IllegalArgumentException(s"Invalid cell annotation $annotationName")
+    }
   }
 }
 
-sealed trait CellFlagType {
+sealed trait CellAnnotationType {
+
   def toString: String
 }
 
-case object ErrorFlagType extends CellFlagType {
-  override def toString: String = CellFlagType.ERROR
+case object ErrorAnnotationType extends CellAnnotationType {
+
+  override def toString: String = CellAnnotationType.ERROR
 }
 
-case object WarningFlagType extends CellFlagType {
-  override def toString: String = CellFlagType.WARNING
+case object WarningAnnotationType extends CellAnnotationType {
+
+  override def toString: String = CellAnnotationType.WARNING
 }
 
-case object InfoFlagType extends CellFlagType {
-  override def toString: String = CellFlagType.INFO
+case object InfoFlagType extends CellAnnotationType {
+
+  override def toString: String = CellAnnotationType.INFO
 }
 
-object CellLevelFlag {
-  def apply(flags: JsonArray): Map[ColumnId, Seq[CellLevelFlag]] = {
-    flags
+case object FlagAnnotationType extends CellAnnotationType {
+
+  override def toString: String = CellAnnotationType.FLAG
+}
+
+object CellLevelAnnotations {
+
+  def apply(columns: Seq[ColumnType[_]], annotationsAsJsonArray: JsonArray): CellLevelAnnotations = {
+    val annotations = annotationsAsJsonArray
       .asScala
       .toSeq
       .map({
-      case obj: JsonObject =>
-        val columnId = obj.getLong("column_id")
-        obj.remove("column_id")
+        case obj: JsonObject =>
+          val columnId = obj.getLong("column_id")
+          obj.remove("column_id")
 
-        val langtag: Option[String] = if ("neutral".equals(obj.getString("langtag", "neutral"))) {
-          obj.remove("langtag")
-          None
-        } else {
-          Some(obj.getString("langtag"))
-        }
+          val uuid = obj.getString("uuid")
+          val langtags: Seq[String] = obj.getJsonArray("langtags", Json.emptyArr()).asScala.toSeq.map(_.toString)
+          val flagType = CellAnnotationType(obj.getString("type"))
+          val value = obj.getString("value")
+          val createdAt = DateTime.parse(obj.getString("createdAt"))
 
-        val uuid = obj.getString("uuid")
-        val flagType = CellFlagType(obj.getString("type"))
-        val value = obj.getString("value")
-        val createdAt = DateTime.parse(obj.getString("created_at"))
-
-        (columnId, CellLevelFlag(UUID.fromString(uuid), langtag, flagType, value, createdAt))
+          (columnId, CellLevelAnnotation(UUID.fromString(uuid), flagType, langtags, value, createdAt))
       })
       .groupBy({
         case (columnId, _) => columnId
       })
       .map({
-        case (columnId, flagsAsTupleSeq) => (columnId.toLong, flagsAsTupleSeq.map({ case (_, flagSeq) => flagSeq }))
+        case (columnId, annotationsAsTupleSeq) => (columnId.toLong, annotationsAsTupleSeq
+          .map({ case (_, flagSeq) => flagSeq }))
       })
+
+    CellLevelAnnotations(columns, annotations)
   }
 }
 
-case class CellLevelFlag(uuid: UUID, langtag: Option[String], flagType: CellFlagType, value: String, createdAt: DateTime) extends DomainObject {
+case class CellLevelAnnotation(
+  uuid: UUID,
+  flagType: CellAnnotationType,
+  langtags: Seq[String],
+  value: String,
+  createdAt: DateTime
+) extends DomainObject {
+
   override def getJson: JsonObject = {
     val json = Json.obj(
       "uuid" -> uuid.toString,
       "type" -> flagType.toString,
       "value" -> value,
-      "created_at" -> createdAt.toString()
+      "createdAt" -> createdAt.toString()
     )
 
-    if (langtag.isDefined) {
-      json.put("langtag", langtag.orNull)
+    if (langtags.nonEmpty) {
+      json.put("langtags", compatibilityGet(langtags))
     }
 
     json
   }
 }
 
-case class CellLevelFlags(columns: Seq[ColumnType[_]], flags: Map[ColumnId, Seq[CellLevelFlag]]) extends DomainObject {
-  override def getJson: JsonObject = {
-    val seqOpt = columns.map({
-      column =>
-        flags.get(column.id)
-    })
+case class CellLevelAnnotations(columns: Seq[ColumnType[_]], annotations: Map[ColumnId, Seq[CellLevelAnnotation]])
+  extends DomainObject {
 
-    Json.obj(
-      "cellFlags" -> compatibilityGet(seqOpt)
-    )
+  def isDefined: Boolean = annotations.values.exists(_.nonEmpty)
+
+  override def getJson: JsonObject = {
+    val seqOpt = columns.map(column => annotations.get(column.id))
+
+    Json.obj("annotations" -> compatibilityGet(seqOpt))
   }
 }

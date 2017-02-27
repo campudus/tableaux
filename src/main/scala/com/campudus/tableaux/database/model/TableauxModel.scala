@@ -194,23 +194,23 @@ class TableauxModel(
     }
   } yield RowSeq(rows)
 
-  def addCellFlag(column: ColumnType[_], rowId: RowId, langtagOpt: Option[String], flagType: CellFlagType, value: String): Future[Cell[_]] = {
+  def addCellAnnotation(column: ColumnType[_], rowId: RowId, langtags: Seq[String], flagType: CellAnnotationType, value: String): Future[Cell[_]] = {
     for {
-      _ <- updateRowModel.addCellFlag(column, rowId, langtagOpt, flagType, value)
+      _ <- updateRowModel.addCellAnnotation(column, rowId, langtags, flagType, value)
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
 
-  def deleteCellFlag(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Cell[_]] = {
+  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Cell[_]] = {
     for {
-      _ <- updateRowModel.deleteCellFlag(column, rowId, uuid)
+      _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid)
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
 
-  def updateRowFlags(table: Table, rowId: RowId, finalFlag: Option[Boolean], needsTranslation: Option[Seq[String]]): Future[Row] = {
+  def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean]): Future[Row] = {
     for {
-      _ <- updateRowModel.updateRowFlags(table, rowId, finalFlag, needsTranslation)
+      _ <- updateRowModel.updateRowAnnotations(table, rowId, finalFlag)
       row <- retrieveRow(table, rowId)
     } yield row
   }
@@ -369,9 +369,9 @@ class TableauxModel(
                 // Special case for AttachmentColumns
                 // Can't be handled by RowModel
                 for {
-                  (rowLevelFlags, cellLevelFlags) <- retrieveRowModel.retrieveFlags(column.table.id, rowId, Seq(column))
+                  (rowLevelAnnotations, cellLevelAnnotations) <- retrieveRowModel.retrieveFlags(column.table.id, rowId, Seq(column))
                   attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
-                } yield Seq(Row(column.table, rowId, rowLevelFlags, cellLevelFlags, Seq(attachments)))
+                } yield Seq(Row(column.table, rowId, rowLevelAnnotations, cellLevelAnnotations, Seq(attachments)))
 
               case _ =>
                 for {

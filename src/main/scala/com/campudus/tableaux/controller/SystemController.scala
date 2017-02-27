@@ -20,19 +20,27 @@ object SystemController {
   }
 }
 
+case class SchemaVersion(databaseVersion: Int, specificationVersion: Int)
+
 class SystemController(override val config: TableauxConfig,
                        override protected val repository: SystemModel,
                        protected val tableauxModel: TableauxModel,
                        protected val structureModel: StructureModel) extends Controller[SystemModel] {
 
+  def retrieveSchemaVersion(): Future[SchemaVersion] = {
+    for {
+      databaseVersion <- repository.retrieveCurrentVersion()
+      specificationVersion = repository.retrieveSpecificationVersion()
+    } yield SchemaVersion(databaseVersion, specificationVersion)
+  }
+
   def retrieveVersions(): Future[DomainObject] = {
-    logger.info("Retrieve system version")
+    logger.info("Retrieve version information")
 
     val development = "DEVELOPMENT"
 
     for {
-      databaseVersion <- repository.retrieveCurrentVersion()
-      specificationVersion = repository.retrieveSpecificationVersion()
+      schemaVersion <- retrieveSchemaVersion()
     } yield {
       val json = Json.obj(
         "versions" -> Json.obj(
@@ -51,8 +59,8 @@ class SystemController(override val config: TableauxConfig,
             "jdk" -> manifestValue("Build-Java-Version").getOrElse(development)
           ),
           "database" -> Json.obj(
-            "current" -> databaseVersion,
-            "specification" -> specificationVersion
+            "current" -> schemaVersion.databaseVersion,
+            "specification" -> schemaVersion.specificationVersion
           )
         )
       )

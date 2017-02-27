@@ -39,6 +39,17 @@ object SystemRouter {
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
+  {
+    controller.retrieveSchemaVersion()
+      .foreach(schemaVersion => {
+        if (schemaVersion.databaseVersion > schemaVersion.specificationVersion) {
+          logger.error("Current database schema version is newer than the specification version!")
+        } else if (schemaVersion.databaseVersion < schemaVersion.specificationVersion) {
+          logger.warn("Current database schema version is outdated!")
+        }
+      })
+  }
+
   private val CacheColumnInvalidate: Regex = "/system/cache/invalidate/tables/(\\d+)/columns/(\\d+)".r
   private val Settings: Regex = "/system/settings/(\\w+)".r
 
