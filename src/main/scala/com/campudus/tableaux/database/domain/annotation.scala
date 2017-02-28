@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 import org.joda.time.DateTime
-import org.vertx.scala.core.json._
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
 
@@ -30,7 +30,7 @@ object CellAnnotationType {
     annotationName match {
       case CellAnnotationType.ERROR => ErrorAnnotationType
       case CellAnnotationType.WARNING => WarningAnnotationType
-      case CellAnnotationType.INFO => InfoFlagType
+      case CellAnnotationType.INFO => InfoAnnotationType
       case CellAnnotationType.FLAG => FlagAnnotationType
 
       case _ => throw new IllegalArgumentException(s"Invalid cell annotation $annotationName")
@@ -53,7 +53,7 @@ case object WarningAnnotationType extends CellAnnotationType {
   override def toString: String = CellAnnotationType.WARNING
 }
 
-case object InfoFlagType extends CellAnnotationType {
+case object InfoAnnotationType extends CellAnnotationType {
 
   override def toString: String = CellAnnotationType.INFO
 }
@@ -75,19 +75,22 @@ object CellLevelAnnotations {
           obj.remove("column_id")
 
           val uuid = obj.getString("uuid")
-          val langtags: Seq[String] = obj.getJsonArray("langtags", Json.emptyArr()).asScala.toSeq.map(_.toString)
-          val flagType = CellAnnotationType(obj.getString("type"))
+          val langtags = obj.getJsonArray("langtags", Json.emptyArr()).asScala.map(_.toString).toList
+          val annotationType = CellAnnotationType(obj.getString("type"))
           val value = obj.getString("value")
           val createdAt = DateTime.parse(obj.getString("createdAt"))
 
-          (columnId, CellLevelAnnotation(UUID.fromString(uuid), flagType, langtags, value, createdAt))
+          (columnId, CellLevelAnnotation(UUID.fromString(uuid), annotationType, langtags, value, createdAt))
       })
       .groupBy({
         case (columnId, _) => columnId
       })
       .map({
-        case (columnId, annotationsAsTupleSeq) => (columnId.toLong, annotationsAsTupleSeq
-          .map({ case (_, flagSeq) => flagSeq }))
+        case (columnId, annotationsAsTupleSeq) =>
+          (
+            columnId.toLong,
+            annotationsAsTupleSeq.map({ case (_, flagSeq) => flagSeq })
+          )
       })
 
     CellLevelAnnotations(columns, annotations)
@@ -96,7 +99,7 @@ object CellLevelAnnotations {
 
 case class CellLevelAnnotation(
   uuid: UUID,
-  flagType: CellAnnotationType,
+  annotationType: CellAnnotationType,
   langtags: Seq[String],
   value: String,
   createdAt: DateTime
@@ -105,7 +108,7 @@ case class CellLevelAnnotation(
   override def getJson: JsonObject = {
     val json = Json.obj(
       "uuid" -> uuid.toString,
-      "type" -> flagType.toString,
+      "type" -> annotationType.toString,
       "value" -> value,
       "createdAt" -> createdAt.toString()
     )

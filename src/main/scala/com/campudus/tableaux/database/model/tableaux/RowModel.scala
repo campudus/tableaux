@@ -275,14 +275,23 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def addCellAnnotation(column: ColumnType[_], rowId: RowId, langtags: Seq[String], annotationType: CellAnnotationType, value: String): Future[_] = {
-    val insert = s"INSERT INTO user_table_flag_${column.table.id} (row_id, column_id, uuid, langtags, type, value) VALUES (?, ?, ?, ?::text[], ?, ?)"
-    val binds = Json.arr(rowId, column.id, UUID.randomUUID().toString, langtags.mkString("{'", ",", "'}"),   annotationType.toString, value)
+    val insert = s"INSERT INTO user_table_annotations_${
+      column.table
+        .id
+    } (row_id, column_id, uuid, langtags, type, value) VALUES (?, ?, ?, ?::text[], ?, ?)"
+    val binds = Json
+      .arr(rowId,
+        column.id,
+        UUID.randomUUID().toString,
+        langtags.mkString("{", ",", "}"),
+        annotationType.toString,
+        value)
 
     connection.query(insert, binds)
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[_] = {
-    val delete = s"DELETE FROM user_table_flag_${column.table.id} WHERE row_id = ? AND column_id = ? AND uuid = ?"
+    val delete = s"DELETE FROM user_table_annotations_${column.table.id} WHERE row_id = ? AND column_id = ? AND uuid = ?"
     val binds = Json.arr(rowId, column.id, uuid.toString)
 
     connection.query(delete, binds)
@@ -420,7 +429,11 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   private val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
   private val dateFormat = "YYYY-MM-DD"
 
-  def retrieveFlags(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowLevelAnnotations, CellLevelAnnotations)] = {
+  def retrieveAnnotations(
+    tableId: TableId,
+    rowId: RowId,
+    columns: Seq[ColumnType[_]]
+  ): Future[(RowLevelAnnotations, CellLevelAnnotations)] = {
     for {
       result <- connection.query(s"SELECT ut.id, ${generateFlagsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?", Json.arr(rowId))
     } yield {
@@ -459,7 +472,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     (row.headOption, liftedRow(1), liftedRow(2)) match {
       case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr)) =>
         val cellAnnotations = Option(cellAnnotationsStr).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
-        val rawValues = row.drop(4)
+        val rawValues = row.drop(3)
 
         RawRow(rowId, RowLevelAnnotations(finalFlag), CellLevelAnnotations(columns, cellAnnotations), mapResultRow(columns, rawValues))
       case _ =>
@@ -581,18 +594,9 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         "NULL"
     }
 
-    if (projection.nonEmpty) {
-      s"""
-         |ut.id,
-         |${generateFlagsProjection(tableId)},
-         |${projection.mkString(",")}
-         """.stripMargin
-    } else {
-      s"""
-         |ut.id,
-         |${generateFlagsProjection(tableId)}
-         """.stripMargin
-    }
+    Seq(Seq("ut.id"), Seq(generateFlagsProjection(tableId)), projection)
+      .flatten
+      .mkString(",")
   }
 
   private def generateLinkProjection(tableId: TableId, c: LinkColumn): String = {
@@ -649,9 +653,17 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   }
 
   private def generateFlagsProjection(tableId: TableId): String = {
-    s"""
-       |ut.final AS final_flag,
-       |(SELECT json_agg(json_build_object('column_id', column_id, 'uuid', uuid, 'langtags', langtags::text[], 'type', type, 'value', value, 'createdAt', ${parseDateTimeSql("created_at")})) FROM (SELECT * FROM user_table_flag_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations
-      """.stripMargin
+    s"""|ut.final AS final_flag,
+        |(SELECT json_agg(
+        |  json_build_object(
+        |    'column_id', column_id,
+        |    'uuid', uuid,
+        |    'langtags', langtags::text[],
+        |    'type', type,
+        |    'value', value,
+        |    'createdAt', ${parseDateTimeSql("created_at")}
+        | )
+        |) FROM (SELECT * FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations"""
+      .stripMargin
   }
 }

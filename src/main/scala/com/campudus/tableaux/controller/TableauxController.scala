@@ -31,8 +31,8 @@ class TableauxController(override val config: TableauxConfig, override protected
         throw UnprocessableEntityException("Cannot add an annotation with langtags on a language neutral cell")
       }
 
-      flagged <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
-    } yield flagged
+      annotatedCell <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
+    } yield annotatedCell
   }
 
   def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID): Future[Cell[_]] = {
@@ -42,8 +42,8 @@ class TableauxController(override val config: TableauxConfig, override protected
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
-      flagged <- repository.deleteCellAnnotation(column, rowId, uuid)
-    } yield flagged
+      annotatedCell <- repository.deleteCellAnnotation(column, rowId, uuid)
+    } yield annotatedCell
   }
 
   def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {
