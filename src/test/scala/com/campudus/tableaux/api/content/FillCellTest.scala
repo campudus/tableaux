@@ -259,15 +259,37 @@ class FillCellTest extends TableauxTestBase {
   }
 
   @Test
-  def fillCurrencyCell(implicit c: TestContext): Unit = okTest {
-    for {
-      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", CurrencyCol("currency-column"))
+  def fillCurrencyCell(implicit c: TestContext): Unit = {
+    okTest{
+      for {
+        (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", CurrencyCol("currency-column"))
 
-      test <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 2999.99))
-      result <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
-    } yield {
-      assertEquals(Json.obj("status" -> "ok", "value" -> 2999.99), test)
-      assertEquals(Json.obj("status" -> "ok", "value" -> 2999.99), result)
+        test <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 2999.99))
+        result <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      } yield {
+        assertEquals(Json.obj("status" -> "ok", "value" -> 2999.99), test)
+        assertEquals(Json.obj("status" -> "ok", "value" -> 2999.99), result)
+      }
+    }
+  }
+
+  @Test
+  def fillMultiCountryCurrencyCell(implicit c: TestContext): Unit = {
+    okTest{
+      val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB"))
+
+      for {
+        (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", multiCountryCurrencyColumn)
+
+        test <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj(
+          "value" -> Json.obj("DE" -> 2999.99)
+        ))
+
+        result <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+      } yield {
+        assertEquals(Json.obj("status" -> "ok", "value" -> Json.obj("DE" -> 2999.99)), test)
+        assertEquals(Json.obj("status" -> "ok", "value" -> Json.obj("DE" -> 2999.99)), result)
+      }
     }
   }
 }

@@ -45,6 +45,22 @@ object RequestCreation {
     override def getJson: JsonObject = column.getJson.mergeIn(Json.obj("multilanguage" -> true))
   }
 
+  case class MultiCountry(column: ColumnType, countryCodes: Seq[String]) extends ColumnType(column.kind) {
+
+    val name: String = column.name
+
+    override def getJson: JsonObject = {
+      column
+        .getJson
+        .mergeIn(
+          Json.obj(
+            "languageType" -> "country",
+            "countryCodes" -> Json.arr(countryCodes: _*)
+          )
+        )
+    }
+  }
+
   case class Identifier(column: ColumnType) extends ColumnType(column.kind) {
     val name: String = column.name
 
