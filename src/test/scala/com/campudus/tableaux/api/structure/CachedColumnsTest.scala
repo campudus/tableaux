@@ -1,7 +1,7 @@
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.TableauxTestBase
-import io.vertx.core.json.JsonObject
+import org.vertx.scala.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test

@@ -9,7 +9,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.file.{AsyncFile, OpenOptions}
 import io.vertx.core.http._
-import io.vertx.core.json.JsonObject
+import org.vertx.scala.core.json.JsonObject
 import io.vertx.core.streams.Pump
 import io.vertx.core.{AsyncResult, DeploymentOptions, Handler, Vertx}
 import io.vertx.ext.unit.TestContext

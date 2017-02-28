@@ -2,7 +2,7 @@ package io.vertx.scala
 
 import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.helper.VertxAccess
-import io.vertx.core.json.{JsonArray, JsonObject}
+import org.vertx.scala.core.json.{JsonArray, JsonObject}
 import io.vertx.core.{AsyncResult, Handler}
 import io.vertx.ext.asyncsql.PostgreSQLClient
 import io.vertx.ext.sql.{ResultSet, UpdateResult}

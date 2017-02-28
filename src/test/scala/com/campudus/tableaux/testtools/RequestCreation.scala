@@ -1,6 +1,6 @@
 package com.campudus.tableaux.testtools
 
-import io.vertx.core.json.JsonObject
+import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.core.json.Json
 
 object RequestCreation {

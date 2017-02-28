@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.{HttpClient, HttpClientResponse}
-import io.vertx.core.json.JsonObject
+import org.vertx.scala.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FunctionConverters._

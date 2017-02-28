@@ -6,7 +6,7 @@ import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
-import io.vertx.core.json.{Json, JsonArray}
+import org.vertx.scala.core.json.JsonArray
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
