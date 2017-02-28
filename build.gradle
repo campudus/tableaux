@@ -1,176 +1,171 @@
 #!groovy
 
 plugins {
-    id 'java'
-    id 'scala'
-    id 'application'
+  id 'java'
+  id 'scala'
+  id 'application'
 
-    id 'com.github.johnrengelman.shadow' version '1.2.4'
-    id 'com.github.ksoichiro.build.info' version '0.2.0'
+  id 'com.github.johnrengelman.shadow' version '1.2.4'
+  id 'com.github.ksoichiro.build.info' version '0.2.0'
 
-    id 'org.scoverage' version '2.1.0'
-    id 'com.github.kt3k.coveralls' version '2.7.1'
+  id 'org.scoverage' version '2.1.0'
+  id 'com.github.kt3k.coveralls' version '2.7.1'
 }
 
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-def vertxVersion = '3.2.1'
+def vertxVersion = '3.3.3'
 def scalaVersion = '2.11.8'
 
-if (!JavaVersion.current().java8Compatible) {
-    throw new IllegalStateException("This needs Java 8.")
-}
+sourceCompatibility = '1.8'
 
 repositories {
-    mavenCentral()
+  jcenter()
 }
 
 configurations {
-    compileOnly
+  compileOnly
 }
 
 dependencies {
-    compile "org.scala-lang:scala-library:${scalaVersion}"
+  compile "org.scala-lang:scala-library:${scalaVersion}"
 
-    compile "io.vertx:vertx-core:${vertxVersion}"
-    compile "io.vertx:vertx-web:${vertxVersion}"
-    compile("io.vertx:vertx-mysql-postgresql-client:${vertxVersion}") {
-        exclude group: 'com.github.mauricio'
-    }
-    compile 'com.github.mauricio:postgresql-async_2.11:0.2.19'
+  compile "io.vertx:vertx-core:${vertxVersion}"
+  compile "io.vertx:vertx-web:${vertxVersion}"
+  compile("io.vertx:vertx-mysql-postgresql-client:${vertxVersion}")
 
-    compile 'joda-time:joda-time:2.9.7'
-    compile 'com.typesafe.scala-logging:scala-logging_2.11:3.5.0'
-    compile 'org.slf4j:slf4j-jdk14:1.7.22'
+  compile 'joda-time:joda-time:2.9.7'
+  compile 'com.typesafe.scala-logging:scala-logging_2.11:3.5.0'
+  compile 'org.slf4j:slf4j-jdk14:1.7.22'
 
-    compile 'com.jcabi:jcabi-manifests:1.1'
+  compile 'com.jcabi:jcabi-manifests:1.1'
 
-    compile 'com.github.cb372:scalacache-guava_2.11:0.9.3'
+  compile 'com.github.cb372:scalacache-guava_2.11:0.9.3'
 
-    compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
+  compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
-    scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.3.0'
-    scoverage 'org.scoverage:scalac-scoverage-runtime_2.11:1.3.0'
+  scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.3.0'
+  scoverage 'org.scoverage:scalac-scoverage-runtime_2.11:1.3.0'
 
-    testCompile "io.vertx:vertx-unit:${vertxVersion}"
-    testCompile 'junit:junit:4.12'
+  testCompile "io.vertx:vertx-unit:${vertxVersion}"
+  testCompile 'junit:junit:4.12'
 }
 
 mainClassName = "io.vertx.core.Launcher"
 def mainVerticle = "com.campudus.tableaux.Starter"
 
 test {
-    maxHeapSize = "512m"
-    jvmArgs "-Xmx512m"
+  maxHeapSize = "512m"
+  jvmArgs "-Xmx512m"
 }
 
 testScoverage {
-    maxHeapSize = "512m"
-    jvmArgs "-Xmx512m"
+  maxHeapSize = "512m"
+  jvmArgs "-Xmx512m"
 }
 
 run {
-    args = [
-            "run",
-            mainVerticle,
-            "-conf", "conf.json"
-    ]
+  args = [
+      "run",
+      mainVerticle,
+      "-conf", "conf.json"
+  ]
 
-    environment ENV: "development"
+  environment ENV: "development"
 }
 
 task runRedeploy(type: JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
+  classpath = sourceSets.main.runtimeClasspath
 
-    main = mainClassName
+  main = mainClassName
 
-    args = [
-            "run",
-            mainVerticle,
-            "-conf", "conf.json",
-            "--redeploy=src/main/**/*.scala",
-            "--launcher-class=${mainClassName}",
-            "--on-redeploy=./gradlew shadowJar"
-    ]
+  args = [
+      "run",
+      mainVerticle,
+      "-conf", "conf.json",
+      "--redeploy=src/main/**/*.scala",
+      "--launcher-class=${mainClassName}",
+      "--on-redeploy=./gradlew shadowJar"
+  ]
 
-    environment ENV: "development"
+  environment ENV: "development"
 }
 
 tasks.withType(ScalaCompile) {
-    scalaCompileOptions.additionalParameters = ["-feature"]
+  scalaCompileOptions.additionalParameters = ["-feature"]
 }
 
 sourceSets {
-    main {
-        compileClasspath += configurations.compileOnly
+  main {
+    compileClasspath += configurations.compileOnly
 
-        // let Scala compiler do everything – even java stuff
-        scala {
-            srcDirs = ['src/main/scala', 'src/main/java']
-        }
-        java {
-            srcDirs = []
-        }
+    // let Scala compiler do everything – even java stuff
+    scala {
+      srcDirs = ['src/main/scala', 'src/main/java']
     }
-    test {
-        compileClasspath += configurations.compileOnly
+    java {
+      srcDirs = []
     }
+  }
+  test {
+    compileClasspath += configurations.compileOnly
+  }
 }
 
 /**
  * Code coverage
  */
 checkScoverage {
-    minimumRate = 0.85
+  minimumRate = 0.85
 }
 
 scoverage {
-    excludedPackages = [
-            'io.vertx.scala.*',
-            'org.vertx.scala.*',
-            'com.github.mauricio.async.db.*'
-    ]
+  excludedPackages = [
+      'io.vertx.scala.*',
+      'org.vertx.scala.*',
+      'com.github.mauricio.async.db.*'
+  ]
 }
 
 coveralls {
-    service = "travis-ci"
+  service = "travis-ci"
 
-    def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
+  def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
 
-    def sourceDirStrings = new ArrayList()
-    subprojects.sourceSets.main.allSource.srcDirs.each {
-        it.each {
-            def basePath = Paths.get(System.getProperty("user.dir"))
-            def relPath = basePath.relativize(Paths.get(it.toString()))
-            sourceDirStrings.add(relPath.toString())
-        }
+  def sourceDirStrings = new ArrayList()
+  subprojects.sourceSets.main.allSource.srcDirs.each {
+    it.each {
+      def basePath = Paths.get(System.getProperty("user.dir"))
+      def relPath = basePath.relativize(Paths.get(it.toString()))
+      sourceDirStrings.add(relPath.toString())
     }
+  }
 
-    sourceDirs = sourceDirStrings.flatten()
+  sourceDirs = sourceDirStrings.flatten()
 
-    coberturaReportPath = coverageReportPath
+  coberturaReportPath = coverageReportPath
 }
 
 /**
  * Jar stuff
  */
 jar {
-    manifest {
-        attributes 'Main-Class': mainClassName
-        attributes 'Main-Verticle': mainVerticle
-        attributes 'Implementation-Vendor': project.group
-        attributes 'Implementation-Title': project.name
-        attributes 'Implementation-Version': project.version
-    }
+  manifest {
+    attributes 'Main-Class': mainClassName
+    attributes 'Main-Verticle': mainVerticle
+    attributes 'Implementation-Vendor': project.group
+    attributes 'Implementation-Title': project.name
+    attributes 'Implementation-Version': project.version
+  }
 }
 
 shadowJar {
-    classifier = 'fat'
+  classifier = 'fat'
 
-    mergeServiceFiles {
-        include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
-    }
+  mergeServiceFiles {
+    include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
+  }
 }
 
 assemble.dependsOn shadowJar
@@ -179,5 +174,5 @@ assemble.dependsOn shadowJar
  * Gradle wrapper
  */
 task wrapper(type: Wrapper) {
-    gradleVersion = '3.3'
+  gradleVersion = '3.4'
 }

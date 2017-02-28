@@ -10,8 +10,9 @@ import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
 import org.vertx.scala.core.json.{Json, _}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
@@ -514,6 +515,18 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
       case (_: LinkColumn, Some(v)) =>
         Json.fromArrayString(v.toString)
+
+      case (MultiLanguageColumn(_: NumberColumn | _: CurrencyColumn), Some(obj)) =>
+        val casedMap = Json.fromObjectString(obj.toString)
+          .asMap
+          .mapValues(n => Option(n) match {
+            case None => null
+            case Some(v: String) => (Try(v.toInt) orElse Try(v.toDouble)).get.asInstanceOf[java.lang.Object]
+          }).asJava
+        new JsonObject(casedMap)
+
+      case (_: NumberColumn | _: CurrencyColumn, Some(v: String)) =>
+        (Try(v.toInt) orElse Try(v.toDouble)).get
 
       case _ =>
         value

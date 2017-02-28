@@ -34,6 +34,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
             t.flatMap(setup)
         }
 
+      _ = logger.info("Setup schema finished")
+
       _ <- t.commit()
     } yield ()
   }
@@ -142,7 +144,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   }
 
   private def setupVersion(stmt: String, versionId: Int)(t: connection.Transaction): Future[connection.Transaction] = {
-    logger.info(s"Setup schema version $versionId")
+    logger.debug(s"Setup schema version $versionId")
 
     for {
       t <- t.query(stmt).map({
