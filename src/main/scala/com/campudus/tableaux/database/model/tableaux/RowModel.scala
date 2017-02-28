@@ -502,16 +502,27 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         Json.fromArrayString(v.toString)
 
       case (MultiLanguageColumn(_: NumberColumn | _: CurrencyColumn), Some(obj)) =>
-        val casedMap = Json.fromObjectString(obj.toString)
+        val castedMap = Json.fromObjectString(obj.toString)
           .asMap
-          .mapValues(n => Option(n) match {
-            case None => null
-            case Some(v: String) => (Try(v.toInt) orElse Try(v.toDouble)).get.asInstanceOf[java.lang.Object]
-          }).asJava
-        new JsonObject(casedMap)
+          .mapValues(n => {
+            Option(n) match {
+              case None =>
+                None.orNull
+              case Some(v: String) =>
+                Try(v.toInt)
+                  .orElse(Try(v.toDouble))
+                  .getOrElse(throw UnknownServerException(s"invalid value in database (column: $column)"))
+              case _ =>
+                throw UnknownServerException(s"invalid value in database (column: $column)")
+            }
+          })
+
+        Json.obj(castedMap.toSeq: _*)
 
       case (_: NumberColumn | _: CurrencyColumn, Some(v: String)) =>
-        (Try(v.toInt) orElse Try(v.toDouble)).get
+        Try(v.toInt)
+          .orElse(Try(v.toDouble))
+          .getOrElse(throw UnknownServerException(s"invalid value in database (column: $column)"))
 
       case _ =>
         value

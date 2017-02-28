@@ -62,11 +62,8 @@ class VertxEventLoopExecutionContext private(val vertx: Vertx) extends Execution
   }
 
   override def reportFailure(cause: Throwable): Unit = {
-    val exceptionHandler = context.exceptionHandler()
-
-    if (exceptionHandler != null) {
-      exceptionHandler.handle(cause)
-    }
+    Option(context.exceptionHandler())
+      .foreach(_.handle(cause))
   }
 
   override def prepare(): ExecutionContext = this
