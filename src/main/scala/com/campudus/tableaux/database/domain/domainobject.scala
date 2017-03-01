@@ -19,12 +19,14 @@ trait DomainObjectHelper {
     }
   }
 
-  private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A]): Seq[_] = {
+  private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A]): java.util.List[_] = {
+    import scala.collection.JavaConverters._
+
     values map {
       case s: Seq[_] => compatibilitySeq(returnType)(s)
       case d: DomainObject => d.toJson(returnType)
       case e => compatibility(returnType)(e)
-    }
+    } asJava
   }
 
   def optionToString[A](option: Option[A]): String = {

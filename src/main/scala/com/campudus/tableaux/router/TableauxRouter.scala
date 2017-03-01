@@ -3,9 +3,10 @@ package com.campudus.tableaux.router
 import java.util.UUID
 
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.database.domain.{CellFlagType, Pagination}
+import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
+import org.vertx.scala.core.json.JsonArray
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
@@ -24,13 +25,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val LinkOrderOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/link/(\\d+)/order".r
 
   private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
-  private val CellFlags: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/flags".r
-  private val CellFlagsId: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/flags/($uuidRegex)".r
+  private val CellAnnotations: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/annotations".r
+  private val CellAnnotation: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/annotations/($uuidRegex)".r
 
   private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
   private val RowDuplicate: Regex = "/tables/(\\d+)/rows/(\\d+)/duplicate".r
   private val RowDependent: Regex = "/tables/(\\d+)/rows/(\\d+)/dependent".r
-  private val RowFlags: Regex = "/tables/(\\d+)/rows/(\\d+)/flags".r
+  private val RowAnnotations: Regex = "/tables/(\\d+)/rows/(\\d+)/annotations".r
   private val Rows: Regex = "/tables/(\\d+)/rows".r
   private val RowsOfColumn: Regex = "/tables/(\\d+)/columns/(\\d+)/rows".r
   private val RowsOfFirstColumn: Regex = "/tables/(\\d+)/columns/first/rows".r
@@ -145,40 +146,39 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-      * Row Flags
+      * Update Row Annotations
       */
-    case Post(RowFlags(tableId, rowId)) => asyncGetReply {
+    case Patch(RowAnnotations(tableId, rowId)) => asyncGetReply{
       for {
         json <- getJson(context)
         finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false)).map(_.booleanValue())
-        needsTranslationOpt = booleanToValueOption(json.containsKey("needsTranslation"), asCastedList[String](json.getJsonArray("needsTranslation")).get)
 
-        updated <- controller.updateRowFlags(tableId.toLong, rowId.toLong, finalFlagOpt, needsTranslationOpt)
+        updated <- controller.updateRowAnnotations(tableId.toLong, rowId.toLong, finalFlagOpt)
       } yield updated
     }
 
     /**
-      * Add Cell Flag
+      * Add Cell Annotation
       */
-    case Post(CellFlags(tableId, columnId, rowId)) => asyncGetReply {
+    case Post(CellAnnotations(tableId, columnId, rowId)) => asyncGetReply{
       import com.campudus.tableaux.ArgumentChecker._
 
       for {
         json <- getJson(context)
 
-        langtagOpt = booleanToValueOption(json.containsKey("langtag"), json.getString("langtag"))
-        flagType = hasString("type", json).map(CellFlagType(_)).get
+        langtags = asCastedList[String](json.getJsonArray("langtags", new JsonArray())).get
+        flagType = hasString("type", json).map(CellAnnotationType(_)).get
         value = json.getString("value")
 
-        flagged <- controller.addCellFlag(tableId.toLong, columnId.toLong, rowId.toLong, langtagOpt, flagType, value)
+        flagged <- controller.addCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, langtags, flagType, value)
       } yield flagged
     }
 
     /**
-      * Delete Cell Flag
+      * Delete Cell Annotation
       */
-    case Delete(CellFlagsId(tableId, columnId, rowId, uuid)) => asyncGetReply {
-      controller.deleteCellFlag(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid))
+    case Delete(CellAnnotation(tableId, columnId, rowId, uuid)) => asyncGetReply{
+      controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid))
     }
 
     /**

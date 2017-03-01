@@ -20,31 +20,30 @@ object TableauxController {
 
 class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel) extends Controller[TableauxModel] {
 
-  def addCellFlag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtagOpt: Option[String], flagType: CellFlagType, value: String): Future[Cell[_]] = {
+  def addCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, langtags: Seq[String], annotationType: CellAnnotationType, value: String): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
-    logger.info(s"addCellFlag $tableId $columnId $rowId $langtagOpt $flagType $value")
+    logger.info(s"addCellAnnotation $tableId $columnId $rowId $langtags $annotationType $value")
 
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
-      _ = (column.languageType, langtagOpt) match {
-        case (LanguageNeutral, Some(_)) => throw UnprocessableEntityException("Cannot set a flag with langtag on a language neutral cell")
-        case _ => //ignore
+      _ = if (column.languageType == LanguageNeutral && langtags.nonEmpty) {
+        throw UnprocessableEntityException("Cannot add an annotation with langtags on a language neutral cell")
       }
 
-      flagged <- repository.addCellFlag(column, rowId, langtagOpt, flagType, value)
-    } yield flagged
+      annotatedCell <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
+    } yield annotatedCell
   }
 
-  def deleteCellFlag(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID): Future[Cell[_]] = {
+  def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
-    logger.info(s"deleteCellFlag $tableId $columnId $rowId $uuid")
+    logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid")
 
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
-      flagged <- repository.deleteCellFlag(column, rowId, uuid)
-    } yield flagged
+      annotatedCell <- repository.deleteCellAnnotation(column, rowId, uuid)
+    } yield annotatedCell
   }
 
   def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {
@@ -64,12 +63,12 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield row
   }
 
-  def updateRowFlags(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean], needsTranslation: Option[Seq[String]]): Future[Row] = {
+  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean]): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"updateRowFlags $tableId $rowId $finalFlag $needsTranslation")
+    logger.info(s"updateRowAnnotations $tableId $rowId $finalFlag")
     for {
       table <- repository.retrieveTable(tableId)
-      updatedRow <- repository.updateRowFlags(table, rowId, finalFlag, needsTranslation)
+      updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlag)
     } yield updatedRow
   }
 

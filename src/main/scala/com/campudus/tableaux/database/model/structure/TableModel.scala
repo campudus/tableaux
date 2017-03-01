@@ -18,7 +18,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   val tableGroupModel = TableGroupModel(connection)
 
   def create(name: String, hidden: Boolean, langtags: Option[Option[Seq[String]]], displayInfos: Seq[DisplayInfo], tableType: TableType, tableGroupId: Option[TableGroupId]): Future[Table] = {
-    connection.transactional { t =>
+    connection.transactional { t => {
       for {
         t <- t.selectSingleValue[Long]("SELECT COUNT(*) FROM system_table WHERE user_table_name = ?", Json.arr(name))
           .flatMap({
@@ -30,12 +30,19 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
               }
           })
 
-        (t, result) <- t.query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id) VALUES (?, ?, ?, ?, ?) RETURNING table_id", Json.arr(name, hidden, langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull, tableType.NAME, tableGroupId.orNull))
+        (t, result) <- t
+          .query(s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id) VALUES (?, ?, ?, ?, ?) RETURNING table_id",
+            Json
+              .arr(name,
+                hidden,
+                langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull,
+                tableType.NAME,
+                tableGroupId.orNull))
         id = insertNotNull(result).head.get[TableId](0)
 
         (t, _) <- t.query(s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, PRIMARY KEY (id))")
         t <- createLanguageTable(t, id)
-        t <- createCellFlagsTable(t, id)
+        t <- createCellAnnotationsTable(t, id)
         (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
 
         (t, _) <- createTableDisplayInfos(t, TableDisplayInfos(id, displayInfos))
@@ -49,7 +56,14 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
         }
 
         defaultLangtags <- retrieveGlobalLangtags()
-      } yield (t, Table(id, name, hidden, Option(langtags.flatten.getOrElse(defaultLangtags)), displayInfos, tableType, tableGroup))
+      } yield (t, Table(id,
+        name,
+        hidden,
+        Option(langtags.flatten.getOrElse(defaultLangtags)),
+        displayInfos,
+        tableType,
+        tableGroup))
+    }
     }
   }
 
@@ -83,15 +97,15 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield t
   }
 
-  private def createCellFlagsTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+  private def createCellAnnotationsTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
     for {
       (t, _) <- t.query(
         s"""
-           | CREATE TABLE user_table_flag_$id (
+           | CREATE TABLE user_table_annotations_$id (
            |   row_id BIGINT NOT NULL,
            |   column_id BIGINT NOT NULL,
            |   uuid UUID NOT NULL,
-           |   langtag VARCHAR(255) NOT NULL DEFAULT 'neutral',
+           |   langtags TEXT[] NOT NULL DEFAULT '{}'::text[],
            |   type VARCHAR(255) NOT NULL,
            |   value TEXT NULL,
            |   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
@@ -198,7 +212,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       t <- connection.begin()
 
-      (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_flag_$tableId")
+      (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_annotations_$tableId")
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_lang_$tableId")
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId")
 

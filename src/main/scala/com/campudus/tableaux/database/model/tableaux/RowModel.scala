@@ -3,7 +3,7 @@ package com.campudus.tableaux.database.model.tableaux
 import java.util.UUID
 
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{CellLevelFlag, MultiLanguageColumn, RowLevelFlags, _}
+import com.campudus.tableaux.database.domain.{CellLevelAnnotation$, MultiLanguageColumn, RowLevelAnnotations, _}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -264,53 +264,34 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     Future.sequence(futureSequence)
   }
 
-  def updateRowFlags(table: Table, rowId: RowId, finalFlagOpt: Option[Boolean], needsTranslationOpt: Option[Seq[String]]): Future[_] = {
+  def updateRowAnnotations(table: Table, rowId: RowId, finalFlagOpt: Option[Boolean]): Future[_] = {
     for {
       _ <- finalFlagOpt match {
         case None => Future.successful(())
         case Some(finalFlag) =>
           connection.query(s"UPDATE user_table_${table.id} SET final = ? WHERE id = ?", Json.arr(finalFlag, rowId))
       }
-
-      _ <- needsTranslationOpt match {
-        case None => Future.successful(())
-        case Some(needsTranslation) =>
-          if (needsTranslation.nonEmpty) {
-            val binds = Json.arr(needsTranslation.+:(rowId): _*)
-
-            for {
-              _ <- {
-                val unions = needsTranslation.map({
-                  _ =>
-                    s"SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM user_table_lang_${table.id} WHERE id = ? AND langtag = ?)"
-                })
-
-                val insert = s"INSERT INTO user_table_lang_${table.id}(id, langtag) ${unions.mkString(" UNION ")}"
-
-                val binds = needsTranslation.flatMap(flag => Seq(rowId, flag, rowId, flag))
-
-                connection.query(insert, Json.arr(binds: _*))
-              }
-
-              _ <- connection.query(s"UPDATE user_table_lang_${table.id} SET needs_translation = TRUE WHERE id = ? AND langtag IN (${needsTranslation.map(_ => "?").mkString(",")})", binds)
-              _ <- connection.query(s"UPDATE user_table_lang_${table.id} SET needs_translation = FALSE WHERE id = ? AND langtag NOT IN (${needsTranslation.map(_ => "?").mkString(",")})", binds)
-            } yield ()
-          } else {
-            connection.query(s"UPDATE user_table_lang_${table.id} SET needs_translation = FALSE WHERE id = ?", Json.arr(rowId))
-          }
-      }
     } yield ()
   }
 
-  def addCellFlag(column: ColumnType[_], rowId: RowId, langtagOpt: Option[String], flagType: CellFlagType, value: String): Future[_] = {
-    val insert = s"INSERT INTO user_table_flag_${column.table.id} (row_id, column_id, uuid, langtag, type, value) VALUES (?, ?, ?, ?, ?, ?)"
-    val binds = Json.arr(rowId, column.id, UUID.randomUUID().toString, langtagOpt.getOrElse("neutral"), flagType.toString, value)
+  def addCellAnnotation(column: ColumnType[_], rowId: RowId, langtags: Seq[String], annotationType: CellAnnotationType, value: String): Future[_] = {
+    val insert = s"INSERT INTO user_table_annotations_${
+      column.table
+        .id
+    } (row_id, column_id, uuid, langtags, type, value) VALUES (?, ?, ?, ?::text[], ?, ?)"
+    val binds = Json
+      .arr(rowId,
+        column.id,
+        UUID.randomUUID().toString,
+        langtags.mkString("{", ",", "}"),
+        annotationType.toString,
+        value)
 
     connection.query(insert, binds)
   }
 
-  def deleteCellFlag(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[_] = {
-    val delete = s"DELETE FROM user_table_flag_${column.table.id} WHERE row_id = ? AND column_id = ? AND uuid = ?"
+  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[_] = {
+    val delete = s"DELETE FROM user_table_annotations_${column.table.id} WHERE row_id = ? AND column_id = ? AND uuid = ?"
     val binds = Json.arr(rowId, column.id, uuid.toString)
 
     connection.query(delete, binds)
@@ -448,12 +429,16 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   private val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
   private val dateFormat = "YYYY-MM-DD"
 
-  def retrieveFlags(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[(RowLevelFlags, CellLevelFlags)] = {
+  def retrieveAnnotations(
+    tableId: TableId,
+    rowId: RowId,
+    columns: Seq[ColumnType[_]]
+  ): Future[(RowLevelAnnotations, CellLevelAnnotations)] = {
     for {
       result <- connection.query(s"SELECT ut.id, ${generateFlagsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?", Json.arr(rowId))
     } yield {
       val rawRow = mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
-      (rawRow.rowLevelFlags, rawRow.cellLevelFlags)
+      (rawRow.rowLevelAnnotations, rawRow.cellLevelAnnotations)
     }
   }
 
@@ -480,16 +465,16 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   }
 
   private def mapRowToRawRow(columns: Seq[ColumnType[_]])(row: Seq[Any]): RawRow = {
-    // Row should have at least = row_id, final_flag, needs_translation, cell_flags
-    assert(row.size >= 4)
+    // Row should have at least = row_id, final_flag, cell_annotations
+    assert(row.size >= 3)
     val liftedRow = row.lift
-    (row.headOption, liftedRow(1), liftedRow(2), liftedRow(3)) match {
-      case (Some(rowId: Long), Some(finalFlag: Boolean), Some(needsTranslationStr), Some(cellFlagsStr)) =>
-        val needsTranslation = Option(needsTranslationStr).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
-        val cellFlags = Option(cellFlagsStr).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
-        val rawValues = row.drop(4)
 
-        RawRow(rowId, RowLevelFlags(finalFlag, needsTranslation), CellLevelFlags(columns, CellLevelFlag(cellFlags)), mapResultRow(columns, rawValues))
+    (row.headOption, liftedRow(1), liftedRow(2)) match {
+      case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr)) =>
+        val cellAnnotations = Option(cellAnnotationsStr).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+        val rawValues = row.drop(3)
+
+        RawRow(rowId, RowLevelAnnotations(finalFlag), CellLevelAnnotations(columns, cellAnnotations), mapResultRow(columns, rawValues))
       case _ =>
         // shouldn't happen b/c of assert
         throw UnknownServerException(s"Please check generateProjection!")
@@ -504,29 +489,39 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
   private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
     (column, Option(value)) match {
-      case (MultiLanguageColumn(_), None) =>
-        Json.emptyObj()
-
-      case (MultiLanguageColumn(_), Some(v)) =>
-        Json.fromObjectString(v.toString)
-
-      case (_: LinkColumn, None) =>
-        Json.emptyArr()
-
-      case (_: LinkColumn, Some(v)) =>
-        Json.fromArrayString(v.toString)
-
       case (MultiLanguageColumn(_: NumberColumn | _: CurrencyColumn), Some(obj)) =>
-        val casedMap = Json.fromObjectString(obj.toString)
+        val castedMap = Json.fromObjectString(obj.toString)
           .asMap
-          .mapValues(n => Option(n) match {
-            case None => null
-            case Some(v: String) => (Try(v.toInt) orElse Try(v.toDouble)).get.asInstanceOf[java.lang.Object]
-          }).asJava
-        new JsonObject(casedMap)
+          .mapValues(Option(_))
+          .mapValues({
+            case None =>
+              None.orNull
+            case Some(v: String) =>
+              Try(v.toInt)
+                .orElse(Try(v.toDouble))
+                .getOrElse(throw UnknownServerException(s"invalid value in database, should be numeric string (column: $column)"))
+            case Some(v) =>
+              v
+          })
+
+        Json.obj(castedMap.toSeq: _*)
+
+      case (MultiLanguageColumn(_), option) =>
+        option
+          .map(_.toString)
+          .map(Json.fromObjectString)
+          .getOrElse(Json.emptyObj())
+
+      case (_: LinkColumn, option) =>
+        option
+          .map(_.toString)
+          .map(Json.fromArrayString)
+          .getOrElse(Json.emptyArr())
 
       case (_: NumberColumn | _: CurrencyColumn, Some(v: String)) =>
-        (Try(v.toInt) orElse Try(v.toDouble)).get
+        Try(v.toInt)
+          .orElse(Try(v.toDouble))
+          .getOrElse(throw UnknownServerException(s"invalid value in database, should be a numeric string (column: $column)"))
 
       case _ =>
         value
@@ -609,18 +604,9 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         "NULL"
     }
 
-    if (projection.nonEmpty) {
-      s"""
-         |ut.id,
-         |${generateFlagsProjection(tableId)},
-         |${projection.mkString(",")}
-         """.stripMargin
-    } else {
-      s"""
-         |ut.id,
-         |${generateFlagsProjection(tableId)}
-         """.stripMargin
-    }
+    Seq(Seq("ut.id"), Seq(generateFlagsProjection(tableId)), projection)
+      .flatten
+      .mkString(",")
   }
 
   private def generateLinkProjection(tableId: TableId, c: LinkColumn): String = {
@@ -677,10 +663,17 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   }
 
   private def generateFlagsProjection(tableId: TableId): String = {
-    s"""
-       |ut.final AS final_flag,
-       |(SELECT json_agg(langtag) FROM user_table_lang_$tableId WHERE id = ut.id AND needs_translation IS TRUE) AS needs_translation,
-       |(SELECT json_agg(json_build_object('column_id', column_id, 'uuid', uuid, 'langtag', langtag, 'type', type, 'value', value, 'created_at', ${parseDateTimeSql("created_at")})) FROM (SELECT * FROM user_table_flag_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_flags
-      """.stripMargin
+    s"""|ut.final AS final_flag,
+        |(SELECT json_agg(
+        |  json_build_object(
+        |    'column_id', column_id,
+        |    'uuid', uuid,
+        |    'langtags', langtags::text[],
+        |    'type', type,
+        |    'value', value,
+        |    'createdAt', ${parseDateTimeSql("created_at")}
+        | )
+        |) FROM (SELECT * FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations"""
+      .stripMargin
   }
 }

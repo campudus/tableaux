@@ -1,7 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.helper.VertxAccess
-import io.vertx.core.json.JsonObject
+import org.vertx.scala.core.json.JsonObject
 import io.vertx.scala.ScalaVerticle
 
 import scala.reflect.io.Path

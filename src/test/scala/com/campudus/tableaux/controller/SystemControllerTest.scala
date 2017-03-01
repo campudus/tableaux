@@ -65,26 +65,28 @@ class SystemControllerTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveVersions(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj(
-      "database" -> Json.obj(
-        "current" -> 17,
-        "specification" -> 17
+  def retrieveVersions(implicit c: TestContext): Unit = {
+    okTest{
+      val expectedJson = Json.obj(
+        "database" -> Json.obj(
+          "current" -> 18,
+          "specification" -> 18
+        )
       )
-    )
 
-    for {
-      _ <- {
-        val nonce = SystemRouter.generateNonce()
-        sendRequest("POST", s"/system/reset?nonce=$nonce")
+      for {
+        _ <- {
+          val nonce = SystemRouter.generateNonce()
+          sendRequest("POST", s"/system/reset?nonce=$nonce")
+        }
+        _ <- {
+          val nonce = SystemRouter.generateNonce()
+          sendRequest("POST", s"/system/resetDemo?nonce=$nonce")
+        }
+        versions <- sendRequest("GET", "/system/versions")
+      } yield {
+        assertContains(expectedJson, versions.getJsonObject("versions"))
       }
-      _ <- {
-        val nonce = SystemRouter.generateNonce()
-        sendRequest("POST", s"/system/resetDemo?nonce=$nonce")
-      }
-      versions <- sendRequest("GET", "/system/versions")
-    } yield {
-      assertContains(expectedJson, versions.getJsonObject("versions"))
     }
   }
 

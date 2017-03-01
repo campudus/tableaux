@@ -175,42 +175,71 @@ class TableauxModel(
     row <- retrieveRow(table, rowId)
   } yield row
 
-  def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = for {
-    columns <- retrieveColumns(table)
-    rows <- rows.foldLeft(Future.successful(Vector[Row]())) {
-      (futureRows, row) =>
-        // replace ColumnId with ColumnType
-        // TODO fail nice if columnid doesn't exist
-        val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
+  def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = {
+    for {
+      columns <- retrieveColumns(table)
+      rows <- rows.foldLeft(Future.successful(Vector[Row]())){
+        (futureRows, row) =>
+          // replace ColumnId with ColumnType
+          // TODO fail nice if columnid doesn't exist
+          val columnValuePairs = row.map{ case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
-        futureRows.flatMap { rows =>
-          for {
-            rowId <- createRowModel.createRow(table.id, columnValuePairs)
-            newRow <- retrieveRow(table, columns, rowId)
-          } yield {
-            rows ++ Seq(newRow)
+          futureRows.flatMap{ rows =>
+            for {
+              rowId <- createRowModel.createRow(table.id, columnValuePairs)
+              newRow <- retrieveRow(table, columns, rowId)
+            } yield {
+              rows ++ Seq(newRow)
+            }
           }
+      }
+    } yield RowSeq(rows)
+  }
+
+  def addCellAnnotation(
+    column: ColumnType[_],
+    rowId: RowId,
+    langtags: Seq[String],
+    annotationType: CellAnnotationType,
+    value: String
+  ): Future[Cell[_]] = {
+    for {
+      (_, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
+
+      sameAnnotations = cellLevelAnnotations
+        .annotations
+        .values
+        .headOption
+        .getOrElse(Seq.empty)
+        .filter({ a => {
+          a.annotationType == annotationType && a.value == value
         }
-    }
-  } yield RowSeq(rows)
+        })
 
-  def addCellFlag(column: ColumnType[_], rowId: RowId, langtagOpt: Option[String], flagType: CellFlagType, value: String): Future[Cell[_]] = {
-    for {
-      _ <- updateRowModel.addCellFlag(column, rowId, langtagOpt, flagType, value)
+      mergedLangtags = sameAnnotations
+        .flatMap(_.langtags)
+        .union(langtags)
+        .distinct
+        .sorted
+
+      _ <- updateRowModel.addCellAnnotation(column, rowId, mergedLangtags, annotationType, value)
+
+      _ <- Future.sequence(sameAnnotations.map(_.uuid).map(updateRowModel.deleteCellAnnotation(column, rowId, _)))
+
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
 
-  def deleteCellFlag(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Cell[_]] = {
+  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Cell[_]] = {
     for {
-      _ <- updateRowModel.deleteCellFlag(column, rowId, uuid)
+      _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid)
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
 
-  def updateRowFlags(table: Table, rowId: RowId, finalFlag: Option[Boolean], needsTranslation: Option[Seq[String]]): Future[Row] = {
+  def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean]): Future[Row] = {
     for {
-      _ <- updateRowModel.updateRowFlags(table, rowId, finalFlag, needsTranslation)
+      _ <- updateRowModel.updateRowAnnotations(table, rowId, finalFlag)
       row <- retrieveRow(table, rowId)
     } yield row
   }
@@ -369,9 +398,10 @@ class TableauxModel(
                 // Special case for AttachmentColumns
                 // Can't be handled by RowModel
                 for {
-                  (rowLevelFlags, cellLevelFlags) <- retrieveRowModel.retrieveFlags(column.table.id, rowId, Seq(column))
+                  (rowLevelAnnotations, cellLevelAnnotations) <- retrieveRowModel
+                    .retrieveAnnotations(column.table.id, rowId, Seq(column))
                   attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
-                } yield Seq(Row(column.table, rowId, rowLevelFlags, cellLevelFlags, Seq(attachments)))
+                } yield Seq(Row(column.table, rowId, rowLevelAnnotations, cellLevelAnnotations, Seq(attachments)))
 
               case _ =>
                 for {
