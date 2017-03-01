@@ -281,14 +281,27 @@ class FillCellTest extends TableauxTestBase {
       for {
         (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", multiCountryCurrencyColumn)
 
-        test <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj(
-          "value" -> Json.obj("DE" -> 2999.99)
-        ))
+        testFloat <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj(
+          "value" -> Json.obj(
+            "DE" -> 2999.99,
+            "GB" -> 3999.99
+          )))
 
-        result <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+        resultFloat <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+        testInt <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj(
+          "value" -> Json.obj(
+            "DE" -> 2999,
+            "GB" -> 3999
+          )))
+
+        resultInt <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
-        assertEquals(Json.obj("status" -> "ok", "value" -> Json.obj("DE" -> 2999.99)), test)
-        assertEquals(Json.obj("status" -> "ok", "value" -> Json.obj("DE" -> 2999.99)), result)
+        assertEquals(testInt, resultInt)
+        assertEquals(testFloat, resultFloat)
+
+        assertEquals(Json.obj("DE" -> 2999, "GB" -> 3999), resultInt.getJsonObject("value"))
+        assertEquals(Json.obj("DE" -> 2999.99, "GB" -> 3999.99), resultFloat.getJsonObject("value"))
       }
     }
   }

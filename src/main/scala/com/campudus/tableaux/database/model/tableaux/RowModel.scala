@@ -489,40 +489,39 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
   private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
     (column, Option(value)) match {
-      case (MultiLanguageColumn(_), None) =>
-        Json.emptyObj()
-
-      case (MultiLanguageColumn(_), Some(v)) =>
-        Json.fromObjectString(v.toString)
-
-      case (_: LinkColumn, None) =>
-        Json.emptyArr()
-
-      case (_: LinkColumn, Some(v)) =>
-        Json.fromArrayString(v.toString)
-
       case (MultiLanguageColumn(_: NumberColumn | _: CurrencyColumn), Some(obj)) =>
         val castedMap = Json.fromObjectString(obj.toString)
           .asMap
-          .mapValues(n => {
-            Option(n) match {
-              case None =>
-                None.orNull
-              case Some(v: String) =>
-                Try(v.toInt)
-                  .orElse(Try(v.toDouble))
-                  .getOrElse(throw UnknownServerException(s"invalid value in database (column: $column)"))
-              case _ =>
-                throw UnknownServerException(s"invalid value in database (column: $column)")
-            }
+          .mapValues(Option(_))
+          .mapValues({
+            case None =>
+              None.orNull
+            case Some(v: String) =>
+              Try(v.toInt)
+                .orElse(Try(v.toDouble))
+                .getOrElse(throw UnknownServerException(s"invalid value in database, should be numeric string (column: $column)"))
+            case Some(v) =>
+              v
           })
 
         Json.obj(castedMap.toSeq: _*)
 
+      case (MultiLanguageColumn(_), option) =>
+        option
+          .map(_.toString)
+          .map(Json.fromObjectString)
+          .getOrElse(Json.emptyObj())
+
+      case (_: LinkColumn, option) =>
+        option
+          .map(_.toString)
+          .map(Json.fromArrayString)
+          .getOrElse(Json.emptyArr())
+
       case (_: NumberColumn | _: CurrencyColumn, Some(v: String)) =>
         Try(v.toInt)
           .orElse(Try(v.toDouble))
-          .getOrElse(throw UnknownServerException(s"invalid value in database (column: $column)"))
+          .getOrElse(throw UnknownServerException(s"invalid value in database, should be a numeric string (column: $column)"))
 
       case _ =>
         value
