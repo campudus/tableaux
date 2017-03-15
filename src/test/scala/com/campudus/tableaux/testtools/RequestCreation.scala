@@ -1,5 +1,6 @@
 package com.campudus.tableaux.testtools
 
+import com.campudus.tableaux.database.model.TableauxModel.TableId
 import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.core.json.Json
 
@@ -38,6 +39,30 @@ object RequestCreation {
   case class CurrencyCol(name: String) extends ColumnType("currency")
 
   case class BooleanCol(name: String) extends ColumnType("boolean")
+
+  sealed abstract class LinkCol extends ColumnType("link") {
+
+    override val name: String
+    val linkTo: TableId
+    val biDirectional: Boolean
+
+    override def getJson: JsonObject = {
+      super.getJson.mergeIn(Json.obj(
+        "toTable" -> linkTo,
+        "singleDirection" -> !biDirectional
+      ))
+    }
+  }
+
+  case class LinkBiDirectionalCol(name: String, linkTo: TableId) extends LinkCol {
+
+    override val biDirectional: Boolean = true
+  }
+
+  case class LinkUniDirectionalCol(name: String, linkTo: TableId) extends LinkCol {
+
+    override val biDirectional: Boolean = false
+  }
 
   case class Multilanguage(column: ColumnType) extends ColumnType(column.kind) {
     val name: String = column.name
