@@ -33,6 +33,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val RowDependent: Regex = "/tables/(\\d+)/rows/(\\d+)/dependent".r
   private val RowAnnotations: Regex = "/tables/(\\d+)/rows/(\\d+)/annotations".r
   private val Rows: Regex = "/tables/(\\d+)/rows".r
+  private val RowsAnnotations: Regex = "/tables/(\\d+)/rows/annotations".r
   private val RowsOfColumn: Regex = "/tables/(\\d+)/columns/(\\d+)/rows".r
   private val RowsOfFirstColumn: Regex = "/tables/(\\d+)/columns/first/rows".r
 
@@ -154,6 +155,19 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false)).map(_.booleanValue())
 
         updated <- controller.updateRowAnnotations(tableId.toLong, rowId.toLong, finalFlagOpt)
+      } yield updated
+    }
+
+    /**
+      * Update Row Annotations
+      */
+    case Patch(RowsAnnotations(tableId)) => asyncGetReply{
+      for {
+        json <- getJson(context)
+        finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
+          .map(_.booleanValue())
+
+        updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt)
       } yield updated
     }
 
