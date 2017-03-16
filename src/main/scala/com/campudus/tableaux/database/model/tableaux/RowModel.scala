@@ -264,12 +264,22 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     Future.sequence(futureSequence)
   }
 
-  def updateRowAnnotations(table: Table, rowId: RowId, finalFlagOpt: Option[Boolean]): Future[_] = {
+  def updateRowsAnnotations(tableId: TableId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
     for {
       _ <- finalFlagOpt match {
         case None => Future.successful(())
         case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_${table.id} SET final = ? WHERE id = ?", Json.arr(finalFlag, rowId))
+          connection.query(s"UPDATE user_table_$tableId SET final = ?", Json.arr(finalFlag))
+      }
+    } yield ()
+  }
+
+  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
+    for {
+      _ <- finalFlagOpt match {
+        case None => Future.successful(())
+        case Some(finalFlag) =>
+          connection.query(s"UPDATE user_table_$tableId SET final = ? WHERE id = ?", Json.arr(finalFlag, rowId))
       }
     } yield ()
   }

@@ -72,6 +72,15 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield updatedRow
   }
 
+  def updateRowsAnnotations(tableId: TableId, finalFlag: Option[Boolean]): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId))
+    logger.info(s"updateRowsAnnotations $tableId $finalFlag")
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.updateRowsAnnotations(table, finalFlag)
+    } yield EmptyObject()
+  }
+
   def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")

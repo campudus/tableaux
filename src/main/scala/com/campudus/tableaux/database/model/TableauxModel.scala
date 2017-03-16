@@ -239,9 +239,15 @@ class TableauxModel(
 
   def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean]): Future[Row] = {
     for {
-      _ <- updateRowModel.updateRowAnnotations(table, rowId, finalFlag)
+      _ <- updateRowModel.updateRowAnnotations(table.id, rowId, finalFlag)
       row <- retrieveRow(table, rowId)
     } yield row
+  }
+
+  def updateRowsAnnotations(table: Table, finalFlag: Option[Boolean]): Future[Unit] = {
+    for {
+      _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
+    } yield ()
   }
 
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
