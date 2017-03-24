@@ -20,7 +20,14 @@ object TableauxController {
 
 class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel) extends Controller[TableauxModel] {
 
-  def addCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, langtags: Seq[String], annotationType: CellAnnotationType, value: String): Future[Cell[_]] = {
+  def addCellAnnotation(
+    tableId: TableId,
+    columnId: ColumnId,
+    rowId: RowId,
+    langtags: Seq[String],
+    annotationType: CellAnnotationType,
+    value: String
+  ): Future[CellLevelAnnotation] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"addCellAnnotation $tableId $columnId $rowId $langtags $annotationType $value")
 
@@ -31,19 +38,36 @@ class TableauxController(override val config: TableauxConfig, override protected
         throw UnprocessableEntityException("Cannot add an annotation with langtags on a language neutral cell")
       }
 
-      annotatedCell <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
-    } yield annotatedCell
+      cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
+    } yield cellAnnotation
   }
 
-  def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID): Future[Cell[_]] = {
+  def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid")
 
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
-      annotatedCell <- repository.deleteCellAnnotation(column, rowId, uuid)
-    } yield annotatedCell
+      _ <- repository.deleteCellAnnotation(column, rowId, uuid)
+    } yield EmptyObject()
+  }
+
+  def deleteCellAnnotation(
+    tableId: TableId,
+    columnId: ColumnId,
+    rowId: RowId,
+    uuid: UUID,
+    langtag: String
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid $langtag")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      column <- repository.retrieveColumn(table, columnId)
+      _ <- repository.deleteCellAnnotation(column, rowId, uuid, langtag)
+    } yield EmptyObject()
   }
 
   def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {

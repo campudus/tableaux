@@ -202,8 +202,9 @@ class TableauxModel(
     langtags: Seq[String],
     annotationType: CellAnnotationType,
     value: String
-  ): Future[Cell[_]] = {
+  ): Future[CellLevelAnnotation] = {
     for {
+    // TODO do this in a transaction
       (_, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
 
       sameAnnotations = cellLevelAnnotations
@@ -211,10 +212,7 @@ class TableauxModel(
         .values
         .headOption
         .getOrElse(Seq.empty)
-        .filter({ a => {
-          a.annotationType == annotationType && a.value == value
-        }
-        })
+        .filter(a => a.annotationType == annotationType && a.value == value)
 
       mergedLangtags = sameAnnotations
         .flatMap(_.langtags)
@@ -222,19 +220,23 @@ class TableauxModel(
         .distinct
         .sorted
 
-      _ <- updateRowModel.addCellAnnotation(column, rowId, mergedLangtags, annotationType, value)
+      (uuid, createdAt) <- updateRowModel.addCellAnnotation(column, rowId, mergedLangtags, annotationType, value)
 
       _ <- Future.sequence(sameAnnotations.map(_.uuid).map(updateRowModel.deleteCellAnnotation(column, rowId, _)))
 
-      cell <- retrieveCell(column, rowId)
-    } yield cell
+    } yield CellLevelAnnotation(uuid, annotationType, mergedLangtags, value, createdAt)
   }
 
-  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Cell[_]] = {
+  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Unit] = {
     for {
       _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid)
-      cell <- retrieveCell(column, rowId)
-    } yield cell
+    } yield ()
+  }
+
+  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String): Future[Unit] = {
+    for {
+      _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid, langtag)
+    } yield ()
   }
 
   def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean]): Future[Row] = {
