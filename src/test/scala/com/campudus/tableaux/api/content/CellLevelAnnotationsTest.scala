@@ -35,7 +35,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
-  def addMultipleAnnotationsWithoutLangtags(implicit c: TestContext): Unit = {
+  def addAndDeleteMultipleAnnotationsWithoutLangtags(implicit c: TestContext): Unit = {
     okTest{
       for {
         tableId <- createEmptyDefaultTable()
@@ -178,6 +178,39 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           .getJsonArray("langtags")
 
         assertContainsDeep(Json.arr(Seq("de", "gb", "fr", "es", "cs", "nl").sorted: _*), langtags)
+      }
+    }
+  }
+
+  @Test
+  def deleteLangtagFromExistingAnnotation(implicit c: TestContext): Unit = {
+    okTest{
+      for {
+        (tableId, _) <- createTableWithMultilanguageColumns("Test")
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        annotation <- sendRequest("POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error"))
+
+        rowJson <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+
+        _ <- sendRequest("DELETE",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations/${annotation.getString("uuid")}/en")
+
+        rowJsonAfterDelete <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+      } yield {
+        val exceptedFlags = Json
+          .arr(Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error", "value" -> null))
+
+        val exceptedFlagsAfterDelete = Json
+          .arr(Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> null))
+
+        assertContainsDeep(exceptedFlags, rowJson.getJsonArray("annotations").getJsonArray(0))
+        assertContainsDeep(exceptedFlagsAfterDelete, rowJsonAfterDelete.getJsonArray("annotations").getJsonArray(0))
       }
     }
   }

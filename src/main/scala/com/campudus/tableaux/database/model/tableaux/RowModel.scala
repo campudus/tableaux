@@ -3,16 +3,30 @@ package com.campudus.tableaux.database.model.tableaux
 import java.util.UUID
 
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{CellLevelAnnotation$, MultiLanguageColumn, RowLevelAnnotations, _}
+import com.campudus.tableaux.database.domain.{MultiLanguageColumn, RowLevelAnnotations, _}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
+import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, _}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
+
+object ModelHelper {
+
+  val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
+  val dateFormat = "YYYY-MM-DD"
+
+  def parseDateTimeSql(column: String): String = {
+    s"TO_CHAR($column AT TIME ZONE 'UTC', '$dateTimeFormat')"
+  }
+
+  def parseDateSql(column: String): String = {
+    s"TO_CHAR($column, '$dateFormat')"
+  }
+}
 
 class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
@@ -284,25 +298,48 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def addCellAnnotation(column: ColumnType[_], rowId: RowId, langtags: Seq[String], annotationType: CellAnnotationType, value: String): Future[_] = {
-    val insert = s"INSERT INTO user_table_annotations_${
-      column.table
-        .id
-    } (row_id, column_id, uuid, langtags, type, value) VALUES (?, ?, ?, ?::text[], ?, ?)"
+  def addCellAnnotation(
+    column: ColumnType[_],
+    rowId: RowId,
+    langtags: Seq[String],
+    annotationType: CellAnnotationType,
+    value: String
+  ): Future[(UUID, DateTime)] = {
+    import ModelHelper._
+
+    val tableId = column.table.id
+    val uuid = UUID.randomUUID()
+
+    val insert = s"INSERT INTO user_table_annotations_$tableId (row_id, column_id, uuid, langtags, type, value) VALUES (?, ?, ?, ?::text[], ?, ?) RETURNING ${
+      parseDateTimeSql("created_at")
+    }"
     val binds = Json
       .arr(rowId,
         column.id,
-        UUID.randomUUID().toString,
+        uuid.toString,
         langtags.mkString("{", ",", "}"),
         annotationType.toString,
         value)
 
-    connection.query(insert, binds)
+    connection
+      .query(insert, binds)
+      .map(result => DateTime.parse(insertNotNull(result).head.getString(0)))
+      .map(createdAt => (uuid, createdAt))
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[_] = {
     val delete = s"DELETE FROM user_table_annotations_${column.table.id} WHERE row_id = ? AND column_id = ? AND uuid = ?"
     val binds = Json.arr(rowId, column.id, uuid.toString)
+
+    connection.query(delete, binds)
+  }
+
+  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String): Future[_] = {
+    val delete = s"UPDATE user_table_annotations_${
+      column.table
+        .id
+    } SET langtags = ARRAY_REMOVE(langtags, ?) WHERE row_id = ? AND column_id = ? AND uuid = ?"
+    val binds = Json.arr(langtag, rowId, column.id, uuid.toString)
 
     connection.query(delete, binds)
   }
@@ -436,8 +473,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
 class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
-  private val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
-  private val dateFormat = "YYYY-MM-DD"
+  import ModelHelper._
 
   def retrieveAnnotations(
     tableId: TableId,
@@ -569,14 +605,6 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
   private def generateFromClause(tableId: TableId): String = {
     s"user_table_$tableId ut LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)"
-  }
-
-  private def parseDateTimeSql(column: String): String = {
-    s"TO_CHAR($column AT TIME ZONE 'UTC', '$dateTimeFormat')"
-  }
-
-  private def parseDateSql(column: String): String = {
-    s"TO_CHAR($column, '$dateFormat')"
   }
 
   private def generateProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {

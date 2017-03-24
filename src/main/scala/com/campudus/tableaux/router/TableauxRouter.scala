@@ -27,6 +27,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
   private val CellAnnotations: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/annotations".r
   private val CellAnnotation: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/annotations/($uuidRegex)".r
+  private val CellAnnotationLangtag: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/annotations/($uuidRegex)/($langtagRegex)"
+    .r
 
   private val Row: Regex = "/tables/(\\d+)/rows/(\\d+)".r
   private val RowDuplicate: Regex = "/tables/(\\d+)/rows/(\\d+)/duplicate".r
@@ -172,7 +174,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
 
     /**
-      * Add Cell Annotation
+      * Add Cell Annotation (will possibly be merged with an existing annotation)
       */
     case Post(CellAnnotations(tableId, columnId, rowId)) => asyncGetReply{
       import com.campudus.tableaux.ArgumentChecker._
@@ -184,8 +186,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         flagType = hasString("type", json).map(CellAnnotationType(_)).get
         value = json.getString("value")
 
-        flagged <- controller.addCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, langtags, flagType, value)
-      } yield flagged
+        cellAnnotation <- controller
+          .addCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, langtags, flagType, value)
+      } yield cellAnnotation
     }
 
     /**
@@ -193,6 +196,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       */
     case Delete(CellAnnotation(tableId, columnId, rowId, uuid)) => asyncGetReply{
       controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid))
+    }
+
+    /**
+      * Delete Langtag from Cell Annotation
+      */
+    case Delete(CellAnnotationLangtag(tableId, columnId, rowId, uuid, langtag)) => asyncGetReply{
+      controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid), langtag)
     }
 
     /**
