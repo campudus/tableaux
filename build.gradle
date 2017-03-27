@@ -43,6 +43,8 @@ dependencies {
 
   compile 'com.github.cb372:scalacache-guava_2.11:0.9.3'
 
+  compile 'org.webjars:swagger-ui:3.0.2'
+
   compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
   scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.3.0'
