@@ -75,6 +75,11 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
     reply match {
       case NoBody =>
         resp.end()
+      case OkString(string, contentType) =>
+        resp.setStatusCode(200)
+        resp.setStatusMessage("OK")
+        resp.putHeader("Content-type", contentType)
+        resp.end(string)
       case Ok(js) =>
         resp.setStatusCode(200)
         resp.setStatusMessage("OK")
