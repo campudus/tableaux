@@ -5,6 +5,7 @@ import java.net.URLEncoder
 
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
+import io.vertx.core.buffer.Buffer
 import io.vertx.core.file.FileProps
 import io.vertx.core.http.{HttpMethod, HttpServerRequest, HttpServerResponse}
 import io.vertx.core.{AsyncResult, Handler}
@@ -74,6 +75,11 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
     reply match {
       case NoBody =>
         resp.end()
+      case OkString(string, contentType) =>
+        resp.setStatusCode(200)
+        resp.setStatusMessage("OK")
+        resp.putHeader("Content-type", contentType)
+        resp.end(string)
       case Ok(js) =>
         resp.setStatusCode(200)
         resp.setStatusMessage("OK")
@@ -81,8 +87,6 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
         resp.end(js.encode())
       case SendEmbeddedFile(path) =>
         try {
-          val file = Source.fromInputStream(getClass.getResourceAsStream(path), "UTF-8").mkString
-
           resp.setStatusCode(200)
           resp.setStatusMessage("OK")
 
@@ -92,16 +96,39 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
             "other"
           }
 
-          extension match {
+          val byteResponse = extension match {
             case "html" =>
               resp.putHeader("Content-type", "text/html; charset=UTF-8")
+              false
+            case "js" =>
+              resp.putHeader("Content-type", "application/javascript; charset=UTF-8")
+              false
             case "json" =>
               resp.putHeader("Content-type", "application/json; charset=UTF-8")
+              false
+            case "css" =>
+              resp.putHeader("Content-type", "text/css; charset= UTF-8")
+              false
+            case "png" =>
+              resp.putHeader("Content-type", "image/png")
+              true
+            case "gif" =>
+              resp.putHeader("Content-type", "image/gif")
+              true
             case _ | "txt" =>
               resp.putHeader("Content-type", "text/plain; charset= UTF-8")
+              false
           }
 
-          resp.end(file)
+          val is = getClass.getResourceAsStream(path)
+
+          if (byteResponse) {
+            val bytes = Stream.continually(is.read).takeWhile(_ != -1).map(_.toByte).toArray
+            resp.end(Buffer.buffer(bytes))
+          } else {
+            val file = Source.fromInputStream(is, "UTF-8").mkString
+            resp.end(file)
+          }
         } catch {
           case ex: Throwable =>
             endResponse(resp, Error(RouterException("send embedded file exception", ex, "errors.routing.sendEmbeddedFile", 500)))

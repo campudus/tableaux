@@ -43,6 +43,8 @@ dependencies {
 
   compile 'com.github.cb372:scalacache-guava_2.11:0.9.3'
 
+  compile 'org.webjars:swagger-ui:3.0.3'
+
   compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
   scoverage 'org.scoverage:scalac-scoverage-plugin_2.11:1.3.0'
@@ -84,7 +86,7 @@ task runRedeploy(type: JavaExec) {
       "run",
       mainVerticle,
       "-conf", "conf.json",
-      "--redeploy=src/main/**/*.scala",
+      "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
       "--launcher-class=${mainClassName}",
       "--on-redeploy=./gradlew classes"
   ]

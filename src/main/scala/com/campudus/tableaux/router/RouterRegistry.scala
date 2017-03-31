@@ -23,7 +23,8 @@ object RouterRegistry {
       SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel)),
       TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel)),
       MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel)),
-      StructureRouter(tableauxConfig, StructureController(_, structureModel))
+      StructureRouter(tableauxConfig, StructureController(_, structureModel)),
+      DocumentationRouter(tableauxConfig)
     )
 
     new RouterRegistry(tableauxConfig, routers)

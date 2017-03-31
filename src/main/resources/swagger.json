@@ -1,0 +1,1706 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "GRUD API",
+    "description": "a restful service for storing data in tables",
+    "contact": {
+      "name": "API Support",
+      "url": "http://campudus.com/",
+      "email": "info@campudus.com"
+    },
+    "version": "1.0.0"
+  },
+  "schemes": ["$SCHEME$"],
+  "host": "$HOST$",
+  "basePath": "$BASEPATH$",
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "externalDocs": {
+    "description": "GitHub project",
+    "url": "https://github.com/campudus/tableaux"
+  },
+  "tags": [
+    {
+      "name": "data"
+    },
+    {
+      "name": "media"
+    },
+    {
+      "name": "structure"
+    },
+    {
+      "name": "system"
+    }
+  ],
+  "paths": {
+    "/files": {
+      "post": {
+        "summary": "Create file handle",
+        "description": "Creates a new temporary file handle.",
+        "tags": ["media"],
+        "operationId": "create-file-handle",
+        "parameters": [
+          {
+            "name": "file",
+            "description": "file to add to the system",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "folder": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "parent folder id, if null parent folder is root folder",
+                  "example": null
+                },
+                "description": {
+                  "type": "object",
+                  "example": {
+                    "de-DE": "deutscher Beschreibung",
+                    "en-US": "english description"
+                  }
+                },
+                "title": {
+                  "type": "object",
+                  "example": {
+                    "de-DE": "deutscher Titel",
+                    "en-US": "english title"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "internalName": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "example": "2015-11-24T14:13:32.936+01:00"
+                },
+                "folder": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "parent folder id"
+                },
+                "tmp": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "externalName": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "description": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "mimeType": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "title": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "uuid": {
+                  "type": "string",
+                  "example": "87326b49-ebef-432e-8d4f-7fc734a4b163"
+                },
+                "url": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "status": {
+                  "type": "string",
+                  "example": "ok"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "example": "2015-11-24T14:13:32.936+01:00"
+                }
+              },
+              "required": [
+                "createdAt",
+                "description",
+                "externalName",
+                "internalName",
+                "mimeType",
+                "status",
+                "title",
+                "tmp",
+                "url",
+                "uuid"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/files/{fileuuid}": {
+      "get": {
+        "summary": "Get file meta-information",
+        "description": "Returns meta-information about a file.",
+        "tags": ["media"],
+        "operationId": "get-file-meta-information",
+        "parameters": [
+          {
+            "name": "fileuuid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "$ref": "#/definitions/Response: File"
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Change file meta-information",
+        "description": "Changes meta information of file.",
+        "tags": ["media"],
+        "operationId": "change-file-meta-information",
+        "parameters": [
+          {
+            "name": "fileuuid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete file",
+        "description": "",
+        "tags": ["media"],
+        "operationId": "delete-file",
+        "parameters": [
+          {
+            "name": "fileuuid",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "/files/{fileuuid}/{langtag}": {
+      "put": {
+        "summary": "Upload file",
+        "description": "Uploads/replaces a language specific file for this file handle.",
+        "tags": ["media"],
+        "operationId": "upload-file",
+        "parameters": [
+          {
+            "name": "fileuuid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "langtag",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete file (language specific)",
+        "description": "",
+        "tags": ["media"],
+        "operationId": "delete-file-language-specific",
+        "parameters": [
+          {
+            "name": "fileuuid",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "langtag",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "/folders": {
+      "get": {
+        "summary": "Get root folder",
+        "description": "Returns the root folder. Has no ID because it can't be changed or deleted.",
+        "tags": ["media"],
+        "operationId": "get-root-folder",
+        "parameters": [
+          {
+            "name": "langtag",
+            "in": "query",
+            "description": "The langtag which specifies which language name filed should be used for sorting the files",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "$ref": "#/definitions/Response: Folder"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create folder",
+        "description": "Creates a new folder.",
+        "tags": ["media"],
+        "operationId": "create-folder",
+        "parameters": []
+      }
+    },
+    "/folders/{folderid}": {
+      "get": {
+        "summary": "Get folder",
+        "description": "Returns a specific folder. Hierarchy is not relevant.",
+        "tags": ["media"],
+        "operationId": "get-folder",
+        "parameters": [
+          {
+            "name": "folderid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "langtag",
+            "in": "query",
+            "description": "The langtag which specifies which language name filed should be used for sorting the files",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      },
+      "put": {
+        "summary": "Change folder",
+        "description": "Changes folder.",
+        "tags": ["media"],
+        "operationId": "change-folder",
+        "parameters": [
+          {
+            "name": "folderid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete folder",
+        "description": "",
+        "tags": ["media"],
+        "operationId": "delete-folder",
+        "parameters": [
+          {
+            "name": "folderid",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "/reset": {
+      "post": {
+        "summary": "Reset system tables",
+        "description": "Resets whole schema and re-initialize system tables",
+        "tags": ["system"],
+        "operationId": "reset-system-tables",
+        "parameters": [
+          {
+            "name": "nonce",
+            "description": "nonce which will be exposed via server log",
+            "in": "query",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/resetDemo": {
+      "post": {
+        "summary": "Create demo tables",
+        "description": "Creates two demo tables (Bundesländer, Regierungsbezirke) with links.",
+        "tags": ["system"],
+        "operationId": "create-demo-tables",
+        "parameters": [
+          {
+            "name": "nonce",
+            "description": "nonce which will be exposed via server log",
+            "in": "query",
+            "required": false
+          }
+        ]
+      }
+    },
+    "/tables": {
+      "get": {
+        "summary": "Get all tables",
+        "description": "Returns an array containing all available tables and their ids.",
+        "tags": ["data"],
+        "operationId": "get-all-tables",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "schema": {
+              "$ref": "#/definitions/Respone: Array of tables"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create new table",
+        "description": "Adds the table structure to the system tables and create a new *user\\_table\\_{next\\_table\\_id}*.",
+        "tags": ["structure"],
+        "operationId": "create-new-table",
+        "parameters": [
+          {
+            "in": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/Request: Create table"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "number",
+                  "format": "double",
+                  "example": 1.0
+                },
+                "status": {
+                  "type": "string",
+                  "example": "ok"
+                }
+              },
+              "required": [
+                "id",
+                "status"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/tables/{tableid}": {
+      "get": {
+        "summary": "Get table",
+        "description": "Returns table name and id.",
+        "tags": ["data"],
+        "operationId": "get-table",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "description": "table id",
+            "required": true,
+            "type": "number"
+          }
+        ],
+        "responses": {
+          "no-json-found": {
+            "$ref": "#/responses/no-json-found"
+          },
+          "200": {
+            "description": "Table name and id.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Bundesländer Deutschlands"
+                },
+                "id": {
+                  "type": "integer",
+                  "format": "int32",
+                  "example": 1
+                },
+                "status": {
+                  "type": "string",
+                  "example": "ok"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "status"
+              ]
+            }
+          },
+          "not-found-in-database": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "post": {
+        "summary": "Change table name",
+        "description": "Changes the human-readable table name",
+        "tags": ["structure"],
+        "operationId": "change-table-name",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "example": "Kunde",
+                  "description": "New table name"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "ok-empty-body": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete table",
+        "description": "Drops table and delete table definition from system tables.",
+        "tags": ["structure"],
+        "operationId": "delete-table",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "number"
+          }
+        ],
+        "responses": {
+          "ok-empty-body": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
+    "/tables/{tableid}/columns": {
+      "get": {
+        "summary": "Get columns definition",
+        "description": "Returns all columns of specific table",
+        "tags": ["structure"],
+        "operationId": "get-columns-definition",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of columns",
+            "schema": {
+              "$ref": "#/definitions/Response: Columns"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create new column",
+        "description": "Alters the user table and add the column definition to the system table.",
+        "tags": ["structure"],
+        "operationId": "create-new-column",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "required": [
+                "columns"
+              ],
+              "properties": {
+                "columns": {
+                  "$ref": "#/definitions/Shared Request: Column"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "columns": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number",
+                      "format": "double",
+                      "example": 3.0
+                    },
+                    "ordering": {
+                      "type": "number",
+                      "format": "double",
+                      "example": 3.0
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "ordering"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "example": "ok"
+                }
+              },
+              "required": [
+                "columns",
+                "status"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/tables/{tableid}/columns/{columnid}": {
+      "get": {
+        "summary": "Get column definition",
+        "description": "Returns information about a specific column.",
+        "tags": ["structure"],
+        "operationId": "get-column-definition",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "columnid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "$ref": "#/definitions/Response: Columns"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Change column",
+        "description": "Alters the column definition.",
+        "tags": ["structure"],
+        "operationId": "change-column",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "columnid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/definitions/Enum: Column type"
+                },
+                "ordering": {
+                  "type": "number",
+                  "format": "double",
+                  "example": 1.0
+                },
+                "name": {
+                  "type": "string",
+                  "example": "New Column Name"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "ok-empty-body": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete column",
+        "description": "Deletes column from user table and table definition.",
+        "tags": ["data"],
+        "operationId": "delete-column",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "columnid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "ok-empty-body": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
+    "/tables/{tableid}/columns/{columnid}/rows/{rowid}": {
+      "get": {
+        "summary": "Get specific cell",
+        "description": "Returns the value of a specific cell.",
+        "tags": ["data"],
+        "operationId": "get-specific-cell",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "columnid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "rowid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "$ref": "#/definitions/Response: Cell"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Change cell",
+        "description": "Change value of specific cell.",
+        "tags": ["data"],
+        "operationId": "change-cell",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "columnid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "rowid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "object",
+                  "example": "Hallo",
+                  "description": "New cell value"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
+    "/tables/{tableid}/columns/{columnid}/rows/{rowid}/attachment/{attachmentid}": {
+      "delete": {
+        "summary": "Delete attachment",
+        "description": "",
+        "tags": ["data"],
+        "operationId": "delete-attachment",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "columnid",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "rowid",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "attachmentid",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "/tables/{tableid}/rows": {
+      "get": {
+        "summary": "Get all rows",
+        "description": "Returns just the rows of the table",
+        "tags": ["data"],
+        "operationId": "get-all-rows",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "name": "Rows from table",
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/Response: Rows"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create new row",
+        "description": "Adds new row to user table.",
+        "tags": ["data"],
+        "operationId": "create-new-row",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "New row object",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "required": [
+                "columns",
+                "rows"
+              ],
+              "properties": {
+                "columns": {
+                  "type": "object",
+                  "description": "Array of column ids",
+                  "properties": {
+                    "id": {
+                      "type": "number",
+                      "format": "double",
+                      "description": "Column id"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "rows": {
+                  "$ref": "#/definitions/Shared Request: Row"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New row as JSON"
+          }
+        }
+      }
+    },
+    "/tables/{tableid}/rows/{rowid}": {
+      "get": {
+        "summary": "Get single row",
+        "description": "Returns a single row and its values.",
+        "tags": ["data"],
+        "operationId": "get-single-row",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "rowid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Single row",
+            "schema": {
+              "$ref": "#/definitions/Response: Rows"
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete row",
+        "description": "Deletes row from user table.",
+        "tags": ["data"],
+        "operationId": "delete-row",
+        "parameters": [
+          {
+            "name": "tableid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "rowid",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Response: Folder": {
+      "type": "object",
+      "required": [
+        "createdAt",
+        "description",
+        "files",
+        "name",
+        "status",
+        "subfolders",
+        "updatedAt"
+      ],
+      "properties": {
+        "parent": {
+          "type": "number",
+          "format": "double",
+          "example": 1.0
+        },
+        "createdAt": {
+          "type": "object"
+        },
+        "name": {
+          "type": "string",
+          "example": "root"
+        },
+        "description": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Response: File"
+          }
+        },
+        "id": {
+          "type": "number",
+          "format": "double",
+          "example": 1.0
+        },
+        "subfolders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Response: Subfolder"
+          }
+        },
+        "updatedAt": {
+          "type": "object"
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "Complete folder with subfolders and files.",
+      "example": {
+        "id": 1,
+        "name": "root",
+        "description": "",
+        "parent": null,
+        "createdAt": null,
+        "updatedAt": null,
+        "subfolders": [
+          {
+            "id": 1,
+            "name": "Subfolder 123",
+            "description": "Subolder 123 is awesome",
+            "parent": null,
+            "createdAt": "2016-01-13T17:23:18.402+01:00",
+            "updatedAt": "2016-01-14T10:57:29.845+01:00"
+          }
+        ],
+        "files": [
+          {
+            "url": {
+              "de-DE": "/files/7e3982f3-7328-45f9-b499-9424a20bf5ff/de-DE/01520_chicagoskyline_1920x1200.jpg"
+            },
+            "uuid": "7e3982f3-7328-45f9-b499-9424a20bf5ff",
+            "folder": null,
+            "title": {
+              "de-DE": "Deutscher Titel"
+            },
+            "description": {
+              "de-DE": "Deutsche Beschreibung"
+            },
+            "internalName": {
+              "de-DE": "d6a011e9-3599-400c-9651-9a778dfc3f9c.jpg"
+            },
+            "externalName": {
+              "de-DE": "01520_chicagoskyline_1920x1200.jpg"
+            },
+            "mimeType": {
+              "de-DE": "image/jpeg"
+            },
+            "createdAt": "2016-01-13T11:22:06.990+01:00",
+            "updatedAt": "2016-01-13T11:22:07.044+01:00"
+          }
+        ],
+        "status": "ok"
+      }
+    },
+    "Response: Cell": {
+      "type": "object",
+      "required": [
+        "rows",
+        "status"
+      ],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "object",
+                "example": "Baden-Württemberg"
+              }
+            },
+            "required": [
+              "value"
+            ]
+          }
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "Value of a single cell."
+    },
+    "Request: Create table": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "description": "Array of columns (kind 'link' is not allowed)",
+          "items": {
+            "$ref": "#/definitions/Shared Request: Column"
+          }
+        },
+        "name": {
+          "type": "string",
+          "example": "Bundesländer Deutschlands"
+        },
+        "rows": {
+          "type": "array",
+          "description": "Array of rows",
+          "items": {
+            "$ref": "#/definitions/Shared Request: Row"
+          }
+        }
+      },
+      "description": "Creates a new table with columns and rows. If columns & rows are empty an empty table will be created.",
+      "example": {
+        "name": "Bundesländer Deutschlands",
+        "columns": [
+          {
+            "kind": "text",
+            "name": "Land",
+            "ordering": 1
+          },
+          {
+            "kind": "text",
+            "name": "Hauptstadt",
+            "ordering": 2
+          }
+        ],
+        "rows": [
+          {
+            "values": ["Baden-Württemberg", "Stuttgart"]
+          },
+          {
+            "values": ["Bayern", "München"]
+          }
+        ]
+      }
+    },
+    "Response: Complete table": {
+      "type": "object",
+      "required": [
+        "columns",
+        "id",
+        "name",
+        "rows",
+        "status"
+      ],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Shared Response: Column"
+          }
+        },
+        "name": {
+          "type": "string",
+          "example": "Bundesländer Deutschlands",
+          "description": "Name of table"
+        },
+        "id": {
+          "type": "number",
+          "format": "double",
+          "example": 1.0,
+          "description": "Id of table"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Shared Response: Row"
+          }
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "Complete table with columns and rows.",
+      "example": {
+        "status": "ok",
+        "id": 2,
+        "name": "Bundesländer Deutschlands",
+        "columns": [
+          {
+            "id": 1,
+            "name": "Land",
+            "kind": "text",
+            "ordering": 1
+          },
+          {
+            "id": 2,
+            "name": "Hauptstadt",
+            "kind": "text",
+            "ordering": 2
+          },
+          {
+            "id": 3,
+            "name": "Regierungsbezirke",
+            "kind": "link",
+            "toTable": 3,
+            "toColumn": 1,
+            "ordering": 3
+          }
+        ],
+        "rows": [
+          {
+            "id": 1,
+            "values": [
+              "Baden-Württemberg",
+              "Stuttgart",
+              [
+                {
+                  "id": 3,
+                  "value": "Tübingen"
+                },
+                {
+                  "id": 4,
+                  "value": "Karlsruhe"
+                }
+              ]
+            ]
+          },
+          {
+            "id": 2,
+            "values": [
+              "Bayern",
+              "München",
+              [
+                {
+                  "id": 1,
+                  "value": "Oberbayern"
+                },
+                {
+                  "id": 2,
+                  "value": "Niederbayern"
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "Respone: Array of tables": {
+      "type": "object",
+      "required": [
+        "status",
+        "tables"
+      ],
+      "properties": {
+        "tables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number",
+                "format": "double",
+                "example": 1.0,
+                "description": "Id of table"
+              },
+              "name": {
+                "type": "string",
+                "example": "Bundesländer Deutschlands",
+                "description": "Name of table"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          }
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "Array of tables",
+      "example": {
+        "status": "ok",
+        "tables": [
+          {
+            "id": "1",
+            "name": "Bundesländer Deutschlands"
+          },
+          {
+            "id": "2",
+            "name": "Regierungsbezirke"
+          }
+        ]
+      }
+    },
+    "Shared Response: Column": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "ordering"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/Enum: Column type"
+        },
+        "ordering": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        },
+        "name": {
+          "type": "string",
+          "example": "Land"
+        },
+        "toTable": {
+          "type": "integer",
+          "format": "int32",
+          "example": 2,
+          "description": "Optional, only needed if kind is link."
+        },
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1,
+          "description": "Id of column"
+        },
+        "toColumn": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Optional, only needed if kind is link."
+        }
+      },
+      "description": "Information about a column"
+    },
+    "Shared Response: Row": {
+      "type": "object",
+      "required": [
+        "id",
+        "values"
+      ],
+      "properties": {
+        "values": {
+          "type": "array",
+          "example": "Baden-Württemberg",
+          "items": {
+            "type": "object"
+          }
+        },
+        "id": {
+          "type": "number",
+          "format": "double",
+          "example": 1.0,
+          "description": "Id of row"
+        }
+      },
+      "description": "A row contains all column values of this specific table.",
+      "example": {
+        "id": 1,
+        "values": ["Baden-Württemberg", 35751]
+      }
+    },
+    "Shared Request: Row": {
+      "type": "object",
+      "required": [
+        "values"
+      ],
+      "properties": {
+        "values": {
+          "type": "array",
+          "description": "Array of values",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "description": "A row object, which is used to add a new row to a table, has only an array of values.",
+      "example": {
+        "values": ["Column 1 Value", "Column 2 Value"]
+      }
+    },
+    "Response: Columns": {
+      "type": "object",
+      "required": [
+        "columns",
+        "status"
+      ],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "description": "Array of column",
+          "items": {
+            "$ref": "#/definitions/Shared Response: Column"
+          },
+          "minItems": 1
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "Array of columns",
+      "example": {
+        "status": "ok",
+        "columns": [
+          {
+            "id": 1,
+            "name": "Text column",
+            "kind": "text",
+            "ordering": 1
+          },
+          {
+            "id": 2,
+            "name": "Link Column",
+            "kind": "link",
+            "ordering": "2",
+            "toTable": 2,
+            "toColumn": 1
+          }
+        ]
+      }
+    },
+    "Response: File": {
+      "type": "object",
+      "required": [
+        "createdAt",
+        "description",
+        "externalName",
+        "internalName",
+        "mimeType",
+        "status",
+        "title",
+        "updatedAt",
+        "url",
+        "uuid"
+      ],
+      "properties": {
+        "internalName": {
+          "type": "object",
+          "properties": {
+            "de-DE": {
+              "type": "string",
+              "example": "d6a011e9-3599-400c-9651-9a778dfc3f9c.jpg"
+            }
+          },
+          "required": [
+            "de-DE"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "example": "2016-01-13T11:22:06.990+01:00"
+        },
+        "externalName": {
+          "type": "object",
+          "properties": {
+            "de-DE": {
+              "type": "string",
+              "example": "01520_chicagoskyline_1920x1200.jpg"
+            }
+          },
+          "required": [
+            "de-DE"
+          ]
+        },
+        "description": {
+          "type": "object",
+          "properties": {
+            "de-DE": {
+              "type": "string",
+              "example": "Deutsche Beschreibung"
+            }
+          },
+          "required": [
+            "de-DE"
+          ]
+        },
+        "mimeType": {
+          "type": "object",
+          "properties": {
+            "de-DE": {
+              "type": "string",
+              "example": "image/jpeg"
+            }
+          },
+          "required": [
+            "de-DE"
+          ]
+        },
+        "title": {
+          "type": "object",
+          "properties": {
+            "de-DE": {
+              "type": "string",
+              "example": "Deutscher Titel"
+            }
+          },
+          "required": [
+            "de-DE"
+          ]
+        },
+        "uuid": {
+          "type": "string",
+          "example": "7e3982f3-7328-45f9-b499-9424a20bf5ff"
+        },
+        "url": {
+          "type": "object",
+          "properties": {
+            "de-DE": {
+              "type": "string",
+              "example": "/files/7e3982f3-7328-45f9-b499-9424a20bf5ff/de-DE/01520_chicagoskyline_1920x1200.jpg"
+            }
+          },
+          "required": [
+            "de-DE"
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "example": "2016-01-13T11:22:07.044+01:00"
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "File meta informations"
+    },
+    "Multi-language object": {
+      "type": "object",
+      "description": "A multi-language object is a key-value object for multi-language values. Keys a langtags (e.g. de-DE) and the values are the value of that object in the specific language.",
+      "example": {
+        "de-DE": "Hallo"
+      }
+    },
+    "Response: Rows": {
+      "type": "object",
+      "required": [
+        "rows",
+        "status"
+      ],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "description": "Array of rows",
+          "items": {
+            "$ref": "#/definitions/Shared Response: Row"
+          }
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "Array of rows",
+      "example": {
+        "status": "ok",
+        "rows": [
+          {
+            "id": 1,
+            "values": [
+              "Baden-Württemberg",
+              "Stuttgart",
+              [
+                {
+                  "id": 3,
+                  "value": "Tübingen"
+                },
+                {
+                  "id": 4,
+                  "value": "Karlsruhe"
+                }
+              ]
+            ]
+          },
+          {
+            "id": 2,
+            "values": [
+              "Bayern",
+              "München",
+              [
+                {
+                  "id": 1,
+                  "value": "Oberbayern"
+                },
+                {
+                  "id": 2,
+                  "value": "Niederbayern"
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "Enum: Column type": {
+      "type": "string",
+      "description": "Different types of column",
+      "enum": [
+        "text",
+        "numeric",
+        "link"
+      ]
+    },
+    "Response: Subfolder": {
+      "type": "object",
+      "required": [
+        "createdAt",
+        "description",
+        "id",
+        "name",
+        "parent",
+        "updatedAt"
+      ],
+      "properties": {
+        "parent": {
+          "type": "object"
+        },
+        "createdAt": {
+          "type": "string",
+          "example": "2016-01-13T17:23:18.402+01:00"
+        },
+        "name": {
+          "type": "string",
+          "example": "Subfolder 123"
+        },
+        "description": {
+          "type": "string",
+          "example": "Subolder 123 is awesome"
+        },
+        "id": {
+          "type": "number",
+          "format": "double",
+          "example": 1.0
+        },
+        "updatedAt": {
+          "type": "string",
+          "example": "2016-01-14T10:57:29.845+01:00"
+        }
+      },
+      "description": "A subfolder returned in a request to folders"
+    },
+    "Shared Request: Column": {
+      "type": "object",
+      "required": [
+        "kind",
+        "name",
+        "ordering"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/Enum: Column type"
+        },
+        "ordering": {
+          "type": "number",
+          "format": "double",
+          "example": 1.0
+        },
+        "displayName": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "name": {
+          "type": "string",
+          "example": "Hauptstadt",
+          "description": "An internal name that can be used to easily identify tables instead of using an id."
+        },
+        "description": {
+          "$ref": "#/definitions/Multi-language object"
+        }
+      },
+      "description": "A column object, which is used to create a new column.",
+      "example": {
+        "kind": "text",
+        "name": "Hauptstadt",
+        "ordering": "1"
+      }
+    }
+  },
+  "responses": {
+    "not-found-in-database": {
+      "description": "If the database returns an empty result but one was expected. For example your would like to delete a row which doesn't exist."
+    },
+    "no-json-found": {
+      "description": "Request should have had a Json body."
+    },
+    "not-enough-arguments-exception": {
+      "description": "Not enough arguments"
+    },
+    "invalid-json-exception": {
+      "description": "Request contains an invalid JSON body"
+    },
+    "unknown-error": {
+      "description": "Various server exception"
+    },
+    "database-exception": {
+      "description": "Server got a PostgreSQL error while running a statement"
+    },
+    "ok-empty-body": {
+      "description": "Some request don't need a real reponse. So they get an this.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    }
+  }
+}
