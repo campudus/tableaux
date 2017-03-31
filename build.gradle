@@ -86,7 +86,7 @@ task runRedeploy(type: JavaExec) {
       "run",
       mainVerticle,
       "-conf", "conf.json",
-      "--redeploy=src/main/**/*.scala",
+      "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
       "--launcher-class=${mainClassName}",
       "--on-redeploy=./gradlew classes"
   ]
