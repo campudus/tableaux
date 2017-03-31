@@ -1,5 +1,7 @@
 package com.campudus.tableaux.router
 
+import java.net.URL
+
 import com.campudus.tableaux.TableauxConfig
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing.{Get, OkString, SendEmbeddedFile}
@@ -16,34 +18,49 @@ object DocumentationRouter {
 
 class DocumentationRouter(override val config: TableauxConfig) extends BaseRouter {
 
-  val swaggerUiVersion = "3.0.3"
+  //val swaggerUiVersion = "3.0.3"
+  val swaggerUiVersion = "2.2.10-1"
 
-  val Index: Regex = "^/docs$|^/docs/$|^/docs/index.html$".r
+  val Index: Regex = "^/docs/index.html$".r
   val Swagger: Regex = "^/docs/swagger\\.json$".r
   val OtherFile: Regex = "^/docs/([A-Za-z0-9-_\\.]*)$".r
   val OtherFileWithDirectory: Regex = "^/docs/([A-Za-z0-9-_\\.]*)/([A-Za-z0-9-_\\.]*)$".r
 
+  private def parseAbsoluteURI(absoluteURI: String): (String, String, String) = {
+    "(https?)://(.*)/docs.*".r.unapplySeq(absoluteURI) match {
+      case Some(List(scheme, apiPath)) =>
+        apiPath.split("/").toList match {
+          case host :: rest =>
+            (scheme, host, rest.mkString("/"))
+          case _ =>
+            (scheme, "localhost:8181", "")
+        }
+      case _ =>
+        ("http", "localhost:8181", "")
+    }
+  }
+
   override def routes(implicit context: RoutingContext): Routing = {
     case Get(Index()) =>
-      val is = getClass.getResourceAsStream(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/index.html")
-      val file = Source.fromInputStream(is, "UTF-8").mkString
+      val uri = context.request().absoluteURI()
+      val (scheme, host, basePath) = parseAbsoluteURI(uri)
 
-      OkString(file.replace("http://petstore.swagger.io/v2/swagger.json", "./swagger.json"), "text/html; charset=UTF-8")
+      val is = getClass.getResourceAsStream(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/index.html")
+
+      val swaggerURL = new URL(new URL(new URL(s"$scheme://$host"), basePath), "/docs/swagger.json")
+
+      val file = Source.fromInputStream(is, "UTF-8")
+        .mkString
+        .replace(
+          "http://petstore.swagger.io/v2/swagger.json",
+          swaggerURL.toString
+        )
+
+      OkString(file, "text/html; charset=UTF-8")
 
     case Get(Swagger()) =>
       val uri = context.request().absoluteURI()
-
-      val (scheme, host, basePath) = "(https?)://(.*)/docs.*".r.unapplySeq(uri) match {
-        case Some(List(scheme, apiPath)) =>
-          apiPath.split("/").toList match {
-            case host :: rest =>
-              (scheme, host, rest.mkString("/"))
-            case _ =>
-              (scheme, "localhost:8181", "")
-          }
-        case _ =>
-          ("http", "localhost:8181", "")
-      }
+      val (scheme, host, basePath) = parseAbsoluteURI(uri)
 
       val is = getClass.getResourceAsStream(s"/swagger.json")
       val file = Source.fromInputStream(is, "UTF-8").mkString

@@ -4,7 +4,7 @@
     "title": "GRUD API",
     "description": "a restful service for storing data in tables",
     "contact": {
-      "name": "API Support",
+      "name": "Campudus GmbH",
       "url": "http://campudus.com/",
       "email": "info@campudus.com"
     },
@@ -53,8 +53,7 @@
                 "folder": {
                   "type": "integer",
                   "format": "int32",
-                  "description": "parent folder id, if null parent folder is root folder",
-                  "example": null
+                  "description": "parent folder id, if null parent folder is root folder"
                 },
                 "description": {
                   "type": "object",
@@ -1010,15 +1009,11 @@
         "id": 1,
         "name": "root",
         "description": "",
-        "parent": null,
-        "createdAt": null,
-        "updatedAt": null,
         "subfolders": [
           {
             "id": 1,
             "name": "Subfolder 123",
             "description": "Subolder 123 is awesome",
-            "parent": null,
             "createdAt": "2016-01-13T17:23:18.402+01:00",
             "updatedAt": "2016-01-14T10:57:29.845+01:00"
           }
@@ -1029,7 +1024,6 @@
               "de-DE": "/files/7e3982f3-7328-45f9-b499-9424a20bf5ff/de-DE/01520_chicagoskyline_1920x1200.jpg"
             },
             "uuid": "7e3982f3-7328-45f9-b499-9424a20bf5ff",
-            "folder": null,
             "title": {
               "de-DE": "Deutscher Titel"
             },
