@@ -10,9 +10,9 @@
     },
     "version": "1.0.0"
   },
-  "schemes": ["http", "https"],
+  "schemes": ["$SCHEME$"],
   "host": "$HOST$",
-  "basePath": "/",
+  "basePath": "$BASEPATH$",
   "consumes": ["application/json"],
   "produces": ["application/json"],
   "externalDocs": {
