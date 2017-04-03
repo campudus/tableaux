@@ -27,6 +27,8 @@ case class Header(key: String, value: String, endReply: Reply) extends Reply
 
 case class SetCookie(key: String, value: String, endReply: Reply) extends Reply
 
+case class StatusCode(statusCode: Int, endReply: Reply) extends Reply
+
 sealed trait RouteMatch
 
 case class All(path: String) extends RouteMatch
