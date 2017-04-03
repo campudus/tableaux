@@ -42,7 +42,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
 
       val is = getClass.getResourceAsStream(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/index.html")
 
-      val swaggerURL = new URL(new URL(new URL(s"$scheme://$host"), basePath), "/docs/swagger.json")
+      val swaggerURL = new URL(new URL(s"$scheme://$host"), basePath + "/docs/swagger.json")
 
       val file = Source.fromInputStream(is, "UTF-8")
         .mkString
@@ -50,6 +50,8 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
           "http://petstore.swagger.io/v2/swagger.json",
           swaggerURL.toString
         )
+
+      logger.info(s"Swagger $uri => ($scheme, $host, $basePath) => $swaggerURL")
 
       OkString(file, "text/html; charset=UTF-8")
 
