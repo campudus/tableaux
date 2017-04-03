@@ -4,6 +4,7 @@ import java.net.URL
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper.DocUriParser
+import io.vertx.core.http.HttpServerRequest
 import io.vertx.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
@@ -30,15 +31,38 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
   val OtherFile: Regex = "^/docs/([A-Za-z0-9-_\\.]{1,60}){1}$".r
   val OtherFileWithDirectory: Regex = "^/docs/([A-Za-z0-9-_\\.]{1,60}){1}/([A-Za-z0-9-_\\.]{1,60}){1}$".r
 
-  private def parseAbsoluteURI(absoluteURI: String): (String, String, String) = DocUriParser.parse(absoluteURI)
+  private def parseAbsoluteURI(request: HttpServerRequest): (String, String, String) = {
+    /**
+      * Sometimes we use tableaux behind some weird proxy configurations
+      * If so we use x-forwarded headers to figure out how to point to swagger json
+      */
+    val forwardedScheme = Option(request.getHeader("x-forwarded-proto"))
+      .flatMap(_.split(",").headOption)
+    val forwardedHost = Option(request.getHeader("x-forwarded-host"))
+      .flatMap(_.split(",").headOption)
+      .map(forwardedHost => {
+        forwardedHost.split(":").toList match {
+          case List(host, "443") => host
+          case List(host, "80") => host
+          case _ => forwardedHost
+        }
+      })
+    val forwardedUrl = Option(request.getHeader("x-forwarded-url"))
+
+    val uri = (forwardedScheme, forwardedHost, forwardedUrl) match {
+      case (Some(scheme), Some(host), Some(query)) => s"${scheme}://${host}$query"
+      case _ => request.absoluteURI()
+    }
+
+    DocUriParser.parse(uri)
+  }
 
   override def routes(implicit context: RoutingContext): Routing = {
     case Get(IndexRedirect()) =>
       StatusCode(301, Header("Location", "/docs/index.html", NoBody))
 
     case Get(Index()) =>
-      val uri = context.request().absoluteURI()
-      val (scheme, host, basePath) = parseAbsoluteURI(uri)
+      val (scheme, host, basePath) = parseAbsoluteURI(context.request())
 
       val is = getClass.getResourceAsStream(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/index.html")
 
@@ -51,13 +75,13 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
           swaggerURL.toString
         )
 
-      logger.info(s"Swagger $uri => ($scheme, $host, $basePath) => $swaggerURL")
+      logger.info(s"Headers ${context.request().headers().entries()}")
+      logger.info(s"Swagger ${context.request().absoluteURI()} => ($scheme, $host, $basePath) => $swaggerURL")
 
       OkString(file, "text/html; charset=UTF-8")
 
     case Get(Swagger()) =>
-      val uri = context.request().absoluteURI()
-      val (scheme, host, basePath) = parseAbsoluteURI(uri)
+      val (scheme, host, basePath) = parseAbsoluteURI(context.request())
 
       val is = getClass.getResourceAsStream(s"/swagger.json")
       val file = Source.fromInputStream(is, "UTF-8").mkString
@@ -65,7 +89,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
       val json = file
         .replace("$SCHEME$", scheme)
         .replace("$HOST$", host)
-        .replace("$BASEPATH$", basePath)
+        .replace("$BASEPATH$", if (basePath.startsWith("/")) basePath else s"/$basePath")
 
       OkString(json, "application/javascript; charset=UTF-8")
 
