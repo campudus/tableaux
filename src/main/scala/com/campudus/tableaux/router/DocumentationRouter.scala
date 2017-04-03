@@ -27,8 +27,8 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
 
   val Swagger: Regex = "^/docs/swagger\\.json$".r
 
-  val OtherFile: Regex = "^/docs/([A-Za-z0-9-_.]*)$".r
-  val OtherFileWithDirectory: Regex = "^/docs/([A-Za-z0-9-_.]*)/([A-Za-z0-9-_.]*)$".r
+  val OtherFile: Regex = "^/docs/([A-Za-z0-9-_\\.]{1,60}){1}$".r
+  val OtherFileWithDirectory: Regex = "^/docs/([A-Za-z0-9-_\\.]{1,60}){1}/([A-Za-z0-9-_\\.]{1,60}){1}$".r
 
   private def parseAbsoluteURI(absoluteURI: String): (String, String, String) = DocUriParser.parse(absoluteURI)
 
