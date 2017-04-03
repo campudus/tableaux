@@ -48,7 +48,7 @@
             "required": true,
             "schema": {
               "type": "object",
-              "required": [],
+              "required": ["folder", "description", "title"],
               "properties": {
                 "folder": {
                   "type": "integer",
@@ -75,6 +75,7 @@
         ],
         "responses": {
           "200": {
+            "description": "The new file handle",
             "schema": {
               "type": "object",
               "properties": {
@@ -135,6 +136,12 @@
                 "uuid"
               ]
             }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
           }
         }
       }
@@ -155,6 +162,7 @@
         ],
         "responses": {
           "200": {
+            "description": "The files meta information",
             "schema": {
               "$ref": "#/definitions/Response: File"
             }
@@ -173,7 +181,12 @@
             "required": true,
             "type": "string"
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       },
       "delete": {
         "summary": "Delete file",
@@ -188,7 +201,12 @@
             "required": true,
             "type": "string"
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       }
     },
     "/files/{fileuuid}/{langtag}": {
@@ -210,7 +228,12 @@
             "required": true,
             "type": "string"
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       },
       "delete": {
         "summary": "Delete file (language specific)",
@@ -232,7 +255,12 @@
             "required": true,
             "type": "string"
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       }
     },
     "/folders": {
@@ -252,8 +280,15 @@
         ],
         "responses": {
           "200": {
+            "description": "All folders",
             "schema": {
               "$ref": "#/definitions/Response: Folder"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
             }
           }
         }
@@ -263,7 +298,12 @@
         "description": "Creates a new folder.",
         "tags": ["media"],
         "operationId": "create-folder",
-        "parameters": []
+        "parameters": [],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       }
     },
     "/folders/{folderid}": {
@@ -286,7 +326,15 @@
             "required": true,
             "type": "string"
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "The folder",
+            "schema": {
+              "$ref": "#/definitions/Response: Folder"
+            }
+          }
+        }
       },
       "put": {
         "summary": "Change folder",
@@ -300,7 +348,12 @@
             "required": true,
             "type": "string"
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       },
       "delete": {
         "summary": "Delete folder",
@@ -315,10 +368,15 @@
             "required": true,
             "type": "string"
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       }
     },
-    "/reset": {
+    "/system/reset": {
       "post": {
         "summary": "Reset system tables",
         "description": "Resets whole schema and re-initialize system tables",
@@ -329,12 +387,19 @@
             "name": "nonce",
             "description": "nonce which will be exposed via server log",
             "in": "query",
+            "type": "string",
+            "format": "uuid",
             "required": false
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       }
     },
-    "/resetDemo": {
+    "/system/resetDemo": {
       "post": {
         "summary": "Create demo tables",
         "description": "Creates two demo tables (Bundesländer, Regierungsbezirke) with links.",
@@ -345,16 +410,50 @@
             "name": "nonce",
             "description": "nonce which will be exposed via server log",
             "in": "query",
+            "type": "string",
+            "format": "uuid",
             "required": false
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
+    "/system/versions": {
+      "get": {
+        "summary": "Get current version",
+        "description": "",
+        "tags": ["system"],
+        "operationId": "get-version",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The versions of the installation",
+            "schema": {
+              "$ref": "#/definitions/Response: Versions"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
       }
     },
     "/tables": {
       "get": {
         "summary": "Get all tables",
         "description": "Returns an array containing all available tables and their ids.",
-        "tags": ["data"],
+        "tags": ["structure"],
         "operationId": "get-all-tables",
         "consumes": [],
         "produces": [
@@ -363,8 +462,15 @@
         "parameters": [],
         "responses": {
           "200": {
+            "description": "Array of tables",
             "schema": {
-              "$ref": "#/definitions/Respone: Array of tables"
+              "$ref": "#/definitions/Response: Array of tables"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
             }
           }
         }
@@ -376,6 +482,7 @@
         "operationId": "create-new-table",
         "parameters": [
           {
+            "name": "table",
             "in": "body",
             "required": false,
             "schema": {
@@ -385,23 +492,15 @@
         ],
         "responses": {
           "200": {
+            "description": "The new table",
             "schema": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "number",
-                  "format": "double",
-                  "example": 1.0
-                },
-                "status": {
-                  "type": "string",
-                  "example": "ok"
-                }
-              },
-              "required": [
-                "id",
-                "status"
-              ]
+              "$ref": "#/definitions/Shared Response: Table"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
             }
           }
         }
@@ -423,9 +522,6 @@
           }
         ],
         "responses": {
-          "no-json-found": {
-            "$ref": "#/responses/no-json-found"
-          },
           "200": {
             "description": "Table name and id.",
             "schema": {
@@ -452,16 +548,16 @@
               ]
             }
           },
-          "not-found-in-database": {
+          "404": {
             "$ref": "#/responses/not-found-in-database"
           }
         }
       },
       "post": {
-        "summary": "Change table name",
-        "description": "Changes the human-readable table name",
+        "summary": "Change table",
+        "description": "Changes the table",
         "tags": ["structure"],
-        "operationId": "change-table-name",
+        "operationId": "change-table",
         "parameters": [
           {
             "name": "tableid",
@@ -470,6 +566,7 @@
             "type": "string"
           },
           {
+            "name": "table",
             "in": "body",
             "required": false,
             "schema": {
@@ -488,7 +585,7 @@
           }
         ],
         "responses": {
-          "ok-empty-body": {
+          "200": {
             "$ref": "#/responses/ok-empty-body"
           }
         }
@@ -507,7 +604,7 @@
           }
         ],
         "responses": {
-          "ok-empty-body": {
+          "200": {
             "$ref": "#/responses/ok-empty-body"
           }
         }
@@ -549,6 +646,7 @@
             "type": "string"
           },
           {
+            "name": "column",
             "in": "body",
             "required": false,
             "schema": {
@@ -566,6 +664,7 @@
         ],
         "responses": {
           "200": {
+            "description": "The definition of the new column",
             "schema": {
               "type": "object",
               "properties": {
@@ -573,14 +672,14 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "number",
-                      "format": "double",
-                      "example": 3.0
+                      "type": "integer",
+                      "format": "int64",
+                      "example": 3
                     },
                     "ordering": {
-                      "type": "number",
-                      "format": "double",
-                      "example": 3.0
+                      "type": "integer",
+                      "format": "int64",
+                      "example": 3
                     }
                   },
                   "required": [
@@ -624,6 +723,7 @@
         ],
         "responses": {
           "200": {
+            "description": "The column definition",
             "schema": {
               "$ref": "#/definitions/Response: Columns"
             }
@@ -649,6 +749,7 @@
             "type": "integer"
           },
           {
+            "name": "column",
             "in": "body",
             "required": false,
             "schema": {
@@ -658,9 +759,9 @@
                   "$ref": "#/definitions/Enum: Column type"
                 },
                 "ordering": {
-                  "type": "number",
-                  "format": "double",
-                  "example": 1.0
+                  "type": "integer",
+                  "format": "int64",
+                  "example": 1
                 },
                 "name": {
                   "type": "string",
@@ -671,7 +772,7 @@
           }
         ],
         "responses": {
-          "ok-empty-body": {
+          "200": {
             "$ref": "#/responses/ok-empty-body"
           }
         }
@@ -679,7 +780,7 @@
       "delete": {
         "summary": "Delete column",
         "description": "Deletes column from user table and table definition.",
-        "tags": ["data"],
+        "tags": ["structure"],
         "operationId": "delete-column",
         "parameters": [
           {
@@ -696,7 +797,7 @@
           }
         ],
         "responses": {
-          "ok-empty-body": {
+          "200": {
             "$ref": "#/responses/ok-empty-body"
           }
         }
@@ -730,6 +831,7 @@
         ],
         "responses": {
           "200": {
+            "description": "The cell value",
             "schema": {
               "$ref": "#/definitions/Response: Cell"
             }
@@ -761,6 +863,7 @@
             "type": "integer"
           },
           {
+            "name": "value",
             "in": "body",
             "required": false,
             "schema": {
@@ -817,7 +920,12 @@
             "required": true,
             "type": "string"
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
       }
     },
     "/tables/{tableid}/rows": {
@@ -836,10 +944,15 @@
         ],
         "responses": {
           "200": {
-            "name": "Rows from table",
             "description": "",
             "schema": {
               "$ref": "#/definitions/Response: Rows"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
             }
           }
         }
@@ -872,8 +985,8 @@
                   "description": "Array of column ids",
                   "properties": {
                     "id": {
-                      "type": "number",
-                      "format": "double",
+                      "type": "integer",
+                      "format": "int64",
                       "description": "Column id"
                     }
                   },
@@ -965,9 +1078,9 @@
       ],
       "properties": {
         "parent": {
-          "type": "number",
-          "format": "double",
-          "example": 1.0
+          "type": "integer",
+          "format": "int64",
+          "example": 1
         },
         "createdAt": {
           "type": "object"
@@ -986,9 +1099,9 @@
           }
         },
         "id": {
-          "type": "number",
-          "format": "double",
-          "example": 1.0
+          "type": "integer",
+          "format": "int64",
+          "example": 1
         },
         "subfolders": {
           "type": "array",
@@ -1147,9 +1260,9 @@
           "description": "Name of table"
         },
         "id": {
-          "type": "number",
-          "format": "double",
-          "example": 1.0,
+          "type": "integer",
+          "format": "int64",
+          "example": 1,
           "description": "Id of table"
         },
         "rows": {
@@ -1228,7 +1341,128 @@
         ]
       }
     },
-    "Respone: Array of tables": {
+    "Response: Versions": {
+      "type": "object",
+      "description": "The currently used versions",
+      "required": [
+        "versions",
+        "status"
+      ],
+      "properties": {
+        "versions": {
+          "type": "object",
+          "required": ["implementation", "git", "build", "database"],
+          "properties": {
+            "implementation": {
+              "type": "object",
+              "description": "The underlying backend (usually the JVM)",
+              "required": ["vendor", "title", "version"],
+              "properties": {
+                "vendor": {
+                  "type": "string",
+                  "example": "N/A",
+                  "description": "Author of the JVM implementation"
+                },
+                "title": {
+                  "type": "string",
+                  "example": "Java Runtime Environment",
+                  "description": "Title"
+                },
+                "version": {
+                  "type": "string",
+                  "example": "1.8.0_111",
+                  "description": "Version of the JVM"
+                }
+              }
+            },
+            "git": {
+              "type": "object",
+              "description": "The underlying git versions",
+              "required": ["branch", "commit", "date"],
+              "properties": {
+                "branch": {
+                  "type": "string",
+                  "example": "DEVELOPMENT",
+                  "description": "The branch of git"
+                },
+                "commit": {
+                  "type": "string",
+                  "example": "DEVELOPMENT",
+                  "description": "The latest commit"
+                },
+                "date": {
+                  "type": "string",
+                  "example": "DEVELOPMENT",
+                  "description": "The date of the commit"
+                }
+              }
+            },
+            "build": {
+              "type": "object",
+              "required": ["date", "jdk"],
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "example": "DEVELOPMENT",
+                  "description": "Date of the build"
+                },
+                "jdk": {
+                  "type": "string",
+                  "example": "DEVELOPMENT",
+                  "description": "JVM used to build"
+                }
+              }
+            },
+            "database": {
+              "type": "object",
+              "required": ["current", "specification"],
+              "properties": {
+                "current": {
+                  "type": "integer",
+                  "format": "int64",
+                  "example": 17,
+                  "description": "The current version of the database"
+                },
+                "specification": {
+                  "type": "integer",
+                  "format": "int64",
+                  "example": 18,
+                  "description": "The version of the implementation - if this is higher, you need to update the current database"
+                }
+              }
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "example": {
+        "versions": {
+          "implementation": {
+            "vendor": "N/A",
+            "title": "Java Runtime Environment",
+            "version": "1.8.0_111"
+          },
+          "git": {
+            "branch": "DEVELOPMENT",
+            "commit": "DEVELOPMENT",
+            "date": "DEVELOPMENT"
+          },
+          "build": {
+            "date": "DEVELOPMENT",
+            "jdk": "DEVELOPMENT"
+          },
+          "database": {
+            "current": 18,
+            "specification": 18
+          }
+        },
+        "status": "ok"
+      }
+    },
+    "Response: Array of tables": {
       "type": "object",
       "required": [
         "status",
@@ -1238,24 +1472,7 @@
         "tables": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "number",
-                "format": "double",
-                "example": 1.0,
-                "description": "Id of table"
-              },
-              "name": {
-                "type": "string",
-                "example": "Bundesländer Deutschlands",
-                "description": "Name of table"
-              }
-            },
-            "required": [
-              "id",
-              "name"
-            ]
+            "$ref": "#/definitions/Shared Response: Table"
           }
         },
         "status": {
@@ -1276,6 +1493,37 @@
             "name": "Regierungsbezirke"
           }
         ]
+      }
+    },
+    "Shared Response: Table": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "status"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Bundesländer Deutschlands",
+          "description": "Name of table"
+        },
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "example": 1,
+          "description": "Id of table"
+        },
+        "status": {
+          "type": "string",
+          "example": "ok"
+        }
+      },
+      "description": "Complete table with columns and rows.",
+      "example": {
+        "status": "ok",
+        "id": 2,
+        "name": "Bundesländer Deutschlands"
       }
     },
     "Shared Response: Column": {
@@ -1334,9 +1582,9 @@
           }
         },
         "id": {
-          "type": "number",
-          "format": "double",
-          "example": 1.0,
+          "type": "integer",
+          "format": "int64",
+          "example": 1,
           "description": "Id of row"
         }
       },
@@ -1615,9 +1863,9 @@
           "example": "Subolder 123 is awesome"
         },
         "id": {
-          "type": "number",
-          "format": "double",
-          "example": 1.0
+          "type": "integer",
+          "format": "int64",
+          "example": 1
         },
         "updatedAt": {
           "type": "string",
@@ -1638,9 +1886,9 @@
           "$ref": "#/definitions/Enum: Column type"
         },
         "ordering": {
-          "type": "number",
-          "format": "double",
-          "example": 1.0
+          "type": "integer",
+          "format": "int64",
+          "example": 1
         },
         "displayName": {
           "$ref": "#/definitions/Multi-language object"

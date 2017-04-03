@@ -181,6 +181,9 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
       case Header(key, value, nextReply) =>
         req.response().putHeader(key, value)
         sendReply(req, nextReply)
+      case StatusCode(statusCode, nextReply) =>
+        req.response().setStatusCode(statusCode)
+        sendReply(req, nextReply)
       case x: SyncReply => endResponse(req.response(), x)
     }
   }

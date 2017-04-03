@@ -3,8 +3,9 @@ package com.campudus.tableaux.router
 import java.net.URL
 
 import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.helper.DocUriParser
 import io.vertx.ext.web.RoutingContext
-import org.vertx.scala.router.routing.{Get, OkString, SendEmbeddedFile}
+import org.vertx.scala.router.routing._
 
 import scala.io.Source
 import scala.util.matching.Regex
@@ -22,25 +23,19 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
   val swaggerUiVersion = "2.2.10-1"
 
   val Index: Regex = "^/docs/index.html$".r
-  val Swagger: Regex = "^/docs/swagger\\.json$".r
-  val OtherFile: Regex = "^/docs/([A-Za-z0-9-_\\.]*)$".r
-  val OtherFileWithDirectory: Regex = "^/docs/([A-Za-z0-9-_\\.]*)/([A-Za-z0-9-_\\.]*)$".r
+  val IndexRedirect: Regex = "^/docs$|^/docs/$".r
 
-  private def parseAbsoluteURI(absoluteURI: String): (String, String, String) = {
-    "(https?)://(.*)/docs.*".r.unapplySeq(absoluteURI) match {
-      case Some(List(scheme, apiPath)) =>
-        apiPath.split("/").toList match {
-          case host :: rest =>
-            (scheme, host, rest.mkString("/"))
-          case _ =>
-            (scheme, "localhost:8181", "")
-        }
-      case _ =>
-        ("http", "localhost:8181", "")
-    }
-  }
+  val Swagger: Regex = "^/docs/swagger\\.json$".r
+
+  val OtherFile: Regex = "^/docs/([A-Za-z0-9-_\\.]{1,60}){1}$".r
+  val OtherFileWithDirectory: Regex = "^/docs/([A-Za-z0-9-_\\.]{1,60}){1}/([A-Za-z0-9-_\\.]{1,60}){1}$".r
+
+  private def parseAbsoluteURI(absoluteURI: String): (String, String, String) = DocUriParser.parse(absoluteURI)
 
   override def routes(implicit context: RoutingContext): Routing = {
+    case Get(IndexRedirect()) =>
+      StatusCode(301, Header("Location", "/docs/index.html", NoBody))
+
     case Get(Index()) =>
       val uri = context.request().absoluteURI()
       val (scheme, host, basePath) = parseAbsoluteURI(uri)
