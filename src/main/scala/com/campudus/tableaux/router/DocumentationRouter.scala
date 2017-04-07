@@ -50,7 +50,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
     val forwardedUrl = Option(request.getHeader("x-forwarded-url"))
 
     val uri = (forwardedScheme, forwardedHost, forwardedUrl) match {
-      case (Some(scheme), Some(host), Some(query)) => s"${scheme}://${host}$query"
+      case (Some(scheme), Some(host), Some(query)) => s"$scheme://$host$query"
       case _ => request.absoluteURI()
     }
 
@@ -59,7 +59,8 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
 
   override def routes(implicit context: RoutingContext): Routing = {
     case Get(IndexRedirect()) =>
-      StatusCode(301, Header("Location", "/docs/index.html", NoBody))
+      val (_, _, basePath) = parseAbsoluteURI(context.request())
+      StatusCode(301, Header("Location", s"/$basePath/docs/index.html", NoBody))
 
     case Get(Index()) =>
       val (scheme, host, basePath) = parseAbsoluteURI(context.request())
