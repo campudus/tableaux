@@ -1,11 +1,14 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
+
+import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class CellLevelAnnotationsTest extends TableauxTestBase {
@@ -211,6 +214,87 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
         assertContainsDeep(exceptedFlags, rowJson.getJsonArray("annotations").getJsonArray(0))
         assertContainsDeep(exceptedFlagsAfterDelete, rowJsonAfterDelete.getJsonArray("annotations").getJsonArray(0))
+      }
+    }
+  }
+
+  @Test
+  def addAndDeleteAnnotationWithLangtags(implicit c: TestContext): Unit = {
+    okTest{
+      def addLangtag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtag: String): Future[_] = {
+        sendRequest("POST",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr(langtag), "type" -> "flag", "value" -> "needs_translation"))
+      }
+
+      def removeLangtag(
+        tableId: TableId,
+        columnId: ColumnId,
+        rowId: RowId,
+        uuid: String,
+        langtag: String
+      ): Future[_] = {
+        sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuid/$langtag")
+      }
+
+      for {
+        (tableId, _) <- createTableWithMultilanguageColumns("test")
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- Future.sequence(Seq(
+          addLangtag(tableId, 1, rowId, "de"),
+          addLangtag(tableId, 1, rowId, "en"),
+          addLangtag(tableId, 1, rowId, "fr"),
+          addLangtag(tableId, 1, rowId, "es"),
+          addLangtag(tableId, 1, rowId, "it"),
+          addLangtag(tableId, 1, rowId, "cs"),
+          addLangtag(tableId, 1, rowId, "pl")
+        ))
+
+        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+
+        annotationUuid = rowJson1.getJsonArray("annotations").getJsonArray(0).getJsonObject(0).getString("uuid")
+
+        _ <- Future.sequence(Seq(
+          removeLangtag(tableId, 1, rowId, annotationUuid, "de"),
+          removeLangtag(tableId, 1, rowId, annotationUuid, "en"),
+          removeLangtag(tableId, 1, rowId, annotationUuid, "fr"),
+          removeLangtag(tableId, 1, rowId, annotationUuid, "es"),
+          removeLangtag(tableId, 1, rowId, annotationUuid, "it"),
+          removeLangtag(tableId, 1, rowId, annotationUuid, "cs"),
+          removeLangtag(tableId, 1, rowId, annotationUuid, "pl")
+        ))
+
+        rowJson2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+      } yield {
+        val exceptedColumn1Flags = Json.arr(Json.obj(
+          "type" -> "flag",
+          "value" -> "needs_translation",
+          "langtags" -> Json.arr(
+            "cs",
+            "de",
+            "en",
+            "es",
+            "fr",
+            "it",
+            "pl"
+          )
+        ))
+
+        assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
+        assertNull(rowJson1.getJsonArray("annotations").getJsonArray(1))
+
+        val exceptedColumn1FlagsAfterDelete = Json.arr(Json.obj(
+          "type" -> "flag",
+          "value" -> "needs_translation",
+          "langtags" -> null
+        ))
+
+        assertContainsDeep(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
+        assertNull(rowJson2.getJsonArray("annotations").getJsonArray(1))
       }
     }
   }
