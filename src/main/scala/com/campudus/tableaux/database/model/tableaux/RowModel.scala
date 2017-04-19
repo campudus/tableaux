@@ -57,20 +57,20 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }).mkString(", ")
 
     for {
-      update <- connection.query(s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ?", Json.arr(rowId))
-      _ = updateNotNull(update)
+      _ <- connection.query(s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ?", Json.arr(rowId))
     } yield ()
   }
 
   private def clearLinks(table: Table, rowId: RowId, columns: Seq[LinkColumn]): Future[_] = {
     val futureSequence = columns.map({
-      case column: LinkColumn =>
+      column => {
         val linkId = column.linkId
         val direction = column.linkDirection
 
         for {
           _ <- connection.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
         } yield ()
+      }
     })
 
     Future.sequence(futureSequence)
