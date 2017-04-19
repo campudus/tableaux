@@ -9,14 +9,14 @@ plugins {
   id 'com.github.ksoichiro.build.info' version '0.2.0'
 
   id 'org.scoverage' version '2.1.0'
-  id 'com.github.kt3k.coveralls' version '2.7.1'
+  id 'com.github.kt3k.coveralls' version '2.8.1'
 }
 
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
 def vertxVersion = '3.3.3'
-def scalaVersion = '2.11.8'
+def scalaVersion = '2.11.11'
 
 sourceCompatibility = '1.8'
 
@@ -35,9 +35,9 @@ dependencies {
   compile "io.vertx:vertx-web:${vertxVersion}"
   compile("io.vertx:vertx-mysql-postgresql-client:${vertxVersion}")
 
-  compile 'joda-time:joda-time:2.9.7'
+  compile 'joda-time:joda-time:2.9.9'
   compile 'com.typesafe.scala-logging:scala-logging_2.11:3.5.0'
-  compile 'org.slf4j:slf4j-jdk14:1.7.22'
+  compile 'org.slf4j:slf4j-jdk14:1.7.25'
 
   compile 'com.jcabi:jcabi-manifests:1.1'
 
@@ -177,5 +177,5 @@ assemble.dependsOn shadowJar
  * Gradle wrapper
  */
 task wrapper(type: Wrapper) {
-  gradleVersion = '3.4'
+  gradleVersion = '3.5'
 }
