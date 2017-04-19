@@ -50,3 +50,5 @@ case class Post(path: String) extends RouteMatch
 case class Put(path: String) extends RouteMatch
 
 case class Trace(path: String) extends RouteMatch
+
+case class Other(path: String) extends RouteMatch

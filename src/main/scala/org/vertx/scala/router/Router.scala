@@ -215,6 +215,7 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
         case HttpMethod.TRACE => Trace(path)
         case HttpMethod.PATCH => Patch(path)
         case HttpMethod.CONNECT => Connect(path)
+        case HttpMethod.OTHER => Other(path)
       }
       matcherFor(routeMatch, context)
     } catch {
