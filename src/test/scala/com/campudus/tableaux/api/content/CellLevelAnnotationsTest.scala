@@ -13,6 +13,9 @@ import scala.concurrent.Future
 @RunWith(classOf[VertxUnitRunner])
 class CellLevelAnnotationsTest extends TableauxTestBase {
 
+  // FIXME Add test what happens when langtag+type is posted multiple times
+  // Will it result in value being overwritten or will it result in multiple annotations?
+
   @Test
   def addAnnotationWithoutLangtags(implicit c: TestContext): Unit = {
     okTest{
@@ -75,6 +78,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         val exceptedColumn1FlagsAfterDelete = Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
 
         assertContainsDeep(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
+        // FIXME assert that it does NOT include the deleted annotation in the array.
       }
     }
   }
@@ -111,6 +115,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           .arr(Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning", "value" -> null),
             Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> "this is another comment"))
 
+        // FIXME assert that each annotation has a UUID
         assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
         assertContainsDeep(exceptedColumn2Flags, rowJson1.getJsonArray("annotations").getJsonArray(1))
       }

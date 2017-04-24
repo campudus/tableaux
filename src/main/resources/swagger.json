@@ -514,12 +514,7 @@
         "operationId": "get-table",
         "parameters": [
           {
-            "name": "tableId",
-            "in": "path",
-            "description": "The id of the table to look for.",
-            "required": true,
-            "type": "integer",
-            "format": "int64"
+            "$ref": "#/parameters/tableId"
           }
         ],
         "responses": {
@@ -560,7 +555,7 @@
         }
       },
       "delete": {
-        "summary": "Delete a table",
+        "summary": "FIXME (response not shown in Swagger) Delete a table",
         "description": "Drops the complete table and deletes its definition.",
         "tags": ["structure"],
         "operationId": "delete-table",
@@ -576,6 +571,9 @@
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
           }
         }
       }
@@ -774,134 +772,110 @@
       }
     },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
       "get": {
-        "summary": "FIXME Get specific cell value",
+        "summary": "Get specific cell value",
         "description": "Returns the value of a specified cell.",
         "tags": ["content"],
-        "operationId": "get-specific-cell",
-        "parameters": [
-          {
-            "name": "tableId",
-            "in": "path",
-            "required": true,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "columnId",
-            "in": "path",
-            "required": true,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "rowId",
-            "in": "path",
-            "required": true,
-            "type": "integer",
-            "format": "int64"
-          }
-        ],
+        "operationId": "retrieve-cell",
         "responses": {
           "200": {
-            "description": "The cell value",
-            "schema": {
-              "$ref": "#/definitions/Response:Cell"
-            }
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
           }
         }
       },
       "post": {
-        "summary": "FIXME Change cell",
-        "description": "Change value of specific cell.",
-        "tags": ["data"],
-        "operationId": "change-cell",
+        "summary": "DEPRECATED - Update cell or add link/attachment",
+        "description": "DEPRECATED: Use same route with PATCH instead. Updates the value of specified cell. This can add links, attachments, multi-language contents and replaces simple values such as numbers, booleans or strings.",
+        "tags": ["content"],
+        "operationId": "update-cell-deprecated",
         "parameters": [
           {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          },
-          {
-            "name": "columnid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          },
-          {
-            "name": "rowid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          },
-          {
-            "name": "value",
-            "in": "body",
-            "required": false,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "value": {
-                  "type": "object",
-                  "example": "Hallo",
-                  "description": "New cell value"
-                }
-              }
-            }
+            "$ref": "#/parameters/value"
           }
         ],
         "responses": {
           "200": {
-            "$ref": "#/responses/ok-empty-body"
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
           }
         }
-      }
-    },
-    "/tables/{tableid}/columns/{columnid}/rows/{rowid}/attachment/{attachmentid}": {
+      },
+      "patch": {
+        "summary": "Update cell or add link/attachment",
+        "description": "Updates the value of specified cell. This can add links, attachments, multi-language contents and replaces simple values such as numbers, booleans or strings.",
+        "tags": ["content"],
+        "operationId": "update-cell",
+        "parameters": [
+          {
+            "$ref": "#/parameters/value"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace cell value",
+        "description": "Replace the current value of the specified cell. This overwrites all languages in a multi-language cell or deletes all links and replaces the data with the provided value.",
+        "tags": ["content"],
+        "operationId": "replace-cell",
+        "parameters": [
+          {
+            "$ref": "#/parameters/value"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
       "delete": {
-        "summary": "FIXME Delete attachment",
-        "description": "",
-        "tags": ["data"],
-        "operationId": "delete-attachment",
-        "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "columnid",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "rowid",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "attachmentid",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "type": "string"
-          }
-        ],
+        "summary": "Remove a cell value.",
+        "description": "Clears the set cell value and reset it to its default value.",
+        "tags": ["content"],
+        "operationId": "clear-cell-value",
         "responses": {
           "200": {
-            "$ref": "#/responses/ok-empty-body"
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
           }
         }
       }
     },
-    "/tables/{tableid}/rows": {
+
+    "/tables/{tableId}/rows": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        }
+      ],
       "get": {
         "summary": "FIXME Get all rows",
         "description": "Returns just the rows of the table",
@@ -981,7 +955,15 @@
         }
       }
     },
-    "/tables/{tableid}/rows/{rowid}": {
+    "/tables/{tableId}/rows/{rowId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
       "get": {
         "summary": "FIXME Get single row",
         "description": "Returns a single row and its values.",
@@ -1032,6 +1014,300 @@
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/duplicate": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
+      "post": {
+        "summary": "Duplicate a row.",
+        "description": "Duplicates a row with the same values and returns the duplicated row.",
+        "tags": ["data"],
+        "operationId": "duplicate-row",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/row"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/dependent": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
+      "get": {
+        "summary": "FIXME response? - Retrieve all dependent rows.",
+        "description": "Retrieve all rows of tables that link to this row.",
+        "tags": ["content"],
+        "operationId": "retrieve-dependent-rows",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/dependentRows"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/annotations": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
+      "patch": {
+        "summary": "Add annotations to this row.",
+        "description": "Adds new annotations to this row.",
+        "tags": ["content"],
+        "operationId": "update-row-annotations",
+        "parameters": [
+          {
+            "$ref": "#/parameters/langtags"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/row"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/attachment/{attachmentId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/attachmentId"
+        }
+      ],
+      "delete": {
+        "summary": "Remove single attachment from cell.",
+        "description": "Removes a specified attachment from a cell.",
+        "tags": ["content", "media"],
+        "operationId": "delete-attachment",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/link/{linkId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/linkId"
+        }
+      ],
+      "delete": {
+        "summary": "Delete a link in a cell",
+        "description": "Removes a link from a cell.",
+        "tags": ["content"],
+        "operationId": "delete-link",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/cell-value"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/link/{linkId}/order": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/linkId"
+        }
+      ],
+      "put": {
+        "summary": "Changes the order of the link.",
+        "description": "Changes the order of the links by reordering the specified link to the beginning, end or in front of another relative link.",
+        "tags": ["content"],
+        "operationId": "update-cell-link-order",
+        "parameters": [
+          {
+            "name": "location",
+            "in": "body",
+            "type": "object",
+            "schema": {
+              "$ref": "#/definitions/LocationType"
+            }
+          }
+        ]
+      }
+    },
+
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/annotations": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
+      "post": {
+        "summary": "Add an new annotation to a cell.",
+        "description": "FIXME unsure if it merges on same type+languageTag - should be documented either way! Adds an annotation to a cell.",
+        "tags": ["content"],
+        "operationId": "add-cell-annotation",
+        "parameters": [
+          {
+            "name": "annotation",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "langtags": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/LanguageTag"
+                  }
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning",
+                    "info",
+                    "flag"
+                  ]
+                },
+                "value": {
+                  "type": "string",
+                  "example": "needs-translation"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/cell-annotation"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/annotations/{annotationId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/annotationId"
+        }
+      ],
+      "delete": {
+        "summary": "Remove an annotation from a cell.",
+        "description": "Removes an annotation for all language tags from a cell.",
+        "tags": ["content"],
+        "operationId": "clear-cell-annotation",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/annotations/{annotationId}/{languageTag}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/annotationId"
+        },
+        {
+          "$ref": "#/parameters/languageTag"
+        }
+      ],
+      "delete": {
+        "summary": "Remove annotation for a language from a cell.",
+        "description": "Removes an annotation for a specific language tag from a cell.",
+        "tags": ["content"],
+        "operationId": "clear-cell-annotation-language-tag",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
           }
         }
       }
@@ -1108,6 +1384,43 @@
       },
       "required": ["id"]
     },
+
+    "CellValue": {
+      "type": "any",
+      "example": {
+        "en": "Hello",
+        "de": "Hallo"
+      },
+      "description": "New cell value, depending on the type of the column."
+    },
+    "LanguageTag": {
+      "description": "A language tag in FIXME ISO format.",
+      "type": "string",
+      "format": "languageTag",
+      "example": "de"
+    },
+    "LocationType": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "description": "Sets the new order to be either the first (=start), the last (=end) or in front of another entity (=before).",
+          "type": "string",
+          "enum": [
+            "start",
+            "end",
+            "before"
+          ]
+        },
+        "id": {
+          "description": "If using \"before\", we need to provide the id of a relative entity, so the referenced entity can be put before this.",
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "location"
+      ]
+    },
     "Table": {
       "type": "object",
       "allOf": [
@@ -1144,7 +1457,101 @@
         }
       ]
     },
+    "Column": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Description"
+        },
+        {
+          "$ref": "#/definitions/Property:DisplayName"
+        }
+      ],
+      "required": ["name", "multilanguage", "ordering", "identifier", "kind"],
+      "properties": {
+        "name": {
+          "description": "An internal name that can be used in the Aggregator, for example.",
+          "type": "string",
+          "example": "someColumn"
+        },
+        "identifier": {
+          "description": "A setting whether this column shows up in the ID column (used to show important information in links).",
+          "type": "boolean",
+          "example": "false"
+        },
+        "kind": {
+          "description": "The type of the column.",
+          "type": "string",
+          "enum": ["attachment", "boolean", "concat", "currency", "datetime", "link", "numeric", "shorttext", "text"]
+        },
+        "multilanguage": {
+          "description": "If the values of the cells are translatable or not, this is set to true. You need to check the languageType setting, whether to check for language or for country specific values.",
+          "type": "boolean",
+          "example": "true"
+        },
+        "ordering": {
+          "description": "A value to put the column in the correct order in the table.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "languageType": {
+          "description": "The language type of the column. It can be single language (see \"multilanguage\" property), multilanguage (language) or multicountry (country).",
+          "type": "string",
+          "enum": [
+            "country",
+            "language"
+          ]
+        },
+        "toTable": {
+          "description": "The table it links to, if the column is of kind \"link\".",
+          "type": "integer",
+          "format": "int64"
+        },
+        "countryCodes": {
+          "description": "The possible country values if the languageType is set to \"country\".",
+          "type": "string",
+          "format": "countryCode"
+        }
+      }
+    },
+    "ColumnWithId": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Id"
+        },
+        {
+          "$ref": "#/definitions/Column"
+        }
+      ]
+    },
+    "DependentRow": {
+      "description": "The complete row containing the values of the cells.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Id"
+        }
+      ],
+      "properties": {
+        "value": {
+          "description": "The value of the ID column linking here.",
+          "schema": {
+            "$ref": "#/definitions/CellValue"
+          }
+        }
+      },
+      "required": ["id", "value"]
+    },
 
+    "Response:Status": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ]
+    },
     "Response:Table": {
       "type": "object",
       "allOf": [
@@ -1174,6 +1581,7 @@
       "required": ["tables"]
     },
     "Response:Cell": {
+      "description": "The cell value.",
       "type": "object",
       "allOf": [
         {
@@ -1190,6 +1598,101 @@
         }
       },
       "required": ["value"]
+    },
+    "Response:CellAnnotation": {
+      "description": "TODO The annotation of a cell.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "value": {
+          "type": "any",
+          "example": {
+            "de": "Bayern",
+            "en": "Bavaria"
+          }
+        }
+      },
+      "required": ["value"]
+    },
+    "Response:Row": {
+      "description": "The complete row containing the values of the cells.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        },
+        {
+          "$ref": "#/definitions/Property:Id"
+        }
+      ],
+      "properties": {
+        "values": {
+          "description": "An array with all cells included. It is sorted by the current order of the columns of the table.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CellValue"
+          }
+        },
+        "final": {
+          "description": "A flag describing whether the row is final or not.",
+          "type": "boolean"
+        }
+      },
+      "required": ["values", "final"]
+    },
+    "Response:DependentRow": {
+      "description": "A row that links to a specified row.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "table": {
+          "schema": {
+            "$ref": "#/definitions/TableWithId"
+          }
+        },
+        "column": {
+          "schema": {
+            "$ref": "#/definitions/ColumnWithId"
+          }
+        },
+        "rows": {
+          "schema": {
+            "$ref": "#/definitions/Response:Row"
+          }
+        },
+        "final": {
+          "description": "A flag describing whether the row is final or not.",
+          "type": "boolean"
+        }
+      },
+      "required": ["values", "final"]
+    },
+    "Response:DependentRows": {
+      "description": "All rows that link to the specified row.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "dependentRows": {
+          "description": "An array with all rows depending on the selected row",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DependentRow"
+          }
+        }
+      },
+      "required": ["dependentRows"]
     },
 
     "Response: Folder": {
@@ -2037,36 +2540,151 @@
       }
     }
   },
+
+  "parameters": {
+    "tableId": {
+      "name": "tableId",
+      "description": "The id of the table to select.",
+      "in": "path",
+      "required": true,
+      "type": "integer",
+      "format": "int64"
+    },
+    "columnId": {
+      "name": "columnId",
+      "description": "The id of the column to select.",
+      "in": "path",
+      "required": true,
+      "type": "integer",
+      "format": "int64"
+    },
+    "rowId": {
+      "name": "rowId",
+      "description": "The id of the row to select.",
+      "in": "path",
+      "required": true,
+      "type": "integer",
+      "format": "int64"
+    },
+    "attachmentId": {
+      "name": "attachmentId",
+      "description": "The UUID of the attachment to select.",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "format": "uuid",
+      "example": "edd613d7-4d9b-4282-ada3-927178dfd620"
+    },
+    "annotationId": {
+      "name": "annotationId",
+      "description": "The UUID of the annotation to select.",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "format": "uuid",
+      "example": "edd613d7-4d9b-4282-ada3-927178dfd620"
+    },
+    "languageTag": {
+      "name": "languageTag",
+      "description": "A language tag in FIXME ISO format.",
+      "in": "path",
+      "required": true,
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/LanguageTag"
+      }
+    },
+    "langtags": {
+      "name": "langtags",
+      "description": "An array of language tags in FIXME ISO format.",
+      "in": "body",
+      "schema": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/LanguageTag"
+        }
+      }
+    },
+    "linkId": {
+      "name": "linkId",
+      "description": "The id of the linked entity to select.",
+      "in": "path",
+      "required": true,
+      "type": "integer",
+      "format": "int64"
+    },
+
+    "value": {
+      "name": "value",
+      "description": "The new value of the cell.",
+      "in": "body",
+      "required": false,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "$ref": "#/definitions/CellValue"
+          }
+        }
+      }
+    }
+  },
   "responses": {
+    "cell-annotation": {
+      "description": "An annotation of a cell.",
+      "schema": {
+        "$ref": "#/definitions/Response:CellAnnotation"
+      }
+    },
+    "cell-value": {
+      "description": "The complete cell value.",
+      "schema": {
+        "$ref": "#/definitions/Response:Cell"
+      }
+    },
+    "row": {
+      "description": "A row of a table",
+      "schema": {
+        "$ref": "#/definitions/Response:Row"
+      }
+    },
+    "dependentRows": {
+      "description": "A list of rows that depend on a selected row",
+      "schema": {
+        "$ref": "#/definitions/Response:DependentRows"
+      }
+    },
     "table-with-id": {
       "description": "Metadata of the table.",
       "schema": {
         "$ref": "#/definitions/Response:Table"
       }
     },
+
+    "ok-empty-body": {
+      "description": "An empty body.",
+      "schema": {
+        "$ref": "#/definitions/Response:Status"
+      }
+    },
+
     "not-found-in-database": {
-      "description": "If the database returns an empty result but one was expected. For example your would like to delete a row which doesn't exist."
+      "description": "If the specified entity does not exist in the database, this error is thrown. For example a table, column or row with the specified id could not be found."
     },
     "no-json-found": {
-      "description": "Request should have had a Json body."
+      "description": "Request should have had a JSON body."
     },
     "not-enough-arguments-exception": {
       "description": "Not enough arguments"
     },
     "invalid-json-exception": {
-      "description": "Request contains an invalid JSON body"
+      "description": "Request contains an invalid JSON body."
     },
     "unknown-error": {
       "description": "Various server exception"
     },
     "database-exception": {
       "description": "Server got a PostgreSQL error while running a statement"
-    },
-    "ok-empty-body": {
-      "description": "An empty body.",
-      "schema": {
-        "ref$": "#/definitions/Property:Status"
-      }
     }
   }
 }
