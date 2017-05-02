@@ -6,15 +6,12 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class CellLevelAnnotationsTest extends TableauxTestBase {
-
-  // FIXME Add test what happens when langtag+type is posted multiple times
-  // Will it result in value being overwritten or will it result in multiple annotations?
 
   @Test
   def addAnnotationWithoutLangtags(implicit c: TestContext): Unit = {
@@ -59,26 +56,37 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           s"/tables/$tableId/columns/2/rows/$rowId/annotations",
           Json.obj("type" -> "error", "value" -> "this is another comment"))
 
-        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+        row <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
-        uuid = rowJson1.getJsonArray("annotations").getJsonArray(0).getJsonObject(0).getString("uuid")
+        uuid = row.getJsonArray("annotations").getJsonArray(0).getJsonObject(0).getString("uuid")
         _ <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/$rowId/annotations/$uuid")
 
-        rowJson2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+        rowAfterDelete <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
-        val exceptedColumn1Flags = Json
-          .arr(Json.obj("type" -> "error", "value" -> null), Json.obj("type" -> "info", "value" -> "this is a comment"))
-        val exceptedColumn2Flags = Json
-          .arr(Json.obj("type" -> "warning", "value" -> null),
-            Json.obj("type" -> "error", "value" -> "this is another comment"))
+        val exceptedColumn1Annotations = Json.arr(
+          Json.obj("type" -> "error", "value" -> null),
+          Json.obj("type" -> "info", "value" -> "this is a comment")
+        )
 
-        assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
-        assertContainsDeep(exceptedColumn2Flags, rowJson1.getJsonArray("annotations").getJsonArray(1))
+        val exceptedColumn2Annotations = Json.arr(
+          Json.obj("type" -> "warning", "value" -> null),
+          Json.obj("type" -> "error", "value" -> "this is another comment")
+        )
 
-        val exceptedColumn1FlagsAfterDelete = Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
+        val column1Annotations = row.getJsonArray("annotations").getJsonArray(0)
+        val column2Annotations = row.getJsonArray("annotations").getJsonArray(1)
 
-        assertContainsDeep(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
-        // FIXME assert that it does NOT include the deleted annotation in the array.
+        assertContainsDeep(exceptedColumn1Annotations, column1Annotations)
+        assertContainsDeep(exceptedColumn2Annotations, column2Annotations)
+
+        val exceptedColumn1AnnotationsAfterDelete = Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
+
+        val column1AnnotationsAfterDelete = rowAfterDelete.getJsonArray("annotations").getJsonArray(0)
+
+        assertContainsDeep(exceptedColumn1AnnotationsAfterDelete, column1AnnotationsAfterDelete)
+
+        // assert that it does NOT include the deleted annotation in the array.
+        assertTrue(column1AnnotationsAfterDelete.size() == 1)
       }
     }
   }
@@ -96,28 +104,41 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         _ <- sendRequest("POST",
           s"/tables/$tableId/columns/1/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("de"), "type" -> "error"))
+
         _ <- sendRequest("POST",
           s"/tables/$tableId/columns/1/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("gb"), "type" -> "info", "value" -> "this is a comment"))
+
         _ <- sendRequest("POST",
           s"/tables/$tableId/columns/2/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning"))
+
         _ <- sendRequest("POST",
           s"/tables/$tableId/columns/2/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> "this is another comment"))
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
-        val exceptedColumn1Flags = Json
-          .arr(Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> null),
-            Json.obj("langtags" -> Json.arr("gb"), "type" -> "info", "value" -> "this is a comment"))
-        val exceptedColumn2Flags = Json
-          .arr(Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning", "value" -> null),
-            Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> "this is another comment"))
+        val exceptedColumn1Flags = Json.arr(
+          Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> null),
+          Json.obj("langtags" -> Json.arr("gb"), "type" -> "info", "value" -> "this is a comment")
+        )
 
-        // FIXME assert that each annotation has a UUID
-        assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
-        assertContainsDeep(exceptedColumn2Flags, rowJson1.getJsonArray("annotations").getJsonArray(1))
+        val exceptedColumn2Flags = Json.arr(
+          Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning", "value" -> null),
+          Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> "this is another comment")
+        )
+
+        val rowJson1Column1Annotations = rowJson1.getJsonArray("annotations").getJsonArray(0)
+        val rowJson1Column2Annotations = rowJson1.getJsonArray("annotations").getJsonArray(1)
+
+        import scala.collection.JavaConverters._
+
+        // assert that each annotation has a UUID
+        assertTrue(rowJson1Column1Annotations.asScala.map(_.asInstanceOf[JsonObject]).forall(_.containsField("uuid")))
+
+        assertContainsDeep(exceptedColumn1Flags, rowJson1Column1Annotations)
+        assertContainsDeep(exceptedColumn2Flags, rowJson1Column2Annotations)
       }
     }
   }
@@ -160,6 +181,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   @Test
   def addSameAnnotationsWithDifferentLangtags(implicit c: TestContext): Unit = {
     okTest{
+      // Tests what happens when annotation with same type and/or value is posted multiple times.
+
       for {
         (tableId, _) <- createTableWithMultilanguageColumns("Test")
 
@@ -224,7 +247,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
-  def addAndDeleteAnnotationWithLangtags(implicit c: TestContext): Unit = {
+  def addAndDeleteAnnotationWithLangtagsConcurrently(implicit c: TestContext): Unit = {
     okTest{
       def addLangtag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtag: String): Future[_] = {
         sendRequest("POST",
