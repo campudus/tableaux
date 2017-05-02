@@ -1203,7 +1203,7 @@
       ],
       "post": {
         "summary": "Add an new annotation to a cell.",
-        "description": "FIXME unsure if it merges on same type+languageTag - should be documented either way! Adds an annotation to a cell.",
+        "description": "Adds an annotation to a cell. Annotations with the same type and value will be merged.",
         "tags": ["content"],
         "operationId": "add-cell-annotation",
         "parameters": [
@@ -1394,7 +1394,7 @@
       "description": "New cell value, depending on the type of the column."
     },
     "LanguageTag": {
-      "description": "A language tag in FIXME ISO format.",
+      "description": "A language tag in RFC 5646 format.",
       "type": "string",
       "format": "languageTag",
       "example": "de"
@@ -2586,7 +2586,7 @@
     },
     "languageTag": {
       "name": "languageTag",
-      "description": "A language tag in FIXME ISO format.",
+      "description": "A language tag in RFC 5646 format.",
       "in": "path",
       "required": true,
       "type": "array",
@@ -2596,7 +2596,7 @@
     },
     "langtags": {
       "name": "langtags",
-      "description": "An array of language tags in FIXME ISO format.",
+      "description": "An array of language tags in RFC 5646 format.",
       "in": "body",
       "schema": {
         "type": "array",
