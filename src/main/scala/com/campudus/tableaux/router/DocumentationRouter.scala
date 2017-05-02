@@ -60,7 +60,12 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
   override def routes(implicit context: RoutingContext): Routing = {
     case Get(IndexRedirect()) =>
       val (_, _, basePath) = parseAbsoluteURI(context.request())
-      StatusCode(301, Header("Location", s"/$basePath/docs/index.html", NoBody))
+      val path = List(basePath, "docs", "index.html").flatMap({
+        case str if str.isEmpty => None
+        case str => Option(str)
+      }).mkString("/")
+
+      StatusCode(301, Header("Location", s"/$path", NoBody))
 
     case Get(Index()) =>
       val (scheme, host, basePath) = parseAbsoluteURI(context.request())
