@@ -4,6 +4,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
 object LinkDirection {
+
   /**
     * Depending on the point of view, the link may be in different directions (left-to-right or right-to-left). This
     * method retrieves the correct link direction which can be used to get SQL and the correct table ids.
@@ -14,6 +15,7 @@ object LinkDirection {
     * @return The correct link direction with the respective values.
     */
   def apply(fromTableId: TableId, tableId1: TableId, tableId2: TableId): LinkDirection = {
+
     // we need this because links can go both ways
     if (fromTableId == tableId1) {
       LeftToRight(tableId1, tableId2)
@@ -42,6 +44,7 @@ sealed trait LinkDirection {
 }
 
 case class LeftToRight(from: TableId, to: TableId) extends LinkDirection {
+
   override def fromSql: String = "id_1"
 
   override def toSql: String = "id_2"
@@ -50,6 +53,7 @@ case class LeftToRight(from: TableId, to: TableId) extends LinkDirection {
 }
 
 case class RightToLeft(from: TableId, to: TableId) extends LinkDirection {
+
   override def fromSql: String = "id_2"
 
   override def toSql: String = "id_1"

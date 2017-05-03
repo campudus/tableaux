@@ -9,7 +9,9 @@ case class Folder(id: FolderId,
                   description: String,
                   parents: Seq[FolderId],
                   createdAt: Option[DateTime],
-                  updatedAt: Option[DateTime]) extends DomainObject {
+  updatedAt: Option[DateTime]
+)
+  extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
     "id" -> {
@@ -24,15 +26,15 @@ case class Folder(id: FolderId,
   )
 }
 
-case class ExtendedFolder(folder: Folder,
-                          subfolders: Seq[Folder],
-                          files: Seq[ExtendedFile]) extends DomainObject {
+case class ExtendedFolder(folder: Folder, subfolders: Seq[Folder], files: Seq[ExtendedFile]) extends DomainObject {
+
   override def getJson: JsonObject = {
     val folderJson = folder.getJson
 
-    folderJson.mergeIn(Json.obj(
-      "subfolders" -> compatibilityGet(subfolders),
-      "files" -> compatibilityGet(files)
-    ))
+    folderJson.mergeIn(
+      Json.obj(
+        "subfolders" -> compatibilityGet(subfolders),
+        "files" -> compatibilityGet(files)
+      ))
   }
 }

@@ -11,9 +11,10 @@ abstract class ScalaVerticle extends AbstractVerticle with VertxExecutionContext
   type VertxFuture[A] = io.vertx.core.Future[A]
 
   /**
-   * A reference to the Vert.x runtime.
-   * @return A reference to a Vertx.
-   */
+    * A reference to the Vert.x runtime.
+    *
+    * @return A reference to a Vertx.
+    */
   lazy val _vertx: Vertx = vertx
 
   override final def start(future: VertxFuture[Void]): Unit = {

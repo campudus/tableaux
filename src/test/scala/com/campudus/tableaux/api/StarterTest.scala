@@ -55,14 +55,15 @@ class StarterTest extends LazyLogging with TestAssertionHelper with JsonCompatib
     val async = c.async()
 
     val options = new DeploymentOptions()
-      .setConfig(Json.obj(
-        // will fail while parsing host
-        "host" -> 123,
-        "port" -> "123",
-        "database" -> Json.obj(
-          "username" -> "postgres"
-        )
-      ))
+      .setConfig(
+        Json.obj(
+          // will fail while parsing host
+          "host" -> 123,
+          "port" -> "123",
+          "database" -> Json.obj(
+            "username" -> "postgres"
+          )
+        ))
 
     val completionHandler = {
       case Success(id) =>

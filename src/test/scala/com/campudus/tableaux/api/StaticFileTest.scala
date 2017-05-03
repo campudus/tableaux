@@ -26,14 +26,16 @@ class StaticFileTest extends TableauxTestBase {
 
   private def readFile(): Future[String] = {
     val p1 = Promise[String]()
-    vertx.fileSystem.readFile("index.html", {
-      case Success(buf) =>
-        val content = buf.toString(): String
-        p1.success(content)
-      case Failure(ex) =>
-        logger.error("cannot read file", ex)
-        p1.failure(ex)
-    }: Try[Buffer] => Unit)
+    vertx.fileSystem.readFile(
+      "index.html", {
+        case Success(buf) =>
+          val content = buf.toString(): String
+          p1.success(content)
+        case Failure(ex) =>
+          logger.error("cannot read file", ex)
+          p1.failure(ex)
+      }: Try[Buffer] => Unit
+    )
     p1.future
   }
 }

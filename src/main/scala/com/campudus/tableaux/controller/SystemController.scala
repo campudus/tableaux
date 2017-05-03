@@ -15,7 +15,12 @@ import scala.io.Source
 object SystemController {
   val SETTING_LANGTAGS = "langtags"
 
-  def apply(config: TableauxConfig, repository: SystemModel, tableauxModel: TableauxModel, structureModel: StructureModel): SystemController = {
+  def apply(
+    config: TableauxConfig,
+    repository: SystemModel,
+    tableauxModel: TableauxModel,
+    structureModel: StructureModel
+  ): SystemController = {
     new SystemController(config, repository, tableauxModel, structureModel)
   }
 }
@@ -25,7 +30,9 @@ case class SchemaVersion(databaseVersion: Int, specificationVersion: Int)
 class SystemController(override val config: TableauxConfig,
                        override protected val repository: SystemModel,
                        protected val tableauxModel: TableauxModel,
-                       protected val structureModel: StructureModel) extends Controller[SystemModel] {
+  protected val structureModel: StructureModel
+)
+  extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
     for {
@@ -99,7 +106,15 @@ class SystemController(override val config: TableauxConfig,
       rb <- writeDemoData(readDemoData("regierungsbezirke"))
 
       // Add link column Bundeslaender(Land) <> Regierungsbezirke(Regierungsbezirk)
-      linkColumn <- structureModel.columnStruc.createColumn(bl, CreateLinkColumn("Regierungsbezirke", None, rb.id, Some("Bundesland"), None, singleDirection = false, identifier = false, List()))
+      linkColumn <- structureModel.columnStruc.createColumn(bl,
+        CreateLinkColumn("Regierungsbezirke",
+          None,
+          rb.id,
+          Some("Bundesland"),
+          None,
+          singleDirection = false,
+          identifier = false,
+          List()))
 
       toRow1 = generateToJson(1)
       toRow2 = generateToJson(2)
@@ -153,7 +168,8 @@ class SystemController(override val config: TableauxConfig,
   }
 
   def retrieveLangtags(): Future[DomainObject] = {
-    repository.retrieveSetting(SystemController.SETTING_LANGTAGS)
+    repository
+      .retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(value => PlainDomainObject(Json.obj("value" -> Option(value).map(f => Json.fromArrayString(f)).orNull)))
   }
 
@@ -165,12 +181,14 @@ class SystemController(override val config: TableauxConfig,
   }
 
   def invalidateCache(): Future[DomainObject] = {
-    CacheClient(this.vertx).invalidateAll()
+    CacheClient(this.vertx)
+      .invalidateAll()
       .map(_ => EmptyObject())
   }
 
   def invalidateCache(tableId: TableId, columnId: ColumnId): Future[DomainObject] = {
-    CacheClient(this.vertx).invalidateColumn(tableId, columnId)
+    CacheClient(this.vertx)
+      .invalidateColumn(tableId, columnId)
       .map(_ => EmptyObject())
   }
 }

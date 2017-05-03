@@ -41,73 +41,83 @@ class FileModelTest extends TableauxTestBase {
   }
 
   @Test
-  def testCreateAndUpdateOfFile(implicit c: TestContext): Unit = okTest {
-    val model = createFileModel()
+  def testCreateAndUpdateOfFile(implicit c: TestContext): Unit = {
+    okTest{
+      val model = createFileModel()
 
-    for {
-      insertedFile <- model.add(MultiLanguageValue("de_DE" -> "Test 1"), MultiLanguageValue.empty(), MultiLanguageValue("de_DE" -> "external1.pdf"), None)
+      for {
+        insertedFile <- model.add(MultiLanguageValue("de_DE" -> "Test 1"),
+          MultiLanguageValue.empty(),
+          MultiLanguageValue("de_DE" -> "external1.pdf"),
+          None)
 
-      sizeAfterAdd <- model.size()
+        sizeAfterAdd <- model.size()
 
-      retrievedFile <- model.retrieve(insertedFile.uuid, withTmp = true)
+        retrievedFile <- model.retrieve(insertedFile.uuid, withTmp = true)
 
-      updatedFile <- model.update(
-        insertedFile.uuid,
-        title = MultiLanguageValue("de_DE" -> "Changed 1"),
-        description = MultiLanguageValue("de_DE" -> "Changed 1"),
-        internalName = insertedFile.internalName,
-        externalName = MultiLanguageValue("de_DE" -> "external1.pdf"),
-        folder = None,
-        mimeType = insertedFile.mimeType
-      )
+        updatedFile <- model.update(
+          insertedFile.uuid,
+          title = MultiLanguageValue("de_DE" -> "Changed 1"),
+          description = MultiLanguageValue("de_DE" -> "Changed 1"),
+          internalName = insertedFile.internalName,
+          externalName = MultiLanguageValue("de_DE" -> "external1.pdf"),
+          folder = None,
+          mimeType = insertedFile.mimeType
+        )
 
-      allFiles <- model.retrieveAll()
+        allFiles <- model.retrieveAll()
 
-      size <- model.size()
+        size <- model.size()
 
-      _ <- model.deleteById(insertedFile.uuid)
+        _ <- model.deleteById(insertedFile.uuid)
 
-      sizeAfterDeleteOne <- model.size()
-    } yield {
-      assertEquals(0L, sizeAfterAdd)
+        sizeAfterDeleteOne <- model.size()
+      } yield {
+        assertEquals(0L, sizeAfterAdd)
 
-      assertEquals(insertedFile, retrievedFile)
+        assertEquals(insertedFile, retrievedFile)
 
-      assertFalse(insertedFile.updatedAt.isDefined)
+        assertFalse(insertedFile.updatedAt.isDefined)
 
-      assertTrue(insertedFile.createdAt.isDefined)
-      assertTrue(retrievedFile.createdAt.isDefined)
-      assertTrue(updatedFile.createdAt.isDefined)
+        assertTrue(insertedFile.createdAt.isDefined)
+        assertTrue(retrievedFile.createdAt.isDefined)
+        assertTrue(updatedFile.createdAt.isDefined)
 
-      assertTrue(updatedFile.updatedAt.isDefined)
+        assertTrue(updatedFile.updatedAt.isDefined)
 
-      assertTrue(updatedFile.updatedAt.get.isAfter(updatedFile.createdAt.get))
+        assertTrue(updatedFile.updatedAt.get.isAfter(updatedFile.createdAt.get))
 
-      assertEquals(size, allFiles.size)
+        assertEquals(size, allFiles.size)
 
-      assertEquals(updatedFile, allFiles.head)
+        assertEquals(updatedFile, allFiles.head)
 
-      assertEquals(0L, sizeAfterDeleteOne)
+        assertEquals(0L, sizeAfterDeleteOne)
+      }
     }
   }
 
   @Test
-  def testChangeToInvalidInternalName(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
-    val controller = createMediaController()
+  def testChangeToInvalidInternalName(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.invalid"){
+      val controller = createMediaController()
 
-    for {
-      insertedFile <- controller.addFile(MultiLanguageValue("de_DE" -> "Test 1"), MultiLanguageValue.empty(), MultiLanguageValue("de_DE" -> "external1.pdf"), None)
+      for {
+        insertedFile <- controller.addFile(MultiLanguageValue("de_DE" -> "Test 1"),
+          MultiLanguageValue.empty(),
+          MultiLanguageValue("de_DE" -> "external1.pdf"),
+          None)
 
-      _ <- controller.changeFile(
-        insertedFile.uuid,
-        title = MultiLanguageValue("de_DE" -> "Changed 1"),
-        description = MultiLanguageValue("de_DE" -> "Changed 1"),
-        internalName = MultiLanguageValue("de_DE" -> "invalid.png"),
-        externalName = MultiLanguageValue("de_DE" -> "external1.pdf"),
-        folder = None,
-        mimeType = insertedFile.mimeType
-      )
+        _ <- controller.changeFile(
+          insertedFile.uuid,
+          title = MultiLanguageValue("de_DE" -> "Changed 1"),
+          description = MultiLanguageValue("de_DE" -> "Changed 1"),
+          internalName = MultiLanguageValue("de_DE" -> "invalid.png"),
+          externalName = MultiLanguageValue("de_DE" -> "external1.pdf"),
+          folder = None,
+          mimeType = insertedFile.mimeType
+        )
 
-    } yield ()
+      } yield ()
+    }
   }
 }

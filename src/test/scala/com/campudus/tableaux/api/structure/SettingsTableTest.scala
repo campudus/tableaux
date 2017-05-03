@@ -15,7 +15,10 @@ class SettingsTableTest extends TableauxTestBase {
 
   private def createSettingsTable(): Future[TableId] = {
     for {
-      result <- sendRequest("POST", "/tables", Json.obj("name" -> "settings", "type" -> "settings", "displayName" -> Json.obj("de" -> "Settings Table")))
+      result <- sendRequest(
+        "POST",
+        "/tables",
+        Json.obj("name" -> "settings", "type" -> "settings", "displayName" -> Json.obj("de" -> "Settings Table")))
     } yield result.getLong("id")
   }
 
@@ -43,19 +46,28 @@ class SettingsTableTest extends TableauxTestBase {
   }
 
   @Test
-  def createTableWithInvalidTableType(implicit c: TestContext): Unit = exceptionTest("error.arguments") {
-    for {
-      result <- sendRequest("POST", "/tables", Json.obj("name" -> "settings", "type" -> "sgnittes", "displayName" -> Json.obj("de" -> "Settings Table")))
-    } yield ()
+  def createTableWithInvalidTableType(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments"){
+      for {
+        result <- sendRequest(
+          "POST",
+          "/tables",
+          Json.obj("name" -> "settings", "type" -> "sgnittes", "displayName" -> Json.obj("de" -> "Settings Table")))
+      } yield ()
+    }
   }
 
   @Test
-  def addColumnToSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.column") {
-    for {
-      tableId <- createSettingsTable()
+  def addColumnToSettingsTable(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.forbidden.column"){
+      for {
+        tableId <- createSettingsTable()
 
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(Json.obj("name" -> "test", "kind" -> "text"))))
-    } yield ()
+        _ <- sendRequest("POST",
+          s"/tables/$tableId/columns",
+          Json.obj("columns" -> Json.arr(Json.obj("name" -> "test", "kind" -> "text"))))
+      } yield ()
+    }
   }
 
   @Test
@@ -110,14 +122,16 @@ class SettingsTableTest extends TableauxTestBase {
   }
 
   @Test
-  def changeDisplayKeyCellOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.cell") {
-    for {
-      tableId <- createSettingsTable()
+  def changeDisplayKeyCellOfSettingsTable(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.forbidden.cell"){
+      for {
+        tableId <- createSettingsTable()
 
-      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+        _ <- sendRequest("POST", s"/tables/$tableId/rows")
 
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/1", Json.obj("value" -> "another value"))
-    } yield ()
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/1", Json.obj("value" -> "another value"))
+      } yield ()
+    }
   }
 
   @Test

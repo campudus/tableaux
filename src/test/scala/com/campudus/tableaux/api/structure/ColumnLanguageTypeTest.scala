@@ -9,6 +9,7 @@ import org.vertx.scala.core.json.Json
 
 @RunWith(classOf[VertxUnitRunner])
 class ColumnLanguageTypeTest extends TableauxTestBase {
+
   @Test
   def createColumnsWithLanguageTypeMultiLanguage(implicit c: TestContext): Unit = okTest {
     val postSimpleTable = Json.obj("name" -> "table1")
@@ -231,28 +232,30 @@ class ColumnLanguageTypeTest extends TableauxTestBase {
   }
 
   @Test
-  def createMultiCountryColumnWithoutCountryCodes(implicit c: TestContext): Unit = exceptionTest("error.json.countrycodes") {
-    val postSimpleTable = Json.obj("name" -> "table1")
-    val columnWithInvalidLanguageType = Json.obj(
-      "name" -> "column1",
-      "kind" -> "shorttext",
-      "languageType" -> "country"
-    )
+  def createMultiCountryColumnWithoutCountryCodes(implicit c: TestContext): Unit = {
+    exceptionTest("error.json.countrycodes"){
+      val postSimpleTable = Json.obj("name" -> "table1")
+      val columnWithInvalidLanguageType = Json.obj(
+        "name" -> "column1",
+        "kind" -> "shorttext",
+        "languageType" -> "country"
+      )
 
-    val postColumn1 = Json.obj("columns" -> Json.arr(columnWithInvalidLanguageType))
+      val postColumn1 = Json.obj("columns" -> Json.arr(columnWithInvalidLanguageType))
 
-    for {
-      table <- sendRequest("POST", "/tables", postSimpleTable)
-      tableId = table.getLong("id")
+      for {
+        table <- sendRequest("POST", "/tables", postSimpleTable)
+        tableId = table.getLong("id")
 
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", postColumn1)
+        _ <- sendRequest("POST", s"/tables/$tableId/columns", postColumn1)
 
-      columnsJson <- sendRequest("GET", s"/tables/$tableId/columns")
-    } yield {
-      val column = columnsJson.getJsonArray("columns").getJsonObject(0)
+        columnsJson <- sendRequest("GET", s"/tables/$tableId/columns")
+      } yield {
+        val column = columnsJson.getJsonArray("columns").getJsonObject(0)
 
-      assertTrue(column.getBoolean("multilanguage"))
-      assertEquals("country", column.getString("languageType"))
+        assertTrue(column.getBoolean("multilanguage"))
+        assertEquals("country", column.getString("languageType"))
+      }
     }
   }
 }

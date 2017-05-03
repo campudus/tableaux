@@ -13,11 +13,15 @@ class FillCellTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
-  val createNumberColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
-  val createCurrencyColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
-  val createBooleanColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
+  val createNumberColumnJson =
+    Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+  val createCurrencyColumnJson =
+    Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+  val createBooleanColumnJson =
+    Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
   val createDateColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "date", "name" -> "Test Column 4")))
-  val createDateTimeColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "datetime", "name" -> "Test Column 5")))
+  val createDateTimeColumnJson =
+    Json.obj("columns" -> Json.arr(Json.obj("kind" -> "datetime", "name" -> "Test Column 5")))
 
   @Test
   def fillSingleCellWithNull(implicit c: TestContext): Unit = okTest {
@@ -92,79 +96,138 @@ class FillCellTest extends TableauxTestBase {
   }
 
   @Test
-  def fillNumberCellWithMaxValueNumbers(implicit c: TestContext): Unit = okTest {
-    for {
-      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", NumericCol("num-column"))
+  def fillNumberCellWithMaxValueNumbers(implicit c: TestContext): Unit = {
+    okTest{
+      for {
+        (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", NumericCol("num-column"))
 
-      testShort <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Short.MaxValue))
-      testInt <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testLong <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Long.MaxValue))
-      testDouble <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Double.MaxValue))
-      testFloat <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-    } yield {
-      assertTrue("Short is not equal after retrieving from tableaux", Short.MaxValue == testShort.getNumber("value").shortValue())
-      assertTrue("Int is not equal after retrieving from tableaux", Int.MaxValue == testInt.getNumber("value").intValue())
-      assertTrue("Long is not equal after retrieving from tableaux", Long.MaxValue == testLong.getNumber("value").longValue())
-      assertTrue("Double is not equal after retrieving from tableaux", Double.MaxValue == testDouble.getNumber("value").doubleValue())
-      assertTrue("Float is not equal after retrieving from tableaux", Float.MaxValue == testFloat.getNumber("value").floatValue())
+        testShort <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Short.MaxValue))
+        testInt <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testLong <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Long.MaxValue))
+        testDouble <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Double.MaxValue))
+        testFloat <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+      } yield {
+        assertTrue("Short is not equal after retrieving from tableaux",
+          Short.MaxValue == testShort.getNumber("value").shortValue())
+        assertTrue("Int is not equal after retrieving from tableaux",
+          Int.MaxValue == testInt.getNumber("value").intValue())
+        assertTrue("Long is not equal after retrieving from tableaux",
+          Long.MaxValue == testLong.getNumber("value").longValue())
+        assertTrue("Double is not equal after retrieving from tableaux",
+          Double.MaxValue == testDouble.getNumber("value").doubleValue())
+        assertTrue("Float is not equal after retrieving from tableaux",
+          Float.MaxValue == testFloat.getNumber("value").floatValue())
+      }
     }
   }
 
   @Test
-  def fillNumberCellWithAlternatingNumberType(implicit c: TestContext): Unit = okTest {
-    for {
-      (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", NumericCol("num-column"))
+  def fillNumberCellWithAlternatingNumberType(implicit c: TestContext): Unit = {
+    okTest{
+      for {
+        (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", NumericCol("num-column"))
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
 
-      testInt0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Int.MaxValue))
-      testFloat0 <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> Float.MaxValue))
-      _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-      _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
-    } yield ()
+        testInt0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Int.MaxValue))
+        testFloat0 <- sendRequest("PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj("value" -> Float.MaxValue))
+        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
+        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+      } yield ()
+    }
   }
 
   @Test
@@ -281,19 +344,23 @@ class FillCellTest extends TableauxTestBase {
       for {
         (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", multiCountryCurrencyColumn)
 
-        testFloat <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj(
-          "value" -> Json.obj(
-            "DE" -> 2999.99,
-            "GB" -> 3999.99
-          )))
+        testFloat <- sendRequest("POST",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj(
+            "value" -> Json.obj(
+              "DE" -> 2999.99,
+              "GB" -> 3999.99
+            )))
 
         resultFloat <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-        testInt <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj(
-          "value" -> Json.obj(
-            "DE" -> 2999,
-            "GB" -> 3999
-          )))
+        testInt <- sendRequest("POST",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId",
+          Json.obj(
+            "value" -> Json.obj(
+              "DE" -> 2999,
+              "GB" -> 3999
+            )))
 
         resultInt <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {

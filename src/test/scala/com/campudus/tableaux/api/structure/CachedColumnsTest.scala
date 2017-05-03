@@ -56,10 +56,18 @@ class CachedColumnsTest extends TableauxTestBase {
       } yield {
         assertNotSame(columnsBefore, columnsAfter)
 
-        assertFalse(columnsBefore.getArray("columns").asScala.map(_.asInstanceOf[JsonObject])
-          .exists(_.getLong("id") == columnId1))
-        assertTrue(columnsAfter.getArray("columns").asScala.map(_.asInstanceOf[JsonObject])
-          .exists(_.getLong("id") == columnId1))
+        assertFalse(
+          columnsBefore
+            .getArray("columns")
+            .asScala
+            .map(_.asInstanceOf[JsonObject])
+            .exists(_.getLong("id") == columnId1))
+        assertTrue(
+          columnsAfter
+            .getArray("columns")
+            .asScala
+            .map(_.asInstanceOf[JsonObject])
+            .exists(_.getLong("id") == columnId1))
       }
     }
   }
@@ -78,10 +86,18 @@ class CachedColumnsTest extends TableauxTestBase {
       } yield {
         assertNotSame(columnsBefore, columnsAfter)
 
-        assertTrue(columnsBefore.getArray("columns").asScala.map(_.asInstanceOf[JsonObject])
-          .exists(_.getLong("id") == 1))
-        assertFalse(columnsAfter.getArray("columns").asScala.map(_.asInstanceOf[JsonObject])
-          .exists(_.getLong("id") == 1))
+        assertTrue(
+          columnsBefore
+            .getArray("columns")
+            .asScala
+            .map(_.asInstanceOf[JsonObject])
+            .exists(_.getLong("id") == 1))
+        assertFalse(
+          columnsAfter
+            .getArray("columns")
+            .asScala
+            .map(_.asInstanceOf[JsonObject])
+            .exists(_.getLong("id") == 1))
       }
     }
   }

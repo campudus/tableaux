@@ -4,6 +4,7 @@ import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableG
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 
 object StructureModel {
+
   def apply(connection: DatabaseConnection): StructureModel = {
     new StructureModel(connection)
   }

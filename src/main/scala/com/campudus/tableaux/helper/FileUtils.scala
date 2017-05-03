@@ -11,6 +11,7 @@ import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
 object FileUtils {
+
   def apply(verticle: ScalaVerticle): FileUtils = {
     new FileUtils(verticle)
   }
@@ -18,16 +19,22 @@ object FileUtils {
 
 class FileUtils(override val verticle: ScalaVerticle) extends VertxAccess {
 
-  def mkdirs(dir: Path): Future[Unit] = futurify { p: Promise[Unit] =>
-    // succeed also in error cause (directory already exists)
-    vertx.fileSystem.mkdirs(dir.toString(), {
-      case Success(s) => p.success(())
-      case Failure(x) => {
-        x.getCause match {
-          case _: FileAlreadyExistsException => p.success(())
-          case _ => p.failure(x)
-        }
-      }
-    }: Try[Void] => Unit)
+  def mkdirs(dir: Path): Future[Unit] = {
+    futurify{ p: Promise[Unit] =>
+      // succeed also in error cause (directory already exists)
+    {
+      vertx.fileSystem.mkdirs(
+        dir.toString(), {
+          case Success(s) => p.success(())
+          case Failure(x) => {
+            x.getCause match {
+              case _: FileAlreadyExistsException => p.success(())
+              case _ => p.failure(x)
+            }
+          }
+        }: Try[Void] => Unit
+      )
+    }
+    }
   }
 }

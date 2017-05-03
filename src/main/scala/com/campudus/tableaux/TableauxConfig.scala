@@ -7,7 +7,13 @@ import io.vertx.scala.ScalaVerticle
 import scala.reflect.io.Path
 
 object TableauxConfig {
-  def apply(verticle: ScalaVerticle, databaseConfig: JsonObject, workingDir: String, uploadsDir: String): TableauxConfig = {
+
+  def apply(
+    verticle: ScalaVerticle,
+    databaseConfig: JsonObject,
+    workingDir: String,
+    uploadsDir: String
+  ): TableauxConfig = {
     val _verticle = verticle
 
     new TableauxConfig {

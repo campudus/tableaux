@@ -22,5 +22,6 @@ case class Pagination(offset: Option[Long], limit: Option[Long]) extends DomainO
 }
 
 case class Page(pagination: Pagination, totalSize: Option[Long]) extends DomainObject {
+
   override def getJson: JsonObject = pagination.getJson.mergeIn(Json.obj("totalSize" -> totalSize.orNull))
 }

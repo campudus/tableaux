@@ -10,6 +10,7 @@ import org.vertx.scala.core.json._
 import scala.concurrent.Future
 
 object CacheClient {
+
   def apply(vertx: Vertx): CacheClient = {
     new CacheClient(vertx: Vertx)
   }
@@ -33,10 +34,11 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
 
   def setCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId, value: Any): Future[Unit] = {
     val encodedValue = value match {
-      case v: Seq[_] => v.map({
-        case e: DomainObject => e.getJson
-        case e => e
-      })
+      case v: Seq[_] =>
+        v.map({
+          case e: DomainObject => e.getJson
+          case e => e
+        })
       case v: DomainObject => v.getJson
       case _ => value
     }
@@ -46,7 +48,8 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
     val options = new DeliveryOptions()
       .setSendTimeout(200)
 
-    (eventBus.send(CacheVerticle.ADDRESS_SET, obj, options, _: AsyncMessage[JsonObject]))
+    (eventBus
+      .send(CacheVerticle.ADDRESS_SET, obj, options, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 
@@ -56,7 +59,8 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
     val options = new DeliveryOptions()
       .setSendTimeout(200)
 
-    (eventBus.send(CacheVerticle.ADDRESS_RETRIEVE, obj, options, _: AsyncMessage[JsonObject]))
+    (eventBus
+      .send(CacheVerticle.ADDRESS_RETRIEVE, obj, options, _: AsyncMessage[JsonObject]))
       .map({
         case v if v.body().containsKey("value") =>
           Some(v.body().getValue("value"))
@@ -77,33 +81,38 @@ class CacheClient(override val _vertx: Vertx) extends VertxExecutionContext {
     val options = new DeliveryOptions()
       .setSendTimeout(200)
 
-    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_CELL, obj, options, _: AsyncMessage[JsonObject]))
+    (eventBus
+      .send(CacheVerticle.ADDRESS_INVALIDATE_CELL, obj, options, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 
   def invalidateColumn(tableId: TableId, columnId: ColumnId): Future[Unit] = {
     val obj = Json.obj("tableId" -> tableId, "columnId" -> columnId)
 
-    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_COLUMN, obj, _: AsyncMessage[JsonObject]))
+    (eventBus
+      .send(CacheVerticle.ADDRESS_INVALIDATE_COLUMN, obj, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 
   def invalidateRow(tableId: TableId, rowId: RowId): Future[Unit] = {
     val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
 
-    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_ROW, obj, _: AsyncMessage[JsonObject]))
+    (eventBus
+      .send(CacheVerticle.ADDRESS_INVALIDATE_ROW, obj, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 
   def invalidateTable(tableId: TableId): Future[Unit] = {
     val obj = Json.obj("tableId" -> tableId)
 
-    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_TABLE, obj, _: AsyncMessage[JsonObject]))
+    (eventBus
+      .send(CacheVerticle.ADDRESS_INVALIDATE_TABLE, obj, _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 
   def invalidateAll(): Future[Unit] = {
-    (eventBus.send(CacheVerticle.ADDRESS_INVALIDATE_ALL, Json.emptyObj(), _: AsyncMessage[JsonObject]))
+    (eventBus
+      .send(CacheVerticle.ADDRESS_INVALIDATE_ALL, Json.emptyObj(), _: AsyncMessage[JsonObject]))
       .map(_ => ())
   }
 }

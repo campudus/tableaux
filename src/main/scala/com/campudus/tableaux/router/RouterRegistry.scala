@@ -10,6 +10,7 @@ import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing.{Error, Get, SendEmbeddedFile}
 
 object RouterRegistry {
+
   def apply(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection): RouterRegistry = {
 
     val systemModel = SystemModel(dbConnection)
@@ -36,10 +37,12 @@ class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseR
   override val verticle: ScalaVerticle = config.verticle
 
   override def routes(implicit context: RoutingContext): Routing = {
-    routers.map(_.routes).foldLeft(defaultRoutes)({
-      case (last, current) =>
-        last orElse current
-    }) orElse noRouteFound
+    routers
+      .map(_.routes)
+      .foldLeft(defaultRoutes)({
+        case (last, current) =>
+          last orElse current
+      }) orElse noRouteFound
   }
 
   private def defaultRoutes(implicit context: RoutingContext): Routing = {
@@ -47,6 +50,11 @@ class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseR
   }
 
   private def noRouteFound(implicit context: RoutingContext): Routing = {
-    case _ => Error(RouterException(message = s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}", id = "NOT FOUND", statusCode = 404))
+    case _ =>
+      Error(
+        RouterException(
+          message = s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
+          id = "NOT FOUND",
+          statusCode = 404))
   }
 }

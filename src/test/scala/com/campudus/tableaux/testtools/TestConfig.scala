@@ -56,9 +56,9 @@ trait TestConfig {
   }
 
   private def getFreePort: Int = {
-    autoClose(new ServerSocket(0), {
-      socket: ServerSocket =>
-        socket.getLocalPort
+    autoClose(new ServerSocket(0), { socket: ServerSocket => {
+      socket.getLocalPort
+    }
     })
   }
 }

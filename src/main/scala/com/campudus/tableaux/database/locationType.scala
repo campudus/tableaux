@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.model.TableauxModel.RowId
 sealed trait LocationType
 
 object LocationType {
+
   def apply(location: String, relativeTo: Option[RowId]): LocationType = {
     (location, relativeTo) match {
       case ("start", None) => LocationStart

@@ -1,5 +1,14 @@
 #!groovy
 
+buildscript {
+  repositories {
+    jcenter()
+  }
+  dependencies {
+    classpath 'cz.alenkacz:gradle-scalafmt:1.3.5'
+  }
+}
+
 plugins {
   id 'java'
   id 'scala'
@@ -11,6 +20,8 @@ plugins {
   id 'org.scoverage' version '2.1.0'
   id 'com.github.kt3k.coveralls' version '2.8.1'
 }
+
+apply plugin: 'scalafmt'
 
 project.group = 'com.campudus'
 project.version = '0.1.0'

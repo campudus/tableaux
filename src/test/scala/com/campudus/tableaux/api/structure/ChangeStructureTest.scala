@@ -90,51 +90,66 @@ class ChangeStructureTest extends TableauxTestBase {
   }
 
   @Test
-  def changeColumnKindWhichShouldFail(implicit c: TestContext): Unit = okTest {
-    val kindTextJson = Json.obj("kind" -> "text")
-    val kindNumericJson = Json.obj("kind" -> "numeric")
+  def changeColumnKindWhichShouldFail(implicit c: TestContext): Unit = {
+    okTest{
+      val kindTextJson = Json.obj("kind" -> "text")
+      val kindNumericJson = Json.obj("kind" -> "numeric")
 
-    val failed = Json.obj("failed" -> "failed")
+      val failed = Json.obj("failed" -> "failed")
 
-    for {
-      _ <- createDefaultTable()
+      for {
+        _ <- createDefaultTable()
 
-      _ <- sendRequest("POST", "/tables/1/rows", Json.obj("rows" ->
-        Json.obj("values" ->
-          Json.arr("Test", 5)
-        )
-      ))
+        _ <- sendRequest("POST",
+          "/tables/1/rows",
+          Json.obj(
+            "rows" ->
+              Json.obj("values" ->
+                Json.arr("Test", 5))))
 
-      // change numeric column to text column
-      changeToText <- sendRequest("POST", "/tables/1/columns/2", kindTextJson)
+        // change numeric column to text column
+        changeToText <- sendRequest("POST", "/tables/1/columns/2", kindTextJson)
 
-      // change text column to numeric column, which should fail
-      failedChangeToNumeric <- sendRequest("POST", "/tables/1/columns/1", kindNumericJson)
-        .recoverWith({ case _ => Future.successful(failed) })
+        // change text column to numeric column, which should fail
+        failedChangeToNumeric <- sendRequest("POST", "/tables/1/columns/1", kindNumericJson)
+          .recoverWith({ case _ => Future.successful(failed) })
 
-      columns <- sendRequest("GET", "/tables/1/columns")
-    } yield {
-      assertEquals(columns.getJsonArray("columns").getJsonObject(1).mergeIn(Json.obj("status" -> "ok")), changeToText)
+        columns <- sendRequest("GET", "/tables/1/columns")
+      } yield {
+        assertEquals(columns.getJsonArray("columns").getJsonObject(1).mergeIn(Json.obj("status" -> "ok")), changeToText)
 
-      assertEquals(failed, failedChangeToNumeric)
+        assertEquals(failed, failedChangeToNumeric)
 
-      assertEquals("text", columns.getJsonArray("columns").getJsonObject(0).getString("kind"))
-      assertEquals("text", columns.getJsonArray("columns").getJsonObject(1).getString("kind"))
+        assertEquals("text", columns.getJsonArray("columns").getJsonObject(0).getString("kind"))
+        assertEquals("text", columns.getJsonArray("columns").getJsonObject(1).getString("kind"))
+      }
     }
   }
 
   @Test
-  def changeColumn(implicit c: TestContext): Unit = okTest {
-    val postJson = Json.obj("name" -> "New testname", "ordering" -> 5, "kind" -> "text")
-    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "name" -> "New testname", "kind" -> "text", "ordering" -> 5, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())
+  def changeColumn(implicit c: TestContext): Unit = {
+    okTest{
+      val postJson = Json.obj("name" -> "New testname", "ordering" -> 5, "kind" -> "text")
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "id" -> 2,
+        "name" -> "New testname",
+        "kind" -> "text",
+        "ordering" -> 5,
+        "multilanguage" -> false,
+        "identifier" -> false,
+        "displayName" -> Json.obj(),
+        "description" -> Json.obj()
+      )
 
-    for {
-      tableId <- createDefaultTable()
-      resultPost <- sendRequest("POST", s"/tables/$tableId/columns/2", postJson)
-      resultGet <- sendRequest("GET", s"/tables/$tableId/columns/2")
-    } yield {
-      assertEquals(expectedJson2, resultGet)
-      assertEquals(resultPost, resultGet)
+      for {
+        tableId <- createDefaultTable()
+        resultPost <- sendRequest("POST", s"/tables/$tableId/columns/2", postJson)
+        resultGet <- sendRequest("GET", s"/tables/$tableId/columns/2")
+      } yield {
+        assertEquals(expectedJson2, resultGet)
+        assertEquals(resultPost, resultGet)
+      }
     }
   }
 }

@@ -15,7 +15,9 @@ sealed trait DatabaseAction extends VertxAccess {
 
   def execute(sql: String): Future[Unit]
 
-  protected def execute(connection: JSQLConnection, sql: String): Future[Unit] = connection.execute(sql, _: Handler[AsyncResult[Void]])
+  protected def execute(connection: JSQLConnection, sql: String): Future[Unit] = {
+    connection.execute(sql, _: Handler[AsyncResult[Void]])
+  }
 
   def query(sql: String): Future[ResultSet]
 
@@ -43,7 +45,9 @@ sealed trait DatabaseAction extends VertxAccess {
 
   protected def close(connection: JSQLConnection): Future[Unit] = connection.close(_: Handler[AsyncResult[Void]])
 
-  protected def setAutoUpdate(connection: JSQLConnection, autoCommit: Boolean): Future[Unit] = connection.setAutoCommit(autoCommit, _: Handler[AsyncResult[Void]])
+  protected def setAutoUpdate(connection: JSQLConnection, autoCommit: Boolean): Future[Unit] = {
+    connection.setAutoCommit(autoCommit, _: Handler[AsyncResult[Void]])
+  }
 }
 
 object SQLConnection {
@@ -74,40 +78,47 @@ class SQLConnection(val verticle: ScalaVerticle, private val config: JsonObject)
 
   private def connect(): Future[JSQLConnection] = client.getConnection(_: Handler[AsyncResult[JSQLConnection]])
 
-  override protected def connection(): Future[JSQLConnection] =
+  override protected def connection(): Future[JSQLConnection] = {
     connect().withTimeout(SQLConnection.QUERY_TIMEOUT, "connect")
+  }
 
-  override def execute(sql: String): Future[Unit] = wrap {
-    conn =>
+  override def execute(sql: String): Future[Unit] = {
+    wrap{ conn => {
       for {
         _ <- execute(conn, sql).withTimeout(SQLConnection.QUERY_TIMEOUT, "execute")
       } yield ()
+    }
+    }
   }
 
   override def query(sql: String): Future[ResultSet] = query(sql, None)
 
   override def query(sql: String, params: JsonArray): Future[ResultSet] = query(sql, Some(params))
 
-  private def query(sql: String, params: Option[JsonArray]): Future[ResultSet] = wrap {
-    conn =>
+  private def query(sql: String, params: Option[JsonArray]): Future[ResultSet] = {
+    wrap{ conn => {
       for {
         resultSet <- query(conn, sql, params).withTimeout(SQLConnection.QUERY_TIMEOUT, "query")
       } yield {
         resultSet
       }
+    }
+    }
   }
 
   override def update(sql: String): Future[UpdateResult] = update(sql, None)
 
   override def update(sql: String, params: JsonArray): Future[UpdateResult] = update(sql, Some(params))
 
-  private def update(sql: String, params: Option[JsonArray]): Future[UpdateResult] = wrap {
-    conn =>
+  private def update(sql: String, params: Option[JsonArray]): Future[UpdateResult] = {
+    wrap{ conn => {
       for {
         updateResult <- update(conn, sql, params).withTimeout(SQLConnection.QUERY_TIMEOUT, "update")
       } yield {
         updateResult
       }
+    }
+    }
   }
 
   private def wrap[A](fn: (JSQLConnection) => Future[A]): Future[A] = {
@@ -131,15 +142,16 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
 
   import com.campudus.tableaux.helper.TimeoutScheduler._
 
-  val connectionTimerId = vertx.setTimer(SQLConnection.LEASE_TIMEOUT, {
-    d: java.lang.Long =>
-      logger.error(s"Lease timeout exceeded")
-      conn.close()
+  val connectionTimerId = vertx.setTimer(SQLConnection.LEASE_TIMEOUT, { d: java.lang.Long => {
+    logger.error(s"Lease timeout exceeded")
+    conn.close()
+  }
   })
 
   override def connection(): Future[JSQLConnection] = Future.successful(conn)
 
   implicit class DatabaseFuture[A](future: Future[A]) {
+
     def recoverDatabaseException(name: String): Future[A] = {
       future.recoverWith {
         case e =>
@@ -197,7 +209,8 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
 
   def rollback(): Future[Unit] = {
     (for {
-      _ <- asyncVoidToFuture(conn.rollback(_: Handler[AsyncResult[Void]])).withTimeout(SQLConnection.QUERY_TIMEOUT, "rollback")
+      _ <- asyncVoidToFuture(conn.rollback(_: Handler[AsyncResult[Void]]))
+        .withTimeout(SQLConnection.QUERY_TIMEOUT, "rollback")
       _ <- close(conn)
     } yield {
       ()

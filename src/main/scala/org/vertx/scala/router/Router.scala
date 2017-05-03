@@ -43,30 +43,50 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
 
   private def matcherFor(routeMatch: RouteMatch, context: RoutingContext): Reply = {
     val pf: PartialFunction[RouteMatch, Reply] = routes(context)
-    val tryAllThenNoRouteMatch: Function[RouteMatch, Reply] = _ => pf.applyOrElse(All(context.normalisedPath()), noRouteMatched(context))
+    val tryAllThenNoRouteMatch: Function[RouteMatch, Reply] = _ => {
+      pf.applyOrElse(All(context.normalisedPath()), noRouteMatched(context))
+    }
     pf.applyOrElse(routeMatch, tryAllThenNoRouteMatch)
   }
 
-  private def noRouteMatched(context: RoutingContext): (RouteMatch => Reply) = {
-    _ => Error(RouterException(message = s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}", id = "NOT FOUND", statusCode = 404))
+  private def noRouteMatched(context: RoutingContext): (RouteMatch => Reply) = { _ => {
+    Error(
+      RouterException(message =
+        s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
+        id = "NOT FOUND",
+        statusCode = 404))
+  }
   }
 
-  private def fileExists(file: String): Future[String] = asyncResultToFuture {
-    tryFn: Handler[AsyncResult[java.lang.Boolean]] => vertx.fileSystem.exists(file, tryFn)
-  } map {
-    case java.lang.Boolean.TRUE => file
-    case java.lang.Boolean.FALSE => throw new FileNotFoundException(file)
+  private def fileExists(file: String): Future[String] = {
+    asyncResultToFuture{ tryFn: Handler[AsyncResult[java.lang.Boolean]] => {
+      vertx.fileSystem.exists(file, tryFn)
+    }
+    } map {
+      case java.lang.Boolean.TRUE => file
+      case java.lang.Boolean.FALSE => throw new FileNotFoundException(file)
+    }
   }
 
-  private def addIndexToDirName(path: String): String =
+  private def addIndexToDirName(path: String): String = {
     if (path.endsWith("/")) path + "index.html"
-    else path + "/index.html"
+    else {
+      path + "/index.html"
+    }
+  }
 
-  private def directoryToIndexFile(path: String): Future[String] = asyncResultToFuture {
-    tryFn: Handler[AsyncResult[FileProps]] => vertx.fileSystem.lprops(path, tryFn)
-  } flatMap { fp =>
-    if (fp.isDirectory) fileExists(addIndexToDirName(path))
-    else Future.successful(path)
+  private def directoryToIndexFile(path: String): Future[String] = {
+    asyncResultToFuture{ tryFn: Handler[AsyncResult[FileProps]] => {
+      vertx.fileSystem.lprops(path, tryFn)
+    }
+    } flatMap { fp => {
+      if (fp.isDirectory) {
+        fileExists(addIndexToDirName(path))
+      } else {
+        Future.successful(path)
+      }
+    }
+    }
   }
 
   private def urlEncode(str: String) = URLEncoder.encode(str, "UTF-8")
@@ -131,7 +151,9 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
           }
         } catch {
           case ex: Throwable =>
-            endResponse(resp, Error(RouterException("send embedded file exception", ex, "errors.routing.sendEmbeddedFile", 500)))
+            endResponse(
+              resp,
+              Error(RouterException("send embedded file exception", ex, "errors.routing.sendEmbeddedFile", 500)))
         }
       case SendFile(path, absolute) =>
         (for {

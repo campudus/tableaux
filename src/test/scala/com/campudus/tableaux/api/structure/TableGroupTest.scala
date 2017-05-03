@@ -39,42 +39,48 @@ class TableGroupTest extends TableauxTestBase {
   }
 
   @Test
-  def changeTableGroupWithExistingLangtag(implicit c: TestContext): Unit = okTest {
-    val createTableGroupJson = Json.obj(
-      "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
-      "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
-    )
+  def changeTableGroupWithExistingLangtag(implicit c: TestContext): Unit = {
+    okTest{
+      val createTableGroupJson = Json.obj(
+        "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
+        "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
+      )
 
-    val changeTableGroupJson = Json.obj("displayName" -> Json.obj("de" -> "unlustig"))
+      val changeTableGroupJson = Json.obj("displayName" -> Json.obj("de" -> "unlustig"))
 
-    for {
-      createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
-      groupId = createdGroup.getInteger("id")
+      for {
+        createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
+        groupId = createdGroup.getInteger("id")
 
-      updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
-    } yield {
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson), updatedGroup)
+        updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
+      } yield {
+        assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
+        assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
+          updatedGroup)
+      }
     }
   }
 
   @Test
-  def changeTableGroupWithNewLangtag(implicit c: TestContext): Unit = okTest {
-    val createTableGroupJson = Json.obj(
-      "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
-      "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
-    )
+  def changeTableGroupWithNewLangtag(implicit c: TestContext): Unit = {
+    okTest{
+      val createTableGroupJson = Json.obj(
+        "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
+        "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
+      )
 
-    val changeTableGroupJson = Json.obj("displayName" -> Json.obj("fr" -> "lé unlustisch"))
+      val changeTableGroupJson = Json.obj("displayName" -> Json.obj("fr" -> "lé unlustisch"))
 
-    for {
-      createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
-      groupId = createdGroup.getInteger("id")
+      for {
+        createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
+        groupId = createdGroup.getInteger("id")
 
-      updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
-    } yield {
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson), updatedGroup)
+        updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
+      } yield {
+        assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
+        assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
+          updatedGroup)
+      }
     }
   }
 

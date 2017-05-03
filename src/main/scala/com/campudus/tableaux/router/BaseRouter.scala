@@ -46,24 +46,30 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
 
   def asyncEmptyReply: AsyncReplyFunction = asyncReply(EmptyReturn)(_)
 
-  private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject]): AsyncReply = AsyncReply {
-    val catchedReplyFunction = try replyFunction catch {
-      case NonFatal(ex) => Future.failed(ex)
-    }
+  private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject]): AsyncReply = {
+    AsyncReply{
+      val catchedReplyFunction = try {
+        replyFunction
+      }
+      catch {
+        case NonFatal(ex) => Future.failed(ex)
+      }
 
-    catchedReplyFunction.map({
-      result =>
-        Ok(result.toJson(returnType).mergeIn(baseResult))
-    }).map({
-      reply =>
-        Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))
-    }).recover({
-      case ex: InvalidNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
-      case ex: NoNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
-      case ex: CustomException => Error(ex.toRouterException)
-      case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
-      case NonFatal(ex) => Error(RouterException("unknown error", ex, "error.unknown", 500))
-    })
+      catchedReplyFunction
+        .map({ result =>
+          Ok(result.toJson(returnType).mergeIn(baseResult))
+        })
+        .map({ reply =>
+          Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))
+        })
+        .recover({
+          case ex: InvalidNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
+          case ex: NoNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
+          case ex: CustomException => Error(ex.toRouterException)
+          case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
+          case NonFatal(ex) => Error(RouterException("unknown error", ex, "error.unknown", 500))
+        })
+    }
   }
 
   def getJson(context: RoutingContext): Future[JsonObject] = futurify { p: Promise[JsonObject] =>

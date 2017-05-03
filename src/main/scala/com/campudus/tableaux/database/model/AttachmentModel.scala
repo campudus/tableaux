@@ -13,10 +13,12 @@ import scala.concurrent.Future
 case class Attachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID, ordering: Option[Ordering])
 
 case class AttachmentFile(file: ExtendedFile, ordering: Ordering) extends DomainObject {
+
   override def getJson: JsonObject = Json.obj("ordering" -> ordering).mergeIn(file.getJson)
 }
 
 object AttachmentModel {
+
   def apply(connection: DatabaseConnection): AttachmentModel = apply(connection, FileModel(connection))
 
   def apply(connection: DatabaseConnection, fileModel: FileModel): AttachmentModel = {
@@ -24,7 +26,8 @@ object AttachmentModel {
   }
 }
 
-class AttachmentModel(protected[this] val connection: DatabaseConnection, protected[this] val fileModel: FileModel) extends DatabaseQuery {
+class AttachmentModel(protected[this] val connection: DatabaseConnection, protected[this] val fileModel: FileModel)
+  extends DatabaseQuery {
   val table = "system_attachment"
 
   def replace(tableId: TableId, columnId: ColumnId, rowId: RowId, attachments: Seq[Attachment]): Future[Unit] = {
@@ -35,31 +38,39 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
     // Build insert parameters
     val paramStr = attachments.map(_ => "(?, ?, ?, ?, ?)").mkString(", ")
 
-    connection.transactional({ t =>
+    connection.transactional({ t => {
       for {
         (t, _) <- t.query(delete, Json.arr(tableId, columnId, rowId))
 
-        (_, changedAttachments) <- attachments.foldLeft(Future(0, Seq.empty[Attachment])) {
-          (lastResult, attachment) =>
-            lastResult.flatMap({
-              case (lastOrdering, seq) =>
-                val newOrdering = lastOrdering + 1
-                Future(newOrdering, seq :+ attachment.copy(ordering = Some(attachment.ordering.getOrElse(newOrdering))))
-            })
+        (_, changedAttachments) <- attachments.foldLeft(Future(0, Seq.empty[Attachment])){ (lastResult, attachment) => {
+          lastResult.flatMap({
+            case (lastOrdering, seq) =>
+              val newOrdering = lastOrdering + 1
+              Future(newOrdering, seq :+ attachment.copy(ordering = Some(attachment.ordering.getOrElse(newOrdering))))
+          })
+        }
         }
 
         params <- Future({
-          changedAttachments.flatMap(attachment => List(attachment.tableId, attachment.columnId, attachment.rowId, attachment.uuid.toString, attachment.ordering.get))
+          changedAttachments.flatMap(
+            attachment =>
+              List(attachment.tableId,
+                attachment.columnId,
+                attachment.rowId,
+                attachment.uuid.toString,
+                attachment.ordering.get))
         })
 
         (t, _) <- {
           if (params.nonEmpty) {
-            t.query(s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr", Json.arr(params: _*))
+            t.query(s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr",
+              Json.arr(params: _*))
           } else {
             Future.successful((t, Json.emptyObj()))
           }
         }
       } yield (t, ())
+    }
     })
   }
 
@@ -76,7 +87,8 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
   }
 
   def update(a: Attachment): Future[AttachmentFile] = {
-    val update = s"UPDATE $table SET ordering = ? WHERE table_id = ? AND column_id = ? AND row_id = ? AND attachment_uuid = ?"
+    val update =
+      s"UPDATE $table SET ordering = ? WHERE table_id = ? AND column_id = ? AND row_id = ? AND attachment_uuid = ?"
 
     connection.transactional({ t =>
       for {
@@ -93,7 +105,9 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
         case Some(i: Ordering) => Future((t, i: Ordering))
         case None =>
           for {
-            (t, result) <- t.query(s"SELECT COALESCE(MAX(ordering),0) + 1 FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?", Json.arr(a.tableId, a.columnId, a.rowId))
+            (t, result) <- t.query(
+              s"SELECT COALESCE(MAX(ordering),0) + 1 FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?",
+              Json.arr(a.tableId, a.columnId, a.rowId))
             resultArr <- Future(selectNotNull(result))
           } yield {
             (t, resultArr.head.get[Ordering](0))
@@ -103,7 +117,8 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
   }
 
   def retrieveAll(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Seq[AttachmentFile]] = {
-    val select = s"SELECT attachment_uuid, ordering FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ? ORDER BY ordering"
+    val select =
+      s"SELECT attachment_uuid, ordering FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ? ORDER BY ordering"
 
     for {
       result <- connection.query(select, Json.arr(tableId, columnId, rowId))

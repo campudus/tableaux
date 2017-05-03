@@ -11,31 +11,34 @@ import org.vertx.scala.core.json.Json
 class TableLangtagsTest extends TableauxTestBase {
 
   @Test
-  def updateRegularTableWithLangtags(implicit c: TestContext): Unit = okTest {
-    val createTableJson = Json.obj("name" -> "Table without langtags")
-    val updateTableJson = Json.obj("name" -> "Table with langtags", "langtags" -> Json.arr("de-DE", "en-GB"))
+  def updateRegularTableWithLangtags(implicit c: TestContext): Unit = {
+    okTest{
+      val createTableJson = Json.obj("name" -> "Table without langtags")
+      val updateTableJson = Json.obj("name" -> "Table with langtags", "langtags" -> Json.arr("de-DE", "en-GB"))
 
-    val expectedTableJson = Json.obj(
-      "status" -> "ok",
-      "id" -> 1,
-      "hidden" -> false,
-      "displayName" -> Json.obj(),
-      "description" -> Json.obj()
-    )
+      val expectedTableJson = Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "hidden" -> false,
+        "displayName" -> Json.obj(),
+        "description" -> Json.obj()
+      )
 
-    for {
-      langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.emptyArr()))
+      for {
+        langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.emptyArr()))
 
-      tablePost <- sendRequest("POST", "/tables", createTableJson)
-      tableId = tablePost.getLong("id").toLong
+        tablePost <- sendRequest("POST", "/tables", createTableJson)
+        tableId = tablePost.getLong("id").toLong
 
-      tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
+        tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
 
-      tableGet <- sendRequest("GET", s"/tables/$tableId")
-    } yield {
-      assertEquals(expectedTableJson.copy().mergeIn(createTableJson.copy.mergeIn(Json.obj("langtags" -> langtags))), tablePost)
-      assertEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
-      assertEquals(tableGet, tableUpdate)
+        tableGet <- sendRequest("GET", s"/tables/$tableId")
+      } yield {
+        assertEquals(expectedTableJson.copy().mergeIn(createTableJson.copy.mergeIn(Json.obj("langtags" -> langtags))),
+          tablePost)
+        assertEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
+        assertEquals(tableGet, tableUpdate)
+      }
     }
   }
 
@@ -94,31 +97,35 @@ class TableLangtagsTest extends TableauxTestBase {
   }
 
   @Test
-  def updateTableWithLangtagsNull(implicit c: TestContext): Unit = okTest {
-    val createTableJson = Json.obj("name" -> "Table with one langtag", "langtags" -> Json.arr("de-DE"))
-    val updateTableJson = Json.obj("name" -> "Table with no langtags", "langtags" -> null)
+  def updateTableWithLangtagsNull(implicit c: TestContext): Unit = {
+    okTest{
+      val createTableJson = Json.obj("name" -> "Table with one langtag", "langtags" -> Json.arr("de-DE"))
+      val updateTableJson = Json.obj("name" -> "Table with no langtags", "langtags" -> null)
 
-    val expectedTableJson = Json.obj(
-      "status" -> "ok",
-      "id" -> 1,
-      "hidden" -> false,
-      "displayName" -> Json.obj(),
-      "description" -> Json.obj()
-    )
+      val expectedTableJson = Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "hidden" -> false,
+        "displayName" -> Json.obj(),
+        "description" -> Json.obj()
+      )
 
-    for {
-      langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.emptyArr()))
+      for {
+        langtags <- sendRequest("GET", "/system/settings/langtags").map(j => j.getJsonArray("value", Json.emptyArr()))
 
-      tablePost <- sendRequest("POST", "/tables", createTableJson)
-      tableId = tablePost.getLong("id").toLong
+        tablePost <- sendRequest("POST", "/tables", createTableJson)
+        tableId = tablePost.getLong("id").toLong
 
-      tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
+        tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
 
-      tableGet <- sendRequest("GET", s"/tables/$tableId")
-    } yield {
-      assertEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
-      assertEquals(expectedTableJson.copy().mergeIn(Json.obj("name" -> "Table with no langtags", "langtags" -> langtags)), tableUpdate)
-      assertEquals(tableGet, tableUpdate)
+        tableGet <- sendRequest("GET", s"/tables/$tableId")
+      } yield {
+        assertEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
+        assertEquals(
+          expectedTableJson.copy().mergeIn(Json.obj("name" -> "Table with no langtags", "langtags" -> langtags)),
+          tableUpdate)
+        assertEquals(tableGet, tableUpdate)
+      }
     }
   }
 }

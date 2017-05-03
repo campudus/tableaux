@@ -18,16 +18,19 @@ object LanguageType {
 }
 
 case object LanguageNeutral extends LanguageType {
+
   override def toString = LanguageType.NEUTRAL
 }
 
 case object MultiLanguage extends LanguageType {
+
   override def toString = LanguageType.LANGUAGE
 }
 
 case class CountryCodes(codes: Seq[String])
 
 object MultiCountry {
+
   def unapply(languageType: LanguageType): Option[CountryCodes] = {
     languageType match {
       case t: MultiCountry =>
@@ -39,5 +42,6 @@ object MultiCountry {
 }
 
 case class MultiCountry(countryCodes: CountryCodes) extends LanguageType {
+
   override def toString = LanguageType.COUNTRY
 }

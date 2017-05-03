@@ -52,73 +52,81 @@ class DatabaseVersioningTest extends TableauxTestBase {
   }
 
   @Test
-  def checkUpdateOfOrdering(implicit c: TestContext): Unit = okTest {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
-    val system = SystemModel(dbConnection)
+  def checkUpdateOfOrdering(implicit c: TestContext): Unit = {
+    okTest{
+      val sqlConnection = SQLConnection(verticle, databaseConfig)
+      val dbConnection = DatabaseConnection(verticle, sqlConnection)
+      val system = SystemModel(dbConnection)
 
-    for {
-      _ <- system.uninstall()
-      _ <- system.install(Some(1))
-
-      // Needs to create tables like it did in database version 1
-      inserted <- dbConnection.query("INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id")
-
-      tableId1 = inserted.getJsonArray("results").getJsonArray(0).getLong(0)
-      _ <- dbConnection.query(sqlUserTable(tableId1))
-      _ <- dbConnection.query(sqlUserLangTable(tableId1))
-      _ <- dbConnection.query(sqlColumnSequence(tableId1))
-
-      tableId2 = inserted.getJsonArray("results").getJsonArray(1).getLong(0)
-      _ <- dbConnection.query(sqlUserTable(tableId2))
-      _ <- dbConnection.query(sqlUserLangTable(tableId2))
-      _ <- dbConnection.query(sqlColumnSequence(tableId2))
-
-      _ <- system.update()
-      tablesOrdering <- dbConnection.query("SELECT table_id, ordering FROM system_table")
-    } yield {
-
-      assertTrue(tablesOrdering.getJsonArray("results").size() > 0)
-
-      import scala.collection.JavaConverters._
       for {
-        (tableId, ordering) <- tablesOrdering.getJsonArray("results").asScala
-          .map(_.asInstanceOf[JsonArray])
-          .map(elem => (elem.getLong(0), elem.getLong(1)))
+        _ <- system.uninstall()
+        _ <- system.install(Some(1))
+
+        // Needs to create tables like it did in database version 1
+        inserted <- dbConnection.query(
+          "INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id")
+
+        tableId1 = inserted.getJsonArray("results").getJsonArray(0).getLong(0)
+        _ <- dbConnection.query(sqlUserTable(tableId1))
+        _ <- dbConnection.query(sqlUserLangTable(tableId1))
+        _ <- dbConnection.query(sqlColumnSequence(tableId1))
+
+        tableId2 = inserted.getJsonArray("results").getJsonArray(1).getLong(0)
+        _ <- dbConnection.query(sqlUserTable(tableId2))
+        _ <- dbConnection.query(sqlUserLangTable(tableId2))
+        _ <- dbConnection.query(sqlColumnSequence(tableId2))
+
+        _ <- system.update()
+        tablesOrdering <- dbConnection.query("SELECT table_id, ordering FROM system_table")
       } yield {
-        assertEquals(tableId, ordering)
+
+        assertTrue(tablesOrdering.getJsonArray("results").size() > 0)
+
+        import scala.collection.JavaConverters._
+        for {
+          (tableId, ordering) <- tablesOrdering
+            .getJsonArray("results")
+            .asScala
+            .map(_.asInstanceOf[JsonArray])
+            .map(elem => (elem.getLong(0), elem.getLong(1)))
+        } yield {
+          assertEquals(tableId, ordering)
+        }
       }
     }
   }
 
   @Test
-  def checkUpdateOverHttp(implicit c: TestContext): Unit = okTest {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
-    val system = SystemModel(dbConnection)
+  def checkUpdateOverHttp(implicit c: TestContext): Unit = {
+    okTest{
+      val sqlConnection = SQLConnection(verticle, databaseConfig)
+      val dbConnection = DatabaseConnection(verticle, sqlConnection)
+      val system = SystemModel(dbConnection)
 
-    val nonce = SystemRouter.generateNonce()
+      val nonce = SystemRouter.generateNonce()
 
-    for {
-      _ <- system.uninstall()
-      _ <- system.install(Some(1))
+      for {
+        _ <- system.uninstall()
+        _ <- system.install(Some(1))
 
-      // Needs to create tables like it did in database version 1
-      inserted <- dbConnection.query("INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id")
+        // Needs to create tables like it did in database version 1
+        inserted <- dbConnection.query(
+          "INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id")
 
-      tableId1 = inserted.getJsonArray("results").getJsonArray(0).getLong(0)
-      _ <- dbConnection.query(sqlUserTable(tableId1))
-      _ <- dbConnection.query(sqlUserLangTable(tableId1))
-      _ <- dbConnection.query(sqlColumnSequence(tableId1))
+        tableId1 = inserted.getJsonArray("results").getJsonArray(0).getLong(0)
+        _ <- dbConnection.query(sqlUserTable(tableId1))
+        _ <- dbConnection.query(sqlUserLangTable(tableId1))
+        _ <- dbConnection.query(sqlColumnSequence(tableId1))
 
-      tableId2 = inserted.getJsonArray("results").getJsonArray(1).getLong(0)
-      _ <- dbConnection.query(sqlUserTable(tableId2))
-      _ <- dbConnection.query(sqlUserLangTable(tableId2))
-      _ <- dbConnection.query(sqlColumnSequence(tableId2))
+        tableId2 = inserted.getJsonArray("results").getJsonArray(1).getLong(0)
+        _ <- dbConnection.query(sqlUserTable(tableId2))
+        _ <- dbConnection.query(sqlUserLangTable(tableId2))
+        _ <- dbConnection.query(sqlColumnSequence(tableId2))
 
-      updatePost <- sendRequest("POST", s"/system/update?nonce=$nonce")
-    } yield {
-      assertContains(Json.obj("status" -> "ok"), updatePost)
+        updatePost <- sendRequest("POST", s"/system/update?nonce=$nonce")
+      } yield {
+        assertContains(Json.obj("status" -> "ok"), updatePost)
+      }
     }
   }
 }

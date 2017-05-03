@@ -9,6 +9,7 @@ sealed trait TableauxDbType {
 }
 
 object TableauxDbType {
+
   def apply(kind: String): TableauxDbType = {
     kind match {
       case TextType.name => TextType

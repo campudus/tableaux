@@ -16,6 +16,7 @@ import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
 object MediaController {
+
   /**
     * Alias for None which represents
     * the root folder (which doesn't
@@ -23,7 +24,12 @@ object MediaController {
     */
   val ROOT_FOLDER = Folder(0, "root", "", Seq.empty[FolderId], None, None)
 
-  def apply(config: TableauxConfig, folderModel: FolderModel, fileModel: FileModel, attachmentModel: AttachmentModel): MediaController = {
+  def apply(
+    config: TableauxConfig,
+    folderModel: FolderModel,
+    fileModel: FileModel,
+    attachmentModel: AttachmentModel
+  ): MediaController = {
     new MediaController(config, folderModel, fileModel, attachmentModel)
   }
 }
@@ -31,7 +37,9 @@ object MediaController {
 class MediaController(override val config: TableauxConfig,
                       override protected val repository: FolderModel,
                       protected val fileModel: FileModel,
-                      protected val attachmentModel: AttachmentModel) extends Controller[FolderModel] {
+  protected val attachmentModel: AttachmentModel
+)
+  extends Controller[FolderModel] {
 
   import MediaController.ROOT_FOLDER
 
@@ -87,73 +95,82 @@ class MediaController(override val config: TableauxConfig,
     fileModel.add(title, description, externalName, folder).map(TemporaryFile)
   }
 
-  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[ExtendedFile] = futurify { p: Promise[ExtendedFile] =>
-    val ext = Path(upload.fileName).extension
-    val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
+  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[ExtendedFile] = {
+    futurify{ p: Promise[ExtendedFile] => {
+        val ext = Path(upload.fileName).extension
+        val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
 
-    upload.exceptionHandler({ ex: Throwable =>
-      logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
+        upload.exceptionHandler({ ex: Throwable =>
+          logger.warn(s"File upload for ${upload.fileName} into ${filePath.name} failed.", ex)
 
-      vertx.fileSystem().delete(filePath.toString(), {
-        case Success(_) | Failure(_) => p.failure(ex)
-      }: Try[Void] => Unit)
-    })
+          vertx
+            .fileSystem()
+            .delete(filePath.toString(), {
+              case Success(_) | Failure(_) => p.failure(ex)
+            }: Try[Void] => Unit)
+        })
 
-    upload.endHandler({ () =>
-      logger.info(s"Uploading of file ${upload.fileName} into ${filePath.name} done, making database entry.")
+        upload.endHandler({ () =>
+          logger.info(s"Uploading of file ${upload.fileName} into ${filePath.name} done, making database entry.")
 
-      val internalName = MultiLanguageValue(Map(langtag -> filePath.name))
-      val externalName = MultiLanguageValue(Map(langtag -> upload.fileName))
-      val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
+          val internalName = MultiLanguageValue(Map(langtag -> filePath.name))
+          val externalName = MultiLanguageValue(Map(langtag -> upload.fileName))
+          val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
 
-      (for {
-        (oldFile, paths) <- {
-          logger.info("retrieve file")
-          retrieveFile(uuid, withTmp = true)
-        }
+          (for {
+            (oldFile, paths) <- {
+              logger.info("retrieve file")
+              retrieveFile(uuid, withTmp = true)
+            }
 
-        path = paths.get(langtag)
+            path = paths.get(langtag)
 
-        _ <- {
-          logger.info(s"delete old file $path")
-          if (path.isDefined) {
-            deleteFile(path.get)
-          } else {
-            Future.successful(())
+            _ <- {
+              logger.info(s"delete old file $path")
+              if (path.isDefined) {
+                deleteFile(path.get)
+              } else {
+                Future.successful(())
+              }
+            }
+
+            updatedFile <- {
+              fileModel
+                .update(
+                  uuid = oldFile.file.uuid,
+                  title = oldFile.file.title,
+                  description = oldFile.file.description,
+                  internalName = internalName,
+                  externalName = externalName,
+                  folder = oldFile.file.folders.lastOption,
+                  mimeType = mimeType
+                )
+                .map(ExtendedFile)
+            }
+
+            // retrieve cells with this file for cache invalidation
+            cellsForFiles <- attachmentModel.retrieveCells(uuid)
+            // invalidate cache for cells with this file
+            _ <- Future.sequence(cellsForFiles.map({
+              case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+            }))
+          } yield {
+            p.success(updatedFile)
+          }) recover {
+            case ex =>
+              logger.error("Making database entry failed.", ex)
+
+              vertx
+                .fileSystem()
+                .delete(filePath.toString(), {
+                  case Success(_) | Failure(_) => p.failure(ex)
+                }: Try[Void] => Unit)
           }
-        }
+        })
 
-        updatedFile <- {
-          fileModel.update(
-            uuid = oldFile.file.uuid,
-            title = oldFile.file.title,
-            description = oldFile.file.description,
-            internalName = internalName,
-            externalName = externalName,
-            folder = oldFile.file.folders.lastOption,
-            mimeType = mimeType
-          ).map(ExtendedFile)
-        }
-
-        // retrieve cells with this file for cache invalidation
-        cellsForFiles <- attachmentModel.retrieveCells(uuid)
-        // invalidate cache for cells with this file
-        _ <- Future.sequence(cellsForFiles.map({
-          case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
-        }))
-      } yield {
-        p.success(updatedFile)
-      }) recover {
-        case ex =>
-          logger.error("Making database entry failed.", ex)
-
-          vertx.fileSystem().delete(filePath.toString(), {
-            case Success(_) | Failure(_) => p.failure(ex)
-          }: Try[Void] => Unit)
+        upload.streamToFile(filePath.toString())
       }
-    })
-
-    upload.streamToFile(filePath.toString())
+    }
   }
 
   def changeFile(uuid: UUID,
@@ -163,14 +180,20 @@ class MediaController(override val config: TableauxConfig,
                  internalName: MultiLanguageValue[String],
                  mimeType: MultiLanguageValue[String],
                  folder: Option[FolderId]): Future[ExtendedFile] = {
+
     def checkInternalName(internalName: String): Future[Unit] = {
       val p: Promise[Unit] = Promise()
-      vertx.fileSystem().exists((uploadsDirectory / Path(internalName)).toString(), {
-        case Success(java.lang.Boolean.TRUE) => p.success(())
-        case Success(java.lang.Boolean.FALSE) => p.failure(InvalidRequestException(s"File with internal name $internalName does not exist"))
-        case Failure(ex) => p.failure(ex)
-        case _ => p.failure(UnknownServerException("Error in vertx filesystem exists check"))
-      }: Try[java.lang.Boolean] => Unit)
+      vertx
+        .fileSystem()
+        .exists(
+          (uploadsDirectory / Path(internalName)).toString(), {
+            case Success(java.lang.Boolean.TRUE) => p.success(())
+            case Success(java.lang.Boolean.FALSE) =>
+              p.failure(InvalidRequestException(s"File with internal name $internalName does not exist"))
+            case Failure(ex) => p.failure(ex)
+            case _ => p.failure(UnknownServerException("Error in vertx filesystem exists check"))
+          }: Try[java.lang.Boolean] => Unit
+        )
 
       p.future
     }
@@ -184,7 +207,8 @@ class MediaController(override val config: TableauxConfig,
             if (!internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
               internalFileName.equals("..") ||
               internalFileName.equals(".")) {
-              Future.failed(InvalidRequestException(s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
+              Future.failed(InvalidRequestException(
+                s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
             } else {
               checkInternalName(internalFileName)
             }
@@ -206,16 +230,19 @@ class MediaController(override val config: TableauxConfig,
   }
 
   def retrieveFile(uuid: UUID, withTmp: Boolean = false): Future[(ExtendedFile, Map[String, Path])] = {
-    fileModel.retrieve(uuid, withTmp) map { f =>
-      val filePaths = f.internalName.values.filter({
-        case (_, internalName) =>
-          internalName != null && internalName.nonEmpty
-      }).map({
-        case (langtag, internalName) =>
-          langtag -> uploadsDirectory / Path(internalName)
-      })
+    fileModel.retrieve(uuid, withTmp) map { f => {
+      val filePaths = f.internalName.values
+        .filter({
+          case (_, internalName) =>
+            internalName != null && internalName.nonEmpty
+        })
+        .map({
+          case (langtag, internalName) =>
+            langtag -> uploadsDirectory / Path(internalName)
+        })
 
       (ExtendedFile(f), filePaths)
+    }
     }
   }
 

@@ -5,6 +5,7 @@ import org.vertx.scala.core.json.{JsonArray, JsonObject}
 import scala.util.{Failure, Success, Try}
 
 sealed trait ArgumentCheck[A] {
+
   def map[B](f: A => B): ArgumentCheck[B]
 
   def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B]
@@ -13,6 +14,7 @@ sealed trait ArgumentCheck[A] {
 }
 
 case class OkArg[A](value: A) extends ArgumentCheck[A] {
+
   def map[B](f: A => B): ArgumentCheck[B] = OkArg(f(value))
 
   def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B] = f(value)
@@ -21,6 +23,7 @@ case class OkArg[A](value: A) extends ArgumentCheck[A] {
 }
 
 case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
+
   def map[B](f: A => B): ArgumentCheck[B] = FailArg(ex)
 
   def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B] = FailArg(ex)
@@ -33,11 +36,19 @@ case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
   */
 object ArgumentChecker {
 
-  def notNull[A](x: => A, name: String): ArgumentCheck[A] = try {
-    if (x != null) OkArg(x.asInstanceOf[A]) else FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
-  } catch {
-    case npe: NullPointerException => FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
-    case cce: ClassCastException => FailArg(InvalidJsonException(s"Warning: $name should be another type. Error: ${cce.getMessage}", "invalid"))
+  def notNull[A](x: => A, name: String): ArgumentCheck[A] = {
+    try {
+      if (x != null) {
+        OkArg(x.asInstanceOf[A])
+      } else {
+        FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
+      }
+    } catch {
+      case npe: NullPointerException =>
+        FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
+      case cce: ClassCastException =>
+        FailArg(InvalidJsonException(s"Warning: $name should be another type. Error: ${cce.getMessage}", "invalid"))
+    }
   }
 
   def greaterThan(x: Long, than: Long, name: String): ArgumentCheck[Long] = {
@@ -48,24 +59,37 @@ object ArgumentChecker {
     }
   }
 
-  def greaterZero(x: Long): ArgumentCheck[Long] = if (x > 0) OkArg(x) else FailArg(InvalidJsonException(s"Argument $x is not greater than zero", "invalid"))
+  def greaterZero(x: Long): ArgumentCheck[Long] = {
+    if (x > 0) {
+      OkArg(x)
+    } else {
+      FailArg(InvalidJsonException(s"Argument $x is not greater than zero", "invalid"))
+    }
+  }
 
   def nonEmpty[A](seq: Seq[A], name: String): ArgumentCheck[Seq[A]] = {
-    if (seq.nonEmpty) OkArg(seq) else FailArg(InvalidJsonException(s"Warning: $name is empty.", "empty"))
+    if (seq.nonEmpty) {
+      OkArg(seq)
+    } else {
+      FailArg(InvalidJsonException(s"Warning: $name is empty.", "empty"))
+    }
   }
 
   def isDefined[A](option: Option[A], name: String): ArgumentCheck[A] = {
-    option.isDefined match {
-      case true => OkArg(option.get)
-      case false => FailArg(ParamNotFoundException(s"query parameter $name not found"))
+    if (option.isDefined) {
+      OkArg(option.get)
+    } else {
+      FailArg(ParamNotFoundException(s"query parameter $name not found"))
     }
   }
 
   def isDefined(options: Seq[Option[_]], name: String = ""): ArgumentCheck[Unit] = {
-    val empty = !options.exists({ o => o.isDefined })
-    empty match {
-      case true => FailArg(InvalidRequestException(s"Non of these options has a value. ($name)"))
-      case false => OkArg(())
+    val empty = !options.exists(_.isDefined)
+
+    if (empty) {
+      FailArg(InvalidRequestException(s"Non of these options has a value. ($name)"))
+    } else {
+      OkArg(())
     }
   }
 
@@ -84,7 +108,10 @@ object ArgumentChecker {
   def hasString(field: String, json: JsonObject): ArgumentCheck[String] = notNull(json.getString(field), field)
 
   def tryCast[A](elem: Any): ArgumentCheck[A] = {
-    tryMap((x: Any) => x.asInstanceOf[A], InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid"))(elem)
+    tryMap(
+      (x: Any) => x.asInstanceOf[A],
+      InvalidJsonException(s"Warning: $elem should not be ${elem.getClass}", "invalid")
+    )(elem)
   }
 
   def checkSameLengthsAndZip[A, B](list1: Seq[A], list2: Seq[B]): ArgumentCheck[Seq[(A, B)]] = {
@@ -98,14 +125,14 @@ object ArgumentChecker {
   def checkForAllValues[A](json: JsonObject, predicate: (A => Boolean), name: String): ArgumentCheck[JsonObject] = {
     import scala.collection.JavaConverters._
     val fields = json.fieldNames().asScala.toList
-    val failedFields = fields.filter(
-      field =>
-        Try(predicate(json.getValue(field).asInstanceOf[A])) match {
-          case Failure(_) | Success(false) =>
-            true
-          case _ =>
-            false
-        })
+    val failedFields = fields.filter(field => {
+      Try(predicate(json.getValue(field).asInstanceOf[A])) match {
+        case Failure(_) | Success(false) =>
+          true
+        case _ =>
+          false
+      }
+    })
 
     failedFields match {
       case Nil =>
@@ -135,7 +162,9 @@ object ArgumentChecker {
     }
   }
 
-  def tryMap[A, B](tryFn: A => B, ex: => CustomException)(a: A): ArgumentCheck[B] = Try(OkArg(tryFn(a))).getOrElse(FailArg[B](ex))
+  def tryMap[A, B](tryFn: A => B, ex: => CustomException)(a: A): ArgumentCheck[B] = {
+    Try(OkArg(tryFn(a))).getOrElse(FailArg[B](ex))
+  }
 
   def checkArguments(args: ArgumentCheck[_]*): Unit = {
     val failedArgs: Vector[String] = args.zipWithIndex.foldLeft(Vector[String]()) {

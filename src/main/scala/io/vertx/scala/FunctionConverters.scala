@@ -6,7 +6,6 @@ import io.vertx.scala.FutureHelper._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-
 trait FunctionConverters {
 
   import scala.language.implicitConversions
@@ -15,6 +14,7 @@ trait FunctionConverters {
   type AsyncValue[A] = Handler[AsyncResult[A]]
 
   implicit def asyncResultToFuture[A, B](fn: (Handler[AsyncResult[A]]) => B): Future[A] = {
+
     // implicit tryToAsyncHandler
     futurify { p: Promise[A] =>
       fn({
@@ -25,6 +25,7 @@ trait FunctionConverters {
   }
 
   implicit def asyncVoidToFuture[A](fn: (Handler[AsyncResult[Void]]) => A): Future[Unit] = {
+
     // implicit tryToAsyncHandler
     futurify { p: Promise[Unit] =>
       fn({
@@ -35,6 +36,7 @@ trait FunctionConverters {
   }
 
   implicit def tryToAsyncHandler[A](tryHandler: Try[A] => Unit): Handler[AsyncResult[A]] = {
+
     // implicit functionToAnyHandler
     tryHandler.compose { ar: AsyncResult[A] =>
       if (ar.succeeded()) {
@@ -45,12 +47,18 @@ trait FunctionConverters {
     }
   }
 
-  implicit def functionToAnyHandler[A, B](function: (A) => B): Handler[A] = new Handler[A]() {
-    override def handle(event: A): Unit = function(event)
+  implicit def functionToAnyHandler[A, B](function: (A) => B): Handler[A] = {
+    new Handler[A]() {
+
+      override def handle(event: A): Unit = function(event)
+    }
   }
 
-  implicit def functionToVoidHandler[B](function: => B): Handler[Void] = new Handler[Void]() {
-    override def handle(event: Void): Unit = function
+  implicit def functionToVoidHandler[B](function: => B): Handler[Void] = {
+    new Handler[Void]() {
+
+      override def handle(event: Void): Unit = function
+    }
   }
 }
 

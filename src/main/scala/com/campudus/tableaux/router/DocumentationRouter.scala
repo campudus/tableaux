@@ -32,6 +32,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
   val OtherFileWithDirectory: Regex = "^/docs/([A-Za-z0-9-_\\.]{1,60}){1}/([A-Za-z0-9-_\\.]{1,60}){1}$".r
 
   private def parseAbsoluteURI(request: HttpServerRequest): (String, String, String) = {
+
     /**
       * Sometimes we use tableaux behind some weird proxy configurations
       * If so we use x-forwarded headers to figure out how to point to swagger json
@@ -60,10 +61,12 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
   override def routes(implicit context: RoutingContext): Routing = {
     case Get(IndexRedirect()) =>
       val (_, _, basePath) = parseAbsoluteURI(context.request())
-      val path = List(basePath, "docs", "index.html").flatMap({
-        case str if str.isEmpty => None
-        case str => Option(str)
-      }).mkString("/")
+      val path = List(basePath, "docs", "index.html")
+        .flatMap({
+          case str if str.isEmpty => None
+          case str => Option(str)
+        })
+        .mkString("/")
 
       StatusCode(301, Header("Location", s"/$path", NoBody))
 
@@ -74,7 +77,8 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
 
       val swaggerURL = new URL(new URL(s"$scheme://$host"), basePath + "/docs/swagger.json")
 
-      val file = Source.fromInputStream(is, "UTF-8")
+      val file = Source
+        .fromInputStream(is, "UTF-8")
         .mkString
         .replace(
           "http://petstore.swagger.io/v2/swagger.json",
