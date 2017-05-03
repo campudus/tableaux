@@ -47,79 +47,87 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     /**
       * Resets the database (needs nonce)
       */
-    case Post("/system/reset") => asyncGetReply {
-      for {
-        _ <- Future(checkNonce)
-        result <- controller.resetDB()
-      } yield result
-    }
+    case Post("/system/reset") =>
+      asyncGetReply{
+        for {
+          _ <- Future(checkNonce)
+          result <- controller.resetDB()
+        } yield result
+      }
 
     /**
       * Create the demo tables (needs nonce)
       */
-    case Post("/system/resetDemo") => asyncGetReply {
-      for {
-        _ <- Future(checkNonce)
-        result <- controller.createDemoTables()
-      } yield result
-    }
+    case Post("/system/resetDemo") =>
+      asyncGetReply{
+        for {
+          _ <- Future(checkNonce)
+          result <- controller.createDemoTables()
+        } yield result
+      }
 
     /**
       * Get the current version
       */
-    case Get("/system/versions") => asyncGetReply {
-      controller.retrieveVersions()
-    }
+    case Get("/system/versions") =>
+      asyncGetReply{
+        controller.retrieveVersions()
+      }
 
     /**
       * Update the database (needs POST and nonce)
       */
-    case Post("/system/update") => asyncGetReply {
-      for {
-        _ <- Future(checkNonce)
-        result <- controller.updateDB()
-      } yield result
-    }
+    case Post("/system/update") =>
+      asyncGetReply{
+        for {
+          _ <- Future(checkNonce)
+          result <- controller.updateDB()
+        } yield result
+      }
 
     /**
       * Invalidate all caches
       */
-    case Post("/system/cache/invalidate") => asyncGetReply {
-      controller.invalidateCache()
-    }
+    case Post("/system/cache/invalidate") =>
+      asyncGetReply{
+        controller.invalidateCache()
+      }
 
     /**
       * Invalidate column cache
       */
-    case Post(CacheColumnInvalidate(tableId, columnId)) => asyncGetReply {
-      controller.invalidateCache(tableId.toLong, tableId.toLong)
-    }
+    case Post(CacheColumnInvalidate(tableId, columnId)) =>
+      asyncGetReply{
+        controller.invalidateCache(tableId.toLong, tableId.toLong)
+      }
 
     /**
       * Retrieves system settings
       */
-    case Get(Settings(key)) => asyncGetReply {
-      key match {
-        case SystemController.SETTING_LANGTAGS =>
-          controller.retrieveLangtags()
-        case _ =>
-          Future.failed(InvalidRequestException(s"No system setting for key $key"))
+    case Get(Settings(key)) =>
+      asyncGetReply{
+        key match {
+          case SystemController.SETTING_LANGTAGS =>
+            controller.retrieveLangtags()
+          case _ =>
+            Future.failed(InvalidRequestException(s"No system setting for key $key"))
+        }
       }
-    }
 
     /**
       * Update system settings
       */
-    case Post(Settings(key)) => asyncGetReply{
-      getJson(context).flatMap(json => {
-        key match {
-          case SystemController.SETTING_LANGTAGS =>
-            controller.updateLangtags(asCastedList[String](json.getJsonArray("value")).get)
-          case _ =>
-            Future.failed(InvalidRequestException(s"No system setting for key $key"))
-        }
-      })
-    }
+    case Post(Settings(key)) =>
+      asyncGetReply{
+        getJson(context).flatMap(json => {
+          key match {
+            case SystemController.SETTING_LANGTAGS =>
+              controller.updateLangtags(asCastedList[String](json.getJsonArray("value")).get)
+            case _ =>
+              Future.failed(InvalidRequestException(s"No system setting for key $key"))
+          }
+        })
+      }
   }
 
   private def checkNonce(implicit context: RoutingContext): Unit = {

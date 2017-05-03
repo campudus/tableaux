@@ -33,8 +33,9 @@ class VertxEventLoopExecutionContext private(val vertx: Vertx) extends Execution
   val context: Context = Option(Vertx.currentContext()).getOrElse(vertx.getOrCreateContext())
 
   override def execute(runnable: Runnable): Unit = {
-    val timerId = vertx.setTimer(10000, {
-      d: java.lang.Long => logger.error(s"Execution on EventLoop took longer than expected (more than 10000ms).")
+    val timerId = vertx.setTimer(10000, { d: java.lang.Long => {
+      logger.error(s"Execution on EventLoop took longer than expected (more than 10000ms).")
+    }
     })
 
     if (context == Vertx.currentContext()) {

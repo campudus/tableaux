@@ -9,6 +9,7 @@ import scala.io.Source
 import scala.util.Try
 
 object SystemModel {
+
   def apply(connection: DatabaseConnection): SystemModel = {
     new SystemModel(connection)
   }
@@ -67,12 +68,14 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   /**
     * Drops schema and creates a new one.
     */
-  def uninstall(): Future[Unit] = for {
-    t <- connection.begin()
-    (t, _) <- t.query("DROP SCHEMA public CASCADE")
-    (t, _) <- t.query("CREATE SCHEMA public")
-    _ <- t.commit()
-  } yield ()
+  def uninstall(): Future[Unit] = {
+    for {
+      t <- connection.begin()
+      (t, _) <- t.query("DROP SCHEMA public CASCADE")
+      (t, _) <- t.query("CREATE SCHEMA public")
+      _ <- t.commit()
+    } yield ()
+  }
 
   /**
     * Current specification version is defined by the
@@ -110,7 +113,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
        """.stripMargin)
 
       (t, version) <- {
-        t.query("SELECT max_version FROM (SELECT MAX(version) AS max_version FROM system_version) sub WHERE max_version IS NOT NULL") map {
+        t.query(
+          "SELECT max_version FROM (SELECT MAX(version) AS max_version FROM system_version) sub WHERE max_version IS NOT NULL") map {
           case (t, result) =>
             val version = Try(selectNotNull(result).head.getInteger(0).toInt).getOrElse(-1)
             (t, version)
@@ -148,9 +152,11 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     logger.debug(s"Setup schema version $versionId")
 
     for {
-      t <- t.query(stmt).map({
-        case (t, _) => t
-      })
+      t <- t
+        .query(stmt)
+        .map({
+          case (t, _) => t
+        })
       t <- saveVersion(t, versionId)
     } yield t
   }
@@ -160,18 +166,22 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
       s"""
          |INSERT INTO system_version (version)
          |SELECT ? WHERE NOT EXISTS (SELECT version FROM system_version WHERE version = ?)
-       """.stripMargin, Json.arr(versionId, versionId)) map {
+       """.stripMargin,
+      Json.arr(versionId, versionId)
+    ) map {
       case (t, _) => t
     }
   }
 
   def retrieveSetting(key: String): Future[String] = {
-    connection.query("SELECT value FROM system_settings WHERE key = ?", Json.arr(key))
+    connection
+      .query("SELECT value FROM system_settings WHERE key = ?", Json.arr(key))
       .map(json => selectNotNull(json).head.getString(0))
   }
 
   def updateSetting(key: String, value: String): Future[Unit] = {
-    connection.query("UPDATE system_settings SET value = ? WHERE key = ?", Json.arr(value, key))
+    connection
+      .query("UPDATE system_settings SET value = ? WHERE key = ?", Json.arr(value, key))
       .map(json => updateNotNull(json))
   }
 }

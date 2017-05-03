@@ -66,9 +66,7 @@ case object FlagAnnotationType extends CellAnnotationType {
 object CellLevelAnnotations {
 
   def apply(columns: Seq[ColumnType[_]], annotationsAsJsonArray: JsonArray): CellLevelAnnotations = {
-    val annotations = annotationsAsJsonArray
-      .asScala
-      .toSeq
+    val annotations = annotationsAsJsonArray.asScala.toSeq
       .map({
         case obj: JsonObject =>
           val columnId = obj.getLong("column_id")

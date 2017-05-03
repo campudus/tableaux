@@ -8,34 +8,26 @@ import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
 case class TableauxFile(uuid: UUID,
-
                         folders: Seq[FolderId],
-
                         title: MultiLanguageValue[String],
                         description: MultiLanguageValue[String],
-
                         internalName: MultiLanguageValue[String],
                         externalName: MultiLanguageValue[String],
-
                         mimeType: MultiLanguageValue[String],
-
                         createdAt: Option[DateTime],
-                        updatedAt: Option[DateTime]) extends DomainObject {
+  updatedAt: Option[DateTime]
+)
+  extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
     "uuid" -> uuid.toString,
-
     "folder" -> folders.lastOption.orNull,
     "folders" -> compatibilityGet(folders),
-
     "title" -> title.getJson,
     "description" -> description.getJson,
-
     "internalName" -> internalName.getJson,
     "externalName" -> externalName.getJson,
-
     "mimeType" -> mimeType.getJson,
-
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )
@@ -92,12 +84,14 @@ case class ExtendedFile(file: TableauxFile) extends DomainObject {
   private def getUrl: MultiLanguageValue[String] = {
     val langtags = (internalName.langtags ++ externalName.langtags).distinct
 
-    val urls = langtags.map({
-      langtag =>
+    val urls = langtags
+      .map({ langtag => {
         val filename = externalName.get(langtag).getOrElse(internalName.get(langtag).orNull)
         val encodedFilename = URLEncoder.encode(filename, "UTF-8")
         (langtag, s"/files/${file.uuid}/$langtag/$encodedFilename")
-    }).toMap
+      }
+      })
+      .toMap
 
     MultiLanguageValue[String](urls)
   }

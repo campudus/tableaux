@@ -4,9 +4,9 @@ import com.campudus.tableaux.{DatabaseException, NotFoundInDatabaseException}
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
 /**
- * Checks if database result changed
- * something or not.
- */
+  * Checks if database result changed
+  * something or not.
+  */
 object ResultChecker {
 
   def resultObjectToJsonArray(json: JsonObject): Seq[JsonArray] = {
@@ -42,7 +42,9 @@ object ResultChecker {
 
   private def checkSize(json: JsonObject, queryType: String, size: Int): Seq[JsonArray] = {
     if (json.getInteger("rows") != size) {
-      throw DatabaseException(s"Error: query failed because result size (${json.getInteger("rows")}) doesn't match expected size ($size)", "checkSize")
+      throw DatabaseException(
+        s"Error: query failed because result size (${json.getInteger("rows")}) doesn't match expected size ($size)",
+        "checkSize")
     } else {
       resultObjectToJsonArray(json)
     }

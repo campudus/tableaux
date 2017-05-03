@@ -17,6 +17,7 @@ import scalacache.guava._
 import scalacache.serialization.InMemoryRepr
 
 object CacheVerticle {
+
   /**
     * Default never expire
     */
@@ -62,17 +63,17 @@ class CacheVerticle extends ScalaVerticle {
     // This should be done automatically by Vert.x.
     // But because of https://github.com/eclipse/vert.x/issues/1625 we need to do this manually.
     // TODO Remove with Vert.x > 3.3.3
-    val unregisterFuture = Future.sequence(consumers.map({
-      consumer => {
+    val unregisterFuture = Future
+      .sequence(consumers.map({ consumer => {
         asyncVoidToFuture(consumer.unregister(_: Handler[AsyncResult[Void]]))
           .recoverWith({
-            case _ => {
+            case _ =>
               logger.warn(s"Unregister consumer failed ${consumer.isRegistered} ${consumer.toString}")
               Future.successful(())
-            }
           })
       }
-    })).map(_ => ())
+      }))
+      .map(_ => ())
 
     promise.completeWith(unregisterFuture)
   }
@@ -83,7 +84,6 @@ class CacheVerticle extends ScalaVerticle {
     consumers = Seq(
       eventBus.localConsumer(ADDRESS_SET, messageHandlerSet(_: Message[JsonObject])),
       eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve(_: Message[JsonObject])),
-
       eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell(_: Message[JsonObject])),
       eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn(_: Message[JsonObject])),
       eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow(_: Message[JsonObject])),
@@ -93,6 +93,7 @@ class CacheVerticle extends ScalaVerticle {
   }
 
   private def getCache(tableId: TableId, columnId: ColumnId): ScalaCache[InMemoryRepr] = {
+
     def createCache() = {
       val builder = CacheBuilder
         .newBuilder()
@@ -138,18 +139,16 @@ class CacheVerticle extends ScalaVerticle {
       rowId <- Option(obj.getLong("rowId")).map(_.toLong)
     } yield (tableId, columnId, rowId)) match {
       case Some((tableId, columnId, rowId)) =>
-
         implicit val scalaCache = getCache(tableId, columnId)
         put(rowId)(value)
-          .map({
-            _ =>
-              val reply = Json.obj(
-                "tableId" -> tableId,
-                "columnId" -> columnId,
-                "rowId" -> rowId
-              )
+          .map(_ => {
+            val reply = Json.obj(
+              "tableId" -> tableId,
+              "columnId" -> columnId,
+              "rowId" -> rowId
+            )
 
-              message.reply(reply)
+            message.reply(reply)
           })
 
       case None =>
@@ -167,7 +166,6 @@ class CacheVerticle extends ScalaVerticle {
       rowId <- Option(obj.getLong("rowId")).map(_.toLong)
     } yield (tableId, columnId, rowId)) match {
       case Some((tableId, columnId, rowId)) =>
-
         implicit val scalaCache = getCache(tableId, columnId)
 
         get[AnyRef, NoSerialization](rowId)
@@ -205,15 +203,9 @@ class CacheVerticle extends ScalaVerticle {
         implicit val scalaCache = getCache(tableId, columnId)
 
         remove(rowId)
-          .map({
-            _ =>
-              val reply = Json.obj(
-                "tableId" -> tableId,
-                "columnId" -> columnId,
-                "rowId" -> rowId
-              )
-
-              message.reply(reply)
+          .map(_ => {
+            val reply = Json.obj("tableId" -> tableId, "columnId" -> columnId, "rowId" -> rowId)
+            message.reply(reply)
           })
 
       case None =>
@@ -234,16 +226,10 @@ class CacheVerticle extends ScalaVerticle {
         implicit val scalaCache = getCache(tableId, columnId)
 
         removeAll()
-          .map({
-            _ =>
-              removeCache(tableId, columnId)
-
-              val reply = Json.obj(
-                "tableId" -> tableId,
-                "columnId" -> columnId
-              )
-
-              message.reply(reply)
+          .map(_ => {
+            removeCache(tableId, columnId)
+            val reply = Json.obj("tableId" -> tableId, "columnId" -> columnId)
+            message.reply(reply)
           })
 
       case None =>
@@ -253,6 +239,7 @@ class CacheVerticle extends ScalaVerticle {
   }
 
   private def filterScalaCaches(tableId: TableId) = {
+
     // invalidate table
     caches
       .filterKeys({
@@ -270,19 +257,15 @@ class CacheVerticle extends ScalaVerticle {
       rowId <- Option(obj.getLong("rowId")).map(_.toLong)
     } yield (tableId, rowId)) match {
       case Some((tableId, rowId)) =>
-
-        Future.sequence(filterScalaCaches(tableId)
-          .map({
-            implicit cache => remove(rowId)
-          }))
-          .map({
-            _ =>
-              val reply = Json.obj(
-                "tableId" -> tableId,
-                "rowId" -> rowId
-              )
-
-              message.reply(reply)
+        Future
+          .sequence(
+            filterScalaCaches(tableId)
+              .map(implicit cache => {
+                remove(rowId)
+              }))
+          .map(_ => {
+            val reply = Json.obj("tableId" -> tableId, "rowId" -> rowId)
+            message.reply(reply)
           })
 
       case None =>
@@ -298,17 +281,15 @@ class CacheVerticle extends ScalaVerticle {
       tableId <- Option(obj.getLong("tableId")).map(_.toLong)
     } yield tableId) match {
       case Some(tableId) =>
-        Future.sequence(filterScalaCaches(tableId)
-          .map({
-            implicit cache => removeAll()
-          }))
-          .map({
-            _ =>
-              val reply = Json.obj(
-                "tableId" -> tableId
-              )
-
-              message.reply(reply)
+        Future
+          .sequence(
+            filterScalaCaches(tableId)
+              .map(implicit cache => {
+                removeAll()
+              }))
+          .map(_ => {
+            val reply = Json.obj("tableId" -> tableId)
+            message.reply(reply)
           })
 
       case None =>
@@ -318,17 +299,17 @@ class CacheVerticle extends ScalaVerticle {
   }
 
   private def messageHandlerInvalidateAll(message: Message[JsonObject]): Unit = {
-    Future.sequence(caches.map({
-      case ((tableId, columnId), cache) =>
-        removeAll()(cache)
-          .map({
-            _ =>
+    Future
+      .sequence(caches.map({
+        case ((tableId, columnId), cache) =>
+          removeAll()(cache)
+            .map(_ => {
               removeCache(tableId, columnId)
-          })
-    })).onComplete({
-      _ =>
+            })
+      }))
+      .onComplete(_ => {
         caches.clear()
         message.reply(Json.emptyObj())
-    })
+      })
   }
 }

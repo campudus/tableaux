@@ -16,13 +16,22 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
 
   implicit val executionContext = connection.executionContext
 
-  protected[this] def checkUpdateResults(seq: JsonObject*): Unit = seq map {
-    json => if (json.containsField("message")) updateNotNull(json)
+  protected[this] def checkUpdateResults(seq: JsonObject*): Unit = {
+    seq map { json => {
+      if (json.containsField("message")) updateNotNull(json)
+    }
+    }
   }
 
-  protected[this] def optionToValidFuture[A, B](opt: Option[A], trans: B, someCase: A => Future[(B, JsonObject)]): Future[(B, JsonObject)] = opt match {
-    case Some(x) => someCase(x)
-    case None => Future.successful(trans, Json.obj())
+  protected[this] def optionToValidFuture[A, B](
+    opt: Option[A],
+    trans: B,
+    someCase: A => Future[(B, JsonObject)]
+  ): Future[(B, JsonObject)] = {
+    opt match {
+      case Some(x) => someCase(x)
+      case None => Future.successful(trans, Json.obj())
+    }
   }
 
   protected[this] def convertStringToDateTime(str: String): Option[DateTime] = {
@@ -44,7 +53,9 @@ object DatabaseConnection {
   }
 }
 
-class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnection) extends VertxAccess with LazyLogging {
+class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnection)
+  extends VertxAccess
+    with LazyLogging {
 
   import DatabaseConnection._
 
@@ -64,10 +75,11 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
         .recoverWith(rollbackAndFail())
     }
 
-
     def selectSingleValue[A](select: String): Future[(Transaction, A)] = selectSingleValue(select, None)
 
-    def selectSingleValue[A](select: String, parameter: JsonArray): Future[(Transaction, A)] = selectSingleValue(select, Some(parameter))
+    def selectSingleValue[A](select: String, parameter: JsonArray): Future[(Transaction, A)] = {
+      selectSingleValue(select, Some(parameter))
+    }
 
     private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[(Transaction, A)] = {
       for {
@@ -122,25 +134,32 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     }
   }
 
-  def transactionalFoldLeft[A](values: Seq[A])(fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]): Future[JsonObject] = {
+  def transactionalFoldLeft[A](values: Seq[A])(
+    fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]
+  ): Future[JsonObject] = {
     transactionalFoldLeft(values, Json.emptyObj())(fn)
   }
 
-  def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(fn: (Transaction, B, A) => Future[(Transaction, B)]): Future[B] = {
-    transactional[B]({ transaction: Transaction =>
-      values.foldLeft(Future(transaction, fnStartValue)) {
-        (result, value) =>
-          result.flatMap {
-            case (newTransaction, lastResult) =>
-              fn(newTransaction, lastResult, value)
-          }
+  def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(
+    fn: (Transaction, B, A) => Future[(Transaction, B)]
+  ): Future[B] = {
+    transactional[B]({ transaction: Transaction => {
+      values.foldLeft(Future(transaction, fnStartValue)){ (result, value) => {
+        result.flatMap{
+          case (newTransaction, lastResult) =>
+            fn(newTransaction, lastResult, value)
+        }
       }
+      }
+    }
     })
   }
 
   def selectSingleValue[A](select: String): Future[A] = selectSingleValue(select, None)
 
-  def selectSingleValue[A](select: String, parameter: JsonArray): Future[A] = selectSingleValue(select, Some(parameter))
+  def selectSingleValue[A](select: String, parameter: JsonArray): Future[A] = {
+    selectSingleValue(select, Some(parameter))
+  }
 
   private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[A] = {
     for {
@@ -181,7 +200,8 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
           case None => connection.update(stmt)
         }
       case (_, _) =>
-        throw new DatabaseException(s"Command $command in Statement $stmt not supported", "error.database.command_not_supported")
+        throw new DatabaseException(s"Command $command in Statement $stmt not supported",
+          "error.database.command_not_supported")
     }
 
     future.map({
@@ -211,7 +231,10 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
       Json.arr()
     }
 
-    val results = Json.arr(keys.getList.asScala.map({ v: Any => Json.arr(v) }): _*)
+    val results = Json.arr(keys.getList.asScala.map({ v: Any => {
+      Json.arr(v)
+    }
+    }): _*)
 
     Json.obj(
       "status" -> "ok",
@@ -229,9 +252,7 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     Json.obj(
       "status" -> "ok",
       "rows" -> results.size(),
-      "message" -> s"SELECT ${
-        results.size()
-      }",
+      "message" -> s"SELECT ${results.size()}",
       "fields" -> columnNames,
       "results" -> results
     )

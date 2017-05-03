@@ -79,7 +79,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         assertContainsDeep(exceptedColumn1Annotations, column1Annotations)
         assertContainsDeep(exceptedColumn2Annotations, column2Annotations)
 
-        val exceptedColumn1AnnotationsAfterDelete = Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
+        val exceptedColumn1AnnotationsAfterDelete =
+          Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
 
         val column1AnnotationsAfterDelete = rowAfterDelete.getJsonArray("annotations").getJsonArray(0)
 
@@ -113,7 +114,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           s"/tables/$tableId/columns/2/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning"))
 
-        _ <- sendRequest("POST",
+        _ <- sendRequest(
+          "POST",
           s"/tables/$tableId/columns/2/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> "this is another comment"))
 
@@ -145,8 +147,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addAnnotationWithLangtagsOnLanguageNeutralCell(implicit c: TestContext): Unit = {
-    exceptionTest(
-      "unprocessable.entity"){
+    exceptionTest("unprocessable.entity"){
       for {
         tableId <- createDefaultTable("Test")
 
@@ -190,11 +191,17 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("de", "gb"), "type" -> "flag", "value" -> "needs_translation"))
-        _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("fr", "es"), "type" -> "flag", "value" -> "needs_translation"))
-        _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
           Json.obj("langtags" -> Json.arr("cs", "nl"), "type" -> "flag", "value" -> "needs_translation"))
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
@@ -249,10 +256,13 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   @Test
   def addAndDeleteAnnotationWithLangtagsConcurrently(implicit c: TestContext): Unit = {
     okTest{
+
       def addLangtag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtag: String): Future[_] = {
-        sendRequest("POST",
+        sendRequest(
+          "POST",
           s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations",
-          Json.obj("langtags" -> Json.arr(langtag), "type" -> "flag", "value" -> "needs_translation"))
+          Json.obj("langtags" -> Json.arr(langtag), "type" -> "flag", "value" -> "needs_translation")
+        )
       }
 
       def removeLangtag(
@@ -272,54 +282,58 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- Future.sequence(Seq(
-          addLangtag(tableId, 1, rowId, "de"),
-          addLangtag(tableId, 1, rowId, "en"),
-          addLangtag(tableId, 1, rowId, "fr"),
-          addLangtag(tableId, 1, rowId, "es"),
-          addLangtag(tableId, 1, rowId, "it"),
-          addLangtag(tableId, 1, rowId, "cs"),
-          addLangtag(tableId, 1, rowId, "pl")
-        ))
+        _ <- Future.sequence(
+          Seq(
+            addLangtag(tableId, 1, rowId, "de"),
+            addLangtag(tableId, 1, rowId, "en"),
+            addLangtag(tableId, 1, rowId, "fr"),
+            addLangtag(tableId, 1, rowId, "es"),
+            addLangtag(tableId, 1, rowId, "it"),
+            addLangtag(tableId, 1, rowId, "cs"),
+            addLangtag(tableId, 1, rowId, "pl")
+          ))
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
         annotationUuid = rowJson1.getJsonArray("annotations").getJsonArray(0).getJsonObject(0).getString("uuid")
 
-        _ <- Future.sequence(Seq(
-          removeLangtag(tableId, 1, rowId, annotationUuid, "de"),
-          removeLangtag(tableId, 1, rowId, annotationUuid, "en"),
-          removeLangtag(tableId, 1, rowId, annotationUuid, "fr"),
-          removeLangtag(tableId, 1, rowId, annotationUuid, "es"),
-          removeLangtag(tableId, 1, rowId, annotationUuid, "it"),
-          removeLangtag(tableId, 1, rowId, annotationUuid, "cs"),
-          removeLangtag(tableId, 1, rowId, annotationUuid, "pl")
-        ))
+        _ <- Future.sequence(
+          Seq(
+            removeLangtag(tableId, 1, rowId, annotationUuid, "de"),
+            removeLangtag(tableId, 1, rowId, annotationUuid, "en"),
+            removeLangtag(tableId, 1, rowId, annotationUuid, "fr"),
+            removeLangtag(tableId, 1, rowId, annotationUuid, "es"),
+            removeLangtag(tableId, 1, rowId, annotationUuid, "it"),
+            removeLangtag(tableId, 1, rowId, annotationUuid, "cs"),
+            removeLangtag(tableId, 1, rowId, annotationUuid, "pl")
+          ))
 
         rowJson2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
-        val exceptedColumn1Flags = Json.arr(Json.obj(
-          "type" -> "flag",
-          "value" -> "needs_translation",
-          "langtags" -> Json.arr(
-            "cs",
-            "de",
-            "en",
-            "es",
-            "fr",
-            "it",
-            "pl"
-          )
-        ))
+        val exceptedColumn1Flags = Json.arr(
+          Json.obj(
+            "type" -> "flag",
+            "value" -> "needs_translation",
+            "langtags" -> Json.arr(
+              "cs",
+              "de",
+              "en",
+              "es",
+              "fr",
+              "it",
+              "pl"
+            )
+          ))
 
         assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
         assertNull(rowJson1.getJsonArray("annotations").getJsonArray(1))
 
-        val exceptedColumn1FlagsAfterDelete = Json.arr(Json.obj(
-          "type" -> "flag",
-          "value" -> "needs_translation",
-          "langtags" -> null
-        ))
+        val exceptedColumn1FlagsAfterDelete = Json.arr(
+          Json.obj(
+            "type" -> "flag",
+            "value" -> "needs_translation",
+            "langtags" -> null
+          ))
 
         assertContainsDeep(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
         assertNull(rowJson2.getJsonArray("annotations").getJsonArray(1))

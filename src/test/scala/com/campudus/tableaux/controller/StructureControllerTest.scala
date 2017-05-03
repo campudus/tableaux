@@ -26,13 +26,21 @@ class StructureControllerTest extends TableauxTestBase {
   @Test
   def checkCreateTableWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createTable(null, hidden = false, langtags = None, displayInfos = null, tableType = GenericTable, tableGroupId = None))
+    illegalArgumentTest(
+      controller.createTable(null,
+        hidden = false,
+        langtags = None,
+        displayInfos = null,
+        tableType = GenericTable,
+        tableGroupId = None))
   }
 
   @Test
   def checkCreateLinkColumnWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List()))))
+    illegalArgumentTest(
+      controller.createColumns(0,
+        Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test
@@ -44,13 +52,17 @@ class StructureControllerTest extends TableauxTestBase {
   @Test
   def checkCreateColumnWithNullName(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn(null, None, TextType, LanguageNeutral, identifier = false, List()))))
+    illegalArgumentTest(
+      controller
+        .createColumns(0, Seq(CreateSimpleColumn(null, None, TextType, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test
   def checkCreateColumnWithNullType(implicit c: TestContext): Unit = {
     val controller = createStructureController()
-    illegalArgumentTest(controller.createColumns(0, Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
+    illegalArgumentTest(
+      controller.createColumns(0,
+        Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test

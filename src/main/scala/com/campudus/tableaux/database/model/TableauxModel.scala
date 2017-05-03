@@ -72,7 +72,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 class TableauxModel(
   override protected[this] val connection: DatabaseConnection,
   override protected[this] val structureModel: StructureModel
-) extends DatabaseQuery with StructureDelegateModel {
+) extends DatabaseQuery
+  with StructureDelegateModel {
 
   import TableauxModel._
 
@@ -83,6 +84,7 @@ class TableauxModel(
   val attachmentModel = AttachmentModel(connection)
 
   def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
+
     def selectDependentRows(linkId: LinkId, linkDirection: LinkDirection) = {
       s"SELECT ${linkDirection.toSql} FROM link_table_$linkId WHERE ${linkDirection.fromSql} = ?"
     }
@@ -94,30 +96,30 @@ class TableauxModel(
           case (linkId, linkDirection) =>
             connection
               .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
-              .map({
-                result =>
-                  resultObjectToJsonArray(result).map({
-                    row =>
-                      val rowId: RowId = row.getLong(0).toLong
-                      rowId
-                  })
+              .map({ result => {
+                resultObjectToJsonArray(result).map({ row => {
+                  val rowId: RowId = row.getLong(0).toLong
+                  rowId
+                }
+                })
+              }
               })
-              .map({
-                dependentRows =>
-                  (linkDirection.to, dependentRows)
+              .map({ dependentRows => {
+                (linkDirection.to, dependentRows)
+              }
               })
               .flatMap({
                 case (tableId, rows) =>
                   for {
                     table <- retrieveTable(tableId)
                     columns <- retrieveColumns(table)
-                    rowObjects <- Future.sequence(rows.map({
-                      rowId =>
-                        retrieveCell(columns.head, rowId)
-                          .map({
-                            cell =>
-                              Json.obj("id" -> rowId, "value" -> cell.value)
-                          })
+                    rowObjects <- Future.sequence(rows.map({ rowId => {
+                      retrieveCell(columns.head, rowId)
+                        .map({ cell => {
+                          Json.obj("id" -> rowId, "value" -> cell.value)
+                        }
+                        })
+                    }
                     }))
                   } yield (table, columns.head, rowObjects)
               })
@@ -130,9 +132,13 @@ class TableauxModel(
         .groupBy({ case (dependentTable, column, _) => (dependentTable, column) })
         .map({
           case ((groupedByTable, groupedByColumn), dependentRowInformation) =>
-            (groupedByTable, groupedByColumn, dependentRowInformation.flatMap({
-              case (_, _, values) => values
-            }).distinct)
+            (groupedByTable,
+              groupedByColumn,
+              dependentRowInformation
+                .flatMap({
+                  case (_, _, values) => values
+                })
+                .distinct)
         })
         .filter({
           case (_, _, values) => values.nonEmpty
@@ -170,28 +176,31 @@ class TableauxModel(
     } yield EmptyObject()
   }
 
-  def createRow(table: Table): Future[Row] = for {
-    rowId <- createRowModel.createRow(table.id, Seq.empty)
-    row <- retrieveRow(table, rowId)
-  } yield row
+  def createRow(table: Table): Future[Row] = {
+    for {
+      rowId <- createRowModel.createRow(table.id, Seq.empty)
+      row <- retrieveRow(table, rowId)
+    } yield row
+  }
 
   def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)
-      rows <- rows.foldLeft(Future.successful(Vector[Row]())){
-        (futureRows, row) =>
-          // replace ColumnId with ColumnType
-          // TODO fail nice if columnid doesn't exist
-          val columnValuePairs = row.map{ case (columnId, value) => (columns.find(_.id == columnId).get, value) }
+      rows <- rows.foldLeft(Future.successful(Vector[Row]())){ (futureRows, row) =>
+        // replace ColumnId with ColumnType
+        // TODO fail nice if columnid doesn't exist
+      {
+        val columnValuePairs = row.map{ case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
-          futureRows.flatMap{ rows =>
-            for {
-              rowId <- createRowModel.createRow(table.id, columnValuePairs)
-              newRow <- retrieveRow(table, columns, rowId)
-            } yield {
-              rows ++ Seq(newRow)
-            }
+        futureRows.flatMap{ rows =>
+          for {
+            rowId <- createRowModel.createRow(table.id, columnValuePairs)
+            newRow <- retrieveRow(table, columns, rowId)
+          } yield {
+            rows ++ Seq(newRow)
           }
+        }
+      }
       }
     } yield RowSeq(rows)
   }
@@ -205,7 +214,11 @@ class TableauxModel(
   ): Future[CellLevelAnnotation] = {
     for {
       (uuid, mergedLangtags, createdAt) <- updateRowModel.addOrMergeCellAnnotation(
-        column, rowId, langtags, annotationType, value
+        column,
+        rowId,
+        langtags,
+        annotationType,
+        value
       )
     } yield CellLevelAnnotation(uuid, annotationType, mergedLangtags, value, createdAt)
   }
@@ -250,7 +263,13 @@ class TableauxModel(
     } yield updatedCell
   }
 
-  def updateCellLinkOrder(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId, locationType: LocationType): Future[Cell[_]] = {
+  def updateCellLinkOrder(
+    table: Table,
+    columnId: ColumnId,
+    rowId: RowId,
+    toId: RowId,
+    locationType: LocationType
+  ): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
 
@@ -278,7 +297,8 @@ class TableauxModel(
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) => Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
+        case (SettingsTable, 1 | 2) =>
+          Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
         case _ => Future.successful(())
       }
 
@@ -296,7 +316,8 @@ class TableauxModel(
   def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
     for {
       _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) => Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
+        case (SettingsTable, 1 | 2) =>
+          Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
         case _ => Future.successful(())
       }
 
@@ -315,7 +336,8 @@ class TableauxModel(
   def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     for {
       _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) => Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
+        case (SettingsTable, 1 | 2) =>
+          Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
         case _ => Future.successful(())
       }
 
@@ -348,7 +370,8 @@ class TableauxModel(
           // TODO but therefore we would need to know the depending rows
 
           // invalidate depending columns
-          CacheClient(this.connection.vertx).invalidateColumn(tableId, columnId)
+          CacheClient(this.connection.vertx)
+            .invalidateColumn(tableId, columnId)
             // and their concat column
             // TODO should be only done if depending column is an identifier column
             .zip(CacheClient(this.connection.vertx).invalidateColumn(tableId, 0))
@@ -365,6 +388,7 @@ class TableauxModel(
   }
 
   private def retrieveCell(column: ColumnType[_], rowId: RowId): Future[Cell[Any]] = {
+
     // In case of a ConcatColumn we need to retrieve the
     // other values too, so the ConcatColumn can be build.
     val columns = column match {
@@ -451,9 +475,9 @@ class TableauxModel(
 
       rowsSeq <- retrieveRows(table, columns, pagination)
     } yield {
-      rowsSeq.copy(rows = rowsSeq.rows.map({
-        row =>
-          row.copy(values = row.values.take(1))
+      rowsSeq.copy(rows = rowsSeq.rows.map({ row => {
+        row.copy(values = row.values.take(1))
+      }
       }))
     }
   }
@@ -518,59 +542,64 @@ class TableauxModel(
       case (futureList, RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues)) =>
         futureList.flatMap({
           case list =>
-            val mappedRow = columns.zip(rawValues).map({
-              case (c: ConcatColumn, value) if c.columns.exists(isLinkColumnToConcatColumn) =>
-                import scala.collection.JavaConverters._
+            val mappedRow = columns
+              .zip(rawValues)
+              .map({
+                case (c: ConcatColumn, value) if c.columns.exists(isLinkColumnToConcatColumn) =>
+                  import scala.collection.JavaConverters._
 
-                // Because of the guard we only handle ConcatColumns
-                // with LinkColumns to another ConcatColumns
+                  // Because of the guard we only handle ConcatColumns
+                  // with LinkColumns to another ConcatColumns
 
-                // Zip concatenated columns with there values
-                val concatColumns = c.columns
-                // value is a Java List because of RowModel.mapResultRow
-                val values = value.asInstanceOf[java.util.List[Object]].asScala.toList
+                  // Zip concatenated columns with there values
+                  val concatColumns = c.columns
+                  // value is a Java List because of RowModel.mapResultRow
+                  val values = value.asInstanceOf[java.util.List[Object]].asScala.toList
 
-                assert(concatColumns.size == values.size)
+                  assert(concatColumns.size == values.size)
 
-                val zippedColumnsValues = concatColumns.zip(values)
+                  val zippedColumnsValues = concatColumns.zip(values)
 
-                // Now we iterate over the zipped sequence and
-                // check for LinkColumns which point to ConcatColumns
-                val mappedColumnValues = zippedColumnsValues map {
-                  case (column: LinkColumn, array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
-                    // Iterate over each linked row and
-                    // replace json's value with ConcatColumn value
-                    fetchConcatValuesForLinkedRows(column.to.asInstanceOf[ConcatColumn], array)
+                  // Now we iterate over the zipped sequence and
+                  // check for LinkColumns which point to ConcatColumns
+                  val mappedColumnValues = zippedColumnsValues map {
+                    case (column: LinkColumn, array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
+                      // Iterate over each linked row and
+                      // replace json's value with ConcatColumn value
+                      fetchConcatValuesForLinkedRows(column.to.asInstanceOf[ConcatColumn], array)
 
-                  case (column, v) => Future.successful(v)
-                }
+                    case (column, v) => Future.successful(v)
+                  }
 
-                Future.sequence(mappedColumnValues)
+                  Future.sequence(mappedColumnValues)
 
-              case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
-                // Iterate over each linked row and
-                // replace json's value with ConcatColumn value
-                fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatColumn], array)
+                case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
+                  // Iterate over each linked row and
+                  // replace json's value with ConcatColumn value
+                  fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatColumn], array)
 
-              case (c: AttachmentColumn, _) =>
-                // AttachmentColumns are fetch via AttachmentModel
-                retrieveCell(c, rowId)
-                  .map(_.value)
+                case (c: AttachmentColumn, _) =>
+                  // AttachmentColumns are fetch via AttachmentModel
+                  retrieveCell(c, rowId)
+                    .map(_.value)
 
-              case (_, value) =>
-                // All other column types are fetch via SQL
-                Future(value)
-            })
+                case (_, value) =>
+                  // All other column types are fetch via SQL
+                  Future(value)
+              })
 
-            Future.sequence(mappedRow)
+            Future
+              .sequence(mappedRow)
               .map(mappedRow => list ++ List(RawRow(rowId, rowLevelFlags, cellLevelFlags, mappedRow)))
         })
     }
 
-    val rows = mergedRowsFuture.map({
-      mergedRows => mergedRows.map({
-        case RawRow(rowId, rowLevelFlags, cellLevelFlags, values) => Row(table, rowId, rowLevelFlags, cellLevelFlags, values)
+    val rows = mergedRowsFuture.map({ mergedRows => {
+      mergedRows.map({
+        case RawRow(rowId, rowLevelFlags, cellLevelFlags, values) =>
+          Row(table, rowId, rowLevelFlags, cellLevelFlags, values)
       })
+    }
     })
 
     rows

@@ -1,6 +1,5 @@
 package com.campudus.tableaux.api.structure
 
-
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import org.vertx.scala.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
@@ -21,7 +20,8 @@ class DeleteStructureTest extends TableauxTestBase {
   }
 
   val createStringColumnJson = RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 1")).getJson
-  val createIdentifierStringColumnJson = RequestCreation.Columns().add(RequestCreation.Identifier(RequestCreation.TextCol("Test Column 1"))).getJson
+  val createIdentifierStringColumnJson =
+    RequestCreation.Columns().add(RequestCreation.Identifier(RequestCreation.TextCol("Test Column 1"))).getJson
 
   val expectedOkJson = Json.obj("status" -> "ok")
 
@@ -179,15 +179,23 @@ class DeleteStructureTest extends TableauxTestBase {
 
         _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
 
-        _ <- sendRequest("POST", s"/tables/$table2/rows", Json.obj(
-          "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-          "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test", Json.emptyArr())))
-        ))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$table2/rows",
+          Json.obj(
+            "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+            "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test", Json.emptyArr())))
+          )
+        )
 
-        _ <- sendRequest("POST", s"/tables/$table1/rows", Json.obj(
-          "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-          "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test", Json.arr(1))))
-        ))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$table1/rows",
+          Json.obj(
+            "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+            "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test", Json.arr(1))))
+          )
+        )
 
         _ <- sendRequest("DELETE", "/tables/1/columns/2")
         _ <- sendRequest("DELETE", "/tables/2/columns/2")

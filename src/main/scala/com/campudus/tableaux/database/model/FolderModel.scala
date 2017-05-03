@@ -24,11 +24,11 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
   def add(name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
     val insert =
       s"""INSERT INTO $table (
-          |name,
-          |description,
-          |idparent,
-          |created_at,
-          |updated_at) VALUES (?,?,?,CURRENT_TIMESTAMP,NULL) RETURNING id, created_at""".stripMargin
+         |name,
+         |description,
+         |idparent,
+         |created_at,
+         |updated_at) VALUES (?,?,?,CURRENT_TIMESTAMP,NULL) RETURNING id, created_at""".stripMargin
 
     for {
       _ <- checkUniqueName(parent, None, name)
@@ -43,10 +43,10 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
   def update(id: FolderId, name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
     val update =
       s"""UPDATE $table SET
-          |name = ?,
-          |description = ?,
-          |idparent = ?,
-          |updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING created_at, updated_at""".stripMargin
+         |name = ?,
+         |description = ?,
+         |idparent = ?,
+         |updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING created_at, updated_at""".stripMargin
 
     for {
       _ <- checkUniqueName(parent, Some(id), name)
@@ -72,28 +72,32 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     }
 
     s"""SELECT
-        |id,
-        |name,
-        |description,
-        |(
-        |  WITH RECURSIVE prev AS (
-        |    SELECT folder.id, ARRAY[]::bigint[] AS parents, FALSE AS cycle
-        |    FROM folder WHERE folder.idparent IS NULL
-        |    UNION ALL
-        |    SELECT folder.id, parents || folder.idparent AS parents, folder.id = ANY(parents) AS cycle
-        |    FROM prev INNER JOIN folder ON (prev.id = idparent AND prev.cycle = FALSE)
-        |  )
-        |  SELECT ARRAY_TO_JSON(parents) FROM prev WHERE cycle IS FALSE AND id = f.id
-        |) AS parents,
-        |created_at,
-        |updated_at FROM $table f $where ORDER BY name""".stripMargin
+       |id,
+       |name,
+       |description,
+       |(
+       |  WITH RECURSIVE prev AS (
+       |    SELECT folder.id, ARRAY[]::bigint[] AS parents, FALSE AS cycle
+       |    FROM folder WHERE folder.idparent IS NULL
+       |    UNION ALL
+       |    SELECT folder.id, parents || folder.idparent AS parents, folder.id = ANY(parents) AS cycle
+       |    FROM prev INNER JOIN folder ON (prev.id = idparent AND prev.cycle = FALSE)
+       |  )
+       |  SELECT ARRAY_TO_JSON(parents) FROM prev WHERE cycle IS FALSE AND id = f.id
+       |) AS parents,
+       |created_at,
+       |updated_at FROM $table f $where ORDER BY name""".stripMargin
   }
 
   private def convertJsonArrayToFolder(arr: JsonArray): Folder = {
     import scala.collection.JavaConverters._
-    val parents = Json.fromArrayString(arr.getString(3)).asScala.toSeq.map({
-      case f: java.lang.Integer => f.toLong
-    })
+    val parents = Json
+      .fromArrayString(arr.getString(3))
+      .asScala
+      .toSeq
+      .map({
+        case f: java.lang.Integer => f.toLong
+      })
 
     Folder(
       arr.get[FolderId](0), //id
@@ -165,7 +169,9 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
       .selectSingleValue[Boolean](sql, parameter)
       .flatMap({
         case true => Future.successful(())
-        case false => Future.failed(new ShouldBeUniqueException(s"Name of folder should be unique ($parent, $folder, $name).", "foldername"))
+        case false =>
+          Future.failed(
+            new ShouldBeUniqueException(s"Name of folder should be unique ($parent, $folder, $name).", "foldername"))
       })
   }
 }

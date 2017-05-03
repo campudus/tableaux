@@ -94,7 +94,7 @@ class Starter extends ScalaVerticle {
                                host: String,
                                tableauxConfig: TableauxConfig,
                                connection: SQLConnection): Future[HttpServer] = {
-    futurify { p: Promise[HttpServer] =>
+    futurify { p: Promise[HttpServer] => {
       val dbConnection = DatabaseConnection(this, connection)
       val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
 
@@ -102,10 +102,14 @@ class Starter extends ScalaVerticle {
 
       router.route().handler(routerRegistry)
 
-      vertx.createHttpServer().requestHandler(router.accept(_: HttpServerRequest)).listen(port, host, {
-        case Success(s) => p.success(s)
-        case Failure(x) => p.failure(x)
-      }: Try[HttpServer] => Unit)
+      vertx
+        .createHttpServer()
+        .requestHandler(router.accept(_: HttpServerRequest))
+        .listen(port, host, {
+          case Success(s) => p.success(s)
+          case Failure(x) => p.failure(x)
+        }: Try[HttpServer] => Unit)
+    }
     }
   }
 

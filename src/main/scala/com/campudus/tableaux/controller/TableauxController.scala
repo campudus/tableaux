@@ -13,12 +13,14 @@ import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import scala.concurrent.Future
 
 object TableauxController {
+
   def apply(config: TableauxConfig, repository: TableauxModel): TableauxController = {
     new TableauxController(config, repository)
   }
 }
 
-class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel) extends Controller[TableauxModel] {
+class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel)
+  extends Controller[TableauxModel] {
 
   def addCellAnnotation(
     tableId: TableId,
@@ -193,7 +195,13 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield updated
   }
 
-  def updateCellLinkOrder(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId, locationType: LocationType): Future[Cell[_]] = {
+  def updateCellLinkOrder(
+    tableId: TableId,
+    columnId: ColumnId,
+    rowId: RowId,
+    toId: RowId,
+    locationType: LocationType
+  ): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
     logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $locationType")
     for {
@@ -221,7 +229,7 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield updated
   }
 
-  def clearCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_]] =  {
+  def clearCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"clearCellValue $tableId $columnId $rowId")
 

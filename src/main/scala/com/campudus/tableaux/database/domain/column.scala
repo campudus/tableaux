@@ -27,7 +27,9 @@ case class BasicColumnInformation(override val table: Table,
                                   override val name: String,
                                   override val ordering: Ordering,
                                   override val identifier: Boolean,
-                                  override val displayInfos: Seq[DisplayInfo]) extends ColumnInformation
+  override val displayInfos: Seq[DisplayInfo]
+)
+  extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
   override val name = "ID"
@@ -57,27 +59,30 @@ object ColumnType {
     * - link
     * - attachment
     */
-  def splitIntoTypesWithValues(columnsWithValue: Seq[(ColumnType[_], _)]): Try[(List[LanguageNeutralAndValue], List[MultiLanguageAndValue], List[LinkAndRowIds], List[AttachmentAndUUIDs])] = Try {
-    columnsWithValue.foldLeft((
-      List.empty[LanguageNeutralAndValue],
-      List.empty[MultiLanguageAndValue],
-      List.empty[LinkAndRowIds],
-      List.empty[AttachmentAndUUIDs])) {
+  def splitIntoTypesWithValues(columnsWithValue: Seq[(ColumnType[_], _)]): Try[
+    (List[LanguageNeutralAndValue], List[MultiLanguageAndValue], List[LinkAndRowIds], List[AttachmentAndUUIDs])] = {
+    Try{
+      columnsWithValue.foldLeft(
+        (List.empty[LanguageNeutralAndValue],
+          List.empty[MultiLanguageAndValue],
+          List.empty[LinkAndRowIds],
+          List.empty[AttachmentAndUUIDs])){
 
-      case ((s, m, l, a), (MultiLanguageColumn(c), v)) =>
-        (s, (c, MultiLanguageColumn.checkValidValue(c, v).get) :: m, l, a)
+        case ((s, m, l, a), (MultiLanguageColumn(c), v)) =>
+          (s, (c, MultiLanguageColumn.checkValidValue(c, v).get) :: m, l, a)
 
-      case ((s, m, l, a), (c: SimpleValueColumn[_], v)) =>
-        ((c, c.checkValidValue(v).get) :: s, m, l, a)
+        case ((s, m, l, a), (c: SimpleValueColumn[_], v)) =>
+          ((c, c.checkValidValue(v).get) :: s, m, l, a)
 
-      case ((s, m, l, a), (c: LinkColumn, v)) =>
-        (s, m, (c, c.checkValidValue(v).get.orNull) :: l, a)
+        case ((s, m, l, a), (c: LinkColumn, v)) =>
+          (s, m, (c, c.checkValidValue(v).get.orNull) :: l, a)
 
-      case ((s, m, l, a), (c: AttachmentColumn, v)) =>
-        (s, m, l, (c, c.checkValidValue(v).get.orNull) :: a)
+        case ((s, m, l, a), (c: AttachmentColumn, v)) =>
+          (s, m, l, (c, c.checkValidValue(v).get.orNull) :: a)
 
-      case (_, (c, v)) =>
-        throw new ClassCastException(s"unknown column or value: $c -> $v")
+        case (_, (c, v)) =>
+          throw new ClassCastException(s"unknown column or value: $c -> $v")
+      }
     }
   }
 
@@ -89,12 +94,14 @@ object ColumnType {
     * - link
     * - attachment
     */
-  def splitIntoTypes(columns: Seq[ColumnType[_]]): (List[SimpleValueColumn[_]], List[SimpleValueColumn[_]], List[LinkColumn], List[AttachmentColumn]) = {
-    columns.foldLeft((
-      List[SimpleValueColumn[_]](),
-      List[SimpleValueColumn[_]](),
-      List[LinkColumn](),
-      List[AttachmentColumn]()
+  def splitIntoTypes(columns: Seq[ColumnType[_]])
+  : (List[SimpleValueColumn[_]], List[SimpleValueColumn[_]], List[LinkColumn], List[AttachmentColumn]) = {
+    columns.foldLeft(
+      (
+        List[SimpleValueColumn[_]](),
+        List[SimpleValueColumn[_]](),
+        List[LinkColumn](),
+        List[AttachmentColumn]()
       )) {
 
       case ((s, m, l, a), MultiLanguageColumn(c)) =>
@@ -131,6 +138,7 @@ sealed trait ColumnType[+A] extends DomainObject {
   final val identifier: Boolean = columnInformation.identifier
 
   override def getJson: JsonObject = {
+
     // backward compatibility
     val multilanguage = languageType != LanguageNeutral
 
@@ -161,15 +169,23 @@ sealed trait ColumnType[+A] extends DomainObject {
       // do nothing
     }
 
-    columnInformation.displayInfos.foreach { displayInfo =>
-      displayInfo
-        .optionalName
-        .map(name => json.mergeIn(Json.obj("displayName" -> json.getJsonObject("displayName").mergeIn(Json.obj(displayInfo.langtag -> name)))))
+    columnInformation.displayInfos.foreach(displayInfo => {
+      displayInfo.optionalName.map(name => {
+        json
+          .mergeIn(
+            Json
+              .obj("displayName" -> json.getJsonObject("displayName").mergeIn(Json.obj(displayInfo.langtag -> name)))
+          )
+      })
 
-      displayInfo
-        .optionalDescription
-        .map(desc => json.mergeIn(Json.obj("description" -> json.getJsonObject("description").mergeIn(Json.obj(displayInfo.langtag -> desc)))))
-    }
+      displayInfo.optionalDescription.map(desc => {
+        json
+          .mergeIn(
+            Json
+              .obj("description" -> json.getJsonObject("description").mergeIn(Json.obj(displayInfo.langtag -> desc)))
+          )
+      })
+    })
 
     json
   }
@@ -181,30 +197,34 @@ sealed trait ColumnType[+A] extends DomainObject {
   * Helper for pattern matching
   */
 object MultiLanguageColumn {
+
   def checkValidValue[A, B](columnType: ColumnType[A], value: B): Try[Map[String, Option[A]]] = {
     value match {
       case null =>
         Success(Map.empty)
       case json: JsonObject =>
         Try[Map[String, Option[A]]] {
-          json.asMap.map({
-            case (key: String, v) =>
-              (key, columnType.checkValidValue(v))
-          }).collect({
-            case (key: String, Success(castedValue)) => (key, castedValue)
-            case (key: String, Failure(ex)) => {
-              columnType.languageType match {
-                case MultiLanguage => throw new IllegalArgumentException(s"Invalid value at key $key for MultiLanguage column ${
-                  columnType
-                    .name
-                }", ex)
-                case MultiCountry(_) | LanguageNeutral => throw new IllegalArgumentException(s"Invalid value at key $key for MultiCountry column ${
-                  columnType
-                    .name
-                }", ex)
+          json.asMap
+            .map({
+              case (key: String, v) =>
+                (key, columnType.checkValidValue(v))
+            })
+            .collect({
+              case (key: String, Success(castedValue)) => (key, castedValue)
+              case (key: String, Failure(ex)) => {
+                columnType.languageType match {
+                  case MultiLanguage =>
+                    throw new IllegalArgumentException(
+                      s"Invalid value at key $key for MultiLanguage column ${columnType.name}",
+                      ex)
+                  case MultiCountry(_) | LanguageNeutral =>
+                    throw new IllegalArgumentException(
+                      s"Invalid value at key $key for MultiCountry column ${columnType.name}",
+                      ex)
+                }
               }
-            }
-          }).toMap
+            })
+            .toMap
         }
     }
   }
@@ -218,7 +238,12 @@ object MultiLanguageColumn {
 }
 
 object SimpleValueColumn {
-  def apply(kind: TableauxDbType, languageType: LanguageType, columnInformation: ColumnInformation): SimpleValueColumn[_] = {
+
+  def apply(
+    kind: TableauxDbType,
+    languageType: LanguageType,
+    columnInformation: ColumnInformation
+  ): SimpleValueColumn[_] = {
     val applyFn: (LanguageType) => (ColumnInformation) => SimpleValueColumn[_] = kind match {
       case TextType => TextColumn.apply
       case RichTextType => RichTextColumn.apply
@@ -239,7 +264,8 @@ object SimpleValueColumn {
 /**
   * Base class for all primitive column types
   */
-sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(override val languageType: LanguageType) extends ColumnType[A] {
+sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(override val languageType: LanguageType)
+  extends ColumnType[A] {
 
   override def checkValidValue[B](value: B): Try[Option[A]] = {
     if (value == null) {
@@ -252,42 +278,68 @@ sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(o
   protected[this] def checkValidSingleValue[B](value: B): Try[A]
 }
 
-case class TextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](TextType)(languageType) {
+case class TextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
+  extends SimpleValueColumn[String](TextType)(languageType) {
+
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
-case class ShortTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](ShortTextType)(languageType) {
+case class ShortTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
+  extends SimpleValueColumn[String](ShortTextType)(languageType) {
+
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
-case class RichTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](RichTextType)(languageType) {
+case class RichTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
+  extends SimpleValueColumn[String](RichTextType)(languageType) {
+
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
-case class NumberColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Number](NumericType)(languageType) {
+case class NumberColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
+  extends SimpleValueColumn[Number](NumericType)(languageType) {
+
   override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
-case class CurrencyColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Number](CurrencyType)(languageType) {
+case class CurrencyColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
+  extends SimpleValueColumn[Number](CurrencyType)(languageType) {
+
   override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
-case class BooleanColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
+case class BooleanColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
+  extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
+
   override def checkValidSingleValue[B](value: B): Try[Boolean] = Try(value.asInstanceOf[Boolean])
 }
 
-case class DateColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](DateType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[String] = Try(LocalDate.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
+case class DateColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
+  extends SimpleValueColumn[String](DateType)(languageType) {
+
+  override def checkValidSingleValue[B](value: B): Try[String] = {
+    Try(LocalDate.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
+  }
 }
 
-case class DateTimeColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation) extends SimpleValueColumn[String](DateTimeType)(languageType) {
-  override def checkValidSingleValue[B](value: B): Try[String] = Try(DateTime.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
+case class DateTimeColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
+  extends SimpleValueColumn[String](DateTimeType)(languageType) {
+
+  override def checkValidSingleValue[B](value: B): Try[String] = {
+    Try(DateTime.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
+  }
 }
 
 /*
  * Special column types
  */
-case class LinkColumn(override val columnInformation: ColumnInformation, to: ColumnType[_], linkId: LinkId, linkDirection: LinkDirection) extends ColumnType[Seq[RowId]] with LazyLogging {
+case class LinkColumn(
+  override val columnInformation: ColumnInformation,
+  to: ColumnType[_],
+  linkId: LinkId,
+  linkDirection: LinkDirection
+) extends ColumnType[Seq[RowId]]
+    with LazyLogging {
   override val kind = LinkType
   override val languageType = to.languageType
 
@@ -330,11 +382,13 @@ case class LinkColumn(override val columnInformation: ColumnInformation, to: Col
 
         case x: JsonArray =>
           import scala.collection.JavaConverters._
-          x.asScala.map({
-            // need to check for java.lang.Integer because we are mapping over AnyRefs
-            case id: Integer => id.toLong
-            case obj: JsonObject => obj.getLong("id").toLong
-          }).toSeq
+          x.asScala
+            .map({
+              // need to check for java.lang.Integer because we are mapping over AnyRefs
+              case id: Integer => id.toLong
+              case obj: JsonObject => obj.getLong("id").toLong
+            })
+            .toSeq
 
         case x =>
           throw InvalidJsonException(s"A link column expects a JSON object with values, but got $x", "link-value")
@@ -345,34 +399,40 @@ case class LinkColumn(override val columnInformation: ColumnInformation, to: Col
   }
 }
 
-case class AttachmentColumn(override val columnInformation: ColumnInformation) extends ColumnType[Seq[(UUID, Option[Ordering])]] {
+case class AttachmentColumn(override val columnInformation: ColumnInformation)
+  extends ColumnType[Seq[(UUID, Option[Ordering])]] {
   override val kind = AttachmentType
   override val languageType = LanguageNeutral
 
-  override def checkValidValue[B](value: B): Try[Option[Seq[(UUID, Option[Ordering])]]] = Try {
-    val castedValue = value match {
-      case attachment: JsonObject =>
-        notNull(attachment.getString("uuid"), "uuid")
-        Seq((UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong)))
-      case attachments: JsonArray =>
-        import scala.collection.JavaConverters._
-        attachments.asScala.map({
-          case attachment: JsonObject =>
-            notNull(attachment.getString("uuid"), "uuid")
-            (UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong))
-        }).toSeq
-      case attachments: Stream[_] =>
-        attachments.map({
-          case file: AttachmentFile =>
-            (file.file.file.uuid, Some(file.ordering))
-        })
-    }
+  override def checkValidValue[B](value: B): Try[Option[Seq[(UUID, Option[Ordering])]]] = {
+    Try{
+      val castedValue = value match {
+        case attachment: JsonObject =>
+          notNull(attachment.getString("uuid"), "uuid")
+          Seq((UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong)))
+        case attachments: JsonArray =>
+          import scala.collection.JavaConverters._
+          attachments.asScala
+            .map({
+              case attachment: JsonObject =>
+                notNull(attachment.getString("uuid"), "uuid")
+                (UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong))
+            })
+            .toSeq
+        case attachments: Stream[_] =>
+          attachments.map({
+            case file: AttachmentFile =>
+              (file.file.file.uuid, Some(file.ordering))
+          })
+      }
 
-    Some(castedValue)
+      Some(castedValue)
+    }
   }
 }
 
-case class ConcatColumn(override val columnInformation: ConcatColumnInformation, columns: Seq[ColumnType[_]]) extends ColumnType[JsonArray] {
+case class ConcatColumn(override val columnInformation: ConcatColumnInformation, columns: Seq[ColumnType[_]])
+  extends ColumnType[JsonArray] {
   override val kind = ConcatType
 
   // If any of the columns is MultiLanguage or MultiCountry
@@ -392,7 +452,9 @@ case class ConcatColumn(override val columnInformation: ConcatColumnInformation,
 
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("concats" -> columns.map(_.getJson))
 
-  override def checkValidValue[B](value: B): Try[Option[JsonArray]] = Failure(new IllegalArgumentException("Cannot set a value for ConcatColumn. Value will be generated."))
+  override def checkValidValue[B](value: B): Try[Option[JsonArray]] = {
+    Failure(new IllegalArgumentException("Cannot set a value for ConcatColumn. Value will be generated."))
+  }
 }
 
 /**
@@ -401,5 +463,6 @@ case class ConcatColumn(override val columnInformation: ConcatColumnInformation,
   * @param columns The sequence of columns.
   */
 case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
+
   override def getJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
 }

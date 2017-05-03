@@ -32,7 +32,8 @@ class ArgumentCheckerTest {
   def checkInvalidGreaterZero(): Unit = {
     assertEquals(FailArg(InvalidJsonException("Argument -1 is not greater than zero", "invalid")), greaterZero(-1))
     assertEquals(FailArg(InvalidJsonException("Argument 0 is not greater than zero", "invalid")), greaterZero(0))
-    assertEquals(FailArg(InvalidJsonException(s"Argument ${Long.MinValue} is not greater than zero", "invalid")), greaterZero(Long.MinValue))
+    assertEquals(FailArg(InvalidJsonException(s"Argument ${Long.MinValue} is not greater than zero", "invalid")),
+      greaterZero(Long.MinValue))
   }
 
   @Test
@@ -44,9 +45,12 @@ class ArgumentCheckerTest {
 
   @Test
   def checkInvalidGreaterThan(): Unit = {
-    assertEquals(FailArg(InvalidJsonException("Argument test (-1) is less than 0.", "invalid")), greaterThan(-1, 0, "test"))
-    assertEquals(FailArg(InvalidJsonException("Argument test (100) is less than 1000.", "invalid")), greaterThan(100, 1000, "test"))
-    assertEquals(FailArg(InvalidJsonException(s"Argument test (${Long.MinValue}) is less than 0.", "invalid")), greaterThan(Long.MinValue, 0, "test"))
+    assertEquals(FailArg(InvalidJsonException("Argument test (-1) is less than 0.", "invalid")),
+      greaterThan(-1, 0, "test"))
+    assertEquals(FailArg(InvalidJsonException("Argument test (100) is less than 1000.", "invalid")),
+      greaterThan(100, 1000, "test"))
+    assertEquals(FailArg(InvalidJsonException(s"Argument test (${Long.MinValue}) is less than 0.", "invalid")),
+      greaterThan(Long.MinValue, 0, "test"))
   }
 
   @Test
@@ -66,7 +70,11 @@ class ArgumentCheckerTest {
 
   @Test
   def checkValidArguments(): Unit = {
-    checkArguments(notNull(123, "test"), greaterZero(1), greaterZero(2), notNull("foo", "test"), nonEmpty(Seq(123), "test"))
+    checkArguments(notNull(123, "test"),
+      greaterZero(1),
+      greaterZero(2),
+      notNull("foo", "test"),
+      nonEmpty(Seq(123), "test"))
   }
 
   @Test
@@ -115,7 +123,8 @@ class ArgumentCheckerTest {
       checkArguments(oneOf("d", List("a", "b", "c"), "oneof"))
       fail("Should throw an exception")
     } catch {
-      case ex: IllegalArgumentException => assertEquals("(0) 'oneof' value needs to be one of 'a', 'b', 'c'.", ex.getMessage)
+      case ex: IllegalArgumentException =>
+        assertEquals("(0) 'oneof' value needs to be one of 'a', 'b', 'c'.", ex.getMessage)
       case _: Throwable => fail("Should throw an IllegalArgumentException")
     }
   }
@@ -125,10 +134,8 @@ class ArgumentCheckerTest {
     val json = Json.obj(
       "string" -> "valid", // valid
       "no_string" -> 123, // invalid
-
       "array" -> Json.arr(1, 2, 3), // valid
       "no_array" -> "no array", // invalid
-
       "long" -> Long.MaxValue, // valid
       "no_long" -> "no long" // invalid
     )
@@ -141,18 +148,26 @@ class ArgumentCheckerTest {
     assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasArray("test", json))
     assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasLong("test", json))
 
-    assertEquals(FailArg(InvalidJsonException(
-      "Warning: no_string should be another type. Error: java.lang.Integer cannot be cast to java.lang.CharSequence", "invalid")),
+    assertEquals(
+      FailArg(InvalidJsonException(
+        "Warning: no_string should be another type. Error: java.lang.Integer cannot be cast to java.lang.CharSequence",
+        "invalid")),
       hasString("no_string", json)
     )
 
-    assertEquals(FailArg(InvalidJsonException(
-      "Warning: no_array should be another type. Error: java.lang.String cannot be cast to io.vertx.core.json.JsonArray", "invalid")),
+    assertEquals(
+      FailArg(
+        InvalidJsonException(
+          "Warning: no_array should be another type. Error: java.lang.String cannot be cast to io.vertx.core.json.JsonArray",
+          "invalid")),
       hasArray("no_array", json)
     )
 
-    assertEquals(FailArg(InvalidJsonException(
-      "Warning: no_long should be another type. Error: java.lang.String cannot be cast to java.lang.Number", "invalid")),
+    assertEquals(
+      FailArg(
+        InvalidJsonException(
+          "Warning: no_long should be another type. Error: java.lang.String cannot be cast to java.lang.Number",
+          "invalid")),
       hasLong("no_long", json)
     )
   }
@@ -171,17 +186,20 @@ class ArgumentCheckerTest {
     assertEquals(OkArg(okJson2), checkForAllValues[String](okJson2, _.isInstanceOf[String], "obj2"))
     assertEquals(OkArg(okJson3), checkForAllValues[String](okJson3, _.isInstanceOf[String], "obj3"))
 
-    assertEquals(FailArg(InvalidJsonException(
-      "Warning: obj4 has incorrectly typed value at key 'de_DE'.", "invalid")),
-      checkForAllValues[String](failJson1, _.isInstanceOf[String], "obj4"))
+    assertEquals(
+      FailArg(InvalidJsonException("Warning: obj4 has incorrectly typed value at key 'de_DE'.", "invalid")),
+      checkForAllValues[String](failJson1, _.isInstanceOf[String], "obj4")
+    )
 
-    assertEquals(FailArg(InvalidJsonException(
-      "Warning: obj5 has incorrectly typed value at key 'en_US'.", "invalid")),
-      checkForAllValues[String](failJson2, _.isInstanceOf[String], "obj5"))
+    assertEquals(
+      FailArg(InvalidJsonException("Warning: obj5 has incorrectly typed value at key 'en_US'.", "invalid")),
+      checkForAllValues[String](failJson2, _.isInstanceOf[String], "obj5")
+    )
 
-    assertEquals(FailArg(InvalidJsonException(
-      "Warning: obj6 has value 'de_DE' pointing at null.", "invalid")),
-      checkForAllValues[String](failJson3, _.isInstanceOf[String], "obj6"))
+    assertEquals(
+      FailArg(InvalidJsonException("Warning: obj6 has value 'de_DE' pointing at null.", "invalid")),
+      checkForAllValues[String](failJson3, _.isInstanceOf[String], "obj6")
+    )
 
   }
 }

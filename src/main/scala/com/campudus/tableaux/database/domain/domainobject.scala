@@ -37,6 +37,7 @@ trait DomainObjectHelper {
 }
 
 trait DomainObject extends DomainObjectHelper {
+
   def getJson: JsonObject
 
   /**
@@ -66,10 +67,12 @@ trait DomainObject extends DomainObjectHelper {
 }
 
 case class EmptyObject() extends DomainObject {
+
   override def getJson: JsonObject = Json.emptyObj()
 }
 
 case class PlainDomainObject(json: JsonObject) extends DomainObject {
+
   override def getJson: JsonObject = json
 }
 
@@ -92,7 +95,8 @@ object MultiLanguageValue {
     */
   def apply[A](obj: JsonObject): MultiLanguageValue[A] = {
     import scala.collection.JavaConverters._
-    val fields: Map[String, A] = obj.fieldNames().asScala.map(name => name -> obj.getValue(name).asInstanceOf[A])(collection.breakOut)
+    val fields: Map[String, A] =
+      obj.fieldNames().asScala.map(name => name -> obj.getValue(name).asInstanceOf[A])(collection.breakOut)
 
     MultiLanguageValue[A](fields)
   }
@@ -124,10 +128,12 @@ object MultiLanguageValue {
     })
 
     // convert to immutable map
-    result.map({
-      case (langtag, columnsValueMap) =>
-        (langtag, columnsValueMap.toMap)
-    }).toMap
+    result
+      .map({
+        case (langtag, columnsValueMap) =>
+          (langtag, columnsValueMap.toMap)
+      })
+      .toMap
   }
 }
 
@@ -135,6 +141,7 @@ object MultiLanguageValue {
   * Used for multi-language values in a DomainObject
   */
 case class MultiLanguageValue[A](values: Map[String, A]) extends DomainObject {
+
   override def getJson: JsonObject = {
     values.foldLeft(Json.emptyObj()) {
       case (obj, (langtag, value)) =>

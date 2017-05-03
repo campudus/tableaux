@@ -41,140 +41,152 @@ class PerformanceTest extends TableauxTestBase {
   }
 
   private def createPerformanceTestData(rows: Int): Future[Unit] = {
-    def createLinkColumns(linkTo: TableId) = Json.obj("columns" -> Json.arr(
-      Json.obj(
-        "kind" -> "link",
-        "name" -> "Test Column 8",
-        "toTable" -> linkTo,
-        "toName" -> "Test Column 8"
-      ),
-      Json.obj(
-        "kind" -> "link",
-        "name" -> "Test Column 9",
-        "toTable" -> linkTo,
-        "toName" -> "Test Column 9"
-      ),
-      Json.obj(
-        "kind" -> "link",
-        "name" -> "Test Column 10",
-        "toTable" -> linkTo,
-        "toName" -> "Test Column 10"
-      )
-    ))
 
-    def valuesRow = Json.obj(
-      "columns" -> Json.arr(
-        Json.obj("id" -> 1),
-        Json.obj("id" -> 2),
-        Json.obj("id" -> 3),
-        Json.obj("id" -> 4),
-        Json.obj("id" -> 5),
-        Json.obj("id" -> 6),
-        Json.obj("id" -> 7)
-      ),
-      "rows" -> Json.arr(
-        Json.obj("values" ->
-          Json.arr(
-            Json.obj(
-              "de-DE" -> "Hallo, Welt!",
-              "en-GB" -> "Hello, World!"
-            ),
-            Json.obj(
-              "de-DE" -> true,
-              "en-GB" -> false
-            ),
-            Json.obj(
-              "de-DE" -> 1.234,
-              "en-GB" -> 4.321
-            ),
-            Json.obj(
-              "de-DE" -> "Hallo, Welt!",
-              "en-GB" -> "Hello, World!"
-            ),
-            Json.obj(
-              "de-DE" -> "Hallo, Welt!",
-              "en-GB" -> "Hello, World!"
-            ),
-            Json.obj(
-              "de-DE" -> "2015-01-01",
-              "en-GB" -> "2016-01-01"
-            ),
-            Json.obj(
-              "de-DE" -> "2015-01-01T13:37:47.110Z",
-              "en-GB" -> "2016-01-01T13:37:47.110Z"
-            )
+    def createLinkColumns(linkTo: TableId) = {
+      Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "kind" -> "link",
+            "name" -> "Test Column 8",
+            "toTable" -> linkTo,
+            "toName" -> "Test Column 8"
+          ),
+          Json.obj(
+            "kind" -> "link",
+            "name" -> "Test Column 9",
+            "toTable" -> linkTo,
+            "toName" -> "Test Column 9"
+          ),
+          Json.obj(
+            "kind" -> "link",
+            "name" -> "Test Column 10",
+            "toTable" -> linkTo,
+            "toName" -> "Test Column 10"
           )
+        ))
+    }
+
+    def valuesRow = {
+      Json.obj(
+        "columns" -> Json.arr(
+          Json.obj("id" -> 1),
+          Json.obj("id" -> 2),
+          Json.obj("id" -> 3),
+          Json.obj("id" -> 4),
+          Json.obj("id" -> 5),
+          Json.obj("id" -> 6),
+          Json.obj("id" -> 7)
+        ),
+        "rows" -> Json.arr(
+          Json.obj(
+            "values" ->
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> "Hallo, Welt!",
+                  "en-GB" -> "Hello, World!"
+                ),
+                Json.obj(
+                  "de-DE" -> true,
+                  "en-GB" -> false
+                ),
+                Json.obj(
+                  "de-DE" -> 1.234,
+                  "en-GB" -> 4.321
+                ),
+                Json.obj(
+                  "de-DE" -> "Hallo, Welt!",
+                  "en-GB" -> "Hello, World!"
+                ),
+                Json.obj(
+                  "de-DE" -> "Hallo, Welt!",
+                  "en-GB" -> "Hello, World!"
+                ),
+                Json.obj(
+                  "de-DE" -> "2015-01-01",
+                  "en-GB" -> "2016-01-01"
+                ),
+                Json.obj(
+                  "de-DE" -> "2015-01-01T13:37:47.110Z",
+                  "en-GB" -> "2016-01-01T13:37:47.110Z"
+                )
+              ))
         )
       )
-    )
+    }
 
-    def valuesRowWithLink(linkColumnId1: Long, linkColumnId2: Long, linkColumnId3: Long, linkRowId: RowId) = Json.obj(
-      "columns" -> Json.arr(
-        Json.obj("id" -> 1),
-        Json.obj("id" -> 2),
-        Json.obj("id" -> 3),
-        Json.obj("id" -> 4),
-        Json.obj("id" -> 5),
-        Json.obj("id" -> 6),
-        Json.obj("id" -> 7),
-        Json.obj("id" -> linkColumnId1),
-        Json.obj("id" -> linkColumnId2),
-        Json.obj("id" -> linkColumnId3)
-      ),
-      "rows" -> Json.arr(
-        Json.obj("values" ->
-          Json.arr(
-            Json.obj(
-              "de-DE" -> "Hallo, Welt!",
-              "en-GB" -> "Hello, World!"
-            ),
-            Json.obj(
-              "de-DE" -> true,
-              "en-GB" -> false
-            ),
-            Json.obj(
-              "de-DE" -> 1.234,
-              "en-GB" -> 4.321
-            ),
-            Json.obj(
-              "de-DE" -> "Hallo, Welt!",
-              "en-GB" -> "Hello, World!"
-            ),
-            Json.obj(
-              "de-DE" -> "Hallo, Welt!",
-              "en-GB" -> "Hello, World!"
-            ),
-            Json.obj(
-              "de-DE" -> "2015-01-01",
-              "en-GB" -> "2016-01-01"
-            ),
-            Json.obj(
-              "de-DE" -> "2015-01-01T13:37:47.110Z",
-              "en-GB" -> "2016-01-01T13:37:47.110Z"
-            ),
-            Json.obj(
-              "values" -> Json.arr(linkRowId)
-            ),
-            Json.obj(
-              "values" -> Json.arr(linkRowId)
-            ),
-            Json.obj(
-              "values" -> Json.arr(linkRowId)
-            )
-          )
+    def valuesRowWithLink(linkColumnId1: Long, linkColumnId2: Long, linkColumnId3: Long, linkRowId: RowId) = {
+      Json.obj(
+        "columns" -> Json.arr(
+          Json.obj("id" -> 1),
+          Json.obj("id" -> 2),
+          Json.obj("id" -> 3),
+          Json.obj("id" -> 4),
+          Json.obj("id" -> 5),
+          Json.obj("id" -> 6),
+          Json.obj("id" -> 7),
+          Json.obj("id" -> linkColumnId1),
+          Json.obj("id" -> linkColumnId2),
+          Json.obj("id" -> linkColumnId3)
+        ),
+        "rows" -> Json.arr(
+          Json.obj(
+            "values" ->
+              Json.arr(
+                Json.obj(
+                  "de-DE" -> "Hallo, Welt!",
+                  "en-GB" -> "Hello, World!"
+                ),
+                Json.obj(
+                  "de-DE" -> true,
+                  "en-GB" -> false
+                ),
+                Json.obj(
+                  "de-DE" -> 1.234,
+                  "en-GB" -> 4.321
+                ),
+                Json.obj(
+                  "de-DE" -> "Hallo, Welt!",
+                  "en-GB" -> "Hello, World!"
+                ),
+                Json.obj(
+                  "de-DE" -> "Hallo, Welt!",
+                  "en-GB" -> "Hello, World!"
+                ),
+                Json.obj(
+                  "de-DE" -> "2015-01-01",
+                  "en-GB" -> "2016-01-01"
+                ),
+                Json.obj(
+                  "de-DE" -> "2015-01-01T13:37:47.110Z",
+                  "en-GB" -> "2016-01-01T13:37:47.110Z"
+                ),
+                Json.obj(
+                  "values" -> Json.arr(linkRowId)
+                ),
+                Json.obj(
+                  "values" -> Json.arr(linkRowId)
+                ),
+                Json.obj(
+                  "values" -> Json.arr(linkRowId)
+                )
+              ))
         )
       )
-    )
+    }
 
     for {
       table1 <- createTableWithMultilanguageColumnsAndConcatColumn("Table 1")
       table2 <- createTableWithMultilanguageColumnsAndConcatColumn("Table 2")
 
       linkColumns <- sendRequest("POST", s"/tables/${table1._1}/columns", createLinkColumns(table2._1))
-      (linkColumnId1, linkColumnId2, linkColumnId3) = linkColumns.getArray("columns").asScala.toList.map({
-        case t: JsonObject =>
-          t.getLong("id").toLong
-      }) match {
+      (linkColumnId1, linkColumnId2, linkColumnId3) = linkColumns
+        .getArray("columns")
+        .asScala
+        .toList
+        .map({
+          case t: JsonObject =>
+            t.getLong("id").toLong
+        }) match {
         case List(id1, id2, id3) =>
           (id1, id2, id3)
       }
@@ -184,28 +196,37 @@ class PerformanceTest extends TableauxTestBase {
       // Fill table 2
       _ <- Range(1, rows).grouped(100).foldLeft(Future.successful(())) {
         case (future, group) =>
-          future.flatMap({
-            _ =>
-              Future.sequence(group.map({ _ =>
+          future.flatMap({ _ => {
+            Future
+              .sequence(group.map({ _ => {
                 sendStringRequest("POST", s"/tables/${table2._1}/rows", valuesRow)
-              })).map({ _ =>
+              }
+              }))
+              .map({ _ =>
                 logger.info(s"Finished table 2 group ${group.head}")
                 ()
               })
+          }
           })
       }
 
       // Fill table 1
       _ <- Range(1, rows).grouped(100).foldLeft(Future.successful(())) {
         case (future, group) =>
-          future.flatMap({
-            _ =>
-              Future.sequence(group.map({ rowId: Int =>
-                sendStringRequest("POST", s"/tables/${table1._1}/rows", valuesRowWithLink(linkColumnId1, linkColumnId2, linkColumnId3, rowId))
-              })).map({ _ =>
+          future.flatMap({ _ => {
+            Future
+              .sequence(group.map({ rowId: Int => {
+                sendStringRequest("POST",
+                  s"/tables/${table1._1}/rows",
+                  valuesRowWithLink(linkColumnId1, linkColumnId2, linkColumnId3, rowId))
+              }
+              }))
+              .map({ _ => {
                 logger.info(s"Finished table 1 group ${group.head}")
                 ()
+              }
               })
+          }
           })
       }
     } yield ()
@@ -225,14 +246,15 @@ class PerformanceTest extends TableauxTestBase {
 
       elapsedTimes <- Range(1, times + warmUp).foldLeft(Future.successful(Seq.empty[Long]))({
         case (resultsFuture, x) =>
-          resultsFuture.flatMap({
-            results =>
-              // Send request and measure round-trip time in ms
-              sendTimedRequest("GET", "/tables/1/rows")
-                .flatMap({
-                  duration =>
-                    Future(results ++ Seq(duration))
-                })
+          resultsFuture.flatMap({ results =>
+            // Send request and measure round-trip time in ms
+          {
+            sendTimedRequest("GET", "/tables/1/rows")
+              .flatMap({ duration => {
+                Future(results ++ Seq(duration))
+              }
+              })
+          }
           })
       })
     } yield {

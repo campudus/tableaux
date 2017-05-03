@@ -7,12 +7,14 @@ import org.vertx.scala.core.json.Json
 object RequestCreation {
 
   object Columns {
+
     def apply(): Columns = {
       new Columns(Seq.empty)
     }
   }
 
   case class Columns(columns: Seq[ColumnType]) {
+
     def add(column: ColumnType): Columns = {
       Columns(columns.:+(column))
     }
@@ -47,10 +49,11 @@ object RequestCreation {
     val biDirectional: Boolean
 
     override def getJson: JsonObject = {
-      super.getJson.mergeIn(Json.obj(
-        "toTable" -> linkTo,
-        "singleDirection" -> !biDirectional
-      ))
+      super.getJson.mergeIn(
+        Json.obj(
+          "toTable" -> linkTo,
+          "singleDirection" -> !biDirectional
+        ))
     }
   }
 
@@ -75,8 +78,7 @@ object RequestCreation {
     val name: String = column.name
 
     override def getJson: JsonObject = {
-      column
-        .getJson
+      column.getJson
         .mergeIn(
           Json.obj(
             "languageType" -> "country",

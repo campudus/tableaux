@@ -9,6 +9,7 @@ import org.vertx.scala.core.json._
 import scala.concurrent.Future
 
 object TableGroupModel {
+
   def apply(connection: DatabaseConnection): TableGroupModel = {
     new TableGroupModel(connection)
   }
@@ -27,7 +28,11 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
     }
   }
 
-  private def createTableDisplayInfos(t: connection.Transaction, tableGroupId: TableGroupId, displayInfos: Seq[DisplayInfo]): Future[(connection.Transaction, JsonObject)] = {
+  private def createTableDisplayInfos(
+    t: connection.Transaction,
+    tableGroupId: TableGroupId,
+    displayInfos: Seq[DisplayInfo]
+  ): Future[(connection.Transaction, JsonObject)] = {
     if (displayInfos.nonEmpty) {
       val (statement, binds) = TableGroupDisplayInfos(tableGroupId, displayInfos).createSql
 
@@ -53,7 +58,8 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
 
   private def retrieveWithDisplayInfos(id: TableGroupId): Future[TableGroup] = {
     for {
-      displayInfoResult <- connection.query("SELECT id, langtag, name, description FROM system_tablegroup_lang WHERE id = ?", Json.arr(id))
+      displayInfoResult <- connection
+        .query("SELECT id, langtag, name, description FROM system_tablegroup_lang WHERE id = ?", Json.arr(id))
       _ = selectNotNull(displayInfoResult)
     } yield {
       mapDisplayInfosIntoTableGroup(displayInfoResult).head
@@ -76,10 +82,12 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
           .map(arr => DisplayInfos.fromString(arr.getString(1), arr.getString(2), arr.getString(3)))
       )
 
-    displayInfoTable.map({
-      case (id, displayInfos) =>
-        TableGroup(id, displayInfos)
-    }).toList
+    displayInfoTable
+      .map({
+        case (id, displayInfos) =>
+          TableGroup(id, displayInfos)
+      })
+      .toList
   }
 
   def delete(tableGroupId: TableGroupId): Future[Unit] = {
@@ -103,7 +111,11 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
     } yield ()
   }
 
-  private def insertOrUpdateTableDisplayInfo(t: connection.Transaction, tableGroupId: TableGroupId, optDisplayInfos: Option[Seq[DisplayInfo]]): Future[connection.Transaction] = {
+  private def insertOrUpdateTableDisplayInfo(
+    t: connection.Transaction,
+    tableGroupId: TableGroupId,
+    optDisplayInfos: Option[Seq[DisplayInfo]]
+  ): Future[connection.Transaction] = {
     optDisplayInfos match {
       case Some(displayInfos) =>
         val dis = TableGroupDisplayInfos(tableGroupId, displayInfos)
@@ -111,7 +123,8 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
           case (future, di) =>
             for {
               t <- future
-              (t, select) <- t.query("SELECT COUNT(*) FROM system_tablegroup_lang WHERE id = ? AND langtag = ?", Json.arr(tableGroupId, di.langtag))
+              (t, select) <- t.query("SELECT COUNT(*) FROM system_tablegroup_lang WHERE id = ? AND langtag = ?",
+                Json.arr(tableGroupId, di.langtag))
               count = select.getJsonArray("results").getJsonArray(0).getLong(0)
               (statement, binds) = if (count > 0) {
                 dis.updateSql(di.langtag)

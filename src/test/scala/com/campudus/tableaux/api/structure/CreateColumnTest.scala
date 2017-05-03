@@ -14,7 +14,9 @@ class CreateColumnTest extends TableauxTestBase {
 
   def createTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.TextCol(name)).getJson
 
-  def createShortTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.ShortTextCol(name)).getJson
+  def createShortTextColumnJson(name: String) = {
+    RequestCreation.Columns().add(RequestCreation.ShortTextCol(name)).getJson
+  }
 
   def createRichTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.RichTextCol(name)).getJson
 
@@ -25,143 +27,335 @@ class CreateColumnTest extends TableauxTestBase {
   def createBooleanColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.BooleanCol(name)).getJson
 
   @Test
-  def createTextColumn(implicit c: TestContext): Unit = okTest {
-    val createColumn1 = createTextColumnJson("column1")
-    val createColumn2 = createTextColumnJson("column2")
+  def createTextColumn(implicit c: TestContext): Unit = {
+    okTest{
+      val createColumn1 = createTextColumnJson("column1")
+      val createColumn2 = createTextColumnJson("column2")
 
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
+      )
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 2,
+              "ordering" -> 2,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
+      )
 
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
-    } yield {
-      assertEquals(expectedJson, test1)
-      assertEquals(expectedJson2, test2)
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+      } yield {
+        assertEquals(expectedJson, test1)
+        assertEquals(expectedJson2, test2)
+      }
     }
   }
 
   @Test
-  def createShortTextColumn(implicit c: TestContext): Unit = okTest {
-    val createColumn1 = createShortTextColumnJson("column1")
-    val createColumn2 = createShortTextColumnJson("column2")
+  def createShortTextColumn(implicit c: TestContext): Unit = {
+    okTest{
+      val createColumn1 = createShortTextColumnJson("column1")
+      val createColumn2 = createShortTextColumnJson("column2")
 
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
+      )
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 2,
+              "ordering" -> 2,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
+      )
 
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
-    } yield {
-      assertEquals(expectedJson, test1)
-      assertEquals(expectedJson2, test2)
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+      } yield {
+        assertEquals(expectedJson, test1)
+        assertEquals(expectedJson2, test2)
+      }
     }
   }
 
   @Test
-  def createRichTextColumn(implicit c: TestContext): Unit = okTest {
-    val createColumn1 = createRichTextColumnJson("column1")
-    val createColumn2 = createRichTextColumnJson("column2")
+  def createRichTextColumn(implicit c: TestContext): Unit = {
+    okTest{
+      val createColumn1 = createRichTextColumnJson("column1")
+      val createColumn2 = createRichTextColumnJson("column2")
 
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
+      )
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 2,
+              "ordering" -> 2,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
+      )
 
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
-    } yield {
-      assertEquals(expectedJson, test1)
-      assertEquals(expectedJson2, test2)
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+      } yield {
+        assertEquals(expectedJson, test1)
+        assertEquals(expectedJson2, test2)
+      }
     }
   }
 
   @Test
-  def createNumberColumn(implicit c: TestContext): Unit = okTest {
-    val createColumn1 = createNumberColumnJson("column1")
-    val createColumn2 = createNumberColumnJson("column2")
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
+  def createNumberColumn(implicit c: TestContext): Unit = {
+    okTest{
+      val createColumn1 = createNumberColumnJson("column1")
+      val createColumn2 = createNumberColumnJson("column2")
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
+      )
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 2,
+              "ordering" -> 2,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
+      )
 
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
-    } yield {
-      assertEquals(expectedJson, test1)
-      assertEquals(expectedJson2, test2)
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+      } yield {
+        assertEquals(expectedJson, test1)
+        assertEquals(expectedJson2, test2)
+      }
     }
   }
 
   @Test
-  def createCurrencyColumn(implicit c: TestContext): Unit = okTest {
-    val createColumn1 = createCurrencyColumnJson("column1")
-    val createColumn2 = createCurrencyColumnJson("column2")
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
+  def createCurrencyColumn(implicit c: TestContext): Unit = {
+    okTest{
+      val createColumn1 = createCurrencyColumnJson("column1")
+      val createColumn2 = createCurrencyColumnJson("column2")
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
+      )
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 2,
+              "ordering" -> 2,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
+      )
 
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
-    } yield {
-      assertEquals(expectedJson, test1)
-      assertEquals(expectedJson2, test2)
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+      } yield {
+        assertEquals(expectedJson, test1)
+        assertEquals(expectedJson2, test2)
+      }
     }
   }
 
   @Test
-  def createBooleanColumn(implicit c: TestContext): Unit = okTest {
-    val createColumn1 = createBooleanColumnJson("column1")
-    val createColumn2 = createBooleanColumnJson("column2")
+  def createBooleanColumn(implicit c: TestContext): Unit = {
+    okTest{
+      val createColumn1 = createBooleanColumnJson("column1")
+      val createColumn2 = createBooleanColumnJson("column2")
 
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 1, "ordering" -> 1, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))))
-    val expectedJson2 = Json.obj("status" -> "ok", "columns" -> Json.arr(Json.obj("id" -> 2, "ordering" -> 2, "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()).mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))))
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
+      )
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj("id" -> 2,
+              "ordering" -> 2,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj())
+            .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
+      )
 
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-      test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
-    } yield {
-      assertEquals(expectedJson, test1)
-      assertEquals(expectedJson2, test2)
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+      } yield {
+        assertEquals(expectedJson, test1)
+        assertEquals(expectedJson2, test2)
+      }
     }
   }
 
   @Test
-  def createMultipleColumns(implicit c: TestContext): Unit = okTest {
-    val jsonObj = Json.obj("columns" -> Json.arr(
-      Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
-      Json.obj("kind" -> "text", "name" -> "Test Column 2")))
+  def createMultipleColumns(implicit c: TestContext): Unit = {
+    okTest{
+      val jsonObj = Json.obj(
+        "columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
+          Json.obj("kind" -> "text", "name" -> "Test Column 2")))
 
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
-      Json.obj("id" -> 1, "ordering" -> 1, "kind" -> "numeric", "name" -> "Test Column 1", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
-      Json.obj("id" -> 2, "ordering" -> 2, "kind" -> "text", "name" -> "Test Column 2", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())))
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj(
+            "id" -> 1,
+            "ordering" -> 1,
+            "kind" -> "numeric",
+            "name" -> "Test Column 1",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj()
+          ),
+          Json.obj(
+            "id" -> 2,
+            "ordering" -> 2,
+            "kind" -> "text",
+            "name" -> "Test Column 2",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj()
+          )
+        )
+      )
 
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      test <- sendRequest("POST", "/tables/1/columns", jsonObj)
-    } yield {
-      assertEquals(expectedJson, test)
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test <- sendRequest("POST", "/tables/1/columns", jsonObj)
+      } yield {
+        assertEquals(expectedJson, test)
+      }
     }
   }
 
   @Test
-  def createMultipleColumnsWithOrdering(implicit c: TestContext): Unit = okTest {
-    val jsonObj = Json.obj("columns" -> Json.arr(
-      Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "ordering" -> 2),
-      Json.obj("kind" -> "text", "name" -> "Test Column 2", "ordering" -> 1)))
-    val expectedJson = Json.obj("status" -> "ok", "columns" -> Json.arr(
-      Json.obj("id" -> 2, "ordering" -> 1, "kind" -> "text", "name" -> "Test Column 2", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj()),
-      Json.obj("id" -> 1, "ordering" -> 2, "kind" -> "numeric", "name" -> "Test Column 1", "multilanguage" -> false, "identifier" -> false, "displayName" -> Json.obj(), "description" -> Json.obj())))
+  def createMultipleColumnsWithOrdering(implicit c: TestContext): Unit = {
+    okTest{
+      val jsonObj = Json.obj(
+        "columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "ordering" -> 2),
+          Json.obj("kind" -> "text", "name" -> "Test Column 2", "ordering" -> 1)))
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj(
+            "id" -> 2,
+            "ordering" -> 1,
+            "kind" -> "text",
+            "name" -> "Test Column 2",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj()
+          ),
+          Json.obj(
+            "id" -> 1,
+            "ordering" -> 2,
+            "kind" -> "numeric",
+            "name" -> "Test Column 1",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj()
+          )
+        )
+      )
 
-    for {
-      _ <- sendRequest("POST", "/tables", createTableJson)
-      test <- sendRequest("POST", "/tables/1/columns", jsonObj)
-    } yield {
-      assertEquals(expectedJson, test)
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test <- sendRequest("POST", "/tables/1/columns", jsonObj)
+      } yield {
+        assertEquals(expectedJson, test)
+      }
     }
   }
 }

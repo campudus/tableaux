@@ -130,7 +130,6 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
   }
 }
 
-
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private lazy val tableStruc = new TableModel(connection)
@@ -154,33 +153,62 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       case simpleColumnInfo: CreateSimpleColumn =>
         createValueColumn(table.id, simpleColumnInfo).map({
           case CreatedColumnInformation(tableId, id, ordering, displayInfos) =>
-            SimpleValueColumn(simpleColumnInfo.kind, simpleColumnInfo.languageType, BasicColumnInformation(table, id, simpleColumnInfo.name, ordering, simpleColumnInfo.identifier, displayInfos))
+            SimpleValueColumn(
+              simpleColumnInfo.kind,
+              simpleColumnInfo.languageType,
+              BasicColumnInformation(table,
+                id,
+                simpleColumnInfo.name,
+                ordering,
+                simpleColumnInfo.identifier,
+                displayInfos)
+            )
         })
 
-      case linkColumnInfo: CreateLinkColumn => for {
-        toTable <- tableStruc.retrieve(linkColumnInfo.toTable)
-        toTableColumns <- retrieveAll(toTable).flatMap({
-          columns =>
+      case linkColumnInfo: CreateLinkColumn =>
+        for {
+          toTable <- tableStruc.retrieve(linkColumnInfo.toTable)
+          toTableColumns <- retrieveAll(toTable).flatMap({ columns => {
             if (columns.isEmpty) {
-              Future.failed(NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
+              Future.failed(
+                NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
             } else {
               Future.successful(columns)
             }
-        })
+          }
+          })
 
-        toCol = toTableColumns.head
+          toCol = toTableColumns.head
 
-        (linkId, CreatedColumnInformation(_, id, ordering, displayInfos)) <- createLinkColumn(table, toTable, linkColumnInfo)
-      } yield LinkColumn(BasicColumnInformation(table, id, linkColumnInfo.name, ordering, linkColumnInfo.identifier, displayInfos), toCol, linkId, LeftToRight(table.id, linkColumnInfo.toTable))
+          (linkId, CreatedColumnInformation(_, id, ordering, displayInfos)) <- createLinkColumn(table,
+            toTable,
+            linkColumnInfo)
+        } yield
+          LinkColumn(
+            BasicColumnInformation(table, id, linkColumnInfo.name, ordering, linkColumnInfo.identifier, displayInfos),
+            toCol,
+            linkId,
+            LeftToRight(table.id, linkColumnInfo.toTable)
+          )
 
       case attachmentColumnInfo: CreateAttachmentColumn =>
         createAttachmentColumn(table.id, attachmentColumnInfo).map({
-          case CreatedColumnInformation(tableId, id, ordering, displayInfos) => AttachmentColumn(BasicColumnInformation(table, id, attachmentColumnInfo.name, ordering, attachmentColumnInfo.identifier, displayInfos))
+          case CreatedColumnInformation(tableId, id, ordering, displayInfos) =>
+            AttachmentColumn(
+              BasicColumnInformation(table,
+                id,
+                attachmentColumnInfo.name,
+                ordering,
+                attachmentColumnInfo.identifier,
+                displayInfos))
         })
     }
   }
 
-  private def createValueColumn(tableId: TableId, simpleColumnInfo: CreateSimpleColumn): Future[CreatedColumnInformation] = {
+  private def createValueColumn(
+    tableId: TableId,
+    simpleColumnInfo: CreateSimpleColumn
+  ): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
         (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None)
@@ -201,7 +229,10 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createAttachmentColumn(tableId: TableId, attachmentColumnInfo: CreateAttachmentColumn): Future[CreatedColumnInformation] = {
+  private def createAttachmentColumn(
+    tableId: TableId,
+    attachmentColumnInfo: CreateAttachmentColumn
+  ): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
         (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None)
@@ -209,12 +240,18 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createLinkColumn(table: Table, toTable: Table, linkColumnInfo: CreateLinkColumn): Future[(LinkId, CreatedColumnInformation)] = {
+  private def createLinkColumn(
+    table: Table,
+    toTable: Table,
+    linkColumnInfo: CreateLinkColumn
+  ): Future[(LinkId, CreatedColumnInformation)] = {
     val tableId = table.id
 
-    connection.transactional { t =>
+    connection.transactional { t => {
       for {
-        (t, result) <- t.query("INSERT INTO system_link_table (table_id_1, table_id_2) VALUES (?, ?) RETURNING link_id", Json.arr(tableId, linkColumnInfo.toTable))
+        (t, result) <- t.query(
+          "INSERT INTO system_link_table (table_id_1, table_id_2) VALUES (?, ?) RETURNING link_id",
+          Json.arr(tableId, linkColumnInfo.toTable))
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
@@ -245,41 +282,49 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
         (t, _) <- t.query(
           s"""
-             |CREATE TABLE link_table_$linkId (
-             | id_1 bigint,
-             | id_2 bigint,
-             | ordering_1 serial,
-             | ordering_2 serial,
-             |
-             | PRIMARY KEY(id_1, id_2),
-             |
-             | CONSTRAINT link_table_${linkId}_foreign_1
-             | FOREIGN KEY(id_1) REFERENCES user_table_$tableId (id) ON DELETE CASCADE,
-             |
-             | CONSTRAINT link_table_${linkId}_foreign_2
-             | FOREIGN KEY(id_2) REFERENCES user_table_${linkColumnInfo.toTable} (id) ON DELETE CASCADE
-             |)""".stripMargin)
+CREATE TABLE link_table_$linkId (
+ id_1 bigint,
+ id_2 bigint,
+ ordering_1 serial,
+ ordering_2 serial,
+
+ PRIMARY KEY(id_1, id_2),
+
+ CONSTRAINT link_table_${linkId}_foreign_1
+ FOREIGN KEY(id_1) REFERENCES user_table_$tableId (id) ON DELETE CASCADE,
+
+ CONSTRAINT link_table_${linkId}_foreign_2
+ FOREIGN KEY(id_2) REFERENCES user_table_${linkColumnInfo.toTable} (id) ON DELETE CASCADE
+)""".stripMargin)
       } yield {
         (t, (linkId, columnInfo))
       }
     }
+    }
   }
 
-  private def insertSystemColumn(t: connection.Transaction, tableId: TableId, createColumn: CreateColumn, linkId: Option[LinkId]): Future[(connection.Transaction, CreatedColumnInformation)] = {
-    def insertStatement(tableId: TableId, ordering: String) =
+  private def insertSystemColumn(
+    t: connection.Transaction,
+    tableId: TableId,
+    createColumn: CreateColumn,
+    linkId: Option[LinkId]
+  ): Future[(connection.Transaction, CreatedColumnInformation)] = {
+
+    def insertStatement(tableId: TableId, ordering: String) = {
       s"""INSERT INTO system_columns (
-          |table_id,
-          |column_id,
-          |column_type,
-          |user_column_name,
-          |ordering,
-          |link_id,
-          |multilanguage,
-          |identifier,
-          |country_codes
-          |)
-          |VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?)
-          |RETURNING column_id, ordering""".stripMargin
+table_id,
+column_id,
+column_type,
+user_column_name,
+ordering,
+link_id,
+multilanguage,
+identifier,
+country_codes
+)
+VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?)
+RETURNING column_id, ordering""".stripMargin
+    }
 
     val countryCodes = createColumn.languageType match {
       case MultiCountry(codes) => Some(codes.codes)
@@ -288,7 +333,9 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     def insertColumn(t: connection.Transaction): Future[(connection.Transaction, CreatedColumnInformation)] = {
       for {
-        t <- t.selectSingleValue[Long]("SELECT COUNT(*) FROM system_columns WHERE table_id = ? AND user_column_name = ?", Json.arr(tableId, createColumn.name))
+        t <- t
+          .selectSingleValue[Long]("SELECT COUNT(*) FROM system_columns WHERE table_id = ? AND user_column_name = ?",
+          Json.arr(tableId, createColumn.name))
           .flatMap({
             case (t, count) =>
               if (count > 0) {
@@ -299,8 +346,33 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           })
 
         (t, result) <- createColumn.ordering match {
-          case None => t.query(insertStatement(tableId, s"currval('system_columns_column_id_table_$tableId')"), Json.arr(tableId, createColumn.kind.name, createColumn.name, linkId.orNull, createColumn.languageType.toString, createColumn.identifier, countryCodes.map(f => Json.arr(f: _*)).orNull))
-          case Some(ord) => t.query(insertStatement(tableId, "?"), Json.arr(tableId, createColumn.kind.name, createColumn.name, ord, linkId.orNull, createColumn.languageType.toString, createColumn.identifier, countryCodes.map(f => Json.arr(f: _*)).orNull))
+          case None =>
+            t.query(
+              insertStatement(tableId, s"currval('system_columns_column_id_table_$tableId')"),
+              Json.arr(
+                tableId,
+                createColumn.kind.name,
+                createColumn.name,
+                linkId.orNull,
+                createColumn.languageType.toString,
+                createColumn.identifier,
+                countryCodes.map(f => Json.arr(f: _*)).orNull
+              )
+            )
+          case Some(ord) =>
+            t.query(
+              insertStatement(tableId, "?"),
+              Json.arr(
+                tableId,
+                createColumn.kind.name,
+                createColumn.name,
+                ord,
+                linkId.orNull,
+                createColumn.languageType.toString,
+                createColumn.identifier,
+                countryCodes.map(f => Json.arr(f: _*)).orNull
+              )
+            )
         }
       } yield {
         val resultRow = insertNotNull(result).head
@@ -308,7 +380,10 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       }
     }
 
-    def insertColumnLang(t: connection.Transaction, displayInfos: ColumnDisplayInfos): Future[(connection.Transaction, Seq[DisplayInfo])] = {
+    def insertColumnLang(
+      t: connection.Transaction,
+      displayInfos: ColumnDisplayInfos
+    ): Future[(connection.Transaction, Seq[DisplayInfo])] = {
       if (displayInfos.nonEmpty) {
         val (statement, binds) = displayInfos.createSql
         for {
@@ -328,33 +403,34 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   def retrieveDependencies(tableId: TableId, depth: Int = MAX_DEPTH): Future[Seq[(TableId, ColumnId)]] = {
     val select =
       s"""SELECT table_id, column_id, identifier
-          | FROM system_link_table l JOIN system_columns d ON (l.link_id = d.link_id)
-          | WHERE (l.table_id_1 = ? OR l.table_id_2 = ?) AND d.table_id != ? ORDER BY ordering, column_id""".stripMargin
+         | FROM system_link_table l JOIN system_columns d ON (l.link_id = d.link_id)
+         | WHERE (l.table_id_1 = ? OR l.table_id_2 = ?) AND d.table_id != ? ORDER BY ordering, column_id""".stripMargin
 
     for {
       dependentColumns <- connection.query(select, Json.arr(tableId, tableId, tableId))
       mappedColumns <- {
         val futures = resultObjectToJsonArray(dependentColumns)
-          .map({
-            arr =>
-              val tableId = arr.get[TableId](0)
-              val columnId = arr.get[ColumnId](1)
-              val identifier = arr.get[Boolean](2)
+          .map({ arr => {
+            val tableId = arr.get[TableId](0)
+            val columnId = arr.get[ColumnId](1)
+            val identifier = arr.get[Boolean](2)
 
-              identifier match {
-                case false =>
-                  Future.successful(Seq((tableId, columnId)))
-                case true =>
-                  if (depth > 0) {
-                    retrieveDependencies(tableId, depth - 1)
-                      .map(_ ++ Seq((tableId, columnId)))
-                  } else {
-                    Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
-                  }
-              }
+            identifier match {
+              case false =>
+                Future.successful(Seq((tableId, columnId)))
+              case true =>
+                if (depth > 0) {
+                  retrieveDependencies(tableId, depth - 1)
+                    .map(_ ++ Seq((tableId, columnId)))
+                } else {
+                  Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
+                }
+            }
+          }
           })
 
-        Future.sequence(futures)
+        Future
+          .sequence(futures)
           .map(_.flatten)
       }
     } yield mappedColumns
@@ -378,16 +454,16 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       result <- connection.query(select, Json.arr(tableId, tableId))
     } yield {
       resultObjectToJsonArray(result)
-        .map({
-          row =>
-            val linkId = row.get[LinkId](0)
-            val tableId1 = row.get[TableId](1)
-            val tableId2 = row.get[TableId](2)
-            val bidirectional = row.get[Boolean](3)
+        .map({ row => {
+          val linkId = row.get[LinkId](0)
+          val tableId1 = row.get[TableId](1)
+          val tableId2 = row.get[TableId](2)
+          val bidirectional = row.get[Boolean](3)
 
-            val result = (linkId, LinkDirection(tableId, tableId1, tableId2), bidirectional)
-            logger.info(s"Dependent Links $result")
-            result
+          val result = (linkId, LinkDirection(tableId, tableId1, tableId2), bidirectional)
+          logger.info(s"Dependent Links $result")
+          result
+        }
         })
         .filter({
           case (_, LeftToRight(from, to), false) if from == to => true // self link
@@ -414,7 +490,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int): Future[ColumnType[_]] = {
-    val select = "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier, array_to_json(country_codes) FROM system_columns WHERE table_id = ? AND column_id = ?"
+    val select =
+      "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier, array_to_json(country_codes) FROM system_columns WHERE table_id = ? AND column_id = ?"
 
     for {
       result <- connection.query(select, Json.arr(table.id, columnId))
@@ -444,7 +521,11 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def concatColumnAndColumns(table: Table, concatColumns: Seq[ColumnType[_]], columns: Seq[ColumnType[_]]): Seq[ColumnType[_]] = {
+  private def concatColumnAndColumns(
+    table: Table,
+    concatColumns: Seq[ColumnType[_]],
+    columns: Seq[ColumnType[_]]
+  ): Seq[ColumnType[_]] = {
     concatColumns.size match {
       case x if x >= 2 =>
         // in case of two or more identifier columns we preserve the order of column
@@ -460,12 +541,16 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def retrieveColumns(table: Table, depth: Int, identifierOnly: Boolean): Future[(Seq[ColumnType[_]], Seq[ColumnType[_]])] = {
+  private def retrieveColumns(
+    table: Table,
+    depth: Int,
+    identifierOnly: Boolean
+  ): Future[(Seq[ColumnType[_]], Seq[ColumnType[_]])] = {
     val identCondition = if (identifierOnly) " AND identifier IS TRUE " else ""
     val select =
       s"""SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier, array_to_json(country_codes)
-          | FROM system_columns
-          | WHERE table_id = ? $identCondition ORDER BY ordering, column_id""".stripMargin
+         | FROM system_columns
+         | WHERE table_id = ? $identCondition ORDER BY ordering, column_id""".stripMargin
 
     for {
       result <- connection.query(select, Json.arr(table.id))
@@ -476,7 +561,12 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield (mappedColumns.filter(_.identifier), mappedColumns)
   }
 
-  private def mapColumn(depth: Int, kind: TableauxDbType, languageType: LanguageType, columnInformation: ColumnInformation): Future[ColumnType[_]] = {
+  private def mapColumn(
+    depth: Int,
+    kind: TableauxDbType,
+    languageType: LanguageType,
+    columnInformation: ColumnInformation
+  ): Future[ColumnType[_]] = {
     kind match {
       case AttachmentType => mapAttachmentColumn(columnInformation)
       case LinkType => mapLinkColumn(depth, columnInformation)
@@ -485,7 +575,11 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def mapValueColumn(kind: TableauxDbType, languageType: LanguageType, columnInformation: ColumnInformation): Future[SimpleValueColumn[_]] = {
+  private def mapValueColumn(
+    kind: TableauxDbType,
+    languageType: LanguageType,
+    columnInformation: ColumnInformation
+  ): Future[SimpleValueColumn[_]] = {
     Future(SimpleValueColumn(kind, languageType, columnInformation))
   }
 
@@ -541,15 +635,18 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
-      column <- mapColumn(depth, kind, languageType, BasicColumnInformation(table, columnId, columnName, ordering, identifier, displayInfoSeq))
+      column <- mapColumn(depth,
+        kind,
+        languageType,
+        BasicColumnInformation(table, columnId, columnName, ordering, identifier, displayInfoSeq))
     } yield column
   }
 
   private def retrieveDisplayInfo(table: Table, columnId: ColumnId): Future[Seq[DisplayInfo]] = {
     val selectLang =
       s"""SELECT langtag, name, description
-          | FROM system_columns_lang
-          | WHERE table_id = ? AND column_id = ?""".stripMargin
+         | FROM system_columns_lang
+         | WHERE table_id = ? AND column_id = ?""".stripMargin
 
     for {
       resultLang <- connection.query(selectLang, Json.arr(table.id, columnId))
@@ -580,7 +677,9 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           |    SELECT link_id
           |    FROM system_columns
           |    WHERE table_id = ? AND column_id = ?
-          |)""".stripMargin, Json.arr(fromTable.id, columnId))
+          |)""".stripMargin,
+        Json.arr(fromTable.id, columnId)
+      )
 
       (linkId, linkDirection) = {
         val res = selectNotNull(result).head
@@ -597,29 +696,36 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield (linkId, linkDirection, toTable)
   }
 
-  def deleteLinkBothDirections(table: Table, columnId: ColumnId): Future[Unit] = delete(table, columnId, bothDirections = true)
+  def deleteLinkBothDirections(table: Table, columnId: ColumnId): Future[Unit] = {
+    delete(table, columnId, bothDirections = true)
+  }
 
   def delete(table: Table, columnId: ColumnId): Future[Unit] = delete(table, columnId, bothDirections = false)
 
   protected def delete(table: Table, columnId: ColumnId, bothDirections: Boolean): Future[Unit] = {
+
     // Retrieve all filter for columnId and check if columns is not empty
     // If columns is empty last column would be deleted => error
     for {
       columns <- retrieveAll(table)
         .filter(_.nonEmpty)
         .recoverWith({
-          case _: NoSuchElementException => Future.failed(NotFoundInDatabaseException("No column found at all", "no-column-found"))
+          case _: NoSuchElementException =>
+            Future.failed(NotFoundInDatabaseException("No column found at all", "no-column-found"))
         })
 
-      _ <- Future.successful(columns)
+      _ <- Future
+        .successful(columns)
         .filter(!_.forall(_.id == columnId))
         .recoverWith({
-          case _: NoSuchElementException => Future.failed(DatabaseException("Last column can't be deleted", "delete-last-column"))
+          case _: NoSuchElementException =>
+            Future.failed(DatabaseException("Last column can't be deleted", "delete-last-column"))
         })
 
       column = columns
         .find(_.id == columnId)
-        .getOrElse(throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.", "delete-non-existing"))
+        .getOrElse(throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.",
+          "delete-non-existing"))
 
       _ <- {
         column match {
@@ -636,7 +742,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       t <- connection.begin()
 
-      (t, result) <- t.query("SELECT link_id FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
+      (t, result) <- t.query("SELECT link_id FROM system_columns WHERE column_id = ? AND table_id = ?",
+        Json.arr(column.id, column.table.id))
       linkId = selectCheckSize(result, 1).head.get[Long](0)
 
       (t, result) <- t.query("SELECT COUNT(*) = 1 FROM system_columns WHERE link_id = ?", Json.arr(linkId))
@@ -651,7 +758,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         val deleteFuture = if (bothDirections) {
           t.query("DELETE FROM system_columns WHERE link_id = ?", Json.arr(linkId))
         } else {
-          t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
+          t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?",
+            Json.arr(column.id, column.table.id))
         }
 
         deleteFuture.flatMap({
@@ -677,8 +785,11 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     for {
       t <- connection.begin()
 
-      (t, _) <- t.query("DELETE FROM system_attachment WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
-      (t, _) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id)).map({ case (t, json) => (t, deleteNotNull(json)) })
+      (t, _) <- t.query("DELETE FROM system_attachment WHERE column_id = ? AND table_id = ?",
+        Json.arr(column.id, column.table.id))
+      (t, _) <- t
+        .query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
+        .map({ case (t, json) => (t, deleteNotNull(json)) })
 
       _ <- t.commit()
     } yield ()
@@ -694,31 +805,83 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId")
       (t, _) <- t.query(s"ALTER TABLE user_table_lang_$tableId DROP COLUMN IF EXISTS column_$columnId")
 
-      (t, _) <- t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId)).map({ case (t, json) => (t, deleteNotNull(json)) })
+      (t, _) <- t
+        .query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
+        .map({ case (t, json) => (t, deleteNotNull(json)) })
 
       _ <- t.commit()
     } yield ()
   }
 
-  def change(table: Table, columnId: ColumnId, columnName: Option[String], ordering: Option[Ordering], kind: Option[TableauxDbType], identifier: Option[Boolean], displayInfos: Option[Seq[DisplayInfo]], countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
+  def change(
+    table: Table,
+    columnId: ColumnId,
+    columnName: Option[String],
+    ordering: Option[Ordering],
+    kind: Option[TableauxDbType],
+    identifier: Option[Boolean],
+    displayInfos: Option[Seq[DisplayInfo]],
+    countryCodes: Option[Seq[String]]
+  ): Future[ColumnType[_]] = {
     val tableId = table.id
 
     for {
       t <- connection.begin()
 
       // change column settings
-      (t, resultName) <- optionToValidFuture(columnName, t, { name: String => t.query(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?", Json.arr(name, tableId, columnId)) })
-      (t, resultOrdering) <- optionToValidFuture(ordering, t, { ord: Ordering => t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?", Json.arr(ord, tableId, columnId)) })
-      (t, resultKind) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?", Json.arr(k.name, tableId, columnId)) })
-      (t, resultIdentifier) <- optionToValidFuture(identifier, t, { ident: Boolean => t.query(s"UPDATE system_columns SET identifier = ? WHERE table_id = ? AND column_id = ?", Json.arr(ident, tableId, columnId)) })
-      (t, resultCountryCodes) <- optionToValidFuture(countryCodes, t, { codes: Seq[String] => t.query(s"UPDATE system_columns SET country_codes = ? WHERE table_id = ? AND column_id = ?", Json.arr(Json.arr(codes: _*), tableId, columnId)) })
+      (t, resultName) <- optionToValidFuture(
+        columnName,
+        t, { name: String => {
+          t.query(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?",
+            Json.arr(name, tableId, columnId))
+        }
+        }
+      )
+      (t, resultOrdering) <- optionToValidFuture(ordering, t, { ord: Ordering => {
+        t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?",
+          Json.arr(ord, tableId, columnId))
+      }
+      })
+      (t, resultKind) <- optionToValidFuture(
+        kind,
+        t, { k: TableauxDbType => {
+          t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?",
+            Json.arr(k.name, tableId, columnId))
+        }
+        }
+      )
+      (t, resultIdentifier) <- optionToValidFuture(
+        identifier,
+        t, { ident: Boolean => {
+          t.query(s"UPDATE system_columns SET identifier = ? WHERE table_id = ? AND column_id = ?",
+            Json.arr(ident, tableId, columnId))
+        }
+        }
+      )
+      (t, resultCountryCodes) <- optionToValidFuture(
+        countryCodes,
+        t, { codes: Seq[String] => {
+          t.query(s"UPDATE system_columns SET country_codes = ? WHERE table_id = ? AND column_id = ?",
+            Json.arr(Json.arr(codes: _*), tableId, columnId))
+        }
+        }
+      )
 
       // change display information
       t <- insertOrUpdateColumnLangInfo(t, table.id, columnId, displayInfos)
 
       // change column kind
-      (t, _) <- optionToValidFuture(kind, t, { k: TableauxDbType => t.query(s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}") })
-        .recoverWith(t.rollbackAndFail())
+      (t, _) <- optionToValidFuture(
+        kind,
+        t, { k: TableauxDbType => {
+          t.query(
+            s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${
+              k
+                .toDbType
+            } USING column_$columnId::${k.toDbType}")
+        }
+        }
+      ).recoverWith(t.rollbackAndFail())
 
       _ <- Future(checkUpdateResults(resultName, resultOrdering, resultKind, resultIdentifier, resultCountryCodes))
         .recoverWith(t.rollbackAndFail())
@@ -729,7 +892,12 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield column
   }
 
-  private def insertOrUpdateColumnLangInfo(t: connection.Transaction, tableId: TableId, columnId: ColumnId, optDisplayInfos: Option[Seq[DisplayInfo]]): Future[connection.Transaction] = {
+  private def insertOrUpdateColumnLangInfo(
+    t: connection.Transaction,
+    tableId: TableId,
+    columnId: ColumnId,
+    optDisplayInfos: Option[Seq[DisplayInfo]]
+  ): Future[connection.Transaction] = {
 
     optDisplayInfos match {
       case Some(displayInfos) =>
@@ -738,7 +906,9 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           case (future, di) =>
             for {
               t <- future
-              (t, select) <- t.query("SELECT COUNT(*) FROM system_columns_lang WHERE table_id = ? AND column_id = ? AND langtag = ?", Json.arr(tableId, columnId, di.langtag))
+              (t, select) <- t.query(
+                "SELECT COUNT(*) FROM system_columns_lang WHERE table_id = ? AND column_id = ? AND langtag = ?",
+                Json.arr(tableId, columnId, di.langtag))
               count = select.getJsonArray("results").getJsonArray(0).getLong(0)
               (statement, binds) = if (count > 0) {
                 dis.updateSql(di.langtag)
