@@ -158,7 +158,7 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     val returning = stmt.trim().toUpperCase.contains("RETURNING")
 
     val future = (command, returning) match {
-      case ("CREATE", _) | ("DROP", _) | ("ALTER", _) =>
+      case ("CREATE", _) | ("DROP", _) | ("ALTER", _) | ("LOCK", _) =>
         connection.execute(stmt)
       case ("UPDATE", true) =>
         values match {
