@@ -204,26 +204,9 @@ class TableauxModel(
     value: String
   ): Future[CellLevelAnnotation] = {
     for {
-    // TODO do this in a transaction
-      (_, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
-
-      sameAnnotations = cellLevelAnnotations
-        .annotations
-        .values
-        .headOption
-        .getOrElse(Seq.empty)
-        .filter(a => a.annotationType == annotationType && a.value == value)
-
-      mergedLangtags = sameAnnotations
-        .flatMap(_.langtags)
-        .union(langtags)
-        .distinct
-        .sorted
-
-      (uuid, createdAt) <- updateRowModel.addCellAnnotation(column, rowId, mergedLangtags, annotationType, value)
-
-      _ <- Future.sequence(sameAnnotations.map(_.uuid).map(updateRowModel.deleteCellAnnotation(column, rowId, _)))
-
+      (uuid, mergedLangtags, createdAt) <- updateRowModel.addOrMergeCellAnnotation(
+        column, rowId, langtags, annotationType, value
+      )
     } yield CellLevelAnnotation(uuid, annotationType, mergedLangtags, value, createdAt)
   }
 

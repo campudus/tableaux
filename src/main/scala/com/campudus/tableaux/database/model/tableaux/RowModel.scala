@@ -298,33 +298,120 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  def addCellAnnotation(
+  def addOrMergeCellAnnotation(
     column: ColumnType[_],
     rowId: RowId,
     langtags: Seq[String],
     annotationType: CellAnnotationType,
     value: String
-  ): Future[(UUID, DateTime)] = {
+  ): Future[(UUID, Seq[String], DateTime)] = {
     import ModelHelper._
 
     val tableId = column.table.id
-    val uuid = UUID.randomUUID()
+    val newUuid = UUID.randomUUID()
 
-    val insert = s"INSERT INTO user_table_annotations_$tableId (row_id, column_id, uuid, langtags, type, value) VALUES (?, ?, ?, ?::text[], ?, ?) RETURNING ${
-      parseDateTimeSql("created_at")
-    }"
-    val binds = Json
-      .arr(rowId,
-        column.id,
-        uuid.toString,
-        langtags.mkString("{", ",", "}"),
-        annotationType.toString,
-        value)
+    val insertStatement =
+      s"""
+         |INSERT INTO
+         |  user_table_annotations_$tableId(row_id, column_id, uuid, langtags, type, value)
+         |VALUES (?, ?, ?, ?::text[], ?, ?)
+         |RETURNING ${parseDateTimeSql("created_at")}""".stripMargin
 
-    connection
-      .query(insert, binds)
-      .map(result => DateTime.parse(insertNotNull(result).head.getString(0)))
-      .map(createdAt => (uuid, createdAt))
+    val insertBinds = Json.arr(
+      rowId,
+      column.id,
+      newUuid.toString,
+      langtags.mkString("{", ",", "}"),
+      annotationType.toString,
+      value
+    )
+
+    // https://github.com/vert-x3/vertx-mysql-postgresql-client/pull/75
+    // can't use Arrays here, need to transform array to json array
+    val updateStatement =
+    s"""
+       |UPDATE
+       |  user_table_annotations_$tableId
+       |SET
+       |  langtags = subquery.langtags
+       |FROM (
+       |  SELECT
+       |    row_id,
+       |    column_id,
+       |    uuid,
+       |    type,
+       |    value,
+       |    (
+       |      SELECT array(
+       |        SELECT DISTINCT unnest(array_cat(langtags, ?::text[])) AS langtag ORDER BY langtag
+       |      )
+       |    ) AS langtags
+       |  FROM
+       |    user_table_annotations_$tableId
+       |  WHERE
+       |    row_id = ? AND
+       |    column_id = ? AND
+       |    type = ? AND
+       |    value = ?
+       |) AS subquery
+       |WHERE
+       |  user_table_annotations_$tableId.row_id = subquery.row_id AND
+       |  user_table_annotations_$tableId.column_id = subquery.column_id AND
+       |  user_table_annotations_$tableId.type = subquery.type AND
+       |  user_table_annotations_$tableId.value = subquery.value
+       |RETURNING
+       |  user_table_annotations_$tableId.uuid,
+       |  array_to_json(user_table_annotations_$tableId.langtags),
+       |  ${parseDateTimeSql(s"user_table_annotations_$tableId.created_at")}""".stripMargin
+
+    val updateBinds = Json.arr(
+      langtags.mkString("{", ",", "}"),
+      rowId,
+      column.id,
+      annotationType.toString,
+      value
+    )
+
+    connection.transactional(t => {
+      for {
+        (t, _) <- t.query(s"LOCK TABLE user_table_annotations_$tableId IN EXCLUSIVE MODE")
+
+        // first, try to update possible existing annotations...
+        (t, rawRow) <- t
+          .query(updateStatement, updateBinds)
+          .map({
+            case (t, result) => (t, resultObjectToJsonArray(result).map(jsonArrayToSeq).headOption)
+          })
+
+        updateResult = rawRow match {
+          case Some(Seq(uuidStr: String, langtagsStr: String, createdAt: String)) =>
+            import scala.collection.JavaConverters._
+
+            Some(
+              UUID.fromString(uuidStr),
+              Json.fromArrayString(langtagsStr).asScala.map(_.asInstanceOf[String]).toList,
+              DateTime.parse(createdAt)
+            )
+          case _ => None
+        }
+
+        // second, check if there was already a annotation...
+        // ... otherwise insert a new one
+        (t, result) <- updateResult match {
+          case Some(s) => Future.successful((t, s))
+          case _ => t
+            .query(insertStatement, insertBinds)
+            .map({
+              case (t, result) => (t, DateTime.parse(insertNotNull(result).head.getString(0)))
+            })
+            .map({
+              case (t, createdAt) => (t, (newUuid, langtags, createdAt))
+            })
+        }
+
+      // and then return either existing/merged values or new inserted values
+      } yield (t, result)
+    })
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[_] = {
