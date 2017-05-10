@@ -72,16 +72,17 @@ trait TestAssertionHelper {
     expected
       .fieldNames()
       .asScala
-      .map({ key => {
-        (expected.getValue(key), actual.getValue(key)) match {
-          case (expectedObj: JsonObject, actualObj: JsonObject) =>
-            assertContainsDeep(expectedObj, actualObj)
-          case (expectedArr: JsonArray, actualArr: JsonArray) =>
-            assertContainsDeep(expectedArr, actualArr)
-          case (expectedVal, actualVal) =>
-            c.assertEquals(expectedVal, actualVal)
+      .map({ key =>
+        {
+          (expected.getValue(key), actual.getValue(key)) match {
+            case (expectedObj: JsonObject, actualObj: JsonObject) =>
+              assertContainsDeep(expectedObj, actualObj)
+            case (expectedArr: JsonArray, actualArr: JsonArray) =>
+              assertContainsDeep(expectedArr, actualArr)
+            case (expectedVal, actualVal) =>
+              c.assertEquals(expectedVal, actualVal)
+          }
         }
-      }
       })
 
     c
@@ -185,8 +186,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     val async = context.async()
     (try {
       f
-    }
-    catch {
+    } catch {
       case ex: Throwable => Future.failed(ex)
     }) onComplete {
       case Success(_) => async.complete()
@@ -306,10 +306,10 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   def httpRequest(
-    method: String,
-    path: String,
-    responseHandler: (HttpClient, HttpClientResponse) => Unit,
-    exceptionHandler: (HttpClient, Throwable) => Unit
+      method: String,
+      path: String,
+      responseHandler: (HttpClient, HttpClientResponse) => Unit,
+      exceptionHandler: (HttpClient, Throwable) => Unit
   ): HttpClientRequest = {
     val _method = HttpMethod.valueOf(method.toUpperCase)
 
@@ -325,59 +325,60 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   protected def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = {
-    futurify{ p: Promise[JsonObject] => {
-      val filePath = getClass.getResource(file).toURI.getPath
-      val fileName = file.substring(file.lastIndexOf("/") + 1)
+    futurify { p: Promise[JsonObject] =>
+      {
+        val filePath = getClass.getResource(file).toURI.getPath
+        val fileName = file.substring(file.lastIndexOf("/") + 1)
 
-      def requestHandler(req: HttpClientRequest): Unit = {
-        val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
-        val header =
-          "--" + boundary + "\r\n" +
-            "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
-            "Content-Type: " + mimeType + "\r\n\r\n"
+        def requestHandler(req: HttpClientRequest): Unit = {
+          val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
+          val header =
+            "--" + boundary + "\r\n" +
+              "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
+              "Content-Type: " + mimeType + "\r\n\r\n"
 
-        val footer = "\r\n--" + boundary + "--\r\n"
+          val footer = "\r\n--" + boundary + "--\r\n"
 
-        val contentLength =
-          String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
-        req.putHeader("Content-length", contentLength)
-        req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
+          val contentLength =
+            String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
+          req.putHeader("Content-length", contentLength)
+          req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
 
-        logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
+          logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
 
-        req.write(header)
+          req.write(header)
 
-        import io.vertx.scala.FunctionConverters._
+          import io.vertx.scala.FunctionConverters._
 
-        val asyncFile: Future[AsyncFile] =
-          vertx.fileSystem().open(filePath, new OpenOptions(), _: Handler[AsyncResult[AsyncFile]])
+          val asyncFile: Future[AsyncFile] =
+            vertx.fileSystem().open(filePath, new OpenOptions(), _: Handler[AsyncResult[AsyncFile]])
 
-        asyncFile.map({ file =>
-          val pump = Pump.pump(file, req)
+          asyncFile.map({ file =>
+            val pump = Pump.pump(file, req)
 
-          file.exceptionHandler({ e: Throwable =>
-            pump.stop()
-            req.end("")
-            p.failure(e)
+            file.exceptionHandler({ e: Throwable =>
+              pump.stop()
+              req.end("")
+              p.failure(e)
+            })
+
+            file.endHandler({ _: Void =>
+              file.close({
+                case Success(_) =>
+                  logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
+                  req.end(footer)
+                case Failure(e) =>
+                  req.end("")
+                  p.failure(e)
+              }: Try[Void] => Unit)
+            })
+
+            pump.start()
           })
+        }
 
-          file.endHandler({ _: Void =>
-            file.close({
-              case Success(_) =>
-                logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
-                req.end(footer)
-              case Failure(e) =>
-                req.end("")
-                p.failure(e)
-            }: Try[Void] => Unit)
-          })
-
-          pump.start()
-        })
+        requestHandler(httpJsonRequest(method, url, p))
       }
-
-      requestHandler(httpJsonRequest(method, url, p))
-    }
     }
   }
 
@@ -397,41 +398,44 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   protected def createEmptyDefaultTable(
-    name: String = "Test Table 1",
-    tableNum: Int = 1,
-    displayName: Option[JsonObject] = None,
-    description: Option[JsonObject] = None
+      name: String = "Test Table 1",
+      tableNum: Int = 1,
+      displayName: Option[JsonObject] = None,
+      description: Option[JsonObject] = None
   ): Future[TableId] = {
     val postTable = Json.obj("name" -> name)
 
     displayName
-      .map({ obj => {
-        Json.obj("displayName" -> obj)
-      }
+      .map({ obj =>
+        {
+          Json.obj("displayName" -> obj)
+        }
       })
       .foreach(postTable.mergeIn)
 
     description
-      .map({ obj => {
-        Json.obj("description" -> obj)
-      }
+      .map({ obj =>
+        {
+          Json.obj("description" -> obj)
+        }
       })
       .foreach(postTable.mergeIn)
 
     for {
-      tableId <- sendRequest("POST", "/tables", postTable) map { js => {
-        js.getLong("id")
-      }
+      tableId <- sendRequest("POST", "/tables", postTable) map { js =>
+        {
+          js.getLong("id")
+        }
       }
       _ <- createDefaultColumns(tableId)
     } yield tableId
   }
 
   protected def createDefaultTable(
-    name: String = "Test Table 1",
-    tableNum: Int = 1,
-    displayName: Option[JsonObject] = None,
-    description: Option[JsonObject] = None
+      name: String = "Test Table 1",
+      tableNum: Int = 1,
+      displayName: Option[JsonObject] = None,
+      description: Option[JsonObject] = None
   ): Future[TableId] = {
     val fillStringCellJson = Json.obj("value" -> s"table${tableNum}row1")
     val fillStringCellJson2 = Json.obj("value" -> s"table${tableNum}row2")
@@ -450,7 +454,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   protected def createFullTableWithMultilanguageColumns(
-    tableName: String
+      tableName: String
   ): Future[(TableId, Seq[ColumnId], Seq[RowId])] = {
 
     def valuesRow(columnIds: Seq[Long]) = {
@@ -505,18 +509,18 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   protected def createSimpleTableWithMultilanguageColumn(
-    tableName: String,
-    columnName: String
+      tableName: String,
+      columnName: String
   ): Future[(TableId, ColumnId)] = {
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
       columns <- sendRequest("POST",
-        s"/tables/$tableId/columns",
-        Json.obj(
-          "columns" -> Json.arr(
-            Json.obj("kind" -> "text", "name" -> columnName, "multilanguage" -> true)
-          )))
+                             s"/tables/$tableId/columns",
+                             Json.obj(
+                               "columns" -> Json.arr(
+                                 Json.obj("kind" -> "text", "name" -> columnName, "multilanguage" -> true)
+                               )))
       columnId = columns.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
     } yield {
       (tableId, columnId)
@@ -546,8 +550,8 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   protected def createTableWithComplexColumns(
-    tableName: String,
-    linkTo: TableId
+      tableName: String,
+      linkTo: TableId
   ): Future[(TableId, Seq[ColumnId], ColumnId)] = {
     val createColumns = Json.obj(
       "columns" -> Json.arr(
@@ -586,8 +590,8 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   protected def createSimpleTableWithCell(
-    tableName: String,
-    columnType: ColumnType
+      tableName: String,
+      columnType: ColumnType
   ): Future[(TableId, ColumnId, RowId)] = {
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
@@ -600,16 +604,16 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   protected def createSimpleTableWithValues(
-    tableName: String,
-    columnTypes: Seq[ColumnType],
-    rows: Seq[Seq[Any]]
+      tableName: String,
+      columnTypes: Seq[ColumnType],
+      rows: Seq[Seq[Any]]
   ): Future[(TableId, Seq[ColumnId], Seq[RowId])] = {
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
       column <- sendRequest("POST",
-        s"/tables/$tableId/columns",
-        Json.obj("columns" -> Json.arr(columnTypes.map(_.getJson): _*)))
+                            s"/tables/$tableId/columns",
+                            Json.obj("columns" -> Json.arr(columnTypes.map(_.getJson): _*)))
       columnIds = column.getJsonArray("columns").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
       columnsPost = Json.arr(columnIds.map(id => Json.obj("id" -> id)): _*)
       rowsPost = Json.arr(rows.map(values => Json.obj("values" -> Json.arr(values: _*))): _*)

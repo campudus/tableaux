@@ -58,7 +58,7 @@ class TableHiddenTest extends TableauxTestBase {
 
   @Test
   def createHiddenTable(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj("name" -> "Hidden table test", "hidden" -> true)
       val expectedTableJson = Json.obj(
         "status" -> "ok",
@@ -83,7 +83,7 @@ class TableHiddenTest extends TableauxTestBase {
 
   @Test
   def updateTableNameDoesNotChangeHiddenFlagFromTrue(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj("name" -> "Hidden table test", "hidden" -> true)
       val updateTableJson = Json.obj("name" -> "Still hidden table test")
       val expectedTableJson = Json.obj(
@@ -110,7 +110,7 @@ class TableHiddenTest extends TableauxTestBase {
 
   @Test
   def updateTableNameDoesNotChangeHiddenFlagFromFalse(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj("name" -> "Regular table test", "hidden" -> false)
       val updateTableJson = Json.obj("name" -> "Still regular table test")
       val expectedTableJson = Json.obj(

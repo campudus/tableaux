@@ -29,9 +29,9 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
   }
 
   private def createTableDisplayInfos(
-    t: connection.Transaction,
-    tableGroupId: TableGroupId,
-    displayInfos: Seq[DisplayInfo]
+      t: connection.Transaction,
+      tableGroupId: TableGroupId,
+      displayInfos: Seq[DisplayInfo]
   ): Future[(connection.Transaction, JsonObject)] = {
     if (displayInfos.nonEmpty) {
       val (statement, binds) = TableGroupDisplayInfos(tableGroupId, displayInfos).createSql
@@ -112,9 +112,9 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
   }
 
   private def insertOrUpdateTableDisplayInfo(
-    t: connection.Transaction,
-    tableGroupId: TableGroupId,
-    optDisplayInfos: Option[Seq[DisplayInfo]]
+      t: connection.Transaction,
+      tableGroupId: TableGroupId,
+      optDisplayInfos: Option[Seq[DisplayInfo]]
   ): Future[connection.Transaction] = {
     optDisplayInfos match {
       case Some(displayInfos) =>
@@ -124,7 +124,7 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
             for {
               t <- future
               (t, select) <- t.query("SELECT COUNT(*) FROM system_tablegroup_lang WHERE id = ? AND langtag = ?",
-                Json.arr(tableGroupId, di.langtag))
+                                     Json.arr(tableGroupId, di.langtag))
               count = select.getJsonArray("results").getJsonArray(0).getLong(0)
               (statement, binds) = if (count > 0) {
                 dis.updateSql(di.langtag)

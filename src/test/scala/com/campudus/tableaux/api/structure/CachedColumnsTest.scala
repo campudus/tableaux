@@ -15,7 +15,7 @@ class CachedColumnsTest extends TableauxTestBase {
 
   @Test
   def changeColumnNameAndOrdering(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postJson = Json.obj("name" -> "New testname", "ordering" -> 4)
 
       val expectedStringBefore = "Test Column 1"
@@ -40,7 +40,7 @@ class CachedColumnsTest extends TableauxTestBase {
 
   @Test
   def addColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createStringColumnJson = Json
         .obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3", "identifier" -> true)))
 
@@ -74,7 +74,7 @@ class CachedColumnsTest extends TableauxTestBase {
 
   @Test
   def deleteColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId <- createDefaultTable()
 

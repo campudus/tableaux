@@ -27,7 +27,7 @@ object AttachmentModel {
 }
 
 class AttachmentModel(protected[this] val connection: DatabaseConnection, protected[this] val fileModel: FileModel)
-  extends DatabaseQuery {
+    extends DatabaseQuery {
   val table = "system_attachment"
 
   def replace(tableId: TableId, columnId: ColumnId, rowId: RowId, attachments: Seq[Attachment]): Future[Unit] = {
@@ -38,39 +38,43 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
     // Build insert parameters
     val paramStr = attachments.map(_ => "(?, ?, ?, ?, ?)").mkString(", ")
 
-    connection.transactional({ t => {
-      for {
-        (t, _) <- t.query(delete, Json.arr(tableId, columnId, rowId))
+    connection.transactional({ t =>
+      {
+        for {
+          (t, _) <- t.query(delete, Json.arr(tableId, columnId, rowId))
 
-        (_, changedAttachments) <- attachments.foldLeft(Future(0, Seq.empty[Attachment])){ (lastResult, attachment) => {
-          lastResult.flatMap({
-            case (lastOrdering, seq) =>
-              val newOrdering = lastOrdering + 1
-              Future(newOrdering, seq :+ attachment.copy(ordering = Some(attachment.ordering.getOrElse(newOrdering))))
-          })
-        }
-        }
-
-        params <- Future({
-          changedAttachments.flatMap(
-            attachment =>
-              List(attachment.tableId,
-                attachment.columnId,
-                attachment.rowId,
-                attachment.uuid.toString,
-                attachment.ordering.get))
-        })
-
-        (t, _) <- {
-          if (params.nonEmpty) {
-            t.query(s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr",
-              Json.arr(params: _*))
-          } else {
-            Future.successful((t, Json.emptyObj()))
+          (_, changedAttachments) <- attachments.foldLeft(Future(0, Seq.empty[Attachment])) {
+            (lastResult, attachment) =>
+              {
+                lastResult.flatMap({
+                  case (lastOrdering, seq) =>
+                    val newOrdering = lastOrdering + 1
+                    Future(newOrdering,
+                           seq :+ attachment.copy(ordering = Some(attachment.ordering.getOrElse(newOrdering))))
+                })
+              }
           }
-        }
-      } yield (t, ())
-    }
+
+          params <- Future({
+            changedAttachments.flatMap(
+              attachment =>
+                List(attachment.tableId,
+                     attachment.columnId,
+                     attachment.rowId,
+                     attachment.uuid.toString,
+                     attachment.ordering.get))
+          })
+
+          (t, _) <- {
+            if (params.nonEmpty) {
+              t.query(s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr",
+                      Json.arr(params: _*))
+            } else {
+              Future.successful((t, Json.emptyObj()))
+            }
+          }
+        } yield (t, ())
+      }
     })
   }
 

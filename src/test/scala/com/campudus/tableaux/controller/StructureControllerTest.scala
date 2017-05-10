@@ -28,11 +28,11 @@ class StructureControllerTest extends TableauxTestBase {
     val controller = createStructureController()
     illegalArgumentTest(
       controller.createTable(null,
-        hidden = false,
-        langtags = None,
-        displayInfos = null,
-        tableType = GenericTable,
-        tableGroupId = None))
+                             hidden = false,
+                             langtags = None,
+                             displayInfos = null,
+                             tableType = GenericTable,
+                             tableGroupId = None))
   }
 
   @Test
@@ -40,7 +40,7 @@ class StructureControllerTest extends TableauxTestBase {
     val controller = createStructureController()
     illegalArgumentTest(
       controller.createColumns(0,
-        Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List()))))
+                               Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test
@@ -62,7 +62,7 @@ class StructureControllerTest extends TableauxTestBase {
     val controller = createStructureController()
     illegalArgumentTest(
       controller.createColumns(0,
-        Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
+                               Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test

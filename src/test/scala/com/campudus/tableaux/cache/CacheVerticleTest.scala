@@ -75,8 +75,7 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
     val async = context.async()
     (try {
       f
-    }
-    catch {
+    } catch {
       case ex: Throwable => Future.failed(ex)
     }) onComplete {
       case Success(_) => async.complete()
@@ -89,7 +88,7 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
 
   @Test
   def testRetrievingNonExistingCell(implicit context: TestContext): Unit = {
-    okTest{
+    okTest {
       val promise = Promise[Unit]()
 
       val replyHandler: Try[Message[JsonObject]] => Unit = {
@@ -110,7 +109,7 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
 
   @Test
   def testRetrievingCachedCellValue(implicit context: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         _ <- vertx
           .eventBus()
@@ -122,8 +121,8 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         result <- vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_RETRIEVE,
-            Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]])
+                Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]])
       } yield {
         assertEquals(Json.obj("test" -> "hallo"), result.body().getJsonObject("value"))
       }
@@ -132,7 +131,7 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
 
   @Test
   def testRetrievingInvalidatedCellValue(implicit context: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         _ <- vertx
           .eventBus()
@@ -144,17 +143,18 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_INVALIDATE_CELL,
-            Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]])
+                Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]])
         _ <- (vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_RETRIEVE,
-            Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]]))
-          .flatMap({ json => {
-            fail("Shouldn't reply anything")
-            Future.failed(new Exception("Shouldn't reply anything"))
-          }
+                Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]]))
+          .flatMap({ json =>
+            {
+              fail("Shouldn't reply anything")
+              Future.failed(new Exception("Shouldn't reply anything"))
+            }
           })
           .recoverWith({
             case ex =>
@@ -167,7 +167,7 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
 
   @Test
   def testInvalidateColumn(implicit context: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         _ <- vertx
           .eventBus()
@@ -187,14 +187,14 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_INVALIDATE_COLUMN,
-            Json.obj("tableId" -> 1, "columnId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]])
+                Json.obj("tableId" -> 1, "columnId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]])
 
         _ <- (vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_RETRIEVE,
-            Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]]))
+                Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]]))
           .flatMap({ json =>
             fail("Shouldn't reply anything")
             Future.failed(new Exception("Shouldn't reply anything"))
@@ -210,7 +210,7 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
 
   @Test
   def testInvalidateWholeCache(implicit context: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         _ <- vertx
           .eventBus()
@@ -234,8 +234,8 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         _ <- (vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_RETRIEVE,
-            Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]]))
+                Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]]))
           .flatMap({ json =>
             fail("Shouldn't reply anything")
             Future.failed(new Exception("Shouldn't reply anything"))
@@ -251,7 +251,7 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
 
   @Test
   def testInvalidateTable(implicit context: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         _ <- vertx
           .eventBus()
@@ -286,14 +286,14 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_INVALIDATE_TABLE,
-            Json.obj("tableId" -> 2),
-            _: Handler[AsyncResult[Message[JsonObject]]])
+                Json.obj("tableId" -> 2),
+                _: Handler[AsyncResult[Message[JsonObject]]])
 
         value <- (vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_RETRIEVE,
-            Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]]))
+                Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]]))
           .recoverWith({
             case ex =>
               logger.info("Retrieving cache entry failed", ex)
@@ -303,8 +303,8 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         _ <- (vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_RETRIEVE,
-            Json.obj("tableId" -> 2, "columnId" -> 1, "rowId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]]))
+                Json.obj("tableId" -> 2, "columnId" -> 1, "rowId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]]))
           .flatMap({ json =>
             fail("Shouldn't reply anything")
             Future.failed(new Exception("Shouldn't reply anything"))
@@ -322,7 +322,7 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
 
   @Test
   def testInvalidateRow(implicit context: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         _ <- vertx
           .eventBus()
@@ -342,14 +342,14 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_INVALIDATE_ROW,
-            Json.obj("tableId" -> 1, "rowId" -> 2),
-            _: Handler[AsyncResult[Message[JsonObject]]])
+                Json.obj("tableId" -> 1, "rowId" -> 2),
+                _: Handler[AsyncResult[Message[JsonObject]]])
 
         value <- (vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_RETRIEVE,
-            Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
-            _: Handler[AsyncResult[Message[JsonObject]]]))
+                Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1),
+                _: Handler[AsyncResult[Message[JsonObject]]]))
           .recoverWith({
             case ex =>
               logger.info("Retrieving cache entry failed", ex)
@@ -359,8 +359,8 @@ class CacheVerticleTest extends LazyLogging with TestAssertionHelper {
         _ <- (vertx
           .eventBus()
           .send(CacheVerticle.ADDRESS_RETRIEVE,
-            Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 2),
-            _: Handler[AsyncResult[Message[JsonObject]]]))
+                Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 2),
+                _: Handler[AsyncResult[Message[JsonObject]]]))
           .flatMap({ json =>
             fail("Shouldn't reply anything")
             Future.failed(new Exception("Shouldn't reply anything"))

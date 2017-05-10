@@ -25,7 +25,7 @@ class TableOrderingTest extends TableauxTestBase {
 
   @Test
   def createTablesShouldStayInOrderOfCreation(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createEmptyTable("First")
         tableId2 <- createEmptyTable("Second")
@@ -53,7 +53,7 @@ class TableOrderingTest extends TableauxTestBase {
 
   @Test
   def orderTableCanBeSetToStart(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createEmptyTable("First")
         tableId2 <- createEmptyTable("Second")
@@ -100,7 +100,7 @@ class TableOrderingTest extends TableauxTestBase {
 
   @Test
   def orderTableCanBeSetToEnd(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createEmptyTable("First")
         tableId2 <- createEmptyTable("Second")
@@ -147,7 +147,7 @@ class TableOrderingTest extends TableauxTestBase {
 
   @Test
   def orderTableCanBeSetToBefore(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createEmptyTable("First")
         tableId2 <- createEmptyTable("Second")
@@ -155,12 +155,12 @@ class TableOrderingTest extends TableauxTestBase {
         tableId4 <- createEmptyTable("Fourth")
         tableId5 <- createEmptyTable("Fifth")
         orderResult1 <- sendRequest("POST",
-          s"/tables/$tableId1/order",
-          Json.obj("location" -> "before", "id" -> tableId3))
+                                    s"/tables/$tableId1/order",
+                                    Json.obj("location" -> "before", "id" -> tableId3))
         tables1 <- sendRequest("GET", "/tables")
         orderResult2 <- sendRequest("POST",
-          s"/tables/$tableId3/order",
-          Json.obj("location" -> "before", "id" -> tableId5))
+                                    s"/tables/$tableId3/order",
+                                    Json.obj("location" -> "before", "id" -> tableId5))
         tables2 <- sendRequest("GET", "/tables")
       } yield {
 
@@ -198,7 +198,7 @@ class TableOrderingTest extends TableauxTestBase {
 
   @Test
   def orderTableBeforeWithoutId(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createEmptyTable("First")
         tableId2 <- createEmptyTable("Second")
@@ -212,10 +212,10 @@ class TableOrderingTest extends TableauxTestBase {
         assertEquals(("query parameter id not found", "error.param.notfound", 400), orderResult)
 
         val expected1 = Json.obj("status" -> "ok",
-          "tables" -> Json.arr(
-            regularTableJson(1, "First"),
-            regularTableJson(2, "Second")
-          ))
+                                 "tables" -> Json.arr(
+                                   regularTableJson(1, "First"),
+                                   regularTableJson(2, "Second")
+                                 ))
 
         assertEquals(expected1, tables1)
       }
@@ -224,7 +224,7 @@ class TableOrderingTest extends TableauxTestBase {
 
   @Test
   def orderTableWithInvalidLocation(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createEmptyTable("First")
         tableId2 <- createEmptyTable("Second")
@@ -236,13 +236,13 @@ class TableOrderingTest extends TableauxTestBase {
       } yield {
 
         assertEquals(("'location' value needs to be one of 'start', 'end', 'before'.", "error.request.invalid", 400),
-          orderResult)
+                     orderResult)
 
         val expected1 = Json.obj("status" -> "ok",
-          "tables" -> Json.arr(
-            regularTableJson(1, "First"),
-            regularTableJson(2, "Second")
-          ))
+                                 "tables" -> Json.arr(
+                                   regularTableJson(1, "First"),
+                                   regularTableJson(2, "Second")
+                                 ))
 
         assertEquals(expected1, tables1)
       }
@@ -251,7 +251,7 @@ class TableOrderingTest extends TableauxTestBase {
 
   @Test
   def orderTableWithNullLocation(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createEmptyTable("First")
         tableId2 <- createEmptyTable("Second")
@@ -265,10 +265,10 @@ class TableOrderingTest extends TableauxTestBase {
         assertEquals(("Warning: location is null", "error.json.null", 400), orderResult)
 
         val expected1 = Json.obj("status" -> "ok",
-          "tables" -> Json.arr(
-            regularTableJson(1, "First"),
-            regularTableJson(2, "Second")
-          ))
+                                 "tables" -> Json.arr(
+                                   regularTableJson(1, "First"),
+                                   regularTableJson(2, "Second")
+                                 ))
 
         assertEquals(expected1, tables1)
       }

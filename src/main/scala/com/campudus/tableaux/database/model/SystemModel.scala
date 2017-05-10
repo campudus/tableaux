@@ -103,13 +103,12 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
 
   private def retrieveCurrentVersion(t: connection.Transaction): Future[(connection.Transaction, Int)] = {
     for {
-      (t, _) <- t.query(
-        s"""
-           |CREATE TABLE IF NOT EXISTS system_version(
-           |version INT NOT NULL,
-           |updated TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-           |PRIMARY KEY(version)
-           |)
+      (t, _) <- t.query(s"""
+                           |CREATE TABLE IF NOT EXISTS system_version(
+                           |version INT NOT NULL,
+                           |updated TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                           |PRIMARY KEY(version)
+                           |)
        """.stripMargin)
 
       (t, version) <- {

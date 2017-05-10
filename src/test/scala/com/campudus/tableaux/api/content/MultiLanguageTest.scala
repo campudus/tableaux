@@ -13,7 +13,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
   @Test
   def testCreateAndDeleteMultilanguageColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def exceptedJson(tableId: TableId, columnId: ColumnId) = Json.obj(
         "status" -> "ok",
@@ -46,7 +46,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
   @Test
   def testFillMultilanguageCell(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val cellValue = Json.obj(
         "value" -> Json.obj(
           "de_DE" -> "Hallo, Welt!",
@@ -54,8 +54,7 @@ class MultiLanguageTest extends TableauxTestBase {
         )
       )
 
-      val exceptedJson = Json.fromObjectString(
-        """
+      val exceptedJson = Json.fromObjectString("""
 {
   "status" : "ok",
   "value" : {
@@ -82,10 +81,9 @@ class MultiLanguageTest extends TableauxTestBase {
 
   @Test
   def testEmptyMultilanguageCell(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
-      val exceptedJson = Json.fromObjectString(
-        """
+      val exceptedJson = Json.fromObjectString("""
 {
   "status" : "ok",
   "value" : {}
@@ -135,7 +133,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
   @Test
   def testRemoveValuesFromMultilanguageRow(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def valuesRow(columnId: Long) = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> columnId)),
@@ -174,7 +172,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
   @Test
   def testRemoveValuesFromMultilanguageRowIncorrectlyYieldsError(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def valuesRow(columnId: Long) = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> columnId)),
@@ -199,7 +197,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
         _ <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", incorrectRemove)
           .map(result => fail(s"Should get exception here but got $result"))
-          .recover{
+          .recover {
             case TestCustomException(message, id, statusCode) =>
               assertEquals(errorJsonArguments, message)
               assertEquals(422, statusCode)
@@ -217,7 +215,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
   @Test
   def testFillMultilanguageRow(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val valuesRow = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 1)),
         "rows" -> Json.arr(
@@ -232,8 +230,7 @@ class MultiLanguageTest extends TableauxTestBase {
         )
       )
 
-      def exceptedJson(rowId: RowId) = Json.fromObjectString(
-        s"""
+      def exceptedJson(rowId: RowId) = Json.fromObjectString(s"""
 {
  "status" : "ok",
  "id" : $rowId,
@@ -275,7 +272,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
   @Test
   def testSingleTranslation(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val valuesRow = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 1)),
         "rows" -> Json.arr(
@@ -320,8 +317,7 @@ class MultiLanguageTest extends TableauxTestBase {
         )
       )
 
-      val exceptedJson = Json.fromObjectString(
-        """
+      val exceptedJson = Json.fromObjectString("""
 {
   "status" : "ok",
   "id" : 1,

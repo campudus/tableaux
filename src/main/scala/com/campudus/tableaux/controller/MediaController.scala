@@ -25,10 +25,10 @@ object MediaController {
   val ROOT_FOLDER = Folder(0, "root", "", Seq.empty[FolderId], None, None)
 
   def apply(
-    config: TableauxConfig,
-    folderModel: FolderModel,
-    fileModel: FileModel,
-    attachmentModel: AttachmentModel
+      config: TableauxConfig,
+      folderModel: FolderModel,
+      fileModel: FileModel,
+      attachmentModel: AttachmentModel
   ): MediaController = {
     new MediaController(config, folderModel, fileModel, attachmentModel)
   }
@@ -37,9 +37,8 @@ object MediaController {
 class MediaController(override val config: TableauxConfig,
                       override protected val repository: FolderModel,
                       protected val fileModel: FileModel,
-  protected val attachmentModel: AttachmentModel
-)
-  extends Controller[FolderModel] {
+                      protected val attachmentModel: AttachmentModel)
+    extends Controller[FolderModel] {
 
   import MediaController.ROOT_FOLDER
 
@@ -96,7 +95,8 @@ class MediaController(override val config: TableauxConfig,
   }
 
   def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[ExtendedFile] = {
-    futurify{ p: Promise[ExtendedFile] => {
+    futurify { p: Promise[ExtendedFile] =>
+      {
         val ext = Path(upload.fileName).extension
         val filePath = uploadsDirectory / Path(s"${UUID.randomUUID()}.$ext")
 
@@ -205,8 +205,8 @@ class MediaController(override val config: TableauxConfig,
             Future.successful(())
           } else {
             if (!internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
-              internalFileName.equals("..") ||
-              internalFileName.equals(".")) {
+                internalFileName.equals("..") ||
+                internalFileName.equals(".")) {
               Future.failed(InvalidRequestException(
                 s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
             } else {
@@ -230,19 +230,20 @@ class MediaController(override val config: TableauxConfig,
   }
 
   def retrieveFile(uuid: UUID, withTmp: Boolean = false): Future[(ExtendedFile, Map[String, Path])] = {
-    fileModel.retrieve(uuid, withTmp) map { f => {
-      val filePaths = f.internalName.values
-        .filter({
-          case (_, internalName) =>
-            internalName != null && internalName.nonEmpty
-        })
-        .map({
-          case (langtag, internalName) =>
-            langtag -> uploadsDirectory / Path(internalName)
-        })
+    fileModel.retrieve(uuid, withTmp) map { f =>
+      {
+        val filePaths = f.internalName.values
+          .filter({
+            case (_, internalName) =>
+              internalName != null && internalName.nonEmpty
+          })
+          .map({
+            case (langtag, internalName) =>
+              langtag -> uploadsDirectory / Path(internalName)
+          })
 
-      (ExtendedFile(f), filePaths)
-    }
+        (ExtendedFile(f), filePaths)
+      }
     }
   }
 

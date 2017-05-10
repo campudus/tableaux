@@ -96,11 +96,11 @@ object CellLevelAnnotations {
 }
 
 case class CellLevelAnnotation(
-  uuid: UUID,
-  annotationType: CellAnnotationType,
-  langtags: Seq[String],
-  value: String,
-  createdAt: DateTime
+    uuid: UUID,
+    annotationType: CellAnnotationType,
+    langtags: Seq[String],
+    value: String,
+    createdAt: DateTime
 ) extends DomainObject {
 
   override def getJson: JsonObject = {
@@ -120,7 +120,7 @@ case class CellLevelAnnotation(
 }
 
 case class CellLevelAnnotations(columns: Seq[ColumnType[_]], annotations: Map[ColumnId, Seq[CellLevelAnnotation]])
-  extends DomainObject {
+    extends DomainObject {
 
   def isDefined: Boolean = annotations.values.exists(_.nonEmpty)
 

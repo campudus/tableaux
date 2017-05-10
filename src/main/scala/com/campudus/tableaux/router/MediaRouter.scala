@@ -23,9 +23,8 @@ case class UploadAction(fileName: String,
                         mimeType: String,
                         exceptionHandler: (Throwable => Unit) => _,
                         endHandler: (() => Unit) => _,
-  streamToFile: (String) => _
-)
-  extends FileAction
+                        streamToFile: (String) => _)
+    extends FileAction
 
 object MediaRouter {
 
@@ -50,7 +49,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Create folder
       */
     case Post("/folders") =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           name = json.getString("name")
@@ -58,7 +57,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
           parent = getNullableLong("parent")(json)
 
           added <- controller.addNewFolder(name, description, parent)
-        // TODO sortByLangtag should be removed and the real folder should be fetched
+          // TODO sortByLangtag should be removed and the real folder should be fetched
         } yield added
       }
 
@@ -66,7 +65,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Retrieve root folder
       */
     case Get("/folders") =>
-      asyncGetReply{
+      asyncGetReply {
         import ArgumentChecker._
 
         val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
@@ -77,7 +76,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Retrieve folder
       */
     case Get(FolderId(id)) =>
-      asyncGetReply{
+      asyncGetReply {
         import ArgumentChecker._
 
         val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
@@ -88,7 +87,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Change folder
       */
     case Put(FolderId(id)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           name = json.getString("name")
@@ -96,7 +95,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
           parent = getNullableLong("parent")(json)
 
           changed <- controller.changeFolder(id.toLong, name, description, parent)
-        // TODO sortByLangtag should be removed and the real folder should be fetched
+          // TODO sortByLangtag should be removed and the real folder should be fetched
         } yield changed
       }
 
@@ -104,7 +103,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Delete folder and its files
       */
     case Delete(FolderId(id)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.deleteFolder(id.toLong)
       }
 
@@ -112,7 +111,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Create file handle
       */
     case Post("/files") =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
 
@@ -129,7 +128,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Retrieve file meta information
       */
     case Get(FileId(uuid)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveFile(UUID.fromString(uuid)).map({ case (file, _) => file })
       }
 
@@ -137,7 +136,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Serve file
       */
     case Get(FileIdLangStatic(uuid, langtag)) =>
-      AsyncReply{
+      AsyncReply {
         for {
           (file, paths) <- controller.retrieveFile(UUID.fromString(uuid))
         } yield {
@@ -154,7 +153,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Change file meta information
       */
     case Put(FileId(uuid)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
 
@@ -175,10 +174,11 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Replace/upload language specific file and its meta information
       */
     case Put(FileIdLang(uuid, langtag)) =>
-      asyncGetReply{
-        handleUpload(context, { (action: UploadAction) => {
-          controller.replaceFile(UUID.fromString(uuid), langtag, action)
-        }
+      asyncGetReply {
+        handleUpload(context, { (action: UploadAction) =>
+          {
+            controller.replaceFile(UUID.fromString(uuid), langtag, action)
+          }
         })
       }
 
@@ -186,7 +186,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * File merge
       */
     case Post(FileIdMerge(uuid)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           langtag = checked(hasString("langtag", json))
@@ -200,7 +200,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Delete file
       */
     case Delete(FileId(uuid)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.deleteFile(UUID.fromString(uuid))
       }
 
@@ -208,7 +208,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       * Delete language specific stuff
       */
     case Delete(FileIdLang(uuid, langtag)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.deleteFile(UUID.fromString(uuid), langtag)
       }
   }
@@ -222,8 +222,8 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def handleUpload(
-    implicit context: RoutingContext,
-    fn: (UploadAction) => Future[DomainObject]
+      implicit context: RoutingContext,
+      fn: (UploadAction) => Future[DomainObject]
   ): Future[DomainObject] = {
     logger.info(s"Handle upload for ${context.request().absoluteURI()} ${context.fileUploads()}")
 
@@ -231,33 +231,37 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
     val p = Promise[DomainObject]()
 
-    val timerId = vertx.setTimer(10000L, { timerId: java.lang.Long => {
-      p.failure(
-        RouterException(message = "No valid file upload received",
-          id = "errors.upload.invalidRequest",
-          statusCode = 400))
-    }
-    })
+    val timerId = vertx.setTimer(
+      10000L, { timerId: java.lang.Long =>
+        {
+          p.failure(
+            RouterException(message = "No valid file upload received",
+                            id = "errors.upload.invalidRequest",
+                            statusCode = 400))
+        }
+      }
+    )
 
     req.setExpectMultipart(true)
 
     // TODO this only can handle one file upload per request
-    req.uploadHandler({ upload: HttpServerFileUpload => {
-      logger.info("Received a file upload")
+    req.uploadHandler({ upload: HttpServerFileUpload =>
+      {
+        logger.info("Received a file upload")
 
-      vertx.cancelTimer(timerId)
+        vertx.cancelTimer(timerId)
 
-      val setExceptionHandler = (exHandler: Throwable => Unit) => upload.exceptionHandler(exHandler)
-      val setEndHandler = (fn: () => Unit) => upload.endHandler(fn())
-      val setStreamToFile = (fPath: String) => upload.streamToFileSystem(fPath)
+        val setExceptionHandler = (exHandler: Throwable => Unit) => upload.exceptionHandler(exHandler)
+        val setEndHandler = (fn: () => Unit) => upload.endHandler(fn())
+        val setStreamToFile = (fPath: String) => upload.streamToFileSystem(fPath)
 
-      val action =
-        UploadAction(upload.filename(), upload.contentType(), setExceptionHandler, setEndHandler, setStreamToFile)
+        val action =
+          UploadAction(upload.filename(), upload.contentType(), setExceptionHandler, setEndHandler, setStreamToFile)
 
-      fn(action)
-        .map(p.success)
-        .recoverWith({ case e => logger.error("Upload failed", e); p.failure(e); Future.failed(e) })
-    }
+        fn(action)
+          .map(p.success)
+          .recoverWith({ case e => logger.error("Upload failed", e); p.failure(e); Future.failed(e) })
+      }
     })
 
     p.future

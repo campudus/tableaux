@@ -32,7 +32,7 @@ class GetStructureTest extends TableauxTestBase {
 
   @Test
   def retrieveAllTables(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val baseExpected = Json.obj(
         "hidden" -> false,
         "displayName" -> Json.obj(),
@@ -59,7 +59,7 @@ class GetStructureTest extends TableauxTestBase {
 
   @Test
   def retrieveColumns(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj(
         "status" -> "ok",
         "columns" -> Json.arr(
@@ -97,7 +97,7 @@ class GetStructureTest extends TableauxTestBase {
 
   @Test
   def retrieveStringColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj(
         "status" -> "ok",
         "id" -> 1,
@@ -121,7 +121,7 @@ class GetStructureTest extends TableauxTestBase {
 
   @Test
   def retrieveNumberColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj(
         "status" -> "ok",
         "id" -> 2,

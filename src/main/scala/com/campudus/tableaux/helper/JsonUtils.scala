@@ -14,33 +14,35 @@ object JsonUtils extends LazyLogging {
 
   def asCastedNullableList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     Option(array)
-      .map({ array => {
-        import scala.collection.JavaConverters._
+      .map({ array =>
+        {
+          import scala.collection.JavaConverters._
 
-        val arrayAsList = array.asScala.toList
+          val arrayAsList = array.asScala.toList
 
-        sequence(arrayAsList.map(tryCast[A]))
-      }
+          sequence(arrayAsList.map(tryCast[A]))
+        }
       })
       .getOrElse(OkArg(Seq.empty))
   }
 
   def asCastedList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
     Option(array)
-      .map({ array => {
-        import scala.collection.JavaConverters._
+      .map({ array =>
+        {
+          import scala.collection.JavaConverters._
 
-        val arrayAsList = array.asScala.toList.zipWithIndex
+          val arrayAsList = array.asScala.toList.zipWithIndex
 
-        sequence(
-          arrayAsList
-            .map({
-              case (value, index) =>
-                notNull(value, s"value at index $index in array with length ${array.size()}")
-                  .flatMap(tryCast[A])
-            })
-        )
-      }
+          sequence(
+            arrayAsList
+              .map({
+                case (value, index) =>
+                  notNull(value, s"value at index $index in array with length ${array.size()}")
+                    .flatMap(tryCast[A])
+              })
+          )
+        }
       })
       .getOrElse(OkArg(Seq.empty))
   }
@@ -51,12 +53,12 @@ object JsonUtils extends LazyLogging {
 
   private def checkForJsonObject(seq: Seq[JsonObject]): ArgumentCheck[Seq[JsonObject]] = {
     tryMap((y: Seq[JsonObject]) => {
-      y map { x: JsonObject => {
-        x
+      y map { x: JsonObject =>
+        {
+          x
+        }
       }
-      }
-    },
-      InvalidJsonException(s"Warning: Array should only contain JsonObjects", "object"))(seq)
+    }, InvalidJsonException(s"Warning: Array should only contain JsonObjects", "object"))(seq)
   }
 
   private def toTableauxType(kind: String): ArgumentCheck[TableauxDbType] = {
@@ -75,51 +77,52 @@ object JsonUtils extends LazyLogging {
   def toCreateColumnSeq(json: JsonObject): Seq[CreateColumn] = {
     (for {
       seq <- toJsonObjectSeq("columns", json)
-      tuples <- sequence(seq map { json => {
-        for {
-        // required fields
-          name <- notNull(json.getString("name"), "name")
-          kind <- notNull(json.getString("kind"), "kind")
+      tuples <- sequence(seq map { json =>
+        {
+          for {
+            // required fields
+            name <- notNull(json.getString("name"), "name")
+            kind <- notNull(json.getString("kind"), "kind")
 
-          dbType <- toTableauxType(kind)
-        } yield {
-          // optional fields
-          val ordering = Try(json.getInteger("ordering").longValue()).toOption
-          val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
+            dbType <- toTableauxType(kind)
+          } yield {
+            // optional fields
+            val ordering = Try(json.getInteger("ordering").longValue()).toOption
+            val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
 
-          // languageType or deprecated multilanguage
-          // if languageType == 'country' countryCodes must be specified
-          val languageType = parseJsonForLanguageType(json)
+            // languageType or deprecated multilanguage
+            // if languageType == 'country' countryCodes must be specified
+            val languageType = parseJsonForLanguageType(json)
 
-          // displayName and description; both multi-language objects
-          val displayInfos = DisplayInfos.fromJson(json)
+            // displayName and description; both multi-language objects
+            val displayInfos = DisplayInfos.fromJson(json)
 
-          dbType match {
-            case AttachmentType =>
-              CreateAttachmentColumn(name, ordering, identifier, displayInfos)
+            dbType match {
+              case AttachmentType =>
+                CreateAttachmentColumn(name, ordering, identifier, displayInfos)
 
-            case LinkType =>
-              // link specific fields
-              val toName = Try(Option(json.getString("toName"))).toOption.flatten
-              val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
-              val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
-              val toDisplayInfos =
-                Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
+              case LinkType =>
+                // link specific fields
+                val toName = Try(Option(json.getString("toName"))).toOption.flatten
+                val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
+                val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
+                val toDisplayInfos =
+                  Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
 
-              CreateLinkColumn(name,
-                ordering,
-                toTableId,
-                toName,
-                toDisplayInfos,
-                singleDirection,
-                identifier,
-                displayInfos)
+                CreateLinkColumn(name,
+                                 ordering,
+                                 toTableId,
+                                 toName,
+                                 toDisplayInfos,
+                                 singleDirection,
+                                 identifier,
+                                 displayInfos)
 
-            case _ =>
-              CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)
+              case _ =>
+                CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)
+            }
           }
         }
-      }
       })
     } yield tuples).get
   }
@@ -133,20 +136,20 @@ object JsonUtils extends LazyLogging {
             import scala.collection.JavaConverters._
 
             val countryCodeSeq = checkAllValuesOfArray[String](json.getJsonArray("countryCodes"),
-              d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
-              "countryCodes")
+                                                               d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
+                                                               "countryCodes")
               .map(_.asScala.toSeq.map({ case code: String => code }))
               .get
 
             MultiCountry(CountryCodes(countryCodeSeq))
           } else {
             throw InvalidJsonException("If 'languageType' is 'country' the field 'countryCodes' must be specified.",
-              "countrycodes")
+                                       "countrycodes")
           }
         case LanguageType.NEUTRAL => LanguageNeutral
         case _ =>
           throw InvalidJsonException("Field 'languageType' should only contain 'neutral', 'language' or 'country'",
-            "languagetype")
+                                     "languagetype")
       }
     } else if (json.containsKey("multilanguage")) {
       logger.warn("JSON contains deprecated field 'multilanguage' use 'languageType' instead.")
@@ -178,8 +181,8 @@ object JsonUtils extends LazyLogging {
   }
 
   private def mergeColumnWithValue(
-    columns: Seq[ColumnId],
-    rows: Seq[JsonObject]
+      columns: Seq[ColumnId],
+      rows: Seq[JsonObject]
   ): ArgumentCheck[Seq[Seq[(ColumnId, _)]]] = {
     sequence(rows map { row =>
       toValueSeq(row) flatMap { values =>
@@ -197,11 +200,11 @@ object JsonUtils extends LazyLogging {
   }
 
   def toColumnChanges(json: JsonObject): (Option[String],
-    Option[Ordering],
-    Option[TableauxDbType],
-    Option[Boolean],
-    Option[Seq[DisplayInfo]],
-    Option[Seq[String]]) = {
+                                          Option[Ordering],
+                                          Option[TableauxDbType],
+                                          Option[Boolean],
+                                          Option[Seq[DisplayInfo]],
+                                          Option[Seq[String]]) = {
     import scala.collection.JavaConverters._
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
@@ -216,8 +219,8 @@ object JsonUtils extends LazyLogging {
     val countryCodes = booleanToValueOption(
       json.containsKey("countryCodes"), {
         checkAllValuesOfArray[String](json.getJsonArray("countryCodes"),
-          d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
-          "countryCodes").get
+                                      d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
+                                      "countryCodes").get
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 

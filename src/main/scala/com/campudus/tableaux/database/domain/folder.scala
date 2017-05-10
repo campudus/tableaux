@@ -9,9 +9,8 @@ case class Folder(id: FolderId,
                   description: String,
                   parents: Seq[FolderId],
                   createdAt: Option[DateTime],
-  updatedAt: Option[DateTime]
-)
-  extends DomainObject {
+                  updatedAt: Option[DateTime])
+    extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
     "id" -> {

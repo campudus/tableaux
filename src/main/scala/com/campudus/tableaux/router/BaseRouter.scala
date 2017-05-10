@@ -47,11 +47,10 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   def asyncEmptyReply: AsyncReplyFunction = asyncReply(EmptyReturn)(_)
 
   private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject]): AsyncReply = {
-    AsyncReply{
+    AsyncReply {
       val catchedReplyFunction = try {
         replyFunction
-      }
-      catch {
+      } catch {
         case NonFatal(ex) => Future.failed(ex)
       }
 

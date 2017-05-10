@@ -15,7 +15,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addAnnotationWithoutLangtags(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId <- createEmptyDefaultTable()
 
@@ -24,8 +24,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         rowId = result.getLong("id")
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-          Json.obj("type" -> "info", "value" -> "this is a comment"))
+                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+                         Json.obj("type" -> "info", "value" -> "this is a comment"))
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -39,7 +39,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addAndDeleteMultipleAnnotationsWithoutLangtags(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId <- createEmptyDefaultTable()
 
@@ -49,12 +49,12 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
         _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations", Json.obj("type" -> "error"))
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-          Json.obj("type" -> "info", "value" -> "this is a comment"))
+                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+                         Json.obj("type" -> "info", "value" -> "this is a comment"))
         _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/$rowId/annotations", Json.obj("type" -> "warning"))
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/2/rows/$rowId/annotations",
-          Json.obj("type" -> "error", "value" -> "this is another comment"))
+                         s"/tables/$tableId/columns/2/rows/$rowId/annotations",
+                         Json.obj("type" -> "error", "value" -> "this is another comment"))
 
         row <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
@@ -94,7 +94,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addMultipleAnnotationsWithLangtags(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         (tableId, _) <- createTableWithMultilanguageColumns("Test")
 
@@ -103,16 +103,16 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         rowId = result.getLong("id")
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-          Json.obj("langtags" -> Json.arr("de"), "type" -> "error"))
+                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+                         Json.obj("langtags" -> Json.arr("de"), "type" -> "error"))
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-          Json.obj("langtags" -> Json.arr("gb"), "type" -> "info", "value" -> "this is a comment"))
+                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+                         Json.obj("langtags" -> Json.arr("gb"), "type" -> "info", "value" -> "this is a comment"))
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/2/rows/$rowId/annotations",
-          Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning"))
+                         s"/tables/$tableId/columns/2/rows/$rowId/annotations",
+                         Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning"))
 
         _ <- sendRequest(
           "POST",
@@ -147,7 +147,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addAnnotationWithLangtagsOnLanguageNeutralCell(implicit c: TestContext): Unit = {
-    exceptionTest("unprocessable.entity"){
+    exceptionTest("unprocessable.entity") {
       for {
         tableId <- createDefaultTable("Test")
 
@@ -156,8 +156,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         rowId = result.getLong("id")
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-          Json.obj("langtags" -> Json.arr("de"), "type" -> "error"))
+                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+                         Json.obj("langtags" -> Json.arr("de"), "type" -> "error"))
 
       } yield ()
     }
@@ -165,7 +165,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addInvalidAnnotations(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments"){
+    exceptionTest("error.arguments") {
       for {
         tableId <- createDefaultTable("Test")
 
@@ -181,7 +181,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addSameAnnotationsWithDifferentLangtags(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       // Tests what happens when annotation with same type and/or value is posted multiple times.
 
       for {
@@ -222,7 +222,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def deleteLangtagFromExistingAnnotation(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         (tableId, _) <- createTableWithMultilanguageColumns("Test")
 
@@ -231,13 +231,13 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         rowId = result.getLong("id")
 
         annotation <- sendRequest("POST",
-          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-          Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error"))
+                                  s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+                                  Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error"))
 
         rowJson <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
         _ <- sendRequest("DELETE",
-          s"/tables/$tableId/columns/1/rows/$rowId/annotations/${annotation.getString("uuid")}/en")
+                         s"/tables/$tableId/columns/1/rows/$rowId/annotations/${annotation.getString("uuid")}/en")
 
         rowJsonAfterDelete <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -255,7 +255,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addAndDeleteAnnotationWithLangtagsConcurrently(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def addLangtag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtag: String): Future[_] = {
         sendRequest(
@@ -266,11 +266,11 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       }
 
       def removeLangtag(
-        tableId: TableId,
-        columnId: ColumnId,
-        rowId: RowId,
-        uuid: String,
-        langtag: String
+          tableId: TableId,
+          columnId: ColumnId,
+          rowId: RowId,
+          uuid: String,
+          langtag: String
       ): Future[_] = {
         sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuid/$langtag")
       }

@@ -160,7 +160,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createMultipleColumnsWithoutTypeJson(implicit c: TestContext): Unit = {
     multipleColumnHelper(errorJsonNull,
-      Json.obj("columns" -> Json.arr(Json.obj("kind" -> null, "name" -> "Test Column 1"))))
+                         Json.obj("columns" -> Json.arr(Json.obj("kind" -> null, "name" -> "Test Column 1"))))
   }
 
   @Test
@@ -176,7 +176,7 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createMultipleColumnsWithInvalidKindJson(implicit c: TestContext): Unit = {
     multipleColumnHelper(errorJsonInvalid,
-      Json.obj("columns" -> Json.arr(Json.obj("kind" -> 1, "name" -> "Test Column 1"))))
+                         Json.obj("columns" -> Json.arr(Json.obj("kind" -> 1, "name" -> "Test Column 1"))))
   }
 
   @Test
@@ -197,11 +197,11 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createMultipleLinkColumnsWithoutToTable(implicit c: TestContext): Unit = {
     multipleColumnHelper(errorJsonNull,
-      Json.obj("columns" -> Json.arr(Json.obj("kind" -> "link", "name" -> "Test Column 1"))))
+                         Json.obj("columns" -> Json.arr(Json.obj("kind" -> "link", "name" -> "Test Column 1"))))
   }
 
   private def multipleColumnHelper(error: String, json: JsonObject)(implicit c: TestContext): Unit = {
-    exceptionTest(error){
+    exceptionTest(error) {
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         _ <- sendRequest("POST", "/tables/1/columns", json)
@@ -219,8 +219,8 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createMultipleFullRowsWithoutValueJson(implicit c: TestContext): Unit = {
     multipleRowHelper(errorJsonNull,
-      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-        "rows" -> Json.arr(Json.obj("values" -> null))))
+                      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+                               "rows" -> Json.arr(Json.obj("values" -> null))))
   }
 
   @Test
@@ -233,22 +233,22 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createMultipleFullRowsWithEmptyValueJson(implicit c: TestContext): Unit = {
     multipleRowHelper(errorJsonEmpty,
-      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr()))))
+                      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+                               "rows" -> Json.arr(Json.obj("values" -> Json.arr()))))
   }
 
   @Test
   def createMultipleFullRowsWithMoreColIds(implicit c: TestContext): Unit = {
     multipleRowHelper(errorJsonArguments,
-      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1")))))
+                      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+                               "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1")))))
   }
 
   @Test
   def createMultipleFullRowsWithMoreValues(implicit c: TestContext): Unit = {
     multipleRowHelper(errorJsonArguments,
-      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)))))
+                      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1)),
+                               "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2)))))
   }
 
   @Test
@@ -275,14 +275,14 @@ class ErrorTest extends TableauxTestBase {
   @Test
   def createMultipleFullRowsWithEmptyValueJsonArray(implicit c: TestContext): Unit = {
     multipleRowHelper(errorJsonEmpty,
-      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr()))))
+                      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+                               "rows" -> Json.arr(Json.obj("values" -> Json.arr()))))
   }
 
   @Test
   def createMultipleFullRowsWithEmptyRowsJsonArray(implicit c: TestContext): Unit = {
     multipleRowHelper(errorJsonEmpty,
-      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr()))
+                      Json.obj("columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), "rows" -> Json.arr()))
   }
 
   @Test
@@ -290,12 +290,12 @@ class ErrorTest extends TableauxTestBase {
     multipleRowHelper(
       errorJsonInvalid,
       Json.obj("columns" -> Json.arr(Json.obj("id" -> "1"), Json.obj("id" -> "2")),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2))))
+               "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2))))
     )
   }
 
   private def multipleRowHelper(error: String, json: JsonObject)(implicit c: TestContext): Unit = {
-    exceptionTest(error){
+    exceptionTest(error) {
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJson)
@@ -307,10 +307,10 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createCompleteTableWithNullCols(implicit c: TestContext): Unit = {
-    exceptionTest(errorJsonNull){
+    exceptionTest(errorJsonNull) {
       val createCompleteTableJson = Json.obj("name" -> "Test Nr. 1",
-        "columns" -> null,
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2))))
+                                             "columns" -> null,
+                                             "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 2))))
 
       sendRequest("POST", "/completetable", createCompleteTableJson)
     }
@@ -318,11 +318,11 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createCompleteTableWithNullRows(implicit c: TestContext): Unit = {
-    exceptionTest(errorJsonNull){
+    exceptionTest(errorJsonNull) {
       val createCompleteTableJson = Json.obj(
         "name" -> "Test Nr. 1",
         "columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
-          Json.obj("kind" -> "text", "name" -> "Test Column 2")),
+                              Json.obj("kind" -> "text", "name" -> "Test Column 2")),
         "rows" -> null
       )
 

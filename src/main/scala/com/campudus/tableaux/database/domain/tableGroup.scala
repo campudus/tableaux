@@ -12,18 +12,17 @@ case class TableGroup(id: TableId, displayInfos: Seq[DisplayInfo]) extends Domai
       "description" -> Json.obj()
     )
 
-    displayInfos.foreach { di => {
-      di.optionalName.map(
-        name => {
+    displayInfos.foreach { di =>
+      {
+        di.optionalName.map(name => {
           result.mergeIn(
             Json.obj("displayName" -> result.getJsonObject("displayName").mergeIn(Json.obj(di.langtag -> name))))
         })
-      di.optionalDescription.map(
-        desc => {
+        di.optionalDescription.map(desc => {
           result.mergeIn(
             Json.obj("description" -> result.getJsonObject("description").mergeIn(Json.obj(di.langtag -> desc))))
         })
-    }
+      }
     }
 
     result

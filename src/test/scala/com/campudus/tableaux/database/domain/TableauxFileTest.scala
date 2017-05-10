@@ -76,7 +76,7 @@ class TableauxFileTest {
 
     val noExternalFile = ExtendedFile(baseFile.copy(externalName = MultiLanguageValue.empty()))
     assertEquals(Json.obj("de-DE" -> s"/files/${file.uuid}/de-DE/internal.pdf"),
-      noExternalFile.getJson.getJsonObject("url"))
+                 noExternalFile.getJson.getJsonObject("url"))
 
     val multipleExternalFile = ExtendedFile(
       baseFile.copy(externalName = MultiLanguageValue("de-DE" -> "dateiname.pdf", "en-GB" -> "filename.pdf")))

@@ -70,10 +70,10 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 }
 
 class TableauxModel(
-  override protected[this] val connection: DatabaseConnection,
-  override protected[this] val structureModel: StructureModel
+    override protected[this] val connection: DatabaseConnection,
+    override protected[this] val structureModel: StructureModel
 ) extends DatabaseQuery
-  with StructureDelegateModel {
+    with StructureDelegateModel {
 
   import TableauxModel._
 
@@ -96,30 +96,35 @@ class TableauxModel(
           case (linkId, linkDirection) =>
             connection
               .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
-              .map({ result => {
-                resultObjectToJsonArray(result).map({ row => {
-                  val rowId: RowId = row.getLong(0).toLong
-                  rowId
+              .map({ result =>
+                {
+                  resultObjectToJsonArray(result).map({ row =>
+                    {
+                      val rowId: RowId = row.getLong(0).toLong
+                      rowId
+                    }
+                  })
                 }
-                })
-              }
               })
-              .map({ dependentRows => {
-                (linkDirection.to, dependentRows)
-              }
+              .map({ dependentRows =>
+                {
+                  (linkDirection.to, dependentRows)
+                }
               })
               .flatMap({
                 case (tableId, rows) =>
                   for {
                     table <- retrieveTable(tableId)
                     columns <- retrieveColumns(table)
-                    rowObjects <- Future.sequence(rows.map({ rowId => {
-                      retrieveCell(columns.head, rowId)
-                        .map({ cell => {
-                          Json.obj("id" -> rowId, "value" -> cell.value)
-                        }
-                        })
-                    }
+                    rowObjects <- Future.sequence(rows.map({ rowId =>
+                      {
+                        retrieveCell(columns.head, rowId)
+                          .map({ cell =>
+                            {
+                              Json.obj("id" -> rowId, "value" -> cell.value)
+                            }
+                          })
+                      }
                     }))
                   } yield (table, columns.head, rowObjects)
               })
@@ -133,12 +138,12 @@ class TableauxModel(
         .map({
           case ((groupedByTable, groupedByColumn), dependentRowInformation) =>
             (groupedByTable,
-              groupedByColumn,
-              dependentRowInformation
-                .flatMap({
-                  case (_, _, values) => values
-                })
-                .distinct)
+             groupedByColumn,
+             dependentRowInformation
+               .flatMap({
+                 case (_, _, values) => values
+               })
+               .distinct)
         })
         .filter({
           case (_, _, values) => values.nonEmpty
@@ -186,13 +191,12 @@ class TableauxModel(
   def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)
-      rows <- rows.foldLeft(Future.successful(Vector[Row]())){ (futureRows, row) =>
-        // replace ColumnId with ColumnType
-        // TODO fail nice if columnid doesn't exist
+      rows <- rows.foldLeft(Future.successful(Vector[Row]())) { (futureRows, row) => // replace ColumnId with ColumnType
+      // TODO fail nice if columnid doesn't exist
       {
-        val columnValuePairs = row.map{ case (columnId, value) => (columns.find(_.id == columnId).get, value) }
+        val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
-        futureRows.flatMap{ rows =>
+        futureRows.flatMap { rows =>
           for {
             rowId <- createRowModel.createRow(table.id, columnValuePairs)
             newRow <- retrieveRow(table, columns, rowId)
@@ -206,11 +210,11 @@ class TableauxModel(
   }
 
   def addCellAnnotation(
-    column: ColumnType[_],
-    rowId: RowId,
-    langtags: Seq[String],
-    annotationType: CellAnnotationType,
-    value: String
+      column: ColumnType[_],
+      rowId: RowId,
+      langtags: Seq[String],
+      annotationType: CellAnnotationType,
+      value: String
   ): Future[CellLevelAnnotation] = {
     for {
       (uuid, mergedLangtags, createdAt) <- updateRowModel.addOrMergeCellAnnotation(
@@ -264,11 +268,11 @@ class TableauxModel(
   }
 
   def updateCellLinkOrder(
-    table: Table,
-    columnId: ColumnId,
-    rowId: RowId,
-    toId: RowId,
-    locationType: LocationType
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      toId: RowId,
+      locationType: LocationType
   ): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
@@ -353,7 +357,7 @@ class TableauxModel(
 
   private def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
     for {
-    // invalidate the cell itself
+      // invalidate the cell itself
       _ <- CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, column.id, rowId)
 
       // invalidate the concat cell if possible
@@ -475,9 +479,10 @@ class TableauxModel(
 
       rowsSeq <- retrieveRows(table, columns, pagination)
     } yield {
-      rowsSeq.copy(rows = rowsSeq.rows.map({ row => {
-        row.copy(values = row.values.take(1))
-      }
+      rowsSeq.copy(rows = rowsSeq.rows.map({ row =>
+        {
+          row.copy(values = row.values.take(1))
+        }
       }))
     }
   }
@@ -594,12 +599,13 @@ class TableauxModel(
         })
     }
 
-    val rows = mergedRowsFuture.map({ mergedRows => {
-      mergedRows.map({
-        case RawRow(rowId, rowLevelFlags, cellLevelFlags, values) =>
-          Row(table, rowId, rowLevelFlags, cellLevelFlags, values)
-      })
-    }
+    val rows = mergedRowsFuture.map({ mergedRows =>
+      {
+        mergedRows.map({
+          case RawRow(rowId, rowLevelFlags, cellLevelFlags, values) =>
+            Row(table, rowId, rowLevelFlags, cellLevelFlags, values)
+        })
+      }
     })
 
     rows

@@ -20,8 +20,7 @@ object FileUtils {
 class FileUtils(override val verticle: ScalaVerticle) extends VertxAccess {
 
   def mkdirs(dir: Path): Future[Unit] = {
-    futurify{ p: Promise[Unit] =>
-      // succeed also in error cause (directory already exists)
+    futurify { p: Promise[Unit] => // succeed also in error cause (directory already exists)
     {
       vertx.fileSystem.mkdirs(
         dir.toString(), {

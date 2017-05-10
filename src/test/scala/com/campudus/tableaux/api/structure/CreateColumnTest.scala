@@ -28,7 +28,7 @@ class CreateColumnTest extends TableauxTestBase {
 
   @Test
   def createTextColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createColumn1 = createTextColumnJson("column1")
       val createColumn2 = createTextColumnJson("column2")
 
@@ -37,11 +37,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 1,
-              "ordering" -> 1,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 1,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
       val expectedJson2 = Json.obj(
@@ -49,11 +49,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 2,
-              "ordering" -> 2,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 2,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
 
@@ -70,7 +70,7 @@ class CreateColumnTest extends TableauxTestBase {
 
   @Test
   def createShortTextColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createColumn1 = createShortTextColumnJson("column1")
       val createColumn2 = createShortTextColumnJson("column2")
 
@@ -79,11 +79,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 1,
-              "ordering" -> 1,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 1,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
       val expectedJson2 = Json.obj(
@@ -91,11 +91,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 2,
-              "ordering" -> 2,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 2,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
 
@@ -112,7 +112,7 @@ class CreateColumnTest extends TableauxTestBase {
 
   @Test
   def createRichTextColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createColumn1 = createRichTextColumnJson("column1")
       val createColumn2 = createRichTextColumnJson("column2")
 
@@ -121,11 +121,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 1,
-              "ordering" -> 1,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 1,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
       val expectedJson2 = Json.obj(
@@ -133,11 +133,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 2,
-              "ordering" -> 2,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 2,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
 
@@ -154,7 +154,7 @@ class CreateColumnTest extends TableauxTestBase {
 
   @Test
   def createNumberColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createColumn1 = createNumberColumnJson("column1")
       val createColumn2 = createNumberColumnJson("column2")
       val expectedJson = Json.obj(
@@ -162,11 +162,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 1,
-              "ordering" -> 1,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 1,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
       val expectedJson2 = Json.obj(
@@ -174,11 +174,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 2,
-              "ordering" -> 2,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 2,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
 
@@ -195,7 +195,7 @@ class CreateColumnTest extends TableauxTestBase {
 
   @Test
   def createCurrencyColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createColumn1 = createCurrencyColumnJson("column1")
       val createColumn2 = createCurrencyColumnJson("column2")
       val expectedJson = Json.obj(
@@ -203,11 +203,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 1,
-              "ordering" -> 1,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 1,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
       val expectedJson2 = Json.obj(
@@ -215,11 +215,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 2,
-              "ordering" -> 2,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 2,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
 
@@ -236,7 +236,7 @@ class CreateColumnTest extends TableauxTestBase {
 
   @Test
   def createBooleanColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createColumn1 = createBooleanColumnJson("column1")
       val createColumn2 = createBooleanColumnJson("column2")
 
@@ -245,11 +245,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 1,
-              "ordering" -> 1,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 1,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
       val expectedJson2 = Json.obj(
@@ -257,11 +257,11 @@ class CreateColumnTest extends TableauxTestBase {
         "columns" -> Json.arr(
           Json
             .obj("id" -> 2,
-              "ordering" -> 2,
-              "multilanguage" -> false,
-              "identifier" -> false,
-              "displayName" -> Json.obj(),
-              "description" -> Json.obj())
+                 "ordering" -> 2,
+                 "multilanguage" -> false,
+                 "identifier" -> false,
+                 "displayName" -> Json.obj(),
+                 "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
 
@@ -278,10 +278,10 @@ class CreateColumnTest extends TableauxTestBase {
 
   @Test
   def createMultipleColumns(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val jsonObj = Json.obj(
         "columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
-          Json.obj("kind" -> "text", "name" -> "Test Column 2")))
+                              Json.obj("kind" -> "text", "name" -> "Test Column 2")))
 
       val expectedJson = Json.obj(
         "status" -> "ok",
@@ -320,10 +320,10 @@ class CreateColumnTest extends TableauxTestBase {
 
   @Test
   def createMultipleColumnsWithOrdering(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val jsonObj = Json.obj(
         "columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "ordering" -> 2),
-          Json.obj("kind" -> "text", "name" -> "Test Column 2", "ordering" -> 1)))
+                              Json.obj("kind" -> "text", "name" -> "Test Column 2", "ordering" -> 1)))
       val expectedJson = Json.obj(
         "status" -> "ok",
         "columns" -> Json.arr(

@@ -48,7 +48,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       * Resets the database (needs nonce)
       */
     case Post("/system/reset") =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           _ <- Future(checkNonce)
           result <- controller.resetDB()
@@ -59,7 +59,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       * Create the demo tables (needs nonce)
       */
     case Post("/system/resetDemo") =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           _ <- Future(checkNonce)
           result <- controller.createDemoTables()
@@ -70,7 +70,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       * Get the current version
       */
     case Get("/system/versions") =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveVersions()
       }
 
@@ -78,7 +78,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       * Update the database (needs POST and nonce)
       */
     case Post("/system/update") =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           _ <- Future(checkNonce)
           result <- controller.updateDB()
@@ -89,7 +89,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       * Invalidate all caches
       */
     case Post("/system/cache/invalidate") =>
-      asyncGetReply{
+      asyncGetReply {
         controller.invalidateCache()
       }
 
@@ -97,7 +97,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       * Invalidate column cache
       */
     case Post(CacheColumnInvalidate(tableId, columnId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.invalidateCache(tableId.toLong, tableId.toLong)
       }
 
@@ -105,7 +105,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       * Retrieves system settings
       */
     case Get(Settings(key)) =>
-      asyncGetReply{
+      asyncGetReply {
         key match {
           case SystemController.SETTING_LANGTAGS =>
             controller.retrieveLangtags()
@@ -118,7 +118,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       * Update system settings
       */
     case Post(Settings(key)) =>
-      asyncGetReply{
+      asyncGetReply {
         getJson(context).flatMap(json => {
           key match {
             case SystemController.SETTING_LANGTAGS =>

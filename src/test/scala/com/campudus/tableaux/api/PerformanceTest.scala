@@ -196,37 +196,42 @@ class PerformanceTest extends TableauxTestBase {
       // Fill table 2
       _ <- Range(1, rows).grouped(100).foldLeft(Future.successful(())) {
         case (future, group) =>
-          future.flatMap({ _ => {
-            Future
-              .sequence(group.map({ _ => {
-                sendStringRequest("POST", s"/tables/${table2._1}/rows", valuesRow)
-              }
-              }))
-              .map({ _ =>
-                logger.info(s"Finished table 2 group ${group.head}")
-                ()
-              })
-          }
+          future.flatMap({ _ =>
+            {
+              Future
+                .sequence(group.map({ _ =>
+                  {
+                    sendStringRequest("POST", s"/tables/${table2._1}/rows", valuesRow)
+                  }
+                }))
+                .map({ _ =>
+                  logger.info(s"Finished table 2 group ${group.head}")
+                  ()
+                })
+            }
           })
       }
 
       // Fill table 1
       _ <- Range(1, rows).grouped(100).foldLeft(Future.successful(())) {
         case (future, group) =>
-          future.flatMap({ _ => {
-            Future
-              .sequence(group.map({ rowId: Int => {
-                sendStringRequest("POST",
-                  s"/tables/${table1._1}/rows",
-                  valuesRowWithLink(linkColumnId1, linkColumnId2, linkColumnId3, rowId))
-              }
-              }))
-              .map({ _ => {
-                logger.info(s"Finished table 1 group ${group.head}")
-                ()
-              }
-              })
-          }
+          future.flatMap({ _ =>
+            {
+              Future
+                .sequence(group.map({ rowId: Int =>
+                  {
+                    sendStringRequest("POST",
+                                      s"/tables/${table1._1}/rows",
+                                      valuesRowWithLink(linkColumnId1, linkColumnId2, linkColumnId3, rowId))
+                  }
+                }))
+                .map({ _ =>
+                  {
+                    logger.info(s"Finished table 1 group ${group.head}")
+                    ()
+                  }
+                })
+            }
           })
       }
     } yield ()
@@ -246,13 +251,13 @@ class PerformanceTest extends TableauxTestBase {
 
       elapsedTimes <- Range(1, times + warmUp).foldLeft(Future.successful(Seq.empty[Long]))({
         case (resultsFuture, x) =>
-          resultsFuture.flatMap({ results =>
-            // Send request and measure round-trip time in ms
+          resultsFuture.flatMap({ results => // Send request and measure round-trip time in ms
           {
             sendTimedRequest("GET", "/tables/1/rows")
-              .flatMap({ duration => {
-                Future(results ++ Seq(duration))
-              }
+              .flatMap({ duration =>
+                {
+                  Future(results ++ Seq(duration))
+                }
               })
           }
           })

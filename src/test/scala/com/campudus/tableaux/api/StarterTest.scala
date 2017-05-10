@@ -33,7 +33,7 @@ class StarterTest extends LazyLogging with TestAssertionHelper with JsonCompatib
     val async = c.async()
 
     val options = new DeploymentOptions()
-      // will fail because of empty config
+    // will fail because of empty config
       .setConfig(Json.obj())
 
     val completionHandler = {

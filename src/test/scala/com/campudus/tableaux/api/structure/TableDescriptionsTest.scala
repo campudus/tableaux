@@ -12,17 +12,17 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def createRegularTableWithoutDescription(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj(
         "name" -> "sometable"
       )
       val expectedTableJson = Json.obj("status" -> "ok",
-        "id" -> 1,
-        "name" -> "sometable",
-        "displayName" -> Json.obj(),
-        "description" -> Json.obj(),
-        "hidden" -> false,
-        "langtags" -> Json.arr("de-DE", "en-GB"))
+                                       "id" -> 1,
+                                       "name" -> "sometable",
+                                       "displayName" -> Json.obj(),
+                                       "description" -> Json.obj(),
+                                       "hidden" -> false,
+                                       "langtags" -> Json.arr("de-DE", "en-GB"))
 
       for {
         tablePost <- sendRequest("POST", "/tables", createTableJson)
@@ -37,7 +37,7 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def createRegularTableWithMultipleDescriptions(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj(
         "name" -> "sometable",
         "description" -> Json.obj("de-DE" -> "Eine Tabelle", "en-GB" -> "Some table")
@@ -65,7 +65,7 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def createRegularTableWithSingleDescription(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj(
         "name" -> "sometable",
         "description" -> Json.obj("de-DE" -> "Eine Tabelle")
@@ -93,7 +93,7 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def updateTableNameDoesNotChangeDescriptions(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj(
         "name" -> "sometable",
         "description" -> Json.obj("de-DE" -> "Eine Tabelle", "en-GB" -> "Some table")
@@ -123,16 +123,16 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def updateTableNameDoesNotAddDescriptions(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj("name" -> "sometable")
       val updateTableJson = Json.obj("name" -> "sametable")
       val expectedTableJson = Json.obj("status" -> "ok",
-        "id" -> 1,
-        "name" -> "sametable",
-        "displayName" -> Json.obj(),
-        "description" -> Json.obj(),
-        "hidden" -> false,
-        "langtags" -> Json.arr("de-DE", "en-GB"))
+                                       "id" -> 1,
+                                       "name" -> "sametable",
+                                       "displayName" -> Json.obj(),
+                                       "description" -> Json.obj(),
+                                       "hidden" -> false,
+                                       "langtags" -> Json.arr("de-DE", "en-GB"))
 
       for {
         tablePost <- sendRequest("POST", "/tables", createTableJson)
@@ -148,17 +148,17 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def updateTableAndAddDescriptions(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj("name" -> "sometable")
       val updateTableJson = Json.obj(
         "description" -> Json.obj("de-DE" -> "Eine Tabelle", "en-GB" -> "Some table")
       )
       val baseExpected = Json.obj("status" -> "ok",
-        "id" -> 1,
-        "name" -> "sometable",
-        "displayName" -> Json.obj(),
-        "hidden" -> false,
-        "langtags" -> Json.arr("de-DE", "en-GB"))
+                                  "id" -> 1,
+                                  "name" -> "sometable",
+                                  "displayName" -> Json.obj(),
+                                  "hidden" -> false,
+                                  "langtags" -> Json.arr("de-DE", "en-GB"))
       val expectedAfterCreate = baseExpected.copy().mergeIn(Json.obj("description" -> Json.obj()))
       val expectedAfterUpdate = baseExpected
         .copy()
@@ -181,7 +181,7 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def updateDescriptions(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj(
         "name" -> "sometable",
         "description" -> Json.obj("de-DE" -> "Eine Tabelle", "en-GB" -> "Some table")
@@ -190,11 +190,11 @@ class TableDescriptionsTest extends TableauxTestBase {
         "description" -> Json.obj("de-DE" -> "Immer noch eine Tabelle")
       )
       val baseExpected = Json.obj("status" -> "ok",
-        "id" -> 1,
-        "name" -> "sometable",
-        "displayName" -> Json.obj(),
-        "hidden" -> false,
-        "langtags" -> Json.arr("de-DE", "en-GB"))
+                                  "id" -> 1,
+                                  "name" -> "sometable",
+                                  "displayName" -> Json.obj(),
+                                  "hidden" -> false,
+                                  "langtags" -> Json.arr("de-DE", "en-GB"))
       val expectedAfterCreate = baseExpected
         .copy()
         .mergeIn(Json.obj("description" -> Json.obj("de-DE" -> "Eine Tabelle", "en-GB" -> "Some table")))
@@ -219,7 +219,7 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def deleteDescription(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj(
         "name" -> "sometable",
         "description" -> Json.obj("de-DE" -> "Eine Tabelle", "en-GB" -> "Some table")
@@ -228,15 +228,16 @@ class TableDescriptionsTest extends TableauxTestBase {
         "description" -> Json.obj("de-DE" -> null)
       )
       val baseExpected = Json.obj("status" -> "ok",
-        "id" -> 1,
-        "name" -> "sometable",
-        "displayName" -> Json.obj(),
-        "hidden" -> false,
-        "langtags" -> Json.arr("de-DE", "en-GB"))
+                                  "id" -> 1,
+                                  "name" -> "sometable",
+                                  "displayName" -> Json.obj(),
+                                  "hidden" -> false,
+                                  "langtags" -> Json.arr("de-DE", "en-GB"))
       val expectedAfterCreate = baseExpected
         .copy()
         .mergeIn(Json.obj("description" -> Json.obj("de-DE" -> "Eine Tabelle", "en-GB" -> "Some table")))
-      val expectedAfterUpdate = baseExpected.copy()
+      val expectedAfterUpdate = baseExpected
+        .copy()
         .mergeIn(Json.obj("description" -> Json.obj("en-GB" -> "Some table")))
 
       for {
@@ -256,7 +257,7 @@ class TableDescriptionsTest extends TableauxTestBase {
 
   @Test
   def updateDescriptionDoesNotChangeDisplayName(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj(
         "name" -> "sometable",
         "displayName" -> Json.obj("de-DE" -> "Eine Tabelle", "en-GB" -> "Some table"),

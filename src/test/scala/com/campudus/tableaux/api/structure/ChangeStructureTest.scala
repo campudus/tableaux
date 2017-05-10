@@ -91,7 +91,7 @@ class ChangeStructureTest extends TableauxTestBase {
 
   @Test
   def changeColumnKindWhichShouldFail(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val kindTextJson = Json.obj("kind" -> "text")
       val kindNumericJson = Json.obj("kind" -> "numeric")
 
@@ -101,11 +101,11 @@ class ChangeStructureTest extends TableauxTestBase {
         _ <- createDefaultTable()
 
         _ <- sendRequest("POST",
-          "/tables/1/rows",
-          Json.obj(
-            "rows" ->
-              Json.obj("values" ->
-                Json.arr("Test", 5))))
+                         "/tables/1/rows",
+                         Json.obj(
+                           "rows" ->
+                             Json.obj("values" ->
+                               Json.arr("Test", 5))))
 
         // change numeric column to text column
         changeToText <- sendRequest("POST", "/tables/1/columns/2", kindTextJson)
@@ -116,7 +116,8 @@ class ChangeStructureTest extends TableauxTestBase {
 
         columns <- sendRequest("GET", "/tables/1/columns")
       } yield {
-        assertEquals(columns.getJsonArray("columns").getJsonObject(1).mergeIn(Json.obj("status" -> "ok")), changeToText)
+        assertEquals(columns.getJsonArray("columns").getJsonObject(1).mergeIn(Json.obj("status" -> "ok")),
+                     changeToText)
 
         assertEquals(failed, failedChangeToNumeric)
 
@@ -128,7 +129,7 @@ class ChangeStructureTest extends TableauxTestBase {
 
   @Test
   def changeColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postJson = Json.obj("name" -> "New testname", "ordering" -> 5, "kind" -> "text")
       val expectedJson2 = Json.obj(
         "status" -> "ok",

@@ -18,7 +18,7 @@ object StructureController {
 }
 
 class StructureController(override val config: TableauxConfig, override protected val repository: StructureModel)
-  extends Controller[StructureModel] {
+    extends Controller[StructureModel] {
 
   val tableStruc = repository.tableStruc
   val columnStruc = repository.columnStruc
@@ -76,12 +76,12 @@ class StructureController(override val config: TableauxConfig, override protecte
   }
 
   def createTable(
-    tableName: String,
-    hidden: Boolean,
-    langtags: Option[Option[Seq[String]]],
-    displayInfos: Seq[DisplayInfo],
-    tableType: TableType,
-    tableGroupId: Option[TableGroupId]
+      tableName: String,
+      hidden: Boolean,
+      langtags: Option[Option[Seq[String]]],
+      displayInfos: Seq[DisplayInfo],
+      tableType: TableType,
+      tableGroupId: Option[TableGroupId]
   ): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
     logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
@@ -93,11 +93,11 @@ class StructureController(override val config: TableauxConfig, override protecte
   }
 
   def createGenericTable(
-    tableName: String,
-    hidden: Boolean,
-    langtags: Option[Option[Seq[String]]],
-    displayInfos: Seq[DisplayInfo],
-    tableGroupId: Option[TableGroupId]
+      tableName: String,
+      hidden: Boolean,
+      langtags: Option[Option[Seq[String]]],
+      displayInfos: Seq[DisplayInfo],
+      tableGroupId: Option[TableGroupId]
   ): Future[Table] = {
     for {
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId)
@@ -106,11 +106,11 @@ class StructureController(override val config: TableauxConfig, override protecte
   }
 
   def createSettingsTable(
-    tableName: String,
-    hidden: Boolean,
-    langtags: Option[Option[Seq[String]]],
-    displayInfos: Seq[DisplayInfo],
-    tableGroupId: Option[TableGroupId]
+      tableName: String,
+      hidden: Boolean,
+      langtags: Option[Option[Seq[String]]],
+      displayInfos: Seq[DisplayInfo],
+      tableGroupId: Option[TableGroupId]
   ): Future[Table] = {
     for {
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId)
@@ -121,33 +121,33 @@ class StructureController(override val config: TableauxConfig, override protecte
       _ <- columnStruc.createColumn(
         created,
         CreateSimpleColumn("displayKey",
-          None,
-          ShortTextType,
-          MultiLanguage,
-          identifier = false,
-          Seq(
-            NameOnly("de", "Bezeichnung"),
-            NameOnly("en", "Identifier")
-          ))
+                           None,
+                           ShortTextType,
+                           MultiLanguage,
+                           identifier = false,
+                           Seq(
+                             NameOnly("de", "Bezeichnung"),
+                             NameOnly("en", "Identifier")
+                           ))
       )
       _ <- columnStruc.createColumn(created,
-        CreateSimpleColumn("value",
-          None,
-          TextType,
-          MultiLanguage,
-          identifier = false,
-          Seq(
-            NameOnly("de", "Inhalt"),
-            NameOnly("en", "Value")
-          )))
+                                    CreateSimpleColumn("value",
+                                                       None,
+                                                       TextType,
+                                                       MultiLanguage,
+                                                       identifier = false,
+                                                       Seq(
+                                                         NameOnly("de", "Inhalt"),
+                                                         NameOnly("en", "Value")
+                                                       )))
       _ <- columnStruc.createColumn(created,
-        CreateAttachmentColumn("attachment",
-          None,
-          identifier = false,
-          Seq(
-            NameOnly("de", "Anhang"),
-            NameOnly("en", "Attachment")
-          )))
+                                    CreateAttachmentColumn("attachment",
+                                                           None,
+                                                           identifier = false,
+                                                           Seq(
+                                                             NameOnly("de", "Anhang"),
+                                                             NameOnly("en", "Attachment")
+                                                           )))
 
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
@@ -174,9 +174,10 @@ class StructureController(override val config: TableauxConfig, override protecte
 
       _ <- tableStruc.delete(tableId)
 
-      _ <- Future.sequence(columns.map({ column => {
-        CacheClient(this.vertx).invalidateColumn(tableId, column.id)
-      }
+      _ <- Future.sequence(columns.map({ column =>
+        {
+          CacheClient(this.vertx).invalidateColumn(tableId, column.id)
+        }
       }))
     } yield EmptyObject()
   }
@@ -198,16 +199,16 @@ class StructureController(override val config: TableauxConfig, override protecte
   }
 
   def changeTable(
-    tableId: TableId,
-    tableName: Option[String],
-    hidden: Option[Boolean],
-    langtags: Option[Option[Seq[String]]],
-    displayInfos: Option[Seq[DisplayInfo]],
-    tableGroupId: Option[Option[TableGroupId]]
+      tableId: TableId,
+      tableName: Option[String],
+      hidden: Option[Boolean],
+      langtags: Option[Option[Seq[String]]],
+      displayInfos: Option[Seq[DisplayInfo]],
+      tableGroupId: Option[Option[TableGroupId]]
   ): Future[Table] = {
     checkArguments(greaterZero(tableId),
-      isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId),
-        "name, hidden, langtags, displayName, description, group"))
+                   isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId),
+                             "name, hidden, langtags, displayName, description, group"))
     logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId")
 
     for {
@@ -237,8 +238,8 @@ class StructureController(override val config: TableauxConfig, override protecte
                    displayInfos: Option[Seq[DisplayInfo]],
                    countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId),
-      greaterZero(columnId),
-      isDefined(Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes)))
+                   greaterZero(columnId),
+                   isDefined(Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes)))
     logger.info(
       s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier displayInfos=$displayInfos, countryCodes=$countryCodes")
 

@@ -12,7 +12,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
   @Test
   def createColumnsWithIdenticalInternalNames(implicit c: TestContext): Unit = {
-    exceptionTest("error.request.unique.column"){
+    exceptionTest("error.request.unique.column") {
       val postSimpleTable = Json.obj("name" -> "table1")
       val columnWithDisplayName1 = Json.obj(
         "name" -> "column1",
@@ -45,7 +45,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
   @Test
   def createMultilanguageNamesForColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postSimpleTable = Json.obj("name" -> "table1")
       val columnWithDisplayName = Json.obj(
         "name" -> "column1",
@@ -68,7 +68,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       } yield {
         assertContains(columnWithDisplayName, postColumnResult.getJsonArray("columns").getJsonObject(0))
         assertEquals(getColumnResult,
-          postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
+                     postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
       }
     }
   }
@@ -111,7 +111,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
   @Test
   def addOtherLanguageDisplayNameToColumnShouldNotDeleteOtherLanguages(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postSimpleTable = Json.obj("name" -> "table1")
       val columnWithDisplayName = Json.obj(
         "name" -> "column1",
@@ -141,7 +141,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         logger.info(s"changedResult=${changedResult.encode()}")
         assertContains(columnWithDisplayName, createResult)
         assertEquals(Json.obj("de_DE" -> "Spalte Eins", "en_US" -> "Column One"),
-          changedResult.getJsonObject("displayName"))
+                     changedResult.getJsonObject("displayName"))
         assertEquals(changedResult.mergeIn(Json.obj("status" -> "ok")), getColumnResult)
       }
     }
@@ -184,7 +184,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
   @Test
   def createMultilanguageNameAndDescriptionForColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postSimpleTable = Json.obj("name" -> "table1")
       val columnWithDisplayNameAndDescription = Json.obj(
         "name" -> "column1",
@@ -211,14 +211,14 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       } yield {
         assertContains(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
         assertEquals(getColumnResult,
-          postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
+                     postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
       }
     }
   }
 
   @Test
   def changeMultilanguageNameAndDescriptionForColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postSimpleTable = Json.obj("name" -> "table1")
       val columnWithDisplayNameAndDescription = Json.obj(
         "name" -> "column1",
@@ -323,7 +323,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
   @Test
   def createMultilanguageNameAndOtherDescriptionForColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postSimpleTable = Json.obj("name" -> "table1")
       val columnWithDisplayNameAndDescription = Json.obj(
         "name" -> "column1",
@@ -348,14 +348,14 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       } yield {
         assertContains(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
         assertEquals(getColumnResult,
-          postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
+                     postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
       }
     }
   }
 
   @Test
   def changeMultilanguageNameAndOtherDescriptionForColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postSimpleTable = Json.obj("name" -> "table1")
 
       def columnWithNameAndDescription(name: JsonObject, description: JsonObject) = Json.obj(
@@ -366,19 +366,19 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       )
 
       val postColumnJson = columnWithNameAndDescription(name = Json.obj(
-        "de_DE" -> "Spalte 1"
-      ),
-        description = Json.obj(
-          "en_US" -> "Description Column 1"
-        ))
+                                                          "de_DE" -> "Spalte 1"
+                                                        ),
+                                                        description = Json.obj(
+                                                          "en_US" -> "Description Column 1"
+                                                        ))
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(postColumnJson))
 
       val patchColumnJson = columnWithNameAndDescription(name = Json.obj(
-        "de_DE" -> "Erste Spalte"
-      ),
-        description = Json.obj(
-          "en_US" -> "Description of first column"
-        ))
+                                                           "de_DE" -> "Erste Spalte"
+                                                         ),
+                                                         description = Json.obj(
+                                                           "en_US" -> "Description of first column"
+                                                         ))
       val patchColumnWithDisplayNames = patchColumnJson
 
       for {
@@ -402,7 +402,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
   @Test
   def createMultilanguageDescriptionForColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postSimpleTable = Json.obj("name" -> "table1")
       val columnWithDescription = Json.obj(
         "name" -> "column1",
@@ -425,14 +425,14 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       } yield {
         assertContains(columnWithDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
         assertEquals(getColumnResult,
-          postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
+                     postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
       }
     }
   }
 
   @Test
   def changeMultilanguageDescriptionForColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postSimpleTable = Json.obj("name" -> "table1")
 
       def columnWithDescription(description: JsonObject) = Json.obj(

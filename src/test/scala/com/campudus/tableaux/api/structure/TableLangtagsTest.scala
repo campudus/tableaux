@@ -12,7 +12,7 @@ class TableLangtagsTest extends TableauxTestBase {
 
   @Test
   def updateRegularTableWithLangtags(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj("name" -> "Table without langtags")
       val updateTableJson = Json.obj("name" -> "Table with langtags", "langtags" -> Json.arr("de-DE", "en-GB"))
 
@@ -35,7 +35,7 @@ class TableLangtagsTest extends TableauxTestBase {
         tableGet <- sendRequest("GET", s"/tables/$tableId")
       } yield {
         assertEquals(expectedTableJson.copy().mergeIn(createTableJson.copy.mergeIn(Json.obj("langtags" -> langtags))),
-          tablePost)
+                     tablePost)
         assertEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
         assertEquals(tableGet, tableUpdate)
       }
@@ -98,7 +98,7 @@ class TableLangtagsTest extends TableauxTestBase {
 
   @Test
   def updateTableWithLangtagsNull(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableJson = Json.obj("name" -> "Table with one langtag", "langtags" -> Json.arr("de-DE"))
       val updateTableJson = Json.obj("name" -> "Table with no langtags", "langtags" -> null)
 

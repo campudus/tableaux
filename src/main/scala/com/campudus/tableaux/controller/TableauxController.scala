@@ -20,15 +20,15 @@ object TableauxController {
 }
 
 class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel)
-  extends Controller[TableauxModel] {
+    extends Controller[TableauxModel] {
 
   def addCellAnnotation(
-    tableId: TableId,
-    columnId: ColumnId,
-    rowId: RowId,
-    langtags: Seq[String],
-    annotationType: CellAnnotationType,
-    value: String
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      langtags: Seq[String],
+      annotationType: CellAnnotationType,
+      value: String
   ): Future[CellLevelAnnotation] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"addCellAnnotation $tableId $columnId $rowId $langtags $annotationType $value")
@@ -56,11 +56,11 @@ class TableauxController(override val config: TableauxConfig, override protected
   }
 
   def deleteCellAnnotation(
-    tableId: TableId,
-    columnId: ColumnId,
-    rowId: RowId,
-    uuid: UUID,
-    langtag: String
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      uuid: UUID,
+      langtag: String
   ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid $langtag")
@@ -196,11 +196,11 @@ class TableauxController(override val config: TableauxConfig, override protected
   }
 
   def updateCellLinkOrder(
-    tableId: TableId,
-    columnId: ColumnId,
-    rowId: RowId,
-    toId: RowId,
-    locationType: LocationType
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      toId: RowId,
+      locationType: LocationType
   ): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
     logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $locationType")

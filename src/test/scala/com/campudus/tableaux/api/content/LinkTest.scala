@@ -130,7 +130,7 @@ class LinkColumnTest extends LinkTestBase {
 
   @Test
   def createLinkColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj(
         "status" -> "ok",
         "columns" -> Json.arr(
@@ -168,7 +168,7 @@ class LinkColumnTest extends LinkTestBase {
 
   @Test
   def createLinkColumnWithOrdering(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postLinkColWithOrd = Json.obj(
         "columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "ordering" -> 5)))
       val expectedJson = Json.obj(
@@ -208,7 +208,7 @@ class LinkColumnTest extends LinkTestBase {
 
   @Test
   def createLinkColumnWithToName(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postLinkColWithOrd = Json.obj(
         "columns" -> Json.arr(
           Json.obj(
@@ -259,7 +259,7 @@ class LinkColumnTest extends LinkTestBase {
 
   @Test
   def createLinkColumnSingleDirection(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj(
         "status" -> "ok",
         "columns" -> Json.arr(
@@ -316,14 +316,14 @@ class LinkColumnTest extends LinkTestBase {
 
   @Test
   def createLinkColumnToTableWithoutIdentifier(implicit c: TestContext): Unit = {
-    exceptionTest("error.database.missing-identifier"){
+    exceptionTest("error.database.missing-identifier") {
       for {
         table1 <- createDefaultTable()
         table2 <- sendRequest("POST", "/tables", Json.obj("name" -> "Empty Table"))
 
         _ <- sendRequest("POST",
-          "/tables/2/columns",
-          RequestCreation.Columns().add(RequestCreation.TextCol("Spalte")).getJson)
+                         "/tables/2/columns",
+                         RequestCreation.Columns().add(RequestCreation.TextCol("Spalte")).getJson)
 
         test <- sendRequest("POST", "/tables/1/columns", postLinkCol(toTableId = 2))
       } yield ()
@@ -332,7 +332,7 @@ class LinkColumnTest extends LinkTestBase {
 
   @Test
   def createLinkColumnToTableWithIdentifierAndRemoveIt(implicit c: TestContext): Unit = {
-    exceptionTest("error.database.missing-identifier"){
+    exceptionTest("error.database.missing-identifier") {
       for {
         table1 <- createDefaultTable()
         table2 <- sendRequest("POST", "/tables", Json.obj("name" -> "Empty Table"))
@@ -385,16 +385,16 @@ class LinkColumnTest extends LinkTestBase {
 
   @Test
   def createBiDirectionalLinkColumnWithoutDisplayInfos(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         table1 <- createEmptyDefaultTable(name = "Test Table 1",
-          tableNum = 1,
-          Some(Json.obj("de" -> "Test Deutsch 1")),
-          None)
+                                          tableNum = 1,
+                                          Some(Json.obj("de" -> "Test Deutsch 1")),
+                                          None)
         table2 <- createEmptyDefaultTable(name = "Test Table 2",
-          tableNum = 1,
-          Some(Json.obj("de" -> "Test Deutsch 2")),
-          None)
+                                          tableNum = 1,
+                                          Some(Json.obj("de" -> "Test Deutsch 2")),
+                                          None)
 
         linkColumn = Json.obj("kind" -> "link", "name" -> "link", "toTable" -> table2)
         columns = Json.obj("columns" -> Json.arr(linkColumn))
@@ -414,16 +414,16 @@ class LinkColumnTest extends LinkTestBase {
 
   @Test
   def createBiDirectionalLinkColumnWithDisplayInfos(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         table1 <- createEmptyDefaultTable(name = "Test Table 1",
-          tableNum = 1,
-          Some(Json.obj("de" -> "Test Deutsch 1")),
-          None)
+                                          tableNum = 1,
+                                          Some(Json.obj("de" -> "Test Deutsch 1")),
+                                          None)
         table2 <- createEmptyDefaultTable(name = "Test Table 2",
-          tableNum = 1,
-          Some(Json.obj("de" -> "Test Deutsch 2")),
-          None)
+                                          tableNum = 1,
+                                          Some(Json.obj("de" -> "Test Deutsch 2")),
+                                          None)
 
         linkColumn = Json.obj(
           "kind" -> "link",
@@ -457,16 +457,16 @@ class LinkTest extends LinkTestBase {
 
   @Test
   def fillAndRetrieveLinkCell(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def valuesRow(c: String) =
         Json.obj("columns" -> Json.arr(
-          Json.obj("id" -> 1),
-          Json.obj("id" -> 2)
-        ),
-          "rows" -> Json.arr(
-            Json.obj("values" -> Json.arr(c, 2))
-          ))
+                   Json.obj("id" -> 1),
+                   Json.obj("id" -> 2)
+                 ),
+                 "rows" -> Json.arr(
+                   Json.obj("values" -> Json.arr(c, 2))
+                 ))
 
       def fillLinkCellJson(c: Integer) = Json.obj("value" -> Json.obj("to" -> c))
 
@@ -495,11 +495,11 @@ class LinkTest extends LinkTestBase {
         linkValue <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
       } yield {
         assertEquals(Json.obj("status" -> "ok", "value" -> Json.arr(Json.obj("id" -> rowId1, "value" -> "Lala"))),
-          addLink1)
+                     addLink1)
         assertEquals(Json.obj("status" -> "ok",
-          "value" -> Json.arr(Json.obj("id" -> rowId1, "value" -> "Lala"),
-            Json.obj("id" -> rowId2, "value" -> "Lulu"))),
-          addLink2)
+                              "value" -> Json.arr(Json.obj("id" -> rowId1, "value" -> "Lala"),
+                                                  Json.obj("id" -> rowId2, "value" -> "Lulu"))),
+                     addLink2)
 
         val expectedJson2 = Json.obj(
           "status" -> "ok",
@@ -516,7 +516,7 @@ class LinkTest extends LinkTestBase {
 
   @Test
   def retrieveLinkValuesFromLinkedTable(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def valuesRow(c: String) = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
@@ -556,12 +556,12 @@ class LinkTest extends LinkTestBase {
 
         // add link 1 (table 1 to table 2)
         addLink1 <- sendRequest("POST",
-          s"/tables/1/columns/$linkColumnId/rows/$table1RowId1",
-          fillLinkCellJson(table2RowId2))
+                                s"/tables/1/columns/$linkColumnId/rows/$table1RowId1",
+                                fillLinkCellJson(table2RowId2))
         // add link 2
         addLink2 <- sendRequest("POST",
-          s"/tables/2/columns/$linkColumnId/rows/$table2RowId1",
-          fillLinkCellJson(table1RowId2))
+                                s"/tables/2/columns/$linkColumnId/rows/$table2RowId1",
+                                fillLinkCellJson(table1RowId2))
 
         // get link values (so it's a value from table 2 shown in table 1)
         linkValueForTable1 <- sendRequest("GET", s"/tables/1/rows/$table1RowId1")
@@ -604,7 +604,7 @@ class LinkTest extends LinkTestBase {
 
   @Test
   def putLinkValues(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
 
@@ -622,19 +622,19 @@ class LinkTest extends LinkTestBase {
         resGet4 <- sendRequest("GET", s"/tables/2/columns/$linkColumnId/rows/2")
       } yield {
         val expected1 = Json.obj("status" -> "ok",
-          "value" -> Json.arr(
-            Json.obj("id" -> 1, "value" -> "table2row1"),
-            Json.obj("id" -> 2, "value" -> "table2row2")
-          ))
+                                 "value" -> Json.arr(
+                                   Json.obj("id" -> 1, "value" -> "table2row1"),
+                                   Json.obj("id" -> 2, "value" -> "table2row2")
+                                 ))
         val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr())
         val expected3 = Json.obj("status" -> "ok",
-          "value" -> Json.arr(
-            Json.obj("id" -> 1, "value" -> "table1row1")
-          ))
+                                 "value" -> Json.arr(
+                                   Json.obj("id" -> 1, "value" -> "table1row1")
+                                 ))
         val expected4 = Json.obj("status" -> "ok",
-          "value" -> Json.arr(
-            Json.obj("id" -> 1, "value" -> "table1row1")
-          ))
+                                 "value" -> Json.arr(
+                                   Json.obj("id" -> 1, "value" -> "table1row1")
+                                 ))
 
         assertEquals(expected1, resPut)
         assertEquals(expected1, resGet1)
@@ -677,7 +677,7 @@ class LinkTest extends LinkTestBase {
 
   @Test
   def putLinkValuesOnMultiLanguageColumns(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postLinkColumn = Json.obj(
         "columns" -> Json.arr(
           Json.obj(
@@ -709,20 +709,20 @@ class LinkTest extends LinkTestBase {
           "status" -> "ok",
           "value" -> Json.arr(
             Json.obj("id" -> 1,
-              "value" -> Json.obj("en_US" -> "Hello, Table 2 World!", "de_DE" -> "Hallo, Table 2 Welt!")),
+                     "value" -> Json.obj("en_US" -> "Hello, Table 2 World!", "de_DE" -> "Hallo, Table 2 Welt!")),
             Json.obj("id" -> 2,
-              "value" -> Json.obj("en_US" -> "Hello, Table 2 World2!", "de_DE" -> "Hallo, Table 2 Welt2!"))
+                     "value" -> Json.obj("en_US" -> "Hello, Table 2 World2!", "de_DE" -> "Hallo, Table 2 Welt2!"))
           )
         )
         val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr())
         val expected3 = Json.obj("status" -> "ok",
-          "value" ->
-            Json.arr(
-              Json.obj("id" -> 1,
-                "value" -> Json.obj(
-                  "de_DE" -> "Hallo, Table 1 Welt!",
-                  "en_US" -> "Hello, Table 1 World!"
-                ))))
+                                 "value" ->
+                                   Json.arr(
+                                     Json.obj("id" -> 1,
+                                              "value" -> Json.obj(
+                                                "de_DE" -> "Hallo, Table 1 Welt!",
+                                                "en_US" -> "Hello, Table 1 World!"
+                                              ))))
         val expected4 = expected3
 
         assertEquals(expected1, resPut)
@@ -736,7 +736,7 @@ class LinkTest extends LinkTestBase {
 
   @Test
   def postLinkValueOnMultiLanguageColumns(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postLinkColumn = Json.obj(
         "columns" -> Json.arr(
           Json.obj(
@@ -755,8 +755,8 @@ class LinkTest extends LinkTestBase {
         linkColumnId = linkColumn.getArray("columns").get[JsonObject](0).getNumber("id")
 
         resPost <- sendRequest("POST",
-          s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}",
-          postLinkValue)
+                               s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}",
+                               postLinkValue)
         // check first table for the link (links to t2, r1 and r2, c4)
         resGet1 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}")
         // check first table for the link in row 2 (links to nothing)
@@ -770,20 +770,20 @@ class LinkTest extends LinkTestBase {
           "status" -> "ok",
           "value" -> Json.arr(
             Json.obj("id" -> 1,
-              "value" -> Json.obj("en_US" -> "Hello, Table 2 World!", "de_DE" -> "Hallo, Table 2 Welt!")),
+                     "value" -> Json.obj("en_US" -> "Hello, Table 2 World!", "de_DE" -> "Hallo, Table 2 Welt!")),
             Json.obj("id" -> 2,
-              "value" -> Json.obj("en_US" -> "Hello, Table 2 World2!", "de_DE" -> "Hallo, Table 2 Welt2!"))
+                     "value" -> Json.obj("en_US" -> "Hello, Table 2 World2!", "de_DE" -> "Hallo, Table 2 Welt2!"))
           )
         )
         val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr())
         val expected3 = Json.obj("status" -> "ok",
-          "value" ->
-            Json.arr(
-              Json.obj("id" -> 1,
-                "value" -> Json.obj(
-                  "de_DE" -> "Hallo, Table 1 Welt!",
-                  "en_US" -> "Hello, Table 1 World!"
-                ))))
+                                 "value" ->
+                                   Json.arr(
+                                     Json.obj("id" -> 1,
+                                              "value" -> Json.obj(
+                                                "de_DE" -> "Hallo, Table 1 Welt!",
+                                                "en_US" -> "Hello, Table 1 World!"
+                                              ))))
         val expected4 = expected3
 
         assertEquals(expected1, resPost)
@@ -846,7 +846,7 @@ class LinkTest extends LinkTestBase {
 
   @Test
   def tryToDeleteLinkValueOfInvalidColumnType(implicit c: TestContext): Unit = {
-    exceptionTest("error.request.column.wrongtype"){
+    exceptionTest("error.request.column.wrongtype") {
       for {
         (tableId1, _) <- setupTwoTables()
 
@@ -1025,7 +1025,7 @@ class LinkTest extends LinkTestBase {
 
   @Test
   def createSelfLink(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val linkColumn = Json.obj(
         "columns" -> Json.arr(
           Json.obj(
@@ -1082,8 +1082,7 @@ class LinkTest extends LinkTestBase {
           js.getJsonArray("columns")
         }
       } yield {
-        val expectedJson = Json.fromObjectString(
-          s"""
+        val expectedJson = Json.fromObjectString(s"""
 {
   "status": "ok",
   "page": {
@@ -1516,7 +1515,7 @@ class LinkOrderTest extends LinkTestBase {
 
   @Test
   def testInsertionLinkOrder(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
 
@@ -1540,14 +1539,18 @@ class LinkOrderTest extends LinkTestBase {
 
         import scala.collection.JavaConverters._
 
-        assertEquals(List(1, 2, 3),
+        assertEquals(
+          List(1, 2, 3),
           getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(List(3, 2, 1),
+        assertEquals(
+          List(3, 2, 1),
           getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
 
-        assertEquals(List(1, 2),
+        assertEquals(
+          List(1, 2),
           getFromTable2Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(List(1, 2),
+        assertEquals(
+          List(1, 2),
           getFromTable2Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       }
     }
@@ -1555,7 +1558,7 @@ class LinkOrderTest extends LinkTestBase {
 
   @Test
   def testChangeOrderLocationEnd(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
 
@@ -1578,9 +1581,11 @@ class LinkOrderTest extends LinkTestBase {
       } yield {
         import scala.collection.JavaConverters._
 
-        assertEquals(List(2, 3, 1),
+        assertEquals(
+          List(2, 3, 1),
           getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(List(2, 1, 3),
+        assertEquals(
+          List(2, 1, 3),
           getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       }
     }
@@ -1588,7 +1593,7 @@ class LinkOrderTest extends LinkTestBase {
 
   @Test
   def testChangeOrderLocationStart(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
 
@@ -1603,17 +1608,23 @@ class LinkOrderTest extends LinkTestBase {
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(2))
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(1))
 
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/3/order", Json.obj("location" -> "start"))
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/2/link/1/order", Json.obj("location" -> "start"))
+        _ <- sendRequest("PUT",
+                         s"/tables/1/columns/$linkColumnId/rows/1/link/3/order",
+                         Json.obj("location" -> "start"))
+        _ <- sendRequest("PUT",
+                         s"/tables/1/columns/$linkColumnId/rows/2/link/1/order",
+                         Json.obj("location" -> "start"))
 
         getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
         getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
       } yield {
         import scala.collection.JavaConverters._
 
-        assertEquals(List(3, 1, 2),
+        assertEquals(
+          List(3, 1, 2),
           getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(List(1, 3, 2),
+        assertEquals(
+          List(1, 3, 2),
           getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       }
     }
@@ -1621,7 +1632,7 @@ class LinkOrderTest extends LinkTestBase {
 
   @Test
   def testChangeOrderLocationBefore(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
 
       def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
 
@@ -1637,20 +1648,22 @@ class LinkOrderTest extends LinkTestBase {
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(1))
 
         _ <- sendRequest("PUT",
-          s"/tables/1/columns/$linkColumnId/rows/1/link/2/order",
-          Json.obj("location" -> "before", "id" -> 1))
+                         s"/tables/1/columns/$linkColumnId/rows/1/link/2/order",
+                         Json.obj("location" -> "before", "id" -> 1))
         _ <- sendRequest("PUT",
-          s"/tables/1/columns/$linkColumnId/rows/2/link/2/order",
-          Json.obj("location" -> "before", "id" -> 3))
+                         s"/tables/1/columns/$linkColumnId/rows/2/link/2/order",
+                         Json.obj("location" -> "before", "id" -> 3))
 
         getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
         getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
       } yield {
         import scala.collection.JavaConverters._
 
-        assertEquals(List(2, 1, 3),
+        assertEquals(
+          List(2, 1, 3),
           getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(List(2, 3, 1),
+        assertEquals(
+          List(2, 3, 1),
           getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       }
     }
@@ -1680,7 +1693,7 @@ class LinkOrderTest extends LinkTestBase {
 
   @Test
   def testWrongId(implicit c: TestContext): Unit = {
-    exceptionTest("NOT FOUND"){
+    exceptionTest("NOT FOUND") {
 
       def putLink(toId: RowId) = Json.obj("value" -> Json.obj("to" -> toId))
 
@@ -1690,8 +1703,8 @@ class LinkOrderTest extends LinkTestBase {
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", putLink(1))
 
         _ <- sendRequest("PUT",
-          s"/tables/1/columns/$linkColumnId/rows/1/link/1/order",
-          Json.obj("location" -> "before", "id" -> 2))
+                         s"/tables/1/columns/$linkColumnId/rows/1/link/1/order",
+                         Json.obj("location" -> "before", "id" -> 2))
       } yield ()
     }
   }

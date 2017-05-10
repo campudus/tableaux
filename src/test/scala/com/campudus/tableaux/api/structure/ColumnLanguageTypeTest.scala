@@ -233,7 +233,7 @@ class ColumnLanguageTypeTest extends TableauxTestBase {
 
   @Test
   def createMultiCountryColumnWithoutCountryCodes(implicit c: TestContext): Unit = {
-    exceptionTest("error.json.countrycodes"){
+    exceptionTest("error.json.countrycodes") {
       val postSimpleTable = Json.obj("name" -> "table1")
       val columnWithInvalidLanguageType = Json.obj(
         "name" -> "column1",

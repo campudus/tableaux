@@ -48,21 +48,21 @@ class DeleteStructureTest extends TableauxTestBase {
 
   @Test
   def deleteColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
 
         shouldBeZeroColumns <- sendRequest("GET", "/tables/1/columns")
 
         _ <- sendRequest("POST",
-          "/tables/1/columns",
-          RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 1")).getJson)
+                         "/tables/1/columns",
+                         RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 1")).getJson)
         shouldBeOneColumns <- sendRequest("GET", "/tables/1/columns")
 
         // Create a second column because we can't delete the only and last column of a table
         _ <- sendRequest("POST",
-          "/tables/1/columns",
-          RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 2")).getJson)
+                         "/tables/1/columns",
+                         RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 2")).getJson)
         shouldBeTwoColumns <- sendRequest("GET", "/tables/1/columns")
 
         test <- sendRequest("DELETE", "/tables/1/columns/1")
@@ -117,7 +117,7 @@ class DeleteStructureTest extends TableauxTestBase {
 
   @Test
   def deleteLinkColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createLinkColumnJson = Json.obj(
         "columns" -> Json.arr(
           Json.obj(
@@ -159,7 +159,7 @@ class DeleteStructureTest extends TableauxTestBase {
 
   @Test
   def deleteLinkInBothDirectionsAndCheckForDependentRows(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createLinkColumnJson = Json.obj(
         "columns" -> Json.arr(
           Json.obj(

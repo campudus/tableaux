@@ -47,7 +47,7 @@ class RetrieveTest extends TableauxTestBase {
 
   @Test
   def retrieveCompleteTableWithNoRows(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj(
         "status" -> "ok",
         "id" -> 1,
@@ -110,7 +110,7 @@ class RetrieveTest extends TableauxTestBase {
 
   @Test
   def retrieveCompleteTableWithRows(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj(
         "status" -> "ok",
         "id" -> 1,
@@ -174,7 +174,7 @@ class RetrieveTest extends TableauxTestBase {
 
   @Test
   def retrieveCompleteTable(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val columns = Json.arr(
         Json.obj(
           "id" -> 1,

@@ -53,7 +53,7 @@ class DatabaseVersioningTest extends TableauxTestBase {
 
   @Test
   def checkUpdateOfOrdering(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val sqlConnection = SQLConnection(verticle, databaseConfig)
       val dbConnection = DatabaseConnection(verticle, sqlConnection)
       val system = SystemModel(dbConnection)
@@ -98,7 +98,7 @@ class DatabaseVersioningTest extends TableauxTestBase {
 
   @Test
   def checkUpdateOverHttp(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val sqlConnection = SQLConnection(verticle, databaseConfig)
       val dbConnection = DatabaseConnection(verticle, sqlConnection)
       val system = SystemModel(dbConnection)

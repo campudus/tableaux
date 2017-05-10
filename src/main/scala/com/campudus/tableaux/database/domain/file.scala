@@ -15,9 +15,8 @@ case class TableauxFile(uuid: UUID,
                         externalName: MultiLanguageValue[String],
                         mimeType: MultiLanguageValue[String],
                         createdAt: Option[DateTime],
-  updatedAt: Option[DateTime]
-)
-  extends DomainObject {
+                        updatedAt: Option[DateTime])
+    extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
     "uuid" -> uuid.toString,
@@ -85,11 +84,12 @@ case class ExtendedFile(file: TableauxFile) extends DomainObject {
     val langtags = (internalName.langtags ++ externalName.langtags).distinct
 
     val urls = langtags
-      .map({ langtag => {
-        val filename = externalName.get(langtag).getOrElse(internalName.get(langtag).orNull)
-        val encodedFilename = URLEncoder.encode(filename, "UTF-8")
-        (langtag, s"/files/${file.uuid}/$langtag/$encodedFilename")
-      }
+      .map({ langtag =>
+        {
+          val filename = externalName.get(langtag).getOrElse(internalName.get(langtag).orNull)
+          val encodedFilename = URLEncoder.encode(filename, "UTF-8")
+          (langtag, s"/files/${file.uuid}/$langtag/$encodedFilename")
+        }
       })
       .toMap
 

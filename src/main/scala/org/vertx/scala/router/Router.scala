@@ -49,19 +49,21 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
     pf.applyOrElse(routeMatch, tryAllThenNoRouteMatch)
   }
 
-  private def noRouteMatched(context: RoutingContext): (RouteMatch => Reply) = { _ => {
-    Error(
-      RouterException(message =
-        s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
-        id = "NOT FOUND",
-        statusCode = 404))
-  }
+  private def noRouteMatched(context: RoutingContext): (RouteMatch => Reply) = { _ =>
+    {
+      Error(
+        RouterException(
+          message = s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
+          id = "NOT FOUND",
+          statusCode = 404))
+    }
   }
 
   private def fileExists(file: String): Future[String] = {
-    asyncResultToFuture{ tryFn: Handler[AsyncResult[java.lang.Boolean]] => {
-      vertx.fileSystem.exists(file, tryFn)
-    }
+    asyncResultToFuture { tryFn: Handler[AsyncResult[java.lang.Boolean]] =>
+      {
+        vertx.fileSystem.exists(file, tryFn)
+      }
     } map {
       case java.lang.Boolean.TRUE => file
       case java.lang.Boolean.FALSE => throw new FileNotFoundException(file)
@@ -76,16 +78,18 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
   }
 
   private def directoryToIndexFile(path: String): Future[String] = {
-    asyncResultToFuture{ tryFn: Handler[AsyncResult[FileProps]] => {
-      vertx.fileSystem.lprops(path, tryFn)
-    }
-    } flatMap { fp => {
-      if (fp.isDirectory) {
-        fileExists(addIndexToDirName(path))
-      } else {
-        Future.successful(path)
+    asyncResultToFuture { tryFn: Handler[AsyncResult[FileProps]] =>
+      {
+        vertx.fileSystem.lprops(path, tryFn)
       }
-    }
+    } flatMap { fp =>
+      {
+        if (fp.isDirectory) {
+          fileExists(addIndexToDirName(path))
+        } else {
+          Future.successful(path)
+        }
+      }
     }
   }
 
@@ -260,4 +264,4 @@ case class RouterException(message: String = "",
                            cause: Throwable = null,
                            id: String = "UNKNOWN_SERVER_ERROR",
                            statusCode: Int = 500)
-  extends Exception(message, cause)
+    extends Exception(message, cause)

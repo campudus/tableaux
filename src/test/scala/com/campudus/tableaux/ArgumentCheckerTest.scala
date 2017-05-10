@@ -33,7 +33,7 @@ class ArgumentCheckerTest {
     assertEquals(FailArg(InvalidJsonException("Argument -1 is not greater than zero", "invalid")), greaterZero(-1))
     assertEquals(FailArg(InvalidJsonException("Argument 0 is not greater than zero", "invalid")), greaterZero(0))
     assertEquals(FailArg(InvalidJsonException(s"Argument ${Long.MinValue} is not greater than zero", "invalid")),
-      greaterZero(Long.MinValue))
+                 greaterZero(Long.MinValue))
   }
 
   @Test
@@ -46,11 +46,11 @@ class ArgumentCheckerTest {
   @Test
   def checkInvalidGreaterThan(): Unit = {
     assertEquals(FailArg(InvalidJsonException("Argument test (-1) is less than 0.", "invalid")),
-      greaterThan(-1, 0, "test"))
+                 greaterThan(-1, 0, "test"))
     assertEquals(FailArg(InvalidJsonException("Argument test (100) is less than 1000.", "invalid")),
-      greaterThan(100, 1000, "test"))
+                 greaterThan(100, 1000, "test"))
     assertEquals(FailArg(InvalidJsonException(s"Argument test (${Long.MinValue}) is less than 0.", "invalid")),
-      greaterThan(Long.MinValue, 0, "test"))
+                 greaterThan(Long.MinValue, 0, "test"))
   }
 
   @Test
@@ -71,10 +71,10 @@ class ArgumentCheckerTest {
   @Test
   def checkValidArguments(): Unit = {
     checkArguments(notNull(123, "test"),
-      greaterZero(1),
-      greaterZero(2),
-      notNull("foo", "test"),
-      nonEmpty(Seq(123), "test"))
+                   greaterZero(1),
+                   greaterZero(2),
+                   notNull("foo", "test"),
+                   nonEmpty(Seq(123), "test"))
   }
 
   @Test

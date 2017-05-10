@@ -42,14 +42,14 @@ class FileModelTest extends TableauxTestBase {
 
   @Test
   def testCreateAndUpdateOfFile(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val model = createFileModel()
 
       for {
         insertedFile <- model.add(MultiLanguageValue("de_DE" -> "Test 1"),
-          MultiLanguageValue.empty(),
-          MultiLanguageValue("de_DE" -> "external1.pdf"),
-          None)
+                                  MultiLanguageValue.empty(),
+                                  MultiLanguageValue("de_DE" -> "external1.pdf"),
+                                  None)
 
         sizeAfterAdd <- model.size()
 
@@ -98,14 +98,14 @@ class FileModelTest extends TableauxTestBase {
 
   @Test
   def testChangeToInvalidInternalName(implicit c: TestContext): Unit = {
-    exceptionTest("error.request.invalid"){
+    exceptionTest("error.request.invalid") {
       val controller = createMediaController()
 
       for {
         insertedFile <- controller.addFile(MultiLanguageValue("de_DE" -> "Test 1"),
-          MultiLanguageValue.empty(),
-          MultiLanguageValue("de_DE" -> "external1.pdf"),
-          None)
+                                           MultiLanguageValue.empty(),
+                                           MultiLanguageValue("de_DE" -> "external1.pdf"),
+                                           None)
 
         _ <- controller.changeFile(
           insertedFile.uuid,

@@ -49,7 +49,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get Rows
       */
     case Get(Rows(tableId)) =>
-      asyncGetReply{
+      asyncGetReply {
         val limit = getLongParam("limit", context)
         val offset = getLongParam("offset", context)
 
@@ -62,7 +62,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get rows of column
       */
     case Get(RowsOfColumn(tableId, columnId)) =>
-      asyncGetReply{
+      asyncGetReply {
         val limit = getLongParam("limit", context)
         val offset = getLongParam("offset", context)
 
@@ -75,7 +75,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get rows of first column
       */
     case Get(RowsOfFirstColumn(tableId)) =>
-      asyncGetReply{
+      asyncGetReply {
         val limit = getLongParam("limit", context)
         val offset = getLongParam("offset", context)
 
@@ -88,7 +88,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get Row
       */
     case Get(Row(tableId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveRow(tableId.toLong, rowId.toLong)
       }
 
@@ -96,7 +96,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get dependent rows
       */
     case Get(RowDependent(tableId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveDependentRows(tableId.toLong, rowId.toLong)
       }
 
@@ -104,7 +104,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get Cell
       */
     case Get(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveCell(tableId.toLong, columnId.toLong, rowId.toLong)
       }
 
@@ -112,7 +112,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Get complete table
       */
     case Get(CompleteTableId(tableId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveCompleteTable(tableId.toLong)
       }
 
@@ -120,7 +120,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Create table with columns and rows
       */
     case Post(CompleteTable()) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           completeTable <- if (json.containsKey("rows")) {
@@ -135,7 +135,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Create Row
       */
     case Post(Rows(tableId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           optionalValues <- (for {
             json <- getJson(context)
@@ -155,7 +155,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Duplicate Row
       */
     case Post(RowDuplicate(tableId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.duplicateRow(tableId.toLong, rowId.toLong)
       }
 
@@ -163,7 +163,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Update Row Annotations
       */
     case Patch(RowAnnotations(tableId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
@@ -177,7 +177,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Update Row Annotations
       */
     case Patch(RowsAnnotations(tableId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
@@ -191,7 +191,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Add Cell Annotation (will possibly be merged with an existing annotation)
       */
     case Post(CellAnnotations(tableId, columnId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         import com.campudus.tableaux.ArgumentChecker._
 
         for {
@@ -210,7 +210,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Delete Cell Annotation
       */
     case Delete(CellAnnotation(tableId, columnId, rowId, uuid)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid))
       }
 
@@ -218,7 +218,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Delete Langtag from Cell Annotation
       */
     case Delete(CellAnnotationLangtag(tableId, columnId, rowId, uuid, langtag)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid), langtag)
       }
 
@@ -226,7 +226,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Update Cell or add Link/Attachment
       */
     case Post(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           updated <- controller.updateCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
@@ -237,7 +237,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Update Cell or add Link/Attachment
       */
     case Patch(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           updated <- controller.updateCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
@@ -248,7 +248,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Replace Cell value
       */
     case Put(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           updated <- controller.replaceCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
@@ -259,7 +259,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Change order of link
       */
     case Put(LinkOrderOfCell(tableId, columnId, rowId, toId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           updated <- controller
@@ -271,7 +271,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Delete Row
       */
     case Delete(Row(tableId, rowId)) =>
-      asyncEmptyReply{
+      asyncEmptyReply {
         controller.deleteRow(tableId.toLong, rowId.toLong)
       }
 
@@ -279,7 +279,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Clear Cell value
       */
     case Delete(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.clearCellValue(tableId.toLong, columnId.toLong, rowId.toLong)
       }
 
@@ -287,7 +287,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Delete Attachment from Cell
       */
     case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) =>
-      asyncEmptyReply{
+      asyncEmptyReply {
         controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid)
       }
 
@@ -295,7 +295,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       * Delete Link from Cell
       */
     case Delete(LinkOfCell(tableId, columnId, rowId, toId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.deleteLink(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong)
       }
   }

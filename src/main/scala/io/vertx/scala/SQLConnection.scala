@@ -83,11 +83,12 @@ class SQLConnection(val verticle: ScalaVerticle, private val config: JsonObject)
   }
 
   override def execute(sql: String): Future[Unit] = {
-    wrap{ conn => {
-      for {
-        _ <- execute(conn, sql).withTimeout(SQLConnection.QUERY_TIMEOUT, "execute")
-      } yield ()
-    }
+    wrap { conn =>
+      {
+        for {
+          _ <- execute(conn, sql).withTimeout(SQLConnection.QUERY_TIMEOUT, "execute")
+        } yield ()
+      }
     }
   }
 
@@ -96,13 +97,14 @@ class SQLConnection(val verticle: ScalaVerticle, private val config: JsonObject)
   override def query(sql: String, params: JsonArray): Future[ResultSet] = query(sql, Some(params))
 
   private def query(sql: String, params: Option[JsonArray]): Future[ResultSet] = {
-    wrap{ conn => {
-      for {
-        resultSet <- query(conn, sql, params).withTimeout(SQLConnection.QUERY_TIMEOUT, "query")
-      } yield {
-        resultSet
+    wrap { conn =>
+      {
+        for {
+          resultSet <- query(conn, sql, params).withTimeout(SQLConnection.QUERY_TIMEOUT, "query")
+        } yield {
+          resultSet
+        }
       }
-    }
     }
   }
 
@@ -111,13 +113,14 @@ class SQLConnection(val verticle: ScalaVerticle, private val config: JsonObject)
   override def update(sql: String, params: JsonArray): Future[UpdateResult] = update(sql, Some(params))
 
   private def update(sql: String, params: Option[JsonArray]): Future[UpdateResult] = {
-    wrap{ conn => {
-      for {
-        updateResult <- update(conn, sql, params).withTimeout(SQLConnection.QUERY_TIMEOUT, "update")
-      } yield {
-        updateResult
+    wrap { conn =>
+      {
+        for {
+          updateResult <- update(conn, sql, params).withTimeout(SQLConnection.QUERY_TIMEOUT, "update")
+        } yield {
+          updateResult
+        }
       }
-    }
     }
   }
 
@@ -142,10 +145,11 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
 
   import com.campudus.tableaux.helper.TimeoutScheduler._
 
-  val connectionTimerId = vertx.setTimer(SQLConnection.LEASE_TIMEOUT, { d: java.lang.Long => {
-    logger.error(s"Lease timeout exceeded")
-    conn.close()
-  }
+  val connectionTimerId = vertx.setTimer(SQLConnection.LEASE_TIMEOUT, { d: java.lang.Long =>
+    {
+      logger.error(s"Lease timeout exceeded")
+      conn.close()
+    }
   })
 
   override def connection(): Future[JSQLConnection] = Future.successful(conn)
@@ -204,7 +208,7 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
       case e =>
         rollback()
         Future.failed(e)
-    } withTimeout(SQLConnection.QUERY_TIMEOUT, "commit")
+    } withTimeout (SQLConnection.QUERY_TIMEOUT, "commit")
   }
 
   def rollback(): Future[Unit] = {
@@ -214,6 +218,6 @@ class Transaction(val verticle: ScalaVerticle, private val conn: JSQLConnection)
       _ <- close(conn)
     } yield {
       ()
-    }) recoverDatabaseException "rollback" withTimeout(SQLConnection.QUERY_TIMEOUT, "rollback")
+    }) recoverDatabaseException "rollback" withTimeout (SQLConnection.QUERY_TIMEOUT, "rollback")
   }
 }

@@ -64,14 +64,15 @@ class CacheVerticle extends ScalaVerticle {
     // But because of https://github.com/eclipse/vert.x/issues/1625 we need to do this manually.
     // TODO Remove with Vert.x > 3.3.3
     val unregisterFuture = Future
-      .sequence(consumers.map({ consumer => {
-        asyncVoidToFuture(consumer.unregister(_: Handler[AsyncResult[Void]]))
-          .recoverWith({
-            case _ =>
-              logger.warn(s"Unregister consumer failed ${consumer.isRegistered} ${consumer.toString}")
-              Future.successful(())
-          })
-      }
+      .sequence(consumers.map({ consumer =>
+        {
+          asyncVoidToFuture(consumer.unregister(_: Handler[AsyncResult[Void]]))
+            .recoverWith({
+              case _ =>
+                logger.warn(s"Unregister consumer failed ${consumer.isRegistered} ${consumer.toString}")
+                Future.successful(())
+            })
+        }
       }))
       .map(_ => ())
 

@@ -95,7 +95,7 @@ case class ShouldBeUniqueException(override val message: String, subId: String) 
 }
 
 case class WrongColumnKindException[T <: ColumnType[_]](column: ColumnType[_], shouldBe: Class[T])
-  extends CustomException {
+    extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
   override val message: String =

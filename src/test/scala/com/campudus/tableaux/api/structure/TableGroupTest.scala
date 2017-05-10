@@ -40,7 +40,7 @@ class TableGroupTest extends TableauxTestBase {
 
   @Test
   def changeTableGroupWithExistingLangtag(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableGroupJson = Json.obj(
         "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
         "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
@@ -56,14 +56,14 @@ class TableGroupTest extends TableauxTestBase {
       } yield {
         assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
         assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
-          updatedGroup)
+                           updatedGroup)
       }
     }
   }
 
   @Test
   def changeTableGroupWithNewLangtag(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val createTableGroupJson = Json.obj(
         "displayName" -> Json.obj("de" -> "lustig", "en" -> "funny"),
         "description" -> Json.obj("de" -> "Kommentar", "en" -> "comment")
@@ -79,7 +79,7 @@ class TableGroupTest extends TableauxTestBase {
       } yield {
         assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
         assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
-          updatedGroup)
+                           updatedGroup)
       }
     }
   }

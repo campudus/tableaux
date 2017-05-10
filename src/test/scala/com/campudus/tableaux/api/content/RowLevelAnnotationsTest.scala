@@ -15,7 +15,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def createRowAndSetFinalFlag(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId <- createEmptyDefaultTable()
 
@@ -53,7 +53,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def createRowsAndSetFinalFlagForTable(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         (tableId, _, _) <- createSimpleTableWithValues(
           "table",

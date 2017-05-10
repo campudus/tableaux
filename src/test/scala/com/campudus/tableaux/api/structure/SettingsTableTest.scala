@@ -47,7 +47,7 @@ class SettingsTableTest extends TableauxTestBase {
 
   @Test
   def createTableWithInvalidTableType(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments"){
+    exceptionTest("error.arguments") {
       for {
         result <- sendRequest(
           "POST",
@@ -59,13 +59,13 @@ class SettingsTableTest extends TableauxTestBase {
 
   @Test
   def addColumnToSettingsTable(implicit c: TestContext): Unit = {
-    exceptionTest("error.request.forbidden.column"){
+    exceptionTest("error.request.forbidden.column") {
       for {
         tableId <- createSettingsTable()
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns",
-          Json.obj("columns" -> Json.arr(Json.obj("name" -> "test", "kind" -> "text"))))
+                         s"/tables/$tableId/columns",
+                         Json.obj("columns" -> Json.arr(Json.obj("name" -> "test", "kind" -> "text"))))
       } yield ()
     }
   }
@@ -123,7 +123,7 @@ class SettingsTableTest extends TableauxTestBase {
 
   @Test
   def changeDisplayKeyCellOfSettingsTable(implicit c: TestContext): Unit = {
-    exceptionTest("error.request.forbidden.cell"){
+    exceptionTest("error.request.forbidden.cell") {
       for {
         tableId <- createSettingsTable()
 

@@ -4,18 +4,18 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import org.vertx.scala.core.json._
 
 case class RawRow(
-  id: RowId,
-  rowLevelAnnotations: RowLevelAnnotations,
-  cellLevelAnnotations: CellLevelAnnotations,
-  values: Seq[_]
+    id: RowId,
+    rowLevelAnnotations: RowLevelAnnotations,
+    cellLevelAnnotations: CellLevelAnnotations,
+    values: Seq[_]
 )
 
 case class Row(
-  table: Table,
-  id: RowId,
-  rowLevelAnnotations: RowLevelAnnotations,
-  cellLevelAnnotations: CellLevelAnnotations,
-  values: Seq[_]
+    table: Table,
+    id: RowId,
+    rowLevelAnnotations: RowLevelAnnotations,
+    cellLevelAnnotations: CellLevelAnnotations,
+    values: Seq[_]
 ) extends DomainObject {
 
   override def getJson: JsonObject = {

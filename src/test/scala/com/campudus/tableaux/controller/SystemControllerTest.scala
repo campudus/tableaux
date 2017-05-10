@@ -66,7 +66,7 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def retrieveVersions(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj(
         "database" -> Json.obj(
           "current" -> 18,
@@ -92,7 +92,7 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def resetWithInvalidatedNonceAndNoRequestNonce(implicit c: TestContext): Unit = {
-    exceptionTest("error.nonce.none"){
+    exceptionTest("error.nonce.none") {
       SystemRouter.invalidateNonce()
       sendRequest("POST", s"/system/reset")
     }
@@ -100,7 +100,7 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def resetWithNonceAndNoRequestNonce(implicit c: TestContext): Unit = {
-    exceptionTest("error.nonce.invalid"){
+    exceptionTest("error.nonce.invalid") {
       SystemRouter.generateNonce()
       sendRequest("POST", s"/system/reset")
     }
@@ -108,7 +108,7 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def resetWithNonceButInvalidRequestNonce(implicit c: TestContext): Unit = {
-    exceptionTest("error.nonce.invalid"){
+    exceptionTest("error.nonce.invalid") {
       SystemRouter.generateNonce()
       sendRequest("POST", s"/system/reset?nonce=asdf")
     }
@@ -116,7 +116,7 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def resetWithInvalidatedNonceAndInvalidRequestNonce(implicit c: TestContext): Unit = {
-    exceptionTest("error.nonce.none"){
+    exceptionTest("error.nonce.none") {
       SystemRouter.invalidateNonce()
       sendRequest("POST", s"/system/reset?nonce=asdf")
     }
@@ -124,7 +124,7 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def resetWithNonceAndInvalidRequestNonce(implicit c: TestContext): Unit = {
-    exceptionTest("error.nonce.invalid"){
+    exceptionTest("error.nonce.invalid") {
       SystemRouter.generateNonce()
       sendRequest("POST", s"/system/reset?nonce=asdf")
     }
@@ -132,7 +132,7 @@ class SystemControllerTest extends TableauxTestBase {
 
   @Test
   def resetInDevModeWithInvalidRequestNonce(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val expectedJson = Json.obj("status" -> "ok")
 
       SystemRouter.generateNonce()

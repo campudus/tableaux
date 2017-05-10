@@ -36,7 +36,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Get tables
       */
     case Get(Tables()) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveTables()
       }
 
@@ -44,7 +44,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Get table
       */
     case Get(Table(tableId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveTable(tableId.toLong)
       }
 
@@ -52,7 +52,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Get columns
       */
     case Get(Columns(tableId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveColumns(tableId.toLong)
       }
 
@@ -60,7 +60,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Get columns
       */
     case Get(Column(tableId, columnId)) =>
-      asyncGetReply{
+      asyncGetReply {
         controller.retrieveColumn(tableId.toLong, columnId.toLong)
       }
 
@@ -68,7 +68,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Create Table
       */
     case Post(Tables()) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
 
@@ -88,7 +88,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
           // {langtags:null} => Some(None) => db: null
           // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: ['de-DE']
           langtags = booleanToValueOption(json.containsKey("langtags"),
-            Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
+                                          Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
 
           tableGroupId = booleanToValueOption(json.containsKey("group"), json.getLong("group")).map(_.toLong)
 
@@ -100,7 +100,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Create Column
       */
     case Post(Columns(tableId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           created <- controller.createColumns(tableId.toLong, toCreateColumnSeq(json))
@@ -117,7 +117,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Change Table ordering
       */
     case Post(TableOrder(tableId)) =>
-      asyncEmptyReply{
+      asyncEmptyReply {
         for {
           json <- getJson(context)
           result <- controller.changeTableOrder(tableId.toLong, toLocationType(json))
@@ -128,35 +128,35 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Change Column
       */
     case Post(Column(tableId, columnId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           (optName, optOrd, optKind, optIdent, optDisplayInfos, optCountryCodes) = toColumnChanges(json)
           changed <- controller.changeColumn(tableId.toLong,
-            columnId.toLong,
-            optName,
-            optOrd,
-            optKind,
-            optIdent,
-            optDisplayInfos,
-            optCountryCodes)
+                                             columnId.toLong,
+                                             optName,
+                                             optOrd,
+                                             optKind,
+                                             optIdent,
+                                             optDisplayInfos,
+                                             optCountryCodes)
         } yield changed
       }
 
     case Patch(Column(tableId, columnId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           (optName, optOrd, optKind, optIdent, optDisplayInfos, optCountryCodes) = toColumnChanges(json)
           changed <- controller
             .changeColumn(tableId.toLong,
-              columnId.toLong,
-              optName,
-              optOrd,
-              optKind,
-              optIdent,
-              optDisplayInfos,
-              optCountryCodes)
+                          columnId.toLong,
+                          optName,
+                          optOrd,
+                          optKind,
+                          optIdent,
+                          optDisplayInfos,
+                          optCountryCodes)
         } yield changed
       }
 
@@ -164,7 +164,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Create Group
       */
     case Post(Groups()) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           displayInfos = DisplayInfos.fromJson(json) match {
@@ -181,7 +181,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Update Group
       */
     case Post(Group(tableGroupId)) =>
-      asyncGetReply{
+      asyncGetReply {
         for {
           json <- getJson(context)
           displayInfos = DisplayInfos.fromJson(json) match {
@@ -197,7 +197,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Delete Group
       */
     case Delete(Group(tableGroupId)) =>
-      asyncEmptyReply{
+      asyncEmptyReply {
         controller.deleteTableGroup(tableGroupId.toLong)
       }
 
@@ -205,7 +205,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Delete Table
       */
     case Delete(Table(tableId)) =>
-      asyncEmptyReply{
+      asyncEmptyReply {
         controller.deleteTable(tableId.toLong)
       }
 
@@ -213,13 +213,13 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       * Delete Column
       */
     case Delete(Column(tableId, columnId)) =>
-      asyncEmptyReply{
+      asyncEmptyReply {
         controller.deleteColumn(tableId.toLong, columnId.toLong)
       }
   }
 
   private def changeTable(tableId: TableId)(implicit context: RoutingContext) = {
-    asyncGetReply{
+    asyncGetReply {
       for {
         json <- getJson(context)
 
@@ -241,7 +241,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         // {langtags:null} => Some(None) => db: overwrite with null
         // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: overwrite with ['de-DE']
         langtags = booleanToValueOption(json.containsKey("langtags"),
-          Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
+                                        Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq))
 
         tableGroupId = booleanToValueOption(json.containsKey("group"), Option(json.getLong("group")).map(_.toLong))
 

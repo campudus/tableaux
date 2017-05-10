@@ -28,14 +28,15 @@ object VertxEventLoopExecutionContext {
   }
 }
 
-class VertxEventLoopExecutionContext private(val vertx: Vertx) extends ExecutionContext with LazyLogging {
+class VertxEventLoopExecutionContext private (val vertx: Vertx) extends ExecutionContext with LazyLogging {
 
   val context: Context = Option(Vertx.currentContext()).getOrElse(vertx.getOrCreateContext())
 
   override def execute(runnable: Runnable): Unit = {
-    val timerId = vertx.setTimer(10000, { d: java.lang.Long => {
-      logger.error(s"Execution on EventLoop took longer than expected (more than 10000ms).")
-    }
+    val timerId = vertx.setTimer(10000, { d: java.lang.Long =>
+      {
+        logger.error(s"Execution on EventLoop took longer than expected (more than 10000ms).")
+      }
     })
 
     if (context == Vertx.currentContext()) {
@@ -48,16 +49,17 @@ class VertxEventLoopExecutionContext private(val vertx: Vertx) extends Execution
         vertx.cancelTimer(timerId)
       }
     } else {
-      context.runOnContext({ _: Void => {
-        try {
-          runnable.run()
-        } catch {
-          case NonFatal(e) =>
-            reportFailure(e)
-        } finally {
-          vertx.cancelTimer(timerId)
+      context.runOnContext({ _: Void =>
+        {
+          try {
+            runnable.run()
+          } catch {
+            case NonFatal(e) =>
+              reportFailure(e)
+          } finally {
+            vertx.cancelTimer(timerId)
+          }
         }
-      }
       })
     }
   }

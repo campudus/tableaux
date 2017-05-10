@@ -16,10 +16,10 @@ object SystemController {
   val SETTING_LANGTAGS = "langtags"
 
   def apply(
-    config: TableauxConfig,
-    repository: SystemModel,
-    tableauxModel: TableauxModel,
-    structureModel: StructureModel
+      config: TableauxConfig,
+      repository: SystemModel,
+      tableauxModel: TableauxModel,
+      structureModel: StructureModel
   ): SystemController = {
     new SystemController(config, repository, tableauxModel, structureModel)
   }
@@ -30,9 +30,8 @@ case class SchemaVersion(databaseVersion: Int, specificationVersion: Int)
 class SystemController(override val config: TableauxConfig,
                        override protected val repository: SystemModel,
                        protected val tableauxModel: TableauxModel,
-  protected val structureModel: StructureModel
-)
-  extends Controller[SystemModel] {
+                       protected val structureModel: StructureModel)
+    extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
     for {
@@ -107,14 +106,14 @@ class SystemController(override val config: TableauxConfig,
 
       // Add link column Bundeslaender(Land) <> Regierungsbezirke(Regierungsbezirk)
       linkColumn <- structureModel.columnStruc.createColumn(bl,
-        CreateLinkColumn("Regierungsbezirke",
-          None,
-          rb.id,
-          Some("Bundesland"),
-          None,
-          singleDirection = false,
-          identifier = false,
-          List()))
+                                                            CreateLinkColumn("Regierungsbezirke",
+                                                                             None,
+                                                                             rb.id,
+                                                                             Some("Bundesland"),
+                                                                             None,
+                                                                             singleDirection = false,
+                                                                             identifier = false,
+                                                                             List()))
 
       toRow1 = generateToJson(1)
       toRow2 = generateToJson(2)

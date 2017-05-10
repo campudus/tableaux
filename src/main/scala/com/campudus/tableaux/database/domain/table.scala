@@ -27,15 +27,14 @@ case object SettingsTable extends TableType {
 }
 
 case class Table(
-  id: TableId,
-  name: String,
-  hidden: Boolean,
-  langtags: Option[Seq[String]],
-  displayInfos: Seq[DisplayInfo],
-  tableType: TableType,
-  tableGroup: Option[TableGroup]
-)
-  extends DomainObject {
+    id: TableId,
+    name: String,
+    hidden: Boolean,
+    langtags: Option[Seq[String]],
+    displayInfos: Seq[DisplayInfo],
+    tableType: TableType,
+    tableGroup: Option[TableGroup]
+) extends DomainObject {
 
   override def getJson: JsonObject = {
     val result = Json.obj(
@@ -50,18 +49,17 @@ case class Table(
       result.mergeIn(Json.obj("langtags" -> langtags.orNull))
     }
 
-    displayInfos.foreach { di => {
-      di.optionalName.map(
-        name => {
+    displayInfos.foreach { di =>
+      {
+        di.optionalName.map(name => {
           result.mergeIn(
             Json.obj("displayName" -> result.getJsonObject("displayName").mergeIn(Json.obj(di.langtag -> name))))
         })
-      di.optionalDescription.map(
-        desc => {
+        di.optionalDescription.map(desc => {
           result.mergeIn(
             Json.obj("description" -> result.getJsonObject("description").mergeIn(Json.obj(di.langtag -> desc))))
         })
-    }
+      }
     }
 
     if (tableType != GenericTable) {
@@ -85,7 +83,7 @@ case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: Row
 
   override def getJson: JsonObject = {
     table.getJson
-      .mergeIn(Json.obj("columns" -> columns.map{
+      .mergeIn(Json.obj("columns" -> columns.map {
         _.getJson
       }))
       .mergeIn(rowList.getJson)

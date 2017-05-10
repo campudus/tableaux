@@ -38,7 +38,7 @@ class DuplicateRowTest extends TableauxTestBase {
 
   @Test
   def duplicateRowWithLink(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postLinkCol =
         Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
 
@@ -69,7 +69,7 @@ class DuplicateRowTest extends TableauxTestBase {
 
   @Test
   def duplicateRowWithLinkWithConcatColumn(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postLinkCol =
         Json.obj("columns" -> Json.arr(Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2)))
 
@@ -103,7 +103,7 @@ class DuplicateRowTest extends TableauxTestBase {
 
   @Test
   def duplicateRowWithMultiLanguageAttachment(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       val postAttachmentColumn = Json.obj(
         "columns" -> Json.arr(
           Json.obj(
