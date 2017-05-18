@@ -105,31 +105,44 @@ class SystemController(override val config: TableauxConfig,
       rb <- writeDemoData(readDemoData("regierungsbezirke"))
 
       // Add link column Bundeslaender(Land) <> Regierungsbezirke(Regierungsbezirk)
-      linkColumn <- structureModel.columnStruc.createColumn(bl,
-                                                            CreateLinkColumn("Regierungsbezirke",
-                                                                             None,
-                                                                             rb.id,
-                                                                             Some("Bundesland"),
-                                                                             None,
-                                                                             singleDirection = false,
-                                                                             identifier = false,
-                                                                             List(),
-                                                                             DefaultConstraint))
+      linkColumn <- structureModel.columnStruc.createColumn(
+        bl,
+        CreateLinkColumn(
+          "Regierungsbezirke",
+          None,
+          rb.id,
+          Some("Bundesland"),
+          None,
+          singleDirection = false,
+          identifier = false,
+          List(),
+          Constraint(DefaultCardinality, deleteCascade = true)
+        )
+      )
 
-      toRow1 = generateToJson(1)
-      toRow2 = generateToJson(2)
-
-      // Bayern 2nd row
-      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 1, toRow2)
-      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 2, toRow2)
-      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 3, toRow2)
-      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 4, toRow2)
+      linkToBadenWuerttemberg = generateToJson(1)
+      linkToBayern = generateToJson(2)
+      linkToHessen = generateToJson(7)
 
       //Baden-Wuerttemberg 1st row
-      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 5, toRow1)
-      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 6, toRow1)
-      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 7, toRow1)
-      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 8, toRow1)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 8, linkToBadenWuerttemberg)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 9, linkToBadenWuerttemberg)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 10, linkToBadenWuerttemberg)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 11, linkToBadenWuerttemberg)
+
+      // Bayern 2nd row
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 1, linkToBayern)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 2, linkToBayern)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 3, linkToBayern)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 4, linkToBayern)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 5, linkToBayern)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 6, linkToBayern)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 7, linkToBayern)
+
+      //Hessen 7st row
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 12, linkToHessen)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 13, linkToHessen)
+      _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 14, linkToHessen)
     } yield TableSeq(Seq(bl, rb))
   }
 

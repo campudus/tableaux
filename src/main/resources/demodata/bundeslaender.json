@@ -65,7 +65,7 @@
           "de-DE": "Stuttgart",
           "en-GB": "Stuttgart"
         },
-        10631278,
+        10880000,
         35751
       ]
     },
@@ -76,7 +76,7 @@
           "de-DE": "München",
           "en-GB": "Munich"
         },
-        12604244,
+        12844000,
         70550
       ]
     },
@@ -87,7 +87,7 @@
           "de-DE": "Berlin",
           "en-GB": "Berlin"
         },
-        3440991,
+        3520000,
         892
       ]
     },
@@ -98,8 +98,140 @@
           "de-DE": "Potsdam",
           "en-GB": "Potsdam"
         },
-        2449193,
-        29655
+        2485000,
+        29654
+      ]
+    },
+    {
+      "values": [
+        "Bremen",
+        {
+          "de-DE": "Bremen",
+          "en-GB": "Bremen"
+        },
+        671000,
+        420
+      ]
+    },
+    {
+      "values": [
+        "Hamburg",
+        {
+          "de-DE": "Hamburg",
+          "en-GB": "Hamburg"
+        },
+        1787000,
+        755
+      ]
+    },
+    {
+      "values": [
+        "Hessen",
+        {
+          "de-DE": "Wiesbaden",
+          "en-GB": "Wiesbaden"
+        },
+        6176000,
+        21115
+      ]
+    },
+    {
+      "values": [
+        "Mecklenburg-Vorpommern",
+        {
+          "de-DE": "Schwerin",
+          "en-GB": "Schwerin"
+        },
+        1612000,
+        23212
+      ]
+    },
+    {
+      "values": [
+        "Niedersachsen",
+        {
+          "de-DE": "Hannover",
+          "en-GB": "Hannover"
+        },
+        7927000,
+        47593
+      ]
+    },
+    {
+      "values": [
+        "Nordrhein-Westfalen",
+        {
+          "de-DE": "Düsseldorf",
+          "en-GB": "Düsseldorf"
+        },
+        17865000,
+        34113
+      ]
+    },
+    {
+      "values": [
+        "Rheinland-Pfalz",
+        {
+          "de-DE": "Mainz",
+          "en-GB": "Mainz"
+        },
+        4053000,
+        19854
+      ]
+    },
+    {
+      "values": [
+        "Saarland",
+        {
+          "de-DE": "Saarbrücken",
+          "en-GB": "Saarbrücken"
+        },
+        996000,
+        2567
+      ]
+    },
+    {
+      "values": [
+        "Sachsen",
+        {
+          "de-DE": "Dresden",
+          "en-GB": "Dresden"
+        },
+        4085000,
+        18449
+      ]
+    },
+    {
+      "values": [
+        "Sachsen-Anhalt",
+        {
+          "de-DE": "Magdeburg",
+          "en-GB": "Magdeburg"
+        },
+        2245000,
+        20452
+      ]
+    },
+    {
+      "values": [
+        "Schleswig-Holstein",
+        {
+          "de-DE": "Kiel",
+          "en-GB": "Kiel"
+        },
+        2859000,
+        15802
+      ]
+    },
+    {
+      "values": [
+        "Thüringen",
+        {
+          "de-DE": "Erfurt",
+          "en-GB": "Erfurt"
+        },
+        2171000,
+        16202
       ]
     }
   ]
