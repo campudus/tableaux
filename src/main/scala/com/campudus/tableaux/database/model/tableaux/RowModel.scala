@@ -40,13 +40,18 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def clearRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_])]): Future[Unit] = {
+  def clearRow(
+    table: Table,
+    rowId: RowId,
+    values: Seq[(ColumnType[_])],
+    deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[Unit] = {
     val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(values)
 
     for {
       _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.map((_, None)))
       _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis)
-      _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links)
+      _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links, deleteRowFn)
       _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
     } yield ()
   }
@@ -63,16 +68,24 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  private def clearLinks(table: Table, rowId: RowId, columns: Seq[LinkColumn]): Future[_] = {
-    val futureSequence = columns.map({ column =>
-      {
-        val linkId = column.linkId
-        val direction = column.linkDirection
+  private def clearLinks(
+    table: Table,
+    rowId: RowId,
+    columns: Seq[LinkColumn],
+    deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[_] = {
+    val futureSequence = columns.map(column => {
+      val fromIdColumn = column.linkDirection.fromSql
 
-        for {
-          _ <- connection.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
-        } yield ()
-      }
+      val linkTable = s"link_table_${column.linkId}"
+
+      for {
+        _ <- if (column.linkDirection.constraint.deleteCascade) {
+          deleteLinkedRows(table, rowId, column, deleteRowFn)
+        } else {
+          connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ?", Json.arr(rowId))
+        }
+      } yield ()
     })
 
     Future.sequence(futureSequence)
@@ -83,7 +96,48 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     Future.sequence(cleared)
   }
 
-  def deleteLink(table: Table, column: LinkColumn, rowId: RowId, toRowId: RowId): Future[Unit] = {
+  private def deleteLinkedRows(
+    table: Table,
+    rowId: RowId,
+    column: LinkColumn,
+    deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[_] = {
+    val toIdColumn = column.linkDirection.toSql
+    val fromIdColumn = column.linkDirection.fromSql
+    val linkTable = s"link_table_${column.linkId}"
+
+    val selectForeignRows =
+      s"""|SELECT
+          | lt.$toIdColumn
+          |FROM
+          | $linkTable lt
+          |WHERE
+          | lt.$fromIdColumn = ? AND
+          | (SELECT COUNT(*) FROM $linkTable sub WHERE sub.$toIdColumn = lt.$toIdColumn) = 1;""".stripMargin
+
+    // select foreign rows which are only used once
+    // these which are only used once should be deleted then
+    // do this in a recursive manner
+    connection
+      .query(selectForeignRows, Json.arr(rowId))
+      .map(resultObjectToJsonArray)
+      .map(_.map(_.getLong(0)))
+      // TODO here we could end up in a endless loop,
+      // TODO but we could argue that a schema like this doesn't make sense
+      .flatMap(foreignRowIdSeq => {
+      val futures = foreignRowIdSeq.map(deleteRowFn(column.to.table, _))
+
+      Future.sequence(futures)
+    })
+  }
+
+  def deleteLink(
+    table: Table,
+    column: LinkColumn,
+    fromRowId: RowId,
+    toRowId: RowId,
+    deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql
     val linkTable = s"link_table_${column.linkId}"
@@ -91,7 +145,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val sql = s"DELETE FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?"
 
     for {
-      _ <- connection.query(sql, Json.arr(rowId, toRowId))
+      _ <- if (column.linkDirection.constraint.deleteCascade) {
+        deleteRowFn(column.to.table, toRowId)
+      } else {
+        connection.query(sql, Json.arr(fromRowId, toRowId))
+      }
     } yield ()
   }
 

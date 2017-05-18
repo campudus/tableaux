@@ -165,14 +165,17 @@ class TableauxModel(
         case SettingsTable => Future.failed(ForbiddenException("can't delete a row of a settings table", "row"))
       }
 
-      columns <- retrieveColumns(table)
+      specialColumns <- retrieveColumns(table).map(_.filter({
+        case _: AttachmentColumn => true
+        case c: LinkColumn if c.linkDirection.constraint.deleteCascade => true
+        case _ => false
+      }))
+
       // Clear special cells before delete.
       // For example AttachmentColumns will
       // not be deleted by DELETE CASCADE.
-      _ <- updateRowModel.clearRow(table, rowId, columns.filter({
-        case _: AttachmentColumn => true
-        case _ => false
-      }))
+      // clearing LinkColumn will eventually trigger delete cascade
+      _ <- updateRowModel.clearRow(table, rowId, specialColumns, deleteRow)
 
       _ <- updateRowModel.deleteRow(table.id, rowId)
 
@@ -257,7 +260,7 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
 
       _ <- column match {
-        case linkColumn: LinkColumn => updateRowModel.deleteLink(table, linkColumn, rowId, toId)
+        case linkColumn: LinkColumn => updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
 
@@ -328,7 +331,7 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
-      _ <- updateRowModel.clearRow(table, rowId, Seq(column))
+      _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
@@ -347,7 +350,7 @@ class TableauxModel(
 
       column <- retrieveColumn(table, columnId)
 
-      _ <- updateRowModel.clearRow(table, rowId, Seq(column))
+      _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
 

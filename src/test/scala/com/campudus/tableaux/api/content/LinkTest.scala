@@ -11,7 +11,7 @@ import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 import scala.concurrent.Future
 import scala.util.Random
 
-sealed trait LinkTestBase extends TableauxTestBase {
+trait LinkTestBase extends TableauxTestBase {
 
   protected def postLinkCol(toTableId: TableId, name: String = "Test Link 1") = {
     Json.obj("columns" -> Json.arr(Json.obj("name" -> name, "kind" -> "link", "toTable" -> toTableId)))
