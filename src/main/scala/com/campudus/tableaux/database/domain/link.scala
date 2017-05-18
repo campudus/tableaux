@@ -38,12 +38,12 @@ object LinkDirection {
     * @return The correct link direction with the respective values.
     */
   def apply(
-    fromTableId: TableId,
-    tableId1: TableId,
-    tableId2: TableId,
-    cardinality1: Int,
-    cardinality2: Int,
-    deleteCascade: Boolean
+      fromTableId: TableId,
+      tableId1: TableId,
+      tableId2: TableId,
+      cardinality1: Int,
+      cardinality2: Int,
+      deleteCascade: Boolean
   ): LinkDirection = {
 
     // we need this because links can go both ways

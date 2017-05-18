@@ -16,7 +16,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def createLinkColumnWithDeleteCascade(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -60,7 +60,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def deleteRowWithDeleteCascadeShouldDeleteForeignRows(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -71,8 +71,8 @@ class LinkDeleteCascadeTest extends LinkTestBase {
           .map(_.getJsonArray("columns"))
 
         rowId <- sendRequest("POST",
-          s"/tables/$tableId1/rows",
-          Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+                             s"/tables/$tableId1/rows",
+                             Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
           .map(_.getJsonArray("rows"))
           .map(_.getJsonObject(0))
           .map(_.getLong("id"))
@@ -90,7 +90,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def deleteForeignRowsWithDeleteCascadeShouldNotDeleteParentRows(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -118,7 +118,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def deleteRowWithoutDeleteCascadeShouldNotDeleteForeignRows(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -147,7 +147,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def deleteRowWithDeleteCascadeShouldNotDeleteForeignRowsIfStillInUse(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -157,8 +157,8 @@ class LinkDeleteCascadeTest extends LinkTestBase {
         columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
 
         rowId <- sendRequest("POST",
-          s"/tables/$tableId1/rows",
-          Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+                             s"/tables/$tableId1/rows",
+                             Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
           .map(_.getJsonArray("rows"))
           .map(_.getJsonObject(0))
           .map(_.getLong("id"))
@@ -181,7 +181,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def deleteRowWithDeleteCascadeShouldNotDeleteForeignRowsIfNotLinked(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -201,7 +201,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def deleteRowWithDeleteCascadeWhichTriggersDeleteCascade(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -213,16 +213,16 @@ class LinkDeleteCascadeTest extends LinkTestBase {
         _ <- sendRequest("POST", s"/tables/$tableId1/rows")
 
         _ <- sendRequest("PUT",
-          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-          Json.obj("value" -> Json.arr(1, 2)))
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(1, 2)))
 
         _ <- sendRequest("PUT",
-          s"/tables/$tableId2/columns/$table2LinkColumnId/rows/1",
-          Json.obj("value" -> Json.arr(2)))
+                         s"/tables/$tableId2/columns/$table2LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(2)))
 
         _ <- sendRequest("PUT",
-          s"/tables/$tableId2/columns/$table2LinkColumnId/rows/2",
-          Json.obj("value" -> Json.arr(3)))
+                         s"/tables/$tableId2/columns/$table2LinkColumnId/rows/2",
+                         Json.obj("value" -> Json.arr(3)))
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
@@ -237,7 +237,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def clearingLinkCellWithDeleteCascadeShouldDeleteForeignRows(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -248,8 +248,8 @@ class LinkDeleteCascadeTest extends LinkTestBase {
           .map(_.getJsonArray("columns"))
 
         rowId <- sendRequest("POST",
-          s"/tables/$tableId1/rows",
-          Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+                             s"/tables/$tableId1/rows",
+                             Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
           .map(_.getJsonArray("rows"))
           .map(_.getJsonObject(0))
           .map(_.getLong("id"))
@@ -268,7 +268,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
 
   @Test
   def deleteLinkWithDeleteCascadeShouldDeleteForeignRows(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -279,8 +279,8 @@ class LinkDeleteCascadeTest extends LinkTestBase {
           .map(_.getJsonArray("columns"))
 
         rowId <- sendRequest("POST",
-          s"/tables/$tableId1/rows",
-          Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+                             s"/tables/$tableId1/rows",
+                             Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
           .map(_.getJsonArray("rows"))
           .map(_.getJsonObject(0))
           .map(_.getLong("id"))
@@ -303,7 +303,7 @@ class LinkDeleteCascadeTest extends LinkTestBase {
   @Test
   @Ignore
   def deleteRowWithDeleteCascadeCycle(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -313,12 +313,12 @@ class LinkDeleteCascadeTest extends LinkTestBase {
         table2LinkColumnId <- createDeleteCascadeLinkColumn(tableId2, tableId1, "deleteCascade2")
 
         _ <- sendRequest("PUT",
-          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-          Json.obj("value" -> Json.arr(1)))
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(1)))
 
         _ <- sendRequest("PUT",
-          s"/tables/$tableId2/columns/$table2LinkColumnId/rows/1",
-          Json.obj("value" -> Json.arr(1)))
+                         s"/tables/$tableId2/columns/$table2LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(1)))
 
         // This will currently end up in a endless loop
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
@@ -333,9 +333,9 @@ class LinkDeleteCascadeTest extends LinkTestBase {
   }
 
   private def createDeleteCascadeLinkColumn(
-    tableId: TableId,
-    toTableId: TableId,
-    columnName: String
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String
   ): Future[ColumnId] = {
     val columns = Columns(
       LinkBiDirectionalCol(columnName, toTableId, Constraint(DefaultCardinality, deleteCascade = true))

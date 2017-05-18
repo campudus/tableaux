@@ -27,9 +27,8 @@ case class CreateLinkColumn(override val name: String,
                             toDisplayInfos: Option[Seq[DisplayInfo]],
                             singleDirection: Boolean,
                             override val identifier: Boolean,
-  override val displayInfos: Seq[DisplayInfo],
-  constraint: Constraint
-)
+                            override val displayInfos: Seq[DisplayInfo],
+                            constraint: Constraint)
     extends CreateColumn {
   override val kind = LinkType
   override val languageType = LanguageNeutral

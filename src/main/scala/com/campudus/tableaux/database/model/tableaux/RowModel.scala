@@ -41,10 +41,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def clearRow(
-    table: Table,
-    rowId: RowId,
-    values: Seq[(ColumnType[_])],
-    deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      table: Table,
+      rowId: RowId,
+      values: Seq[(ColumnType[_])],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[Unit] = {
     val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(values)
 
@@ -69,10 +69,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def clearLinks(
-    table: Table,
-    rowId: RowId,
-    columns: Seq[LinkColumn],
-    deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      table: Table,
+      rowId: RowId,
+      columns: Seq[LinkColumn],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[_] = {
     val futureSequence = columns.map(column => {
       val fromIdColumn = column.linkDirection.fromSql
@@ -97,10 +97,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def deleteLinkedRows(
-    table: Table,
-    rowId: RowId,
-    column: LinkColumn,
-    deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      table: Table,
+      rowId: RowId,
+      column: LinkColumn,
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[_] = {
     val toIdColumn = column.linkDirection.toSql
     val fromIdColumn = column.linkDirection.fromSql
@@ -125,18 +125,18 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
       // TODO here we could end up in a endless loop,
       // TODO but we could argue that a schema like this doesn't make sense
       .flatMap(foreignRowIdSeq => {
-      val futures = foreignRowIdSeq.map(deleteRowFn(column.to.table, _))
+        val futures = foreignRowIdSeq.map(deleteRowFn(column.to.table, _))
 
-      Future.sequence(futures)
-    })
+        Future.sequence(futures)
+      })
   }
 
   def deleteLink(
-    table: Table,
-    column: LinkColumn,
-    fromRowId: RowId,
-    toRowId: RowId,
-    deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      table: Table,
+      column: LinkColumn,
+      fromRowId: RowId,
+      toRowId: RowId,
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql

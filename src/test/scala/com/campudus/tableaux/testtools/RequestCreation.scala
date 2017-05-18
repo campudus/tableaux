@@ -11,8 +11,7 @@ object RequestCreation {
 
     import scala.collection.JavaConverters._
 
-    val columnSeq = columns.asScala
-      .toList
+    val columnSeq = columns.asScala.toList
       .map(_.asInstanceOf[JsonObject])
 
     override def getJson: JsonObject = {
@@ -85,7 +84,7 @@ object RequestCreation {
   }
 
   case class LinkBiDirectionalCol(name: String, linkTo: TableId, constraint: Constraint = DefaultConstraint)
-    extends LinkCol {
+      extends LinkCol {
 
     override val biDirectional: Boolean = true
 

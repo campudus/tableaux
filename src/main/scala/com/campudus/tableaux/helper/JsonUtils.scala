@@ -133,8 +133,8 @@ object JsonUtils extends LazyLogging {
                                  toDisplayInfos,
                                  singleDirection,
                                  identifier,
-                  displayInfos,
-                  constraint.getOrElse(DefaultConstraint))
+                                 displayInfos,
+                                 constraint.getOrElse(DefaultConstraint))
 
               case _ =>
                 CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)
