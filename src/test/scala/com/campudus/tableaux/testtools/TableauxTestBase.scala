@@ -1,6 +1,7 @@
 package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
@@ -234,6 +235,12 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   def sendRequest(method: String, path: String, body: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
     httpJsonRequest(method, path, p).end(body)
+    p.future
+  }
+
+  def sendRequest(method: String, path: String, domainObject: DomainObject): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p).end(domainObject.getJson.encode())
     p.future
   }
 
