@@ -342,11 +342,25 @@ case class LinkColumn(
   override val kind = LinkType
   override val languageType = to.languageType
 
-  override def getJson: JsonObject = super.getJson mergeIn Json.obj("toTable" -> to.table.id, "toColumn" -> to.getJson)
+  override def getJson: JsonObject = {
+    val constraintJson = linkDirection.constraint.getJson
+
+    super.getJson
+      .mergeIn(
+        Json.obj(
+          "toTable" -> to.table.id,
+          "toColumn" -> to.getJson
+        )
+      )
+      .mergeIn(if (constraintJson.isEmpty) Json.emptyObj() else Json.obj("constraint" -> constraintJson))
+  }
 
   override def checkValidValue[B](value: B): Try[Option[Seq[RowId]]] = {
     Try {
       val castedValue = value match {
+        case x if Option(x).isEmpty =>
+          Seq.empty[Long]
+
         case x: Int =>
           Seq(x.toLong)
 

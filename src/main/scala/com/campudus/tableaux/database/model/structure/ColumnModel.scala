@@ -189,7 +189,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             BasicColumnInformation(table, id, linkColumnInfo.name, ordering, linkColumnInfo.identifier, displayInfos),
             toCol,
             linkId,
-            LeftToRight(table.id, linkColumnInfo.toTable)
+            LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
           )
 
       case attachmentColumnInfo: CreateAttachmentColumn =>
@@ -252,8 +252,21 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       {
         for {
           (t, result) <- t.query(
-            "INSERT INTO system_link_table (table_id_1, table_id_2) VALUES (?, ?) RETURNING link_id",
-            Json.arr(tableId, linkColumnInfo.toTable))
+            """|INSERT INTO system_link_table (
+               |  table_id_1,
+               |  table_id_2,
+               |  cardinality_1,
+               |  cardinality_2,
+               |  delete_cascade
+               |) VALUES (?, ?, ?, ?, ?) RETURNING link_id""".stripMargin,
+            Json.arr(
+              tableId,
+              linkColumnInfo.toTable,
+              linkColumnInfo.constraint.cardinality.from,
+              linkColumnInfo.constraint.cardinality.to,
+              linkColumnInfo.constraint.deleteCascade
+            )
+          )
           linkId = insertNotNull(result).head.get[Long](0)
 
           // insert link column on source table
@@ -445,6 +458,9 @@ RETURNING column_id, ordering""".stripMargin
          |  l.link_id,
          |  l.table_id_1,
          |  l.table_id_2,
+         |  l.cardinality_1,
+         |  l.cardinality_2,
+         |  l.delete_cascade,
          |  COUNT(c.*) > 1 AS bidirectional
          |FROM
          |  system_link_table l
@@ -461,15 +477,30 @@ RETURNING column_id, ordering""".stripMargin
             val linkId = row.get[LinkId](0)
             val tableId1 = row.get[TableId](1)
             val tableId2 = row.get[TableId](2)
-            val bidirectional = row.get[Boolean](3)
+            val cardinality1 = row.get[Int](3)
+            val cardinality2 = row.get[Int](4)
+            val deleteCascade = row.get[Boolean](5)
+            val bidirectional = row.get[Boolean](6)
 
-            val result = (linkId, LinkDirection(tableId, tableId1, tableId2), bidirectional)
+            val result = (
+              linkId,
+              LinkDirection(
+                tableId,
+                tableId1,
+                tableId2,
+                cardinality1,
+                cardinality2,
+                deleteCascade
+              ),
+              bidirectional
+            )
+
             logger.info(s"Dependent Links $result")
             result
           }
         })
         .filter({
-          case (_, LeftToRight(from, to), false) if from == to => true // self link
+          case (_, LeftToRight(from, to, _), false) if from == to => true // self link
           case (_, _: LeftToRight, true) => true
           case (_, _: LeftToRight, false) => false
           case (_, _: RightToLeft, _) => true
@@ -674,12 +705,15 @@ RETURNING column_id, ordering""".stripMargin
           |SELECT
           | table_id_1,
           | table_id_2,
-          | link_id
+          | link_id,
+          | cardinality_1,
+          | cardinality_2,
+          | delete_cascade
           |FROM system_link_table
           |WHERE link_id = (
-          |    SELECT link_id
-          |    FROM system_columns
-          |    WHERE table_id = ? AND column_id = ?
+          |  SELECT link_id
+          |  FROM system_columns
+          |  WHERE table_id = ? AND column_id = ?
           |)""".stripMargin,
         Json.arr(fromTable.id, columnId)
       )
@@ -690,8 +724,21 @@ RETURNING column_id, ordering""".stripMargin
         val table1 = res.getLong(0).toLong
         val table2 = res.getLong(1).toLong
         val linkId = res.getLong(2).toLong
+        val cardinality1 = res.getLong(3).toInt
+        val cardinality2 = res.getLong(4).toInt
+        val deleteCascade = res.getBoolean(5)
 
-        (linkId, LinkDirection(fromTable.id, table1, table2))
+        (
+          linkId,
+          LinkDirection(
+            fromTable.id,
+            table1,
+            table2,
+            cardinality1,
+            cardinality2,
+            deleteCascade
+          )
+        )
       }
 
       toTable <- tableStruc.retrieve(linkDirection.to)

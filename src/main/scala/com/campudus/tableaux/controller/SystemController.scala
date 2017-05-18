@@ -113,7 +113,8 @@ class SystemController(override val config: TableauxConfig,
                                                                              None,
                                                                              singleDirection = false,
                                                                              identifier = false,
-                                                                             List()))
+                                                              List(),
+                                                              DefaultConstraint))
 
       toRow1 = generateToJson(1)
       toRow2 = generateToJson(2)
