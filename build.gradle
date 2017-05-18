@@ -5,11 +5,11 @@ plugins {
   id 'scala'
   id 'application'
 
-  id 'com.github.johnrengelman.shadow' version '1.2.4'
-  id 'com.github.ksoichiro.build.info' version '0.2.0'
-
   id 'org.scoverage' version '2.1.0'
   id 'com.github.kt3k.coveralls' version '2.8.1'
+
+  id 'com.github.johnrengelman.shadow' version '2.0.0'
+  id 'com.github.ksoichiro.build.info' version '0.2.0'
 
   id 'com.diffplug.gradle.spotless' version '3.3.2'
 }
