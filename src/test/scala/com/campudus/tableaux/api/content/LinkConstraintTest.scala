@@ -1,18 +1,34 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.database.domain.{Constraint, DefaultCardinality}
+import com.campudus.tableaux.database.domain.{Cardinality, Constraint, DefaultCardinality}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.testtools.RequestCreation.{Columns, LinkBiDirectionalCol, Rows}
+import com.campudus.tableaux.testtools.TestCustomException
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 
+sealed trait Helper {
+
+  def findByNameInColumnsArray(columnName: String)(jsonArray: JsonArray): JsonObject = {
+    import scala.collection.JavaConverters._
+
+    jsonArray.asScala
+      .collect({
+        case obj: JsonObject => obj
+      })
+      .toSeq
+      .find(_.getString("name") == columnName)
+      .orNull
+  }
+}
+
 @RunWith(classOf[VertxUnitRunner])
-class LinkDeleteCascadeTest extends LinkTestBase {
+class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
   @Test
   def createLinkColumnWithDeleteCascade(implicit c: TestContext): Unit = {
@@ -346,16 +362,137 @@ class LinkDeleteCascadeTest extends LinkTestBase {
       .map(_.getJsonObject(0))
       .map(_.getLong("id"))
   }
+}
 
-  private def findByNameInColumnsArray(columnName: String)(jsonArray: JsonArray): JsonObject = {
-    import scala.collection.JavaConverters._
+@RunWith(classOf[VertxUnitRunner])
+class LinkCardinalityTest extends LinkTestBase with Helper {
 
-    jsonArray.asScala
-      .collect({
-        case obj: JsonObject => obj
-      })
-      .toSeq
-      .find(_.getString("name") == columnName)
-      .orNull
+  @Test
+  def createLinkColumnWithCardinality(implicit c: TestContext): Unit = {
+    okTest{
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        columns = Columns(
+          LinkBiDirectionalCol("cardinality", tableId2, Constraint(Cardinality(5, 8), deleteCascade = false))
+        )
+
+        // create bi-directional link column
+        createdLinkColumnWithCardinalityTable1 <- sendRequest("POST", s"/tables/$tableId1/columns", columns)
+          .map(_.getJsonArray("columns"))
+          .map(_.getJsonObject(0))
+
+        // retrieve bi-directional link column from table 1
+        retrieveLinkColumnWithCardinalityTable1 <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("cardinality"))
+
+        // retrieve bi-directional backlink from table 2
+        retrieveLinkColumnWithCardinalityTable2 <- sendRequest("GET", s"/tables/$tableId2/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("table1"))
+      } yield {
+        assertContainsDeep(
+          Constraint(Cardinality(5, 8), deleteCascade = false).getJson,
+          createdLinkColumnWithCardinalityTable1.getJsonObject("constraint")
+        )
+
+        assertContainsDeep(
+          Constraint(Cardinality(5, 8), deleteCascade = false).getJson,
+          retrieveLinkColumnWithCardinalityTable1.getJsonObject("constraint")
+        )
+
+        assertContainsDeep(
+          Constraint(Cardinality(8, 5), deleteCascade = false).getJson,
+          retrieveLinkColumnWithCardinalityTable2.getJsonObject("constraint")
+        )
+      }
+    }
+  }
+
+  @Test
+  def insertTwoRowsWhichPointToSameForeignRowsShouldFail(implicit c: TestContext): Unit = {
+    okTest{
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+
+        rowId <- sendRequest("POST",
+          s"/tables/$tableId1/rows",
+          Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
+          .map(_.getJsonArray("rows"))
+          .map(_.getJsonObject(0))
+          .map(_.getLong("id"))
+
+        _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
+          .flatMap(_ => Future.failed(new Exception("this request should fail")))
+          .recoverWith({
+            case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
+          })
+
+        result <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId")
+      } yield {
+        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
+      }
+    }
+  }
+
+  @Test
+  def patchTwoRowsToPointToSameForeignRowsShouldFail(implicit c: TestContext): Unit = {
+    okTest{
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+
+        rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
+          .map(_.getLong("id"))
+        rowId2 <- sendRequest("POST", s"/tables/$tableId1/rows")
+          .map(_.getLong("id"))
+
+        _ <- sendRequest("PATCH",
+          s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1",
+          Json.obj("value" -> Json.arr(1, 2)))
+
+        _ <- sendRequest("PATCH",
+          s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId2",
+          Json.obj("value" -> Json.arr(1, 2)))
+          .flatMap(_ => Future.failed(new Exception("this request should fail")))
+          .recoverWith({
+            case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
+          })
+
+        result <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
+      } yield {
+        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
+      }
+    }
+  }
+
+  private def createCardinaltyLinkColumn(
+    tableId: TableId,
+    toTableId: TableId,
+    columnName: String,
+    from: Int,
+    to: Int
+  ): Future[ColumnId] = {
+    val columns = Columns(
+      LinkBiDirectionalCol(columnName, toTableId, Constraint(Cardinality(from, to), deleteCascade = false))
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", columns)
+      .map(_.getJsonArray("columns"))
+      .map(_.getJsonObject(0))
+      .map(_.getLong("id"))
   }
 }

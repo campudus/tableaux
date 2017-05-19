@@ -74,6 +74,10 @@ sealed trait LinkDirection {
   def toSql: String
 
   def orderingSql: String
+
+  def fromCardinality: String
+
+  def toCardinality: String
 }
 
 case class LeftToRight(from: TableId, to: TableId, constraint: Constraint) extends LinkDirection {
@@ -83,6 +87,22 @@ case class LeftToRight(from: TableId, to: TableId, constraint: Constraint) exten
   override def toSql: String = "id_2"
 
   override def orderingSql: String = "ordering_1"
+
+  override def fromCardinality: String = {
+    if (constraint.cardinality.from == 0) {
+      Int.MaxValue.toString
+    } else {
+      "cardinality_1"
+    }
+  }
+
+  override def toCardinality: String = {
+    if (constraint.cardinality.to == 0) {
+      Int.MaxValue.toString
+    } else {
+      "cardinality_2"
+    }
+  }
 }
 
 case class RightToLeft(from: TableId, to: TableId, constraint: Constraint) extends LinkDirection {
@@ -92,4 +112,20 @@ case class RightToLeft(from: TableId, to: TableId, constraint: Constraint) exten
   override def toSql: String = "id_1"
 
   override def orderingSql: String = "ordering_2"
+
+  override def fromCardinality: String = {
+    if (constraint.cardinality.from == 0) {
+      Int.MaxValue.toString
+    } else {
+      "cardinality_2"
+    }
+  }
+
+  override def toCardinality: String = {
+    if (constraint.cardinality.to == 0) {
+      Int.MaxValue.toString
+    } else {
+      "cardinality_1"
+    }
+  }
 }
