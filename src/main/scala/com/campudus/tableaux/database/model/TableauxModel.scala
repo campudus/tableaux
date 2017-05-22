@@ -460,6 +460,33 @@ class TableauxModel(
     } yield rowSeq.head
   }
 
+  def retrieveForeignRows(table: Table, columnId: ColumnId, rowId: RowId, pagination: Pagination): Future[RowSeq] = {
+    for {
+      linkColumn <- retrieveColumn(table, columnId).flatMap({
+        case linkColumn: LinkColumn => Future.successful(linkColumn)
+        case column => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
+      })
+
+      foreignTable = linkColumn.to.table
+
+      foreignColumns <- retrieveColumns(foreignTable)
+      firstForeignColumn = foreignColumns.head
+
+      // In case of a ConcatColumn we need to retrieve the
+      // other values too, so the ConcatColumn can be build.
+      columns = firstForeignColumn match {
+        case c: ConcatColumn =>
+          c.columns.+:(c)
+        case _ =>
+          Seq(firstForeignColumn)
+      }
+
+      totalSize <- retrieveRowModel.size(foreignTable.id) // TODO add cardinality filter
+      rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, foreignTable.id, columns, pagination)
+      rowSeq <- mapRawRows(table, columns, rawRows)
+    } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+  }
+
   def retrieveRows(table: Table, pagination: Pagination): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)

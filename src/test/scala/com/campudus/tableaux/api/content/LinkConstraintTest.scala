@@ -369,7 +369,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
   @Test
   def createLinkColumnWithCardinality(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
@@ -413,19 +413,19 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
   @Test
   def insertTwoRowsWhichPointToSameForeignRowsShouldFail(implicit c: TestContext): Unit = {
-    okTest{
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
+        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
 
         columns <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
 
         rowId <- sendRequest("POST",
-          s"/tables/$tableId1/rows",
-          Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
+                             s"/tables/$tableId1/rows",
+                             Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
           .map(_.getJsonArray("rows"))
           .map(_.getJsonObject(0))
           .map(_.getLong("id"))
@@ -445,15 +445,20 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
   @Test
   def patchTwoRowsToPointToSameForeignRowsShouldFail(implicit c: TestContext): Unit = {
-    okTest{
+    import scala.collection.JavaConverters._
+
+    okTest {
       for {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
+        linkColumnId1 <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
 
-        columns <- sendRequest("GET", s"/tables/$tableId1/columns")
+        linkColumnId2 <- sendRequest("GET", s"/tables/$tableId2/columns")
           .map(_.getJsonArray("columns"))
+          .map(_.asScala.map(_.asInstanceOf[JsonObject]))
+          .map(_.find(_.getString("name") == "table1").get)
+          .map(_.getLong("id"))
 
         rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
           .map(_.getLong("id"))
@@ -461,30 +466,236 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
           .map(_.getLong("id"))
 
         _ <- sendRequest("PATCH",
-          s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1",
-          Json.obj("value" -> Json.arr(1, 2)))
+                         s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId1",
+                         Json.obj("value" -> Json.arr(1, 2)))
 
         _ <- sendRequest("PATCH",
-          s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId2",
-          Json.obj("value" -> Json.arr(1, 2)))
+                         s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId2",
+                         Json.obj("value" -> Json.arr(1, 2)))
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
           })
 
-        result <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
+        rowId3 <- sendRequest("POST", s"/tables/$tableId2/rows")
+          .map(_.getLong("id"))
+
+        _ <- sendRequest("PATCH",
+                         s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId3",
+                         Json.obj("value" -> Json.arr(rowId1, rowId2)))
+          .flatMap(_ => Future.failed(new Exception("this request should fail")))
+          .recoverWith({
+            case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
+          })
+
+        result <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId1")
       } yield {
         assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
       }
     }
   }
 
+  @Test
+  def retrieveForeignRowsOfLinkCell(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
+
+        rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
+          .map(_.getLong("id"))
+
+        resultCell <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
+
+        resultForeignRows <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows")
+      } yield {
+        assertEquals(0, resultCell.getJsonArray("value").size())
+
+        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultForeignRows.getJsonArray("rows"))
+      }
+    }
+  }
+
+  @Test
+  def retrieveForeignRowsOfLinkCellWhichDidNotYetHitTheLimit(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
+
+        rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
+          .map(_.getLong("id"))
+
+        _ <- sendRequest("PATCH",
+                         s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1",
+                         Json.obj("value" -> Json.arr(2)))
+
+        resultCell <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
+
+        resultForeignRows <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows")
+      } yield {
+        assertContainsDeep(Json.arr(Json.obj("id" -> 2)), resultCell.getJsonArray("value"))
+
+        assertContainsDeep(Json.arr(Json.obj("id" -> 1)), resultForeignRows.getJsonArray("rows"))
+      }
+    }
+  }
+
+  @Test
+  def retrieveForeignRowsOfLinkCellWhichAlreadyHitTheLimit(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
+
+        rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
+          .map(_.getLong("id"))
+
+        _ <- sendRequest("PATCH",
+                         s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1",
+                         Json.obj("value" -> Json.arr(1, 2)))
+
+        resultCell <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
+
+        resultForeignRows <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows")
+      } yield {
+        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultCell.getJsonArray("value"))
+
+        assertEquals(0, resultForeignRows.getJsonArray("rows").size())
+      }
+    }
+  }
+
+  @Test
+  def patchAndRetrieveWithHigherCardinality(implicit c: TestContext): Unit = {
+    import scala.collection.JavaConverters._
+
+    okTest {
+      for {
+        tableId1 <- createEmptyDefaultTable(name = "table1")
+        tableId2 <- createEmptyDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId1 <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 2, 3)
+
+        columns1 <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+        columns2 <- sendRequest("GET", s"/tables/$tableId2/columns")
+          .map(_.getJsonArray("columns"))
+
+        linkColumnId2 = columns2.asScala
+          .map(_.asInstanceOf[JsonObject])
+          .find(_.getString("name") == "table1")
+          .get
+          .getLong("id")
+          .longValue()
+
+        rowId11 <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns1, Json.obj("Test Column 1" -> "row11")))
+          .map(_.getJsonArray("rows").getJsonObject(0))
+          .map(_.getInteger("id"))
+        rowId12 <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns1, Json.obj("Test Column 1" -> "row12")))
+          .map(_.getJsonArray("rows").getJsonObject(0))
+          .map(_.getInteger("id"))
+
+        rowId21 <- sendRequest("POST", s"/tables/$tableId2/rows", Rows(columns1, Json.obj("Test Column 1" -> "row21")))
+          .map(_.getJsonArray("rows").getJsonObject(0))
+          .map(_.getInteger("id"))
+        rowId22 <- sendRequest("POST", s"/tables/$tableId2/rows", Rows(columns1, Json.obj("Test Column 1" -> "row22")))
+          .map(_.getJsonArray("rows").getJsonObject(0))
+          .map(_.getInteger("id"))
+        rowId23 <- sendRequest("POST", s"/tables/$tableId2/rows", Rows(columns1, Json.obj("Test Column 1" -> "row23")))
+          .map(_.getJsonArray("rows").getJsonObject(0))
+          .map(_.getInteger("id"))
+        rowId24 <- sendRequest("POST", s"/tables/$tableId2/rows", Rows(columns1, Json.obj("Test Column 1" -> "row24")))
+          .map(_.getJsonArray("rows").getJsonObject(0))
+          .map(_.getInteger("id"))
+
+        // let's do some real tests
+        _ <- sendRequest("PATCH",
+                         s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11",
+                         Json.obj("value" -> Json.arr(rowId22, rowId21, rowId23)))
+
+        _ <- sendRequest("PATCH",
+                         s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23",
+                         Json.obj("value" -> Json.arr(rowId12)))
+
+        resultCell11 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11")
+
+        resultForeignRows11 <- sendRequest("GET",
+                                           s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11/foreignRows")
+
+        resultCell21 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId21")
+        resultCell22 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId22")
+        resultCell23 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23")
+
+        resultForeignRows21 <- sendRequest("GET",
+                                           s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId21/foreignRows")
+        resultForeignRows23 <- sendRequest("GET",
+                                           s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23/foreignRows")
+        resultForeignRows12 <- sendRequest("GET",
+                                           s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId12/foreignRows")
+
+        _ <- sendRequest("PATCH",
+                         s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11",
+                         Json.obj("value" -> Json.arr(rowId24)))
+          .flatMap(_ => Future.failed(new Exception("this request should fail")))
+          .recoverWith({
+            case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
+          })
+
+        rowId13 <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns1, Json.obj("Test Column 1" -> "row13")))
+          .map(_.getJsonArray("rows").getJsonObject(0))
+          .map(_.getInteger("id"))
+
+        _ <- sendRequest("PATCH",
+                         s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23",
+                         Json.obj("value" -> Json.arr(rowId13)))
+          .flatMap(_ => Future.failed(new Exception("this request should fail")))
+          .recoverWith({
+            case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
+          })
+      } yield {
+        assertContainsDeep(Json.arr(
+                             Json.obj("id" -> rowId22),
+                             Json.obj("id" -> rowId21),
+                             Json.obj("id" -> rowId23)
+                           ),
+                           resultCell11.getJsonArray("value"))
+
+        // cell 11 is already at it's limit
+        assertEquals(0, resultForeignRows11.getJsonArray("rows").size())
+
+        assertContainsDeep(Json.arr(Json.obj("id" -> rowId11)), resultCell21.getJsonArray("value"))
+        assertContainsDeep(Json.arr(Json.obj("id" -> rowId11)), resultCell22.getJsonArray("value"))
+        assertContainsDeep(Json.arr(Json.obj("id" -> rowId11), Json.obj("id" -> rowId12)),
+                           resultCell23.getJsonArray("value"))
+
+        assertContainsDeep(Json.arr(Json.obj("id" -> rowId12)), resultForeignRows21.getJsonArray("rows"))
+
+        // cell 23 is already at it's limit
+        assertEquals(0, resultForeignRows23.getJsonArray("rows").size())
+
+        assertContainsDeep(Json.arr(
+                             Json.obj("id" -> rowId21),
+                             Json.obj("id" -> rowId22),
+                             Json.obj("id" -> rowId24)
+                           ),
+                           resultForeignRows12.getJsonArray("rows"))
+      }
+    }
+  }
+
   private def createCardinaltyLinkColumn(
-    tableId: TableId,
-    toTableId: TableId,
-    columnName: String,
-    from: Int,
-    to: Int
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String,
+      from: Int,
+      to: Int
   ): Future[ColumnId] = {
     val columns = Columns(
       LinkBiDirectionalCol(columnName, toTableId, Constraint(Cardinality(from, to), deleteCascade = false))

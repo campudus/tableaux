@@ -156,6 +156,21 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield rows
   }
 
+  def retrieveForeignRows(
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      pagination: Pagination
+  ): Future[RowSeq] = {
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
+    logger.info(s"retrieveForeignRows $tableId $columnId $rowId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      rows <- repository.retrieveForeignRows(table, columnId, rowId, pagination)
+    } yield rows
+  }
+
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCell $tableId $columnId $rowId")

@@ -309,12 +309,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[Unit] = {
 
-    def rowExists(tableId: TableId, rowId: RowId): Future[Unit] = {
-      connection
-        .selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+    def rowExists(t: connection.Transaction, tableId: TableId, rowId: RowId): Future[connection.Transaction] = {
+      t.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
         .flatMap({
-          case true => Future.successful(())
-          case false => Future.failed(RowNotFoundException(tableId, rowId))
+          case (t, true) => Future.successful(t)
+          case (_, false) => Future.failed(RowNotFoundException(tableId, rowId))
         })
     }
 
@@ -328,48 +327,48 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
             s"""
                |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
                |WHERE
-               |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${
-              direction
-                .fromSql
-            } = ? AND ${direction.toSql} = ?) AND
-               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) < (SELECT ${
-              direction
-                .fromCardinality
-            } FROM system_link_table WHERE link_id = ?) AND
-               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) < (SELECT ${
-              direction
-                .toCardinality
-            } FROM system_link_table WHERE link_id = ?)
+               |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
+               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + ? <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
+               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
                |""".stripMargin
           })
           .mkString(" UNION ")
-        val binds = toIds.flatMap(to => List(rowId, to, rowId, to, rowId, linkId, to, linkId))
+        val binds = toIds.zipWithIndex
+          .flatMap({
+            case (to, index) => List(rowId, to, rowId, to, rowId, index.toLong + 1, linkId, to, linkId)
+          })
 
-        for {
-        // check if row (where we want to add the links) really exists
-          _ <- rowExists(column.table.id, rowId)
+        val replaced = binds.foldLeft(union)((replaced, value) => replaced.replaceFirst("\\?", value.toString))
+        logger.info(s"\n$replaced\n")
 
-          // check if "to-be-linked" rows really exist
-          _ <- Future
-            .sequence(toIds.map(rowExists(column.to.table.id, _)))
-            .recoverWith({
-              case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
-            })
+        connection.transactional(t => {
+          for {
+            // check if row (where we want to add the links) really exists
+            t <- rowExists(t, column.table.id, rowId)
 
-          _ <- if (toIds.nonEmpty) {
-            connection
-              .query(
-                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${
-                  direction
-                    .orderingSql
-                }) $union RETURNING *",
-                Json.arr(binds: _*))
-              // if size doesn't match we hit the cardinality limit
-              .map(insertCheckSize(_, toIds.size))
-          } else {
-            Future.successful(Json.emptyArr())
-          }
-        } yield ()
+            // check if "to-be-linked" rows really exist
+            t <- toIds
+              .foldLeft(Future(t))((futureT, toId) => {
+                futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
+              })
+              .recoverWith({
+                case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
+              })
+
+            (t, _) <- if (toIds.nonEmpty) {
+              t.query(
+                  s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
+                  Json.arr(binds: _*)
+                )
+                .map({
+                  // if size doesn't match we hit the cardinality limit
+                  case (t, result) => (t, insertCheckSize(result, toIds.size))
+                })
+            } else {
+              Future.successful((t, Json.emptyArr()))
+            }
+          } yield (t, ())
+        })
     })
 
     Future.sequence(futureSequence).map(_ => ())
@@ -644,55 +643,48 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
             s"""
                |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
                |WHERE
-               |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${
-              direction
-                .fromSql
-            } = ? AND ${direction.toSql} = ?) AND
-               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) < (SELECT ${
-              direction
-                .fromCardinality
-            } FROM system_link_table WHERE link_id = ?) AND
-               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) < (SELECT ${
-              direction
-                .toCardinality
-            } FROM system_link_table WHERE link_id = ?)
+               |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
+               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + ? <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
+               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
                |""".stripMargin
           })
           .mkString(" UNION ")
-        val binds = toIds.flatMap(to => List(rowId, to, rowId, to, rowId, linkId, to, linkId))
-
-        for {
-          t <- connection.begin()
-
-          // check if row (where we want to add the links) really exists
-          t <- rowExists(t, column.table.id, rowId)
-
-          // check if "to-be-linked" rows really exist
-          t <- toIds.foldLeft(Future(t))((futureT, toId) => {
-            futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
+        val binds = toIds.zipWithIndex
+          .flatMap({
+            case (to, index) => List(rowId, to, rowId, to, rowId, index.toLong + 1, linkId, to, linkId)
           })
 
-          // make sure there are no links for this column
-          (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
+        connection.transactional(t => {
+          for {
+            // check if row (where we want to add the links) really exists
+            t <- rowExists(t, column.table.id, rowId)
 
-          (t, _) <- if (toIds.nonEmpty) {
-            t.query(
-              s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${
-                direction
-                  .orderingSql
-              }) $union RETURNING *",
-              Json.arr(binds: _*)
-            )
-              .map({
-                // if size doesn't match we hit the cardinality limit
-                case (t, result) => (t, insertCheckSize(result, toIds.size))
+            // check if "to-be-linked" rows really exist
+            t <- toIds
+              .foldLeft(Future(t))((futureT, toId) => {
+                futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
               })
-          } else {
-            Future.successful((t, Json.emptyArr()))
-          }
+              .recoverWith({
+                case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
+              })
 
-          _ <- t.commit()
-        } yield ()
+            // make sure there are no links for this column
+            (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
+
+            (t, _) <- if (toIds.nonEmpty) {
+              t.query(
+                  s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
+                  Json.arr(binds: _*)
+                )
+                .map({
+                  // if size doesn't match we hit the cardinality limit
+                  case (t, result) => (t, insertCheckSize(result, toIds.size))
+                })
+            } else {
+              Future.successful((t, Json.emptyArr()))
+            }
+          } yield (t, ())
+        })
     })
 
     Future.sequence(futureSequence).map(_ => ())
@@ -745,6 +737,39 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         .query(s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id", Json.arr(rowId))
     } yield {
       mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
+    }
+  }
+
+  def retrieveForeign(
+      linkColumn: LinkColumn,
+      rowId: RowId,
+      foreignTableId: TableId,
+      foreignColumns: Seq[ColumnType[_]],
+      pagination: Pagination
+  ): Future[Seq[RawRow]] = {
+    val projection = generateProjection(foreignTableId, foreignColumns)
+    val fromClause = generateFromClause(foreignTableId)
+
+    val linkId = linkColumn.linkId
+    val linkTable = s"link_table_$linkId"
+    val linkDirection = linkColumn.linkDirection
+
+    // linkColumn is from origin tables point of view
+    // ... so we need to swap toSql and fromSql
+    val cardinalityFilter =
+      s"""
+         |(SELECT COUNT(*) = 0 FROM $linkTable WHERE ${linkDirection.toSql} = ut.id AND ${linkDirection.fromSql} = ?) AND
+         |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.toSql} = ut.id) < (SELECT ${linkDirection.fromCardinality} FROM system_link_table WHERE link_id = ?) AND
+         |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.fromSql} = ?) < (SELECT ${linkDirection.toCardinality} FROM system_link_table WHERE link_id = ?)
+       """.stripMargin
+
+    for {
+      result <- connection.query(
+        s"SELECT $projection FROM $fromClause WHERE $cardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
+        Json.arr(rowId, linkId, rowId, linkId)
+      )
+    } yield {
+      resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(foreignColumns))
     }
   }
 
