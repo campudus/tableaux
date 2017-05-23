@@ -513,6 +513,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
       } yield {
         assertEquals(0, resultCell.getJsonArray("value").size())
 
+        assertEquals(2, resultForeignRows.getJsonObject("page").getLong("totalSize").longValue())
         assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultForeignRows.getJsonArray("rows"))
       }
     }
@@ -540,6 +541,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
       } yield {
         assertContainsDeep(Json.arr(Json.obj("id" -> 2)), resultCell.getJsonArray("value"))
 
+        assertEquals(1, resultForeignRows.getJsonObject("page").getLong("totalSize").longValue())
         assertContainsDeep(Json.arr(Json.obj("id" -> 1)), resultForeignRows.getJsonArray("rows"))
       }
     }
@@ -567,6 +569,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
       } yield {
         assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultCell.getJsonArray("value"))
 
+        assertEquals(0, resultForeignRows.getJsonObject("page").getLong("totalSize").longValue())
         assertEquals(0, resultForeignRows.getJsonArray("rows").size())
       }
     }
@@ -668,6 +671,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
                            resultCell11.getJsonArray("value"))
 
         // cell 11 is already at it's limit
+        assertEquals(0, resultForeignRows11.getJsonObject("page").getLong("totalSize").longValue())
         assertEquals(0, resultForeignRows11.getJsonArray("rows").size())
 
         assertContainsDeep(Json.arr(Json.obj("id" -> rowId11)), resultCell21.getJsonArray("value"))
@@ -675,11 +679,14 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         assertContainsDeep(Json.arr(Json.obj("id" -> rowId11), Json.obj("id" -> rowId12)),
                            resultCell23.getJsonArray("value"))
 
+        assertEquals(1, resultForeignRows21.getJsonObject("page").getLong("totalSize").longValue())
         assertContainsDeep(Json.arr(Json.obj("id" -> rowId12)), resultForeignRows21.getJsonArray("rows"))
 
         // cell 23 is already at it's limit
+        assertEquals(0, resultForeignRows23.getJsonObject("page").getLong("totalSize").longValue())
         assertEquals(0, resultForeignRows23.getJsonArray("rows").size())
 
+        assertEquals(3, resultForeignRows12.getJsonObject("page").getLong("totalSize").longValue())
         assertContainsDeep(Json.arr(
                              Json.obj("id" -> rowId21),
                              Json.obj("id" -> rowId22),

@@ -469,21 +469,24 @@ class TableauxModel(
 
       foreignTable = linkColumn.to.table
 
-      foreignColumns <- retrieveColumns(foreignTable)
-      firstForeignColumn = foreignColumns.head
+      representingColumns <- retrieveColumns(foreignTable)
+        .map({ foreignColumns =>
+          // we only need the first/representing column
+          val firstForeignColumn = foreignColumns.head
 
-      // In case of a ConcatColumn we need to retrieve the
-      // other values too, so the ConcatColumn can be build.
-      columns = firstForeignColumn match {
-        case c: ConcatColumn =>
-          c.columns.+:(c)
-        case _ =>
-          Seq(firstForeignColumn)
-      }
+          // In case of a ConcatColumn we need to retrieve the
+          // other values too, so the ConcatColumn can be build.
+          firstForeignColumn match {
+            case c: ConcatColumn =>
+              c.columns.+:(c)
+            case _ =>
+              Seq(firstForeignColumn)
+          }
+        })
 
-      totalSize <- retrieveRowModel.size(foreignTable.id) // TODO add cardinality filter
-      rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, foreignTable.id, columns, pagination)
-      rowSeq <- mapRawRows(table, columns, rawRows)
+      totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId)
+      rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, representingColumns, pagination)
+      rowSeq <- mapRawRows(table, representingColumns, rawRows)
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }
 

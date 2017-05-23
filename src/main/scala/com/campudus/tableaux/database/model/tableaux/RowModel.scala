@@ -679,30 +679,19 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   def retrieveForeign(
       linkColumn: LinkColumn,
       rowId: RowId,
-      foreignTableId: TableId,
       foreignColumns: Seq[ColumnType[_]],
       pagination: Pagination
   ): Future[Seq[RawRow]] = {
+    val foreignTableId = linkColumn.to.table.id
+
     val projection = generateProjection(foreignTableId, foreignColumns)
     val fromClause = generateFromClause(foreignTableId)
-
-    val linkId = linkColumn.linkId
-    val linkTable = s"link_table_$linkId"
-    val linkDirection = linkColumn.linkDirection
-
-    // linkColumn is from origin tables point of view
-    // ... so we need to swap toSql and fromSql
-    val cardinalityFilter =
-      s"""
-         |(SELECT COUNT(*) = 0 FROM $linkTable WHERE ${linkDirection.toSql} = ut.id AND ${linkDirection.fromSql} = ?) AND
-         |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.toSql} = ut.id) < (SELECT ${linkDirection.fromCardinality} FROM system_link_table WHERE link_id = ?) AND
-         |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.fromSql} = ?) < (SELECT ${linkDirection.toCardinality} FROM system_link_table WHERE link_id = ?)
-       """.stripMargin
+    val cardinalityFilter = generateCardinalityFilter(linkColumn)
 
     for {
       result <- connection.query(
         s"SELECT $projection FROM $fromClause WHERE $cardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
-        Json.arr(rowId, linkId, rowId, linkId)
+        Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
       )
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(foreignColumns))
@@ -746,6 +735,17 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     val select = s"SELECT COUNT(*) FROM user_table_$tableId"
 
     connection.selectSingleValue(select)
+  }
+
+  def sizeForeign(linkColumn: LinkColumn, rowId: RowId): Future[Long] = {
+    val foreignTableId = linkColumn.to.table.id
+
+    val cardinalityFilter = generateCardinalityFilter(linkColumn)
+
+    connection.selectSingleValue(
+      s"SELECT COUNT(*) FROM user_table_$foreignTableId ut WHERE $cardinalityFilter",
+      Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+    )
   }
 
   private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
@@ -935,5 +935,19 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
         |) FROM (SELECT * FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
+  }
+
+  private def generateCardinalityFilter(linkColumn: LinkColumn): String = {
+    val linkId = linkColumn.linkId
+    val linkTable = s"link_table_$linkId"
+    val linkDirection = linkColumn.linkDirection
+
+    // linkColumn is from origin tables point of view
+    // ... so we need to swap toSql and fromSql
+    s"""
+       |(SELECT COUNT(*) = 0 FROM $linkTable WHERE ${linkDirection.toSql} = ut.id AND ${linkDirection.fromSql} = ?) AND
+       |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.toSql} = ut.id) < (SELECT ${linkDirection.fromCardinality} FROM system_link_table WHERE link_id = ?) AND
+       |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.fromSql} = ?) < (SELECT ${linkDirection.toCardinality} FROM system_link_table WHERE link_id = ?)
+       """.stripMargin
   }
 }
