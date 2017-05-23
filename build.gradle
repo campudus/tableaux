@@ -62,12 +62,16 @@ def mainVerticle = "com.campudus.tableaux.Starter"
 
 test {
   maxHeapSize = "512m"
-  jvmArgs "-Xmx512m"
+  // http://www.oracle.com/technetwork/java/javase/relnotes-139183.html#vm
+  // https://stackoverflow.com/a/4659279/104779
+  jvmArgs = ["-Xmx512m", "-XX:-OmitStackTraceInFastThrow"]
 }
 
 testScoverage {
   maxHeapSize = "512m"
-  jvmArgs "-Xmx512m"
+  // http://www.oracle.com/technetwork/java/javase/relnotes-139183.html#vm
+  // https://stackoverflow.com/a/4659279/104779
+  jvmArgs = ["-Xmx512m", "-XX:-OmitStackTraceInFastThrow"]
 }
 
 run {
