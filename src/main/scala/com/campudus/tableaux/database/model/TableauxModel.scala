@@ -186,7 +186,7 @@ class TableauxModel(
 
   def createRow(table: Table): Future[Row] = {
     for {
-      rowId <- createRowModel.createRow(table.id, Seq.empty)
+      rowId <- createRowModel.createRow(table, Seq.empty)
       row <- retrieveRow(table, rowId)
     } yield row
   }
@@ -201,7 +201,7 @@ class TableauxModel(
 
         futureRows.flatMap { rows =>
           for {
-            rowId <- createRowModel.createRow(table.id, columnValuePairs)
+            rowId <- createRowModel.createRow(table, columnValuePairs)
             newRow <- retrieveRow(table, columns, rowId)
           } yield {
             rows ++ Seq(newRow)
@@ -537,7 +537,7 @@ class TableauxModel(
       row <- retrieveRow(table, columns, rowId)
       rowValues = row.values
 
-      duplicatedRowId <- createRowModel.createRow(table.id, columns.zip(rowValues))
+      duplicatedRowId <- createRowModel.createRow(table, columns.zip(rowValues))
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
