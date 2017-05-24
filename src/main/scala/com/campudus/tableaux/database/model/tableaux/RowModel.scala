@@ -717,14 +717,16 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
     (row.headOption, liftedRow(1), liftedRow(2)) match {
       case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr)) =>
-        val cellAnnotations =
-          Option(cellAnnotationsStr).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+        val cellAnnotations = Option(cellAnnotationsStr)
+          .map(_.asInstanceOf[String])
+          .map(Json.fromArrayString)
+          .getOrElse(Json.emptyArr())
         val rawValues = row.drop(3)
 
         RawRow(rowId,
                RowLevelAnnotations(finalFlag),
                CellLevelAnnotations(columns, cellAnnotations),
-               mapResultRow(columns, rawValues))
+               (columns, rawValues).zipped.map(mapValueByColumnType))
       case _ =>
         // shouldn't happen b/c of assert
         throw UnknownServerException(s"Please check generateProjection!")
@@ -792,50 +794,15 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     }
   }
 
-  private def mapResultRow(columns: Seq[ColumnType[_]], rawValues: Seq[Any]): Seq[Any] = {
-    val (concatColumnOpt, columnsAndRawValues) = columns.headOption match {
-      case Some(c: ConcatColumn) =>
-        (Some(c), (columns.drop(1), rawValues.drop(1)).zipped)
-      case _ =>
-        (None, (columns, rawValues).zipped)
-    }
-
-    concatColumnOpt match {
-      case None =>
-        // No concat column
-        columnsAndRawValues.map(mapValueByColumnType)
-      case Some(concatColumn) =>
-        // Aggregate values for concat column
-        val identifierColumns = columnsAndRawValues
-          .filter({ (column: ColumnType[_], _) =>
-            {
-              concatColumn.columns.exists(_.id == column.id)
-            }
-          })
-          .zipped
-
-        import scala.collection.JavaConverters._
-
-        val concatRawValues = identifierColumns
-          .foldLeft(List.empty[Any])({
-            case (joinedValues, (column, rawValue)) =>
-              joinedValues.:+(mapValueByColumnType(column, rawValue))
-          })
-          .asJava
-
-        (columns.drop(1), rawValues.drop(1)).zipped.map(mapValueByColumnType).+:(concatRawValues)
-    }
-  }
-
   private def generateFromClause(tableId: TableId): String = {
     s"user_table_$tableId ut LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)"
   }
 
   private def generateProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
-      case _: ConcatColumn | _: AttachmentColumn =>
-        // Values will be calculated/fetched after select
-        // See TableauxModel.mapRawRows
+      case _: ConcatColumn | _: AttachmentColumn | _: GroupColumn =>
+        // Values will be generated/fetched while post-processing raw rows
+        // see TableauxModel.mapRawRows
         "NULL"
 
       case MultiLanguageColumn(c) =>

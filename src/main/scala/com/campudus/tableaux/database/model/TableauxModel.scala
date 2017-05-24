@@ -364,9 +364,10 @@ class TableauxModel(
       _ <- CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, column.id, rowId)
 
       // invalidate the concat cell if possible
-      _ <- column.identifier match {
-        case true => CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, 0, rowId)
-        case false => Future.successful(())
+      _ <- if (column.identifier) {
+        CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, 0, rowId)
+      } else {
+        Future.successful(())
       }
 
       dependentColumns <- retrieveDependencies(column.table)
@@ -399,10 +400,9 @@ class TableauxModel(
     // In case of a ConcatColumn we need to retrieve the
     // other values too, so the ConcatColumn can be build.
     val columns = column match {
-      case c: ConcatColumn =>
-        c.columns.+:(c)
-      case _ =>
-        Seq(column)
+      case c: ConcatColumn => c.columns.+:(c)
+      case c: GroupColumn => c.columns.+:(c)
+      case _ => Seq(column)
     }
 
     for {
@@ -477,10 +477,8 @@ class TableauxModel(
           // In case of a ConcatColumn we need to retrieve the
           // other values too, so the ConcatColumn can be build.
           firstForeignColumn match {
-            case c: ConcatColumn =>
-              c.columns.+:(c)
-            case _ =>
-              Seq(firstForeignColumn)
+            case c: ConcatenateColumn => c.columns.+:(c)
+            case _ => Seq(firstForeignColumn)
           }
         })
 
@@ -504,19 +502,13 @@ class TableauxModel(
       // In case of a ConcatColumn we need to retrieve the
       // other values too, so the ConcatColumn can be build.
       columns = column match {
-        case c: ConcatColumn =>
-          c.columns.+:(c)
-        case _ =>
-          Seq(column)
+        case c: ConcatenateColumn => c.columns.+:(c)
+        case _ => Seq(column)
       }
 
       rowsSeq <- retrieveRows(table, columns, pagination)
     } yield {
-      rowsSeq.copy(rows = rowsSeq.rows.map({ row =>
-        {
-          row.copy(values = row.values.take(1))
-        }
-      }))
+      rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
     }
   }
 
@@ -531,8 +523,9 @@ class TableauxModel(
   def duplicateRow(table: Table, rowId: RowId): Future[Row] = {
     for {
       columns <- retrieveColumns(table).map(_.filter({
-        // ConcatColumn can't be duplicated
-        case _: ConcatColumn => false
+        // ConcatColumn && GroupColumn can't be duplicated
+        case _: ConcatColumn | _: GroupColumn => false
+        // Other columns can be duplicated
         case _ => true
       }))
 
@@ -560,14 +553,13 @@ class TableauxModel(
       // replace json's value with ConcatColumn value
       linkedRows.asScala.foldLeft(Future.successful(List.empty[JsonObject])) {
         case (futureList, linkedRow: JsonObject) =>
-          futureList.flatMap({
-            case list =>
-              // ConcatColumn's value is always a
-              // json array with the linked row ids
-              val rowId = linkedRow.getLong("id").longValue()
-              retrieveCell(concatColumn, rowId)
-                .map(cell => Json.obj("id" -> rowId, "value" -> cell.value))
-                .map(json => list ++ List(json))
+          futureList.flatMap({ list =>
+            // ConcatColumn's value is always a
+            // json array with the linked row ids
+            val rowId = linkedRow.getLong("id").longValue()
+            retrieveCell(concatColumn, rowId)
+              .map(cell => Json.obj("id" -> rowId, "value" -> cell.value))
+              .map(json => list ++ List(json))
           })
       }
     }
@@ -576,71 +568,55 @@ class TableauxModel(
       col.kind == LinkType && col.asInstanceOf[LinkColumn].to.isInstanceOf[ConcatColumn]
     }
 
-    val mergedRowsFuture = rawRows.foldLeft(Future.successful(List.empty[RawRow])) {
-      case (futureList, RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues)) =>
-        futureList.flatMap({
-          case list =>
-            val mappedRow = columns
-              .zip(rawValues)
-              .map({
-                case (c: ConcatColumn, value) if c.columns.exists(isLinkColumnToConcatColumn) =>
-                  import scala.collection.JavaConverters._
+    val postProcessedRawRowsFuture = rawRows.foldLeft(Future.successful(List.empty[RawRow])) {
+      case (rawRowsFuture, RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues)) =>
+        rawRowsFuture.flatMap({ list =>
+          for {
+            columnsWithValues <- Future.sequence(
+              columns
+                .zip(rawValues)
+                .map({
+                  case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
+                    // Fetch ConcatColumn value of each linked row
+                    fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatColumn], array)
+                      .map(cellValue => (c, cellValue))
 
-                  // Because of the guard we only handle ConcatColumns
-                  // with LinkColumns to another ConcatColumns
+                  case (c: AttachmentColumn, _) =>
+                    // AttachmentColumns are fetched via AttachmentModel
+                    retrieveCell(c, rowId)
+                      .map(cell => (c, cell.value))
 
-                  // Zip concatenated columns with there values
-                  val concatColumns = c.columns
-                  // value is a Java List because of RowModel.mapResultRow
-                  val values = value.asInstanceOf[java.util.List[Object]].asScala.toList
+                  case (c, value) =>
+                    // All other column types were already fetched by RetrieveRowModel
+                    Future((c, value))
+                })
+            )
+          } yield {
+            val mappedRow = columnsWithValues.map({
+              case (c: ConcatenateColumn, _) =>
+                // Post-process GroupColumn && ConcatColumn
+                // Get values of concatenated columns
+                columnsWithValues
+                  .filter({
+                    case (column: ColumnType[_], _) => c.columns.exists(_.id == column.id)
+                  })
+                  .map({
+                    case (_, value) => value
+                  })
 
-                  assert(concatColumns.size == values.size)
+              case (_, value) =>
+                // Post-processing is only needed for ConcatColumn and GroupColumn
+                value
+            })
 
-                  val zippedColumnsValues = concatColumns.zip(values)
-
-                  // Now we iterate over the zipped sequence and
-                  // check for LinkColumns which point to ConcatColumns
-                  val mappedColumnValues = zippedColumnsValues map {
-                    case (column: LinkColumn, array: JsonArray) if column.to.isInstanceOf[ConcatColumn] =>
-                      // Iterate over each linked row and
-                      // replace json's value with ConcatColumn value
-                      fetchConcatValuesForLinkedRows(column.to.asInstanceOf[ConcatColumn], array)
-
-                    case (column, v) => Future.successful(v)
-                  }
-
-                  Future.sequence(mappedColumnValues)
-
-                case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatColumn] =>
-                  // Iterate over each linked row and
-                  // replace json's value with ConcatColumn value
-                  fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatColumn], array)
-
-                case (c: AttachmentColumn, _) =>
-                  // AttachmentColumns are fetch via AttachmentModel
-                  retrieveCell(c, rowId)
-                    .map(_.value)
-
-                case (_, value) =>
-                  // All other column types are fetch via SQL
-                  Future(value)
-              })
-
-            Future
-              .sequence(mappedRow)
-              .map(mappedRow => list ++ List(RawRow(rowId, rowLevelFlags, cellLevelFlags, mappedRow)))
+            list ++ List(RawRow(rowId, rowLevelFlags, cellLevelFlags, mappedRow))
+          }
         })
     }
 
-    val rows = mergedRowsFuture.map({ mergedRows =>
-      {
-        mergedRows.map({
-          case RawRow(rowId, rowLevelFlags, cellLevelFlags, values) =>
-            Row(table, rowId, rowLevelFlags, cellLevelFlags, values)
-        })
-      }
-    })
-
-    rows
+    postProcessedRawRowsFuture.map(_.map({
+      case RawRow(rowId, rowLevelFlags, cellLevelFlags, values) =>
+        Row(table, rowId, rowLevelFlags, cellLevelFlags, values)
+    }))
   }
 }

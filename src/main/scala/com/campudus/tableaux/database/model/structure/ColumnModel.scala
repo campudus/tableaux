@@ -13,6 +13,7 @@ import com.google.common.cache.{Cache => GuavaBuiltCache}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+import scala.util.Try
 
 object CachedColumnModel {
 
@@ -151,31 +152,25 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
     createColumn match {
       case simpleColumnInfo: CreateSimpleColumn =>
-        createValueColumn(table.id, simpleColumnInfo).map({
-          case CreatedColumnInformation(tableId, id, ordering, displayInfos) =>
-            SimpleValueColumn(
-              simpleColumnInfo.kind,
-              simpleColumnInfo.languageType,
-              BasicColumnInformation(table,
-                                     id,
-                                     simpleColumnInfo.name,
-                                     ordering,
-                                     simpleColumnInfo.identifier,
-                                     displayInfos)
-            )
-        })
+        createValueColumn(table.id, simpleColumnInfo)
+          .map({
+            case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+              SimpleValueColumn(
+                simpleColumnInfo.kind,
+                simpleColumnInfo.languageType,
+                BasicColumnInformation(table, id, ordering, displayInfos, simpleColumnInfo)
+              )
+          })
 
       case linkColumnInfo: CreateLinkColumn =>
         for {
           toTable <- tableStruc.retrieve(linkColumnInfo.toTable)
           toTableColumns <- retrieveAll(toTable).flatMap({ columns =>
-            {
-              if (columns.isEmpty) {
-                Future.failed(
-                  NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
-              } else {
-                Future.successful(columns)
-              }
+            if (columns.isEmpty) {
+              Future.failed(
+                NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
+            } else {
+              Future.successful(columns)
             }
           })
 
@@ -186,23 +181,52 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
                                                                                                 linkColumnInfo)
         } yield
           LinkColumn(
-            BasicColumnInformation(table, id, linkColumnInfo.name, ordering, linkColumnInfo.identifier, displayInfos),
+            BasicColumnInformation(table, id, ordering, displayInfos, linkColumnInfo),
             toCol,
             linkId,
             LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
           )
 
       case attachmentColumnInfo: CreateAttachmentColumn =>
-        createAttachmentColumn(table.id, attachmentColumnInfo).map({
-          case CreatedColumnInformation(tableId, id, ordering, displayInfos) =>
-            AttachmentColumn(
-              BasicColumnInformation(table,
-                                     id,
-                                     attachmentColumnInfo.name,
-                                     ordering,
-                                     attachmentColumnInfo.identifier,
-                                     displayInfos))
-        })
+        createAttachmentColumn(table.id, attachmentColumnInfo)
+          .map({
+            case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+              AttachmentColumn(BasicColumnInformation(table, id, ordering, displayInfos, attachmentColumnInfo))
+          })
+
+      case groupColumnInfo: CreateGroupColumn =>
+        createGroupColumn(table.id, groupColumnInfo)
+          .map({
+            case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+              // TODO retrieve grouped columns, but be aware of caching
+              GroupColumn(BasicColumnInformation(table, id, ordering, displayInfos, groupColumnInfo), Seq.empty)
+          })
+    }
+  }
+
+  private def createGroupColumn(
+      tableId: TableId,
+      groupColumnInfo: CreateGroupColumn
+  ): Future[CreatedColumnInformation] = {
+    connection.transactional { t =>
+      for {
+        (t, columnInfo) <- insertSystemColumn(t, tableId, groupColumnInfo, None)
+
+        placeholder = groupColumnInfo.groups.map(_ => "?").mkString(", ")
+        updateStatement = s"""
+                             |UPDATE system_columns SET
+                             |  group_table_id = ?,
+                             |  group_column_id = ?,
+                             |  identifier = ?
+                             |WHERE table_id = ? AND column_id IN($placeholder)""".stripMargin
+
+        (t, _) <- t.query(
+          updateStatement,
+          Json.arr(
+            Seq(tableId, columnInfo.columnId, groupColumnInfo.identifier, tableId) ++ groupColumnInfo.groups: _*))
+      } yield {
+        (t, columnInfo)
+      }
     }
   }
 
@@ -531,40 +555,97 @@ RETURNING column_id, ordering""".stripMargin
       result <- connection.query(select, Json.arr(table.id, columnId))
       row = selectNotNull(result).head
 
-      mappedColumn <- mapRowResultToColumnType(table, row, depth)
+      mappedColumn <- mapRowResultToColumnType(table, row, depth).flatMap({
+        case g: GroupColumn =>
+          // if requested column is a GroupColumn we need to get all columns
+          // ... because only retrieveColumns can handle GroupColumns
+          retrieveAll(table)
+            .map(_.find(_.id == g.id).get)
+        case column =>
+          Future.successful(column)
+      })
     } yield mappedColumn
   }
 
-  def retrieveAll(table: Table): Future[Seq[ColumnType[_]]] = retrieveAll(table, MAX_DEPTH)
+  def retrieveAll(table: Table): Future[Seq[ColumnType[_]]] =
+    retrieveColumns(table, MAX_DEPTH, identifiersOnly = false)
 
-  private def retrieveAll(table: Table, depth: Int): Future[Seq[ColumnType[_]]] = {
+  private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean): Future[Seq[ColumnType[_]]] = {
+    val identitfierFilter = if (identifiersOnly) {
+      "AND identifier = TRUE"
+    } else {
+      ""
+    }
+
+    val select =
+      s"""
+         |SELECT
+         |  column_id,
+         |  user_column_name,
+         |  column_type,
+         |  ordering,
+         |  multilanguage,
+         |  identifier,
+         |  array_to_json(country_codes),
+         |  group_column_id
+         |FROM system_columns
+         |WHERE
+         |  table_id = ?
+         |  $identitfierFilter
+         |ORDER BY ordering,column_id""".stripMargin
+
     for {
-      (concatColumns, columns) <- retrieveColumns(table, depth, identifierOnly = false)
-    } yield concatColumnAndColumns(table, concatColumns, columns)
+      result <- connection.query(select, Json.arr(table.id))
+
+      mappedColumns <- {
+        val futures = resultObjectToJsonArray(result)
+          .map(mapRowResultToColumnType(table, _, depth))
+        Future.sequence(futures)
+      }
+    } yield {
+      val columns = mappedColumns
+        .map({
+          case g: GroupColumn =>
+            // fill GroupColumn with life!
+            // ... till now GroupColumn only was a placeholder
+
+            val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnId.contains(g.id))
+
+            logger.info(s"Map GroupColumn placeholder ${g.id} ${groupedColumns.size}")
+
+            GroupColumn(g.columnInformation, groupedColumns)
+
+          case c => c
+        })
+
+      prependConcatColumnIfNecessary(table, columns)
+    }
   }
 
   private def retrieveIdentifiers(table: Table, depth: Int): Future[Seq[ColumnType[_]]] = {
     for {
-      (concatColumns, columns) <- retrieveColumns(table, depth, identifierOnly = true)
+      // we don't retrieve only identifier columns...
+      // ... because retrieveColumns is cache so it's fast!
+      columns <- retrieveColumns(table, depth, identifiersOnly = true)
+
+      identifierColumns = columns.filter(_.identifier)
     } yield {
-      if (concatColumns.isEmpty) {
+      if (identifierColumns.isEmpty) {
         throw DatabaseException("Link can not point to table without identifier(s).", "missing-identifier")
       } else {
-        concatColumnAndColumns(table, concatColumns, columns)
+        identifierColumns
       }
     }
   }
 
-  private def concatColumnAndColumns(
-      table: Table,
-      concatColumns: Seq[ColumnType[_]],
-      columns: Seq[ColumnType[_]]
-  ): Seq[ColumnType[_]] = {
-    concatColumns.size match {
+  private def prependConcatColumnIfNecessary(table: Table, columns: Seq[ColumnType[_]]): Seq[ColumnType[_]] = {
+    val identifierColumns = columns.filter(_.identifier)
+
+    identifierColumns.size match {
       case x if x >= 2 =>
         // in case of two or more identifier columns we preserve the order of column
         // and a concatcolumn in front of all columns
-        columns.+:(ConcatColumn(ConcatColumnInformation(table), concatColumns))
+        columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns))
       case x if x == 1 =>
         // in case of one identifier column we don't get a concat column
         // but the identifier column will be the first
@@ -573,26 +654,6 @@ RETURNING column_id, ordering""".stripMargin
         // no identifier -> return columns
         columns
     }
-  }
-
-  private def retrieveColumns(
-      table: Table,
-      depth: Int,
-      identifierOnly: Boolean
-  ): Future[(Seq[ColumnType[_]], Seq[ColumnType[_]])] = {
-    val identCondition = if (identifierOnly) " AND identifier IS TRUE " else ""
-    val select =
-      s"""SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier, array_to_json(country_codes)
-         | FROM system_columns
-         | WHERE table_id = ? $identCondition ORDER BY ordering, column_id""".stripMargin
-
-    for {
-      result <- connection.query(select, Json.arr(table.id))
-      mappedColumns <- {
-        val futures = resultObjectToJsonArray(result).map(mapRowResultToColumnType(table, _, depth))
-        Future.sequence(futures)
-      }
-    } yield (mappedColumns.filter(_.identifier), mappedColumns)
   }
 
   private def mapColumn(
@@ -604,6 +665,7 @@ RETURNING column_id, ordering""".stripMargin
     kind match {
       case AttachmentType => mapAttachmentColumn(columnInformation)
       case LinkType => mapLinkColumn(depth, columnInformation)
+      case GroupType => mapGroupColumn(columnInformation)
 
       case _ => mapValueColumn(kind, languageType, columnInformation)
     }
@@ -615,6 +677,12 @@ RETURNING column_id, ordering""".stripMargin
       columnInformation: ColumnInformation
   ): Future[SimpleValueColumn[_]] = {
     Future(SimpleValueColumn(kind, languageType, columnInformation))
+  }
+
+  private def mapGroupColumn(columnInformation: ColumnInformation): Future[GroupColumn] = {
+
+    // placeholder for now, grouped columns will be filled in later
+    Future(GroupColumn(columnInformation, Seq.empty))
   }
 
   private def mapAttachmentColumn(columnInformation: ColumnInformation): Future[AttachmentColumn] = {
@@ -667,12 +735,15 @@ RETURNING column_id, ordering""".stripMargin
         MultiCountry(CountryCodes(codes))
     }
 
+    val groupColumnId = Try(row.getInteger(7).longValue()).toOption
+
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
-      column <- mapColumn(depth,
-                          kind,
-                          languageType,
-                          BasicColumnInformation(table, columnId, columnName, ordering, identifier, displayInfoSeq))
+      column <- mapColumn(
+        depth,
+        kind,
+        languageType,
+        BasicColumnInformation(table, columnId, columnName, ordering, identifier, displayInfoSeq, groupColumnId))
     } yield column
   }
 

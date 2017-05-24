@@ -136,6 +136,17 @@ object JsonUtils extends LazyLogging {
                                  displayInfos,
                                  constraint.getOrElse(DefaultConstraint))
 
+              case GroupType =>
+                // group specific fields
+                import scala.collection.JavaConverters._
+
+                val groups = checked(hasArray("groups", json)).asScala
+                  .map(_.asInstanceOf[Int])
+                  .map(_.toLong)
+                  .toSeq
+
+                CreateGroupColumn(name, ordering, identifier, displayInfos, groups)
+
               case _ =>
                 CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)
             }

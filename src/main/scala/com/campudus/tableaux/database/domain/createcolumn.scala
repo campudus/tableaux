@@ -43,6 +43,16 @@ case class CreateAttachmentColumn(override val name: String,
   override val languageType = LanguageNeutral
 }
 
+case class CreateGroupColumn(override val name: String,
+                             override val ordering: Option[Ordering],
+                             override val identifier: Boolean,
+                             override val displayInfos: Seq[DisplayInfo],
+                             groups: Seq[ColumnId])
+    extends CreateColumn {
+  override val kind: TableauxDbType = GroupType
+  override val languageType: LanguageType = LanguageNeutral
+}
+
 case class CreatedColumnInformation(
     tableId: TableId,
     columnId: ColumnId,

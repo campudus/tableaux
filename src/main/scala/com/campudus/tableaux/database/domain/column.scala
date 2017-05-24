@@ -20,6 +20,18 @@ sealed trait ColumnInformation {
   val ordering: Ordering
   val identifier: Boolean
   val displayInfos: Seq[DisplayInfo]
+  val groupColumnId: Option[ColumnId]
+}
+
+object BasicColumnInformation {
+
+  def apply(table: Table,
+            columnId: ColumnId,
+            ordering: Ordering,
+            displayInfos: Seq[DisplayInfo],
+            createColumn: CreateColumn): BasicColumnInformation = {
+    BasicColumnInformation(table, columnId, createColumn.name, ordering, createColumn.identifier, displayInfos, None)
+  }
 }
 
 case class BasicColumnInformation(override val table: Table,
@@ -27,7 +39,8 @@ case class BasicColumnInformation(override val table: Table,
                                   override val name: String,
                                   override val ordering: Ordering,
                                   override val identifier: Boolean,
-                                  override val displayInfos: Seq[DisplayInfo])
+                                  override val displayInfos: Seq[DisplayInfo],
+                                  override val groupColumnId: Option[ColumnId])
     extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -40,6 +53,9 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   override val id: ColumnId = 0
   override val ordering: Ordering = 0
   override val displayInfos: Seq[DisplayInfo] = List()
+
+  // ConcatColumn can't be grouped
+  override val groupColumnId: Option[ColumnId] = None
 }
 
 object ColumnType {
@@ -124,7 +140,7 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   val languageType: LanguageType
 
-  protected val columnInformation: ColumnInformation
+  val columnInformation: ColumnInformation
 
   final val table: Table = columnInformation.table
 
@@ -444,9 +460,8 @@ case class AttachmentColumn(override val columnInformation: ColumnInformation)
   }
 }
 
-case class ConcatColumn(override val columnInformation: ConcatColumnInformation, columns: Seq[ColumnType[_]])
-    extends ColumnType[JsonArray] {
-  override val kind = ConcatType
+sealed trait ConcatenateColumn extends ColumnType[JsonArray] {
+  val columns: Seq[ColumnType[_]]
 
   // If any of the columns is MultiLanguage or MultiCountry
   // the ConcatColumn will be MultiLanguage
@@ -463,11 +478,29 @@ case class ConcatColumn(override val columnInformation: ConcatColumnInformation,
     }
   }
 
+  override def checkValidValue[B](value: B): Try[Option[JsonArray]] = {
+    Failure(new IllegalArgumentException(s"Cannot set a value for ${className()}. Value will be generated."))
+  }
+
+  private def className() = {
+    this.getClass.getCanonicalName.split("\\.").toList.last
+  }
+}
+
+case class ConcatColumn(override val columnInformation: ConcatColumnInformation,
+                        override val columns: Seq[ColumnType[_]])
+    extends ConcatenateColumn {
+  override val kind = ConcatType
+
   override def getJson: JsonObject = super.getJson mergeIn Json.obj("concats" -> columns.map(_.getJson))
 
-  override def checkValidValue[B](value: B): Try[Option[JsonArray]] = {
-    Failure(new IllegalArgumentException("Cannot set a value for ConcatColumn. Value will be generated."))
-  }
+}
+
+case class GroupColumn(override val columnInformation: ColumnInformation, override val columns: Seq[ColumnType[_]])
+    extends ConcatenateColumn {
+  override val kind = GroupType
+
+  override def getJson: JsonObject = super.getJson mergeIn Json.obj("groups" -> columns.map(_.getJson))
 }
 
 /**
