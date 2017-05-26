@@ -1,8 +1,8 @@
 package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.database.domain.{Constraint, DefaultConstraint, DomainObject}
-import com.campudus.tableaux.database.model.TableauxModel.TableId
-import org.vertx.scala.core.json.{JsonObject, JsonArray}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import org.vertx.scala.core.json.{JsonArray, JsonObject}
 import org.vertx.scala.core.json.Json
 
 object RequestCreation {
@@ -67,6 +67,16 @@ object RequestCreation {
   case class CurrencyCol(name: String) extends ColumnType("currency")
 
   case class BooleanCol(name: String) extends ColumnType("boolean")
+
+  case class GroupCol(name: String, groups: Seq[ColumnId]) extends ColumnType("group") {
+    override def getJson: JsonObject = {
+      super.getJson.mergeIn(
+        Json.obj(
+          "groups" -> groups
+        )
+      )
+    }
+  }
 
   sealed abstract class LinkCol extends ColumnType("link") {
 
