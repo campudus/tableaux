@@ -20,7 +20,7 @@ sealed trait ColumnInformation {
   val ordering: Ordering
   val identifier: Boolean
   val displayInfos: Seq[DisplayInfo]
-  val groupColumnId: Option[ColumnId]
+  val groupColumnIds: Seq[ColumnId]
 }
 
 object BasicColumnInformation {
@@ -30,7 +30,13 @@ object BasicColumnInformation {
             ordering: Ordering,
             displayInfos: Seq[DisplayInfo],
             createColumn: CreateColumn): BasicColumnInformation = {
-    BasicColumnInformation(table, columnId, createColumn.name, ordering, createColumn.identifier, displayInfos, None)
+    BasicColumnInformation(table,
+                           columnId,
+                           createColumn.name,
+                           ordering,
+                           createColumn.identifier,
+                           displayInfos,
+                           Seq.empty)
   }
 }
 
@@ -40,7 +46,7 @@ case class BasicColumnInformation(override val table: Table,
                                   override val ordering: Ordering,
                                   override val identifier: Boolean,
                                   override val displayInfos: Seq[DisplayInfo],
-                                  override val groupColumnId: Option[ColumnId])
+                                  override val groupColumnIds: Seq[ColumnId])
     extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -55,7 +61,7 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   override val displayInfos: Seq[DisplayInfo] = List()
 
   // ConcatColumn can't be grouped
-  override val groupColumnId: Option[ColumnId] = None
+  override val groupColumnIds: Seq[ColumnId] = Seq.empty
 }
 
 object ColumnType {

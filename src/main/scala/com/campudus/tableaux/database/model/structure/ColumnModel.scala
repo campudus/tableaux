@@ -7,13 +7,17 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{DatabaseException, NotFoundInDatabaseException, ShouldBeUniqueException}
+import com.campudus.tableaux.{
+  DatabaseException,
+  NotFoundInDatabaseException,
+  ShouldBeUniqueException,
+  UnprocessableEntityException
+}
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.{Cache => GuavaBuiltCache}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
-import scala.util.Try
 
 object CachedColumnModel {
 
@@ -150,83 +154,80 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
+
+    def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
+      BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
+
     createColumn match {
       case simpleColumnInfo: CreateSimpleColumn =>
         createValueColumn(table.id, simpleColumnInfo)
           .map({
             case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-              SimpleValueColumn(
-                simpleColumnInfo.kind,
-                simpleColumnInfo.languageType,
-                BasicColumnInformation(table, id, ordering, displayInfos, simpleColumnInfo)
-              )
+              SimpleValueColumn(simpleColumnInfo.kind,
+                                simpleColumnInfo.languageType,
+                                applyColumnInformation(id, ordering, displayInfos))
           })
 
       case linkColumnInfo: CreateLinkColumn =>
-        for {
-          toTable <- tableStruc.retrieve(linkColumnInfo.toTable)
-          toTableColumns <- retrieveAll(toTable).flatMap({ columns =>
-            if (columns.isEmpty) {
-              Future.failed(
-                NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns"))
-            } else {
-              Future.successful(columns)
-            }
+        createLinkColumn(table, linkColumnInfo)
+          .map({
+            case (linkId, toCol, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
+              val linkDirection = LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
+              LinkColumn(applyColumnInformation(id, ordering, displayInfos), toCol, linkId, linkDirection)
           })
-
-          toCol = toTableColumns.head
-
-          (linkId, CreatedColumnInformation(_, id, ordering, displayInfos)) <- createLinkColumn(table,
-                                                                                                toTable,
-                                                                                                linkColumnInfo)
-        } yield
-          LinkColumn(
-            BasicColumnInformation(table, id, ordering, displayInfos, linkColumnInfo),
-            toCol,
-            linkId,
-            LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
-          )
 
       case attachmentColumnInfo: CreateAttachmentColumn =>
         createAttachmentColumn(table.id, attachmentColumnInfo)
           .map({
             case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-              AttachmentColumn(BasicColumnInformation(table, id, ordering, displayInfos, attachmentColumnInfo))
+              AttachmentColumn(applyColumnInformation(id, ordering, displayInfos))
           })
 
       case groupColumnInfo: CreateGroupColumn =>
-        createGroupColumn(table.id, groupColumnInfo)
+        createGroupColumn(table, groupColumnInfo)
           .map({
             case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-              // TODO retrieve grouped columns, but be aware of caching
-              GroupColumn(BasicColumnInformation(table, id, ordering, displayInfos, groupColumnInfo), Seq.empty)
+              // For simplification we return GroupColumn without grouped columns...
+              // ... StructureController will retrieve these anyway
+              GroupColumn(applyColumnInformation(id, ordering, displayInfos), Seq.empty)
           })
     }
   }
 
   private def createGroupColumn(
-      tableId: TableId,
+      table: Table,
       groupColumnInfo: CreateGroupColumn
   ): Future[CreatedColumnInformation] = {
+    val tableId = table.id
+
     connection.transactional { t =>
       for {
+        // retrieve all to-be-grouped columns
+        groupedColumns <- retrieveAll(table)
+          .map(_.filter(column => groupColumnInfo.groups.contains(column.id)))
+
+        // do some validation before creating GroupColumn
+        _ = {
+          if (groupedColumns.size != groupColumnInfo.groups.size) {
+            throw UnprocessableEntityException(
+              s"GroupColumn (${groupColumnInfo.name}) couldn't be created because some columns don't exist")
+          }
+
+          if (groupedColumns.exists(_.kind == GroupType)) {
+            throw UnprocessableEntityException(
+              s"GroupColumn (${groupColumnInfo.name}) can't contain another GroupColumn")
+          }
+        }
+
         (t, columnInfo) <- insertSystemColumn(t, tableId, groupColumnInfo, None)
 
-        placeholder = groupColumnInfo.groups.map(_ => "?").mkString(", ")
-        updateStatement = s"""
-                             |UPDATE system_columns SET
-                             |  group_table_id = ?,
-                             |  group_column_id = ?,
-                             |  identifier = ?
-                             |WHERE table_id = ? AND column_id IN($placeholder)""".stripMargin
-
+        // insert group information
+        insertPlaceholder = groupColumnInfo.groups.map(_ => "(?, ?, ?)").mkString(", ")
         (t, _) <- t.query(
-          updateStatement,
-          Json.arr(
-            Seq(tableId, columnInfo.columnId, groupColumnInfo.identifier, tableId) ++ groupColumnInfo.groups: _*))
-      } yield {
-        (t, columnInfo)
-      }
+          s"INSERT INTO system_column_groups(table_id, group_column_id, grouped_column_id) VALUES $insertPlaceholder",
+          Json.arr(groupColumnInfo.groups.flatMap(Seq(tableId, columnInfo.columnId, _)): _*)
+        )
+      } yield (t, columnInfo)
     }
   }
 
@@ -267,76 +268,84 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def createLinkColumn(
       table: Table,
-      toTable: Table,
       linkColumnInfo: CreateLinkColumn
-  ): Future[(LinkId, CreatedColumnInformation)] = {
+  ): Future[(LinkId, ColumnType[_], CreatedColumnInformation)] = {
     val tableId = table.id
 
     connection.transactional { t =>
-      {
-        for {
-          (t, result) <- t.query(
-            """|INSERT INTO system_link_table (
-               |  table_id_1,
-               |  table_id_2,
-               |  cardinality_1,
-               |  cardinality_2,
-               |  delete_cascade
-               |) VALUES (?, ?, ?, ?, ?) RETURNING link_id""".stripMargin,
-            Json.arr(
-              tableId,
-              linkColumnInfo.toTable,
-              linkColumnInfo.constraint.cardinality.from,
-              linkColumnInfo.constraint.cardinality.to,
-              linkColumnInfo.constraint.deleteCascade
+      for {
+        toTable <- tableStruc.retrieve(linkColumnInfo.toTable)
+        toTableColumns <- retrieveAll(toTable).flatMap({ columns =>
+          if (columns.isEmpty) {
+            Future.failed(
+              NotFoundInDatabaseException(s"Link points at table ${toTable.id} without columns", "no-columns")
             )
-          )
-          linkId = insertNotNull(result).head.get[Long](0)
-
-          // insert link column on source table
-          (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId))
-
-          // only add the second link column if tableId != toTableId or singleDirection is false
-          t <- {
-            if (!linkColumnInfo.singleDirection && tableId != linkColumnInfo.toTable) {
-              val copiedLinkColumnInfo = linkColumnInfo.copy(
-                name = linkColumnInfo.toName.getOrElse(table.name),
-                identifier = false,
-                displayInfos = linkColumnInfo.toDisplayInfos.getOrElse({
-                  table.displayInfos.map({
-                    case DisplayInfo(langtag, Some(name), optDesc) =>
-                      NameOnly(langtag, name)
-                  })
-                })
-              )
-              // ColumnInfo will be ignored, so we can lose it
-              insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
-                .map({
-                  case (t, _) => t
-                })
-            } else {
-              Future(t)
-            }
+          } else {
+            Future.successful(columns)
           }
+        })
 
-          (t, _) <- t.query(s"""
-CREATE TABLE link_table_$linkId (
- id_1 bigint,
- id_2 bigint,
- ordering_1 serial,
- ordering_2 serial,
+        toCol = toTableColumns.head
 
- PRIMARY KEY(id_1, id_2),
+        (t, result) <- t.query(
+          """|INSERT INTO system_link_table (
+             |  table_id_1,
+             |  table_id_2,
+             |  cardinality_1,
+             |  cardinality_2,
+             |  delete_cascade
+             |) VALUES (?, ?, ?, ?, ?) RETURNING link_id""".stripMargin,
+          Json.arr(
+            tableId,
+            linkColumnInfo.toTable,
+            linkColumnInfo.constraint.cardinality.from,
+            linkColumnInfo.constraint.cardinality.to,
+            linkColumnInfo.constraint.deleteCascade
+          )
+        )
+        linkId = insertNotNull(result).head.get[Long](0)
 
- CONSTRAINT link_table_${linkId}_foreign_1
- FOREIGN KEY(id_1) REFERENCES user_table_$tableId (id) ON DELETE CASCADE,
+        // insert link column on source table
+        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId))
 
- CONSTRAINT link_table_${linkId}_foreign_2
- FOREIGN KEY(id_2) REFERENCES user_table_${linkColumnInfo.toTable} (id) ON DELETE CASCADE
-)""".stripMargin)
-        } yield {
-          (t, (linkId, columnInfo))
+        // only add the second link column if tableId != toTableId or singleDirection is false
+        t <- {
+          if (!linkColumnInfo.singleDirection && tableId != linkColumnInfo.toTable) {
+            val copiedLinkColumnInfo = linkColumnInfo.copy(
+              name = linkColumnInfo.toName.getOrElse(table.name),
+              identifier = false,
+              displayInfos = linkColumnInfo.toDisplayInfos.getOrElse({
+                table.displayInfos.map({
+                  case DisplayInfo(langtag, Some(name), optDesc) =>
+                    NameOnly(langtag, name)
+                })
+              })
+            )
+            // ColumnInfo will be ignored, so we can lose it
+            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
+              .map({
+                case (t, _) => t
+              })
+          } else {
+            Future(t)
+          }
         }
+
+        (t, _) <- t.query(s"""|CREATE TABLE link_table_$linkId (
+                              | id_1 bigint,
+                              | id_2 bigint,
+                              | ordering_1 serial,
+                              | ordering_2 serial,
+                              | 
+                              | PRIMARY KEY(id_1, id_2),
+                              | 
+                              | CONSTRAINT link_table_${linkId}_foreign_1
+                              | FOREIGN KEY(id_1) REFERENCES user_table_$tableId (id) ON DELETE CASCADE,
+                              | CONSTRAINT link_table_${linkId}_foreign_2
+                              | FOREIGN KEY(id_2) REFERENCES user_table_${linkColumnInfo.toTable} (id) ON DELETE CASCADE
+                              |)""".stripMargin)
+      } yield {
+        (t, (linkId, toCol, columnInfo))
       }
     }
   }
@@ -454,16 +463,15 @@ RETURNING column_id, ordering""".stripMargin
               val columnId = arr.get[ColumnId](1)
               val identifier = arr.get[Boolean](2)
 
-              identifier match {
-                case false =>
-                  Future.successful(Seq((tableId, columnId)))
-                case true =>
-                  if (depth > 0) {
-                    retrieveDependencies(tableId, depth - 1)
-                      .map(_ ++ Seq((tableId, columnId)))
-                  } else {
-                    Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
-                  }
+              if (identifier) {
+                if (depth > 0) {
+                  retrieveDependencies(tableId, depth - 1)
+                    .map(_ ++ Seq((tableId, columnId)))
+                } else {
+                  Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
+                }
+              } else {
+                Future.successful(Seq((tableId, columnId)))
               }
             }
           })
@@ -541,7 +549,17 @@ RETURNING column_id, ordering""".stripMargin
         // Column zero could only be a concat column.
         // We need to retrieve all columns, because
         // only then the ConcatColumn is generated.
-        retrieveAll(table).map(_.head)
+        retrieveAll(table).flatMap({
+          case Seq(concatColumn: ConcatColumn, _ *) =>
+            Future.successful(concatColumn)
+          case _ =>
+            Future.failed(
+              NotFoundInDatabaseException(
+                s"Either no columns or no ConcatColumn found for table ${table.id}",
+                "select"
+              )
+            )
+        })
       case _ =>
         retrieveOne(table, columnId, MAX_DEPTH)
     }
@@ -549,7 +567,23 @@ RETURNING column_id, ordering""".stripMargin
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int): Future[ColumnType[_]] = {
     val select =
-      "SELECT column_id, user_column_name, column_type, ordering, multilanguage, identifier, array_to_json(country_codes) FROM system_columns WHERE table_id = ? AND column_id = ?"
+      s"""
+         |SELECT
+         |  column_id,
+         |  user_column_name,
+         |  column_type,
+         |  ordering,
+         |  multilanguage,
+         |  identifier,
+         |  array_to_json(country_codes),
+         |  (
+         |    SELECT json_agg(group_column_id) FROM system_column_groups
+         |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
+         |  ) AS group_column_ids
+         |FROM system_columns c
+         |WHERE
+         |  table_id = ? AND
+         |  column_id = ?""".stripMargin
 
     for {
       result <- connection.query(select, Json.arr(table.id, columnId))
@@ -561,6 +595,7 @@ RETURNING column_id, ordering""".stripMargin
           // ... because only retrieveColumns can handle GroupColumns
           retrieveAll(table)
             .map(_.find(_.id == g.id).get)
+
         case column =>
           Future.successful(column)
       })
@@ -571,8 +606,21 @@ RETURNING column_id, ordering""".stripMargin
     retrieveColumns(table, MAX_DEPTH, identifiersOnly = false)
 
   private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean): Future[Seq[ColumnType[_]]] = {
-    val identitfierFilter = if (identifiersOnly) {
-      "AND identifier = TRUE"
+    val identifierFilter = if (identifiersOnly) {
+      // select either identifier column and/or
+      // ... grouped columns if GroupColumn is an identifier
+      """
+        |AND identifier = TRUE OR
+        |(
+        | SELECT COUNT(*)
+        | FROM
+        | system_columns sc
+        | LEFT JOIN system_column_groups g
+        |   ON (sc.table_id = g.table_id AND sc.column_id = g.grouped_column_id)
+        | LEFT JOIN system_columns sc2
+        |   ON (sc2.table_id = g.table_id AND sc2.column_id = g.group_column_id)
+        | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id
+        |) > 0""".stripMargin
     } else {
       ""
     }
@@ -587,12 +635,15 @@ RETURNING column_id, ordering""".stripMargin
          |  multilanguage,
          |  identifier,
          |  array_to_json(country_codes),
-         |  group_column_id
-         |FROM system_columns
+         |  (
+         |    SELECT json_agg(group_column_id) FROM system_column_groups
+         |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
+         |  ) AS group_column_ids
+         |FROM system_columns c
          |WHERE
          |  table_id = ?
-         |  $identitfierFilter
-         |ORDER BY ordering,column_id""".stripMargin
+         |  $identifierFilter
+         |ORDER BY ordering, column_id""".stripMargin
 
     for {
       result <- connection.query(select, Json.arr(table.id))
@@ -600,6 +651,7 @@ RETURNING column_id, ordering""".stripMargin
       mappedColumns <- {
         val futures = resultObjectToJsonArray(result)
           .map(mapRowResultToColumnType(table, _, depth))
+
         Future.sequence(futures)
       }
     } yield {
@@ -608,11 +660,7 @@ RETURNING column_id, ordering""".stripMargin
           case g: GroupColumn =>
             // fill GroupColumn with life!
             // ... till now GroupColumn only was a placeholder
-
-            val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnId.contains(g.id))
-
-            logger.info(s"Map GroupColumn placeholder ${g.id} ${groupedColumns.size}")
-
+            val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
             GroupColumn(g.columnInformation, groupedColumns)
 
           case c => c
@@ -624,12 +672,12 @@ RETURNING column_id, ordering""".stripMargin
 
   private def retrieveIdentifiers(table: Table, depth: Int): Future[Seq[ColumnType[_]]] = {
     for {
-      // we don't retrieve only identifier columns...
-      // ... because retrieveColumns is cache so it's fast!
+      // we need to retrieve identifiers only...
+      // ... otherwise we will end up in a infinite loop
       columns <- retrieveColumns(table, depth, identifiersOnly = true)
-
-      identifierColumns = columns.filter(_.identifier)
     } yield {
+      val identifierColumns = columns.filter(_.identifier)
+
       if (identifierColumns.isEmpty) {
         throw DatabaseException("Link can not point to table without identifier(s).", "missing-identifier")
       } else {
@@ -663,30 +711,19 @@ RETURNING column_id, ordering""".stripMargin
       columnInformation: ColumnInformation
   ): Future[ColumnType[_]] = {
     kind match {
-      case AttachmentType => mapAttachmentColumn(columnInformation)
-      case LinkType => mapLinkColumn(depth, columnInformation)
-      case GroupType => mapGroupColumn(columnInformation)
+      case AttachmentType =>
+        Future(AttachmentColumn(columnInformation))
 
-      case _ => mapValueColumn(kind, languageType, columnInformation)
+      case LinkType =>
+        mapLinkColumn(depth, columnInformation)
+
+      case GroupType =>
+        // placeholder for now, grouped columns will be filled in later
+        Future(GroupColumn(columnInformation, Seq.empty))
+
+      case _ =>
+        Future(SimpleValueColumn(kind, languageType, columnInformation))
     }
-  }
-
-  private def mapValueColumn(
-      kind: TableauxDbType,
-      languageType: LanguageType,
-      columnInformation: ColumnInformation
-  ): Future[SimpleValueColumn[_]] = {
-    Future(SimpleValueColumn(kind, languageType, columnInformation))
-  }
-
-  private def mapGroupColumn(columnInformation: ColumnInformation): Future[GroupColumn] = {
-
-    // placeholder for now, grouped columns will be filled in later
-    Future(GroupColumn(columnInformation, Seq.empty))
-  }
-
-  private def mapAttachmentColumn(columnInformation: ColumnInformation): Future[AttachmentColumn] = {
-    Future(AttachmentColumn(columnInformation))
   }
 
   private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation): Future[LinkColumn] = {
@@ -735,15 +772,24 @@ RETURNING column_id, ordering""".stripMargin
         MultiCountry(CountryCodes(codes))
     }
 
-    val groupColumnId = Try(row.getInteger(7).longValue()).toOption
+    val groupColumnIds = Option(row.get[String](7))
+      .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
+      .getOrElse(Seq.empty[ColumnId])
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
-      column <- mapColumn(
-        depth,
-        kind,
-        languageType,
-        BasicColumnInformation(table, columnId, columnName, ordering, identifier, displayInfoSeq, groupColumnId))
+
+      columnInformation = BasicColumnInformation(
+        table,
+        columnId,
+        columnName,
+        ordering,
+        identifier,
+        displayInfoSeq,
+        groupColumnIds
+      )
+
+      column <- mapColumn(depth, kind, languageType, columnInformation)
     } yield column
   }
 
