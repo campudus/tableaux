@@ -13,6 +13,14 @@ import org.vertx.scala.core.json._
 
 import scala.util.{Failure, Success, Try}
 
+case class DependentColumnInformation(
+    tableId: TableId,
+    id: ColumnId,
+    kind: TableauxDbType,
+    identifier: Boolean,
+    groupColumnIds: Seq[ColumnId]
+)
+
 sealed trait ColumnInformation {
   val table: Table
   val id: ColumnId
@@ -232,7 +240,7 @@ object MultiLanguageColumn {
             })
             .collect({
               case (key: String, Success(castedValue)) => (key, castedValue)
-              case (key: String, Failure(ex)) => {
+              case (key: String, Failure(ex)) =>
                 columnType.languageType match {
                   case MultiLanguage =>
                     throw new IllegalArgumentException(
@@ -243,7 +251,6 @@ object MultiLanguageColumn {
                       s"Invalid value at key $key for MultiCountry column ${columnType.name}",
                       ex)
                 }
-              }
             })
             .toMap
         }

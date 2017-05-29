@@ -76,9 +76,10 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
       dependencies <- retrieveDependencies(tableId)
 
       _ <- Future.sequence(dependencies.map({
-        case (dependentTableId, dependentColumnId) =>
+        case DependentColumnInformation(dependentTableId, dependentColumnId, _, _, groupColumnIds) =>
           for {
             _ <- remove("retrieve", dependentTableId, dependentColumnId)
+            _ <- Future.sequence(groupColumnIds.map(remove("retrieve", dependentTableId, _)))
             _ <- remove("retrieveAll", dependentTableId)
           } yield ()
       }))
@@ -434,7 +435,7 @@ RETURNING column_id, ordering""".stripMargin
       if (displayInfos.nonEmpty) {
         val (statement, binds) = displayInfos.createSql
         for {
-          (t, result) <- t.query(statement, Json.arr(binds: _*))
+          (t, _) <- t.query(statement, Json.arr(binds: _*))
         } yield (t, displayInfos.entries)
       } else {
         Future.successful((t, List()))
@@ -443,44 +444,61 @@ RETURNING column_id, ordering""".stripMargin
 
     for {
       (t, result) <- insertColumn(t)
-      (t, resultLang) <- insertColumnLang(t, ColumnDisplayInfos(tableId, result.columnId, createColumn.displayInfos))
+      (t, _) <- insertColumnLang(t, ColumnDisplayInfos(tableId, result.columnId, createColumn.displayInfos))
     } yield (t, result.copy(displayInfos = createColumn.displayInfos))
   }
 
-  def retrieveDependencies(tableId: TableId, depth: Int = MAX_DEPTH): Future[Seq[(TableId, ColumnId)]] = {
+  def retrieveDependencies(tableId: TableId, depth: Int = MAX_DEPTH): Future[Seq[DependentColumnInformation]] = {
+
     val select =
-      s"""SELECT table_id, column_id, identifier
-         | FROM system_link_table l JOIN system_columns d ON (l.link_id = d.link_id)
-         | WHERE (l.table_id_1 = ? OR l.table_id_2 = ?) AND d.table_id != ? ORDER BY ordering, column_id""".stripMargin
+      s"""
+         |SELECT
+         |  d.table_id,
+         |  d.column_id,
+         |  d.column_type,
+         |  d.identifier,
+         |  json_agg(g.group_column_id) AS group_column_ids
+         | FROM system_link_table l JOIN system_columns d ON (l.link_id = d.link_id) LEFT JOIN system_column_groups g ON (d.table_id = g.table_id AND d.column_id = g.grouped_column_id)
+         | WHERE (l.table_id_1 = ? OR l.table_id_2 = ?) AND d.table_id != ?
+         | GROUP BY d.table_id, d.column_id
+         | ORDER BY d.table_id, d.column_id""".stripMargin
 
     for {
       dependentColumns <- connection.query(select, Json.arr(tableId, tableId, tableId))
-      mappedColumns <- {
-        val futures = resultObjectToJsonArray(dependentColumns)
-          .map({ arr =>
-            {
-              val tableId = arr.get[TableId](0)
-              val columnId = arr.get[ColumnId](1)
-              val identifier = arr.get[Boolean](2)
 
-              if (identifier) {
-                if (depth > 0) {
-                  retrieveDependencies(tableId, depth - 1)
-                    .map(_ ++ Seq((tableId, columnId)))
-                } else {
-                  Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
-                }
+      dependentColumnInformation = resultObjectToJsonArray(dependentColumns)
+        .map(arr => {
+          import scala.collection.JavaConverters._
+
+          val tableId = arr.get[TableId](0)
+          val columnId = arr.get[ColumnId](1)
+          val kind = TableauxDbType(arr.get[String](2))
+          val identifier = arr.get[Boolean](3)
+          val groupColumnIds = Option(arr.get[String](4))
+            .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
+            .getOrElse(Seq.empty[ColumnId])
+
+          DependentColumnInformation(tableId, columnId, kind, identifier, groupColumnIds)
+        })
+
+      recursiveDependentColumnInformation <- dependentColumnInformation.foldLeft(
+        Future.successful(dependentColumnInformation))({
+        case (dependentColumnInformationFuture, dependentColumn) =>
+          for {
+            dependentColumnInformation <- dependentColumnInformationFuture
+
+            resultSeq <- if (dependentColumn.identifier) {
+              if (depth > 0) {
+                retrieveDependencies(dependentColumn.tableId, depth - 1)
               } else {
-                Future.successful(Seq((tableId, columnId)))
+                Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
               }
+            } else {
+              Future.successful(Seq.empty)
             }
-          })
-
-        Future
-          .sequence(futures)
-          .map(_.flatten)
-      }
-    } yield mappedColumns
+          } yield (dependentColumnInformation ++ resultSeq).distinct
+      })
+    } yield recursiveDependentColumnInformation
   }
 
   def retrieveDependentLinks(tableId: TableId): Future[Seq[(LinkId, LinkDirection)]] = {

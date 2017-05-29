@@ -28,8 +28,8 @@ object TableauxModel {
 }
 
 /**
-  * Needed because of {@code TableauxController#createCompleteTable} &
-  * {@code TableauxController#retrieveCompleteTable}. Should only
+  * Needed because of `TableauxController#createCompleteTable` &
+  * `TableauxController#retrieveCompleteTable`. Should only
   * be used by following delegate methods.
   */
 sealed trait StructureDelegateModel extends DatabaseQuery {
@@ -60,7 +60,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.columnStruc.retrieveAll(table)
   }
 
-  def retrieveDependencies(table: Table): Future[Seq[(TableId, ColumnId)]] = {
+  def retrieveDependencies(table: Table): Future[Seq[DependentColumnInformation]] = {
     structureModel.columnStruc.retrieveDependencies(table.id)
   }
 
@@ -359,11 +359,15 @@ class TableauxModel(
   }
 
   private def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
+
+    def invalidateColumn: (TableId, ColumnId) => Future[Unit] =
+      CacheClient(this.connection.vertx).invalidateColumn
+
     for {
       // invalidate the cell itself
       _ <- CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, column.id, rowId)
 
-      // invalidate the concat cell if possible
+      // invalidate the concat cell if column is an identifier
       _ <- if (column.identifier) {
         CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, 0, rowId)
       } else {
@@ -373,18 +377,33 @@ class TableauxModel(
       dependentColumns <- retrieveDependencies(column.table)
 
       _ <- Future.sequence(dependentColumns.map({
-        case (tableId, columnId) =>
-          // TODO perhaps we gain some performance if we only invalidate cells
-          // TODO but therefore we would need to know the depending rows
+        // We could invalidate less cache if we would know the depending rows
+        // ... but this would require us to retrieve them which is definitely more expensive
 
-          // invalidate depending columns
-          CacheClient(this.connection.vertx)
-            .invalidateColumn(tableId, columnId)
-            // and their concat column
-            // TODO should be only done if depending column is an identifier column
-            .zip(CacheClient(this.connection.vertx).invalidateColumn(tableId, 0))
+        case DependentColumnInformation(tableId, columnId, _, true, groupColumnIds) =>
+          // Only invalidate cache if depending link column is an identifier column
+          // ... because only identifier link columns
+
+          // Invalidate depending link column...
+          val invalidateLinkColumn = invalidateColumn(tableId, columnId)
+          // Invalidate the table's concat column — to be sure...
+          val invalidateConcatColumn = invalidateColumn(tableId, 0)
+          // Invalidate all depending group columns
+          val invalidateGroupColumns =
+            Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
+
+          invalidateLinkColumn.zip(invalidateConcatColumn).zip(invalidateGroupColumns)
+
+        case DependentColumnInformation(tableId, _, _, false, groupColumnIds) =>
+          // If depending link column is no identifier column we only need to invalidate
+          // ... group columns which dependent on link column
+
+          // Invalidate all depending group columns
+          val invalidateGroupColumns =
+            Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
+
+          invalidateGroupColumns
       }))
-
     } yield ()
   }
 
@@ -412,7 +431,7 @@ class TableauxModel(
         case Some(obj) =>
           // Cache hit
           Future.successful(obj)
-        case None => {
+        case None =>
           // Cache miss
           for {
             rowSeq <- column match {
@@ -441,7 +460,6 @@ class TableauxModel(
 
             value
           }
-        }
       }
     } yield Cell(column, rowId, value)
   }
