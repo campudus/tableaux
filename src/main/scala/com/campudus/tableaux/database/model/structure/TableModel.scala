@@ -135,7 +135,6 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def retrieveGlobalLangtags(): Future[Seq[String]] = {
 
-    // TODO don't really like dependent models
     systemModel
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(f => Option(f).map(f => Json.fromArrayString(f).asScala.map(_.toString).toSeq).getOrElse(Seq.empty))
