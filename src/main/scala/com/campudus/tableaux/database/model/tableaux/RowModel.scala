@@ -901,7 +901,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         |    'value', value,
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
-        |) FROM (SELECT * FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
+        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
   }
 
   private def generateCardinalityFilter(linkColumn: LinkColumn): String = {
