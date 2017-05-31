@@ -511,19 +511,7 @@ RETURNING column_id, ordering""".stripMargin
       dependentColumns <- connection.query(select, Json.arr(tableId, tableId, tableId))
 
       dependentColumnInformation = resultObjectToJsonArray(dependentColumns)
-        .map(arr => {
-          import scala.collection.JavaConverters._
-
-          val tableId = arr.get[TableId](0)
-          val columnId = arr.get[ColumnId](1)
-          val kind = TableauxDbType(arr.get[String](2))
-          val identifier = arr.get[Boolean](3)
-          val groupColumnIds = Option(arr.get[String](4))
-            .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
-            .getOrElse(Seq.empty[ColumnId])
-
-          DependentColumnInformation(tableId, columnId, kind, identifier, groupColumnIds)
-        })
+        .map(mapRowToDependentColumnInformation)
 
       recursiveDependentColumnInformation <- dependentColumnInformation.foldLeft(
         Future.successful(dependentColumnInformation))({
@@ -543,6 +531,20 @@ RETURNING column_id, ordering""".stripMargin
           } yield (dependentColumnInformation ++ resultSeq).distinct
       })
     } yield recursiveDependentColumnInformation
+  }
+
+  private[this] def mapRowToDependentColumnInformation(row: JsonArray): DependentColumnInformation = {
+    import scala.collection.JavaConverters._
+
+    val tableId = row.get[TableId](0)
+    val columnId = row.get[ColumnId](1)
+    val kind = TableauxDbType(row.get[String](2))
+    val identifier = row.get[Boolean](3)
+    val groupColumnIds = Option(row.get[String](4))
+      .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
+      .getOrElse(Seq.empty[ColumnId])
+
+    DependentColumnInformation(tableId, columnId, kind, identifier, groupColumnIds)
   }
 
   def retrieveDependentLinks(tableId: TableId): Future[Seq[(LinkId, LinkDirection)]] = {
@@ -668,47 +670,8 @@ RETURNING column_id, ordering""".stripMargin
     retrieveColumns(table, MAX_DEPTH, identifiersOnly = false)
 
   private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean): Future[Seq[ColumnType[_]]] = {
-    val identifierFilter = if (identifiersOnly) {
-      // select either identifier column and/or
-      // ... grouped columns if GroupColumn is an identifier
-      """
-        |AND identifier = TRUE OR
-        |(
-        | SELECT COUNT(*)
-        | FROM
-        | system_columns sc
-        | LEFT JOIN system_column_groups g
-        |   ON (sc.table_id = g.table_id AND sc.column_id = g.grouped_column_id)
-        | LEFT JOIN system_columns sc2
-        |   ON (sc2.table_id = g.table_id AND sc2.column_id = g.group_column_id)
-        | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id AND sc.table_id = c.table_id
-        |) > 0""".stripMargin
-    } else {
-      ""
-    }
-
-    val select =
-      s"""
-         |SELECT
-         |  column_id,
-         |  user_column_name,
-         |  column_type,
-         |  ordering,
-         |  multilanguage,
-         |  identifier,
-         |  array_to_json(country_codes),
-         |  (
-         |    SELECT json_agg(group_column_id) FROM system_column_groups
-         |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
-         |  ) AS group_column_ids
-         |FROM system_columns c
-         |WHERE
-         |  table_id = ?
-         |  $identifierFilter
-         |ORDER BY ordering, column_id""".stripMargin
-
     for {
-      result <- connection.query(select, Json.arr(table.id))
+      result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
 
       mappedColumns <- {
         val futures = resultObjectToJsonArray(result)
@@ -730,6 +693,46 @@ RETURNING column_id, ordering""".stripMargin
 
       prependConcatColumnIfNecessary(table, columns)
     }
+  }
+
+  private def generateRetrieveColumnsQuery(identifiersOnly: Boolean): String = {
+    val identifierFilter = if (identifiersOnly) {
+      // select either identifier column and/or
+      // ... grouped columns if GroupColumn is an identifier
+      """
+        |AND identifier = TRUE OR
+        |(
+        | SELECT COUNT(*)
+        | FROM
+        | system_columns sc
+        | LEFT JOIN system_column_groups g
+        |   ON (sc.table_id = g.table_id AND sc.column_id = g.grouped_column_id)
+        | LEFT JOIN system_columns sc2
+        |   ON (sc2.table_id = g.table_id AND sc2.column_id = g.group_column_id)
+        | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id AND sc.table_id = c.table_id
+        |) > 0""".stripMargin
+    } else {
+      ""
+    }
+
+    s"""
+       |SELECT
+       |  column_id,
+       |  user_column_name,
+       |  column_type,
+       |  ordering,
+       |  multilanguage,
+       |  identifier,
+       |  array_to_json(country_codes),
+       |  (
+       |    SELECT json_agg(group_column_id) FROM system_column_groups
+       |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
+       |  ) AS group_column_ids
+       |FROM system_columns c
+       |WHERE
+       |  table_id = ?
+       |  $identifierFilter
+       |ORDER BY ordering, column_id""".stripMargin
   }
 
   private def retrieveIdentifiers(table: Table, depth: Int): Future[Seq[ColumnType[_]]] = {

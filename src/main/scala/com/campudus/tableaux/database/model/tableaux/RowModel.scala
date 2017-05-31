@@ -40,6 +40,30 @@ sealed trait UpdateCreateRowModelHelper {
       })
   }
 
+  private def generateUnionSelectAndBinds(rowId: RowId, column: LinkColumn, toIds: Seq[RowId]): (String, Seq[Long]) = {
+    val linkId = column.linkId
+    val direction = column.linkDirection
+
+    val union = toIds
+      .map(_ => {
+        s"""
+           |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
+           |WHERE
+           |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
+           |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + ? <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
+           |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
+           |""".stripMargin
+      })
+      .mkString(" UNION ")
+
+    val binds = toIds.zipWithIndex
+      .flatMap({
+        case (to, index) => List(rowId, to, rowId, to, rowId, index.toLong + 1, linkId, to, linkId)
+      })
+
+    (union, binds)
+  }
+
   def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])])(
       implicit ec: ExecutionContext): Future[Unit] = {
     val futureSequence = values.map({
@@ -47,21 +71,7 @@ sealed trait UpdateCreateRowModelHelper {
         val linkId = column.linkId
         val direction = column.linkDirection
 
-        val union = toIds
-          .map(_ => {
-            s"""
-               |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
-               |WHERE
-               |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
-               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + ? <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
-               |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
-               |""".stripMargin
-          })
-          .mkString(" UNION ")
-        val binds = toIds.zipWithIndex
-          .flatMap({
-            case (to, index) => List(rowId, to, rowId, to, rowId, index.toLong + 1, linkId, to, linkId)
-          })
+        val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
 
         connection.transactional(t => {
           for {
