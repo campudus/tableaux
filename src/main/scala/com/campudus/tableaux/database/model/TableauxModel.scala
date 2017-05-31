@@ -7,7 +7,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
+import com.campudus.tableaux.{ForbiddenException, NotFoundInDatabaseException, WrongColumnKindException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -400,7 +400,7 @@ class TableauxModel(
 
           // Invalidate depending link column...
           val invalidateLinkColumn = invalidateColumn(tableId, columnId)
-          // Invalidate the table's concat column — to be sure...
+          // Invalidate the table's concat column - to be sure...
           val invalidateConcatColumn = invalidateColumn(tableId, 0)
           // Invalidate all depending group columns
           val invalidateGroupColumns =
@@ -502,15 +502,19 @@ class TableauxModel(
       foreignTable = linkColumn.to.table
 
       representingColumns <- retrieveColumns(foreignTable)
-        .map({ foreignColumns =>
+        .flatMap({ foreignColumns =>
           // we only need the first/representing column
-          val firstForeignColumn = foreignColumns.head
+          val firstForeignColumn = foreignColumns.headOption
 
-          // In case of a ConcatColumn we need to retrieve the
+          // In case of a ConcatenateColumn we need to retrieve the
           // other values too, so the ConcatColumn can be build.
           firstForeignColumn match {
-            case c: ConcatenateColumn => c.columns.+:(c)
-            case _ => Seq(firstForeignColumn)
+            case Some(c: ConcatenateColumn) => Future.successful(c.columns.+:(c))
+            case Some(c: ColumnType[_]) => Future.successful(Seq(c))
+            case None =>
+              Future.failed(
+                NotFoundInDatabaseException(s"Foreign table ${foreignTable.id} without columns", "no-columns")
+              )
           }
         })
 

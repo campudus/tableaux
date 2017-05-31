@@ -496,7 +496,7 @@ sealed trait ConcatenateColumn extends ColumnType[JsonArray] {
   }
 
   private def className() = {
-    this.getClass.getCanonicalName.split("\\.").toList.last
+    this.getClass.getCanonicalName.split("\\.").toList.lastOption.getOrElse("~Unknown~")
   }
 }
 

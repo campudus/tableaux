@@ -212,8 +212,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         for {
           json <- getJson(context)
 
-          langtags = asCastedList[String](json.getJsonArray("langtags", new JsonArray())).get
-          flagType = hasString("type", json).map(CellAnnotationType(_)).get
+          langtags = checked(asCastedList[String](json.getJsonArray("langtags", new JsonArray())))
+          flagType = checked(hasString("type", json).map(CellAnnotationType(_)))
           value = json.getString("value")
 
           cellAnnotation <- controller
