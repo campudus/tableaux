@@ -288,7 +288,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           Future.successful(t)
       }
 
-      (t, results) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+      (t, _) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
         case (fTuple, (query, bindParams)) =>
           for {
             (latestTransaction, results) <- fTuple
@@ -843,7 +843,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     val toTableId = c.to.table.id
 
     val (column, value) = c.to match {
-      case _: ConcatColumn =>
+      case _: ConcatenateColumn =>
         // Values will be calculated/fetched after select
         // See TableauxModel.mapRawRows
         (s"''", "NULL")

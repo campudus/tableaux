@@ -64,6 +64,10 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.columnStruc.retrieveDependencies(table.id)
   }
 
+  def retrieveDependentGroupColumns(column: ColumnType[_]): Future[Seq[DependentColumnInformation]] = {
+    structureModel.columnStruc.retrieveDependentGroupColumn(column.table.id, column.id)
+  }
+
   def retrieveDependentLinks(table: Table): Future[Seq[(LinkId, LinkDirection)]] = {
     structureModel.columnStruc.retrieveDependentLinks(table.id)
   }
@@ -374,7 +378,17 @@ class TableauxModel(
         Future.successful(())
       }
 
-      dependentColumns <- retrieveDependencies(column.table)
+      _ <- if (column.columnInformation.groupColumnIds.nonEmpty) {
+        Future.sequence(column.columnInformation.groupColumnIds.map(invalidateColumn(column.table.id, _)))
+      } else {
+        Future.successful(())
+      }
+
+      dependentGroupColumns <- retrieveDependentGroupColumns(column)
+
+      dependentLinkColumns <- retrieveDependencies(column.table)
+
+      dependentColumns = dependentGroupColumns ++ dependentLinkColumns
 
       _ <- Future.sequence(dependentColumns.map({
         // We could invalidate less cache if we would know the depending rows

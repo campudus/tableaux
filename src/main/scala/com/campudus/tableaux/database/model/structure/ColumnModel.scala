@@ -13,8 +13,7 @@ import com.campudus.tableaux.{
   ShouldBeUniqueException,
   UnprocessableEntityException
 }
-import com.google.common.cache.CacheBuilder
-import com.google.common.cache.{Cache => GuavaBuiltCache}
+import com.google.common.cache.{CacheBuilder, Cache => GuavaBuiltCache}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -63,18 +62,36 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
     builder.build[String, Object]
   }
 
-  private def removeCache(tableId: TableId, columnId: Option[ColumnId]): Future[Unit] = {
+  private def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
     import scalacache.remove
 
     for {
-      _ <- columnId match {
-        case Some(id) => remove("retrieve", tableId, id)
-        case None => Future.successful(())
-      }
+      // remove retrieveAll cache
       _ <- remove("retrieveAll", tableId)
 
-      dependencies <- retrieveDependencies(tableId)
+      // remove retrieve cache (of column itself)
+      _ <- columnIdOpt match {
+        case Some(columnId) => remove("retrieve", tableId, columnId)
+        case None => Future.successful(())
+      }
 
+      // remove retrieve cache of depending group columns
+      _ <- columnIdOpt match {
+        case Some(columnId) =>
+          for {
+            dependentGroupColumns <- retrieveDependentGroupColumn(tableId, columnId)
+            _ <- Future.sequence(dependentGroupColumns.map({
+              case DependentColumnInformation(dependentTableId, groupColumnId, _, _, _) =>
+                remove("retrieve", tableId, groupColumnId)
+                remove("retrieveAll", tableId)
+            }))
+          } yield ()
+        case None =>
+          Future.successful(())
+      }
+
+      // remove retrieve & retrieveAll cache of depending link columns
+      dependencies <- retrieveDependencies(tableId)
       _ <- Future.sequence(dependencies.map({
         case DependentColumnInformation(dependentTableId, dependentColumnId, _, _, groupColumnIds) =>
           for {
@@ -114,6 +131,7 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
 
   override def delete(table: Table, columnId: ColumnId, bothDirections: Boolean): Future[Unit] = {
     for {
+      _ <- removeCache(table.id, Some(columnId))
       r <- super.delete(table, columnId, bothDirections)
       _ <- removeCache(table.id, Some(columnId))
     } yield r
@@ -317,7 +335,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
               identifier = false,
               displayInfos = linkColumnInfo.toDisplayInfos.getOrElse({
                 table.displayInfos.map({
-                  case DisplayInfo(langtag, Some(name), optDesc) =>
+                  case DisplayInfo(langtag, Some(name), _) =>
                     NameOnly(langtag, name)
                 })
               })
@@ -446,6 +464,32 @@ RETURNING column_id, ordering""".stripMargin
       (t, result) <- insertColumn(t)
       (t, _) <- insertColumnLang(t, ColumnDisplayInfos(tableId, result.columnId, createColumn.displayInfos))
     } yield (t, result.copy(displayInfos = createColumn.displayInfos))
+  }
+
+  def retrieveDependentGroupColumn(tableId: TableId, columnId: ColumnId): Future[Seq[DependentColumnInformation]] = {
+    val select =
+      s"""
+         |SELECT
+         |  d.table_id,
+         |  d.column_id,
+         |  d.column_type,
+         |  d.identifier
+         | FROM system_columns d JOIN system_column_groups g ON (d.table_id = g.table_id AND d.column_id = g.group_column_id)
+         | WHERE d.table_id = ? AND g.grouped_column_id = ?""".stripMargin
+
+    for {
+      dependentGroupColumns <- connection.query(select, Json.arr(tableId, columnId))
+
+      dependentGroupColumnInformation = resultObjectToJsonArray(dependentGroupColumns)
+        .map(arr => {
+          val tableId = arr.get[TableId](0)
+          val columnId = arr.get[ColumnId](1)
+          val kind = TableauxDbType(arr.get[String](2))
+          val identifier = arr.get[Boolean](3)
+
+          DependentColumnInformation(tableId, columnId, kind, identifier, Seq.empty)
+        })
+    } yield dependentGroupColumnInformation
   }
 
   def retrieveDependencies(tableId: TableId, depth: Int = MAX_DEPTH): Future[Seq[DependentColumnInformation]] = {
@@ -637,7 +681,7 @@ RETURNING column_id, ordering""".stripMargin
         |   ON (sc.table_id = g.table_id AND sc.column_id = g.grouped_column_id)
         | LEFT JOIN system_columns sc2
         |   ON (sc2.table_id = g.table_id AND sc2.column_id = g.group_column_id)
-        | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id
+        | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id AND sc.table_id = c.table_id
         |) > 0""".stripMargin
     } else {
       ""

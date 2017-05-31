@@ -15,14 +15,11 @@ import scala.concurrent.Future
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveGroupColumnTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("name" -> "table1")
+  def createTextColumnJson(name: String) = Columns(TextCol(name)).getJson
 
-  def createTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.TextCol(name)).getJson
+  def createBooleanColumnJson(name: String) = Columns(BooleanCol(name)).getJson
 
-  def createBooleanColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.BooleanCol(name)).getJson
-
-  def createGroupColumnJson(name: String, groups: Seq[ColumnId]) =
-    RequestCreation.Columns().add(RequestCreation.GroupCol(name, groups)).getJson
+  def createGroupColumnJson(name: String, groups: Seq[ColumnId]) = Columns(GroupCol(name, groups)).getJson
 
   def sendCreateColumnRequest(tableId: TableId, columnsJson: DomainObject): Future[Int] =
     sendCreateColumnRequest(tableId, columnsJson.getJson)
@@ -112,6 +109,111 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
 
       assertContainsDeep(excepted, rows)
       assertContainsDeep(Json.arr(exceptedOnlyGroupColumn: _*), rowsOnlyGroupColumn)
+    }
+  }
+
+  @Test
+  def retrieveGroupColumnAndChangeGroupedValue(implicit c: TestContext): Unit = okTest {
+    for {
+      _ <- sendRequest("POST", "/tables", Json.obj("name" -> "table1"))
+
+      textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
+      booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
+
+      textColumn <- sendRequest("GET", s"/tables/1/columns/$textColumnId")
+      booleanColumn <- sendRequest("GET", s"/tables/1/columns/$booleanColumnId")
+
+      _ <- sendRequest("POST",
+                       "/tables/1/columns",
+                       createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId)))
+        .map(_.getJsonArray("columns").getJsonObject(0))
+
+      createRow = Rows(Json.arr(textColumn, booleanColumn),
+                       Json.obj(
+                         "textcolumn" -> "blub",
+                         "booleancolumn" -> true
+                       ))
+
+      createdRow <- sendRequest("POST", "/tables/1/rows", createRow)
+        .map(_.getJsonArray("rows").getJsonObject(0))
+
+      rowId = createdRow.getInteger("id")
+
+      retrievedRow <- sendRequest("GET", s"/tables/1/rows/$rowId")
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$textColumnId/rows/$rowId", Json.obj("value" -> "test"))
+
+      changedRow <- sendRequest("GET", s"/tables/1/rows/$rowId")
+    } yield {
+      assertEquals(Json.arr("blub", true, Json.arr("blub", true)), createdRow.getJsonArray("values"))
+      assertEquals(Json.arr("blub", true, Json.arr("blub", true)), retrievedRow.getJsonArray("values"))
+
+      assertEquals(Json.arr("test", true, Json.arr("test", true)), changedRow.getJsonArray("values"))
+    }
+  }
+
+  @Test
+  def retrieveLinkedGroupColumnAndChangeGroupedValue(implicit c: TestContext): Unit = okTest {
+    for {
+      // create two tables which will be linked
+      table1 <- sendRequest("POST", "/tables", Json.obj("name" -> "test1")).map(_.getLong("id"))
+      table2 <- sendRequest("POST", "/tables", Json.obj("name" -> "test2")).map(_.getLong("id"))
+
+      // create columns for table 1
+      textColumnId <- sendCreateColumnRequest(table1, Columns(TextCol("textcolumn")))
+      booleanColumnId <- sendCreateColumnRequest(table1, Columns(BooleanCol("booleancolumn")))
+      _ <- sendRequest("POST",
+                       s"/tables/$table1/columns",
+                       Columns(Identifier(GroupCol("groupcolumn", Seq(textColumnId, booleanColumnId)))))
+
+      textColumn <- sendRequest("GET", s"/tables/$table1/columns/$textColumnId")
+      booleanColumn <- sendRequest("GET", s"/tables/$table1/columns/$booleanColumnId")
+
+      columns <- sendRequest("GET", s"/tables/$table1/columns")
+        .map(_.getJsonArray("columns"))
+
+      _ = assert(columns.size() == 3)
+
+      // create row for table 1
+      createRow11 = Rows(Json.arr(textColumn, booleanColumn),
+                         Json.obj("textcolumn" -> "blub", "booleancolumn" -> true))
+
+      rowId11 <- sendRequest("POST", s"/tables/$table1/rows", createRow11)
+        .map(_.getJsonArray("rows").getJsonObject(0).getInteger("id"))
+
+      // create columns for table 2
+      _ <- sendCreateColumnRequest(table2, Columns(Identifier(TextCol("textcolumn"))))
+      linkColumnId <- sendCreateColumnRequest(table2, Columns(LinkUniDirectionalCol("linkcolumn", table1)))
+
+      columns <- sendRequest("GET", s"/tables/$table2/columns")
+        .map(_.getJsonArray("columns"))
+
+      _ = assert(columns.size() == 2)
+
+      linkColumn <- sendRequest("GET", s"/tables/$table2/columns/$linkColumnId")
+
+      // create row for table 2
+      createRow21 = Rows(Json.arr(linkColumn), Json.obj("linkcolumn" -> rowId11))
+
+      rowId21 <- sendRequest("POST", s"/tables/$table2/rows", createRow21)
+        .map(_.getJsonArray("rows").getJsonObject(0).getInteger("id"))
+
+      retrievedRow <- sendRequest("GET", s"/tables/$table2/rows/$rowId21")
+
+      _ <- sendRequest("POST", s"/tables/1/columns/$textColumnId/rows/$rowId11", Json.obj("value" -> "test"))
+
+      changedRow <- sendRequest("GET", s"/tables/$table2/rows/$rowId21")
+    } yield {
+
+      def expectedLinkCell(s: String) = Json.arr(
+        Json.obj(
+          "id" -> rowId11,
+          "value" -> Json.arr(s, true)
+        )
+      )
+
+      assertEquals(Json.arr(null, expectedLinkCell("blub")), retrievedRow.getJsonArray("values"))
+      assertEquals(Json.arr(null, expectedLinkCell("test")), changedRow.getJsonArray("values"))
     }
   }
 }

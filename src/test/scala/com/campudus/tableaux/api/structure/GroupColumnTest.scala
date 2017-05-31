@@ -2,8 +2,8 @@ package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import com.campudus.tableaux.testtools.RequestCreation.{Columns, GroupCol, Identifier}
-import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
+import com.campudus.tableaux.testtools.RequestCreation._
+import com.campudus.tableaux.testtools.{TableauxTestBase, TestCustomException}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -17,12 +17,11 @@ class GroupColumnTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "table1")
 
-  def createTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.TextCol(name)).getJson
+  def createTextColumnJson(name: String) = Columns(TextCol(name)).getJson
 
-  def createBooleanColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.BooleanCol(name)).getJson
+  def createBooleanColumnJson(name: String) = Columns(BooleanCol(name)).getJson
 
-  def createGroupColumnJson(name: String, groups: Seq[ColumnId]) =
-    RequestCreation.Columns().add(RequestCreation.GroupCol(name, groups)).getJson
+  def createGroupColumnJson(name: String, groups: Seq[ColumnId]) = Columns(GroupCol(name, groups)).getJson
 
   def sendCreateColumnRequest(tableId: TableId, columnsJson: DomainObject): Future[Int] =
     sendCreateColumnRequest(tableId, columnsJson.getJson)
@@ -194,6 +193,194 @@ class GroupColumnTest extends TableauxTestBase {
                          "/tables/1/columns",
                          Columns(GroupCol("groupcolumn1", Seq(textColumnId, booleanColumnId, 100))))
       } yield ()
+    }
+  }
+
+  @Test
+  def createLinkColumnWhichPointsToGroupColumnWithTwoColumnsAndDoChanges(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- sendRequest("POST", "/tables", Json.obj("name" -> "table1")).map(_.getLong("id"))
+        tableId2 <- sendRequest("POST", "/tables", Json.obj("name" -> "table2")).map(_.getLong("id"))
+
+        // columns for table 1
+        textColumnId1 <- sendCreateColumnRequest(tableId1, Columns(TextCol("textcolumn11")))
+        booleanColumnId1 <- sendCreateColumnRequest(tableId1, Columns(BooleanCol("booleancolumn12")))
+
+        groupColumnCreate = Columns(Identifier(GroupCol("groupcolumn12", Seq(textColumnId1, booleanColumnId1))))
+
+        groupColumnCreated <- sendRequest("POST", s"/tables/$tableId1/columns", groupColumnCreate)
+          .map(_.getJsonArray("columns").getJsonObject(0))
+
+        groupColumnId = groupColumnCreated.getInteger("id")
+
+        // columns for table 2
+        textColumnId2 <- sendCreateColumnRequest(tableId2, Columns(Identifier(TextCol("textcolumn21"))))
+        booleanColumnId2 <- sendCreateColumnRequest(tableId2, Columns(BooleanCol("booleancolumn22")))
+        linkColumnId2 <- sendCreateColumnRequest(tableId2, Columns(LinkBiDirectionalCol("linkcolumn23", tableId1)))
+
+        columns1 <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+        columns2 <- sendRequest("GET", s"/tables/$tableId2/columns").map(_.getJsonArray("columns"))
+
+        _ <- sendRequest("PATCH", s"/tables/1/columns/$textColumnId1", Json.obj("name" -> "textcolumn11changed"))
+
+        columns2AfterChange <- sendRequest("GET", s"/tables/$tableId2/columns").map(_.getJsonArray("columns"))
+        linkColumn2AfterChange <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2")
+      } yield {
+        assertEquals(4, columns1.size())
+        assertEquals(3, columns2.size())
+
+        val expectedColumns2 = Json.arr(
+          Json.obj("id" -> textColumnId2),
+          Json.obj("id" -> booleanColumnId2),
+          Json.obj(
+            "id" -> linkColumnId2,
+            "toColumn" -> Json.obj(
+              "id" -> groupColumnId,
+              "groups" -> Json.arr(
+                Json.obj("id" -> textColumnId1, "name" -> "textcolumn11"),
+                Json.obj("id" -> booleanColumnId1)
+              )
+            )
+          )
+        )
+
+        assertContainsDeep(expectedColumns2, columns2)
+
+        val expectedColumns2AfterChange = Json.arr(
+          Json.obj("id" -> textColumnId2),
+          Json.obj("id" -> booleanColumnId2),
+          Json.obj(
+            "id" -> linkColumnId2,
+            "toColumn" -> Json.obj(
+              "id" -> groupColumnId,
+              "groups" -> Json.arr(
+                Json.obj("id" -> textColumnId1, "name" -> "textcolumn11changed"),
+                Json.obj("id" -> booleanColumnId1)
+              )
+            )
+          )
+        )
+
+        assertContainsDeep(expectedColumns2AfterChange, columns2AfterChange)
+
+        val expectedLinkColumn2AfterChange = Json.obj(
+          "id" -> linkColumnId2,
+          "toColumn" -> Json.obj(
+            "id" -> groupColumnId,
+            "groups" -> Json.arr(
+              Json.obj("id" -> textColumnId1, "name" -> "textcolumn11changed"),
+              Json.obj("id" -> booleanColumnId1)
+            )
+          )
+        )
+
+        assertContainsDeep(expectedLinkColumn2AfterChange, linkColumn2AfterChange)
+      }
+    }
+  }
+
+  @Test
+  def createGroupColumnWithTwoColumnsAndDoChanges(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
+        booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
+
+        groupColumnCreated <- sendRequest("POST",
+                                          "/tables/1/columns",
+                                          Columns(GroupCol("groupcolumn", Seq(textColumnId, booleanColumnId))))
+          .map(_.getJsonArray("columns").getJsonObject(0))
+
+        groupColumnId = groupColumnCreated.getInteger("id")
+
+        columnsBeforeDelete <- sendRequest("GET", s"/tables/1/columns").map(_.getJsonArray("columns"))
+        groupColumnBeforeDelete <- sendRequest("GET", s"/tables/1/columns/$groupColumnId")
+
+        _ <- sendRequest("DELETE", s"/tables/1/columns/$booleanColumnId")
+
+        columnsAfterDelete <- sendRequest("GET", s"/tables/1/columns").map(_.getJsonArray("columns"))
+        groupColumnAfterDelete <- sendRequest("GET", s"/tables/1/columns/$groupColumnId")
+
+        _ <- sendRequest("PATCH", s"/tables/1/columns/$textColumnId", Json.obj("name" -> "textcolumn2"))
+
+        columnsAfterChange <- sendRequest("GET", s"/tables/1/columns").map(_.getJsonArray("columns"))
+        groupColumnAfterChange <- sendRequest("GET", s"/tables/1/columns/$groupColumnId")
+      } yield {
+        // before delete
+        assertEquals(3, columnsBeforeDelete.size())
+
+        assertContainsDeep(
+          Json.arr(
+            Json.obj("id" -> textColumnId),
+            Json.obj("id" -> booleanColumnId),
+            Json.obj("id" -> groupColumnId,
+                     "groups" -> Json.arr(
+                       Json.obj("id" -> textColumnId),
+                       Json.obj("id" -> booleanColumnId)
+                     ))
+          ),
+          columnsBeforeDelete
+        )
+
+        assertContainsDeep(
+          Json.obj(
+            "groups" -> Json.arr(
+              Json.obj("id" -> textColumnId),
+              Json.obj("id" -> booleanColumnId)
+            )
+          ),
+          groupColumnBeforeDelete
+        )
+
+        // after delete
+        assertEquals(2, columnsAfterDelete.size())
+
+        assertContainsDeep(
+          Json.arr(
+            Json.obj("id" -> textColumnId),
+            Json.obj("id" -> groupColumnId,
+                     "groups" -> Json.arr(
+                       Json.obj("id" -> textColumnId, "name" -> "textcolumn")
+                     ))
+          ),
+          columnsAfterDelete
+        )
+
+        assertContainsDeep(
+          Json.obj(
+            "groups" -> Json.arr(
+              Json.obj("id" -> textColumnId, "name" -> "textcolumn")
+            )
+          ),
+          groupColumnAfterDelete
+        )
+
+        // after change
+        assertEquals(2, columnsAfterChange.size())
+
+        assertContainsDeep(
+          Json.arr(
+            Json.obj("id" -> textColumnId),
+            Json.obj("id" -> groupColumnId,
+                     "groups" -> Json.arr(
+                       Json.obj("id" -> textColumnId, "name" -> "textcolumn2")
+                     ))
+          ),
+          columnsAfterChange
+        )
+
+        assertContainsDeep(
+          Json.obj(
+            "groups" -> Json.arr(
+              Json.obj("id" -> textColumnId, "name" -> "textcolumn2")
+            )
+          ),
+          groupColumnAfterChange
+        )
+      }
     }
   }
 }
