@@ -27,7 +27,8 @@ case class CreateLinkColumn(override val name: String,
                             toDisplayInfos: Option[Seq[DisplayInfo]],
                             singleDirection: Boolean,
                             override val identifier: Boolean,
-                            override val displayInfos: Seq[DisplayInfo])
+                            override val displayInfos: Seq[DisplayInfo],
+                            constraint: Constraint)
     extends CreateColumn {
   override val kind = LinkType
   override val languageType = LanguageNeutral
@@ -40,6 +41,16 @@ case class CreateAttachmentColumn(override val name: String,
     extends CreateColumn {
   override val kind = AttachmentType
   override val languageType = LanguageNeutral
+}
+
+case class CreateGroupColumn(override val name: String,
+                             override val ordering: Option[Ordering],
+                             override val identifier: Boolean,
+                             override val displayInfos: Seq[DisplayInfo],
+                             groups: Seq[ColumnId])
+    extends CreateColumn {
+  override val kind: TableauxDbType = GroupType
+  override val languageType: LanguageType = LanguageNeutral
 }
 
 case class CreatedColumnInformation(

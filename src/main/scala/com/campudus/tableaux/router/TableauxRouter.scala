@@ -39,6 +39,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val RowsAnnotations: Regex = "/tables/(\\d+)/rows/annotations".r
   private val RowsOfColumn: Regex = "/tables/(\\d+)/columns/(\\d+)/rows".r
   private val RowsOfFirstColumn: Regex = "/tables/(\\d+)/columns/first/rows".r
+  private val RowsOfLinkCell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/foreignRows".r
 
   private val CompleteTable: Regex = "/completetable".r
   private val CompleteTableId: Regex = "/completetable/(\\d+)".r
@@ -56,6 +57,20 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         val pagination = Pagination(offset, limit)
 
         controller.retrieveRows(tableId.toLong, pagination)
+      }
+
+    /**
+      * Get foreign rows from a link cell point of view
+      * e.g. cardinality in both direction will be considered
+      */
+    case Get(RowsOfLinkCell(tableId, columnId, rowId)) =>
+      asyncGetReply {
+        val limit = getLongParam("limit", context)
+        val offset = getLongParam("offset", context)
+
+        val pagination = Pagination(offset, limit)
+
+        controller.retrieveForeignRows(tableId.toLong, columnId.toLong, rowId.toLong, pagination)
       }
 
     /**
@@ -197,8 +212,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         for {
           json <- getJson(context)
 
-          langtags = asCastedList[String](json.getJsonArray("langtags", new JsonArray())).get
-          flagType = hasString("type", json).map(CellAnnotationType(_)).get
+          langtags = checked(asCastedList[String](json.getJsonArray("langtags", new JsonArray())))
+          flagType = checked(hasString("type", json).map(CellAnnotationType(_)))
           value = json.getString("value")
 
           cellAnnotation <- controller

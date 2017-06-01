@@ -40,6 +40,8 @@ object ResultChecker {
 
   def selectCheckSize(json: JsonObject, size: Int): Seq[JsonArray] = checkSize(json, "select", size)
 
+  def insertCheckSize(json: JsonObject, size: Int): Seq[JsonArray] = checkSize(json, "insert", size)
+
   private def checkSize(json: JsonObject, queryType: String, size: Int): Seq[JsonArray] = {
     if (json.getInteger("rows") != size) {
       throw DatabaseException(

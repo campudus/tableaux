@@ -8,7 +8,7 @@ import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkAr
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 object JsonUtils extends LazyLogging {
 
@@ -109,6 +109,23 @@ object JsonUtils extends LazyLogging {
                 val toDisplayInfos =
                   Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
 
+                val constraint = for {
+                  (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
+                    val cardinality = json
+                      .getJsonObject("constraint")
+                      .getJsonObject("cardinality", new JsonObject())
+
+                    (cardinality.getInteger("from", 0).intValue(), cardinality.getInteger("to", 0).intValue())
+                  }).orElse(Success((0, 0)))
+
+                  deleteCascade <- Try[Boolean](
+                    json
+                      .getJsonObject("constraint")
+                      .getBoolean("deleteCascade")
+                  ).orElse(Success(false))
+
+                } yield Constraint(Cardinality(cardinalityFrom, cardinalityTo), deleteCascade)
+
                 CreateLinkColumn(name,
                                  ordering,
                                  toTableId,
@@ -116,7 +133,19 @@ object JsonUtils extends LazyLogging {
                                  toDisplayInfos,
                                  singleDirection,
                                  identifier,
-                                 displayInfos)
+                                 displayInfos,
+                                 constraint.getOrElse(DefaultConstraint))
+
+              case GroupType =>
+                // group specific fields
+                import scala.collection.JavaConverters._
+
+                val groups = checked(hasArray("groups", json)).asScala
+                  .map(_.asInstanceOf[Int])
+                  .map(_.toLong)
+                  .toSeq
+
+                CreateGroupColumn(name, ordering, identifier, displayInfos, groups)
 
               case _ =>
                 CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)

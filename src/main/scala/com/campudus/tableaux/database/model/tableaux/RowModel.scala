@@ -11,10 +11,10 @@ import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, Unpr
 import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, _}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-object ModelHelper {
+private object ModelHelper {
 
   val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
   val dateFormat = "YYYY-MM-DD"
@@ -28,7 +28,86 @@ object ModelHelper {
   }
 }
 
-class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
+sealed trait UpdateCreateRowModelHelper {
+  protected[this] val connection: DatabaseConnection
+
+  def rowExists(t: connection.Transaction, tableId: TableId, rowId: RowId)(
+      implicit ec: ExecutionContext): Future[connection.Transaction] = {
+    t.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+      .flatMap({
+        case (t, true) => Future.successful(t)
+        case (_, false) => Future.failed(RowNotFoundException(tableId, rowId))
+      })
+  }
+
+  private def generateUnionSelectAndBinds(rowId: RowId, column: LinkColumn, toIds: Seq[RowId]): (String, Seq[Long]) = {
+    val linkId = column.linkId
+    val direction = column.linkDirection
+
+    val union = toIds
+      .map(_ => {
+        s"""
+           |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
+           |WHERE
+           |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
+           |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + ? <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
+           |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
+           |""".stripMargin
+      })
+      .mkString(" UNION ")
+
+    val binds = toIds.zipWithIndex
+      .flatMap({
+        case (to, index) => List(rowId, to, rowId, to, rowId, index.toLong + 1, linkId, to, linkId)
+      })
+
+    (union, binds)
+  }
+
+  def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])])(
+      implicit ec: ExecutionContext): Future[Unit] = {
+    val futureSequence = values.map({
+      case (column: LinkColumn, toIds) =>
+        val linkId = column.linkId
+        val direction = column.linkDirection
+
+        val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
+
+        connection.transactional(t => {
+          for {
+            // check if row (where we want to add the links) really exists
+            t <- rowExists(t, column.table.id, rowId)
+
+            // check if "to-be-linked" rows really exist
+            t <- toIds
+              .foldLeft(Future(t))((futureT, toId) => {
+                futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
+              })
+              .recoverWith({
+                case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
+              })
+
+            (t, _) <- if (toIds.nonEmpty) {
+              t.query(
+                  s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
+                  Json.arr(binds: _*)
+                )
+                .map({
+                  // if size doesn't match we hit the cardinality limit
+                  case (t, result) => (t, insertCheckSize(result, toIds.size))
+                })
+            } else {
+              Future.successful((t, Json.emptyArr()))
+            }
+          } yield (t, ())
+        })
+    })
+
+    Future.sequence(futureSequence).map(_ => ())
+  }
+}
+
+class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with UpdateCreateRowModelHelper {
 
   val attachmentModel = AttachmentModel(connection)
 
@@ -40,13 +119,18 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  def clearRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_])]): Future[Unit] = {
+  def clearRow(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(ColumnType[_])],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[Unit] = {
     val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(values)
 
     for {
       _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.map((_, None)))
       _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis)
-      _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links)
+      _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links, deleteRowFn)
       _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
     } yield ()
   }
@@ -63,16 +147,24 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield ()
   }
 
-  private def clearLinks(table: Table, rowId: RowId, columns: Seq[LinkColumn]): Future[_] = {
-    val futureSequence = columns.map({ column =>
-      {
-        val linkId = column.linkId
-        val direction = column.linkDirection
+  private def clearLinks(
+      table: Table,
+      rowId: RowId,
+      columns: Seq[LinkColumn],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[_] = {
+    val futureSequence = columns.map(column => {
+      val fromIdColumn = column.linkDirection.fromSql
 
-        for {
-          _ <- connection.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
-        } yield ()
-      }
+      val linkTable = s"link_table_${column.linkId}"
+
+      for {
+        _ <- if (column.linkDirection.constraint.deleteCascade) {
+          deleteLinkedRows(table, rowId, column, deleteRowFn)
+        } else {
+          connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ?", Json.arr(rowId))
+        }
+      } yield ()
     })
 
     Future.sequence(futureSequence)
@@ -83,7 +175,48 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     Future.sequence(cleared)
   }
 
-  def deleteLink(table: Table, column: LinkColumn, rowId: RowId, toRowId: RowId): Future[Unit] = {
+  private def deleteLinkedRows(
+      table: Table,
+      rowId: RowId,
+      column: LinkColumn,
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[_] = {
+    val toIdColumn = column.linkDirection.toSql
+    val fromIdColumn = column.linkDirection.fromSql
+    val linkTable = s"link_table_${column.linkId}"
+
+    val selectForeignRows =
+      s"""|SELECT
+          | lt.$toIdColumn
+          |FROM
+          | $linkTable lt
+          |WHERE
+          | lt.$fromIdColumn = ? AND
+          | (SELECT COUNT(*) FROM $linkTable sub WHERE sub.$toIdColumn = lt.$toIdColumn) = 1;""".stripMargin
+
+    // select foreign rows which are only used once
+    // these which are only used once should be deleted then
+    // do this in a recursive manner
+    connection
+      .query(selectForeignRows, Json.arr(rowId))
+      .map(resultObjectToJsonArray)
+      .map(_.map(_.getLong(0)))
+      // TODO here we could end up in a endless loop,
+      // TODO but we could argue that a schema like this doesn't make sense
+      .flatMap(foreignRowIdSeq => {
+        val futures = foreignRowIdSeq.map(deleteRowFn(column.to.table, _))
+
+        Future.sequence(futures)
+      })
+  }
+
+  def deleteLink(
+      table: Table,
+      column: LinkColumn,
+      fromRowId: RowId,
+      toRowId: RowId,
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[Unit] = {
     val rowIdColumn = column.linkDirection.fromSql
     val toIdColumn = column.linkDirection.toSql
     val linkTable = s"link_table_${column.linkId}"
@@ -91,7 +224,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     val sql = s"DELETE FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?"
 
     for {
-      _ <- connection.query(sql, Json.arr(rowId, toRowId))
+      _ <- if (column.linkDirection.constraint.deleteCascade) {
+        deleteRowFn(column.to.table, toRowId)
+      } else {
+        connection.query(sql, Json.arr(fromRowId, toRowId))
+      }
     } yield ()
   }
 
@@ -161,7 +298,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
           Future.successful(t)
       }
 
-      (t, results) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
+      (t, _) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
         case (fTuple, (query, bindParams)) =>
           for {
             (latestTransaction, results) <- fTuple
@@ -247,56 +384,6 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } else {
       Future.failed(new IllegalArgumentException("error.json.arguments"))
     }
-  }
-
-  private def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[Unit] = {
-
-    def rowExists(tableId: TableId, rowId: RowId): Future[Unit] = {
-      connection
-        .selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
-        .flatMap({
-          case true => Future.successful(())
-          case false => Future.failed(RowNotFoundException(tableId, rowId))
-        })
-    }
-
-    val futureSequence = values.map({
-      case (column, toIds) =>
-        val linkId = column.linkId
-        val direction = column.linkDirection
-
-        val union = toIds
-          .map(_ => {
-            s"SELECT ?, ?, nextval('link_table_1_${direction.orderingSql}_seq') WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)"
-          })
-          .mkString(" UNION ")
-        val binds = toIds.flatMap(to => List(rowId, to, rowId, to))
-
-        for {
-          _ <- rowExists(column.table.id, rowId)
-          _ <- Future
-            .sequence(toIds.map({ toId =>
-              {
-                rowExists(column.to.table.id, toId)
-              }
-            }))
-            .recoverWith({
-              case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
-            })
-
-          _ <- {
-            if (toIds.nonEmpty) {
-              connection.query(
-                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union",
-                Json.arr(binds: _*))
-            } else {
-              Future.successful(Json.emptyObj())
-            }
-          }
-        } yield ()
-    })
-
-    Future.sequence(futureSequence).map(_ => ())
   }
 
   private def updateAttachments(
@@ -478,10 +565,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 }
 
-class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
+class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with UpdateCreateRowModelHelper {
   val attachmentModel = AttachmentModel(connection)
 
-  def createRow(tableId: TableId, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+  def createRow(table: Table, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+    val tableId = table.id
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -490,7 +578,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
         for {
           rowId <- if (simple.isEmpty) createEmpty(tableId) else createSimple(tableId, simple)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else createLinks(tableId, rowId, links)
+          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links)
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(tableId, rowId, attachments)
         } yield rowId
     }
@@ -548,60 +636,6 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def createLinks(tableId: TableId, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])]): Future[_] = {
-
-    def rowExists(t: connection.Transaction, tableId: TableId, rowId: RowId): Future[connection.Transaction] = {
-      t.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
-        .flatMap({
-          case (t, true) => Future.successful(t)
-          case (_, false) => Future.failed(RowNotFoundException(tableId, rowId))
-        })
-    }
-
-    val futureSequence = values.map({
-      case (column: LinkColumn, toIds) =>
-        val linkId = column.linkId
-        val direction = column.linkDirection
-
-        val union = toIds
-          .map(_ => {
-            s"SELECT ?, ?, nextval('link_table_1_${direction.orderingSql}_seq') WHERE NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?)"
-          })
-          .mkString(" UNION ")
-        val binds = toIds.flatMap(to => List(rowId, to, rowId, to))
-
-        for {
-          t <- connection.begin()
-
-          t <- rowExists(t, column.table.id, rowId)
-          t <- toIds.foldLeft(Future(t)) {
-            case (futureT, toId) =>
-              futureT.flatMap({ t =>
-                {
-                  rowExists(t, column.to.table.id, toId)
-                }
-              })
-          }
-
-          (t, _) <- t.query(s"DELETE FROM link_table_$linkId WHERE ${direction.fromSql} = ?", Json.arr(rowId))
-
-          (t, _) <- {
-            if (toIds.nonEmpty) {
-              t.query(
-                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union",
-                Json.arr(binds: _*))
-            } else {
-              Future.successful((t, Json.emptyObj()))
-            }
-          }
-
-          _ <- t.commit()
-        } yield ()
-    })
-
-    Future.sequence(futureSequence)
-  }
-
   private def createAttachments(
       tableId: TableId,
       rowId: RowId,
@@ -652,6 +686,28 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     }
   }
 
+  def retrieveForeign(
+      linkColumn: LinkColumn,
+      rowId: RowId,
+      foreignColumns: Seq[ColumnType[_]],
+      pagination: Pagination
+  ): Future[Seq[RawRow]] = {
+    val foreignTableId = linkColumn.to.table.id
+
+    val projection = generateProjection(foreignTableId, foreignColumns)
+    val fromClause = generateFromClause(foreignTableId)
+    val cardinalityFilter = generateCardinalityFilter(linkColumn)
+
+    for {
+      result <- connection.query(
+        s"SELECT $projection FROM $fromClause WHERE $cardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
+        Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+      )
+    } yield {
+      resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(foreignColumns))
+    }
+  }
+
   def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[RawRow]] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
@@ -671,14 +727,16 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
     (row.headOption, liftedRow(1), liftedRow(2)) match {
       case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr)) =>
-        val cellAnnotations =
-          Option(cellAnnotationsStr).map(_.asInstanceOf[String]).map(Json.fromArrayString).getOrElse(Json.emptyArr())
+        val cellAnnotations = Option(cellAnnotationsStr)
+          .map(_.asInstanceOf[String])
+          .map(Json.fromArrayString)
+          .getOrElse(Json.emptyArr())
         val rawValues = row.drop(3)
 
         RawRow(rowId,
                RowLevelAnnotations(finalFlag),
                CellLevelAnnotations(columns, cellAnnotations),
-               mapResultRow(columns, rawValues))
+               (columns, rawValues).zipped.map(mapValueByColumnType))
       case _ =>
         // shouldn't happen b/c of assert
         throw UnknownServerException(s"Please check generateProjection!")
@@ -689,6 +747,17 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     val select = s"SELECT COUNT(*) FROM user_table_$tableId"
 
     connection.selectSingleValue(select)
+  }
+
+  def sizeForeign(linkColumn: LinkColumn, rowId: RowId): Future[Long] = {
+    val foreignTableId = linkColumn.to.table.id
+
+    val cardinalityFilter = generateCardinalityFilter(linkColumn)
+
+    connection.selectSingleValue(
+      s"SELECT COUNT(*) FROM user_table_$foreignTableId ut WHERE $cardinalityFilter",
+      Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+    )
   }
 
   private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
@@ -735,50 +804,15 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     }
   }
 
-  private def mapResultRow(columns: Seq[ColumnType[_]], rawValues: Seq[Any]): Seq[Any] = {
-    val (concatColumnOpt, columnsAndRawValues) = columns.headOption match {
-      case Some(c: ConcatColumn) =>
-        (Some(c), (columns.drop(1), rawValues.drop(1)).zipped)
-      case _ =>
-        (None, (columns, rawValues).zipped)
-    }
-
-    concatColumnOpt match {
-      case None =>
-        // No concat column
-        columnsAndRawValues.map(mapValueByColumnType)
-      case Some(concatColumn) =>
-        // Aggregate values for concat column
-        val identifierColumns = columnsAndRawValues
-          .filter({ (column: ColumnType[_], _) =>
-            {
-              concatColumn.columns.exists(_.id == column.id)
-            }
-          })
-          .zipped
-
-        import scala.collection.JavaConverters._
-
-        val concatRawValues = identifierColumns
-          .foldLeft(List.empty[Any])({
-            case (joinedValues, (column, rawValue)) =>
-              joinedValues.:+(mapValueByColumnType(column, rawValue))
-          })
-          .asJava
-
-        (columns.drop(1), rawValues.drop(1)).zipped.map(mapValueByColumnType).+:(concatRawValues)
-    }
-  }
-
   private def generateFromClause(tableId: TableId): String = {
     s"user_table_$tableId ut LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)"
   }
 
   private def generateProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
-      case _: ConcatColumn | _: AttachmentColumn =>
-        // Values will be calculated/fetched after select
-        // See TableauxModel.mapRawRows
+      case _: ConcatColumn | _: AttachmentColumn | _: GroupColumn =>
+        // Values will be generated/fetched while post-processing raw rows
+        // see TableauxModel.mapRawRows
         "NULL"
 
       case MultiLanguageColumn(c) =>
@@ -819,7 +853,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     val toTableId = c.to.table.id
 
     val (column, value) = c.to match {
-      case _: ConcatColumn =>
+      case _: ConcatenateColumn =>
         // Values will be calculated/fetched after select
         // See TableauxModel.mapRawRows
         (s"''", "NULL")
@@ -877,6 +911,20 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         |    'value', value,
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
-        |) FROM (SELECT * FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
+        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
+  }
+
+  private def generateCardinalityFilter(linkColumn: LinkColumn): String = {
+    val linkId = linkColumn.linkId
+    val linkTable = s"link_table_$linkId"
+    val linkDirection = linkColumn.linkDirection
+
+    // linkColumn is from origin tables point of view
+    // ... so we need to swap toSql and fromSql
+    s"""
+       |(SELECT COUNT(*) = 0 FROM $linkTable WHERE ${linkDirection.toSql} = ut.id AND ${linkDirection.fromSql} = ?) AND
+       |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.toSql} = ut.id) < (SELECT ${linkDirection.fromCardinality} FROM system_link_table WHERE link_id = ?) AND
+       |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.fromSql} = ?) < (SELECT ${linkDirection.toCardinality} FROM system_link_table WHERE link_id = ?)
+       """.stripMargin
   }
 }

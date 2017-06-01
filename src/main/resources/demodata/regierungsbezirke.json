@@ -61,40 +61,64 @@
       "values": [
         "Oberbayern",
         "München",
-        4469342,
-        17530.21
+        4430706,
+        17529.63
       ]
     },
     {
       "values": [
         "Niederbayern",
         "Landshut",
-        1189153,
-        10328.65
-      ]
-    },
-    {
-      "values": [
-        "Oberpfalz",
-        "Regensburg",
-        1077991,
-        9690.19
+        1212119,
+        10329.91
       ]
     },
     {
       "values": [
         "Oberfranken",
         "Bayreuth",
-        1056365,
-        7231.49
+        1067408,
+        7231.41
       ]
     },
     {
       "values": [
-        "Tübingen",
-        "Tübingen",
-        1809373,
-        8918
+        "Mittelfranken",
+        "Ansbach",
+        1719494,
+        7244.85
+      ]
+    },
+    {
+      "values": [
+        "Unterfranken",
+        "Würzburg",
+        1306048,
+        8530.99
+      ]
+    },
+    {
+      "values": [
+        "Oberpfalz",
+        "Regensburg",
+        1092339,
+        969103
+      ]
+    },
+    {
+      "values": [
+        "Schwaben",
+        "Augsburg",
+        1789294,
+        9992.03
+      ]
+    },
+    {
+      "values": [
+        "Freiburg",
+        "Freiburg",
+        2198970,
+        9347
       ]
     },
     {
@@ -115,10 +139,34 @@
     },
     {
       "values": [
-        "Freiburg",
-        "Freiburg",
-        2198970,
-        9347
+        "Tübingen",
+        "Tübingen",
+        1809373,
+        8918
+      ]
+    },
+    {
+      "values": [
+        "Darmstadt",
+        "Darmstadt",
+        3922369,
+        7444.82
+      ]
+    },
+    {
+      "values": [
+        "Gießen",
+        "Gießen",
+        1040091,
+        5381.21
+      ]
+    },
+    {
+      "values": [
+        "Kassel",
+        "Kassel",
+        1213712,
+        8288.87
       ]
     }
   ]

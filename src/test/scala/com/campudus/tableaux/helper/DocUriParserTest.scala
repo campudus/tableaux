@@ -1,6 +1,5 @@
-package com.campudus.tableaux
+package com.campudus.tableaux.helper
 
-import com.campudus.tableaux.helper.DocUriParser
 import org.junit.Assert._
 import org.junit.Test
 

@@ -1,6 +1,7 @@
 package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
@@ -45,44 +46,60 @@ trait TestAssertionHelper {
   }
 
   def assertContains(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
-    import scala.collection.JavaConverters._
-    expected.fieldNames().asScala.map(key => c.assertEquals(expected.getValue(key), actual.getValue(key)))
+    expected
+      .fieldNames()
+      .asScala
+      .map(
+        key => assertEquals(s"path [.$key]", expected.getValue(key), actual.getValue(key))
+      )
+
     c
   }
 
-  def assertContainsDeep(excepted: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext = {
-    c.assertEquals(excepted.size(), actual.size(), s"Excepted size is ${excepted.size()} != ${actual.size()}")
+  def assertContainsDeep(excepted: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext =
+    assertContainsDeep(excepted, actual, path = "")
+
+  def assertContainsDeep(excepted: JsonArray, actual: JsonArray, path: String)(implicit c: TestContext): TestContext = {
+    assertEquals(s"Excepted size is ${excepted.size()} != ${actual.size()}, path [$path[]]",
+                 excepted.size(),
+                 actual.size())
 
     excepted.asScala
       .zip(actual.asScala)
+      .zipWithIndex
       .map({
-        case (expectedArr: JsonArray, actualArr: JsonArray) =>
-          assertContainsDeep(expectedArr, actualArr)
-        case (expectedObj: JsonObject, actualObj: JsonObject) =>
-          assertContainsDeep(expectedObj, actualObj)
-        case (expectedVal, actualVal) =>
-          c.assertEquals(expectedVal, actualVal)
+        case ((expectedArr: JsonArray, actualArr: JsonArray), index) =>
+          assertContainsDeep(expectedArr, actualArr, s"$path[$index]")
+
+        case ((expectedObj: JsonObject, actualObj: JsonObject), index) =>
+          assertContainsDeep(expectedObj, actualObj, s"$path[$index]")
+
+        case ((expectedVal, actualVal), index) =>
+          assertEquals(s"path [$path[$index]]", expectedVal, actualVal)
       })
 
     c
   }
 
-  def assertContainsDeep(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
-    import scala.collection.JavaConverters._
+  def assertContainsDeep(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext =
+    assertContainsDeep(expected, actual, path = "")
+
+  def assertContainsDeep(expected: JsonObject, actual: JsonObject, path: String)(
+      implicit c: TestContext): TestContext = {
+
     expected
       .fieldNames()
       .asScala
-      .map({ key =>
-        {
-          (expected.getValue(key), actual.getValue(key)) match {
-            case (expectedObj: JsonObject, actualObj: JsonObject) =>
-              assertContainsDeep(expectedObj, actualObj)
-            case (expectedArr: JsonArray, actualArr: JsonArray) =>
-              assertContainsDeep(expectedArr, actualArr)
-            case (expectedVal, actualVal) =>
-              c.assertEquals(expectedVal, actualVal)
-          }
-        }
+      .map(key => ((expected.getValue(key), actual.getValue(key)), key))
+      .map({
+        case ((expectedObj: JsonObject, actualObj: JsonObject), key) =>
+          assertContainsDeep(expectedObj, actualObj, s"$path.$key")
+
+        case ((expectedArr: JsonArray, actualArr: JsonArray), key) =>
+          assertContainsDeep(expectedArr, actualArr, s"$path.$key")
+
+        case ((expectedVal, actualVal), key) =>
+          assertEquals(s"path [$path.$key]", expectedVal, actualVal)
       })
 
     c
@@ -234,6 +251,12 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   def sendRequest(method: String, path: String, body: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
     httpJsonRequest(method, path, p).end(body)
+    p.future
+  }
+
+  def sendRequest(method: String, path: String, domainObject: DomainObject): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p).end(domainObject.getJson.encode())
     p.future
   }
 

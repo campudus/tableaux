@@ -1,28 +1,54 @@
 package com.campudus.tableaux.testtools
 
-import com.campudus.tableaux.database.model.TableauxModel.TableId
-import org.vertx.scala.core.json.JsonObject
+import com.campudus.tableaux.database.domain.{Constraint, DefaultConstraint, DomainObject}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import org.vertx.scala.core.json.{JsonArray, JsonObject}
 import org.vertx.scala.core.json.Json
 
 object RequestCreation {
 
-  object Columns {
+  case class Rows(columns: JsonArray, valueObjects: JsonObject*) extends DomainObject {
 
-    def apply(): Columns = {
-      new Columns(Seq.empty)
+    import scala.collection.JavaConverters._
+
+    val columnSeq = columns.asScala.toList
+      .map(_.asInstanceOf[JsonObject])
+
+    override def getJson: JsonObject = {
+      val rowObjects = valueObjects
+        .map(valueObject => {
+          val valuesArray = columnSeq
+            .map(column => {
+              valueObject.getValue(column.getString("name"))
+            })
+
+          Json.obj("values" -> Json.arr(valuesArray: _*))
+        })
+
+      Json.obj(
+        "columns" -> columns,
+        "rows" -> Json.arr(rowObjects: _*)
+      )
     }
   }
 
-  case class Columns(columns: Seq[ColumnType]) {
+  object Columns {
+
+    def apply(): Columns = {
+      new Columns(Seq.empty: _*)
+    }
+  }
+
+  case class Columns(columns: ColumnType*) extends DomainObject {
 
     def add(column: ColumnType): Columns = {
-      Columns(columns.:+(column))
+      Columns(columns.:+(column): _*)
     }
 
     def getJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
   }
 
-  sealed abstract class ColumnType(val kind: String) {
+  sealed abstract class ColumnType(val kind: String) extends DomainObject {
     val name: String
 
     def getJson: JsonObject = Json.obj("kind" -> kind, "name" -> name)
@@ -42,6 +68,16 @@ object RequestCreation {
 
   case class BooleanCol(name: String) extends ColumnType("boolean")
 
+  case class GroupCol(name: String, groups: Seq[ColumnId]) extends ColumnType("group") {
+    override def getJson: JsonObject = {
+      super.getJson.mergeIn(
+        Json.obj(
+          "groups" -> groups
+        )
+      )
+    }
+  }
+
   sealed abstract class LinkCol extends ColumnType("link") {
 
     override val name: String
@@ -57,9 +93,12 @@ object RequestCreation {
     }
   }
 
-  case class LinkBiDirectionalCol(name: String, linkTo: TableId) extends LinkCol {
+  case class LinkBiDirectionalCol(name: String, linkTo: TableId, constraint: Constraint = DefaultConstraint)
+      extends LinkCol {
 
     override val biDirectional: Boolean = true
+
+    override def getJson: JsonObject = super.getJson mergeIn Json.obj("constraint" -> constraint.getJson)
   }
 
   case class LinkUniDirectionalCol(name: String, linkTo: TableId) extends LinkCol {
