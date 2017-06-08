@@ -181,8 +181,21 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   }
 
   def updateSetting(key: String, value: String): Future[Unit] = {
-    connection
-      .query("UPDATE system_settings SET value = ? WHERE key = ?", Json.arr(value, key))
-      .map(json => updateNotNull(json))
+    for {
+      // first make sure that the key exists...
+      _ <- connection
+        .query(
+          """
+            |INSERT INTO system_settings (key)
+            |SELECT ? WHERE NOT EXISTS (SELECT key FROM system_settings WHERE key = ?)
+            |""".stripMargin,
+          Json.arr(key, key)
+        )
+
+      // ... then update the value
+      _ <- connection
+        .query("UPDATE system_settings SET value = ? WHERE key = ?", Json.arr(value, key))
+        .map(json => updateNotNull(json))
+    } yield ()
   }
 }
