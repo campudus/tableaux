@@ -28,6 +28,28 @@ class SystemSettingsTest extends TableauxTestBase {
   }
 
   @Test
+  def testSentryUrl(implicit c: TestContext): Unit = okTest {
+    val sqlConnection = SQLConnection(verticle, databaseConfig)
+
+    for {
+      sentryUrlBeforeInsert <- sendRequest("GET", "/system/settings/sentryUrl")
+
+      _ <- sqlConnection.query("INSERT INTO system_settings (key, value) VALUES ('sentryUrl', 'https://example.com')")
+
+      sentryUrlAfterInsert <- sendRequest("GET", "/system/settings/sentryUrl")
+
+      _ <- sendRequest("POST", "/system/settings/sentryUrl", Json.obj("value" -> "https://example.de"))
+
+      sentryUrlAfterUpdate <- sendRequest("GET", "/system/settings/sentryUrl")
+    } yield {
+      assertEquals(None, Option(sentryUrlBeforeInsert.getValue("value")))
+
+      assertEquals("https://example.com", sentryUrlAfterInsert.getString("value"))
+      assertEquals("https://example.de", sentryUrlAfterUpdate.getString("value"))
+    }
+  }
+
+  @Test
   def testRetrievingInvalidSetting(implicit c: TestContext): Unit = exceptionTest("error.request.invalid") {
     sendRequest("GET", "/system/settings/invalid")
   }

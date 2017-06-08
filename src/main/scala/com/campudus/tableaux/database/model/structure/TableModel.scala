@@ -137,7 +137,8 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     systemModel
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
-      .map(f => Option(f).map(f => Json.fromArrayString(f).asScala.map(_.toString).toSeq).getOrElse(Seq.empty))
+      .map(valueOpt =>
+        valueOpt.map(value => Json.fromArrayString(value).asScala.map(_.toString).toSeq).getOrElse(Seq.empty))
   }
 
   def retrieveAll(): Future[Seq[Table]] = {

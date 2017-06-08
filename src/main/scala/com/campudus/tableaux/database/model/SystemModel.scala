@@ -174,10 +174,10 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     }
   }
 
-  def retrieveSetting(key: String): Future[String] = {
+  def retrieveSetting(key: String): Future[Option[String]] = {
     connection
       .query("SELECT value FROM system_settings WHERE key = ?", Json.arr(key))
-      .map(json => selectNotNull(json).head.getString(0))
+      .map(json => resultObjectToJsonArray(json).headOption.flatMap(row => Option(row.getString(0))))
   }
 
   def updateSetting(key: String, value: String): Future[Unit] = {

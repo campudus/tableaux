@@ -109,6 +109,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         key match {
           case SystemController.SETTING_LANGTAGS =>
             controller.retrieveLangtags()
+          case SystemController.SETTING_SENTRY_URL =>
+            controller.retrieveSentryUrl()
           case _ =>
             Future.failed(InvalidRequestException(s"No system setting for key $key"))
         }
@@ -123,6 +125,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
           key match {
             case SystemController.SETTING_LANGTAGS =>
               controller.updateLangtags(asCastedList[String](json.getJsonArray("value")).get)
+            case SystemController.SETTING_SENTRY_URL =>
+              controller.updateSentryUrl(json.getString("value"))
             case _ =>
               Future.failed(InvalidRequestException(s"No system setting for key $key"))
           }

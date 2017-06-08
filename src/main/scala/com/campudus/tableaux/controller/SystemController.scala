@@ -14,6 +14,7 @@ import scala.io.Source
 
 object SystemController {
   val SETTING_LANGTAGS = "langtags"
+  val SETTING_SENTRY_URL = "sentryUrl"
 
   def apply(
       config: TableauxConfig,
@@ -183,7 +184,13 @@ class SystemController(override val config: TableauxConfig,
   def retrieveLangtags(): Future[DomainObject] = {
     repository
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
-      .map(value => PlainDomainObject(Json.obj("value" -> Option(value).map(f => Json.fromArrayString(f)).orNull)))
+      .map(valueOpt => PlainDomainObject(Json.obj("value" -> valueOpt.map(f => Json.fromArrayString(f)).orNull)))
+  }
+
+  def retrieveSentryUrl(): Future[DomainObject] = {
+    repository
+      .retrieveSetting(SystemController.SETTING_SENTRY_URL)
+      .map(valueOpt => PlainDomainObject(Json.obj("value" -> valueOpt.orNull)))
   }
 
   def updateLangtags(langtags: Seq[String]): Future[DomainObject] = {
@@ -191,6 +198,13 @@ class SystemController(override val config: TableauxConfig,
       _ <- repository.updateSetting(SystemController.SETTING_LANGTAGS, Json.arr(langtags: _*).toString)
       updatedLangtags <- retrieveLangtags()
     } yield updatedLangtags
+  }
+
+  def updateSentryUrl(sentryUrl: String): Future[DomainObject] = {
+    for {
+      _ <- repository.updateSetting(SystemController.SETTING_SENTRY_URL, sentryUrl)
+      updatedSentryUrl <- retrieveSentryUrl()
+    } yield updatedSentryUrl
   }
 
   def invalidateCache(): Future[DomainObject] = {
