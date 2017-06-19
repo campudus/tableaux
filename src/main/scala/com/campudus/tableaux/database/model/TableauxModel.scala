@@ -501,22 +501,9 @@ class TableauxModel(
 
       foreignTable = linkColumn.to.table
 
+      // We could just fetch the representing columns...
+      // ... problem frontend currently depends on full rows b/c of EntityView.
       representingColumns <- retrieveColumns(foreignTable)
-        .flatMap({ foreignColumns =>
-          // we only need the first/representing column
-          val firstForeignColumn = foreignColumns.headOption
-
-          // In case of a ConcatenateColumn we need to retrieve the
-          // other values too, so the ConcatColumn can be build.
-          firstForeignColumn match {
-            case Some(c: ConcatenateColumn) => Future.successful(c.columns.+:(c))
-            case Some(c: ColumnType[_]) => Future.successful(Seq(c))
-            case None =>
-              Future.failed(
-                NotFoundInDatabaseException(s"Foreign table ${foreignTable.id} without columns", "no-columns")
-              )
-          }
-        })
 
       totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId)
       rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, representingColumns, pagination)
