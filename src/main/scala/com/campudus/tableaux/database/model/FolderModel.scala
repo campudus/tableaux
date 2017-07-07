@@ -96,7 +96,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
       .asScala
       .toSeq
       .map({
-        case f: java.lang.Integer => f.toLong
+        case f: java.lang.Integer => f.longValue()
       })
 
     Folder(

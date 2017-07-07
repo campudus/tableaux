@@ -100,21 +100,8 @@ class TableauxModel(
           case (linkId, linkDirection) =>
             connection
               .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
-              .map({ result =>
-                {
-                  resultObjectToJsonArray(result).map({ row =>
-                    {
-                      val rowId: RowId = row.getLong(0).toLong
-                      rowId
-                    }
-                  })
-                }
-              })
-              .map({ dependentRows =>
-                {
-                  (linkDirection.to, dependentRows)
-                }
-              })
+              .map(result => resultObjectToJsonArray(result).map(_.getLong(0).longValue()))
+              .map(dependentRows => (linkDirection.to, dependentRows))
               .flatMap({
                 case (tableId, rows) =>
                   for {

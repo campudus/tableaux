@@ -396,7 +396,7 @@ case class LinkColumn(
         case x: Seq[_] =>
           x.map {
             case id: RowId => id
-            case obj: JsonObject => obj.getLong("id").toLong
+            case obj: JsonObject => obj.getLong("id").longValue()
           }
 
         case x: JsonObject if x.containsKey("to") =>
@@ -411,7 +411,11 @@ case class LinkColumn(
 
         case x: JsonObject if x.containsKey("values") =>
           import scala.collection.JavaConverters._
-          Try(checked(hasArray("values", x)).asScala.map(_.asInstanceOf[java.lang.Integer].toLong).toSeq) match {
+          Try(
+            checked(hasArray("values", x)).asScala
+              .map(_.asInstanceOf[java.lang.Integer].longValue())
+              .toSeq
+          ) match {
             case Success(ids) =>
               ids
             case Failure(_) =>

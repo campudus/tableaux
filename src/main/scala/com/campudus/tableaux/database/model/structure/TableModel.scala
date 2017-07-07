@@ -170,7 +170,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       row = selectNotNull(tableResult).head
 
-      tableGroups: Map[TableGroupId, TableGroup] <- Option(row.getLong(5)).map(_.toLong) match {
+      tableGroups: Map[TableGroupId, TableGroup] <- Option(row.getLong(5)).map(_.longValue()) match {
         case Some(tableGroupId) =>
           tableGroupModel.retrieve(tableGroupId).map(tableGroup => Map(tableGroupId -> tableGroup))
         case None =>
@@ -213,7 +213,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private def mapDisplayInfosIntoTable(tables: Seq[Table], result: JsonObject): Seq[(Table)] = {
     val displayInfoTable = resultObjectToJsonArray(result)
-      .groupBy(_.getLong(0).toLong)
+      .groupBy(_.getLong(0).longValue())
       .mapValues(
         _.filter(arr => Option(arr.getString(2)).isDefined || Option(arr.getString(3)).isDefined)
           .map(arr => DisplayInfos.fromString(arr.getString(1), arr.getString(2), arr.getString(3)))
@@ -241,7 +241,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
           .getOrElse(defaultLangtags)),
       List(),
       TableType(row.getString(4)),
-      Option(row.getLong(5)).map(_.toLong).flatMap(tableGroups.get)
+      Option(row.getLong(5)).map(_.longValue()).flatMap(tableGroups.get)
     )
   }
 

@@ -69,7 +69,7 @@ object CellLevelAnnotations {
     val annotations = annotationsAsJsonArray.asScala.toSeq
       .map({
         case obj: JsonObject =>
-          val columnId = obj.getLong("column_id")
+          val columnId = obj.getLong("column_id").longValue()
           obj.remove("column_id")
 
           val uuid = obj.getString("uuid")
@@ -84,11 +84,7 @@ object CellLevelAnnotations {
         case (columnId, _) => columnId
       })
       .map({
-        case (columnId, annotationsAsTupleSeq) =>
-          (
-            columnId.toLong,
-            annotationsAsTupleSeq.map({ case (_, flagSeq) => flagSeq })
-          )
+        case (columnId, annotationsAsTupleSeq) => (columnId, annotationsAsTupleSeq.map(_._2))
       })
 
     CellLevelAnnotations(columns, annotations)

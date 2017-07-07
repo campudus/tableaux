@@ -45,14 +45,14 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
     val builder = CacheBuilder
       .newBuilder()
 
-    val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
+    val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).longValue()
     if (expireAfterAccess > 0) {
       builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
     } else {
       logger.info("Cache will not expire!")
     }
 
-    val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
+    val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).longValue()
     if (maximumSize > 0) {
       builder.maximumSize(maximumSize)
     }
@@ -903,11 +903,11 @@ RETURNING column_id, ordering""".stripMargin
       (linkId, linkDirection) = {
         val res = selectNotNull(result).head
 
-        val table1 = res.getLong(0).toLong
-        val table2 = res.getLong(1).toLong
-        val linkId = res.getLong(2).toLong
-        val cardinality1 = res.getLong(3).toInt
-        val cardinality2 = res.getLong(4).toInt
+        val table1 = res.getLong(0).longValue()
+        val table2 = res.getLong(1).longValue()
+        val linkId = res.getLong(2).longValue()
+        val cardinality1 = res.getLong(3).intValue()
+        val cardinality2 = res.getLong(4).intValue()
         val deleteCascade = res.getBoolean(5)
 
         (

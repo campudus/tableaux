@@ -197,7 +197,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
         .asScala
         .toSeq
         .map({
-          case f: java.lang.Integer => f.toLong
+          case f: java.lang.Integer => f.longValue()
         })
     }
 

@@ -38,10 +38,12 @@ object ArgumentChecker {
 
   def notNull[A](x: => A, name: String): ArgumentCheck[A] = {
     try {
-      if (x != null) {
-        OkArg(x.asInstanceOf[A])
-      } else {
-        FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
+      Option(x) match {
+        case Some(y) =>
+          OkArg(y.asInstanceOf[A])
+
+        case None =>
+          FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
       }
     } catch {
       case npe: NullPointerException =>
@@ -103,7 +105,7 @@ object ArgumentChecker {
 
   def hasArray(field: String, json: JsonObject): ArgumentCheck[JsonArray] = notNull(json.getJsonArray(field), field)
 
-  def hasLong(field: String, json: JsonObject): ArgumentCheck[Long] = notNull(json.getLong(field).toLong, field)
+  def hasLong(field: String, json: JsonObject): ArgumentCheck[Long] = notNull(json.getLong(field).longValue(), field)
 
   def hasString(field: String, json: JsonObject): ArgumentCheck[String] = notNull(json.getString(field), field)
 

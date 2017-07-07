@@ -105,7 +105,7 @@ object JsonUtils extends LazyLogging {
                 // link specific fields
                 val toName = Try(Option(json.getString("toName"))).toOption.flatten
                 val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
-                val toTableId = notNull(json.getLong("toTable").toLong, "toTable").get
+                val toTableId = hasLong("toTable", json).get
                 val toDisplayInfos =
                   Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
 
@@ -270,7 +270,7 @@ object JsonUtils extends LazyLogging {
       location <- oneOf(location, List("start", "end", "before"), "location")
     } yield {
       val relativeTo = if ("before" == location) {
-        isDefined(Option(json.getLong("id")).map(_.toLong), "id") match {
+        isDefined(Option(json.getLong("id")).map(_.longValue()), "id") match {
           case FailArg(ex) => throw ex
           case OkArg(id) => Some(id)
         }
