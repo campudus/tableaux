@@ -19,12 +19,12 @@ object LanguageType {
 
 case object LanguageNeutral extends LanguageType {
 
-  override def toString = LanguageType.NEUTRAL
+  override def toString: String = LanguageType.NEUTRAL
 }
 
 case object MultiLanguage extends LanguageType {
 
-  override def toString = LanguageType.LANGUAGE
+  override def toString: String = LanguageType.LANGUAGE
 }
 
 case class CountryCodes(codes: Seq[String])
@@ -43,5 +43,5 @@ object MultiCountry {
 
 case class MultiCountry(countryCodes: CountryCodes) extends LanguageType {
 
-  override def toString = LanguageType.COUNTRY
+  override def toString: String = LanguageType.COUNTRY
 }

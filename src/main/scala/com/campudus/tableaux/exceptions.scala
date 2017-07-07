@@ -11,13 +11,15 @@ sealed trait CustomException extends Throwable {
 
   val statusCode: Int
 
+  val cause: Throwable = None.orNull
+
+  initCause(cause)
+
   override def getMessage: String = message
 
-  override def toString: String = s"${super.toString}: $message"
-
-  def toRouterException = RouterException(
-    message = message,
-    cause = this,
+  def toRouterException: RouterException = RouterException(
+    message = toString,
+    cause = getCause,
     id = id,
     statusCode = statusCode
   )
@@ -43,9 +45,9 @@ case class RowNotFoundException(tableId: TableId, rowId: RowId) extends CustomEx
 /**
   * The request was well-formed but was unable to be followed due to semantic errors.
   */
-case class UnprocessableEntityException(msg: String) extends CustomException {
+case class UnprocessableEntityException(override val message: String, override val cause: Throwable = None.orNull)
+    extends CustomException {
   override val id = s"unprocessable.entity"
-  override val message = s"$msg"
   override val statusCode = 422
 }
 

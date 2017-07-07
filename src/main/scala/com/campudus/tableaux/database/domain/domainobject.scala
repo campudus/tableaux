@@ -153,7 +153,7 @@ case class MultiLanguageValue[A](values: Map[String, A]) extends DomainObject {
 
   def get(langtag: String): Option[A] = values.get(langtag)
 
-  def size = values.size
+  def size: Int = values.size
 
   def add(langtag: String, value: A): MultiLanguageValue[A] = {
     val newValues = values + (langtag -> value)

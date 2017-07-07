@@ -4,7 +4,7 @@ import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
 import scala.util.{Failure, Success, Try}
 
-sealed trait ArgumentCheck[A] {
+sealed trait ArgumentCheck[A] extends Product with Serializable {
 
   def map[B](f: A => B): ArgumentCheck[B]
 
@@ -37,7 +37,7 @@ case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
 object ArgumentChecker {
 
   def notNull[A](x: => A, name: String): ArgumentCheck[A] = {
-    try {
+    val tryNullCheck = Try[ArgumentCheck[A]]({
       Option(x) match {
         case Some(y) =>
           OkArg(y.asInstanceOf[A])
@@ -45,11 +45,17 @@ object ArgumentChecker {
         case None =>
           FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
       }
-    } catch {
-      case npe: NullPointerException =>
+    })
+
+    tryNullCheck match {
+      case Success(check) =>
+        check
+      case Failure(npe: NullPointerException) =>
         FailArg(InvalidJsonException(s"Warning: $name is null", "null"))
-      case cce: ClassCastException =>
+      case Failure(cce: ClassCastException) =>
         FailArg(InvalidJsonException(s"Warning: $name should be another type. Error: ${cce.getMessage}", "invalid"))
+      case Failure(ex) =>
+        FailArg(UnprocessableEntityException(ex.getMessage, ex))
     }
   }
 

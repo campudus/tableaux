@@ -34,13 +34,13 @@ case object TextType extends TableauxDbType {
 case object RichTextType extends TableauxDbType {
   override val name = "richtext"
 
-  override def toDbType = "text"
+  override def toDbType: String = "text"
 }
 
 case object ShortTextType extends TableauxDbType {
   override val name = "shorttext"
 
-  override def toDbType = "text"
+  override def toDbType: String = "text"
 }
 
 case object NumericType extends TableauxDbType {
@@ -66,7 +66,7 @@ case object DateType extends TableauxDbType {
 case object DateTimeType extends TableauxDbType {
   override val name = "datetime"
 
-  override def toDbType = "timestamp with time zone"
+  override def toDbType: String = "timestamp with time zone"
 }
 
 case object ConcatType extends TableauxDbType {
@@ -76,7 +76,7 @@ case object ConcatType extends TableauxDbType {
 case object CurrencyType extends TableauxDbType {
   override val name = "currency"
 
-  override def toDbType = "numeric"
+  override def toDbType: String = "numeric"
 }
 
 case object GroupType extends TableauxDbType {
