@@ -13,7 +13,7 @@ class SystemSettingsTest extends TableauxTestBase {
 
   @Test
   def testLangtags(implicit c: TestContext): Unit = okTest {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val sqlConnection = SQLConnection(this, databaseConfig)
 
     for {
       langtagsBeforeUpdate <- sendRequest("GET", "/system/settings/langtags")
@@ -34,7 +34,7 @@ class SystemSettingsTest extends TableauxTestBase {
 
   @Test
   def testSentryUrl(implicit c: TestContext): Unit = okTest {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val sqlConnection = SQLConnection(this, databaseConfig)
 
     for {
       sentryUrlBeforeInsert <- sendRequest("GET", "/system/settings/sentryUrl")

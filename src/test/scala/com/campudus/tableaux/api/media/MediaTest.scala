@@ -3,11 +3,10 @@ package com.campudus.tableaux.api.media
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.http.{HttpClient, HttpClientResponse}
+import io.vertx.scala.core.http.{HttpClient, HttpClientResponse}
 import org.vertx.scala.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,7 +14,6 @@ import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
-import scala.util.{Failure, Success, Try}
 
 sealed trait MediaTestBase extends TableauxTestBase {
 
@@ -858,8 +856,10 @@ class FileTest extends MediaTestBase {
                 {
                   assertEquals(200, resp.statusCode())
 
-                  assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
-                  assertEquals("Should get the correct content length", s"$size", resp.getHeader("content-length"))
+                  assertEquals("Should get the correct MIME type", Some(mimetype), resp.getHeader("content-type"))
+                  assertEquals("Should get the correct content length",
+                               Some(size.toString),
+                               resp.getHeader("content-length"))
 
                   resp.bodyHandler { buf: Buffer =>
                     client.close()
@@ -920,8 +920,10 @@ class FileTest extends MediaTestBase {
                 {
                   assertEquals(200, resp.statusCode())
 
-                  assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
-                  assertEquals("Should get the correct content length", s"$size", resp.getHeader("content-length"))
+                  assertEquals("Should get the correct MIME type", Some(mimetype), resp.getHeader("content-type"))
+                  assertEquals("Should get the correct content length",
+                               Some(size.toString),
+                               resp.getHeader("content-length"))
 
                   resp.bodyHandler { buf: Buffer =>
                     client.close()
@@ -1114,22 +1116,14 @@ class FileTest extends MediaTestBase {
         uploadedFile <- replaceFile(tmpFile.getString("uuid"), "de_DE", file, mimetype)
 
         _ <- {
-          val uploadsDirectory = Path(s"${tableauxConfig.workingDirectory}/${tableauxConfig.uploadsDirectory}")
+          val uploadsDirectory = tableauxConfig.uploadsDirectoryPath()
 
           val path = uploadsDirectory / Path(uploadedFile.getObject("internalName").getString("de_DE"))
 
-          futurify({ p: Promise[Unit] => // delete tmp file
-          {
-            vertx
-              .fileSystem()
-              .delete(path.toString(), {
-                case Success(_) =>
-                  p.success(())
-                case Failure(e) =>
-                  p.failure(e)
-              }: Try[Void] => Unit)
-          }
-          })
+          // delete tmp file
+          vertx
+            .fileSystem()
+            .deleteFuture(path.toString())
         }
 
         result <- sendRequest("DELETE", s"/files/${tmpFile.getString("uuid")}")

@@ -176,7 +176,7 @@ class StructureController(override val config: TableauxConfig, override protecte
 
       _ <- Future.sequence(columns.map({ column =>
         {
-          CacheClient(this.vertx).invalidateColumn(tableId, column.id)
+          CacheClient(this).invalidateColumn(tableId, column.id)
         }
       }))
     } yield EmptyObject()
@@ -194,7 +194,7 @@ class StructureController(override val config: TableauxConfig, override protecte
           Future.failed(ForbiddenException("can't delete a column from a settings table", "column"))
       }
 
-      _ <- CacheClient(this.vertx).invalidateColumn(tableId, columnId)
+      _ <- CacheClient(this).invalidateColumn(tableId, columnId)
     } yield EmptyObject()
   }
 
@@ -251,7 +251,7 @@ class StructureController(override val config: TableauxConfig, override protecte
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 
-      _ <- CacheClient(this.vertx).invalidateColumn(tableId, columnId)
+      _ <- CacheClient(this).invalidateColumn(tableId, columnId)
     } yield changed
   }
 

@@ -2,8 +2,7 @@ package com.campudus.tableaux.helper
 
 import java.util.concurrent.TimeoutException
 
-import io.vertx.core.Vertx
-import io.vertx.scala.FunctionConverters._
+import io.vertx.scala.core.Vertx
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -18,11 +17,10 @@ object TimeoutScheduler {
       stackTrace: Seq[StackTraceElement]
   ): Long = {
     vertx.setTimer(
-      after.toMillis, { timeout: java.lang.Long =>
+      after.toMillis, { timerId: Long =>
         {
-          timeoutHandler(
-            new TimeoutException(
-              s"Operation $name timed out after ${after.toMillis} millis.\n${stackTrace.mkString("\n\tat ")}"))
+          timeoutHandler(new TimeoutException(
+            s"Operation $name ($timerId) timed out after ${after.toMillis} millis.\n${stackTrace.mkString("\n\tat ")}"))
         }
       }
     )
@@ -44,7 +42,8 @@ object TimeoutScheduler {
           promise.failure(e)
         }
       }, timeout, name, new Throwable().getStackTrace.toSeq)
-      future onComplete { case result => vertx.cancelTimer(timerId) }
+
+      future.onComplete(result => vertx.cancelTimer(timerId))
 
       Future.firstCompletedOf(Seq(future, promise.future))
     }

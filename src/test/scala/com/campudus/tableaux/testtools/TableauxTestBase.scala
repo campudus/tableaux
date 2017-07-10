@@ -8,16 +8,17 @@ import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 import com.campudus.tableaux.{CustomException, Starter}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.file.{AsyncFile, OpenOptions}
-import io.vertx.core.http._
+import io.vertx.core.http.HttpMethod
+import io.vertx.scala.core.http._
 import org.vertx.scala.core.json.JsonObject
-import io.vertx.core.streams.Pump
-import io.vertx.core.{AsyncResult, DeploymentOptions, Handler, Vertx}
+import io.vertx.scala.core.streams.Pump
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.FunctionConverters._
+import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
+import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
+import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
 import org.vertx.scala.core.json._
@@ -137,17 +138,15 @@ trait TestAssertionHelper {
 @RunWith(classOf[VertxUnitRunner])
 trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHelper with JsonCompatible {
 
-  override val verticle = new Starter
-  implicit lazy val executionContext = verticle.executionContext
+  override val vertx: Vertx = Vertx.vertx()
 
-  val vertx: Vertx = Vertx.vertx()
   private var deploymentId: String = ""
 
   @Before
   def before(context: TestContext) {
     val async = context.async()
 
-    val options = new DeploymentOptions()
+    val options = DeploymentOptions()
       .setConfig(config)
 
     val completionHandler = {
@@ -155,48 +154,47 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
         logger.info(s"Verticle deployed with ID $id")
         this.deploymentId = id
 
-        val sqlConnection = SQLConnection(verticle, databaseConfig)
-        val dbConnection = DatabaseConnection(verticle, sqlConnection)
+        val sqlConnection = SQLConnection(this, databaseConfig)
+        val dbConnection = DatabaseConnection(this, sqlConnection)
         val system = SystemModel(dbConnection)
 
         for {
           _ <- system.uninstall()
           _ <- system.install()
-        } yield {
-          async.complete()
-        }
+        } yield async.complete()
+
       case Failure(e) =>
         logger.error("Verticle couldn't be deployed.", e)
         context.fail(e)
         async.complete()
     }: Try[String] => Unit
 
-    vertx.deployVerticle(verticle, options, completionHandler)
+    vertx
+      .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+      .onComplete(completionHandler)
   }
 
   @After
   def after(context: TestContext) {
     val async = context.async()
 
-    vertx.undeploy(
-      deploymentId, {
-        case Success(_) =>
-          logger.info("Verticle undeployed!")
-          vertx.close({
-            case Success(_) =>
-              logger.info("Vertx closed!")
-              async.complete()
-            case Failure(e) =>
-              logger.error("Vertx couldn't be closed!", e)
-              context.fail(e)
-              async.complete()
-          }: Try[Void] => Unit)
-        case Failure(e) =>
-          logger.error("Verticle couldn't be undeployed!", e)
-          context.fail(e)
-          async.complete()
-      }: Try[Void] => Unit
-    )
+    (for {
+      _ <- vertx.undeployFuture(deploymentId)
+
+      // closeFuture is blocking without a close before
+      _ = vertx.close()
+
+      _ <- vertx.closeFuture()
+    } yield ()).onComplete({
+      case Success(_) =>
+        logger.info("Vertx closed!")
+        async.complete()
+
+      case Failure(e) =>
+        logger.error("Vertx couldn't be closed!", e)
+        context.fail(e)
+        async.complete()
+    })
   }
 
   def okTest(f: => Future[_])(implicit context: TestContext): Unit = {
@@ -336,7 +334,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   ): HttpClientRequest = {
     val _method = HttpMethod.valueOf(method.toUpperCase)
 
-    val options = new HttpClientOptions()
+    val options = HttpClientOptions()
       .setKeepAlive(false)
 
     val client = vertx.createHttpClient(options)
@@ -371,10 +369,8 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
 
           req.write(header)
 
-          import io.vertx.scala.FunctionConverters._
-
           val asyncFile: Future[AsyncFile] =
-            vertx.fileSystem().open(filePath, new OpenOptions(), _: Handler[AsyncResult[AsyncFile]])
+            vertx.fileSystem().openFuture(filePath, OpenOptions())
 
           asyncFile.map({ file =>
             val pump = Pump.pump(file, req)
@@ -385,15 +381,17 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
               p.failure(e)
             })
 
-            file.endHandler({ _: Void =>
-              file.close({
-                case Success(_) =>
-                  logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
-                  req.end(footer)
-                case Failure(e) =>
-                  req.end("")
-                  p.failure(e)
-              }: Try[Void] => Unit)
+            file.endHandler({ _ =>
+              file
+                .closeFuture()
+                .onComplete({
+                  case Success(_) =>
+                    logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
+                    req.end(footer)
+                  case Failure(e) =>
+                    req.end("")
+                    p.failure(e)
+                })
             })
 
             pump.start()

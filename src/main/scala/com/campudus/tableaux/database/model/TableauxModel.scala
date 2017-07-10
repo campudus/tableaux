@@ -171,7 +171,7 @@ class TableauxModel(
       _ <- updateRowModel.deleteRow(table.id, rowId)
 
       // invalidate row
-      _ <- CacheClient(this.connection.vertx).invalidateRow(table.id, rowId)
+      _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
     } yield EmptyObject()
   }
 
@@ -351,16 +351,16 @@ class TableauxModel(
 
   private def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
 
-    def invalidateColumn: (TableId, ColumnId) => Future[Unit] =
-      CacheClient(this.connection.vertx).invalidateColumn
+    def invalidateColumn: (TableId, ColumnId) => Future[_] =
+      CacheClient(this.connection).invalidateColumn
 
     for {
       // invalidate the cell itself
-      _ <- CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, column.id, rowId)
+      _ <- CacheClient(this.connection).invalidateCellValue(column.table.id, column.id, rowId)
 
       // invalidate the concat cell if column is an identifier
       _ <- if (column.identifier) {
-        CacheClient(this.connection.vertx).invalidateCellValue(column.table.id, 0, rowId)
+        CacheClient(this.connection).invalidateCellValue(column.table.id, 0, rowId)
       } else {
         Future.successful(())
       }
@@ -426,7 +426,7 @@ class TableauxModel(
     }
 
     for {
-      valueCache <- CacheClient(this.connection.vertx).retrieveCellValue(column.table.id, column.id, rowId)
+      valueCache <- CacheClient(this.connection).retrieveCellValue(column.table.id, column.id, rowId)
 
       value <- valueCache match {
         case Some(obj) =>
@@ -457,7 +457,7 @@ class TableauxModel(
             val value = rowSeq.head.values.head
 
             // fire-and-forget don't need to wait for this to return
-            CacheClient(this.connection.vertx).setCellValue(column.table.id, column.id, rowId, value)
+            CacheClient(this.connection).setCellValue(column.table.id, column.id, rowId, value)
 
             value
           }

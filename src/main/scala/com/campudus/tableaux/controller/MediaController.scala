@@ -8,12 +8,11 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
-import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object MediaController {
 
@@ -105,9 +104,10 @@ class MediaController(override val config: TableauxConfig,
 
           vertx
             .fileSystem()
-            .delete(filePath.toString(), {
+            .deleteFuture(filePath.toString())
+            .onComplete({
               case Success(_) | Failure(_) => p.failure(ex)
-            }: Try[Void] => Unit)
+            })
         })
 
         upload.endHandler({ () =>
@@ -152,7 +152,7 @@ class MediaController(override val config: TableauxConfig,
             cellsForFiles <- attachmentModel.retrieveCells(uuid)
             // invalidate cache for cells with this file
             _ <- Future.sequence(cellsForFiles.map({
-              case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+              case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
             }))
           } yield {
             p.success(updatedFile)
@@ -162,9 +162,10 @@ class MediaController(override val config: TableauxConfig,
 
               vertx
                 .fileSystem()
-                .delete(filePath.toString(), {
+                .deleteFuture(filePath.toString())
+                .onComplete({
                   case Success(_) | Failure(_) => p.failure(ex)
-                }: Try[Void] => Unit)
+                })
           }
         })
 
@@ -182,20 +183,16 @@ class MediaController(override val config: TableauxConfig,
                  folder: Option[FolderId]): Future[ExtendedFile] = {
 
     def checkInternalName(internalName: String): Future[Unit] = {
-      val p: Promise[Unit] = Promise()
       vertx
         .fileSystem()
-        .exists(
-          (uploadsDirectory / Path(internalName)).toString(), {
-            case Success(java.lang.Boolean.TRUE) => p.success(())
-            case Success(java.lang.Boolean.FALSE) =>
-              p.failure(InvalidRequestException(s"File with internal name $internalName does not exist"))
-            case Failure(ex) => p.failure(ex)
-            case _ => p.failure(UnknownServerException("Error in vertx filesystem exists check"))
-          }: Try[java.lang.Boolean] => Unit
-        )
-
-      p.future
+        .existsFuture((uploadsDirectory / Path(internalName)).toString())
+        .recover({
+          case ex => UnknownServerException("Error in vertx filesystem exists check", ex)
+        })
+        .flatMap({
+          case true => Future.successful(())
+          case false => Future.failed(InvalidRequestException(s"File with internal name $internalName does not exist"))
+        })
     }
 
     val internalNameChecks = internalName.values
@@ -224,7 +221,7 @@ class MediaController(override val config: TableauxConfig,
       cellsForFiles <- attachmentModel.retrieveCells(uuid)
       // invalidate cache for cells with this file
       _ <- Future.sequence(cellsForFiles.map({
-        case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+        case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
       }))
     } yield ExtendedFile(file)
   }
@@ -263,7 +260,7 @@ class MediaController(override val config: TableauxConfig,
 
       // invalidate cache for cells with this file
       _ <- Future.sequence(cellsForFiles.map({
-        case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+        case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
       }))
     } yield {
       // return only File not
@@ -292,7 +289,7 @@ class MediaController(override val config: TableauxConfig,
 
       // invalidate cache for cells with this file
       _ <- Future.sequence(cellsForFiles.map({
-        case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+        case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
       }))
 
       (file, _) <- retrieveFile(uuid, withTmp = true)
@@ -305,29 +302,22 @@ class MediaController(override val config: TableauxConfig,
   }
 
   private def deleteFile(path: Path): Future[Unit] = {
-    import io.vertx.scala.FunctionConverters._
-
-    futurify({ p: Promise[Unit] =>
-      val deleteFuture = vertx.fileSystem().delete(path.toString(), _: AsyncVoid)
-      deleteFuture.onComplete({
-        case Success(_) => p.success(())
-        case Failure(deleteEx) =>
-          val existsFuture = vertx.fileSystem().exists(path.toString(), _: AsyncValue[java.lang.Boolean])
-          existsFuture.onComplete({
-            case Success(r) =>
-              if (r) {
+    vertx
+      .fileSystem()
+      .deleteFuture(path.toString())
+      .recoverWith({
+        case deleteEx =>
+          vertx
+            .fileSystem()
+            .existsFuture(path.toString())
+            .flatMap({
+              case true =>
                 logger.warn(s"Couldn't delete uploaded file $path: ${deleteEx.toString}")
-                p.failure(deleteEx)
-              } else {
-                // succeed even if file doesn't exist
-                p.success(())
-              }
-            case Failure(existsEx) =>
-              logger.warn("Couldn't check if uploaded file has been deleted.")
-              p.failure(existsEx)
-          })
+                Future.failed(deleteEx)
+              case false =>
+                Future.successful(())
+            })
       })
-    })
   }
 
   def mergeFile(uuid: UUID, langtag: String, mergeWith: UUID): Future[ExtendedFile] = {
@@ -370,7 +360,7 @@ class MediaController(override val config: TableauxConfig,
       // invalidate cache for cells with this file
       cellsForFiles = cellsForFile1 ++ cellsForFile2
       _ <- Future.sequence(cellsForFiles.map({
-        case (tableId, columnId, rowId) => CacheClient(this.vertx).invalidateCellValue(tableId, columnId, rowId)
+        case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
       }))
     } yield ExtendedFile(mergedFile)
   }

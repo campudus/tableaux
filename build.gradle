@@ -32,11 +32,18 @@ configurations {
 
 dependencies {
   compile "org.scala-lang:scala-library:${scalaVersion}"
+
+  // add scala-reflect to keep dependencies up-to-date
   compile "org.scala-lang:scala-reflect:${scalaVersion}"
 
   compile "io.vertx:vertx-core:${vertxVersion}"
   compile "io.vertx:vertx-web:${vertxVersion}"
   compile("io.vertx:vertx-mysql-postgresql-client:${vertxVersion}")
+
+  // add Vert.x Scala
+  compile "io.vertx:vertx-lang-scala_2.12:${vertxVersion}"
+  compile "io.vertx:vertx-web-scala_2.12:${vertxVersion}"
+  compile("io.vertx:vertx-mysql-postgresql-client-scala_2.12:${vertxVersion}")
 
   compile 'joda-time:joda-time:2.9.9'
   compile 'com.typesafe.scala-logging:scala-logging_2.12:3.7.0'
@@ -59,7 +66,7 @@ dependencies {
 }
 
 mainClassName = "io.vertx.core.Launcher"
-def mainVerticle = "com.campudus.tableaux.Starter"
+def mainVerticle = "scala:com.campudus.tableaux.Starter"
 
 test {
   maxHeapSize = "512m"

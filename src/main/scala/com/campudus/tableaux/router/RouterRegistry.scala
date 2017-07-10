@@ -4,8 +4,7 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
-import io.vertx.ext.web.RoutingContext
-import io.vertx.scala.ScalaVerticle
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing.{Error, Get, SendEmbeddedFile}
 
@@ -33,8 +32,6 @@ object RouterRegistry {
 }
 
 class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseRouter]) extends BaseRouter {
-
-  override val verticle: ScalaVerticle = config.verticle
 
   override def routes(implicit context: RoutingContext): Routing = {
     routers

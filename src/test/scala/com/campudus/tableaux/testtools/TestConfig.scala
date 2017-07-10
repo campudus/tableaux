@@ -3,15 +3,13 @@ package com.campudus.tableaux.testtools
 import java.net.ServerSocket
 
 import com.campudus.tableaux.TableauxConfig
-import io.vertx.scala.ScalaVerticle
+import com.campudus.tableaux.helper.VertxAccess
 import org.vertx.scala.core.json._
 
 import scala.io.Source
 import scala.reflect.io.Path
 
-trait TestConfig {
-
-  val verticle: ScalaVerticle
+trait TestConfig extends VertxAccess {
 
   lazy val config = {
     val json = jsonFromFile("conf-test.json", "conf-travis.json", "../conf-test.json", "../conf-travis.json")
@@ -26,7 +24,7 @@ trait TestConfig {
   lazy val workingDirectory = config.getString("workingDirectory")
   lazy val uploadsDirectory = config.getString("uploadsDirectory")
 
-  lazy val tableauxConfig = TableauxConfig(verticle, databaseConfig, workingDirectory, uploadsDirectory)
+  lazy val tableauxConfig = new TableauxConfig(vertx, databaseConfig, workingDirectory, uploadsDirectory)
 
   private def readTextFile(filePath: String): String = Source.fromFile(filePath).getLines().mkString
 

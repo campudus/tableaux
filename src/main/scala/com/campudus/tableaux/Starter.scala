@@ -2,18 +2,18 @@ package com.campudus.tableaux
 
 import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.helper.FileUtils
+import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router.RouterRegistry
-import io.vertx.core.http.{HttpServer, HttpServerRequest}
-import io.vertx.core.{AsyncResult, DeploymentOptions, Handler}
-import io.vertx.ext.web.Router
-import io.vertx.scala.FunctionConverters._
-import io.vertx.scala.FutureHelper._
-import io.vertx.scala.{SQLConnection, ScalaVerticle}
+import com.typesafe.scalalogging.LazyLogging
+import io.vertx.scala.core.http.HttpServer
+import io.vertx.scala.core.{DeploymentOptions, Vertx}
+import io.vertx.scala.ext.web.Router
+import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object Starter {
   val DEFAULT_HOST = "127.0.0.1"
@@ -23,23 +23,20 @@ object Starter {
   val DEFAULT_UPLOADS_DIRECTORY = "uploads/"
 }
 
-class Starter extends ScalaVerticle {
+class Starter extends ScalaVerticle with LazyLogging {
 
   private var connection: SQLConnection = _
   private var server: HttpServer = _
 
-  override def start(p: Promise[Unit]): Unit = {
-    if (context.config().isEmpty) {
+  override def startFuture(): Future[Unit] = {
+    if (config.isEmpty) {
       logger.error("Provide a config please!")
-      p.failure(new Exception("Provide a config please!"))
+      Future.failed(new Exception("Provide a config please!"))
+    } else if (config.getJsonObject("database", Json.obj()).isEmpty) {
+      logger.error("Provide a database config please!")
+      Future.failed(new Exception("Provide a database config please!"))
     } else {
-      val config = context.config()
-
       val databaseConfig = config.getJsonObject("database", Json.obj())
-      if (databaseConfig.isEmpty) {
-        logger.error("Provide a database config please!")
-        p.failure(new Exception("Provide a database config please!"))
-      }
 
       val cacheConfig = config.getJsonObject("cache", Json.obj())
       if (cacheConfig.isEmpty) {
@@ -51,89 +48,67 @@ class Starter extends ScalaVerticle {
       val workingDirectory = getStringDefault(config, "workingDirectory", Starter.DEFAULT_WORKING_DIRECTORY)
       val uploadsDirectory = getStringDefault(config, "uploadsDirectory", Starter.DEFAULT_UPLOADS_DIRECTORY)
 
-      val tableauxConfig = TableauxConfig(
-        verticle = this,
+      val tableauxConfig = new TableauxConfig(
+        vertx = this.vertx,
         databaseConfig = databaseConfig,
-        workingDir = workingDirectory,
-        uploadsDir = uploadsDirectory
+        workingDirectory = workingDirectory,
+        uploadsDirectory = uploadsDirectory
       )
 
-      connection = SQLConnection(this, databaseConfig)
+      connection = SQLConnection(vertxAccessContainer(), databaseConfig)
 
-      val initialize = for {
+      for {
         _ <- createUploadsDirectories(tableauxConfig)
         server <- deployHttpServer(port, host, tableauxConfig, connection)
         _ <- deployCacheVerticle(cacheConfig)
       } yield {
         this.server = server
-        p.success(())
       }
-
-      initialize.recover({
-        case t: Throwable => p.failure(t)
-      })
     }
   }
 
-  override def stop(p: Promise[Unit]): Unit = {
-    import io.vertx.scala.FunctionConverters._
-
-    p.completeWith({
-      for {
-        _ <- connection.close()
-        _ <- server.close(_: Handler[AsyncResult[Void]])
-      } yield ()
-    })
+  override def stopFuture(): Future[Unit] = {
+    for {
+      _ <- connection.close()
+      _ <- server.closeFuture()
+    } yield ()
   }
 
   private def createUploadsDirectories(config: TableauxConfig): Future[Unit] = {
-    FileUtils(this).mkdirs(config.uploadsDirectoryPath())
+    FileUtils(vertxAccessContainer()).mkdirs(config.uploadsDirectoryPath())
   }
 
   private def deployHttpServer(port: Int,
                                host: String,
                                tableauxConfig: TableauxConfig,
                                connection: SQLConnection): Future[HttpServer] = {
-    futurify { p: Promise[HttpServer] =>
-      {
-        val dbConnection = DatabaseConnection(this, connection)
-        val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
+    val dbConnection = DatabaseConnection(vertxAccessContainer(), connection)
+    val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
 
-        val router = Router.router(vertx)
+    val router = Router.router(vertx)
 
-        router.route().handler(routerRegistry)
+    router.route().handler(routerRegistry.apply)
 
-        vertx
-          .createHttpServer()
-          .requestHandler(router.accept(_: HttpServerRequest))
-          .listen(port, host, {
-            case Success(s) => p.success(s)
-            case Failure(x) => p.failure(x)
-          }: Try[HttpServer] => Unit)
-      }
-    }
+    vertx
+      .createHttpServer()
+      .requestHandler(request => router.accept(request))
+      .listenFuture(port, host)
   }
 
   private def deployCacheVerticle(config: JsonObject): Future[String] = {
-    val promise = Promise[String]()
-
-    val options = new DeploymentOptions()
+    val options = DeploymentOptions()
       .setConfig(config)
 
-    val completionHandler = {
+    val deployFuture = vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[CacheVerticle], options)
+
+    deployFuture.onComplete({
       case Success(id) =>
         logger.info(s"CacheVerticle deployed with ID $id")
-        promise.success(id)
-
       case Failure(e) =>
         logger.error("CacheVerticle couldn't be deployed.", e)
-        promise.failure(e)
+    })
 
-    }: Try[String] => Unit
-
-    vertx.deployVerticle(new CacheVerticle, options, completionHandler)
-
-    promise.future
+    deployFuture
   }
 
   private def getStringDefault(config: JsonObject, field: String, default: String): String = {
@@ -152,5 +127,9 @@ class Starter extends ScalaVerticle {
       logger.warn(s"No $field (config) was set. Use default '$default'.")
       default
     }
+  }
+
+  private def vertxAccessContainer(): VertxAccess = new VertxAccess {
+    override val vertx: Vertx = Starter.this.vertx
   }
 }

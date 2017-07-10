@@ -5,7 +5,7 @@ import java.util.UUID
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
-import io.vertx.ext.web.RoutingContext
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.router.routing.{Get, Post}
 
 import scala.concurrent.Future

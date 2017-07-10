@@ -34,8 +34,8 @@ class DatabaseVersioningTest extends TableauxTestBase {
 
   @Test
   def checkVersion3(implicit c: TestContext): Unit = okTest {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+    val sqlConnection = SQLConnection(this, databaseConfig)
+    val dbConnection = DatabaseConnection(this, sqlConnection)
     val system = SystemModel(dbConnection)
 
     for {
@@ -54,8 +54,8 @@ class DatabaseVersioningTest extends TableauxTestBase {
   @Test
   def checkUpdateOfOrdering(implicit c: TestContext): Unit = {
     okTest {
-      val sqlConnection = SQLConnection(verticle, databaseConfig)
-      val dbConnection = DatabaseConnection(verticle, sqlConnection)
+      val sqlConnection = SQLConnection(this, databaseConfig)
+      val dbConnection = DatabaseConnection(this, sqlConnection)
       val system = SystemModel(dbConnection)
 
       for {
@@ -99,8 +99,8 @@ class DatabaseVersioningTest extends TableauxTestBase {
   @Test
   def checkUpdateOverHttp(implicit c: TestContext): Unit = {
     okTest {
-      val sqlConnection = SQLConnection(verticle, databaseConfig)
-      val dbConnection = DatabaseConnection(verticle, sqlConnection)
+      val sqlConnection = SQLConnection(this, databaseConfig)
+      val dbConnection = DatabaseConnection(this, sqlConnection)
       val system = SystemModel(dbConnection)
 
       val nonce = SystemRouter.generateNonce()

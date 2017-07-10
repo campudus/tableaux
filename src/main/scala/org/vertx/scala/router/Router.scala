@@ -6,11 +6,9 @@ import java.net.URLEncoder
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.file.FileProps
-import io.vertx.core.http.{HttpMethod, HttpServerRequest, HttpServerResponse}
-import io.vertx.core.{AsyncResult, Handler}
-import io.vertx.ext.web.RoutingContext
-import io.vertx.scala.FutureHelper._
+import io.vertx.core.http.HttpMethod
+import io.vertx.scala.core.http.{HttpServerRequest, HttpServerResponse}
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
 import scala.concurrent.Future
@@ -60,14 +58,13 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
   }
 
   private def fileExists(file: String): Future[String] = {
-    asyncResultToFuture { tryFn: Handler[AsyncResult[java.lang.Boolean]] =>
-      {
-        vertx.fileSystem.exists(file, tryFn)
-      }
-    } map {
-      case java.lang.Boolean.TRUE => file
-      case java.lang.Boolean.FALSE => throw new FileNotFoundException(file)
-    }
+    vertx
+      .fileSystem()
+      .existsFuture(file)
+      .flatMap({
+        case true => Future.successful(file)
+        case false => Future.failed(new FileNotFoundException(file))
+      })
   }
 
   private def addIndexToDirName(path: String): String = {
@@ -78,19 +75,16 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
   }
 
   private def directoryToIndexFile(path: String): Future[String] = {
-    asyncResultToFuture { tryFn: Handler[AsyncResult[FileProps]] =>
-      {
-        vertx.fileSystem.lprops(path, tryFn)
-      }
-    } flatMap { fp =>
-      {
+    vertx
+      .fileSystem()
+      .lpropsFuture(path)
+      .flatMap({ fp =>
         if (fp.isDirectory) {
           fileExists(addIndexToDirName(path))
         } else {
           Future.successful(path)
         }
-      }
-    }
+      })
   }
 
   private def urlEncode(str: String) = URLEncoder.encode(str, "UTF-8")
@@ -229,8 +223,9 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
     val req = context.request()
     logger.info(s"${req.method()}-Request: ${req.uri()}")
 
+    val path = req.path().orNull
+
     val reply = try {
-      val path = req.path()
       val routeMatch: RouteMatch = req.method() match {
         case HttpMethod.GET => Get(path)
         case HttpMethod.PUT => Put(path)
@@ -243,6 +238,7 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
         case HttpMethod.CONNECT => Connect(path)
         case HttpMethod.OTHER => Other(path)
       }
+
       matcherFor(routeMatch, context)
     } catch {
       case ex: RouterException =>

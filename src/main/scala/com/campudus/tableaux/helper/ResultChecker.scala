@@ -15,7 +15,7 @@ object ResultChecker {
 
   def jsonArrayToSeq(json: JsonArray): Seq[Any] = {
     import scala.collection.JavaConverters._
-    json.asScala.toSeq.asInstanceOf[Seq[Any]]
+    Option(json).map(_.asScala.toSeq.asInstanceOf[Seq[Any]]).getOrElse(Seq.empty)
   }
 
   def deleteNotNull(json: JsonObject): Seq[JsonArray] = checkNotNull(json, "delete")

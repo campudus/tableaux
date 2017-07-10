@@ -16,8 +16,8 @@ import scala.concurrent.Future
 class StructureControllerTest extends TableauxTestBase {
 
   def createStructureController(): StructureController = {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+    val sqlConnection = SQLConnection(this, databaseConfig)
+    val dbConnection = DatabaseConnection(this, sqlConnection)
     val model = StructureModel(dbConnection)
 
     StructureController(tableauxConfig, model)
