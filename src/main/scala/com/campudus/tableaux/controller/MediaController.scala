@@ -196,19 +196,18 @@ class MediaController(override val config: TableauxConfig,
     }
 
     val internalNameChecks = internalName.values
+      .mapValues(Option.apply)
       .map({
-        case (_, internalFileName) =>
-          if (internalFileName == null) {
-            Future.successful(())
+        case (_, None) =>
+          Future.successful(())
+        case (_, Some(internalFileName)) =>
+          if (!internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
+              internalFileName.equals("..") ||
+              internalFileName.equals(".")) {
+            Future.failed(InvalidRequestException(
+              s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
           } else {
-            if (!internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
-                internalFileName.equals("..") ||
-                internalFileName.equals(".")) {
-              Future.failed(InvalidRequestException(
-                s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
-            } else {
-              checkInternalName(internalFileName)
-            }
+            checkInternalName(internalFileName)
           }
       })
 
@@ -232,7 +231,7 @@ class MediaController(override val config: TableauxConfig,
         val filePaths = f.internalName.values
           .filter({
             case (_, internalName) =>
-              internalName != null && internalName.nonEmpty
+              Option(internalName).isDefined && internalName.nonEmpty
           })
           .map({
             case (langtag, internalName) =>

@@ -50,22 +50,21 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
 
   private val caches: mutable.Map[(TableId, ColumnId), ScalaCache[InMemoryRepr]] = mutable.Map.empty
 
-  private var consumers: Seq[MessageConsumer[JsonObject]] = _
-
-  override def startFuture(): Future[Unit] = {
+  override def startFuture(): Future[_] = {
     registerOnEventBus()
-    Future.successful(())
   }
 
-  private def registerOnEventBus(): Unit = {
-    consumers = Seq(
-      eventBus.localConsumer(ADDRESS_SET, messageHandlerSet),
-      eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll)
+  private def registerOnEventBus(): Future[_] = {
+    Future.sequence(
+      Seq(
+        eventBus.localConsumer(ADDRESS_SET, messageHandlerSet).completionFuture(),
+        eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll).completionFuture()
+      )
     )
   }
 
