@@ -14,8 +14,8 @@ import scala.concurrent.Future
 class FolderModelTest extends TableauxTestBase {
 
   private def createFolderModel(): FolderModel = {
-    val sqlConnection = SQLConnection(this, databaseConfig)
-    val dbConnection = DatabaseConnection(this, sqlConnection)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
     new FolderModel(dbConnection)
   }

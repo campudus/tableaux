@@ -5,7 +5,7 @@ import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
-import com.campudus.tableaux.{CustomException, Starter}
+import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod
@@ -14,7 +14,7 @@ import org.vertx.scala.core.json.JsonObject
 import io.vertx.scala.core.streams.Pump
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
@@ -136,14 +136,50 @@ trait TestAssertionHelper {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHelper with JsonCompatible {
+trait TableauxTestBase
+    extends TestConfig
+    with LazyLogging
+    with TestAssertionHelper
+    with JsonCompatible
+    with TestVertxAccess {
 
-  override val vertx: Vertx = Vertx.vertx()
+  override var vertx: Vertx = _
 
-  private var deploymentId: String = ""
+  override implicit var executionContext: VertxExecutionContext = _
+
+  override var databaseConfig: JsonObject = _
+
+  override var host: String = _
+
+  override var port: Int = _
+
+  override var tableauxConfig: TableauxConfig = _
 
   @Before
-  def before(context: TestContext) {
+  def before(context: TestContext): Unit = {
+    vertx = Vertx.vertx()
+
+    executionContext = VertxExecutionContext(
+      io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext())
+    )
+
+    val config = Json
+      .fromObjectString(fileConfig.encode())
+      .put("host", fileConfig.getString("host", "127.0.0.1"))
+      .put("port", getFreePort)
+
+    databaseConfig = config.getJsonObject("database", Json.obj())
+
+    host = config.getString("host")
+    port = config.getInteger("port").intValue()
+
+    tableauxConfig = new TableauxConfig(
+      vertx,
+      databaseConfig,
+      config.getString("workingDirectory"),
+      config.getString("uploadsDirectory")
+    )
+
     val async = context.async()
 
     val options = DeploymentOptions()
@@ -152,10 +188,9 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     val completionHandler = {
       case Success(id) =>
         logger.info(s"Verticle deployed with ID $id")
-        this.deploymentId = id
 
-        val sqlConnection = SQLConnection(this, databaseConfig)
-        val dbConnection = DatabaseConnection(this, sqlConnection)
+        val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+        val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
         val system = SystemModel(dbConnection)
 
         for {
@@ -175,27 +210,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   }
 
   @After
-  def after(context: TestContext) {
-    val async = context.async()
-
-    (for {
-      _ <- vertx.undeployFuture(deploymentId)
-
-      // closeFuture is blocking without a close before
-      _ = vertx.close()
-
-      _ <- vertx.closeFuture()
-    } yield ()).onComplete({
-      case Success(_) =>
-        logger.info("Vertx closed!")
-        async.complete()
-
-      case Failure(e) =>
-        logger.error("Vertx couldn't be closed!", e)
-        context.fail(e)
-        async.complete()
-    })
-  }
+  def after(context: TestContext): Unit = vertx.close(context.asyncAssertSuccess())
 
   def okTest(f: => Future[_])(implicit context: TestContext): Unit = {
     val async = context.async()
@@ -340,67 +355,63 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     val client = vertx.createHttpClient(options)
 
     client
-      .request(_method, port, config.getString("host"), path)
+      .request(_method, port, host, path)
       .handler(responseHandler(client, _: HttpClientResponse))
       .exceptionHandler(exceptionHandler(client, _: Throwable))
   }
 
   protected def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = {
-    futurify { p: Promise[JsonObject] =>
-      {
-        val filePath = getClass.getResource(file).toURI.getPath
-        val fileName = file.substring(file.lastIndexOf("/") + 1)
+    val filePath = getClass.getResource(file).toURI.getPath
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
+    val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
+    val header =
+      "--" + boundary + "\r\n" +
+        "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
+        "Content-Type: " + mimeType + "\r\n\r\n"
+    val footer = "\r\n--" + boundary + "--\r\n"
+    val contentLength =
+      String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
 
-        def requestHandler(req: HttpClientRequest): Unit = {
-          val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
-          val header =
-            "--" + boundary + "\r\n" +
-              "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
-              "Content-Type: " + mimeType + "\r\n\r\n"
+    futurify({ p: Promise[JsonObject] =>
+      def requestHandler(req: HttpClientRequest): Unit = {
+        req.putHeader("Content-length", contentLength)
+        req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
 
-          val footer = "\r\n--" + boundary + "--\r\n"
+        logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
 
-          val contentLength =
-            String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
-          req.putHeader("Content-length", contentLength)
-          req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
+        req.write(header)
 
-          logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
+        val asyncFile: Future[AsyncFile] =
+          vertx.fileSystem().openFuture(filePath, OpenOptions())
 
-          req.write(header)
+        asyncFile.map({ file =>
+          val pump = Pump.pump(file, req)
 
-          val asyncFile: Future[AsyncFile] =
-            vertx.fileSystem().openFuture(filePath, OpenOptions())
-
-          asyncFile.map({ file =>
-            val pump = Pump.pump(file, req)
-
-            file.exceptionHandler({ e: Throwable =>
-              pump.stop()
-              req.end("")
-              p.failure(e)
-            })
-
-            file.endHandler({ _ =>
-              file
-                .closeFuture()
-                .onComplete({
-                  case Success(_) =>
-                    logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
-                    req.end(footer)
-                  case Failure(e) =>
-                    req.end("")
-                    p.failure(e)
-                })
-            })
-
-            pump.start()
+          file.exceptionHandler({ e: Throwable =>
+            pump.stop()
+            req.end("")
+            p.failure(e)
           })
-        }
 
-        requestHandler(httpJsonRequest(method, url, p))
+          file.endHandler({ _ =>
+            file
+              .closeFuture()
+              .onComplete({
+                case Success(_) =>
+                  logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
+                  req.end(footer)
+                case Failure(e) =>
+                  req.end("")
+                  p.failure(e)
+              })
+          })
+
+          pump.start()
+        })
       }
-    }
+
+      requestHandler(httpJsonRequest(method, url, p))
+    })
   }
 
   protected def createDefaultColumns(tableId: TableId): Future[(ColumnId, ColumnId)] = {

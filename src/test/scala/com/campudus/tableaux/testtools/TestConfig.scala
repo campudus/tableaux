@@ -9,22 +9,22 @@ import org.vertx.scala.core.json._
 import scala.io.Source
 import scala.reflect.io.Path
 
-trait TestConfig extends VertxAccess {
+trait TestConfig {
 
-  lazy val config = {
-    val json = jsonFromFile("conf-test.json", "conf-travis.json", "../conf-test.json", "../conf-travis.json")
+  lazy val fileConfig: JsonObject = jsonFromFile(
+    "conf-test.json",
+    "conf-travis.json",
+    "../conf-test.json",
+    "../conf-travis.json"
+  )
 
-    json
-      .put("host", json.getString("host", "127.0.0.1"))
-      .put("port", port)
-  }
+  var host: String
 
-  lazy val port = getFreePort
-  lazy val databaseConfig = config.getJsonObject("database", Json.obj())
-  lazy val workingDirectory = config.getString("workingDirectory")
-  lazy val uploadsDirectory = config.getString("uploadsDirectory")
+  var port: Int
 
-  lazy val tableauxConfig = new TableauxConfig(vertx, databaseConfig, workingDirectory, uploadsDirectory)
+  var databaseConfig: JsonObject
+
+  var tableauxConfig: TableauxConfig
 
   private def readTextFile(filePath: String): String = Source.fromFile(filePath).getLines().mkString
 
@@ -53,11 +53,7 @@ trait TestConfig extends VertxAccess {
     }
   }
 
-  private def getFreePort: Int = {
-    autoClose(new ServerSocket(0), { socket: ServerSocket =>
-      {
-        socket.getLocalPort
-      }
-    })
+  protected def getFreePort: Int = {
+    autoClose(new ServerSocket(0), (socket: ServerSocket) => socket.getLocalPort)
   }
 }
