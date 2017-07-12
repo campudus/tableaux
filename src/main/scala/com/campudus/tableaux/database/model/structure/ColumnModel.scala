@@ -868,11 +868,11 @@ RETURNING column_id, ordering""".stripMargin
       resultLang <- connection.query(selectLang, Json.arr(table.id, columnId))
       displayInfos = resultObjectToJsonArray(resultLang).flatMap({ arr =>
         val langtag = arr.getString(0)
-        val name = arr.getString(1)
-        val description = arr.getString(2)
+        val name = Option(arr.getString(1))
+        val description = Option(arr.getString(2))
 
-        if (name != null || description != null) {
-          Seq(DisplayInfos.fromString(langtag, name, description))
+        if (name.isDefined || description.isDefined) {
+          Seq(DisplayInfos.fromString(langtag, name.orNull, description.orNull))
         } else {
           Seq.empty
         }

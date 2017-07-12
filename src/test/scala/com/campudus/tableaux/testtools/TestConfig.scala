@@ -3,7 +3,6 @@ package com.campudus.tableaux.testtools
 import java.net.ServerSocket
 
 import com.campudus.tableaux.TableauxConfig
-import com.campudus.tableaux.helper.VertxAccess
 import org.vertx.scala.core.json._
 
 import scala.io.Source

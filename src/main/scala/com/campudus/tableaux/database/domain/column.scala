@@ -228,10 +228,10 @@ sealed trait ColumnType[+A] extends DomainObject {
 object MultiLanguageColumn {
 
   def checkValidValue[A, B](columnType: ColumnType[A], value: B): Try[Map[String, Option[A]]] = {
-    value match {
-      case null =>
+    Option(value) match {
+      case None =>
         Success(Map.empty)
-      case json: JsonObject =>
+      case Some(json: JsonObject) =>
         Try[Map[String, Option[A]]] {
           json.asMap
             .map({
@@ -254,6 +254,8 @@ object MultiLanguageColumn {
             })
             .toMap
         }
+      case _ =>
+        throw new IllegalArgumentException(s"Invalid value (JSON required) for MultiLanguage column ${columnType.name}")
     }
   }
 
@@ -296,10 +298,9 @@ sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(o
     extends ColumnType[A] {
 
   override def checkValidValue[B](value: B): Try[Option[A]] = {
-    if (value == null) {
-      Success(None)
-    } else {
-      checkValidSingleValue(value).map(Some(_))
+    Option(value) match {
+      case None => Success(None)
+      case _ => checkValidSingleValue(value).map(Some(_))
     }
   }
 

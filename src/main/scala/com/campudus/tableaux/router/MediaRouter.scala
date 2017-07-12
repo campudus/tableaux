@@ -8,7 +8,6 @@ import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.{ArgumentChecker, TableauxConfig}
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.scala.ext.web.RoutingContext
-//import io.vertx.scala.FunctionConverters._
 import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing._

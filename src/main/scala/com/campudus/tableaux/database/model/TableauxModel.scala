@@ -562,7 +562,7 @@ class TableauxModel(
 
       // Iterate over each linked row and
       // replace json's value with ConcatColumn value
-      linkedRows.asScala.foldLeft(Future.successful(List.empty[JsonObject])) {
+      linkedRows.asScala.map(_.asInstanceOf[JsonObject]).foldLeft(Future.successful(List.empty[JsonObject])) {
         case (futureList, linkedRow: JsonObject) =>
           // ConcatColumn's value is always a
           // json array with the linked row ids

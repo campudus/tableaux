@@ -8,14 +8,13 @@ import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
 import io.vertx.scala.ext.web.RoutingContext
-import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.Vertx
 import org.vertx.scala.core.json._
 import org.vertx.scala.router.routing.{AsyncReply, Error, Header, Ok}
 import org.vertx.scala.router.{Router, RouterException}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 

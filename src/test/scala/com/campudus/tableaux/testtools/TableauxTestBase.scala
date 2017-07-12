@@ -574,7 +574,7 @@ trait TableauxTestBase
     for {
       tableId <- sendRequest("POST", "/tables", Json.obj("name" -> tableName)) map (_.getLong("id"))
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn)
-      columnIds = columns.getArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
+      columnIds = columns.getJsonArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
     } yield {
       (tableId.toLong, columnIds)
     }
@@ -612,10 +612,10 @@ trait TableauxTestBase
       tableId = table.getLong("id").toLong
 
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createColumns)
-      columnIds = columns.getArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toList
+      columnIds = columns.getJsonArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toList
 
       linkColumn <- sendRequest("POST", s"/tables/$tableId/columns", createLinkColumn(columnIds.head, linkTo))
-      linkColumnId = linkColumn.getArray("columns").getJsonObject(0).getLong("id").toLong
+      linkColumnId = linkColumn.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
 
     } yield (tableId, columnIds, linkColumnId)
   }
