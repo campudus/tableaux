@@ -7,7 +7,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.Vertx
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -15,6 +15,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 @RunWith(classOf[VertxUnitRunner])
+@Ignore
 class DatabaseConnectionTest extends VertxAccess with TestConfig with TestAssertionHelper {
 
   override val vertx: Vertx = Vertx.vertx()
