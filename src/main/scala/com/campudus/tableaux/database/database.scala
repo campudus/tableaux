@@ -80,25 +80,28 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     def selectSingleValue[A](select: String, parameter: JsonArray): Future[(Transaction, A)] =
       selectSingleValue(select, Some(parameter))
 
-    private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[(Transaction, A)] = {
+    private def selectSingleValue[A](select: String, parameterOpt: Option[JsonArray]): Future[(Transaction, A)] = {
+      val queryFn = parameterOpt match {
+        case None => query(_: String)
+        case Some(parameter) => query(_: String, parameter)
+      }
+
       for {
-        (t, resultJson) <- parameter match {
-          case None => query(select)
-          case Some(p) => query(select, p)
-        }
+        (t, resultJson) <- queryFn(select).recoverWith(rollbackAndFail())
       } yield {
         (t, selectNotNull(resultJson).head.getValue(0).asInstanceOf[A])
       }
     }
 
+    @Deprecated()
     def commit(): Future[Unit] = transaction.commit()
 
-    def rollback(): Future[Unit] = transaction.rollback()
+    private def rollback(): Future[Unit] = transaction.rollback()
 
-    def rollbackAndFail(): PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
+    def rollbackAndFail[A](): PartialFunction[Throwable, Future[(Transaction, A)]] = {
       case ex: Throwable =>
         logger.error(s"Rollback and fail.", ex)
-        rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
+        rollback().flatMap(_ => Future.failed(ex))
     }
   }
 
@@ -106,27 +109,17 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
   def query(stmt: String, parameter: JsonArray): Future[JsonObject] = doMagicQuery(stmt, Some(parameter), connection)
 
+  @Deprecated
   def begin(): Future[Transaction] = connection.transaction().map(Transaction)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
     for {
       transaction <- begin()
 
-      (transaction, result) <- {
-        fn(transaction) recoverWith {
-          case e: Throwable =>
-            logger.error("Failed executing transactional. Rollback and fail.", e)
-            transaction.rollback()
-            Future.failed(e)
-        }
-      }
+      (transaction, result) <- fn(transaction).recoverWith(transaction.rollbackAndFail())
 
-      _ <- {
-        transaction.commit()
-      }
-    } yield {
-      result
-    }
+      _ <- transaction.commit()
+    } yield result
   }
 
   def transactionalFoldLeft[A](values: Seq[A])(

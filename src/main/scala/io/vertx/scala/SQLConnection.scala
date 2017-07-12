@@ -15,8 +15,6 @@ sealed trait DatabaseAction extends VertxAccess {
 
   def execute(sql: String): Future[Unit]
 
-  protected def execute(connection: JSQLConnection, sql: String): Future[Unit] = connection.executeFuture(sql)
-
   def query(sql: String): Future[ResultSet]
 
   def query(sql: String, params: JsonArray): Future[ResultSet]
@@ -40,11 +38,6 @@ sealed trait DatabaseAction extends VertxAccess {
   }
 
   protected def connection(): Future[JSQLConnection]
-
-  protected def close(connection: JSQLConnection): Future[Unit] = connection.closeFuture()
-
-  protected def setAutoUpdate(connection: JSQLConnection, autoCommit: Boolean): Future[Unit] =
-    connection.setAutoCommitFuture(autoCommit)
 }
 
 object SQLConnection {
@@ -66,18 +59,19 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
   private val client = PostgreSQLClient.createNonShared(vertxAccess.vertx, config)
 
   def transaction(): Future[Transaction] = {
-    for {
-      connection <- connection()
-      _ <- setAutoUpdate(connection, autoCommit = false)
-    } yield new Transaction(vertxAccess, connection)
+    wrap("transaction", { conn =>
+      conn
+        .setAutoCommitFuture(autoCommit = false)
+        .map(_ => new Transaction(vertxAccess, conn))
+    })
   }
 
   override protected def connection(): Future[JSQLConnection] = client.getConnectionFuture()
 
   override def execute(sql: String): Future[Unit] = {
-    wrap { conn =>
-      execute(conn, sql)
-    }
+    wrap("execute", { conn =>
+      conn.executeFuture(sql)
+    })
   }
 
   override def query(sql: String): Future[ResultSet] = query(sql, None)
@@ -85,9 +79,9 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
   override def query(sql: String, params: JsonArray): Future[ResultSet] = query(sql, Some(params))
 
   private def query(sql: String, params: Option[JsonArray]): Future[ResultSet] = {
-    wrap { conn =>
+    wrap("query", { conn =>
       query(conn, sql, params)
-    }
+    })
   }
 
   override def update(sql: String): Future[UpdateResult] = update(sql, None)
@@ -95,20 +89,33 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
   override def update(sql: String, params: JsonArray): Future[UpdateResult] = update(sql, Some(params))
 
   private def update(sql: String, params: Option[JsonArray]): Future[UpdateResult] = {
-    wrap { conn =>
+    wrap("update", { conn =>
       update(conn, sql, params)
-    }
+    })
   }
 
-  private def wrap[A](fn: (JSQLConnection) => Future[A]): Future[A] = {
+  private def wrap[A](name: String, fn: (JSQLConnection) => Future[A]): Future[A] = {
     for {
       conn <- connection()
+
       result <- fn(conn).recoverWith({
         case ex: Throwable =>
-          logger.error(s"Database query/update/execute failed. Close connection.", ex)
-          close(conn).flatMap(_ => Future.failed[A](ex))
+          logger.error(s"Database action $name failed. Connection will be closed.", ex)
+
+          // fail quietly and propagate the real error
+          conn
+            .closeFuture()
+            .recoverWith({
+              case _ => Future.successful(())
+            })
+            .flatMap(_ => Future.failed[A](ex))
       })
-      _ <- close(conn)
+
+      _ <- conn
+        .closeFuture()
+        .recoverWith({
+          case _ => Future.successful(())
+        })
     } yield result
   }
 
@@ -126,14 +133,14 @@ class Transaction(val vertxAccess: VertxAccess, private val conn: JSQLConnection
     def recoverDatabaseException(name: String): Future[A] = {
       future.recoverWith({
         case e =>
-          logger.error(s"Database ($name) action failed.", e)
+          logger.error(s"Action $name in Transaction failed", e)
           Future.failed(DatabaseException(e.getMessage, "unknown"))
       })
     }
   }
 
   override def execute(sql: String): Future[Unit] = {
-    execute(conn, sql).recoverDatabaseException("execute")
+    conn.executeFuture(sql).recoverDatabaseException("execute")
   }
 
   override def query(sql: String): Future[ResultSet] = {
@@ -153,16 +160,43 @@ class Transaction(val vertxAccess: VertxAccess, private val conn: JSQLConnection
   }
 
   def commit(): Future[Unit] = {
-    (for {
-      _ <- conn.commitFuture()
-      _ <- close(conn)
-    } yield ()).recoverDatabaseException("commit")
+    for {
+      _ <- conn
+        .commitFuture()
+        .recoverDatabaseException("commit")
+
+      // don't fail on close
+      _ <- conn
+        .closeFuture()
+        .recoverDatabaseException("close")
+        .recoverWith({
+          case _ => Future.successful(())
+        })
+    } yield ()
   }
 
   def rollback(): Future[Unit] = {
-    (for {
-      _ <- conn.rollbackFuture()
-      _ <- close(conn)
-    } yield ()).recoverDatabaseException("rollback")
+    for {
+      // don't fail on rollback
+      _ <- conn
+        .rollbackFuture()
+        .recoverWith({
+          case ex: IllegalStateException =>
+            // Ignore if not in transaction currently
+            Future.successful(())
+        })
+        .recoverDatabaseException("rollback")
+        .recoverWith({
+          case _ => Future.successful(())
+        })
+
+      // don't fail on close
+      _ <- conn
+        .closeFuture()
+        .recoverDatabaseException("close")
+        .recoverWith({
+          case _ => Future.successful(())
+        })
+    } yield ()
   }
 }
