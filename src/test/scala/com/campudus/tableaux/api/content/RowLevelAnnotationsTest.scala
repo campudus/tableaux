@@ -87,7 +87,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
           .asScala
           .toList
           .map(_.asInstanceOf[JsonObject])
-          .forall(!_.containsField("final"))
+          .forall(!_.containsKey("final"))
 
         assertTrue(rowsAreNotFinal)
       }

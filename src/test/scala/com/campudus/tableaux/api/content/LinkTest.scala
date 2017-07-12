@@ -40,7 +40,7 @@ trait LinkTestBase extends TableauxTestBase {
   protected def addRow(tableId: TableId, values: JsonObject): Future[RowId] = {
     for {
       res <- sendRequest("POST", s"/tables/$tableId/rows", values)
-      rowId = res.getArray("rows").getJsonObject(0).getLong("id").toLong
+      rowId = res.getJsonArray("rows").getJsonObject(0).getLong("id").toLong
     } yield rowId
   }
 
@@ -298,8 +298,8 @@ class LinkColumnTest extends LinkTestBase {
         logger.info(columnsA.encode())
         logger.info(columnsB.encode())
 
-        assertEquals(3, columnsA.getArray("columns").size())
-        assertEquals(2, columnsB.getArray("columns").size())
+        assertEquals(3, columnsA.getJsonArray("columns").size())
+        assertEquals(2, columnsB.getJsonArray("columns").size())
       }
     }
   }
@@ -693,7 +693,7 @@ class LinkTest extends LinkTestBase {
         (tableId1, columnIds1, table1rowId1) <- createFullTableWithMultilanguageColumns("Table 1")
         (tableId2, columnIds2, table2rowId1) <- createFullTableWithMultilanguageColumns("Table 2")
         linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkColumn)
-        linkColumnId = linkColumn.getArray("columns").get[JsonObject](0).getNumber("id")
+        linkColumnId = linkColumn.getJsonArray("columns").get[JsonObject](0).getNumber("id")
 
         resPut <- sendRequest("PUT", s"/tables/$tableId1/columns/$linkColumnId/rows/1", putLinks)
         // check first table for the link (links to t2, r1, c4)
@@ -752,7 +752,7 @@ class LinkTest extends LinkTestBase {
         (tableId1, columnIds1, table1rowIds) <- createFullTableWithMultilanguageColumns("Table 1")
         (tableId2, columnIds2, table2rowIds) <- createFullTableWithMultilanguageColumns("Table 2")
         linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkColumn)
-        linkColumnId = linkColumn.getArray("columns").get[JsonObject](0).getNumber("id")
+        linkColumnId = linkColumn.getJsonArray("columns").get[JsonObject](0).getNumber("id")
 
         resPost <- sendRequest("POST",
                                s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}",
@@ -1004,7 +1004,7 @@ class LinkTest extends LinkTestBase {
 
       // create link column
       linkColumnId <- sendRequest("POST", "/tables/1/columns", linkColumn) map {
-        _.getArray("columns").get[JsonObject](0).getLong("id")
+        _.getJsonArray("columns").get[JsonObject](0).getLong("id")
       }
 
       // add empty row
@@ -1039,7 +1039,7 @@ class LinkTest extends LinkTestBase {
       def addRow(tableId: Long, values: JsonObject): Future[Number] = {
         for {
           res <- sendRequest("POST", s"/tables/$tableId/rows", values)
-          rowId = res.getArray("rows").get[JsonObject](0).getNumber("id")
+          rowId = res.getJsonArray("rows").get[JsonObject](0).getNumber("id")
         } yield rowId
       }
 
@@ -1062,7 +1062,7 @@ class LinkTest extends LinkTestBase {
 
         // create link column
         linkColumnId <- sendRequest("POST", "/tables/1/columns", linkColumn) map {
-          _.getArray("columns").get[JsonObject](0).getLong("id")
+          _.getJsonArray("columns").get[JsonObject](0).getLong("id")
         }
 
         // add rows

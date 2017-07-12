@@ -137,7 +137,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         import scala.collection.JavaConverters._
 
         // assert that each annotation has a UUID
-        assertTrue(rowJson1Column1Annotations.asScala.map(_.asInstanceOf[JsonObject]).forall(_.containsField("uuid")))
+        assertTrue(rowJson1Column1Annotations.asScala.map(_.asInstanceOf[JsonObject]).forall(_.containsKey("uuid")))
 
         assertContainsDeep(exceptedColumn1Flags, rowJson1Column1Annotations)
         assertContainsDeep(exceptedColumn2Flags, rowJson1Column2Annotations)

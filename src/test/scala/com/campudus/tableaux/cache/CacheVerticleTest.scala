@@ -6,10 +6,10 @@ import com.typesafe.scalalogging.LazyLogging
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
+import io.vertx.lang.scala.{ScalaVerticle}
 import org.junit.runner.RunWith
-import org.junit.{After, Before, Ignore, Test}
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.junit.{After, Before, Test}
+import io.vertx.lang.scala.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}

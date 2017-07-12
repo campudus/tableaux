@@ -5,13 +5,12 @@ import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
-import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.{DatabaseAction, SQLConnection}
 import io.vertx.scala.core.Vertx
 import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonCompatible, JsonObject}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 trait DatabaseQuery extends JsonCompatible with LazyLogging {
   protected[this] val connection: DatabaseConnection
@@ -19,11 +18,7 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
   implicit val executionContext = connection.executionContext
 
   protected[this] def checkUpdateResults(seq: JsonObject*): Unit = {
-    seq map { json =>
-      {
-        if (json.containsField("message")) updateNotNull(json)
-      }
-    }
+    seq.map(json => if (json.containsKey("message")) updateNotNull(json))
   }
 
   protected[this] def optionToValidFuture[A, B](

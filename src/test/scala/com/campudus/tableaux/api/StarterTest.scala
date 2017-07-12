@@ -14,7 +14,7 @@ import org.vertx.scala.core.json._
 import scala.util.{Failure, Success, Try}
 
 @RunWith(classOf[VertxUnitRunner])
-class StarterTest extends LazyLogging with TestAssertionHelper with JsonCompatible {
+class StarterTest extends LazyLogging with TestAssertionHelper {
 
   val vertx: Vertx = Vertx.vertx()
 

@@ -481,7 +481,7 @@ class IdentifierTest extends TableauxTestBase {
 
       // create link column
       linkColumnId <- sendRequest("POST", "/tables/1/columns", linkColumn) map {
-        _.getArray("columns").get[JsonObject](0).getLong("id")
+        _.getJsonArray("columns").get[JsonObject](0).getLong("id")
       }
 
       _ <- sendRequest("POST", "/tables/1/columns/1", Json.obj("identifier" -> true))
@@ -572,7 +572,7 @@ class IdentifierTest extends TableauxTestBase {
 
         // create multi-language column and fill cell
         table1column3 <- sendRequest("POST", "/tables/1/columns", multilangTextColumn) map {
-          _.getArray("columns").get[JsonObject](0).getLong("id")
+          _.getJsonArray("columns").get[JsonObject](0).getLong("id")
         }
         _ <- sendRequest("POST",
                          "/tables/1/columns/3/rows/1",
@@ -580,7 +580,7 @@ class IdentifierTest extends TableauxTestBase {
 
         // create multi-language column and fill cell
         table2column3 <- sendRequest("POST", "/tables/2/columns", multilangTextColumn) map {
-          _.getArray("columns").get[JsonObject](0).getLong("id")
+          _.getJsonArray("columns").get[JsonObject](0).getLong("id")
         }
         _ <- sendRequest("POST",
                          "/tables/2/columns/3/rows/1",
@@ -588,13 +588,13 @@ class IdentifierTest extends TableauxTestBase {
 
         // create link column, which will link to concatcolumn in this case
         table1column4 <- sendRequest("POST", "/tables/1/columns", linkColumnToTable2) map {
-          _.getArray("columns").get[JsonObject](0).getLong("id")
+          _.getJsonArray("columns").get[JsonObject](0).getLong("id")
         }
         _ <- sendRequest("PUT", "/tables/1/columns/4/rows/1", Json.obj("value" -> Json.obj("from" -> 1, "to" -> 1)))
 
         // create link column, which will link to concatcolumn in this case
         table2column5 <- sendRequest("POST", "/tables/2/columns", linkColumnToTable3) map {
-          _.getArray("columns").get[JsonObject](0).getLong("id")
+          _.getJsonArray("columns").get[JsonObject](0).getLong("id")
         }
         _ <- sendRequest("PUT", "/tables/2/columns/5/rows/1", Json.obj("value" -> Json.obj("from" -> 1, "to" -> 1)))
 
