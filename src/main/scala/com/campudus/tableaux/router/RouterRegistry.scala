@@ -49,9 +49,9 @@ class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseR
   private def noRouteFound(implicit context: RoutingContext): Routing = {
     case _ =>
       Error(
-        RouterException(
-          message = s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
-          id = "NOT FOUND",
-          statusCode = 404))
+        RouterException(message =
+                          s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
+                        id = "NOT FOUND",
+                        statusCode = 404))
   }
 }

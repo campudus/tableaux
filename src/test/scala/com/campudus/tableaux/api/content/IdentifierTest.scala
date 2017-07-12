@@ -70,10 +70,9 @@ class IdentifierTest extends TableauxTestBase {
         _ <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson)
 
         // make the first and the last an identifier column and reorder them
-        _ <- sendRequest(
-          "POST",
-          "/tables/1/columns/1",
-          Json.obj("name" -> "Column 1 but second concat column", "identifier" -> true, "ordering" -> 3))
+        _ <- sendRequest("POST",
+                         "/tables/1/columns/1",
+                         Json.obj("name" -> "Column 1 but second concat column", "identifier" -> true, "ordering" -> 3))
         _ <- sendRequest("POST",
                          "/tables/1/columns/3",
                          Json.obj("name" -> "Column 3 but first concat column", "identifier" -> true, "ordering" -> 1))

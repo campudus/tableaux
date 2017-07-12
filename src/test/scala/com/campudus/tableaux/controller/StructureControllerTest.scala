@@ -61,8 +61,7 @@ class StructureControllerTest extends TableauxTestBase {
   def checkCreateColumnWithNullType(implicit c: TestContext): Unit = {
     val controller = createStructureController()
     illegalArgumentTest(
-      controller.createColumns(0,
-                               Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
+      controller.createColumns(0, Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test

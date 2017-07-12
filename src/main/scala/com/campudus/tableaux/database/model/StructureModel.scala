@@ -13,6 +13,7 @@ object StructureModel {
 
 class StructureModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
   val tableStruc = new TableModel(connection)
+
   val columnStruc =
     new CachedColumnModel(connection.vertx.getOrCreateContext().config().getOrElse(new JsonObject()), connection)
   val tableGroupStruc = new TableGroupModel(connection)

@@ -20,6 +20,7 @@ class DeleteStructureTest extends TableauxTestBase {
   }
 
   val createStringColumnJson = RequestCreation.Columns().add(RequestCreation.TextCol("Test Column 1")).getJson
+
   val createIdentifierStringColumnJson =
     RequestCreation.Columns().add(RequestCreation.Identifier(RequestCreation.TextCol("Test Column 1"))).getJson
 

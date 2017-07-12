@@ -11,7 +11,7 @@ plugins {
   id 'com.github.johnrengelman.shadow' version '2.0.1'
   id 'com.github.ksoichiro.build.info' version '0.2.0'
 
-  id 'com.diffplug.gradle.spotless' version '3.4.0'
+  id 'com.diffplug.gradle.spotless' version '3.4.1'
 }
 
 project.group = 'com.campudus'
@@ -194,7 +194,7 @@ assemble.dependsOn shadowJar
  */
 spotless {
   scala {
-    scalafmt('0.6.7').configFile('.scalafmt.conf')
+    scalafmt('1.1.0').configFile('.scalafmt.conf')
   }
 }
 

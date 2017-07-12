@@ -175,8 +175,7 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
       _ = assert(columns.size() == 3)
 
       // create row for table 1
-      createRow11 = Rows(Json.arr(textColumn, booleanColumn),
-                         Json.obj("textcolumn" -> "blub", "booleancolumn" -> true))
+      createRow11 = Rows(Json.arr(textColumn, booleanColumn), Json.obj("textcolumn" -> "blub", "booleancolumn" -> true))
 
       rowId11 <- sendRequest("POST", s"/tables/$table1/rows", createRow11)
         .map(_.getJsonArray("rows").getJsonObject(0).getInteger("id"))

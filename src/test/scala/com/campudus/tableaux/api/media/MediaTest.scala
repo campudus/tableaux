@@ -234,8 +234,7 @@ class AttachmentTest extends MediaTestBase {
         assertEquals(
           fileUuid1,
           resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1).getJsonObject(0).getString("uuid"))
-        assertEquals(resultFill.getJsonArray("value"),
-                     resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1))
+        assertEquals(resultFill.getJsonArray("value"), resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1))
 
         assertNotSame(resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1),
                       resultReplace.getJsonArray("value"))

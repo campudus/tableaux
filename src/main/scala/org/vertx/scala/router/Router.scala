@@ -50,10 +50,10 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
   private def noRouteMatched(context: RoutingContext): (RouteMatch => Reply) = { _ =>
     {
       Error(
-        RouterException(
-          message = s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
-          id = "NOT FOUND",
-          statusCode = 404))
+        RouterException(message =
+                          s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
+                        id = "NOT FOUND",
+                        statusCode = 404))
     }
   }
 

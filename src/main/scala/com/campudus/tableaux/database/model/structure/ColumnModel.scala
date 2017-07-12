@@ -614,7 +614,7 @@ RETURNING column_id, ordering""".stripMargin
         // We need to retrieve all columns, because
         // only then the ConcatColumn is generated.
         retrieveAll(table).flatMap({
-          case Seq(concatColumn: ConcatColumn, _ *) =>
+          case Seq(concatColumn: ConcatColumn, _*) =>
             Future.successful(concatColumn)
           case _ =>
             Future.failed(
@@ -956,8 +956,8 @@ RETURNING column_id, ordering""".stripMargin
 
       column = columns
         .find(_.id == columnId)
-        .getOrElse(throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.",
-                                                     "delete-non-existing"))
+        .getOrElse(
+          throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.", "delete-non-existing"))
 
       _ <- {
         column match {

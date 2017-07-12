@@ -14,8 +14,7 @@ abstract class AbstractTableDisplayInfosTest extends AssertionHelpers {
     assertTrue(di.nonEmpty)
 
     val (createStmt, createBind) = di.createSql
-    assertEquals("INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?)",
-                 createStmt)
+    assertEquals("INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?)", createStmt)
     assertEquals(Seq(1, "de_DE", "Tabelle 1", null), createBind)
 
     assertEquals(1, di.insertSql.size)

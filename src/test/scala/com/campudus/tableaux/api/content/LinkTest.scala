@@ -1539,19 +1539,15 @@ class LinkOrderTest extends LinkTestBase {
 
         import scala.collection.JavaConverters._
 
-        assertEquals(
-          List(1, 2, 3),
-          getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(
-          List(3, 2, 1),
-          getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(1, 2, 3),
+                     getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(3, 2, 1),
+                     getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
 
-        assertEquals(
-          List(1, 2),
-          getFromTable2Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(
-          List(1, 2),
-          getFromTable2Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(1, 2),
+                     getFromTable2Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(1, 2),
+                     getFromTable2Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       }
     }
   }
@@ -1581,12 +1577,10 @@ class LinkOrderTest extends LinkTestBase {
       } yield {
         import scala.collection.JavaConverters._
 
-        assertEquals(
-          List(2, 3, 1),
-          getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(
-          List(2, 1, 3),
-          getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(2, 3, 1),
+                     getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(2, 1, 3),
+                     getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       }
     }
   }
@@ -1608,24 +1602,18 @@ class LinkOrderTest extends LinkTestBase {
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(2))
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/2", putLink(1))
 
-        _ <- sendRequest("PUT",
-                         s"/tables/1/columns/$linkColumnId/rows/1/link/3/order",
-                         Json.obj("location" -> "start"))
-        _ <- sendRequest("PUT",
-                         s"/tables/1/columns/$linkColumnId/rows/2/link/1/order",
-                         Json.obj("location" -> "start"))
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/3/order", Json.obj("location" -> "start"))
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/2/link/1/order", Json.obj("location" -> "start"))
 
         getFromTable1Row1 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
         getFromTable1Row2 <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/2")
       } yield {
         import scala.collection.JavaConverters._
 
-        assertEquals(
-          List(3, 1, 2),
-          getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(
-          List(1, 3, 2),
-          getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(3, 1, 2),
+                     getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(1, 3, 2),
+                     getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       }
     }
   }
@@ -1659,12 +1647,10 @@ class LinkOrderTest extends LinkTestBase {
       } yield {
         import scala.collection.JavaConverters._
 
-        assertEquals(
-          List(2, 1, 3),
-          getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
-        assertEquals(
-          List(2, 3, 1),
-          getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(2, 1, 3),
+                     getFromTable1Row1.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(List(2, 3, 1),
+                     getFromTable1Row2.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
       }
     }
   }
