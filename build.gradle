@@ -1,4 +1,6 @@
 #!groovy
+import java.nio.file.Paths
+import java.text.SimpleDateFormat
 
 plugins {
   id 'java'
@@ -9,7 +11,7 @@ plugins {
   id 'com.github.kt3k.coveralls' version '2.8.1'
 
   id 'com.github.johnrengelman.shadow' version '2.0.1'
-  id 'com.github.ksoichiro.build.info' version '0.2.0'
+  id 'org.ajoberstar.grgit' version '1.7.2'
 
   id 'com.diffplug.gradle.spotless' version '3.4.1'
 }
@@ -169,6 +171,15 @@ coveralls {
 /**
  * Jar stuff
  */
+def df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX") // you can change it
+
+def gitBranch = grgit.branch.getCurrent().fullName
+def gitCommit = grgit.log(maxCommits: 1).get(0).id
+def gitComitterDate = df.format(grgit.log(maxCommits: 1).get(0).date)
+
+def buildTime = df.format(new Date())
+def buildJavaVersion = JavaVersion.current().toString()
+
 jar {
   manifest {
     attributes 'Main-Class': mainClassName
@@ -176,11 +187,20 @@ jar {
     attributes 'Implementation-Vendor': project.group
     attributes 'Implementation-Title': project.name
     attributes 'Implementation-Version': project.version
+    attributes 'Git-Branch': gitBranch
+    attributes 'Git-Commit': gitCommit
+    attributes 'Git-Committer-Date': gitComitterDate
+    attributes 'Build-Date': buildTime
+    attributes 'Build-Java-Version': buildJavaVersion
   }
 }
 
 shadowJar {
   classifier = 'fat'
+
+  manifest {
+    inheritFrom project.tasks.jar.manifest
+  }
 
   mergeServiceFiles {
     include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
