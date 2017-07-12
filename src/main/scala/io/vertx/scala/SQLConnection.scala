@@ -48,9 +48,6 @@ sealed trait DatabaseAction extends VertxAccess {
 }
 
 object SQLConnection {
-  val QUERY_TIMEOUT = 5000
-  val LEASE_TIMEOUT = 10000
-
   type JSQLConnection = io.vertx.scala.ext.sql.SQLConnection
 
   def apply(vertxAccess: VertxAccess, config: JsonObject): SQLConnection = {
