@@ -189,16 +189,16 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   private def convertRowToFile(row: JsonArray): TableauxFile = {
     import scala.collection.JavaConverters._
 
-    val folders: Seq[Long] = if (row.getString(2) == null) {
-      Seq.empty[Long]
-    } else {
-      Json
-        .fromArrayString(row.getString(2))
-        .asScala
-        .toSeq
-        .map({
-          case f: java.lang.Integer => f.longValue()
-        })
+    val folders: Seq[Long] = Option(row.getString(2)) match {
+      case None => Seq.empty[Long]
+      case Some(_) =>
+        Json
+          .fromArrayString(row.getString(2))
+          .asScala
+          .toSeq
+          .map({
+            case f: java.lang.Integer => f.longValue()
+          })
     }
 
     TableauxFile(

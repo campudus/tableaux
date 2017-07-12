@@ -13,8 +13,10 @@ class RetrieveTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Table 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+
   val createNumberColumnJson =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+
   val createBooleanColumnJson =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
 

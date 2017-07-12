@@ -3,43 +3,35 @@ package com.campudus.tableaux.api
 import com.campudus.tableaux.Starter
 import com.campudus.tableaux.testtools.TestAssertionHelper
 import com.typesafe.scalalogging.LazyLogging
-import io.vertx.core.{DeploymentOptions, Vertx}
+import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.FunctionConverters._
+import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
 import org.junit.runner.RunWith
-import org.junit.{Before, Test}
+import org.junit.Test
 import org.vertx.scala.core.json._
 
 import scala.util.{Failure, Success, Try}
 
 @RunWith(classOf[VertxUnitRunner])
-class StarterTest extends LazyLogging with TestAssertionHelper with JsonCompatible {
-
-  val verticle = new Starter
-  implicit lazy val executionContext = verticle.executionContext
+class StarterTest extends LazyLogging with TestAssertionHelper {
 
   val vertx: Vertx = Vertx.vertx()
-  private var deploymentId: String = ""
 
-  @Before
-  def before(context: TestContext) {
-    val async = context.async()
-    async.complete()
-  }
+  implicit lazy val executionContext: VertxExecutionContext = VertxExecutionContext(
+    io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext()))
 
   @Test
   def deployStarterVerticleWithEmptyConfig(implicit c: TestContext): Unit = {
     val async = c.async()
 
-    val options = new DeploymentOptions()
+    val options = DeploymentOptions()
     // will fail because of empty config
       .setConfig(Json.obj())
 
     val completionHandler = {
       case Success(id) =>
         logger.error(s"Verticle deployed with ID $id but shouldn't.")
-        this.deploymentId = id
 
         c.fail("Verticle deployment should fail.")
       case Failure(e) =>
@@ -47,14 +39,16 @@ class StarterTest extends LazyLogging with TestAssertionHelper with JsonCompatib
         async.complete()
     }: Try[String] => Unit
 
-    vertx.deployVerticle(verticle, options, completionHandler)
+    vertx
+      .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+      .onComplete(completionHandler)
   }
 
   @Test
   def deployStarterVerticleWithWrongConfig(implicit c: TestContext): Unit = {
     val async = c.async()
 
-    val options = new DeploymentOptions()
+    val options = DeploymentOptions()
       .setConfig(
         Json.obj(
           // will fail while parsing host
@@ -68,7 +62,6 @@ class StarterTest extends LazyLogging with TestAssertionHelper with JsonCompatib
     val completionHandler = {
       case Success(id) =>
         logger.error(s"Verticle deployed with ID $id but shouldn't.")
-        this.deploymentId = id
 
         c.fail("Verticle deployment should fail.")
       case Failure(e) =>
@@ -76,6 +69,8 @@ class StarterTest extends LazyLogging with TestAssertionHelper with JsonCompatib
         async.complete()
     }: Try[String] => Unit
 
-    vertx.deployVerticle(verticle, options, completionHandler)
+    vertx
+      .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+      .onComplete(completionHandler)
   }
 }

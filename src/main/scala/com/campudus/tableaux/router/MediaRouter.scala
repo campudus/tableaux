@@ -5,11 +5,9 @@ import java.util.UUID
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
-import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.{ArgumentChecker, TableauxConfig}
-import io.vertx.core.http.HttpServerFileUpload
-import io.vertx.ext.web.RoutingContext
-import io.vertx.scala.FunctionConverters._
+import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.JsonObject
 import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing._
@@ -175,11 +173,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       */
     case Put(FileIdLang(uuid, langtag)) =>
       asyncGetReply {
-        handleUpload(context, { (action: UploadAction) =>
-          {
-            controller.replaceFile(UUID.fromString(uuid), langtag, action)
-          }
-        })
+        handleUpload(context, (action: UploadAction) => controller.replaceFile(UUID.fromString(uuid), langtag, action))
       }
 
     /**
@@ -225,24 +219,24 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       implicit context: RoutingContext,
       fn: (UploadAction) => Future[DomainObject]
   ): Future[DomainObject] = {
-    logger.info(s"Handle upload for ${context.request().absoluteURI()} ${context.fileUploads()}")
 
-    val req = context.request()
+    val req: HttpServerRequest = context
+      .request()
+      .setExpectMultipart(true)
+
+    logger.info(s"Handle upload for ${req.absoluteURI()}")
 
     val p = Promise[DomainObject]()
 
     val timerId = vertx.setTimer(
-      10000L, { timerId: java.lang.Long =>
-        {
-          p.failure(
-            RouterException(message = "No valid file upload received",
-                            id = "errors.upload.invalidRequest",
-                            statusCode = 400))
-        }
+      10000L,
+      _ => {
+        p.failure(
+          RouterException(message = "No valid file upload received",
+                          id = "errors.upload.invalidRequest",
+                          statusCode = 400))
       }
     )
-
-    req.setExpectMultipart(true)
 
     // TODO this only can handle one file upload per request
     req.uploadHandler({ upload: HttpServerFileUpload =>
@@ -251,8 +245,8 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
         vertx.cancelTimer(timerId)
 
-        val setExceptionHandler = (exHandler: Throwable => Unit) => upload.exceptionHandler(exHandler)
-        val setEndHandler = (fn: () => Unit) => upload.endHandler(fn())
+        val setExceptionHandler = (exHandler: (Throwable => Unit)) => upload.exceptionHandler(t => exHandler(t))
+        val setEndHandler = (fn: () => Unit) => upload.endHandler(_ => fn())
         val setStreamToFile = (fPath: String) => upload.streamToFileSystem(fPath)
 
         val action =
@@ -260,7 +254,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
         fn(action)
           .map(p.success)
-          .recoverWith({ case e => logger.error("Upload failed", e); p.failure(e); Future.failed(e) })
+          .recoverWith({
+            case e =>
+              logger.error("Upload failed", e)
+              p.failure(e)
+              Future.failed(e)
+          })
       }
     })
 

@@ -5,7 +5,7 @@ import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableT
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
-import io.vertx.ext.web.RoutingContext
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
 import scala.collection.JavaConverters._

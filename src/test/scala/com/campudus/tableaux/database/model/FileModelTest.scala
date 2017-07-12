@@ -14,28 +14,28 @@ import org.junit.runner.RunWith
 class FileModelTest extends TableauxTestBase {
 
   private def createFileModel(): FileModel = {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
     FileModel(dbConnection)
   }
 
   private def createFolderModel(): FolderModel = {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
     FolderModel(dbConnection)
   }
 
   private def createAttachmentModel(): AttachmentModel = {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
     AttachmentModel(dbConnection)
   }
 
   private def createMediaController(): MediaController = {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
 
     MediaController(tableauxConfig, createFolderModel(), createFileModel(), createAttachmentModel())
   }

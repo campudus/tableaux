@@ -116,8 +116,7 @@ class ChangeStructureTest extends TableauxTestBase {
 
         columns <- sendRequest("GET", "/tables/1/columns")
       } yield {
-        assertEquals(columns.getJsonArray("columns").getJsonObject(1).mergeIn(Json.obj("status" -> "ok")),
-                     changeToText)
+        assertEquals(columns.getJsonArray("columns").getJsonObject(1).mergeIn(Json.obj("status" -> "ok")), changeToText)
 
         assertEquals(failed, failedChangeToNumeric)
 

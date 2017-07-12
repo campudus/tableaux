@@ -3,11 +3,10 @@ package com.campudus.tableaux.api.media
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.http.{HttpClient, HttpClientResponse}
+import io.vertx.scala.core.http.{HttpClient, HttpClientResponse}
 import org.vertx.scala.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.FunctionConverters._
 import io.vertx.scala.FutureHelper._
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,7 +14,6 @@ import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
-import scala.util.{Failure, Success, Try}
 
 sealed trait MediaTestBase extends TableauxTestBase {
 
@@ -103,7 +101,7 @@ class AttachmentTest extends MediaTestBase {
         tableId <- createDefaultTable()
 
         columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
@@ -138,7 +136,7 @@ class AttachmentTest extends MediaTestBase {
           resultFill.getJsonArray("value").getJsonObject(0)
         )
 
-        assertEquals(fileUuid, resultRetrieve.getArray("value").get[JsonObject](0).getString("uuid"))
+        assertEquals(fileUuid, resultRetrieve.getJsonArray("value").get[JsonObject](0).getString("uuid"))
       }
     }
   }
@@ -163,7 +161,7 @@ class AttachmentTest extends MediaTestBase {
         tableId <- createDefaultTable()
 
         columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
@@ -236,8 +234,7 @@ class AttachmentTest extends MediaTestBase {
         assertEquals(
           fileUuid1,
           resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1).getJsonObject(0).getString("uuid"))
-        assertEquals(resultFill.getJsonArray("value"),
-                     resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1))
+        assertEquals(resultFill.getJsonArray("value"), resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1))
 
         assertNotSame(resultRetrieve.getJsonArray("values").getJsonArray(columnId - 1),
                       resultReplace.getJsonArray("value"))
@@ -274,7 +271,7 @@ class AttachmentTest extends MediaTestBase {
       for {
         tableId <- createDefaultTable()
         columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
         // Add attachment with malformed uuid
@@ -308,7 +305,7 @@ class AttachmentTest extends MediaTestBase {
         tableId <- createDefaultTable()
 
         columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
@@ -379,13 +376,13 @@ class AttachmentTest extends MediaTestBase {
           resultFill2.getJsonArray("value").getJsonObject(0)
         )
 
-        assertEquals(fileUuid1, resultRetrieveFill.getArray("value").get[JsonObject](0).getString("uuid"))
-        assertEquals(fileUuid2, resultRetrieveFill.getArray("value").get[JsonObject](1).getString("uuid"))
+        assertEquals(fileUuid1, resultRetrieveFill.getJsonArray("value").get[JsonObject](0).getString("uuid"))
+        assertEquals(fileUuid2, resultRetrieveFill.getJsonArray("value").get[JsonObject](1).getString("uuid"))
 
-        assertEquals(fileUuid2, resultRetrieveUpdate.getArray("value").get[JsonObject](0).getString("uuid"))
-        assertEquals(fileUuid1, resultRetrieveUpdate.getArray("value").get[JsonObject](1).getString("uuid"))
+        assertEquals(fileUuid2, resultRetrieveUpdate.getJsonArray("value").get[JsonObject](0).getString("uuid"))
+        assertEquals(fileUuid1, resultRetrieveUpdate.getJsonArray("value").get[JsonObject](1).getString("uuid"))
 
-        assertEquals(fileUuid1, resultRetrieveDelete.getArray("value").get[JsonObject](0).getString("uuid"))
+        assertEquals(fileUuid1, resultRetrieveDelete.getJsonArray("value").get[JsonObject](0).getString("uuid"))
       }
     }
   }
@@ -411,7 +408,7 @@ class AttachmentTest extends MediaTestBase {
         tableId <- createDefaultTable()
 
         columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns)
-          .map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
@@ -472,10 +469,10 @@ class AttachmentTest extends MediaTestBase {
           resultFill2.getJsonArray("value").getJsonObject(0)
         )
 
-        assertEquals(fileUuid1, resultRetrieveFill.getArray("value").get[JsonObject](0).getString("uuid"))
-        assertEquals(fileUuid2, resultRetrieveFill.getArray("value").get[JsonObject](1).getString("uuid"))
+        assertEquals(fileUuid1, resultRetrieveFill.getJsonArray("value").get[JsonObject](0).getString("uuid"))
+        assertEquals(fileUuid2, resultRetrieveFill.getJsonArray("value").get[JsonObject](1).getString("uuid"))
 
-        assertEquals(0, resultRetrieveDelete.getArray("value").size())
+        assertEquals(0, resultRetrieveDelete.getJsonArray("value").size())
       }
     }
   }
@@ -501,7 +498,7 @@ class AttachmentTest extends MediaTestBase {
         tableId <- createDefaultTable()
 
         columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns)
-          .map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
@@ -559,10 +556,10 @@ class AttachmentTest extends MediaTestBase {
           resultFill2.getJsonArray("value").getJsonObject(0)
         )
 
-        assertEquals(fileUuid1, resultRetrieveFill.getArray("value").get[JsonObject](0).getString("uuid"))
-        assertEquals(fileUuid2, resultRetrieveFill.getArray("value").get[JsonObject](1).getString("uuid"))
+        assertEquals(fileUuid1, resultRetrieveFill.getJsonArray("value").get[JsonObject](0).getString("uuid"))
+        assertEquals(fileUuid2, resultRetrieveFill.getJsonArray("value").get[JsonObject](1).getString("uuid"))
 
-        assertEquals(0, resultRetrieveDelete.getArray("value").size())
+        assertEquals(0, resultRetrieveDelete.getJsonArray("value").size())
       }
     }
   }
@@ -592,7 +589,7 @@ class AttachmentTest extends MediaTestBase {
 
         // Create attachment column
         columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
-          .map(_.getArray("columns").get[JsonObject](0).getInteger("id"))
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
 
         // Create new empty row
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
@@ -635,8 +632,8 @@ class AttachmentTest extends MediaTestBase {
           resultFill.getJsonArray("value").getJsonObject(0)
         )
 
-        val attachment1 = resultRetrieve1.getArray("value").get[JsonObject](0)
-        val attachment2 = resultRetrieve2.getArray("value").get[JsonObject](0)
+        val attachment1 = resultRetrieve1.getJsonArray("value").get[JsonObject](0)
+        val attachment2 = resultRetrieve2.getJsonArray("value").get[JsonObject](0)
 
         assertEquals(fileUuid, attachment1.getString("uuid"))
         assertEquals(fileUuid, attachment2.getString("uuid"))
@@ -807,18 +804,18 @@ class FileTest extends MediaTestBase {
     } yield {
       assertEquals(true, file.getBoolean("tmp"))
 
-      assertEquals(meta.getObject("title"), uploadedFile.getObject("title"))
-      assertEquals(Path(filePath).name, uploadedFile.getObject("externalName").getString("zh_CN"))
-      assertEquals(false, uploadedFile.containsField("tmp"))
+      assertEquals(meta.getJsonObject("title"), uploadedFile.getJsonObject("title"))
+      assertEquals(Path(filePath).name, uploadedFile.getJsonObject("externalName").getString("zh_CN"))
+      assertEquals(false, uploadedFile.containsKey("tmp"))
 
-      assertEquals(false, puttedFile.containsField("tmp"))
-      assertEquals(meta.getObject("name"), puttedFile.getObject("name"))
-      assertEquals(meta.getObject("description"), puttedFile.getObject("description"))
+      assertEquals(false, puttedFile.containsKey("tmp"))
+      assertEquals(meta.getJsonObject("name"), puttedFile.getJsonObject("name"))
+      assertEquals(meta.getJsonObject("description"), puttedFile.getJsonObject("description"))
 
-      assertEquals(uploadedFile.getObject("externalName"), puttedFile.getObject("externalName"))
+      assertEquals(uploadedFile.getJsonObject("externalName"), puttedFile.getJsonObject("externalName"))
 
       // We need to remove url because DELETE doesn't return ExtendedFile
-      puttedFile.removeField("url")
+      puttedFile.remove("url")
       assertEquals(puttedFile, deletedFile)
     }
   }
@@ -850,7 +847,7 @@ class FileTest extends MediaTestBase {
 
         _ <- futurify { p: Promise[Unit] =>
           {
-            val url = file.getObject("url").getString("de_DE")
+            val url = file.getJsonObject("url").getString("de_DE")
 
             httpRequest(
               "GET",
@@ -858,8 +855,10 @@ class FileTest extends MediaTestBase {
                 {
                   assertEquals(200, resp.statusCode())
 
-                  assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
-                  assertEquals("Should get the correct content length", s"$size", resp.getHeader("content-length"))
+                  assertEquals("Should get the correct MIME type", Some(mimetype), resp.getHeader("content-type"))
+                  assertEquals("Should get the correct content length",
+                               Some(size.toString),
+                               resp.getHeader("content-length"))
 
                   resp.bodyHandler { buf: Buffer =>
                     client.close()
@@ -879,8 +878,8 @@ class FileTest extends MediaTestBase {
 
         _ <- sendRequest("DELETE", s"/files/${file.getString("uuid")}")
       } yield {
-        assertEquals(meta.getObject("title"), file.getObject("title"))
-        assertEquals(meta.getObject("description"), file.getObject("description"))
+        assertEquals(meta.getJsonObject("title"), file.getJsonObject("title"))
+        assertEquals(meta.getJsonObject("description"), file.getJsonObject("description"))
       }
     }
   }
@@ -912,7 +911,7 @@ class FileTest extends MediaTestBase {
 
         _ <- futurify { p: Promise[Unit] =>
           {
-            val url = file.getObject("url").getString("de")
+            val url = file.getJsonObject("url").getString("de")
 
             httpRequest(
               "GET",
@@ -920,8 +919,10 @@ class FileTest extends MediaTestBase {
                 {
                   assertEquals(200, resp.statusCode())
 
-                  assertEquals("Should get the correct MIME type", mimetype, resp.getHeader("content-type"))
-                  assertEquals("Should get the correct content length", s"$size", resp.getHeader("content-length"))
+                  assertEquals("Should get the correct MIME type", Some(mimetype), resp.getHeader("content-type"))
+                  assertEquals("Should get the correct content length",
+                               Some(size.toString),
+                               resp.getHeader("content-length"))
 
                   resp.bodyHandler { buf: Buffer =>
                     client.close()
@@ -941,8 +942,8 @@ class FileTest extends MediaTestBase {
 
         _ <- sendRequest("DELETE", s"/files/${file.getString("uuid")}")
       } yield {
-        assertEquals(meta.getObject("title"), file.getObject("title"))
-        assertEquals(meta.getObject("description"), file.getObject("description"))
+        assertEquals(meta.getJsonObject("title"), file.getJsonObject("title"))
+        assertEquals(meta.getJsonObject("description"), file.getJsonObject("description"))
       }
     }
   }
@@ -992,18 +993,19 @@ class FileTest extends MediaTestBase {
 
         _ <- sendRequest("DELETE", s"/files/${file.getString("uuid")}")
       } yield {
-        assertEquals(putOne.getObject("title").mergeIn(putTwo.getObject("title")), fileRequested.getObject("title"))
+        assertEquals(putOne.getJsonObject("title").mergeIn(putTwo.getJsonObject("title")),
+                     fileRequested.getJsonObject("title"))
 
-        assertFalse(file.getObject("url").containsField("en_GB"))
+        assertFalse(file.getJsonObject("url").containsKey("en_GB"))
         assertTrue(
           fileReplaced
-            .getObject("url")
-            .containsField("en_GB") && fileReplaced.getObject("url").getString("en_GB") != null)
+            .getJsonObject("url")
+            .containsKey("en_GB") && fileReplaced.getJsonObject("url").getString("en_GB") != null)
 
-        assertNotSame(fileReplaced.getObject("internalName").getString("de_DE"),
-                      fileReplaced2.getObject("internalName").getString("de_DE"))
+        assertNotSame(fileReplaced.getJsonObject("internalName").getString("de_DE"),
+                      fileReplaced2.getJsonObject("internalName").getString("de_DE"))
 
-        assertFalse(deletedEnGB.getObject("internalName").containsField("en_GB"))
+        assertFalse(deletedEnGB.getJsonObject("internalName").containsKey("en_GB"))
       }
     }
   }
@@ -1114,22 +1116,14 @@ class FileTest extends MediaTestBase {
         uploadedFile <- replaceFile(tmpFile.getString("uuid"), "de_DE", file, mimetype)
 
         _ <- {
-          val uploadsDirectory = Path(s"${tableauxConfig.workingDirectory}/${tableauxConfig.uploadsDirectory}")
+          val uploadsDirectory = tableauxConfig.uploadsDirectoryPath()
 
-          val path = uploadsDirectory / Path(uploadedFile.getObject("internalName").getString("de_DE"))
+          val path = uploadsDirectory / Path(uploadedFile.getJsonObject("internalName").getString("de_DE"))
 
-          futurify({ p: Promise[Unit] => // delete tmp file
-          {
-            vertx
-              .fileSystem()
-              .delete(path.toString(), {
-                case Success(_) =>
-                  p.success(())
-                case Failure(e) =>
-                  p.failure(e)
-              }: Try[Void] => Unit)
-          }
-          })
+          // delete tmp file
+          vertx
+            .fileSystem()
+            .deleteFuture(path.toString())
         }
 
         result <- sendRequest("DELETE", s"/files/${tmpFile.getString("uuid")}")
@@ -1238,9 +1232,9 @@ class FileTest extends MediaTestBase {
       for {
         fileAfterCreate <- createFile("de_DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
         fileAfterUploadEn <- uploadFile("PUT", s"/files/$fileUuid/en_GB", file, mimetype)
-        internalNameEn <- Future.successful(fileAfterUploadEn.getObject("internalName").getString("en_GB"))
+        internalNameEn <- Future.successful(fileAfterUploadEn.getJsonObject("internalName").getString("en_GB"))
         fileAfterChange <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
@@ -1296,7 +1290,7 @@ class FileTest extends MediaTestBase {
       for {
         fileAfterCreate <- createFile("de_DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
         exception <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
@@ -1340,7 +1334,7 @@ class FileTest extends MediaTestBase {
       for {
         fileAfterCreate <- createFile("de_DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
         exception <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
@@ -1384,7 +1378,7 @@ class FileTest extends MediaTestBase {
       for {
         fileAfterCreate <- createFile("de_DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
         exception <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
@@ -1428,7 +1422,7 @@ class FileTest extends MediaTestBase {
       for {
         fileAfterCreate <- createFile("de_DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
         exception <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
@@ -1472,7 +1466,7 @@ class FileTest extends MediaTestBase {
       for {
         fileAfterCreate <- createFile("de_DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
         fileAfterChange <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
@@ -1516,7 +1510,7 @@ class FileTest extends MediaTestBase {
       for {
         fileAfterCreate <- createFile("de_DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
         fileAfterChange <- sendRequest(
           "PUT",
           s"/files/$fileUuid",

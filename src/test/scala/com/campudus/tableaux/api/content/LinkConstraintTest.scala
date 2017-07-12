@@ -629,19 +629,15 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         resultCell11 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11")
 
-        resultForeignRows11 <- sendRequest("GET",
-                                           s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11/foreignRows")
+        resultForeignRows11 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11/foreignRows")
 
         resultCell21 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId21")
         resultCell22 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId22")
         resultCell23 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23")
 
-        resultForeignRows21 <- sendRequest("GET",
-                                           s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId21/foreignRows")
-        resultForeignRows23 <- sendRequest("GET",
-                                           s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23/foreignRows")
-        resultForeignRows12 <- sendRequest("GET",
-                                           s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId12/foreignRows")
+        resultForeignRows21 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId21/foreignRows")
+        resultForeignRows23 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23/foreignRows")
+        resultForeignRows12 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId12/foreignRows")
 
         _ <- sendRequest("PATCH",
                          s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11",

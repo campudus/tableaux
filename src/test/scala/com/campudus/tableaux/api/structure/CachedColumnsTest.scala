@@ -58,13 +58,13 @@ class CachedColumnsTest extends TableauxTestBase {
 
         assertFalse(
           columnsBefore
-            .getArray("columns")
+            .getJsonArray("columns")
             .asScala
             .map(_.asInstanceOf[JsonObject])
             .exists(_.getLong("id") == columnId1))
         assertTrue(
           columnsAfter
-            .getArray("columns")
+            .getJsonArray("columns")
             .asScala
             .map(_.asInstanceOf[JsonObject])
             .exists(_.getLong("id") == columnId1))
@@ -88,13 +88,13 @@ class CachedColumnsTest extends TableauxTestBase {
 
         assertTrue(
           columnsBefore
-            .getArray("columns")
+            .getJsonArray("columns")
             .asScala
             .map(_.asInstanceOf[JsonObject])
             .exists(_.getLong("id") == 1))
         assertFalse(
           columnsAfter
-            .getArray("columns")
+            .getJsonArray("columns")
             .asScala
             .map(_.asInstanceOf[JsonObject])
             .exists(_.getLong("id") == 1))

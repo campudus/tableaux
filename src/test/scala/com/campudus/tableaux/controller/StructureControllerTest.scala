@@ -16,8 +16,8 @@ import scala.concurrent.Future
 class StructureControllerTest extends TableauxTestBase {
 
   def createStructureController(): StructureController = {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val model = StructureModel(dbConnection)
 
     StructureController(tableauxConfig, model)
@@ -61,8 +61,7 @@ class StructureControllerTest extends TableauxTestBase {
   def checkCreateColumnWithNullType(implicit c: TestContext): Unit = {
     val controller = createStructureController()
     illegalArgumentTest(
-      controller.createColumns(0,
-                               Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
+      controller.createColumns(0, Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
   }
 
   @Test

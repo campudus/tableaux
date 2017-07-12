@@ -4,8 +4,9 @@ import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
-import io.vertx.ext.sql.{ResultSet, UpdateResult}
-import io.vertx.scala._
+import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
+import io.vertx.scala.{DatabaseAction, SQLConnection}
+import io.vertx.scala.core.Vertx
 import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonCompatible, JsonObject}
 
@@ -17,11 +18,7 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
   implicit val executionContext = connection.executionContext
 
   protected[this] def checkUpdateResults(seq: JsonObject*): Unit = {
-    seq map { json =>
-      {
-        if (json.containsField("message")) updateNotNull(json)
-      }
-    }
+    seq.map(json => if (json.containsKey("message")) updateNotNull(json))
   }
 
   protected[this] def optionToValidFuture[A, B](
@@ -49,16 +46,18 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
 object DatabaseConnection {
   type ScalaTransaction = io.vertx.scala.Transaction
 
-  def apply(verticle: ScalaVerticle, connection: SQLConnection): DatabaseConnection = {
-    new DatabaseConnection(verticle, connection)
+  def apply(vertxAccess: VertxAccess, connection: SQLConnection): DatabaseConnection = {
+    new DatabaseConnection(vertxAccess, connection)
   }
 }
 
-class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnection)
+class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnection)
     extends VertxAccess
     with LazyLogging {
 
   import DatabaseConnection._
+
+  override val vertx: Vertx = vertxAccess.vertx
 
   type TransFunc[+A] = Transaction => Future[(Transaction, A)]
 
@@ -78,9 +77,8 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
 
     def selectSingleValue[A](select: String): Future[(Transaction, A)] = selectSingleValue(select, None)
 
-    def selectSingleValue[A](select: String, parameter: JsonArray): Future[(Transaction, A)] = {
+    def selectSingleValue[A](select: String, parameter: JsonArray): Future[(Transaction, A)] =
       selectSingleValue(select, Some(parameter))
-    }
 
     private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[(Transaction, A)] = {
       for {
@@ -104,13 +102,9 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
     }
   }
 
-  def query(stmt: String): Future[JsonObject] = {
-    doMagicQuery(stmt, None, connection)
-  }
+  def query(stmt: String): Future[JsonObject] = doMagicQuery(stmt, None, connection)
 
-  def query(stmt: String, parameter: JsonArray): Future[JsonObject] = {
-    doMagicQuery(stmt, Some(parameter), connection)
-  }
+  def query(stmt: String, parameter: JsonArray): Future[JsonObject] = doMagicQuery(stmt, Some(parameter), connection)
 
   def begin(): Future[Transaction] = connection.transaction().map(Transaction)
 
@@ -160,9 +154,8 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
 
   def selectSingleValue[A](select: String): Future[A] = selectSingleValue(select, None)
 
-  def selectSingleValue[A](select: String, parameter: JsonArray): Future[A] = {
+  def selectSingleValue[A](select: String, parameter: JsonArray): Future[A] =
     selectSingleValue(select, Some(parameter))
-  }
 
   private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[A] = {
     for {
@@ -203,13 +196,13 @@ class DatabaseConnection(val verticle: ScalaVerticle, val connection: SQLConnect
           case None => connection.update(stmt)
         }
       case (_, _) =>
-        throw new DatabaseException(s"Command $command in Statement $stmt not supported",
-                                    "error.database.command_not_supported")
+        throw DatabaseException(s"Command $command in Statement $stmt not supported",
+                                "error.database.command_not_supported")
     }
 
     future.map({
-      case r: UpdateResult => mapUpdateResult(command, r.toJson)
-      case r: ResultSet => mapResultSet(r.toJson)
+      case r: UpdateResult => mapUpdateResult(command, r.asJava.toJson)
+      case r: ResultSet => mapResultSet(r.asJava.toJson)
       case _ => createExecuteResult(command)
     })
   }

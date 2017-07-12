@@ -34,7 +34,7 @@ class PerformanceTest extends TableauxTestBase {
     for {
       tableId <- sendRequest("POST", "/tables", Json.obj("name" -> tableName)) map (_.getLong("id"))
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn)
-      columnIds = columns.getArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
+      columnIds = columns.getJsonArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
     } yield {
       (tableId.toLong, columnIds)
     }
@@ -180,7 +180,7 @@ class PerformanceTest extends TableauxTestBase {
 
       linkColumns <- sendRequest("POST", s"/tables/${table1._1}/columns", createLinkColumns(table2._1))
       (linkColumnId1, linkColumnId2, linkColumnId3) = linkColumns
-        .getArray("columns")
+        .getJsonArray("columns")
         .asScala
         .toList
         .map({

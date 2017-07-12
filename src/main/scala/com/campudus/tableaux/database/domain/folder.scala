@@ -13,9 +13,10 @@ case class Folder(id: FolderId,
     extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
-    "id" -> {
-      if (id == 0) null else id
-    },
+    "id" -> (id match {
+      case 0 => None.orNull
+      case _ => id
+    }),
     "name" -> name,
     "description" -> description,
     "parent" -> parents.lastOption.orNull, // for compatibility

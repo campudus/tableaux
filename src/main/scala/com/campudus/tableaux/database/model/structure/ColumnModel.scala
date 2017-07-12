@@ -614,7 +614,7 @@ RETURNING column_id, ordering""".stripMargin
         // We need to retrieve all columns, because
         // only then the ConcatColumn is generated.
         retrieveAll(table).flatMap({
-          case Seq(concatColumn: ConcatColumn, _ *) =>
+          case Seq(concatColumn: ConcatColumn, _*) =>
             Future.successful(concatColumn)
           case _ =>
             Future.failed(
@@ -868,11 +868,11 @@ RETURNING column_id, ordering""".stripMargin
       resultLang <- connection.query(selectLang, Json.arr(table.id, columnId))
       displayInfos = resultObjectToJsonArray(resultLang).flatMap({ arr =>
         val langtag = arr.getString(0)
-        val name = arr.getString(1)
-        val description = arr.getString(2)
+        val name = Option(arr.getString(1))
+        val description = Option(arr.getString(2))
 
-        if (name != null || description != null) {
-          Seq(DisplayInfos.fromString(langtag, name, description))
+        if (name.isDefined || description.isDefined) {
+          Seq(DisplayInfos.fromString(langtag, name.orNull, description.orNull))
         } else {
           Seq.empty
         }
@@ -956,8 +956,8 @@ RETURNING column_id, ordering""".stripMargin
 
       column = columns
         .find(_.id == columnId)
-        .getOrElse(throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.",
-                                                     "delete-non-existing"))
+        .getOrElse(
+          throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.", "delete-non-existing"))
 
       _ <- {
         column match {

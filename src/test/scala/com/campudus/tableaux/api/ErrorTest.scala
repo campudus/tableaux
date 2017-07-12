@@ -15,6 +15,7 @@ class ErrorTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+
   val createNumberColumnJson =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
   val fillCellJson = Json.obj("value" -> "Test Fill 1")
@@ -114,8 +115,8 @@ class ErrorTest extends TableauxTestBase {
 
   @Test
   def createTableWithNoExistingSystemTables(implicit c: TestContext): Unit = exceptionTest(errorDatabaseUnknown) {
-    val sqlConnection = SQLConnection(verticle, databaseConfig)
-    val dbConnection = DatabaseConnection(verticle, sqlConnection)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val system = SystemModel(dbConnection)
 
     for {

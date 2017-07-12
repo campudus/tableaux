@@ -4,9 +4,10 @@ import java.util.concurrent.TimeUnit
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.google.common.cache.CacheBuilder
+import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.{AsyncResult, Handler}
-import io.vertx.core.eventbus.{Message, MessageConsumer}
-import io.vertx.scala.ScalaVerticle
+import io.vertx.scala.core.eventbus.{Message, MessageConsumer}
+import io.vertx.lang.scala.{HandlerOps, ScalaVerticle}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.mutable
@@ -41,55 +42,29 @@ object CacheVerticle {
   val ADDRESS_INVALIDATE_ALL = "cache.invalidate.all"
 }
 
-class CacheVerticle extends ScalaVerticle {
+class CacheVerticle extends ScalaVerticle with LazyLogging {
 
   import CacheVerticle._
 
-  lazy val eventBus = vertx.eventBus()
+  private lazy val eventBus = vertx.eventBus()
 
-  val caches: mutable.Map[(TableId, ColumnId), ScalaCache[InMemoryRepr]] = mutable.Map.empty
+  private val caches: mutable.Map[(TableId, ColumnId), ScalaCache[InMemoryRepr]] = mutable.Map.empty
 
-  var consumers: Seq[MessageConsumer[JsonObject]] = _
-
-  override def start(promise: Promise[Unit]): Unit = {
+  override def startFuture(): Future[_] = {
     registerOnEventBus()
-
-    promise.success(())
   }
 
-  override def stop(promise: Promise[Unit]): Unit = {
-    import io.vertx.scala.FunctionConverters._
-
-    // This should be done automatically by Vert.x.
-    // But because of https://github.com/eclipse/vert.x/issues/1625 we need to do this manually.
-    // TODO Remove with Vert.x > 3.3.3
-    val unregisterFuture = Future
-      .sequence(consumers.map({ consumer =>
-        {
-          asyncVoidToFuture(consumer.unregister(_: Handler[AsyncResult[Void]]))
-            .recoverWith({
-              case _ =>
-                logger.warn(s"Unregister consumer failed ${consumer.isRegistered} ${consumer.toString}")
-                Future.successful(())
-            })
-        }
-      }))
-      .map(_ => ())
-
-    promise.completeWith(unregisterFuture)
-  }
-
-  private def registerOnEventBus(): Unit = {
-    import io.vertx.scala.FunctionConverters._
-
-    consumers = Seq(
-      eventBus.localConsumer(ADDRESS_SET, messageHandlerSet(_: Message[JsonObject])),
-      eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve(_: Message[JsonObject])),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell(_: Message[JsonObject])),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn(_: Message[JsonObject])),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow(_: Message[JsonObject])),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable(_: Message[JsonObject])),
-      eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll(_: Message[JsonObject]))
+  private def registerOnEventBus(): Future[_] = {
+    Future.sequence(
+      Seq(
+        eventBus.localConsumer(ADDRESS_SET, messageHandlerSet).completionFuture(),
+        eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable).completionFuture(),
+        eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll).completionFuture()
+      )
     )
   }
 
@@ -99,16 +74,16 @@ class CacheVerticle extends ScalaVerticle {
       val builder = CacheBuilder
         .newBuilder()
 
-      val expireAfterAccess = config().getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
+      val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
       if (expireAfterAccess > 0) {
         builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
       } else {
         logger.info("Cache will not expire!")
       }
 
-      val maximumSize = config().getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
+      val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
       if (maximumSize > 0) {
-        builder.maximumSize(config().getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong)
+        builder.maximumSize(config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong)
       }
 
       builder.recordStats()

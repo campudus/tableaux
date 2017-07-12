@@ -3,7 +3,6 @@ package com.campudus.tableaux.testtools
 import java.net.ServerSocket
 
 import com.campudus.tableaux.TableauxConfig
-import io.vertx.scala.ScalaVerticle
 import org.vertx.scala.core.json._
 
 import scala.io.Source
@@ -11,22 +10,20 @@ import scala.reflect.io.Path
 
 trait TestConfig {
 
-  val verticle: ScalaVerticle
+  lazy val fileConfig: JsonObject = jsonFromFile(
+    "conf-test.json",
+    "conf-travis.json",
+    "../conf-test.json",
+    "../conf-travis.json"
+  )
 
-  lazy val config = {
-    val json = jsonFromFile("conf-test.json", "conf-travis.json", "../conf-test.json", "../conf-travis.json")
+  var host: String
 
-    json
-      .put("host", json.getString("host", "127.0.0.1"))
-      .put("port", port)
-  }
+  var port: Int
 
-  lazy val port = getFreePort
-  lazy val databaseConfig = config.getJsonObject("database", Json.obj())
-  lazy val workingDirectory = config.getString("workingDirectory")
-  lazy val uploadsDirectory = config.getString("uploadsDirectory")
+  var databaseConfig: JsonObject
 
-  lazy val tableauxConfig = TableauxConfig(verticle, databaseConfig, workingDirectory, uploadsDirectory)
+  var tableauxConfig: TableauxConfig
 
   private def readTextFile(filePath: String): String = Source.fromFile(filePath).getLines().mkString
 
@@ -55,11 +52,7 @@ trait TestConfig {
     }
   }
 
-  private def getFreePort: Int = {
-    autoClose(new ServerSocket(0), { socket: ServerSocket =>
-      {
-        socket.getLocalPort
-      }
-    })
+  protected def getFreePort: Int = {
+    autoClose(new ServerSocket(0), (socket: ServerSocket) => socket.getLocalPort)
   }
 }

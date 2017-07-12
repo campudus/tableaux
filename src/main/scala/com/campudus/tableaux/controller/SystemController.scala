@@ -208,13 +208,13 @@ class SystemController(override val config: TableauxConfig,
   }
 
   def invalidateCache(): Future[DomainObject] = {
-    CacheClient(this.vertx)
+    CacheClient(this)
       .invalidateAll()
       .map(_ => EmptyObject())
   }
 
   def invalidateCache(tableId: TableId, columnId: ColumnId): Future[DomainObject] = {
-    CacheClient(this.vertx)
+    CacheClient(this)
       .invalidateColumn(tableId, columnId)
       .map(_ => EmptyObject())
   }

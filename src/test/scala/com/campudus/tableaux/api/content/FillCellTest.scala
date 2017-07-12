@@ -13,13 +13,17 @@ class FillCellTest extends TableauxTestBase {
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
   val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+
   val createNumberColumnJson =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+
   val createCurrencyColumnJson =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
+
   val createBooleanColumnJson =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
   val createDateColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "date", "name" -> "Test Column 4")))
+
   val createDateTimeColumnJson =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "datetime", "name" -> "Test Column 5")))
 

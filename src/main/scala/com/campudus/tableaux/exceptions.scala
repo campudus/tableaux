@@ -86,7 +86,8 @@ case class InvalidRequestException(override val message: String) extends CustomE
   override val statusCode = 400
 }
 
-case class UnknownServerException(override val message: String) extends CustomException {
+case class UnknownServerException(override val message: String, override val cause: Throwable = None.orNull)
+    extends CustomException {
   override val id = "error.unknown"
   override val statusCode = 500
 }

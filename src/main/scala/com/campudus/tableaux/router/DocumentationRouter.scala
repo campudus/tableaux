@@ -4,8 +4,8 @@ import java.net.URL
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper.DocUriParser
-import io.vertx.core.http.HttpServerRequest
-import io.vertx.ext.web.RoutingContext
+import io.vertx.scala.core.http.HttpServerRequest
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
 import scala.io.Source
@@ -37,9 +37,11 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
       * Sometimes we use tableaux behind some weird proxy configurations
       * If so we use x-forwarded headers to figure out how to point to swagger json
       */
-    val forwardedScheme = Option(request.getHeader("x-forwarded-proto"))
+    val forwardedScheme = request
+      .getHeader("x-forwarded-proto")
       .flatMap(_.split(",").headOption)
-    val forwardedHost = Option(request.getHeader("x-forwarded-host"))
+    val forwardedHost = request
+      .getHeader("x-forwarded-host")
       .flatMap(_.split(",").headOption)
       .map(forwardedHost => {
         forwardedHost.split(":").toList match {
@@ -85,7 +87,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
           swaggerURL.toString
         )
 
-      logger.info(s"Headers ${context.request().headers().entries()}")
+      logger.info(s"Headers ${context.request().headers()}")
       logger.info(s"Swagger ${context.request().absoluteURI()} => ($scheme, $host, $basePath) => $swaggerURL")
 
       OkString(file, "text/html; charset=UTF-8")

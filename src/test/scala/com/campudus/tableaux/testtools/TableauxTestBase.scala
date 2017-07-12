@@ -5,19 +5,20 @@ import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
-import com.campudus.tableaux.{CustomException, Starter}
+import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.file.{AsyncFile, OpenOptions}
-import io.vertx.core.http._
+import io.vertx.core.http.HttpMethod
+import io.vertx.scala.core.http._
 import org.vertx.scala.core.json.JsonObject
-import io.vertx.core.streams.Pump
-import io.vertx.core.{AsyncResult, DeploymentOptions, Handler, Vertx}
+import io.vertx.scala.core.streams.Pump
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.FunctionConverters._
+import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
+import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
+import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
 import org.vertx.scala.core.json._
@@ -84,8 +85,7 @@ trait TestAssertionHelper {
   def assertContainsDeep(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext =
     assertContainsDeep(expected, actual, path = "")
 
-  def assertContainsDeep(expected: JsonObject, actual: JsonObject, path: String)(
-      implicit c: TestContext): TestContext = {
+  def assertContainsDeep(expected: JsonObject, actual: JsonObject, path: String)(implicit c: TestContext): TestContext = {
 
     expected
       .fieldNames()
@@ -135,69 +135,81 @@ trait TestAssertionHelper {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHelper with JsonCompatible {
+trait TableauxTestBase
+    extends TestConfig
+    with LazyLogging
+    with TestAssertionHelper
+    with JsonCompatible
+    with TestVertxAccess {
 
-  override val verticle = new Starter
-  implicit lazy val executionContext = verticle.executionContext
+  override var vertx: Vertx = _
 
-  val vertx: Vertx = Vertx.vertx()
-  private var deploymentId: String = ""
+  override implicit var executionContext: VertxExecutionContext = _
+
+  override var databaseConfig: JsonObject = _
+
+  override var host: String = _
+
+  override var port: Int = _
+
+  override var tableauxConfig: TableauxConfig = _
 
   @Before
-  def before(context: TestContext) {
+  def before(context: TestContext): Unit = {
+    vertx = Vertx.vertx()
+
+    executionContext = VertxExecutionContext(
+      io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext())
+    )
+
+    val config = Json
+      .fromObjectString(fileConfig.encode())
+      .put("host", fileConfig.getString("host", "127.0.0.1"))
+      .put("port", getFreePort)
+
+    databaseConfig = config.getJsonObject("database", Json.obj())
+
+    host = config.getString("host")
+    port = config.getInteger("port").intValue()
+
+    tableauxConfig = new TableauxConfig(
+      vertx,
+      databaseConfig,
+      config.getString("workingDirectory"),
+      config.getString("uploadsDirectory")
+    )
+
     val async = context.async()
 
-    val options = new DeploymentOptions()
+    val options = DeploymentOptions()
       .setConfig(config)
 
     val completionHandler = {
       case Success(id) =>
         logger.info(s"Verticle deployed with ID $id")
-        this.deploymentId = id
 
-        val sqlConnection = SQLConnection(verticle, databaseConfig)
-        val dbConnection = DatabaseConnection(verticle, sqlConnection)
+        val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+        val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
         val system = SystemModel(dbConnection)
 
         for {
           _ <- system.uninstall()
           _ <- system.install()
-        } yield {
-          async.complete()
-        }
+        } yield async.complete()
+
       case Failure(e) =>
         logger.error("Verticle couldn't be deployed.", e)
         context.fail(e)
         async.complete()
     }: Try[String] => Unit
 
-    vertx.deployVerticle(verticle, options, completionHandler)
+    vertx
+      .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+      .onComplete(completionHandler)
   }
 
   @After
-  def after(context: TestContext) {
-    val async = context.async()
-
-    vertx.undeploy(
-      deploymentId, {
-        case Success(_) =>
-          logger.info("Verticle undeployed!")
-          vertx.close({
-            case Success(_) =>
-              logger.info("Vertx closed!")
-              async.complete()
-            case Failure(e) =>
-              logger.error("Vertx couldn't be closed!", e)
-              context.fail(e)
-              async.complete()
-          }: Try[Void] => Unit)
-        case Failure(e) =>
-          logger.error("Verticle couldn't be undeployed!", e)
-          context.fail(e)
-          async.complete()
-      }: Try[Void] => Unit
-    )
-  }
+  def after(context: TestContext): Unit = vertx.close(context.asyncAssertSuccess())
 
   def okTest(f: => Future[_])(implicit context: TestContext): Unit = {
     val async = context.async()
@@ -336,73 +348,69 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
   ): HttpClientRequest = {
     val _method = HttpMethod.valueOf(method.toUpperCase)
 
-    val options = new HttpClientOptions()
+    val options = HttpClientOptions()
       .setKeepAlive(false)
 
     val client = vertx.createHttpClient(options)
 
     client
-      .request(_method, port, config.getString("host"), path)
+      .request(_method, port, host, path)
       .handler(responseHandler(client, _: HttpClientResponse))
       .exceptionHandler(exceptionHandler(client, _: Throwable))
   }
 
   protected def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = {
-    futurify { p: Promise[JsonObject] =>
-      {
-        val filePath = getClass.getResource(file).toURI.getPath
-        val fileName = file.substring(file.lastIndexOf("/") + 1)
+    val filePath = getClass.getResource(file).toURI.getPath
+    val fileName = file.substring(file.lastIndexOf("/") + 1)
+    val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
+    val header =
+      "--" + boundary + "\r\n" +
+        "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
+        "Content-Type: " + mimeType + "\r\n\r\n"
+    val footer = "\r\n--" + boundary + "--\r\n"
+    val contentLength =
+      String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
 
-        def requestHandler(req: HttpClientRequest): Unit = {
-          val boundary = "dLV9Wyq26L_-JQxk6ferf-RT153LhOO"
-          val header =
-            "--" + boundary + "\r\n" +
-              "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
-              "Content-Type: " + mimeType + "\r\n\r\n"
+    futurify({ p: Promise[JsonObject] =>
+      def requestHandler(req: HttpClientRequest): Unit = {
+        req.putHeader("Content-length", contentLength)
+        req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
 
-          val footer = "\r\n--" + boundary + "--\r\n"
+        logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
 
-          val contentLength =
-            String.valueOf(vertx.fileSystem.propsBlocking(filePath).size() + header.length + footer.length)
-          req.putHeader("Content-length", contentLength)
-          req.putHeader("Content-type", s"multipart/form-data; boundary=$boundary")
+        req.write(header)
 
-          logger.info(s"Loading file '$filePath' from disc, content-length=$contentLength")
+        val asyncFile: Future[AsyncFile] =
+          vertx.fileSystem().openFuture(filePath, OpenOptions())
 
-          req.write(header)
+        asyncFile.map({ file =>
+          val pump = Pump.pump(file, req)
 
-          import io.vertx.scala.FunctionConverters._
+          file.exceptionHandler({ e: Throwable =>
+            pump.stop()
+            req.end("")
+            p.failure(e)
+          })
 
-          val asyncFile: Future[AsyncFile] =
-            vertx.fileSystem().open(filePath, new OpenOptions(), _: Handler[AsyncResult[AsyncFile]])
-
-          asyncFile.map({ file =>
-            val pump = Pump.pump(file, req)
-
-            file.exceptionHandler({ e: Throwable =>
-              pump.stop()
-              req.end("")
-              p.failure(e)
-            })
-
-            file.endHandler({ _: Void =>
-              file.close({
+          file.endHandler({ _ =>
+            file
+              .closeFuture()
+              .onComplete({
                 case Success(_) =>
                   logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
                   req.end(footer)
                 case Failure(e) =>
                   req.end("")
                   p.failure(e)
-              }: Try[Void] => Unit)
-            })
-
-            pump.start()
+              })
           })
-        }
 
-        requestHandler(httpJsonRequest(method, url, p))
+          pump.start()
+        })
       }
-    }
+
+      requestHandler(httpJsonRequest(method, url, p))
+    })
   }
 
   protected def createDefaultColumns(tableId: TableId): Future[(ColumnId, ColumnId)] = {
@@ -566,7 +574,7 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
     for {
       tableId <- sendRequest("POST", "/tables", Json.obj("name" -> tableName)) map (_.getLong("id"))
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn)
-      columnIds = columns.getArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
+      columnIds = columns.getJsonArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
     } yield {
       (tableId.toLong, columnIds)
     }
@@ -604,10 +612,10 @@ trait TableauxTestBase extends TestConfig with LazyLogging with TestAssertionHel
       tableId = table.getLong("id").toLong
 
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createColumns)
-      columnIds = columns.getArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toList
+      columnIds = columns.getJsonArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toList
 
       linkColumn <- sendRequest("POST", s"/tables/$tableId/columns", createLinkColumn(columnIds.head, linkTo))
-      linkColumnId = linkColumn.getArray("columns").getJsonObject(0).getLong("id").toLong
+      linkColumnId = linkColumn.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
 
     } yield (tableId, columnIds, linkColumnId)
   }

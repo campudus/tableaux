@@ -7,10 +7,9 @@ import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
-import io.vertx.ext.web.RoutingContext
-import io.vertx.scala.FunctionConverters._
+import io.vertx.scala.ext.web.RoutingContext
 import io.vertx.scala.FutureHelper._
-import io.vertx.scala.ScalaVerticle
+import io.vertx.scala.core.Vertx
 import org.vertx.scala.core.json._
 import org.vertx.scala.router.routing.{AsyncReply, Error, Header, Ok}
 import org.vertx.scala.router.{Router, RouterException}
@@ -22,6 +21,8 @@ import scala.util.{Failure, Success, Try}
 trait BaseRouter extends Router with VertxAccess with LazyLogging {
 
   val config: TableauxConfig
+
+  override val vertx: Vertx = config.vertx
 
   /**
     * Regex for a UUID Version 4
@@ -37,8 +38,6 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
     * Base result JSON
     */
   val baseResult = Json.obj("status" -> "ok")
-
-  override val verticle: ScalaVerticle = config.verticle
 
   type AsyncReplyFunction = (=> Future[DomainObject]) => AsyncReply
 
@@ -71,7 +70,7 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   }
 
   def getJson(context: RoutingContext): Future[JsonObject] = futurify { p: Promise[JsonObject] =>
-    context.request().bodyHandler(parseRequestBuffer(p)(_: Buffer))
+    context.request().bodyHandler(parseRequestBuffer(p))
   }
 
   private def parseRequestBuffer(p: Promise[JsonObject])(buffer: Buffer): Unit = {
@@ -103,10 +102,10 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   }
 
   def getLongParam(name: String, context: RoutingContext): Option[Long] = {
-    Option(context.request().getParam(name)).map(_.toLong)
+    context.request().getParam(name).map(_.toLong)
   }
 
   def getStringParam(name: String, context: RoutingContext): Option[String] = {
-    Option(context.request().getParam(name))
+    context.request().getParam(name)
   }
 }
