@@ -76,8 +76,8 @@ object JsonUtils extends LazyLogging {
 
   def toCreateColumnSeq(json: JsonObject): Seq[CreateColumn] = {
     (for {
-      seq <- toJsonObjectSeq("columns", json)
-      tuples <- sequence(seq map { json =>
+      columnObjects <- toJsonObjectSeq("columns", json)
+      createColumnSeq <- sequence(columnObjects.map({ json =>
         {
           for {
             // required fields
@@ -103,12 +103,22 @@ object JsonUtils extends LazyLogging {
 
               case LinkType =>
                 // link specific fields
-                val toName = Try(Option(json.getString("toName"))).toOption.flatten
                 val singleDirection = Try[Boolean](json.getBoolean("singleDirection")).getOrElse(false)
                 val toTableId = hasLong("toTable", json).get
+
+                // bi-directional information for foreign link column (backlink)
+                val toName = Try(Option(json.getString("toName"))).toOption.flatten
                 val toDisplayInfos =
                   Try(Option(json.getJsonObject("toDisplayInfos"))).toOption.flatten.map(DisplayInfos.fromJson)
+                val toOrdering = hasLong("toOrdering", json).toOption
 
+                val createBackLinkColumn = CreateBackLinkColumn(
+                  name = toName,
+                  displayInfos = toDisplayInfos,
+                  ordering = toOrdering
+                )
+
+                // constraints = cardinality and/or deleteCascade
                 val constraint = for {
                   (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
                     val cardinality = json
@@ -123,18 +133,16 @@ object JsonUtils extends LazyLogging {
                       .getJsonObject("constraint")
                       .getBoolean("deleteCascade")
                   ).orElse(Success(false))
-
                 } yield Constraint(Cardinality(cardinalityFrom, cardinalityTo), deleteCascade)
 
                 CreateLinkColumn(name,
                                  ordering,
                                  toTableId,
-                                 toName,
-                                 toDisplayInfos,
                                  singleDirection,
                                  identifier,
                                  displayInfos,
-                                 constraint.getOrElse(DefaultConstraint))
+                                 constraint.getOrElse(DefaultConstraint),
+                                 createBackLinkColumn)
 
               case GroupType =>
                 // group specific fields
@@ -152,8 +160,8 @@ object JsonUtils extends LazyLogging {
             }
           }
         }
-      })
-    } yield tuples).get
+      }))
+    } yield createColumnSeq).get
   }
 
   private def parseJsonForLanguageType(json: JsonObject): LanguageType = {

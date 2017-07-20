@@ -202,4 +202,10 @@ class ArgumentCheckerTest {
     )
 
   }
+
+  @Test
+  def checkAndConvertToOption(): Unit = {
+    assertEquals(None, hasLong("no_long", Json.emptyObj()).toOption)
+    assertEquals(Some(1l), hasLong("long", Json.obj("long" -> 1l)).toOption)
+  }
 }

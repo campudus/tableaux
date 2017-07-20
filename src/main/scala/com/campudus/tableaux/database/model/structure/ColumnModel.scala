@@ -331,15 +331,18 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         t <- {
           if (!linkColumnInfo.singleDirection && tableId != linkColumnInfo.toTable) {
             val copiedLinkColumnInfo = linkColumnInfo.copy(
-              name = linkColumnInfo.toName.getOrElse(table.name),
+              name = linkColumnInfo.foreignLinkColumn.name.getOrElse(table.name),
               identifier = false,
-              displayInfos = linkColumnInfo.toDisplayInfos.getOrElse({
+              displayInfos = linkColumnInfo.foreignLinkColumn.displayInfos.getOrElse({
                 table.displayInfos.map({
                   case DisplayInfo(langtag, Some(name), _) =>
                     NameOnly(langtag, name)
                 })
-              })
+              }),
+              ordering = linkColumnInfo.foreignLinkColumn.ordering,
+              foreignLinkColumn = CreateBackLinkColumn(None, None, None)
             )
+
             // ColumnInfo will be ignored, so we can lose it
             insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
               .map({

@@ -11,24 +11,30 @@ sealed trait ArgumentCheck[A] extends Product with Serializable {
   def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B]
 
   def get: A
+
+  def toOption: Option[A]
 }
 
 case class OkArg[A](value: A) extends ArgumentCheck[A] {
 
-  def map[B](f: A => B): ArgumentCheck[B] = OkArg(f(value))
+  override def map[B](f: A => B): ArgumentCheck[B] = OkArg(f(value))
 
-  def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B] = f(value)
+  override def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B] = f(value)
 
-  def get: A = value
+  override def get: A = value
+
+  override def toOption: Option[A] = Some(get)
 }
 
 case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
 
-  def map[B](f: A => B): ArgumentCheck[B] = FailArg(ex)
+  override def map[B](f: A => B): ArgumentCheck[B] = FailArg(ex)
 
-  def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B] = FailArg(ex)
+  override def flatMap[B](f: A => ArgumentCheck[B]): ArgumentCheck[B] = FailArg(ex)
 
-  def get: A = throw ex
+  override def get: A = throw ex
+
+  override def toOption: Option[A] = None
 }
 
 /**

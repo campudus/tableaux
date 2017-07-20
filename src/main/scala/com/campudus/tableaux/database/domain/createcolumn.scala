@@ -20,15 +20,50 @@ case class CreateSimpleColumn(override val name: String,
                               override val displayInfos: Seq[DisplayInfo])
     extends CreateColumn
 
+case class CreateBackLinkColumn(
+    name: Option[String],
+    ordering: Option[Ordering],
+    displayInfos: Option[Seq[DisplayInfo]]
+)
+
+object CreateLinkColumn {
+
+  def apply(name: String,
+            ordering: Option[Ordering],
+            toTable: TableId,
+            toName: Option[String],
+            toDisplayInfos: Option[Seq[DisplayInfo]],
+            singleDirection: Boolean,
+            identifier: Boolean,
+            displayInfos: Seq[DisplayInfo],
+            constraint: Constraint): CreateLinkColumn = {
+    val createBackLinkColumn = CreateBackLinkColumn(
+      name = toName,
+      displayInfos = toDisplayInfos,
+      ordering = ordering
+    )
+
+    CreateLinkColumn(
+      name,
+      ordering,
+      toTable,
+      singleDirection,
+      identifier,
+      displayInfos,
+      constraint,
+      createBackLinkColumn
+    )
+  }
+}
+
 case class CreateLinkColumn(override val name: String,
                             override val ordering: Option[Ordering],
                             toTable: TableId,
-                            toName: Option[String],
-                            toDisplayInfos: Option[Seq[DisplayInfo]],
                             singleDirection: Boolean,
                             override val identifier: Boolean,
                             override val displayInfos: Seq[DisplayInfo],
-                            constraint: Constraint)
+                            constraint: Constraint,
+                            foreignLinkColumn: CreateBackLinkColumn)
     extends CreateColumn {
   override val kind = LinkType
   override val languageType = LanguageNeutral
