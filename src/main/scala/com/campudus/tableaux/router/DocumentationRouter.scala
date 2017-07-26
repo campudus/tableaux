@@ -40,6 +40,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
     val forwardedScheme = request
       .getHeader("x-forwarded-proto")
       .flatMap(_.split(",").headOption)
+
     val forwardedHost = request
       .getHeader("x-forwarded-host")
       .flatMap(_.split(",").headOption)
@@ -50,7 +51,8 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
           case _ => forwardedHost
         }
       })
-    val forwardedUrl = Option(request.getHeader("x-forwarded-url"))
+
+    val forwardedUrl = request.getHeader("x-forwarded-url")
 
     val uri = (forwardedScheme, forwardedHost, forwardedUrl) match {
       case (Some(scheme), Some(host), Some(query)) => s"$scheme://$host$query"
@@ -87,7 +89,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
           swaggerURL.toString
         )
 
-      logger.info(s"Headers ${context.request().headers()}")
+      logger.info(s"Headers ${context.request().headers().asJava.asInstanceOf[io.vertx.core.MultiMap].entries()}")
       logger.info(s"Swagger ${context.request().absoluteURI()} => ($scheme, $host, $basePath) => $swaggerURL")
 
       OkString(file, "text/html; charset=UTF-8")
