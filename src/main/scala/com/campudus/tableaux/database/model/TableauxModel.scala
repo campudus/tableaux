@@ -488,14 +488,28 @@ class TableauxModel(
 
       foreignTable = linkColumn.to.table
 
-      // We could just fetch the representing columns...
-      // ... problem frontend currently depends on full rows b/c of EntityView.
       representingColumns <- retrieveColumns(foreignTable)
+        .map({ foreignColumns =>
+          // we only need the first/representing column
+          val firstForeignColumn = foreignColumns.head
+
+          // In case of a ConcatColumn we need to retrieve the
+          // other values too, so the ConcatColumn can be build.
+          firstForeignColumn match {
+            case c: ConcatColumn =>
+              c.columns.+:(c)
+            case _ =>
+              Seq(firstForeignColumn)
+          }
+        })
 
       totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId)
       rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, representingColumns, pagination)
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
-    } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+    } yield {
+      val rowsSeq = RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+      rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
+    }
   }
 
   def retrieveRows(table: Table, pagination: Pagination): Future[RowSeq] = {
