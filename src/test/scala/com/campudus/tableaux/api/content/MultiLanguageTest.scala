@@ -171,7 +171,7 @@ class MultiLanguageTest extends TableauxTestBase {
   }
 
   @Test
-  def testRemoveValuesFromMultilanguageRowIncorrectlyYieldsError(implicit c: TestContext): Unit = {
+  def testRemoveValuesFromMultilanguageRowWithPostAndPut(implicit c: TestContext): Unit = {
     okTest {
 
       def valuesRow(columnId: Long) = Json.obj(
@@ -185,8 +185,7 @@ class MultiLanguageTest extends TableauxTestBase {
               ))))
       )
 
-      val incorrectRemove: JsonObject = Json.obj("value" -> Json.obj())
-      val errorJsonArguments = "error.json.arguments"
+      val emptyValue: JsonObject = Json.obj("value" -> Json.obj())
 
       for {
         (tableId, columnId) <- createSimpleTableWithMultilanguageColumn("multi-table", "multi-column")
@@ -195,20 +194,23 @@ class MultiLanguageTest extends TableauxTestBase {
         rowId = rowPost.getJsonArray("rows").get[JsonObject](0).getLong("id")
         cellAfterCreation <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
-        _ <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", incorrectRemove)
-          .map(result => fail(s"Should get exception here but got $result"))
-          .recover {
-            case TestCustomException(message, id, statusCode) =>
-              assertEquals(errorJsonArguments, message)
-              assertEquals(422, statusCode)
-          }
-        cellAfterIncorrectRemove <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", emptyValue)
+        cellAfterEmptyPost <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+        _ <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", emptyValue)
+        cellAfterEmptyPut <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
         assertEquals(
           Json.obj("status" -> "ok", "value" -> Json.obj("de_DE" -> "Hallo, Welt!", "en_US" -> "Hello, World!")),
-          cellAfterCreation)
+          cellAfterCreation
+        )
 
-        assertEquals(cellAfterCreation, cellAfterIncorrectRemove)
+        assertEquals(cellAfterCreation, cellAfterEmptyPost)
+
+        assertEquals(
+          Json.obj("status" -> "ok", "value" -> Json.obj()),
+          cellAfterEmptyPut
+        )
       }
     }
   }

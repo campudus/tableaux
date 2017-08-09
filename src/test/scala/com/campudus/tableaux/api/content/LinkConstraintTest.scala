@@ -444,6 +444,41 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
   }
 
   @Test
+  def duplicateRowWhichShouldFailBecauseOfCardinality(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+
+        rowId <- sendRequest("POST",
+                             s"/tables/$tableId1/rows",
+                             Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
+          .map(_.getJsonArray("rows"))
+          .map(_.getJsonObject(0))
+          .map(_.getLong("id"))
+
+        _ <- sendRequest("POST", s"/tables/$tableId1/rows/$rowId/duplicate", Json.emptyObj())
+          .flatMap(_ => Future.failed(new Exception("this request should fail")))
+          .recoverWith({
+            case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
+          })
+
+        rows <- sendRequest("GET", s"/tables/$tableId1/rows")
+
+        result <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId")
+      } yield {
+        assertEquals(3, rows.getJsonObject("page").getInteger("totalSize"))
+        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
+      }
+    }
+  }
+
+  @Test
   def patchTwoRowsToPointToSameForeignRowsShouldFail(implicit c: TestContext): Unit = {
     import scala.collection.JavaConverters._
 

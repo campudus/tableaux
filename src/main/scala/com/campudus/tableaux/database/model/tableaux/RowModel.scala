@@ -382,7 +382,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           } yield (t, result)
       }
     } else {
-      Future.failed(new IllegalArgumentException("error.json.arguments"))
+      // No values put into multilanguage columns, should be okay
+      Future.successful(())
     }
   }
 

@@ -7,10 +7,11 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{ForbiddenException, NotFoundInDatabaseException, WrongColumnKindException}
+import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 object TableauxModel {
@@ -557,7 +558,18 @@ class TableauxModel(
       row <- retrieveRow(table, columns, rowId)
       rowValues = row.values
 
-      duplicatedRowId <- createRowModel.createRow(table, columns.zip(rowValues))
+      // First create a empty row
+      duplicatedRowId <- createRowModel.createRow(table, Seq.empty)
+
+      // Fill the row with life
+      _ <- updateRowModel
+        .updateRow(table, duplicatedRowId, columns.zip(rowValues))
+        // If this fails delete the row, cleanup time
+        .recoverWith({
+          case NonFatal(ex) =>
+            deleteRow(table, duplicatedRowId)
+               .flatMap(_ => Future.failed(ex))
+        })
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
