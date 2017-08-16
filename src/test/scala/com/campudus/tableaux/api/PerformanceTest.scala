@@ -16,7 +16,8 @@ import scala.concurrent.Future
 @Ignore
 class PerformanceTest extends TableauxTestBase {
 
-  private def createTableWithMultilanguageColumnsAndConcatColumn(tableName: String): Future[(TableId, Seq[ColumnId])] = {
+  private def createTableWithMultilanguageColumnsAndConcatColumn(
+      tableName: String): Future[(TableId, Seq[ColumnId])] = {
     val createMultilanguageColumn = Json.obj(
       "columns" ->
         Json.arr(

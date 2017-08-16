@@ -214,7 +214,7 @@ assemble.dependsOn shadowJar
  */
 spotless {
   scala {
-    scalafmt('1.1.0').configFile('.scalafmt.conf')
+    scalafmt('1.2.0').configFile('.scalafmt.conf')
   }
 }
 
@@ -222,5 +222,5 @@ spotless {
  * Gradle wrapper
  */
 task wrapper(type: Wrapper) {
-  gradleVersion = '4.0'
+  gradleVersion = '4.1'
 }

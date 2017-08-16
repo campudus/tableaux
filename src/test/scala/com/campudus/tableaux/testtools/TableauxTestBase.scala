@@ -85,7 +85,8 @@ trait TestAssertionHelper {
   def assertContainsDeep(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext =
     assertContainsDeep(expected, actual, path = "")
 
-  def assertContainsDeep(expected: JsonObject, actual: JsonObject, path: String)(implicit c: TestContext): TestContext = {
+  def assertContainsDeep(expected: JsonObject, actual: JsonObject, path: String)(
+      implicit c: TestContext): TestContext = {
 
     expected
       .fieldNames()

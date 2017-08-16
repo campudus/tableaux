@@ -568,7 +568,7 @@ class TableauxModel(
         .recoverWith({
           case NonFatal(ex) =>
             deleteRow(table, duplicatedRowId)
-               .flatMap(_ => Future.failed(ex))
+              .flatMap(_ => Future.failed(ex))
         })
 
       // Retrieve duplicated row with all columns
