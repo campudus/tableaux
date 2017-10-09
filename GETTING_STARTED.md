@@ -1,4 +1,20 @@
-# 1. Introduction
+ * [1. Preface](#1-preface)
+    * [1.1. Information is widely spread across the company](#11-information-is-widely-spread-across-the-company)
+    * [1.2. Connecting the dots](#12-connecting-the-dots)
+    * [1.3. Editing / Publishing Separation](#13-editing--publishing-separation)
+ * [2. Getting started](#2-getting-started)
+    * [2.1. Data retrieval](#21-data-retrieval)
+    * [2.2. Data types &amp; column kinds](#22-data-types--column-kinds)
+       * [Primitive data types](#primitive-data-types)
+          * [Examples](#examples)
+       * [Higher data types](#higher-data-types)
+          * [<code>multi-language</code> and <code>multi-country</code>](#multi-language-and-multi-country)
+          * [<code>link</code>](#link)
+          * [<code>concat</code>, and <code>group</code>](#concat-and-group)
+          * [<code>attachment</code>](#attachment)
+
+
+# 1. Preface
 
 GRUD is an acronym and stands for "generic relational enterprise database". Following document should give a short introduction to GRUD and its principles.
 
@@ -262,15 +278,15 @@ Each value for such a multi-language text column is a JSON object like this:
 }
 ```
 
-The keys of such a multi-language value object are called language tags. Here are some examples:
+The keys of such a multi-language value object are called language tags ([RFC 5646 Tags for Identifying Languages](https://tools.ietf.org/html/rfc5646)). Here are some examples:
 
-* `de` is German
-* `de-DE` is German in Germany
-* `de-AT` is German in Austria
-* `en` is English
-* `en-US` is American English
+* `de` represents German.
+* `de-DE` represents German (`de`) as used in Germany (`DE`).
+* `de-AT` represents German (`de`) as used in Austria (`AT`).
+* `en` represents English.
+* `en-US` represents English (`en`) as used in United States (`US`).
 
-Most of the time multi-language data is provided for a specific language and not for a country specific language. Except for `en-US`.
+In the majority of cases multi-language data is provided for a specific language and not for a country specific language. This in most GRUD instances there is no `de-DE` or `de-AT` but a `de` for both because the language differences are not that big.
 
 Additionally to multi-language there is the `languageType` `country`. If a column has this language type there is also another field called `countryCodes`. Here is an example of a multi-country column definition:
 
@@ -299,7 +315,7 @@ Each value for such a multi-country currency column is a JSON object like this:
 }
 ```
 
-### `link`
+#### `link`
 
 This is probably the most important column kind. It is used to make a relation between two tables. A link is a uni- or bidirectional association. Here is an example of a link column definition:
 
@@ -343,10 +359,10 @@ A link column always points to a specific table — in this case the table `1`. 
 ]
 ```
 
-### `concat`, and `group`
+#### `concat` and `group`
 
 This column kinds combines multiple columns into one column. The column kind `concat` is only used to combine multiple `identifier` columns into one column. Additionally there is the column kind `group` which can be used to combine multiple columns into one column for convenience.
 
-### `attachment`
+#### `attachment`
 
 This column kind is used for linking files with their `uuid` to a specific cell. For more information please look up the Swagger API documentation.
