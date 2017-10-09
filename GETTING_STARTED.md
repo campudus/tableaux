@@ -16,7 +16,7 @@
 
 # 1. Preface
 
-GRUD is an acronym and stands for "generic relational enterprise database". Following document should give a short introduction to GRUD and its principles.
+GRUD is an acronym and stands for "generic relational enterprise database". The following document should give a short introduction to GRUD and its principles.
 
 ## 1.1. Information is widely spread across the company
 In today's companies data and information is widely spread across divisions and departments. We saw the need for storing Excel-like data in a structured and centralized way. A company could and should take advantage of connecting all this widespread data.
@@ -35,7 +35,9 @@ Another driving force behind GRUD's software architecture is the principle "Sepa
 
 ## 2.1. Data retrieval
 
-First of all the schema is structured in tables and columns. A table consists of a set of columns and of course its rows. All API endpoints are generic and therefore are not bound to your schema at all. The next three examples will show you how to traverse the data structure.
+The schema is structured in tables and columns. A table consists of a set of columns and of course its rows. All API endpoints are generic and therefore are not bound to your schema at all. The next three examples will show you how to traverse the data structure.
+
+### Retrieving tables
 
 `GET /tables`
 
@@ -45,22 +47,22 @@ Call this endpoint to retrieve all tables.
 {
   "tables": [
     {
-      "id": 1, // Unique table ID
-      "name": "country", // Internal and unique table name
+      "id": 1, // unique table ID
+      "name": "country", // internal and unique table name
       
       //
       // Meta information:
       //
-      "hidden": false, // 
-      "displayName": { // User-friendly table name
+      "hidden": false,
+      "displayName": { // user-friendly table name
         "de": "Land",
         "en": "Country"
       },
-      "description": { // User-friendly table description
+      "description": { // user-friendly table description
         "de": "Liste aller benötigten Länder"
         // ... more languages optional
       },
-      "group": { // Tables can be grouped
+      "group": { // tables can be grouped
         "id": 10,
         "displayName": {
           "de": "Allgemein",
@@ -74,28 +76,30 @@ Call this endpoint to retrieve all tables.
 } 
 ```
 
+### Retrieving columns
+
 `GET /tables/:tableid/columns`
 
-Call this endpoint of a specific tables to retrieve its columns. The different data type will be exampled later. Each table consists of at least one column. Additionally at least one of the tables columns does have the `identifier` flag. The `identifier` flag is used to distinguish one row to another. Multiple `identifier` columns are possible. The `identifier` value of a row is be used as a link value — this will be example in the data types chapter. 
+Call this endpoint of a specific table to retrieve its columns. The different data type will be exampled later. Each table consists of at least one column. Additionally at least one of the tables columns does have the `identifier` flag. The `identifier` flag is used to distinguish one row to another. Multiple `identifier` columns are possible. The `identifier` value of a row is be used as a link value — this will be example in the data types chapter. 
 
 ```
 {
   "columns": [
     {
-      "id": 1, // Unique column ID
-      "ordering": 1, // Ordering can be ignored; used to determine sorting of columns
-      "name": "name", // Internal and unique column name
-      "kind": "shorttext", // Data type
-      "multilanguage": true, // Deprecated, false if languageType equals neutral
-      "languageType": "language", // Language type can be neutral, language, or country
-      "identifier": true, // Flag if this column is used to identify a row
-      "displayName": { // User-friendly table name
+      "id": 1, // unique column ID
+      "ordering": 1, // ordering can be ignored; used to determine sorting of columns
+      "name": "name", // internal and unique column name
+      "kind": "shorttext", // data type
+      "multilanguage": true, // deprecated, false if languageType equals neutral
+      "languageType": "language", // language type can be neutral, language, or country
+      "identifier": true, // flag if this column is used to identify a row
+      "displayName": { // user-friendly column name
         "de": "Name",
         "en": "Name",
         "fr": "Nom",
         "es": "Nombre"
       },
-      "description": { // User-friendly table description
+      "description": { // user-friendly column description
         // ...
       }
     },
@@ -111,6 +115,8 @@ Call this endpoint of a specific tables to retrieve its columns. The different d
   ]
 }
 ```
+
+### Retrieving rows
 
 `GET /tables/:tableid/rows`
 
@@ -151,6 +157,8 @@ Call this endpoint to retrieve all rows of a specific table. Most important part
 }
 ```
 
+### Retrieving a specific column
+
 `GET /tables/:tableid/columns/:columnid`
 
 Call this endpoint to retrieve the definition of one specific column. Same column object definition as above. 
@@ -164,6 +172,8 @@ Call this endpoint to retrieve the definition of one specific column. Same colum
   // ...
 }
 ```
+
+### Retrieving a specific row
 
 `GET /tables/rows/:rowid`
 
@@ -184,6 +194,8 @@ Call this endpoint to retrieve a specific row. Same row object definition as abo
 }
 ```
 
+### Retrieving a specific cell
+
 `GET /tables/:tableid/columns/:columnid/rows/:rowid`
 
 Call this endpoint to retrieve a single value of a specific cell. Value object can be different for the various data types.
@@ -201,15 +213,15 @@ Call this endpoint to retrieve a single value of a specific cell. Value object c
 
 ## 2.2. Data types & column kinds
 
-Each column has a specific data types defined in its `kind` field. There are a number of different data types which will be described in this chapter.
+Each column has a specific data type defined in its `kind` field. There are a number of different data types which will be described in this chapter.
 
 ### Primitive data types
 
-Currently there are a few primitive data types which can be described very easily. All primitive data types can be used in a multi-language column or a language neutral column.
+Currently there are a few primitive data types. All primitive data types can be used in a multi-language column or a language neutral column.
 
-* `text`, `shorttext`, and `richtext`
+* `text`, `shorttext` and `richtext`
 * `numeric` and `currency`
-* `date`, and `datetime`
+* `date` and `datetime`
 * `boolean`
 
 #### Examples 
@@ -217,7 +229,7 @@ Currently there are a few primitive data types which can be described very easil
 For text there are three different column kinds. `text`, `shorttext`, and `richtext`. All three are syntactically the same but semantically different.
 
 * `shorttext` should only contain a word or a short sentence
-* `text` is meant for texts without formation
+* `text` is meant for texts without formatting
 * `richtext` is meant for text with markdown syntax
 
 ```
@@ -225,7 +237,7 @@ For text there are three different column kinds. `text`, `shorttext`, and `richt
 "This is a text"
 ```
 
-The data types `numeric` and `currency` are meant for storing numerical values like integers and floats. The data type `currency` is obviously for storing prices. It's often combined with `languageType` `country` because most prices are country specific.
+The data types `numeric` and `currency` are meant for storing numerical values like integers and floats. `currency` can be used to store prices. It is often combined with `"languageType": "country"` as most prices are country specific.
 
 ```
 // numeric example
@@ -244,18 +256,18 @@ To store date and time information the data types `date`, and `datetime` can be 
 "2017-10-01T13:37:42.000Z"
 ```
 
-Another primitive data type is `boolean`.
+Another primitive data type is `boolean` for simple flags. For example if an entity of your data "uses X" or "has Y".
 
 ```
 // boolean example
 true
 ```
 
-### Higher data types
+### Complex data types
 
 #### `multi-language` and `multi-country`
 
-As described above primitive data types can be used in combination with the `languageType` `language` or `country`. The `languageType` is defined for each column. Here is an example of a multi-language column definition:
+Primitive data types can be used in combination with the `"languageType": "language"` or `"languageType": "country"` in each column. Here is an example of a multi-language column definition:
 
 ```
 {
