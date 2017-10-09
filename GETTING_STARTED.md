@@ -25,7 +25,7 @@ First of all the schema is structured in tables and columns. A table consists of
 
 Call this endpoint to retrieve all tables.
 
-```json
+```
 {
   "tables": [
     {
@@ -62,7 +62,7 @@ Call this endpoint to retrieve all tables.
 
 Call this endpoint of a specific tables to retrieve its columns. The different data type will be exampled later. Each table consists of at least one column. Additionally at least one of the tables columns does have the `identifier` flag. The `identifier` flag is used to distinguish one row to another. Multiple `identifier` columns are possible. The `identifier` value of a row is be used as a link value — this will be example in the data types chapter. 
 
-```json
+```
 {
   "columns": [
     {
@@ -100,7 +100,7 @@ Call this endpoint of a specific tables to retrieve its columns. The different d
 
 Call this endpoint to retrieve all rows of a specific table. Most important part of a row object is `id` and `values`. The `id` is the unique row ID which is needed to identify the row. The `values` array contains one value object for each column. The order of `values` is exactly the same as of `columns`. In this case the table has two columns and therefore each `values` array has the length two. The different data types will be described later on.
 
-```json
+```
 {
   "page": { // result can be paged with two query parameters offset and limit
     "offset": null,
@@ -139,7 +139,7 @@ Call this endpoint to retrieve all rows of a specific table. Most important part
 
 Call this endpoint to retrieve the definition of one specific column. Same column object definition as above. 
 
-```json
+```
 {
   "id": 1,
   "ordering": 1,
@@ -153,7 +153,7 @@ Call this endpoint to retrieve the definition of one specific column. Same colum
 
 Call this endpoint to retrieve a specific row. Same row object definition as above.
 
-```json
+```
 {
   "id": 24,
   "values": [
@@ -172,7 +172,7 @@ Call this endpoint to retrieve a specific row. Same row object definition as abo
 
 Call this endpoint to retrieve a single value of a specific cell. Value object can be different for the various data types.
 
-```json
+```
 {
   "value": {
     "de": "Schweden",
@@ -204,33 +204,33 @@ For text there are three different column kinds. `text`, `shorttext`, and `richt
 * `text` is meant for texts without formation
 * `richtext` is meant for text with markdown syntax
 
-```json
+```
 // shorttext example
 "This is a text"
 ```
 
 The data types `numeric` and `currency` are meant for storing numerical values like integers and floats. The data type `currency` is obviously for storing prices. It's often combined with `languageType` `country` because most prices are country specific.
 
-```json
+```
 // numeric example
 1337.42
 ```
 
 To store date and time information the data types `date`, and `datetime` can be used. 
 
-```json
+```
 // date example
 "2017-10-01"
 ```
 
-```json
+```
 // datetime example
 "2017-10-01T13:37:42.000Z"
 ```
 
 Another primitive data type is `boolean`.
 
-```json
+```
 // boolean example
 true
 ```
@@ -241,7 +241,7 @@ true
 
 As described above primitive data types can be used in combination with the `languageType` `language` or `country`. The `languageType` is defined for each column. Here is an example of a multi-language column definition:
 
-```json
+```
 {
   "id": 2,
   "name": "multilanguageColumn",
@@ -253,7 +253,7 @@ As described above primitive data types can be used in combination with the `lan
 
 Each value for such a multi-language text column is a JSON object like this:
 
-```json
+```
 {
   "de": "Deutsch",
   "en": "English",
@@ -274,7 +274,7 @@ Most of the time multi-language data is provided for a specific language and not
 
 Additionally to multi-language there is the `languageType` `country`. If a column has this language type there is also another field called `countryCodes`. Here is an example of a multi-country column definition:
 
-```json
+```
 {
   "id": 2,
   "name": "price",
@@ -291,7 +291,7 @@ Additionally to multi-language there is the `languageType` `country`. If a colum
 
 Each value for such a multi-country currency column is a JSON object like this:
 
-```json
+```
 {
   "DE": 47.11,
   "AT": 47.11,
@@ -303,7 +303,7 @@ Each value for such a multi-country currency column is a JSON object like this:
 
 This is probably the most important column kind. It is used to make a relation between two tables. A link is a uni- or bidirectional association. Here is an example of a link column definition:
 
-```json
+```
 {
   "id": 8,
   "name": "country",
@@ -325,7 +325,7 @@ This is probably the most important column kind. It is used to make a relation b
 
 A link column always points to a specific table — in this case the table `1`. A link value is the association between at least two rows. In the following example there is one association, one link to the foreign row with the ID `13`. The value used here is the `identifier` value of the foreign row as example in the data retrieval chapter. To retrieve the full row you can call `GET /tables/1/rows/13`.
 
-```json
+```
 [
   {
     "id": 13,
