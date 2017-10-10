@@ -4,6 +4,7 @@
   * [1.3. Editing / Publishing Separation](#13-editing--publishing-separation)
 * [2. Getting started](#2-getting-started)
   * [2.1. Data retrieval](#21-data-retrieval)
+     * [Overview](#overview)
      * [Retrieving tables](#retrieving-tables)
      * [Retrieving columns](#retrieving-columns)
      * [Retrieving rows](#retrieving-rows)
@@ -24,7 +25,9 @@
 GRUD is an acronym and stands for "generic relational enterprise database". The following document should give a short introduction to GRUD and its principles.
 
 ## 1.1. Information is widely spread across the company
-In today's companies data and information is widely spread across divisions and departments. We saw the need for storing Excel-like data in a structured and centralized way. A company could and should take advantage of connecting all this widespread data.
+In today's companies data and information is widely spread across divisions and departments. We saw the need for storing enterprise data in a structured and centralized way. A company could and should take advantage of connecting all this widespread data.
+
+The most valuable asset in your business is data. Managing data in a single source of truth is the crucial part of handling the complexity in today's rising demand for a digital Omnichannel strategy. GRUD enables you to spread content to multiple channels from one source. 
 
 ## 1.2. Connecting the dots
 One of the main ideas is to store enterprise data in simple tables which are interconnected — which do have relations. You could start with simple and unconnected tables. If you start to connect the data in the right way, you will leverage from rich product information. This idea is not new, but every relational database (Oracle, PostgreSQL, MySQL, etc.) out there shows how powerful it can be. We took this idea and its simple core concepts and built a user & consumer centered enterprise database. The core parts of GRUD consists of an RESTful API and an easy-to-use web-based user interface.
@@ -40,13 +43,29 @@ Another driving force behind GRUD's software architecture is the principle "Sepa
 
 ## 2.1. Data retrieval
 
-The schema is structured in tables and columns. A table consists of a set of columns and of course its rows. All API endpoints are generic and therefore are not bound to your schema at all. The next three examples will show you how to traverse the data structure.
+The schema is structured in tables and columns. A table consists of a set of columns and of course its rows. All API endpoints are generic and therefore are not bound to your schema at all.
+
+### Overview
+
+Here is a short overview about the generic API endpoints which are used to retrieve data from GRUD. 
+
+* `/tables[/:tableid]`
+  * Most basic structure is a table. These endpoint also give you metadata about a table like visibility and grouping.
+* `/tables/:tableid/columns[/:columnid]`
+  * Gives you information about how to process and understand data from a specific table.
+* `/tables/:tableid/rows[/:rowid]`
+  * Raw and structured content and metadata like flags or annotations.
+  
+To fully process a table and its rows you need to call these endpoints in order. Which means you first have to get a tables unique ID to get all the columns. After that you can call the `/rows` endpoint of a specific table and process all the rows with the given information about the columns.
+
+The next examples will show you how to traverse the data structure in more detail.
 
 ### Retrieving tables
 
 `GET /tables`
 
-Call this endpoint to retrieve all tables.
+Call this endpoint to retrieve all tables. Tables are the most basic structure in GRUD.  
+In most instances there are many tables which store fundamental information like a list of countries or a list of vendors and some tables which combine these information to a rather comprehensive data structure.
 
 ```
 {
@@ -233,7 +252,7 @@ Currently there are a few primitive data types. All primitive data types can be 
 
 For text there are three different column kinds. `text`, `shorttext`, and `richtext`. All three are syntactically the same but semantically different. Frontend interfaces can use this information to display the text differently.
 
-* `shorttext` should only contain a word or a short sentence
+* `shorttext` should only contain a word or a short sentence — but no line breaks
 * `text` is meant for texts without formatting
 * `richtext` is meant for text with markdown syntax
 
@@ -249,7 +268,7 @@ The data types `numeric` and `currency` are meant for storing numerical values l
 1337.42
 ```
 
-To store date and time information the data types `date` and `datetime` can be used. 
+To store date and time information the data types `date` and `datetime` can be used. For representation of dates and times we use ISO 8601. Combined date and time always includes UTC time zone information.
 
 ```
 // date example
@@ -380,6 +399,50 @@ A link column always points to a specific table — in this case table `1`. A li
 
 This column kinds combines multiple columns into one column. Setting multiple `identifier` columns in a table will create a `concat` column. A `concat` column combines the values from the `identifier` columns into one column and is used to reference a row in a link. The `group` column lets you combine multiple columns into one, for example grouping three columns `height`, `length`, and `depth` together into a single field for the UI as `<height> x <length> x <depth>`.
 
+Here is an example of a `concat` cell which combines three columns (`link`, `shorttext`, and `numeric`):
+
+```
+[
+  [
+    {
+      "id": 10,
+      "value": "Bosch"
+    }
+  ],
+  "Active Cruise",
+  250
+]
+```
+
 #### `attachment`
 
-This column kind is used for linking files with their `uuid` to a specific cell. For more information please look up the Swagger API documentation. Can be found at `/docs` relative to your GRUD API endpoint.
+A attachment column is used to link files from the media management to a specific cell. For more information about the media management API look up the Swagger API documentation. It can be found at `/docs` relative to your GRUD API endpoint.
+
+Here is an example of an attachment cell:
+
+```
+{
+  "uuid": "5a7ae8a7-d2b8-441c-8223-685762297907", // unqiue file uuid
+  "url": { // public file urls for different languages
+    "de": "/files/5a7ae8a7-d2b8-441c-8223-685762297907/de/Test+PDF.pdf"
+  },
+  "folder": 114, // unique folder id which contains this document
+  "folders": [55, 77, 114], // path of folder hierachry
+  "title": {
+    "de": "Test PDF"
+  },
+  "description": {
+  },
+  "internalName": { // internal file name, can be ignored
+    "de": "f6a4f809-5a5c-46a8-a764-2fb291ec9a8a.pdf"
+  },
+  "externalName": { // external file name, used for public urls
+    "de": "Test PDF.pdf"
+  },
+  "mimeType": {
+    "de": "application/pdf"
+  },
+  "createdAt": "2017-03-23T10:01:09.998+01:00",
+  "updatedAt": "2017-03-23T10:01:47.604+01:00"
+}
+```
