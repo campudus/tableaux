@@ -1,18 +1,23 @@
- * [1. Preface](#1-preface)
-    * [1.1. Information is widely spread across the company](#11-information-is-widely-spread-across-the-company)
-    * [1.2. Connecting the dots](#12-connecting-the-dots)
-    * [1.3. Editing / Publishing Separation](#13-editing--publishing-separation)
- * [2. Getting started](#2-getting-started)
-    * [2.1. Data retrieval](#21-data-retrieval)
-    * [2.2. Data types &amp; column kinds](#22-data-types--column-kinds)
-       * [Primitive data types](#primitive-data-types)
-          * [Examples](#examples)
-       * [Higher data types](#higher-data-types)
-          * [<code>multi-language</code> and <code>multi-country</code>](#multi-language-and-multi-country)
-          * [<code>link</code>](#link)
-          * [<code>concat</code>, and <code>group</code>](#concat-and-group)
-          * [<code>attachment</code>](#attachment)
-
+* [1. Preface](#1-preface)
+  * [1.1. Information is widely spread across the company](#11-information-is-widely-spread-across-the-company)
+  * [1.2. Connecting the dots](#12-connecting-the-dots)
+  * [1.3. Editing / Publishing Separation](#13-editing--publishing-separation)
+* [2. Getting started](#2-getting-started)
+  * [2.1. Data retrieval](#21-data-retrieval)
+     * [Retrieving tables](#retrieving-tables)
+     * [Retrieving columns](#retrieving-columns)
+     * [Retrieving rows](#retrieving-rows)
+     * [Retrieving a specific column](#retrieving-a-specific-column)
+     * [Retrieving a specific row](#retrieving-a-specific-row)
+     * [Retrieving a specific cell](#retrieving-a-specific-cell)
+  * [2.2. Data types &amp; column kinds](#22-data-types--column-kinds)
+     * [Primitive data types](#primitive-data-types)
+        * [Examples](#examples)
+     * [Complex data types](#complex-data-types)
+        * [<code>multi-language</code> and <code>multi-country</code>](#multi-language-and-multi-country)
+        * [<code>link</code>](#link)
+        * [<code>concat</code> and <code>group</code>](#concat-and-group)
+        * [<code>attachment</code>](#attachment)
 
 # 1. Preface
 
@@ -22,7 +27,7 @@ GRUD is an acronym and stands for "generic relational enterprise database". The 
 In today's companies data and information is widely spread across divisions and departments. We saw the need for storing Excel-like data in a structured and centralized way. A company could and should take advantage of connecting all this widespread data.
 
 ## 1.2. Connecting the dots
-One of the main ideas is to store enterprise data in simple tables which are interconnected — which do have relations. You could start with simple and dumb tables. If you start to connect the data in the right way, you will leverage from rich product information. This idea is not new, but every relational database (Oracle, PostgreSQL, MySQL, etc.) out there shows how powerful it can be. We took this idea and its simple core concepts and built a user & consumer centered enterprise database. The core parts of GRUD consists of an RESTful API and an easy-to-use web-based user interface.
+One of the main ideas is to store enterprise data in simple tables which are interconnected — which do have relations. You could start with simple and unconnected tables. If you start to connect the data in the right way, you will leverage from rich product information. This idea is not new, but every relational database (Oracle, PostgreSQL, MySQL, etc.) out there shows how powerful it can be. We took this idea and its simple core concepts and built a user & consumer centered enterprise database. The core parts of GRUD consists of an RESTful API and an easy-to-use web-based user interface.
 
 ## 1.3. Editing / Publishing Separation
 Another driving force behind GRUD's software architecture is the principle "Separation of Concerns". Traditional content management systems ship both "content editing" & "content publishing" in one piece of software. Both systems are interleaved but still serve highly different use cases. Content editing and content publishing in an omnichannel universe do have totally different requirements. The life-cycle of e.g. a website is different to a central enterprise database like GRUD.
@@ -80,7 +85,7 @@ Call this endpoint to retrieve all tables.
 
 `GET /tables/:tableid/columns`
 
-Call this endpoint of a specific table to retrieve its columns. The different data type will be exampled later. Each table consists of at least one column. Additionally at least one of the tables columns does have the `identifier` flag. The `identifier` flag is used to distinguish one row to another. Multiple `identifier` columns are possible. The `identifier` value of a row is be used as a link value — this will be example in the data types chapter. 
+Call this endpoint of a specific table to retrieve its columns. The different data type will be exampled later. Each table consists of at least one column. Additionally at least one of the tables columns does have the `identifier` flag. The `identifier` flag is used to distinguish one row to another. Multiple `identifier` columns are possible. The `identifier` value of a row is be used as a link value — this will be example in the [data types chapter](#link). 
 
 ```
 {
@@ -120,7 +125,7 @@ Call this endpoint of a specific table to retrieve its columns. The different da
 
 `GET /tables/:tableid/rows`
 
-Call this endpoint to retrieve all rows of a specific table. Most important part of a row object is `id` and `values`. The `id` is the unique row ID which is needed to identify the row. The `values` array contains one value object for each column. The order of `values` is exactly the same as of `columns`. In this case the table has two columns and therefore each `values` array has the length two. The different data types will be described later on.
+Call this endpoint to retrieve all rows of a specific table. Most important part of a row object is `id` and `values`. The `id` is the unique row ID which is needed to identify the row. The `values` array contains one value object for each column. The order of `values` is exactly the same as of `columns`. In this case the table has two columns and therefore each `values` array has the length two. The different [data types](#22-data-types--column-kinds) will be described later on.
 
 ```
 {
@@ -219,14 +224,14 @@ Each column has a specific data type defined in its `kind` field. There are a nu
 
 Currently there are a few primitive data types. All primitive data types can be used in a multi-language column or a language neutral column.
 
-* `text`, `shorttext` and `richtext`
+* `text`, `shorttext`, and `richtext`
 * `numeric` and `currency`
 * `date` and `datetime`
 * `boolean`
 
 #### Examples 
 
-For text there are three different column kinds. `text`, `shorttext`, and `richtext`. All three are syntactically the same but semantically different.
+For text there are three different column kinds. `text`, `shorttext`, and `richtext`. All three are syntactically the same but semantically different. Frontend interfaces can use this information to display the text differently.
 
 * `shorttext` should only contain a word or a short sentence
 * `text` is meant for texts without formatting
@@ -244,7 +249,7 @@ The data types `numeric` and `currency` are meant for storing numerical values l
 1337.42
 ```
 
-To store date and time information the data types `date`, and `datetime` can be used. 
+To store date and time information the data types `date` and `datetime` can be used. 
 
 ```
 // date example
@@ -298,9 +303,9 @@ The keys of such a multi-language value object are called language tags ([RFC 56
 * `en` represents English.
 * `en-US` represents English (`en`) as used in United States (`US`).
 
-In the majority of cases multi-language data is provided for a specific language and not for a country specific language. This in most GRUD instances there is no `de-DE` or `de-AT` but a `de` for both because the language differences are not that big.
+In the majority of cases multi-language data is provided for a specific language and not for a country specific language. In most GRUD instances we would not recommend country specific values for `de-DE` or `de-AT` for example. Having country specific languages makes the data very flexible but can as well lead to an increase in the maintenance overhead for people inserting data to GRUD. It would only makes sense if the difference in languages is substantial.
 
-Additionally to multi-language there is the `languageType` `country`. If a column has this language type there is also another field called `countryCodes`. Here is an example of a multi-country column definition:
+Additionally to multi-language, `languageType` can be set to `country`. If a column has this `languageType` there needs to be another field called `countryCodes`. Here is an example of a multi-country column definition:
 
 ```
 {
@@ -351,7 +356,7 @@ This is probably the most important column kind. It is used to make a relation b
 }
 ```
 
-A link column always points to a specific table — in this case the table `1`. A link value is the association between at least two rows. In the following example there is one association, one link to the foreign row with the ID `13`. The value used here is the `identifier` value of the foreign row as example in the data retrieval chapter. To retrieve the full row you can call `GET /tables/1/rows/13`.
+A link column always points to a specific table — in this case table `1`. A link value is the association between at least two rows. In the following example there is one association, one link to the foreign row with the ID `13`. The value used here is the `identifier` value of the foreign row as example in the [data retrieval chapter](#21-data-retrieval). To retrieve the full row you can call `GET /tables/1/rows/13`.
 
 ```
 [
@@ -373,8 +378,8 @@ A link column always points to a specific table — in this case the table `1`. 
 
 #### `concat` and `group`
 
-This column kinds combines multiple columns into one column. The column kind `concat` is only used to combine multiple `identifier` columns into one column. Additionally there is the column kind `group` which can be used to combine multiple columns into one column for convenience.
+This column kinds combines multiple columns into one column. Setting multiple `identifier` columns in a table will create a `concat` column. A `concat` column combines the values from the `identifier` columns into one column and is used to reference a row in a link. The `group` column lets you combine multiple columns into one, for example grouping three columns `height`, `length`, and `depth` together into a single field for the UI as `<height> x <length> x <depth>`.
 
 #### `attachment`
 
-This column kind is used for linking files with their `uuid` to a specific cell. For more information please look up the Swagger API documentation.
+This column kind is used for linking files with their `uuid` to a specific cell. For more information please look up the Swagger API documentation. Can be found at `/docs` relative to your GRUD API endpoint.
