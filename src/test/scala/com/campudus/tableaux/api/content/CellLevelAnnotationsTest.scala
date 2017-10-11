@@ -339,7 +339,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
-  def addAnnotationWithoutLangtagsToConcatColumn(implicit c: TestContext): Unit = {
+  def addAnnotationToConcatColumn(implicit c: TestContext): Unit = {
     okTest {
       for {
         tableId <- createEmptyDefaultTable()
@@ -357,17 +357,14 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
-        val exceptedColumn1Flags = Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
+        // annotations array should have length 3 and only one annotation for first column
+        val exceptedFlags = Json.arr(
+          Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment")),
+          null,
+          null
+        )
 
-        // we do have three columns because of the implicit concat column
-        assertEquals(3, rowJson1.getJsonArray("annotations").size())
-
-        // get annotation from concat cell
-        assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
-
-        // no annotation on other cells
-        assertNull(rowJson1.getJsonArray("annotations").getJsonArray(1))
-        assertNull(rowJson1.getJsonArray("annotations").getJsonArray(2))
+        assertContainsDeep(exceptedFlags, rowJson1.getJsonArray("annotations"))
       }
     }
   }
