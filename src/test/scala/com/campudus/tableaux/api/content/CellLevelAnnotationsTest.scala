@@ -1,7 +1,7 @@
 package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
-import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.{TableauxTestBase, TestCustomException}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -335,6 +335,69 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         assertContainsDeep(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
         assertNull(rowJson2.getJsonArray("annotations").getJsonArray(1))
       }
+    }
+  }
+
+  @Test
+  def addAnnotationWithoutLangtagsToConcatColumn(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId <- createEmptyDefaultTable()
+
+        // make second column an identifer
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/2", Json.obj("identifier" -> true))
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest("POST",
+          s"/tables/$tableId/columns/0/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment"))
+
+        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+      } yield {
+        val exceptedColumn1Flags = Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
+
+        // we do have three columns because of the implicit concat column
+        assertEquals(3, rowJson1.getJsonArray("annotations").size())
+
+        // get annotation from concat cell
+        assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
+
+        // no annotation on other cells
+        assertNull(rowJson1.getJsonArray("annotations").getJsonArray(1))
+        assertNull(rowJson1.getJsonArray("annotations").getJsonArray(2))
+      }
+    }
+  }
+
+  @Test
+  def addAnnotationToNonExistingColumn(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId <- createEmptyDefaultTable()
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest("POST",
+          s"/tables/$tableId/columns/0/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment"))
+          .flatMap(_ => Future.failed(new Exception("this request should fail")))
+          .recoverWith({
+            case TestCustomException(_, _, 404) => Future.successful(())
+          })
+
+        _ <- sendRequest("POST",
+          s"/tables/$tableId/columns/3/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment"))
+          .flatMap(_ => Future.failed(new Exception("this request should fail")))
+          .recoverWith({
+            case TestCustomException(_, _, 404) => Future.successful(())
+          })
+      } yield ()
     }
   }
 }

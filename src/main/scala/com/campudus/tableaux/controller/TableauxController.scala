@@ -30,14 +30,14 @@ class TableauxController(override val config: TableauxConfig, override protected
       annotationType: CellAnnotationType,
       value: String
   ): Future[CellLevelAnnotation] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"addCellAnnotation $tableId $columnId $rowId $langtags $annotationType $value")
 
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
       _ = if (column.languageType == LanguageNeutral && langtags.nonEmpty) {
-        throw UnprocessableEntityException("Cannot add an annotation with langtags on a language neutral cell")
+        throw UnprocessableEntityException(s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)")
       }
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
