@@ -454,9 +454,14 @@ case class AttachmentColumn(override val columnInformation: ColumnInformation)
   override def checkValidValue[B](value: B): Try[Option[Seq[(UUID, Option[Ordering])]]] = {
     Try {
       val castedValue = value match {
+        case uuid: String =>
+          notNull(uuid, "uuid")
+          Seq((UUID.fromString(uuid), None))
+
         case attachment: JsonObject =>
           notNull(attachment.getString("uuid"), "uuid")
           Seq((UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong)))
+
         case attachments: JsonArray =>
           import scala.collection.JavaConverters._
           attachments.asScala
@@ -464,8 +469,12 @@ case class AttachmentColumn(override val columnInformation: ColumnInformation)
               case attachment: JsonObject =>
                 notNull(attachment.getString("uuid"), "uuid")
                 (UUID.fromString(attachment.getString("uuid")), Option(attachment.getLong("ordering")).map(_.toLong))
+
+              case uuid: String =>
+                (UUID.fromString(uuid), None)
             })
             .toSeq
+
         case attachments: Stream[_] =>
           attachments.map({
             case file: AttachmentFile =>
