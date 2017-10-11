@@ -648,6 +648,83 @@ class AttachmentTest extends MediaTestBase {
     }
   }
 
+  @Test
+  def testFillAttachmentCellWithUUIDOnly(implicit c: TestContext): Unit = {
+    okTest {
+      val column = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "kind" -> "attachment",
+            "name" -> "Downloads"
+          )))
+
+      val fileName = "Scr$en Shot.pdf"
+      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+      val mimetype = "application/pdf"
+      val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"),
+                             "description" -> Json.obj("de_DE" -> "A description about that PDF."))
+
+      for {
+        tableId <- createDefaultTable()
+
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+
+        rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
+
+        fileUuid1 <- createFile("de_DE", filePath, mimetype, None) map (_.getString("uuid"))
+        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
+
+        fileUuid2 <- createFile("de_DE", filePath, mimetype, None) map (_.getString("uuid"))
+        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+
+        // Add two attachments with POST
+        resultFillTwo <- sendRequest("POST",
+                                     s"/tables/$tableId/columns/$columnId/rows/$rowId",
+                                     Json.obj("value" -> Json.arr(fileUuid1, fileUuid2)))
+
+        // Clear cell
+        _ <- sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+        // Add two attachments the other way aroung
+        resultFillTwoOtherWayAround <- sendRequest("POST",
+                                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
+                                                   Json.obj("value" -> Json.arr(fileUuid2, fileUuid1)))
+
+        // Clear cell
+        _ <- sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId")
+
+        // Add one attachment
+        resultFillOne <- sendRequest("POST",
+                                     s"/tables/$tableId/columns/$columnId/rows/$rowId",
+                                     Json.obj("value" -> Json.arr(fileUuid1)))
+
+        resultFillOnePut <- sendRequest("PUT",
+                                        s"/tables/$tableId/columns/$columnId/rows/$rowId",
+                                        Json.obj("value" -> fileUuid2))
+
+        _ <- sendRequest("DELETE", s"/files/$fileUuid1")
+        _ <- sendRequest("DELETE", s"/files/$fileUuid2")
+      } yield {
+        assertEquals(3, columnId)
+
+        assertEquals(1, resultFillOne.getJsonArray("value").size())
+        assertEquals(1, resultFillOnePut.getJsonArray("value").size())
+
+        assertEquals(2, resultFillTwo.getJsonArray("value").size())
+
+        assertEquals(fileUuid1, resultFillOne.getJsonArray("value").getJsonObject(0).getString("uuid"))
+
+        assertEquals(fileUuid2, resultFillOnePut.getJsonArray("value").getJsonObject(0).getString("uuid"))
+
+        assertEquals(fileUuid1, resultFillTwo.getJsonArray("value").getJsonObject(0).getString("uuid"))
+        assertEquals(fileUuid2, resultFillTwo.getJsonArray("value").getJsonObject(1).getString("uuid"))
+
+        assertEquals(fileUuid2, resultFillTwoOtherWayAround.getJsonArray("value").getJsonObject(0).getString("uuid"))
+        assertEquals(fileUuid1, resultFillTwoOtherWayAround.getJsonArray("value").getJsonObject(1).getString("uuid"))
+      }
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
