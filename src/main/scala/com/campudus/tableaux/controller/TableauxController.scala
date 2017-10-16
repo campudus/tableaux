@@ -45,7 +45,7 @@ class TableauxController(override val config: TableauxConfig, override protected
   }
 
   def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID): Future[EmptyObject] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid")
 
     for {
@@ -62,12 +62,16 @@ class TableauxController(override val config: TableauxConfig, override protected
       uuid: UUID,
       langtag: String
   ): Future[EmptyObject] = {
-    checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId), notNull(langtag, "langtag"))
     logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid $langtag")
 
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
+      _ = if (column.languageType == LanguageNeutral) {
+        throw UnprocessableEntityException(s"There are no annotations with langtags on a language neutral cell (table: $tableId, column: $columnId)")
+      }
+
       _ <- repository.deleteCellAnnotation(column, rowId, uuid, langtag)
     } yield EmptyObject()
   }
