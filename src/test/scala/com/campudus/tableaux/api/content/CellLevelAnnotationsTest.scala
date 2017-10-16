@@ -164,6 +164,23 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
+  def deleteAnnotationWithLangtagOnLanguageNeutralCell(implicit c: TestContext): Unit = {
+    exceptionTest("unprocessable.entity") {
+      for {
+        tableId <- createDefaultTable("Test")
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest("DELETE",
+                         s"/tables/$tableId/columns/1/rows/$rowId/annotations/bb879679-38d5-44ab-980c-e78e7b1b4a7e/en")
+
+      } yield ()
+    }
+  }
+
+  @Test
   def addInvalidAnnotations(implicit c: TestContext): Unit = {
     exceptionTest("error.arguments") {
       for {
@@ -352,8 +369,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         rowId = result.getLong("id")
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/0/rows/$rowId/annotations",
-          Json.obj("type" -> "info", "value" -> "this is a comment"))
+                         s"/tables/$tableId/columns/0/rows/$rowId/annotations",
+                         Json.obj("type" -> "info", "value" -> "this is a comment"))
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -370,6 +387,43 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
+  def deleteAnnotationFromConcatColumn(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId <- createEmptyDefaultTable()
+
+        // make second column an identifer
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/2", Json.obj("identifier" -> true))
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        annotation <- sendRequest("POST",
+                                  s"/tables/$tableId/columns/0/rows/$rowId/annotations",
+                                  Json.obj("type" -> "info", "value" -> "this is a comment"))
+
+        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+
+        _ <- sendRequest("DELETE",
+                         s"/tables/$tableId/columns/0/rows/$rowId/annotations/${annotation.getString("uuid")}")
+
+        rowJson1AfterDelete <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+      } yield {
+        // annotations array should have length 3 and only one annotation for first column
+        val exceptedFlags = Json.arr(
+          Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment")),
+          null,
+          null
+        )
+
+        assertContainsDeep(exceptedFlags, rowJson1.getJsonArray("annotations"))
+        assertNull(rowJson1AfterDelete.getJsonArray("annotations"))
+      }
+    }
+  }
+
+  @Test
   def addAnnotationToNonExistingColumn(implicit c: TestContext): Unit = {
     okTest {
       for {
@@ -380,16 +434,16 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         rowId = result.getLong("id")
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/0/rows/$rowId/annotations",
-          Json.obj("type" -> "info", "value" -> "this is a comment"))
+                         s"/tables/$tableId/columns/0/rows/$rowId/annotations",
+                         Json.obj("type" -> "info", "value" -> "this is a comment"))
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, _, 404) => Future.successful(())
           })
 
         _ <- sendRequest("POST",
-          s"/tables/$tableId/columns/3/rows/$rowId/annotations",
-          Json.obj("type" -> "info", "value" -> "this is a comment"))
+                         s"/tables/$tableId/columns/3/rows/$rowId/annotations",
+                         Json.obj("type" -> "info", "value" -> "this is a comment"))
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, _, 404) => Future.successful(())
