@@ -19,8 +19,8 @@ plugins {
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-def vertxVersion = '3.4.2'
-def scalaVersion = '2.12.3'
+def vertxVersion = '3.5.0'
+def scalaVersion = '2.12.4'
 
 sourceCompatibility = '1.8'
 
@@ -40,12 +40,12 @@ dependencies {
 
   compile "io.vertx:vertx-core:${vertxVersion}"
   compile "io.vertx:vertx-web:${vertxVersion}"
-  compile("io.vertx:vertx-mysql-postgresql-client:${vertxVersion}")
+  compile "io.vertx:vertx-mysql-postgresql-client:${vertxVersion}"
 
   // add Vert.x Scala
   compile "io.vertx:vertx-lang-scala_2.12:${vertxVersion}"
   compile "io.vertx:vertx-web-scala_2.12:${vertxVersion}"
-  compile("io.vertx:vertx-mysql-postgresql-client-scala_2.12:${vertxVersion}")
+  compile "io.vertx:vertx-mysql-postgresql-client-scala_2.12:${vertxVersion}"
 
   compile 'joda-time:joda-time:2.9.9'
   compile 'com.typesafe.scala-logging:scala-logging_2.12:3.7.2'
