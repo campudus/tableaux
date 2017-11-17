@@ -87,10 +87,18 @@ testScoverage {
 }
 
 run {
+  def configFile = "conf.json"
+
+  if (project.hasProperty("conf")) {
+    configFile = conf
+  } else {
+    println("Using default config file 'conf.json'")
+  }
+
   args = [
       "run",
       mainVerticle,
-      "-conf", "conf.json"
+      "-conf", configFile
   ]
 
   environment ENV: "development"

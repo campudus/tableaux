@@ -45,6 +45,12 @@ or with automatic redeploy on code changes
 ./gradlew runRedeploy
 ```
 
+## Run with different `conf` file
+
+```
+./gradlew run -Pconf='other.json'
+```
+
 ## Highlevel Features
 
 * Content Creation System
