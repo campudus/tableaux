@@ -694,6 +694,91 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     }
   }
 
+  def retrieveTablesWithCellAnnotations(tables: Seq[Table]): Future[Seq[TableWithCellAnnotations]] = {
+    val query = tables
+      .map({
+        case Table(id, _, _, _, _, _, _) =>
+          s"""SELECT
+             |$id::bigint as table_id,
+             |ua.row_id,
+             |ua.column_id,
+             |ua.uuid,
+             |array_to_json(ua.langtags::text[]) AS langtags,
+             |ua.type,
+             |ua.value,
+             |${parseDateTimeSql("ua.created_at")} AS created_at
+             |FROM user_table_$id ut JOIN user_table_annotations_$id ua ON (ut.id = ua.row_id)""".stripMargin
+      })
+      .mkString("", " UNION ALL ", " ORDER BY table_id, row_id, column_id, created_at")
+
+    for {
+      result <- connection.query(query)
+    } yield {
+      resultObjectToJsonArray(result)
+        .map(jsonArrayToSeq)
+        .map({
+          case Seq(tableId: TableId,
+                   rowId: RowId,
+                   columnId: ColumnId,
+                   uuidStr: String,
+                   langtags: String,
+                   annotationType: String,
+                   value: String,
+                   createdAtStr: String) =>
+            import scala.collection.JavaConverters._
+
+            (
+              tables.find(table => table.id == tableId).getOrElse(Table(tableId)),
+              rowId,
+              columnId,
+              CellLevelAnnotation(
+                UUID.fromString(uuidStr),
+                CellAnnotationType(annotationType),
+                Json.fromArrayString(langtags).asScala.map(_.toString).toList,
+                value,
+                DateTime.parse(createdAtStr)
+              )
+            )
+
+          case invalidAnnotation =>
+            throw UnknownServerException(s"Invalid annotation ($invalidAnnotation) stored in database.")
+        })
+        .groupBy({
+          case (table: Table, _, _, _) => table.id
+        })
+        .toSeq
+        .map({
+          case (tableId: TableId, annotationsByTable) =>
+            // take Table instance from first annotation
+            // ... all Table objects are same b/c we grouped by table
+            val table = annotationsByTable.headOption
+              .map({
+                case (table: Table, _, _, _) => table
+              })
+              // better safe than sorry
+              .getOrElse(Table(tableId))
+
+            val groupedAnnotations = annotationsByTable
+              .groupBy({
+                case (_, rowId: RowId, _, _) => rowId
+              })
+              .map({
+                case (rowId: RowId, annotationsByRow) =>
+                  rowId ->
+                    annotationsByRow
+                      .groupBy({
+                        case (_, _, columnId: ColumnId, _) => columnId
+                      })
+                      .mapValues(_.map({
+                        case (_, _, _, annotation) => annotation
+                      }))
+              })
+
+            TableWithCellAnnotations(table, groupedAnnotations)
+        })
+    }
+  }
+
   def retrieveAnnotations(
       tableId: TableId,
       rowId: RowId,

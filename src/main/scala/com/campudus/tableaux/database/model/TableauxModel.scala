@@ -49,6 +49,10 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.tableStruc.retrieve(tableId)
   }
 
+  def retrieveTables(): Future[Seq[Table]] = {
+    structureModel.tableStruc.retrieveAll()
+  }
+
   def createColumns(table: Table, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
     structureModel.columnStruc.createColumns(table, columns)
   }
@@ -245,6 +249,16 @@ class TableauxModel(
     for {
       _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
     } yield ()
+  }
+
+  def retrieveTableWithCellAnnotations(table: Table): Future[TableWithCellAnnotations] = {
+    retrieveTablesWithCellAnnotations(Seq(table)).map({ annotations =>
+      annotations.headOption.getOrElse(TableWithCellAnnotations(table, Map.empty))
+    })
+  }
+
+  def retrieveTablesWithCellAnnotations(tables: Seq[Table]): Future[Seq[TableWithCellAnnotations]] = {
+    retrieveRowModel.retrieveTablesWithCellAnnotations(tables)
   }
 
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
@@ -658,5 +672,9 @@ class TableauxModel(
 
       values <- retrieveRowModel.retrieveColumnValues(shortTextColumn, langtagOpt)
     } yield values
+  }
+
+  def retrieveTotalSize(table: Table): Future[Long] = {
+    retrieveRowModel.size(table.id)
   }
 }
