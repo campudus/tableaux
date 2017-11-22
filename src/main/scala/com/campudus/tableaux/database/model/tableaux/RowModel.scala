@@ -3,6 +3,7 @@ package com.campudus.tableaux.database.model.tableaux
 import java.util.UUID
 
 import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.domain.{MultiLanguageColumn, RowLevelAnnotations, _}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
@@ -659,6 +660,39 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   import ModelHelper._
+
+  def retrieveColumnValues(column: ShortTextColumn, langtagOpt: Option[Langtag]): Future[Seq[String]] = {
+    val tableId = column.table.id
+
+    val projection = column.languageType match {
+      case LanguageNeutral => s"ut.column_${column.id}"
+      case MultiLanguage | MultiCountry(_) => s"utl.column_${column.id}"
+    }
+
+    val (whereClause, bind) = (column.languageType, langtagOpt) match {
+      case (LanguageNeutral, None) =>
+        (s"(COALESCE(TRIM($projection), '') = '') IS FALSE", Json.arr())
+      case (MultiLanguage, Some(langtag)) =>
+        (s"langtag = ? AND (COALESCE(TRIM($projection), '') = '') IS FALSE", Json.arr(langtag))
+      case (MultiLanguage, None) =>
+        throw new IllegalArgumentException(
+          "Column values from multi-language column can only be retrieved with a langtag")
+      case _ =>
+        throw new IllegalArgumentException(
+          "Column values can only be retrieved from shorttext language-neutral or multi-language columns")
+    }
+
+    val query =
+      s"SELECT DISTINCT $projection FROM ${generateFromClause(tableId)} WHERE $whereClause ORDER BY $projection"
+
+    for {
+      result <- connection.query(query, bind)
+    } yield {
+      resultObjectToJsonArray(result)
+        .map(jsonArrayToSeq)
+        .flatMap(_.headOption.map(_.toString))
+    }
+  }
 
   def retrieveAnnotations(
       tableId: TableId,

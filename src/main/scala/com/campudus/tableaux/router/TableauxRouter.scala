@@ -25,6 +25,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val LinkOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/link/(\\d+)".r
   private val LinkOrderOfCell: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/link/(\\d+)/order".r
 
+  private val ColumnsValues: Regex = "/tables/(\\d+)/columns/(\\d+)/values".r
+  private val ColumnsValuesWithLangtag: Regex = s"/tables/(\\d+)/columns/(\\d+)/values/($langtagRegex)".r
+
   private val Cell: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)".r
   private val CellAnnotations: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/annotations".r
   private val CellAnnotation: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/annotations/($uuidRegex)".r
@@ -312,6 +315,22 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Delete(LinkOfCell(tableId, columnId, rowId, toId)) =>
       asyncGetReply {
         controller.deleteLink(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong)
+      }
+
+    /**
+      * Retrieve unique values of a shorttext column
+      */
+    case Get(ColumnsValues(tableId, columnId)) =>
+      asyncGetReply {
+        controller.retrieveColumnValues(tableId.toLong, columnId.toLong, None)
+      }
+
+    /**
+      * Retrieve unique values of a multi-language shorttext column
+      */
+    case Get(ColumnsValuesWithLangtag(tableId, columnId, langtag)) =>
+      asyncGetReply {
+        controller.retrieveColumnValues(tableId.toLong, columnId.toLong, Some(langtag))
       }
   }
 }
