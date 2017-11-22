@@ -1,6 +1,8 @@
 # Tableaux specific
 conf.json
-conf-test.json
+conf-*.json
+!conf-example.json
+!conf-travis.json
 uploads/
 .vertx/
 uploads*
