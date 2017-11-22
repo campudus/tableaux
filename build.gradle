@@ -131,7 +131,8 @@ sourceSets {
 
     // let Scala compiler do everything – even java stuff
     scala {
-      srcDirs = ['src/main/scala', 'src/main/java']
+      srcDirs += "src/main/scala"
+      srcDirs += "src/main/java"
     }
     java {
       srcDirs = []
@@ -162,16 +163,16 @@ coveralls {
 
   def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
 
-  def sourceDirStrings = new ArrayList()
+  def sourceDirsList = new ArrayList<String>()
   subprojects.sourceSets.main.allSource.srcDirs.each {
     it.each {
       def basePath = Paths.get(System.getProperty("user.dir"))
       def relPath = basePath.relativize(Paths.get(it.toString()))
-      sourceDirStrings.add(relPath.toString())
+      sourceDirsList.add(relPath.toString())
     }
   }
 
-  sourceDirs = sourceDirStrings.flatten()
+  sourceDirs = sourceDirsList
 
   coberturaReportPath = coverageReportPath
 }
@@ -181,7 +182,7 @@ coveralls {
  */
 def df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX") // you can change it
 
-def gitBranch = grgit.branch.getCurrent().fullName
+def gitBranch = grgit.branch.current().fullName
 def gitCommit = grgit.log(maxCommits: 1).get(0).id
 def gitComitterDate = df.format(grgit.log(maxCommits: 1).get(0).date)
 
