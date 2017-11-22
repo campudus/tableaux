@@ -5,10 +5,12 @@ import java.util.UUID
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.cache.CacheClient
+import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
+import io.vertx.lang.scala.json.Json
 
 import scala.concurrent.Future
 
@@ -37,7 +39,8 @@ class TableauxController(override val config: TableauxConfig, override protected
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
       _ = if (column.languageType == LanguageNeutral && langtags.nonEmpty) {
-        throw UnprocessableEntityException(s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)")
+        throw UnprocessableEntityException(
+          s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)")
       }
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
@@ -62,14 +65,18 @@ class TableauxController(override val config: TableauxConfig, override protected
       uuid: UUID,
       langtag: String
   ): Future[EmptyObject] = {
-    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId), notNull(langtag, "langtag"))
+    checkArguments(greaterZero(tableId),
+                   greaterThan(columnId, -1, "columnId"),
+                   greaterZero(rowId),
+                   notNull(langtag, "langtag"))
     logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid $langtag")
 
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
       _ = if (column.languageType == LanguageNeutral) {
-        throw UnprocessableEntityException(s"There are no annotations with langtags on a language neutral cell (table: $tableId, column: $columnId)")
+        throw UnprocessableEntityException(
+          s"There are no annotations with langtags on a language neutral cell (table: $tableId, column: $columnId)")
       }
 
       _ <- repository.deleteCellAnnotation(column, rowId, uuid, langtag)
@@ -290,5 +297,15 @@ class TableauxController(override val config: TableauxConfig, override protected
       _ <- repository.createRows(table, rows.map(columnIds.zip(_)))
       completeTable <- retrieveCompleteTable(table.id)
     } yield completeTable
+  }
+
+  def retrieveColumnValues(tableId: TableId, columnId: ColumnId, langtagOpt: Option[Langtag]): Future[DomainObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(columnId))
+    logger.info(s"retrieveColumnValues $tableId $columnId $langtagOpt")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      values <- repository.retrieveColumnValues(table, columnId, langtagOpt)
+    } yield PlainDomainObject(Json.obj("values" -> values))
   }
 }

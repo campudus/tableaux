@@ -648,4 +648,15 @@ class TableauxModel(
         } yield list ++ List(Row(table, rowId, rowLevelFlags, cellLevelFlags, columnsWithPostProcessedValues))
     }
   }
+
+  def retrieveColumnValues(table: Table, columnId: ColumnId, langtagOpt: Option[String]): Future[Seq[String]] = {
+    for {
+      shortTextColumn <- retrieveColumn(table, columnId).flatMap({
+        case shortTextColumn: ShortTextColumn => Future.successful(shortTextColumn)
+        case column => Future.failed(WrongColumnKindException(column, classOf[ShortTextColumn]))
+      })
+
+      values <- retrieveRowModel.retrieveColumnValues(shortTextColumn, langtagOpt)
+    } yield values
+  }
 }
