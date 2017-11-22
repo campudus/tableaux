@@ -124,23 +124,23 @@ class ColumnValuesTest extends TableauxTestBase {
       _ <- sendRequest("POST", s"/tables/$tableId/columns", Columns(createBooleanColumnJson))
         .map(_.getJsonArray("columns"))
 
-      _ <- sendRequest("GET", s"/tables/$tableId/columns/1/values/de") // should fail b/c multi-country is not allowed
-        .flatMap(_ => Future.failed(new Exception("this request should fail")))
+      _ <- sendRequest("GET", s"/tables/$tableId/columns/1/values/de")
+        .flatMap(_ => Future.failed(new Exception("request should fail b/c multi-country is not allowed")))
         .recoverWith({
           case TestCustomException(_, _, 422) => Future.successful(())
         })
-      _ <- sendRequest("GET", s"/tables/$tableId/columns/2/values/de") // should fail b/c shouldn't be called with langtag
-        .flatMap(_ => Future.failed(new Exception("this request should fail")))
+      _ <- sendRequest("GET", s"/tables/$tableId/columns/2/values/de")
+        .flatMap(_ => Future.failed(new Exception("request should fail b/c shouldn't be called with langtag")))
         .recoverWith({
           case TestCustomException(_, _, 422) => Future.successful(())
         })
-      _ <- sendRequest("GET", s"/tables/$tableId/columns/3/values") // should fail b/c numeric is not allowed
-        .flatMap(_ => Future.failed(new Exception("this request should fail")))
+      _ <- sendRequest("GET", s"/tables/$tableId/columns/3/values")
+        .flatMap(_ => Future.failed(new Exception("request should fail b/c numeric is not allowed")))
         .recoverWith({
           case TestCustomException(_, _, 400) => Future.successful(())
         })
-      _ <- sendRequest("GET", s"/tables/$tableId/columns/4/values") // should fail b/c boolean is not allowed
-        .flatMap(_ => Future.failed(new Exception("this request should fail")))
+      _ <- sendRequest("GET", s"/tables/$tableId/columns/4/values")
+        .flatMap(_ => Future.failed(new Exception("request should fail b/c boolean is not allowed")))
         .recoverWith({
           case TestCustomException(_, _, 400) => Future.successful(())
         })
