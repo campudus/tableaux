@@ -29,9 +29,8 @@ object TableauxModel {
 }
 
 /**
-  * Needed because of `TableauxController#createCompleteTable` &
-  * `TableauxController#retrieveCompleteTable`. Should only
-  * be used by following delegate methods.
+  * Needed because e.g. `TableauxController#createCompleteTable` and `TableauxController#retrieveCompleteTable`
+  * need to call method from `StructureModel`.
   */
 sealed trait StructureDelegateModel extends DatabaseQuery {
 
@@ -259,6 +258,21 @@ class TableauxModel(
 
   def retrieveTablesWithCellAnnotations(tables: Seq[Table]): Future[Seq[TableWithCellAnnotations]] = {
     retrieveRowModel.retrieveTablesWithCellAnnotations(tables)
+  }
+
+  def retrieveTablesWithCellAnnotationCount(tables: Seq[Table]): Future[Seq[TableWithCellAnnotationCount]] = {
+    val tableIds = tables.map({ case Table(id, _, _, _, _, _, _) => id })
+
+    for {
+      annotationCountMap <- retrieveRowModel.retrieveCellAnnotationCount(tableIds)
+      totalSizeMap <- Future.sequence(tables.map(table => retrieveTotalSize(table).map((table, _))))
+    } yield {
+      totalSizeMap.map({
+        case (table, count) =>
+          val annotationCount = annotationCountMap.getOrElse(table.id, Seq.empty)
+          TableWithCellAnnotationCount(table, count, annotationCount)
+      })
+    }
   }
 
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {

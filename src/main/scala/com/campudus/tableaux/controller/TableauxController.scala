@@ -108,6 +108,18 @@ class TableauxController(override val config: TableauxConfig, override protected
     }
   }
 
+  def retrieveTablesWithCellAnnotationCount(): Future[DomainObject] = {
+    logger.info(s"retrieveTablesWithCellAnnotationCount")
+
+    for {
+      tables <- repository.retrieveTables()
+
+      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(tables)
+    } yield {
+      PlainDomainObject(Json.obj("tables" -> tablesWithCellAnnotationCount.map(_.getJson)))
+    }
+  }
+
   def retrieveTranslationStatus(): Future[DomainObject] = {
     logger.info(s"retrieveTranslationStatus")
 
@@ -133,93 +145,79 @@ class TableauxController(override val config: TableauxConfig, override protected
         case _ => false
       })
 
-      translationStatusByTable <- Future.sequence(relevantTables.map({
-        case (table, multiLanguageColumnsCount) =>
-          for {
-            totalSize <- repository.retrieveTotalSize(table)
-            annotations <- repository.retrieveTableWithCellAnnotations(table)
-          } yield {
-            // count needs translation flags
-            // could be done with sql statement
-            val needsTranslationCountForLangtags = table.langtags
-              .getOrElse(Seq.empty)
-              .map({ langtag =>
-                val count = annotations.annotations.foldLeft(0)({
-                  case (acc, (_, annotationsByColumns)) =>
-                    acc + annotationsByColumns.values.flatten.count({
-                      case CellLevelAnnotation(_, FlagAnnotationType, annotationLangtags, "needs_translation", _)
-                          if annotationLangtags.contains(langtag) =>
-                        true
-                      case _ =>
-                        false
-                    })
-                })
-
-                (langtag, count)
-              })
-
-            // calculate translation status for this table
-            val needsTranslationStatusForLangtags = needsTranslationCountForLangtags.map({
-              case (langtag, count) =>
-                val multiLanguageCellCount = totalSize * multiLanguageColumnsCount
-
-                val percentage = if (count > 0 && multiLanguageCellCount > 0) {
-                  1.0 - (count.toDouble / multiLanguageCellCount.toDouble)
-                } else {
-                  1.0
-                }
-                (langtag, percentage)
-            })
-
-            // table, multi-language columns, total row size
-            (table,
-             multiLanguageColumnsCount,
-             totalSize,
-             needsTranslationCountForLangtags,
-             needsTranslationStatusForLangtags)
-          }
+      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables.map({
+        case (table, _) => table
       }))
     } yield {
+      val tablesWithMultiLanguageColumnCountMap = tablesWithMultiLanguageColumnCount.toMap
+
+      val translationStatusByTable = tablesWithCellAnnotationCount.map({
+        case TableWithCellAnnotationCount(table, totalSize, annotationCount) => {
+          val langtags = table.langtags.getOrElse(Seq.empty)
+
+          val multiLanguageColumnsCount = tablesWithMultiLanguageColumnCountMap.getOrElse(table, 0)
+
+          val multiLanguageCellCount = totalSize * multiLanguageColumnsCount
+
+          val needsTranslationCount = annotationCount.filter({
+            case CellAnnotationCount(FlagAnnotationType, Some("needs_translation"), _, _, _) => true
+            case _ => false
+          })
+
+          val needsTranslationStatusByLangtag = langtags
+            .map(langtag => {
+              val count = needsTranslationCount
+                .map({
+                  case CellAnnotationCount(_, _, Some(`langtag`), count: Long, _) => count
+                  case _ => 0
+                })
+                .sum
+
+              val percentage = if (count > 0 && multiLanguageCellCount > 0) {
+                1.0 - (count.toDouble / multiLanguageCellCount.toDouble)
+              } else {
+                1.0
+              }
+
+              (langtag, percentage)
+            })
+
+          (table, multiLanguageColumnsCount, totalSize, needsTranslationStatusByLangtag)
+        }
+      })
+
       val translationStatusByTableJson = translationStatusByTable.map({
-        case (table,
-              multiLanguageColumnsCount,
-              totalSize,
-              needsTranslationCountForLangtags,
-              needsTranslationStatusForLangtags) =>
+        case (table, _, _, needsTranslationStatusForLangtags) =>
           table.getJson.mergeIn(
             Json.obj(
-              "totalSize" -> totalSize,
-              "multiLanguageColumnsCount" -> multiLanguageColumnsCount,
-              "needsTranslationCount" -> Json.obj(needsTranslationCountForLangtags: _*),
               "needsTranslationStatus" -> Json.obj(needsTranslationStatusForLangtags: _*)
             ))
       })
 
       val mergedLangtags = tables.foldLeft(Seq.empty[String])({
-        case (acc, table) =>
-          acc ++ table.langtags.getOrElse(Seq.empty).distinct
+        case (langtagsAcc, table) =>
+          (langtagsAcc ++ table.langtags.getOrElse(Seq.empty)).distinct
       })
 
       val translationStatus = mergedLangtags.map({ langtag =>
-        val percentage = translationStatusByTable.foldLeft(Seq.empty)({
-          case (acc, (_, _, _, _, needsTranslationStatusForLangtags)) =>
-            needsTranslationStatusForLangtags
-              .find({
-                case (l, _) =>
-                  l == langtag
-              })
-              .map({
-                case (_, translationStatus) => translationStatus
-              })
-            acc
-        })
+        val mergedTranslationStatusForLangtag = translationStatusByTable
+          .flatMap({
+            case (_, _, _, translationStatusByLangtag) => translationStatusByLangtag
+          })
+          .filter({
+            case (`langtag`, _) => true
+            case _ => false
+          })
+
+        (langtag, mergedTranslationStatusForLangtag.map(_._2).sum / mergedTranslationStatusForLangtag.size)
       })
 
       PlainDomainObject(
         Json.obj(
           "tables" -> translationStatusByTableJson,
-          //"translationStatus": translationStatus
-        ))
+          "translationStatus" -> Json.obj(translationStatus: _*)
+        )
+      )
     }
   }
 

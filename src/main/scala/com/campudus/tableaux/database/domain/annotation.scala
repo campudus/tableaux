@@ -151,26 +151,28 @@ case class TableWithCellAnnotations(table: Table, annotations: Map[RowId, Map[Co
   }
 }
 
-case class TableWithCellAnnotationsCount(table: Table,
-                                         totalSize: Long,
-                                         annotationsCount: Seq[(CellAnnotationType, Long, DateTime)])
+case class CellAnnotationCount(annotationType: CellAnnotationType,
+                               value: Option[String],
+                               langtag: Option[String],
+                               count: Long,
+                               lastCreatedAt: DateTime)
     extends DomainObject {
 
   override def getJson: JsonObject = {
-    val counts = Json.obj(
-      annotationsCount
-        .map({
-          case (annotationType, count, updatedAt) =>
-            (
-              annotationType.toString,
-              Json.obj(
-                "count" -> count,
-                "updatedAt" -> updatedAt.toString()
-              )
-            )
-        }): _*
+    Json.obj(
+      "type" -> annotationType.toString,
+      "value" -> value.orNull,
+      "langtag" -> langtag.orNull,
+      "count" -> count,
+      "lastCreatedAt" -> lastCreatedAt.toString()
     )
+  }
+}
 
-    table.getJson.mergeIn(Json.obj("totalSize" -> totalSize, "annotations" -> counts))
+case class TableWithCellAnnotationCount(table: Table, totalSize: Long, annotationCount: Seq[CellAnnotationCount])
+    extends DomainObject {
+
+  override def getJson: JsonObject = {
+    table.getJson.mergeIn(Json.obj("totalSize" -> totalSize, "annotationCount" -> compatibilityGet(annotationCount)))
   }
 }

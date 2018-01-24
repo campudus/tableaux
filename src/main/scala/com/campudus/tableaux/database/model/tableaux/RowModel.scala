@@ -721,9 +721,9 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
                    rowId: RowId,
                    columnId: ColumnId,
                    uuidStr: String,
-                   langtags: String,
+                   langtags: String, // TODO null-safety
                    annotationType: String,
-                   value: String,
+                   value: String, // TODO null-safety
                    createdAtStr: String) =>
             import scala.collection.JavaConverters._
 
@@ -779,6 +779,53 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     }
   }
 
+  def retrieveCellAnnotationCount(tables: Seq[TableId]): Future[Map[TableId, Seq[CellAnnotationCount]]] = {
+    val query = tables
+      .map({ tableId =>
+        s"""|SELECT
+            |$tableId::bigint as table_id,
+            |ua.type,
+            |CASE WHEN type = 'flag' THEN value END AS type_value,
+            |CASE WHEN ua.langtags <> '{}' THEN UNNEST(ua.langtags) END AS langtag,
+            |COUNT(*),
+            |${parseDateTimeSql("MAX(ua.created_at)")} AS last_created_at
+            |FROM user_table_annotations_$tableId ua
+            |WHERE NOT (type = 'flag' AND value = 'needs_translation' AND (langtags = '{}' OR langtags IS NULL))
+            |GROUP BY type, type_value, langtag""".stripMargin
+      })
+      .mkString("", " UNION ALL ", " ORDER BY table_id, type, type_value, last_created_at DESC")
+
+    for {
+      result <- connection.query(query)
+    } yield {
+      resultObjectToJsonArray(result)
+        .map(jsonArrayToSeq)
+        .map({
+          case Seq(tableId: TableId, annotationType: String, value, langtag, count: Long, lastCreatedAtStr: String) =>
+            (
+              tableId,
+              CellAnnotationCount(
+                CellAnnotationType(annotationType),
+                Option(value).map(_.asInstanceOf[String]),
+                Option(langtag).map(_.asInstanceOf[String]),
+                count,
+                DateTime.parse(lastCreatedAtStr)
+              )
+            )
+
+          case invalidRow =>
+            invalidRow.size
+            throw UnknownServerException(s"Invalid aggregated annotation count ($invalidRow) stored in database.")
+        })
+        .groupBy({
+          case (tableId: TableId, _) => tableId
+        })
+        .mapValues(_.map({
+          case (_, annotationTypeCount: CellAnnotationCount) => annotationTypeCount
+        }))
+    }
+  }
+
   def retrieveAnnotations(
       tableId: TableId,
       rowId: RowId,
@@ -786,7 +833,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   ): Future[(RowLevelAnnotations, CellLevelAnnotations)] = {
     for {
       result <- connection.query(
-        s"SELECT ut.id, ${generateFlagsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?",
+        s"SELECT ut.id, ${generateFlagsAndAnnotationsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?",
         Json.arr(rowId))
     } yield {
       val rawRow = mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
@@ -963,7 +1010,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
         "NULL"
     }
 
-    Seq(Seq("ut.id"), Seq(generateFlagsProjection(tableId)), projection).flatten
+    Seq(Seq("ut.id"), Seq(generateFlagsAndAnnotationsProjection(tableId)), projection).flatten
       .mkString(",")
   }
 
@@ -1020,7 +1067,7 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
        |GROUP BY sub.${direction.fromSql}) AS column_${c.id}""".stripMargin
   }
 
-  private def generateFlagsProjection(tableId: TableId): String = {
+  private def generateFlagsAndAnnotationsProjection(tableId: TableId): String = {
     s"""|ut.final AS final_flag,
         |(SELECT json_agg(
         |  json_build_object(
