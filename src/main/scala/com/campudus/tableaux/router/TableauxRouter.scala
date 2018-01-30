@@ -49,9 +49,10 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   private val AnnotationsTables: Regex = "/tables/annotations".r
   private val AnnotationsTable: Regex = "/tables/(\\d+)/annotations".r
+
   private val AnnotationCountTables: Regex = "/tables/annotationCount".r
 
-  private val TranslationStatus: Regex = "/tables/translationstatus".r
+  private val TranslationStatus: Regex = "/tables/translationStatus".r
 
   override def routes(implicit context: RoutingContext): Routing = {
 
@@ -247,7 +248,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       }
 
     /**
-      * Retrieve Cell Annotations for all tables
+      * Retrieve all Cell Annotations for all tables
       */
     case Get(AnnotationsTables()) =>
       asyncGetReply {
@@ -255,7 +256,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       }
 
     /**
-      * Retrieve Cell Annotations for specific table
+      * Retrieve all Cell Annotations for a specific table
       */
     case Get(AnnotationsTable(tableId)) =>
       asyncGetReply {
