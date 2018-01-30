@@ -780,6 +780,12 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
   }
 
   def retrieveCellAnnotationCount(tables: Seq[TableId]): Future[Map[TableId, Seq[CellAnnotationCount]]] = {
+
+    /**
+      * If type is not flag we ignore the value. Other types (info, warning, error) are comment annotations.
+      * Their values are always different. The value of flag annotations is important because it describes what
+      * sort of flag annotation it is (needs_translation, important, check-me, later).
+      */
     val query = tables
       .map({ tableId =>
         s"""|SELECT
