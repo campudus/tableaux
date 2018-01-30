@@ -125,6 +125,7 @@ class TableauxController(override val config: TableauxConfig, override protected
 
     for {
       tables <- repository.retrieveTables()
+
       tablesWithMultiLanguageColumnCount <- Future.sequence(
         tables.map(
           table =>
@@ -137,7 +138,8 @@ class TableauxController(override val config: TableauxConfig, override protected
                 })
 
                 (table, multiLanguageColumnsCount)
-              }))
+              })
+        )
       )
 
       relevantTables = tablesWithMultiLanguageColumnCount.filter({
@@ -145,9 +147,7 @@ class TableauxController(override val config: TableauxConfig, override protected
         case _ => false
       })
 
-      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables.map({
-        case (table, _) => table
-      }))
+      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables.unzip._1)
     } yield {
       val tablesWithMultiLanguageColumnCountMap = tablesWithMultiLanguageColumnCount.toMap
 
@@ -190,7 +190,7 @@ class TableauxController(override val config: TableauxConfig, override protected
         case (table, _, _, needsTranslationStatusForLangtags) =>
           table.getJson.mergeIn(
             Json.obj(
-              "needsTranslationStatus" -> Json.obj(needsTranslationStatusForLangtags: _*)
+              "translationStatus" -> Json.obj(needsTranslationStatusForLangtags: _*)
             ))
       })
 
@@ -208,8 +208,9 @@ class TableauxController(override val config: TableauxConfig, override protected
             case (`langtag`, _) => true
             case _ => false
           })
+          .map(_._2)
 
-        (langtag, mergedTranslationStatusForLangtag.map(_._2).sum / mergedTranslationStatusForLangtag.size)
+        (langtag, mergedTranslationStatusForLangtag.sum / mergedTranslationStatusForLangtag.size)
       })
 
       PlainDomainObject(
