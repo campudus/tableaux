@@ -8,6 +8,7 @@ uploads/
 uploads*
 classes/
 !src/test/resources/com/campudus/tableaux/uploads
+bin/
 
 # Gradle
 .gradle/
@@ -23,7 +24,7 @@ build/
 *.sc
 
 # SBT specific
-.cache
+.cache*
 .history
 .lib/
 dist/*
@@ -40,3 +41,4 @@ project/plugins/project/
 # Eclipse specific
 .project
 .classpath
+.settings
