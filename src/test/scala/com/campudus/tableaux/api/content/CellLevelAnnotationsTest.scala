@@ -528,4 +528,55 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def retrieveAnnotationsFromSpecificTableAfterDeletingColumns(implicit c: TestContext): Unit = {
+    okTest {
+
+      for {
+        (tableId, _) <- createTableWithMultilanguageColumns("Test")
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns",
+          Json.obj(
+            "columns" ->
+              Json.arr(
+                Json.obj("kind" -> "link", "singleDirection" -> true, "name" -> "Test Column 8", "toTable" -> tableId)
+              )
+          )
+        )
+
+        // empty row 1
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId1 = result.getLong("id")
+
+        // empty row 2
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId2 = result.getLong("id")
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/2/rows/$rowId1/annotations",
+          Json.obj("langtags" -> Json.arr("de"), "type" -> "info", "value" -> "this is a comment")
+        )
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/8/rows/$rowId1/annotations",
+          Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> "this is another comment")
+        )
+
+        annotationsBefore <- sendRequest("GET", s"/tables/$tableId/annotations")
+
+        _ <- sendRequest("DELETE", s"/tables/$tableId/columns/2")
+        _ <- sendRequest("DELETE", s"/tables/$tableId/columns/8")
+
+        annotationsAfter <- sendRequest("GET", s"/tables/$tableId/annotations")
+      } yield {
+        // no annotation after column was deleted
+        assertFalse(annotationsBefore.getJsonArray("annotationsByRows").isEmpty)
+        assertTrue(annotationsAfter.getJsonArray("annotationsByRows").isEmpty)
+      }
+    }
+  }
 }

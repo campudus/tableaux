@@ -974,6 +974,9 @@ RETURNING column_id, ordering""".stripMargin
   }
 
   private def deleteLink(column: LinkColumn, bothDirections: Boolean): Future[Unit] = {
+    val tableId = column.table.id
+    val columnId = column.id
+
     for {
       t <- connection.begin()
 
@@ -991,24 +994,39 @@ RETURNING column_id, ordering""".stripMargin
         // ColumnModel.deleteLink() with both = true
         // is called by StructureController.deleteTable().
         val deleteFuture = if (bothDirections) {
-          t.query("DELETE FROM system_columns WHERE link_id = ?", Json.arr(linkId))
+          for {
+            (t, _) <- t.query(
+              s"""
+                 |DELETE FROM user_table_annotations_$tableId ua
+                 |WHERE EXISTS (
+                 |SELECT 1 FROM system_columns c
+                 |WHERE
+                 |  c.link_id = ? AND
+                 |  c.table_id = ? AND
+                 |  ua.column_id = c.column_id
+                 |)""".stripMargin,
+              Json.arr(linkId, tableId)
+            )
+            (t, _) <- t.query("DELETE FROM system_columns WHERE link_id = ?", Json.arr(linkId))
+          } yield t
         } else {
-          t.query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?",
-                  Json.arr(column.id, column.table.id))
+          for {
+            (t) <- deleteSystemColumn(t, tableId, columnId)
+            (t) <- deleteAnnotations(t, tableId, columnId)
+          } yield t
         }
 
-        deleteFuture.flatMap({
-          case (t, _) =>
-            if (unidirectional || bothDirections) {
-              // drop link_table if link is unidirectional or
-              // both directions where forcefully deleted
-              for {
-                (t, _) <- t.query(s"DROP TABLE IF EXISTS link_table_$linkId")
-                (t, _) <- t.query(s"DELETE FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
-              } yield (t, Json.obj())
-            } else {
-              Future.successful((t, Json.obj()))
-            }
+        deleteFuture.flatMap({ t =>
+          if (unidirectional || bothDirections) {
+            // drop link_table if link is unidirectional or
+            // both directions where forcefully deleted
+            for {
+              (t, _) <- t.query(s"DROP TABLE IF EXISTS link_table_$linkId")
+              (t, _) <- t.query(s"DELETE FROM system_link_table WHERE link_id = ?", Json.arr(linkId))
+            } yield (t, Json.obj())
+          } else {
+            Future.successful((t, Json.obj()))
+          }
         })
       }
 
@@ -1017,14 +1035,17 @@ RETURNING column_id, ordering""".stripMargin
   }
 
   private def deleteAttachment(column: AttachmentColumn): Future[Unit] = {
+    val tableId = column.table.id
+    val columnId = column.id
+
     for {
       t <- connection.begin()
 
-      (t, _) <- t.query("DELETE FROM system_attachment WHERE column_id = ? AND table_id = ?",
-                        Json.arr(column.id, column.table.id))
       (t, _) <- t
-        .query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(column.id, column.table.id))
-        .map({ case (t, json) => (t, deleteNotNull(json)) })
+        .query("DELETE FROM system_attachment WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
+
+      (t) <- deleteSystemColumn(t, tableId, columnId)
+      (t) <- deleteAnnotations(t, tableId, columnId)
 
       _ <- t.commit()
     } yield ()
@@ -1040,12 +1061,29 @@ RETURNING column_id, ordering""".stripMargin
       (t, _) <- t.query(s"ALTER TABLE user_table_$tableId DROP COLUMN IF EXISTS column_$columnId")
       (t, _) <- t.query(s"ALTER TABLE user_table_lang_$tableId DROP COLUMN IF EXISTS column_$columnId")
 
-      (t, _) <- t
-        .query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
-        .map({ case (t, json) => (t, deleteNotNull(json)) })
+      (t) <- deleteSystemColumn(t, tableId, columnId)
+      (t) <- deleteAnnotations(t, tableId, columnId)
 
       _ <- t.commit()
     } yield ()
+  }
+
+  private def deleteSystemColumn(t: connection.Transaction,
+                                 tableId: TableId,
+                                 columnId: ColumnId): Future[connection.Transaction] = {
+    for {
+      (t, _) <- t
+        .query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
+        .map({ case (t, json) => (t, deleteNotNull(json)) })
+    } yield t
+  }
+
+  private def deleteAnnotations(t: connection.Transaction,
+                                tableId: TableId,
+                                columnId: ColumnId): Future[connection.Transaction] = {
+    for {
+      (t, _) <- t.query(s"DELETE FROM user_table_annotations_$tableId WHERE column_id = ?", Json.arr(columnId))
+    } yield t
   }
 
   def change(
