@@ -47,10 +47,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val CompleteTable: Regex = "/completetable".r
   private val CompleteTableId: Regex = "/completetable/(\\d+)".r
 
-  private val AnnotationsTables: Regex = "/tables/annotations".r
   private val AnnotationsTable: Regex = "/tables/(\\d+)/annotations".r
 
-  private val AnnotationCountTables: Regex = "/tables/annotationCount".r
+  private val AnnotationCount: Regex = "/tables/annotationCount".r
 
   private val TranslationStatus: Regex = "/tables/translationStatus".r
 
@@ -248,14 +247,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       }
 
     /**
-      * Retrieve all Cell Annotations for all tables
-      */
-    case Get(AnnotationsTables()) =>
-      asyncGetReply {
-        controller.retrieveTablesWithCellAnnotations()
-      }
-
-    /**
       * Retrieve all Cell Annotations for a specific table
       */
     case Get(AnnotationsTable(tableId)) =>
@@ -266,7 +257,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     /**
       * Retrieve Cell Annotation count for all tables
       */
-    case Get(AnnotationCountTables()) =>
+    case Get(AnnotationCount()) =>
       asyncGetReply {
         controller.retrieveTablesWithCellAnnotationCount()
       }

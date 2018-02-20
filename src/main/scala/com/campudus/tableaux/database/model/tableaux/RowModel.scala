@@ -721,9 +721,9 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
                    rowId: RowId,
                    columnId: ColumnId,
                    uuidStr: String,
-                   langtags: String, // TODO null-safety
+                   langtags,
                    annotationType: String,
-                   value: String, // TODO null-safety
+                   value,
                    createdAtStr: String) =>
             import scala.collection.JavaConverters._
 
@@ -734,8 +734,11 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
               CellLevelAnnotation(
                 UUID.fromString(uuidStr),
                 CellAnnotationType(annotationType),
-                Json.fromArrayString(langtags).asScala.map(_.toString).toList,
-                value,
+                Option(langtags)
+                  .map(_.asInstanceOf[String])
+                  .map(Json.fromArrayString(_).asScala.map(_.toString).toList)
+                  .getOrElse(Seq.empty),
+                Option(value).map(_.asInstanceOf[String]).orNull,
                 DateTime.parse(createdAtStr)
               )
             )

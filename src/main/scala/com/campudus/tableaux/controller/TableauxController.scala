@@ -83,18 +83,6 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield EmptyObject()
   }
 
-  def retrieveTablesWithCellAnnotations(): Future[DomainObject] = {
-    logger.info(s"retrieveTablesWithCellAnnotations")
-
-    for {
-      tables <- repository.retrieveTables()
-
-      annotations <- repository.retrieveTablesWithCellAnnotations(tables)
-    } yield {
-      PlainDomainObject(Json.obj("tables" -> annotations.map(_.getJson)))
-    }
-  }
-
   def retrieveTableWithCellAnnotations(tableId: TableId): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveTableWithCellAnnotations $tableId")
