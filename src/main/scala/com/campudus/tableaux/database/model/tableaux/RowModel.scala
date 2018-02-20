@@ -820,7 +820,6 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
             )
 
           case invalidRow =>
-            invalidRow.size
             throw UnknownServerException(s"Invalid aggregated annotation count ($invalidRow) stored in database.")
         })
         .groupBy({
