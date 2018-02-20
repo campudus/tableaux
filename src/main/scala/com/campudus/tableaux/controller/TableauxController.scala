@@ -102,10 +102,8 @@ class TableauxController(override val config: TableauxConfig, override protected
     for {
       table <- repository.retrieveTable(tableId)
 
-      annotations <- repository.retrieveTablesWithCellAnnotations(Seq(table))
-    } yield {
-      annotations.headOption.getOrElse(TableWithCellAnnotations(table, Map.empty))
-    }
+      annotations <- repository.retrieveTableWithCellAnnotations(table)
+    } yield annotations
   }
 
   def retrieveTablesWithCellAnnotationCount(): Future[DomainObject] = {
