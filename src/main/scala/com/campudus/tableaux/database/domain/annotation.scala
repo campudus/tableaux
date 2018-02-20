@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.domain
 
 import java.util.UUID
 
-import com.campudus.tableaux.database.model.TableauxModel.ColumnId
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
 import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
@@ -124,5 +124,55 @@ case class CellLevelAnnotations(columns: Seq[ColumnType[_]], annotations: Map[Co
     val seqOpt = columns.map(column => annotations.get(column.id))
 
     Json.obj("annotations" -> compatibilityGet(seqOpt))
+  }
+}
+
+case class TableWithCellAnnotations(table: Table, annotations: Map[RowId, Map[ColumnId, Seq[CellLevelAnnotation]]])
+    extends DomainObject {
+
+  override def getJson: JsonObject = {
+    val rows = annotations.seq.map({
+      case (rowId, annotationsByRow) =>
+        val columns = annotationsByRow.seq.map({
+          case (columnId, annotationsByColumn) =>
+            Json.obj(
+              "id" -> columnId,
+              "annotations" -> annotationsByColumn.map(_.getJson)
+            )
+        })
+
+        Json.obj(
+          "id" -> rowId,
+          "annotationsByColumns" -> columns
+        )
+    })
+
+    table.getJson.mergeIn(Json.obj("annotationsByRows" -> rows))
+  }
+}
+
+case class CellAnnotationCount(annotationType: CellAnnotationType,
+                               value: Option[String],
+                               langtag: Option[String],
+                               count: Long,
+                               lastCreatedAt: DateTime)
+    extends DomainObject {
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      "type" -> annotationType.toString,
+      "value" -> value.orNull,
+      "langtag" -> langtag.orNull,
+      "count" -> count,
+      "lastCreatedAt" -> lastCreatedAt.toString()
+    )
+  }
+}
+
+case class TableWithCellAnnotationCount(table: Table, totalSize: Long, annotationCount: Seq[CellAnnotationCount])
+    extends DomainObject {
+
+  override def getJson: JsonObject = {
+    table.getJson.mergeIn(Json.obj("totalSize" -> totalSize, "annotationCount" -> compatibilityGet(annotationCount)))
   }
 }

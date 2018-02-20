@@ -26,6 +26,13 @@ case object SettingsTable extends TableType {
   override val NAME = "settings"
 }
 
+object Table {
+
+  def apply(id: TableId): Table = {
+    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None)
+  }
+}
+
 case class Table(
     id: TableId,
     name: String,

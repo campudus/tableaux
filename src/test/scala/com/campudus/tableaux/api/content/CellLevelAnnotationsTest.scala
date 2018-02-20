@@ -451,4 +451,81 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       } yield ()
     }
   }
+
+  @Test
+  def retrieveAnnotationsFromSpecificTable(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        (tableId, _) <- createTableWithMultilanguageColumns("Test")
+
+        // empty row 1
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId1 = result.getLong("id")
+
+        // empty row 2
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId2 = result.getLong("id")
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId1/annotations",
+          Json.obj("langtags" -> Json.arr("de"), "type" -> "info", "value" -> "this is a comment")
+        )
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/2/rows/$rowId2/annotations",
+          Json.obj("langtags" -> Json.arr("gb"), "type" -> "error", "value" -> "this is another comment")
+        )
+
+        annotations <- sendRequest("GET", s"/tables/$tableId/annotations")
+      } yield {
+        val expectedAnnotationsByRow1 = Json.obj(
+          "id" -> rowId1.toInt,
+          "annotationsByColumns" -> Json.arr(
+            Json.obj(
+              "id" -> 1,
+              "annotations" -> Json.arr(
+                Json.obj(
+                  "type" -> "info",
+                  "value" -> "this is a comment",
+                  "langtags" -> Json.arr("de")
+                )
+              )
+            )
+          )
+        )
+
+        val expectedAnnotationsByRow2 = Json.obj(
+          "id" -> rowId2.toInt,
+          "annotationsByColumns" -> Json.arr(
+            Json.obj(
+              "id" -> 2,
+              "annotations" -> Json.arr(
+                Json.obj(
+                  "type" -> "error",
+                  "value" -> "this is another comment",
+                  "langtags" -> Json.arr("gb")
+                )
+              )
+            )
+          )
+        )
+
+        val annotationsByRows1 = annotations.getJsonArray("annotationsByRows").getJsonObject(0)
+        val annotationsByRows2 = annotations.getJsonArray("annotationsByRows").getJsonObject(1)
+
+        (annotationsByRows1.getInteger("id").toInt, annotationsByRows2.getInteger("id").toInt) match {
+          case (1, 2) =>
+            assertContainsDeep(expectedAnnotationsByRow1, annotationsByRows1)
+            assertContainsDeep(expectedAnnotationsByRow2, annotationsByRows2)
+          case (2, 1) =>
+            assertContainsDeep(expectedAnnotationsByRow1, annotationsByRows2)
+            assertContainsDeep(expectedAnnotationsByRow2, annotationsByRows1)
+          case _ =>
+            fail("row ids shouldn't be other than 1, 2 or 2, 1")
+        }
+      }
+    }
+  }
 }

@@ -47,6 +47,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val CompleteTable: Regex = "/completetable".r
   private val CompleteTableId: Regex = "/completetable/(\\d+)".r
 
+  private val AnnotationsTable: Regex = "/tables/(\\d+)/annotations".r
+
+  private val AnnotationCount: Regex = "/tables/annotationCount".r
+
+  private val TranslationStatus: Regex = "/tables/translationStatus".r
+
   override def routes(implicit context: RoutingContext): Routing = {
 
     /**
@@ -238,6 +244,30 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Delete(CellAnnotationLangtag(tableId, columnId, rowId, uuid, langtag)) =>
       asyncGetReply {
         controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid), langtag)
+      }
+
+    /**
+      * Retrieve all Cell Annotations for a specific table
+      */
+    case Get(AnnotationsTable(tableId)) =>
+      asyncGetReply {
+        controller.retrieveTableWithCellAnnotations(tableId.toLong)
+      }
+
+    /**
+      * Retrieve Cell Annotation count for all tables
+      */
+    case Get(AnnotationCount()) =>
+      asyncGetReply {
+        controller.retrieveTablesWithCellAnnotationCount()
+      }
+
+    /**
+      * Retrieve translation status for all tables
+      */
+    case Get(TranslationStatus()) =>
+      asyncGetReply {
+        controller.retrieveTranslationStatus()
       }
 
     /**

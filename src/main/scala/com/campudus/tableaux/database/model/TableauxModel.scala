@@ -29,9 +29,8 @@ object TableauxModel {
 }
 
 /**
-  * Needed because of `TableauxController#createCompleteTable` &
-  * `TableauxController#retrieveCompleteTable`. Should only
-  * be used by following delegate methods.
+  * Needed because e.g. `TableauxController#createCompleteTable` and `TableauxController#retrieveCompleteTable`
+  * need to call method from `StructureModel`.
   */
 sealed trait StructureDelegateModel extends DatabaseQuery {
 
@@ -47,6 +46,10 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
   def retrieveTable(tableId: TableId): Future[Table] = {
     structureModel.tableStruc.retrieve(tableId)
+  }
+
+  def retrieveTables(): Future[Seq[Table]] = {
+    structureModel.tableStruc.retrieveAll()
   }
 
   def createColumns(table: Table, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
@@ -245,6 +248,31 @@ class TableauxModel(
     for {
       _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
     } yield ()
+  }
+
+  def retrieveTableWithCellAnnotations(table: Table): Future[TableWithCellAnnotations] = {
+    retrieveTablesWithCellAnnotations(Seq(table)).map({ annotations =>
+      annotations.headOption.getOrElse(TableWithCellAnnotations(table, Map.empty))
+    })
+  }
+
+  def retrieveTablesWithCellAnnotations(tables: Seq[Table]): Future[Seq[TableWithCellAnnotations]] = {
+    retrieveRowModel.retrieveTablesWithCellAnnotations(tables)
+  }
+
+  def retrieveTablesWithCellAnnotationCount(tables: Seq[Table]): Future[Seq[TableWithCellAnnotationCount]] = {
+    val tableIds = tables.map({ case Table(id, _, _, _, _, _, _) => id })
+
+    for {
+      annotationCountMap <- retrieveRowModel.retrieveCellAnnotationCount(tableIds)
+      totalSizeMap <- Future.sequence(tables.map(table => retrieveTotalSize(table).map((table, _))))
+    } yield {
+      totalSizeMap.map({
+        case (table, count) =>
+          val annotationCount = annotationCountMap.getOrElse(table.id, Seq.empty)
+          TableWithCellAnnotationCount(table, count, annotationCount)
+      })
+    }
   }
 
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
@@ -658,5 +686,9 @@ class TableauxModel(
 
       values <- retrieveRowModel.retrieveColumnValues(shortTextColumn, langtagOpt)
     } yield values
+  }
+
+  def retrieveTotalSize(table: Table): Future[Long] = {
+    retrieveRowModel.size(table.id)
   }
 }
