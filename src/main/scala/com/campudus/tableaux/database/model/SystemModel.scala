@@ -142,7 +142,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     setupVersion(readSchemaFile("schema_v17"), 17),
     setupVersion(readSchemaFile("schema_v18"), 18),
     setupVersion(readSchemaFile("schema_v19"), 19),
-    setupVersion(readSchemaFile("schema_v20"), 20)
+    setupVersion(readSchemaFile("schema_v20"), 20),
+    setupVersion(readSchemaFile("schema_v21"), 21)
   )
 
   private def readSchemaFile(name: String): String = {
