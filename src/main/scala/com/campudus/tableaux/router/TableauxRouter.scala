@@ -5,11 +5,12 @@ import java.util.UUID
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
-import com.campudus.tableaux.{NoJsonFoundException, TableauxConfig}
+import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import org.vertx.scala.core.json.JsonArray
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
 
+import scala.concurrent.Future
 import scala.util.matching.Regex
 
 object TableauxRouter {
@@ -299,7 +300,11 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       asyncGetReply {
         for {
           json <- getJson(context)
-          updated <- controller.replaceCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+          updated <- if (json.containsKey("value")) {
+            controller.replaceCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+          } else {
+            Future.failed(InvalidJsonException("request must contain a value", "value_is_missing"))
+          }
         } yield updated
       }
 
