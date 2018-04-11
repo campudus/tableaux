@@ -644,6 +644,12 @@ class LinkTest extends LinkTestBase {
   }
 
   @Test
+  def putEmptyLink(implicit c: TestContext): Unit = exceptionTest("error.json.value_is_missing") {
+    setupTwoTablesWithEmptyLinks().flatMap(linkColumnId =>
+      sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", Json.obj("blub" -> "bla")))
+  }
+
+  @Test
   def putLinkValues(implicit c: TestContext): Unit = {
     okTest {
 

@@ -9,6 +9,8 @@ uploads*
 classes/
 !src/test/resources/com/campudus/tableaux/uploads
 bin/
+out/
+**.DS_Store
 
 # Gradle
 .gradle/
