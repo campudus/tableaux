@@ -252,6 +252,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
   }
 
   @Test
+  @Ignore
   def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList(implicit c: TestContext): Unit = {
     okTest {
       for {
@@ -262,13 +263,13 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         // set Links to both rows in table2
         _ <- sendRequest("PUT",
-              s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                     Json.obj("value" -> Json.arr(1, 2)))
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(1, 2)))
 
         // set Link to only second row in table2
         _ <- sendRequest("PUT",
-              s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                     Json.obj("value" -> Json.arr(2)))
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(2)))
 
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
       } yield {
