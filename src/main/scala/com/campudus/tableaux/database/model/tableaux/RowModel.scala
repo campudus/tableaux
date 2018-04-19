@@ -123,10 +123,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   def clearRow(
       table: Table,
       rowId: RowId,
-      values: Seq[(ColumnType[_])],
+      columns: Seq[ColumnType[_]],
       deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[Unit] = {
-    val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(values)
+    val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
     for {
       _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.map((_, None)))
