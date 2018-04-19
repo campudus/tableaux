@@ -252,7 +252,6 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
   }
 
   @Test
-  @Ignore
   def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList(implicit c: TestContext): Unit = {
     okTest {
       for {
