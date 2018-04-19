@@ -321,11 +321,13 @@ class TableauxModel(
     }
   }
 
-  private def updateOrReplaceValue[A](table: Table,
-                                      columnId: ColumnId,
-                                      rowId: RowId,
-                                      value: A,
-                                      replace: Boolean = false): Future[Cell[_]] = {
+  private def updateOrReplaceValue[A](
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      value: A,
+      replace: Boolean = false
+  ): Future[Cell[_]] = {
     for {
       _ <- checkForSettingsTable(table, columnId, "can't update key cell of a settings table")
 
@@ -333,7 +335,7 @@ class TableauxModel(
       _ <- checkValueTypeForColumn(column, value)
 
       _ <- if (replace) {
-        updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
+        updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
       } else {
         Future.successful(())
       }
