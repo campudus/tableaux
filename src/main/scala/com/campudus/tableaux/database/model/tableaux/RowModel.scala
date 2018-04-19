@@ -182,6 +182,22 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       column: LinkColumn,
       deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[_] = {
+    // TODO here we could end up in a endless loop,
+    // TODO but we could argue that a schema like this doesn't make sense
+    retrieveLinkedRows(table, rowId, column)
+      .flatMap(foreignRowIdSeq => {
+        val futures = foreignRowIdSeq
+          .map(deleteRowFn(column.to.table, _))
+
+        Future.sequence(futures)
+      })
+  }
+
+  private def retrieveLinkedRows(
+      table: Table,
+      rowId: RowId,
+      column: LinkColumn
+  ): Future[Seq[Long]] = {
     val toIdColumn = column.linkDirection.toSql
     val fromIdColumn = column.linkDirection.fromSql
     val linkTable = s"link_table_${column.linkId}"
@@ -196,19 +212,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           | (SELECT COUNT(*) FROM $linkTable sub WHERE sub.$toIdColumn = lt.$toIdColumn) = 1;""".stripMargin
 
     // select foreign rows which are only used once
-    // these which are only used once should be deleted then
+    // these should be deleted then
     // do this in a recursive manner
     connection
       .query(selectForeignRows, Json.arr(rowId))
       .map(resultObjectToJsonArray)
-      .map(_.map(_.getLong(0)))
-      // TODO here we could end up in a endless loop,
-      // TODO but we could argue that a schema like this doesn't make sense
-      .flatMap(foreignRowIdSeq => {
-        val futures = foreignRowIdSeq.map(deleteRowFn(column.to.table, _))
-
-        Future.sequence(futures)
-      })
+      .map(_.map(_.getLong(0).asInstanceOf[Long]))
   }
 
   def deleteLink(
