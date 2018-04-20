@@ -2,12 +2,13 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.database.domain.{Cardinality, Constraint, DefaultCardinality}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.testtools.RequestCreation.{Columns, LinkBiDirectionalCol, Rows}
 import com.campudus.tableaux.testtools.TestCustomException
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
+import org.junit.{Ignore, Test}
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
@@ -252,27 +253,140 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
   }
 
   @Test
-  def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList(implicit c: TestContext): Unit = {
+  def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList_simple(
+      implicit c: TestContext): Unit = {
     okTest {
       for {
+        // Given current links: [1, 2] -> after test: [2]
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
         table1LinkColumnId <- createDeleteCascadeLinkColumn(tableId1, tableId2, "deleteCascade1")
 
-        // set Links to both rows in table2
         _ <- sendRequest("PUT",
                          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
                          Json.obj("value" -> Json.arr(1, 2)))
 
-        // set Link to only second row in table2
+        // When
         _ <- sendRequest("PUT",
                          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
                          Json.obj("value" -> Json.arr(2)))
 
+        // Then
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
       } yield {
         assertEquals(1, rowsTable2.size())
+      }
+    }
+  }
+
+  @Test
+  def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList_onlyDelete(
+      implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        // Given current links: [1, 2, 3] -> after test: [1, 3]
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        table1LinkColumnId <- createDeleteCascadeLinkColumn(tableId1, tableId2, "deleteCascade1")
+
+        _ <- sendRequest("POST", s"/tables/$tableId2/rows")
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns/2/rows/3", Json.obj("value" -> 3))
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns/1/rows/3", Json.obj("value" -> s"table${tableId2}row3"))
+
+        _ <- sendRequest("PUT",
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(1, 2, 3)))
+
+        // When
+        _ <- sendRequest("PUT",
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(1, 3)))
+
+        // Then
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        linkCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
+          .map(_.getJsonArray("value"))
+      } yield {
+        assertEquals(2, rowsTable2.size())
+        val foreignRowIds = asCastedList[JsonObject](linkCellTable1).get.map(_.getLong("id"))
+        assertEquals(List(1, 3), foreignRowIds)
+      }
+    }
+  }
+
+  @Test
+  def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList_reverseOrder(
+      implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        // Given: current links: [1, 2, 3] --> after test: [3, 2, 1]
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        table1LinkColumnId <- createDeleteCascadeLinkColumn(tableId1, tableId2, "deleteCascade1")
+
+        _ <- sendRequest("POST", s"/tables/$tableId2/rows")
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns/2/rows/3", Json.obj("value" -> 3))
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns/1/rows/3", Json.obj("value" -> s"table${tableId2}row3"))
+
+        _ <- sendRequest("PUT",
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(1, 2, 3)))
+
+        // When
+        _ <- sendRequest("PUT",
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(3, 2, 1)))
+
+        // Then
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        linkedCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
+          .map(_.getJsonArray("value"))
+      } yield {
+        assertEquals(3, rowsTable2.size())
+        val foreignRowIds = asCastedList[JsonObject](linkedCellTable1).get.map(_.getLong("id"))
+        assertEquals(List(3, 2, 1), foreignRowIds)
+      }
+    }
+  }
+
+  @Test
+  def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList_deleteOneRowAddAnother(
+      implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        // Given: current links: [1, 2, 3] ->  after test: [2, 4]
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        table1LinkColumnId <- createDeleteCascadeLinkColumn(tableId1, tableId2, "deleteCascade1")
+
+        _ <- sendRequest("POST", s"/tables/$tableId2/rows")
+        _ <- sendRequest("POST", s"/tables/$tableId2/rows")
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns/2/rows/3", Json.obj("value" -> 3))
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns/1/rows/3", Json.obj("value" -> s"table${tableId2}row3"))
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns/2/rows/4", Json.obj("value" -> 4))
+        _ <- sendRequest("POST", s"/tables/$tableId2/columns/1/rows/4", Json.obj("value" -> s"table${tableId2}row4"))
+
+        _ <- sendRequest("PUT",
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(1, 2, 3)))
+
+        // When
+        _ <- sendRequest("PUT",
+                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+                         Json.obj("value" -> Json.arr(2, 4)))
+
+        // Then
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        linkedCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
+          .map(_.getJsonArray("value"))
+      } yield {
+        assertEquals(2, rowsTable2.size())
+        val foreignRowIds = asCastedList[JsonObject](linkedCellTable1).get.map(_.getLong("id"))
+        assertEquals(List(2, 4), foreignRowIds)
       }
     }
   }
