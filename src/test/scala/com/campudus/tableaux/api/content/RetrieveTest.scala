@@ -324,6 +324,26 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
+  def retrieveRows_offsetIsLowerZero_returns422(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows?offset=-1")
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveRows_limitIsLowerZero_returns422(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("GET", "/tables/1/rows?limit=-1")
+      } yield ()
+    }
+  }
+
+  @Test
   def retrieveRowsOfSpecificColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.obj(
       "status" -> "ok",
