@@ -71,7 +71,7 @@ object ArgumentChecker {
     } else {
       FailArg({
         val argumentName = if (name == "") "" else s"($name) "
-        InvalidJsonException(s"Argument $argumentName$x is less than $than.", "invalid")
+        InvalidJsonException(s"Argument $argumentName$x is not greater than $than.", "invalid")
       })
     }
   }

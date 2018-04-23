@@ -30,9 +30,9 @@ class ArgumentCheckerTest {
 
   @Test
   def checkInvalidGreaterZero(): Unit = {
-    assertEquals(FailArg(InvalidJsonException("Argument -1 is less than 0.", "invalid")), greaterZero(-1))
-    assertEquals(FailArg(InvalidJsonException("Argument 0 is less than 0.", "invalid")), greaterZero(0))
-    assertEquals(FailArg(InvalidJsonException(s"Argument ${Long.MinValue} is less than 0.", "invalid")),
+    assertEquals(FailArg(InvalidJsonException("Argument -1 is not greater than 0.", "invalid")), greaterZero(-1))
+    assertEquals(FailArg(InvalidJsonException("Argument 0 is not greater than 0.", "invalid")), greaterZero(0))
+    assertEquals(FailArg(InvalidJsonException(s"Argument ${Long.MinValue} is not greater than 0.", "invalid")),
                  greaterZero(Long.MinValue))
   }
 
@@ -45,11 +45,13 @@ class ArgumentCheckerTest {
 
   @Test
   def checkInvalidGreaterThan(): Unit = {
-    assertEquals(FailArg(InvalidJsonException("Argument (test) -1 is less than 0.", "invalid")),
+    assertEquals(FailArg(InvalidJsonException("Argument (test) -1 is not greater than 0.", "invalid")),
                  greaterThan(-1, 0, "test"))
-    assertEquals(FailArg(InvalidJsonException("Argument (test) 100 is less than 1000.", "invalid")),
+    assertEquals(FailArg(InvalidJsonException("Argument (test) 100 is not greater than 1000.", "invalid")),
                  greaterThan(100, 1000, "test"))
-    assertEquals(FailArg(InvalidJsonException(s"Argument (test) ${Long.MinValue} is less than 0.", "invalid")),
+    assertEquals(FailArg(InvalidJsonException(s"Argument (test) 1 is not greater than 1.", "invalid")),
+                 greaterThan(1, 1, "test"))
+    assertEquals(FailArg(InvalidJsonException(s"Argument (test) ${Long.MinValue} is not greater than 0.", "invalid")),
                  greaterThan(Long.MinValue, 0, "test"))
   }
 
@@ -84,7 +86,7 @@ class ArgumentCheckerTest {
       fail("Should throw an exception")
     } catch {
       case ex: IllegalArgumentException =>
-        assertEquals("(0) Warning: test is null\n(2) Argument -4 is less than 0.", ex.getMessage)
+        assertEquals("(0) Warning: test is null\n(2) Argument -4 is not greater than 0.", ex.getMessage)
       case _: Throwable => fail("Should throw an IllegalArgumentException")
     }
   }
