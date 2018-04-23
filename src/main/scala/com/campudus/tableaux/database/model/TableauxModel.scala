@@ -321,52 +321,42 @@ class TableauxModel(
     }
   }
 
-  def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
+  private def updateOrReplaceValue[A](
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      value: A,
+      replace: Boolean = false
+  ): Future[Cell[_]] = {
     for {
-      _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) =>
-          Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
-        case _ => Future.successful(())
-      }
+      _ <- checkForSettingsTable(table, columnId, "can't update key cell of a settings table")
 
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
-      _ <- updateRowModel.updateRow(column.table, rowId, Seq((column, value)))
-
-      _ <- invalidateCellAndDependentColumns(column, rowId)
-
-      updatedCell <- retrieveCell(column, rowId)
-    } yield updatedCell
-  }
-
-  def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
-    for {
-      _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) =>
-          Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
-        case _ => Future.successful(())
+      _ <- if (replace) {
+        updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
+      } else {
+        Future.successful(())
       }
 
-      column <- retrieveColumn(table, columnId)
-      _ <- checkValueTypeForColumn(column, value)
-
-      _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
 
-      replacedCell <- retrieveCell(column, rowId)
-    } yield replacedCell
+      changedCell <- retrieveCell(column, rowId)
+    } yield changedCell
   }
+
+  def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] =
+    updateOrReplaceValue(table, columnId, rowId, value)
+
+  def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] =
+    updateOrReplaceValue(table, columnId, rowId, value, replace = true)
 
   def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     for {
-      _ <- (table.tableType, columnId) match {
-        case (SettingsTable, 1 | 2) =>
-          Future.failed(ForbiddenException("can't update key cell of a settings table", "cell"))
-        case _ => Future.successful(())
-      }
+      _ <- checkForSettingsTable(table, columnId, "can't clear key cell of a settings table")
 
       column <- retrieveColumn(table, columnId)
 
@@ -374,8 +364,16 @@ class TableauxModel(
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
 
-      replacedCell <- retrieveCell(column, rowId)
-    } yield replacedCell
+      clearedCell <- retrieveCell(column, rowId)
+    } yield clearedCell
+  }
+
+  private def checkForSettingsTable[A](table: Table, columnId: ColumnId, exceptionMessage: String) = {
+    (table.tableType, columnId) match {
+      case (SettingsTable, 1 | 2) =>
+        Future.failed(ForbiddenException(exceptionMessage, "cell"))
+      case _ => Future.successful(())
+    }
   }
 
   private def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {

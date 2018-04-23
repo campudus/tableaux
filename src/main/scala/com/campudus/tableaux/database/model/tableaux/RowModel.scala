@@ -123,10 +123,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   def clearRow(
       table: Table,
       rowId: RowId,
-      values: Seq[(ColumnType[_])],
+      columns: Seq[ColumnType[_]],
       deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[Unit] = {
-    val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(values)
+    val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
     for {
       _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.map((_, None)))
@@ -134,6 +134,28 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links, deleteRowFn)
       _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
     } yield ()
+  }
+
+  def clearRowWithValues(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(ColumnType[_], _)],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+  ): Future[Unit] = {
+    ColumnType.splitIntoTypesWithValues(values) match {
+      case Failure(ex) =>
+        Future.failed(ex)
+
+      case Success((simple, multis, links, attachments)) =>
+        // we only care about links because of delete cascade handling
+        // for simple, multis, and attachments do same as in clearRow()
+        for {
+          _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.unzip._1.map((_, None)))
+          _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis.unzip._1)
+          _ <- if (links.isEmpty) Future.successful(()) else clearLinksWithValues(table, rowId, links, deleteRowFn)
+          _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments.unzip._1)
+        } yield ()
+    }
   }
 
   private def clearTranslation(table: Table, rowId: RowId, columns: Seq[SimpleValueColumn[_]]): Future[_] = {
@@ -148,28 +170,37 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  private def clearLinks(
+  private def clearLinksWithValues(
       table: Table,
       rowId: RowId,
-      columns: Seq[LinkColumn],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      columnsWithValues: Seq[(LinkColumn, Seq[RowId])],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
   ): Future[_] = {
-    val futureSequence = columns.map(column => {
-      val fromIdColumn = column.linkDirection.fromSql
+    val futureSequence = columnsWithValues.map({
+      case (column, values) => {
+        val fromIdColumn = column.linkDirection.fromSql
 
-      val linkTable = s"link_table_${column.linkId}"
+        val linkTable = s"link_table_${column.linkId}"
 
-      for {
-        _ <- if (column.linkDirection.constraint.deleteCascade) {
-          deleteLinkedRows(table, rowId, column, deleteRowFn)
-        } else {
-          connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ?", Json.arr(rowId))
-        }
-      } yield ()
+        for {
+          _ <- if (column.linkDirection.constraint.deleteCascade) {
+            deleteLinkedRows(table, rowId, column, deleteRowFn, values)
+          } else {
+            connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ?", Json.arr(rowId))
+          }
+        } yield ()
+      }
     })
 
     Future.sequence(futureSequence)
   }
+
+  private def clearLinks(
+      table: Table,
+      rowId: RowId,
+      columns: Seq[LinkColumn],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+  ): Future[_] = clearLinksWithValues(table, rowId, columns.map((_, Seq.empty)), deleteRowFn)
 
   private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
     val cleared = columns.map((c: AttachmentColumn) => attachmentModel.deleteAll(table.id, c.id, rowId))
@@ -180,8 +211,38 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       column: LinkColumn,
-      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      newForeignRowIds: Seq[RowId] = Seq.empty
   ): Future[_] = {
+    val linkTable = s"link_table_${column.linkId}"
+    val fromIdColumn = column.linkDirection.fromSql
+    val toIdColumn = column.linkDirection.toSql
+
+    // TODO here we could end up in a endless loop,
+    // TODO but we could argue that a schema like this doesn't make sense
+    retrieveLinkedRows(table, rowId, column)
+      .flatMap(foreignRowIds => {
+        val futures = foreignRowIds
+          .map(foreignRowId => {
+            // only delete foreign row if it's not part of new values...
+            // ... otherwise delete link
+            if (newForeignRowIds.contains(foreignRowId)) {
+              connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ? AND $toIdColumn = ?",
+                               Json.arr(rowId, foreignRowId))
+            } else {
+              deleteRowFn(column.to.table, foreignRowId)
+            }
+          })
+
+        Future.sequence(futures)
+      })
+  }
+
+  private def retrieveLinkedRows(
+      table: Table,
+      rowId: RowId,
+      column: LinkColumn
+  ): Future[Seq[Long]] = {
     val toIdColumn = column.linkDirection.toSql
     val fromIdColumn = column.linkDirection.fromSql
     val linkTable = s"link_table_${column.linkId}"
@@ -196,19 +257,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           | (SELECT COUNT(*) FROM $linkTable sub WHERE sub.$toIdColumn = lt.$toIdColumn) = 1;""".stripMargin
 
     // select foreign rows which are only used once
-    // these which are only used once should be deleted then
+    // these should be deleted then
     // do this in a recursive manner
     connection
       .query(selectForeignRows, Json.arr(rowId))
       .map(resultObjectToJsonArray)
-      .map(_.map(_.getLong(0)))
-      // TODO here we could end up in a endless loop,
-      // TODO but we could argue that a schema like this doesn't make sense
-      .flatMap(foreignRowIdSeq => {
-        val futures = foreignRowIdSeq.map(deleteRowFn(column.to.table, _))
-
-        Future.sequence(futures)
-      })
+      .map(_.map(_.getLong(0).asInstanceOf[Long]))
   }
 
   def deleteLink(
