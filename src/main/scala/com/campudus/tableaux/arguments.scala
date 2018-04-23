@@ -65,20 +65,19 @@ object ArgumentChecker {
     }
   }
 
-  def greaterThan(x: Long, than: Long, name: String): ArgumentCheck[Long] = {
+  def greaterThan(x: Long, than: Long, name: String = ""): ArgumentCheck[Long] = {
     if (x > than) {
       OkArg(x)
     } else {
-      FailArg(InvalidJsonException(s"Argument $name ($x) is less than $than.", "invalid"))
+      FailArg({
+        val argumentName = if (name == "") "" else s"($name) "
+        InvalidJsonException(s"Argument $argumentName$x is less than $than.", "invalid")
+      })
     }
   }
 
   def greaterZero(x: Long): ArgumentCheck[Long] = {
-    if (x > 0) {
-      OkArg(x)
-    } else {
-      FailArg(InvalidJsonException(s"Argument $x is not greater than zero", "invalid"))
-    }
+    greaterThan(x, 0)
   }
 
   def nonEmpty[A](seq: Seq[A], name: String): ArgumentCheck[Seq[A]] = {
