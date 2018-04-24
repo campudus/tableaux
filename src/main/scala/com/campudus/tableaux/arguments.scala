@@ -65,13 +65,15 @@ object ArgumentChecker {
     }
   }
 
-  def greaterThan(x: Long, than: Long, name: String = ""): ArgumentCheck[Long] = {
+  def greaterThan(x: Long, than: Long, name: String): ArgumentCheck[Long] = greaterThan(x, than, Option(name))
+
+  def greaterThan(x: Long, than: Long, name: Option[String] = None): ArgumentCheck[Long] = {
     if (x > than) {
       OkArg(x)
     } else {
       FailArg({
-        val argumentName = if (name == "") "" else s"($name) "
-        InvalidJsonException(s"Argument $argumentName$x is not greater than $than.", "invalid")
+        val argument = name.map(n => s"($n) $x").getOrElse(s"$x")
+        InvalidJsonException(s"Argument $argument is not greater than $than.", "invalid")
       })
     }
   }
