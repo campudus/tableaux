@@ -138,7 +138,7 @@ class TableauxController(override val config: TableauxConfig, override protected
       val tablesWithMultiLanguageColumnCountMap = tablesWithMultiLanguageColumnCount.toMap
 
       val translationStatusByTable = tablesWithCellAnnotationCount.map({
-        case TableWithCellAnnotationCount(table, totalSize, annotationCount) => {
+        case TableWithCellAnnotationCount(table, totalSize, annotationCount) =>
           val langtags = table.langtags.getOrElse(Seq.empty)
 
           val multiLanguageColumnsCount = tablesWithMultiLanguageColumnCountMap.getOrElse(table, 0)
@@ -169,7 +169,6 @@ class TableauxController(override val config: TableauxConfig, override protected
             })
 
           (table, multiLanguageColumnsCount, totalSize, needsTranslationStatusByLangtag)
-        }
       })
 
       val translationStatusByTableJson = translationStatusByTable.map({
@@ -262,7 +261,7 @@ class TableauxController(override val config: TableauxConfig, override protected
   }
 
   def retrieveRows(tableId: TableId, pagination: Pagination): Future[RowSeq] = {
-    checkArguments(greaterZero(tableId))
+    checkArguments(greaterZero(tableId), pagination.check)
     logger.info(s"retrieveRows $tableId for all columns")
 
     for {
@@ -272,7 +271,7 @@ class TableauxController(override val config: TableauxConfig, override protected
   }
 
   def retrieveRowsOfFirstColumn(tableId: TableId, pagination: Pagination): Future[RowSeq] = {
-    checkArguments(greaterZero(tableId))
+    checkArguments(greaterZero(tableId), pagination.check)
     logger.info(s"retrieveRowsOfFirstColumn $tableId for first column")
 
     for {
@@ -283,7 +282,7 @@ class TableauxController(override val config: TableauxConfig, override protected
   }
 
   def retrieveRowsOfColumn(tableId: TableId, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
-    checkArguments(greaterZero(tableId))
+    checkArguments(greaterZero(tableId), pagination.check)
     logger.info(s"retrieveRows $tableId for column $columnId")
 
     for {
@@ -298,7 +297,7 @@ class TableauxController(override val config: TableauxConfig, override protected
       rowId: RowId,
       pagination: Pagination
   ): Future[RowSeq] = {
-    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId), pagination.check)
     logger.info(s"retrieveForeignRows $tableId $columnId $rowId")
 
     for {
