@@ -7,12 +7,12 @@ case class Pagination(offset: Option[Long], limit: Option[Long]) extends DomainO
 
   override def toString: String = {
     val a = offset match {
-      case Some(offset) => s"OFFSET $offset"
+      case Some(o) => s"OFFSET $o"
       case None => ""
     }
 
     val b = limit match {
-      case Some(limit) => s"LIMIT $limit"
+      case Some(l) => s"LIMIT $l"
       case None => ""
     }
 

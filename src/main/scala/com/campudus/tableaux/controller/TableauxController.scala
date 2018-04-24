@@ -138,7 +138,7 @@ class TableauxController(override val config: TableauxConfig, override protected
       val tablesWithMultiLanguageColumnCountMap = tablesWithMultiLanguageColumnCount.toMap
 
       val translationStatusByTable = tablesWithCellAnnotationCount.map({
-        case TableWithCellAnnotationCount(table, totalSize, annotationCount) => {
+        case TableWithCellAnnotationCount(table, totalSize, annotationCount) =>
           val langtags = table.langtags.getOrElse(Seq.empty)
 
           val multiLanguageColumnsCount = tablesWithMultiLanguageColumnCountMap.getOrElse(table, 0)
@@ -169,7 +169,6 @@ class TableauxController(override val config: TableauxConfig, override protected
             })
 
           (table, multiLanguageColumnsCount, totalSize, needsTranslationStatusByLangtag)
-        }
       })
 
       val translationStatusByTableJson = translationStatusByTable.map({

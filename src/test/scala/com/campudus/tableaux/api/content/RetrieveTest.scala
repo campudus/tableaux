@@ -11,13 +11,15 @@ import org.vertx.scala.core.json.Json
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveTest extends TableauxTestBase {
 
-  val createTableJson = Json.obj("name" -> "Test Table 1")
-  val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+  val createTableJson: JsonObject = Json.obj("name" -> "Test Table 1")
 
-  val createNumberColumnJson =
+  val createStringColumnJson: JsonObject =
+    Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1")))
+
+  val createNumberColumnJson: JsonObject =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 2")))
 
-  val createBooleanColumnJson =
+  val createBooleanColumnJson: JsonObject =
     Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 3")))
 
   @Test
