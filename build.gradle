@@ -68,6 +68,7 @@ dependencies {
   testCompile "io.vertx:vertx-unit:${vertxVersion}"
   testCompile 'junit:junit:4.12'
   testCompile "org.scalatest:scalatest_2.12:3.0.5"
+  testCompile 'org.skyscreamer:jsonassert:1.5.0'
 }
 
 mainClassName = "io.vertx.core.Launcher"

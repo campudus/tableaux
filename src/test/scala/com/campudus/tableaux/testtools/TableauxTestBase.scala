@@ -26,6 +26,7 @@ import org.vertx.scala.core.json._
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
+import org.skyscreamer.jsonassert.{JSONCompare, JSONCompareMode}
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable {
 
@@ -38,12 +39,12 @@ trait TestAssertionHelper {
     c.fail(message)
   }
 
-  def assertEquals[A](message: String, excepted: A, actual: A)(implicit c: TestContext): TestContext = {
-    c.assertEquals(excepted, actual, message)
+  def assertEquals[A](message: String, expected: A, actual: A)(implicit c: TestContext): TestContext = {
+    c.assertEquals(expected, actual, message)
   }
 
-  def assertEquals[A](excepted: A, actual: A)(implicit c: TestContext): TestContext = {
-    c.assertEquals(excepted, actual)
+  def assertEquals[A](expected: A, actual: A)(implicit c: TestContext): TestContext = {
+    c.assertEquals(expected, actual)
   }
 
   def assertContains(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
@@ -57,15 +58,41 @@ trait TestAssertionHelper {
     c
   }
 
-  def assertContainsDeep(excepted: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext =
-    assertContainsDeep(excepted, actual, path = "")
+  def assertEqualsJSON[A](expected: A, actual: A, compareMode: JSONCompareMode)(
+      implicit c: TestContext): TestContext = {
+    assertEqualsJSONString(expected.toString, actual.toString, None, compareMode)
+  }
 
-  def assertContainsDeep(excepted: JsonArray, actual: JsonArray, path: String)(implicit c: TestContext): TestContext = {
-    assertEquals(s"Excepted size is ${excepted.size()} != ${actual.size()}, path [$path[]]",
-                 excepted.size(),
+  def assertEqualsJSON[A](
+      message: String,
+      expected: A,
+      actual: A,
+      compareMode: JSONCompareMode
+  )(implicit c: TestContext): TestContext = {
+    assertEqualsJSONString(expected.toString, actual.toString, Some(message), compareMode)
+  }
+
+  private def assertEqualsJSONString(expected: String,
+                                     actual: String,
+                                     messageOpt: Option[String],
+                                     compareMode: JSONCompareMode)(implicit c: TestContext): TestContext = {
+    val assertion = JSONCompare.compareJSON(expected, actual, compareMode)
+    val message = messageOpt match {
+      case Some(m) => m
+      case None => assertion.getMessage
+    }
+    c.assertTrue(assertion.passed(), message)
+  }
+
+  def assertContainsDeep(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext =
+    assertContainsDeep(expected, actual, path = "")
+
+  def assertContainsDeep(expected: JsonArray, actual: JsonArray, path: String)(implicit c: TestContext): TestContext = {
+    assertEquals(s"expected size is ${expected.size()} != ${actual.size()}, path [$path[]]",
+                 expected.size(),
                  actual.size())
 
-    excepted.asScala
+    expected.asScala
       .zip(actual.asScala)
       .zipWithIndex
       .map({
@@ -106,12 +133,12 @@ trait TestAssertionHelper {
     c
   }
 
-  def assertNull(excepted: Any)(implicit c: TestContext): TestContext = {
-    c.assertNull(excepted)
+  def assertNull(expected: Any)(implicit c: TestContext): TestContext = {
+    c.assertNull(expected)
   }
 
-  def assertNotNull(excepted: Any)(implicit c: TestContext): TestContext = {
-    c.assertNotNull(excepted)
+  def assertNotNull(expected: Any)(implicit c: TestContext): TestContext = {
+    c.assertNotNull(expected)
   }
 
   def assertTrue(message: String, condition: Boolean)(implicit c: TestContext): TestContext = {
