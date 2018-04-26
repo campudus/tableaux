@@ -134,4 +134,10 @@ object RequestCreation {
     override def getJson: JsonObject = column.getJson.mergeIn(Json.obj("identifier" -> true))
   }
 
+  case class FrontendReadOnly(column: ColumnType) extends ColumnType(column.kind) {
+    val name: String = column.name
+
+    override def getJson: JsonObject = column.getJson.mergeIn(Json.obj("frontendReadOnly" -> true))
+  }
+
 }

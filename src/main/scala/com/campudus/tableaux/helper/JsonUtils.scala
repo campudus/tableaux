@@ -89,6 +89,7 @@ object JsonUtils extends LazyLogging {
             // optional fields
             val ordering = Try(json.getInteger("ordering").longValue()).toOption
             val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
+            val frontendReadOnly = Try[Boolean](json.getBoolean("frontendReadOnly")).getOrElse(false)
 
             // languageType or deprecated multilanguage
             // if languageType == 'country' countryCodes must be specified
@@ -99,7 +100,7 @@ object JsonUtils extends LazyLogging {
 
             dbType match {
               case AttachmentType =>
-                CreateAttachmentColumn(name, ordering, identifier, displayInfos)
+                CreateAttachmentColumn(name, ordering, identifier, frontendReadOnly, displayInfos)
 
               case LinkType =>
                 // link specific fields
@@ -140,6 +141,7 @@ object JsonUtils extends LazyLogging {
                                  toTableId,
                                  singleDirection,
                                  identifier,
+                                 frontendReadOnly,
                                  displayInfos,
                                  constraint.getOrElse(DefaultConstraint),
                                  createBackLinkColumn)
@@ -153,10 +155,10 @@ object JsonUtils extends LazyLogging {
                   .map(_.toLong)
                   .toSeq
 
-                CreateGroupColumn(name, ordering, identifier, displayInfos, groups)
+                CreateGroupColumn(name, ordering, identifier, frontendReadOnly, displayInfos, groups)
 
               case _ =>
-                CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)
+                CreateSimpleColumn(name, ordering, dbType, languageType, identifier, frontendReadOnly, displayInfos)
             }
           }
         }

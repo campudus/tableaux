@@ -115,9 +115,14 @@ class StructureController(override val config: TableauxConfig, override protecte
     for {
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId)
 
-      _ <- columnStruc.createColumn(
-        created,
-        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty))
+      _ <- columnStruc.createColumn(created,
+                                    CreateSimpleColumn("key",
+                                                       None,
+                                                       ShortTextType,
+                                                       LanguageNeutral,
+                                                       identifier = true,
+                                                       frontendReadOnly = false,
+                                                       Seq.empty))
       _ <- columnStruc.createColumn(
         created,
         CreateSimpleColumn("displayKey",
@@ -125,25 +130,30 @@ class StructureController(override val config: TableauxConfig, override protecte
                            ShortTextType,
                            MultiLanguage,
                            identifier = false,
+                           frontendReadOnly = false,
                            Seq(
                              NameOnly("de", "Bezeichnung"),
                              NameOnly("en", "Identifier")
                            ))
       )
-      _ <- columnStruc.createColumn(created,
-                                    CreateSimpleColumn("value",
-                                                       None,
-                                                       TextType,
-                                                       MultiLanguage,
-                                                       identifier = false,
-                                                       Seq(
-                                                         NameOnly("de", "Inhalt"),
-                                                         NameOnly("en", "Value")
-                                                       )))
+      _ <- columnStruc.createColumn(
+        created,
+        CreateSimpleColumn("value",
+                           None,
+                           TextType,
+                           MultiLanguage,
+                           identifier = false,
+                           frontendReadOnly = false,
+                           Seq(
+                             NameOnly("de", "Inhalt"),
+                             NameOnly("en", "Value")
+                           ))
+      )
       _ <- columnStruc.createColumn(created,
                                     CreateAttachmentColumn("attachment",
                                                            None,
                                                            identifier = false,
+                                                           frontendReadOnly = false,
                                                            Seq(
                                                              NameOnly("de", "Anhang"),
                                                              NameOnly("en", "Attachment")

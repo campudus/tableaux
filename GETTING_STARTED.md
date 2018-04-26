@@ -117,6 +117,7 @@ Call this endpoint of a specific table to retrieve its columns. The different da
       "multilanguage": true, // deprecated, false if languageType equals neutral
       "languageType": "language", // language type can be neutral, language, or country
       "identifier": true, // flag if this column is used to identify a row
+      "frontendReadOnly": true, // flag whether this column is marked as read only for the frontend (default: 'false')
       "displayName": { // user-friendly column name
         "de": "Name",
         "en": "Name",
