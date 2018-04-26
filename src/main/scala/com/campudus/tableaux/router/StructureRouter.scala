@@ -131,23 +131,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       asyncGetReply {
         for {
           json <- getJson(context)
-          (optName, optOrd, optKind, optIdent, optDisplayInfos, optCountryCodes) = toColumnChanges(json)
-          changed <- controller.changeColumn(tableId.toLong,
-                                             columnId.toLong,
-                                             optName,
-                                             optOrd,
-                                             optKind,
-                                             optIdent,
-                                             optDisplayInfos,
-                                             optCountryCodes)
-        } yield changed
-      }
-
-    case Patch(Column(tableId, columnId)) =>
-      asyncGetReply {
-        for {
-          json <- getJson(context)
-          (optName, optOrd, optKind, optIdent, optDisplayInfos, optCountryCodes) = toColumnChanges(json)
+          (optName, optOrd, optKind, optIdent, optFrontendReadOnly, optDisplayInfos, optCountryCodes) = toColumnChanges(
+            json)
           changed <- controller
             .changeColumn(tableId.toLong,
                           columnId.toLong,
@@ -155,6 +140,26 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
                           optOrd,
                           optKind,
                           optIdent,
+                          optFrontendReadOnly,
+                          optDisplayInfos,
+                          optCountryCodes)
+        } yield changed
+      }
+
+    case Patch(Column(tableId, columnId)) =>
+      asyncGetReply {
+        for {
+          json <- getJson(context)
+          (optName, optOrd, optKind, optIdent, optFrontendReadOnly, optDisplayInfos, optCountryCodes) = toColumnChanges(
+            json)
+          changed <- controller
+            .changeColumn(tableId.toLong,
+                          columnId.toLong,
+                          optName,
+                          optOrd,
+                          optKind,
+                          optIdent,
+                          optFrontendReadOnly,
                           optDisplayInfos,
                           optCountryCodes)
         } yield changed

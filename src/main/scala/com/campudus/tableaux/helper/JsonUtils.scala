@@ -242,6 +242,7 @@ object JsonUtils extends LazyLogging {
                                           Option[Ordering],
                                           Option[TableauxDbType],
                                           Option[Boolean],
+                                          Option[Boolean],
                                           Option[Seq[DisplayInfo]],
                                           Option[Seq[String]]) = {
     import scala.collection.JavaConverters._
@@ -250,6 +251,7 @@ object JsonUtils extends LazyLogging {
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     val identifier = Try(json.getBoolean("identifier").booleanValue()).toOption
+    val frontendReadOnly = Try(json.getBoolean("frontendReadOnly").booleanValue()).toOption
     val displayInfos = DisplayInfos.fromJson(json) match {
       case list if list.isEmpty => None
       case list => Some(list)
@@ -263,7 +265,7 @@ object JsonUtils extends LazyLogging {
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 
-    (name, ord, kind, identifier, displayInfos, countryCodes)
+    (name, ord, kind, identifier, frontendReadOnly, displayInfos, countryCodes)
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {

@@ -144,12 +144,14 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
       ordering: Option[Ordering],
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
+      frontendReadOnly: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]]
   ): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
-      r <- super.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
+      r <- super
+        .change(table, columnId, columnName, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes)
     } yield r
   }
 }
@@ -1102,6 +1104,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       ordering: Option[Ordering],
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
+      frontendReadOnly: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]]
   ): Future[ColumnType[_]] = {
@@ -1144,6 +1147,15 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           }
         }
       )
+      (t, resultFrontendReadOnly) <- optionToValidFuture(
+        frontendReadOnly,
+        t, { frontRO: Boolean =>
+          {
+            t.query(s"UPDATE system_columns SET frontend_read_only = ? WHERE table_id = ? AND column_id = ?",
+                    Json.arr(frontRO, tableId, columnId))
+          }
+        }
+      )
       (t, resultCountryCodes) <- optionToValidFuture(
         countryCodes,
         t, { codes: Seq[String] =>
@@ -1168,7 +1180,13 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         }
       ).recoverWith(t.rollbackAndFail())
 
-      _ <- Future(checkUpdateResults(resultName, resultOrdering, resultKind, resultIdentifier, resultCountryCodes))
+      _ <- Future(
+        checkUpdateResults(resultName,
+                           resultOrdering,
+                           resultKind,
+                           resultIdentifier,
+                           resultFrontendReadOnly,
+                           resultCountryCodes))
         .recoverWith(t.rollbackAndFail())
 
       _ <- t.commit()
