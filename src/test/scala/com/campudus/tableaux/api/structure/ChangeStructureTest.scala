@@ -152,4 +152,17 @@ class ChangeStructureTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def changeColumn_frontendReadOnly_toTrue(implicit c: TestContext): Unit = okTest {
+    val updateJson = Json.obj("frontendReadOnly" -> true)
+
+    for {
+      _ <- createDefaultTable()
+      _ <- sendRequest("POST", "/tables/1/columns/1", updateJson)
+      resultGet <- sendRequest("GET", "/tables/1/columns/1")
+    } yield {
+      assertEquals(true, resultGet.getBoolean("frontendReadOnly"))
+    }
+  }
 }

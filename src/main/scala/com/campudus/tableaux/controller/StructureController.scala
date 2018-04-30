@@ -115,9 +115,14 @@ class StructureController(override val config: TableauxConfig, override protecte
     for {
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId)
 
-      _ <- columnStruc.createColumn(
-        created,
-        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty))
+      _ <- columnStruc.createColumn(created,
+                                    CreateSimpleColumn("key",
+                                                       None,
+                                                       ShortTextType,
+                                                       LanguageNeutral,
+                                                       identifier = true,
+                                                       frontendReadOnly = false,
+                                                       Seq.empty))
       _ <- columnStruc.createColumn(
         created,
         CreateSimpleColumn("displayKey",
@@ -125,25 +130,30 @@ class StructureController(override val config: TableauxConfig, override protecte
                            ShortTextType,
                            MultiLanguage,
                            identifier = false,
+                           frontendReadOnly = false,
                            Seq(
                              NameOnly("de", "Bezeichnung"),
                              NameOnly("en", "Identifier")
                            ))
       )
-      _ <- columnStruc.createColumn(created,
-                                    CreateSimpleColumn("value",
-                                                       None,
-                                                       TextType,
-                                                       MultiLanguage,
-                                                       identifier = false,
-                                                       Seq(
-                                                         NameOnly("de", "Inhalt"),
-                                                         NameOnly("en", "Value")
-                                                       )))
+      _ <- columnStruc.createColumn(
+        created,
+        CreateSimpleColumn("value",
+                           None,
+                           TextType,
+                           MultiLanguage,
+                           identifier = false,
+                           frontendReadOnly = false,
+                           Seq(
+                             NameOnly("de", "Inhalt"),
+                             NameOnly("en", "Value")
+                           ))
+      )
       _ <- columnStruc.createColumn(created,
                                     CreateAttachmentColumn("attachment",
                                                            None,
                                                            identifier = false,
+                                                           frontendReadOnly = false,
                                                            Seq(
                                                              NameOnly("de", "Anhang"),
                                                              NameOnly("en", "Attachment")
@@ -235,19 +245,34 @@ class StructureController(override val config: TableauxConfig, override protecte
                    ordering: Option[Ordering],
                    kind: Option[TableauxDbType],
                    identifier: Option[Boolean],
+                   frontendReadOnly: Option[Boolean],
                    displayInfos: Option[Seq[DisplayInfo]],
                    countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
-    checkArguments(greaterZero(tableId),
-                   greaterZero(columnId),
-                   isDefined(Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes)))
+    checkArguments(
+      greaterZero(tableId),
+      greaterZero(columnId),
+      isDefined(
+        Seq(columnName, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes),
+        "name, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes"
+      )
+    )
     logger.info(
-      s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier displayInfos=$displayInfos, countryCodes=$countryCodes")
+      s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier " +
+        s"frontendReadOnly=$frontendReadOnly displayInfos=$displayInfos, countryCodes=$countryCodes")
 
     for {
       table <- tableStruc.retrieve(tableId)
       changed <- table.tableType match {
         case GenericTable =>
-          columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
+          columnStruc.change(table,
+                             columnId,
+                             columnName,
+                             ordering,
+                             kind,
+                             identifier,
+                             frontendReadOnly,
+                             displayInfos,
+                             countryCodes)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 

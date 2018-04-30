@@ -39,8 +39,10 @@ class StructureControllerTest extends TableauxTestBase {
   def checkCreateLinkColumnWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createStructureController()
     illegalArgumentTest(
-      controller.createColumns(0,
-                               Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List()))))
+      controller.createColumns(
+        0,
+        Seq(
+          CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, frontendReadOnly = false, List()))))
   }
 
   @Test
@@ -54,14 +56,24 @@ class StructureControllerTest extends TableauxTestBase {
     val controller = createStructureController()
     illegalArgumentTest(
       controller
-        .createColumns(0, Seq(CreateSimpleColumn(null, None, TextType, LanguageNeutral, identifier = false, List()))))
+        .createColumns(0,
+                       Seq(
+                         CreateSimpleColumn(null,
+                                            None,
+                                            TextType,
+                                            LanguageNeutral,
+                                            identifier = false,
+                                            frontendReadOnly = false,
+                                            List()))))
   }
 
   @Test
   def checkCreateColumnWithNullType(implicit c: TestContext): Unit = {
     val controller = createStructureController()
     illegalArgumentTest(
-      controller.createColumns(0, Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List()))))
+      controller.createColumns(
+        0,
+        Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, frontendReadOnly = false, List()))))
   }
 
   @Test

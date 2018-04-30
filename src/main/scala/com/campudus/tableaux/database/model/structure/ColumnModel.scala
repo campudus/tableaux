@@ -144,12 +144,14 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
       ordering: Option[Ordering],
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
+      frontendReadOnly: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]]
   ): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
-      r <- super.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
+      r <- super
+        .change(table, columnId, columnName, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes)
     } yield r
   }
 }
@@ -380,19 +382,21 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   ): Future[(connection.Transaction, CreatedColumnInformation)] = {
 
     def insertStatement(tableId: TableId, ordering: String) = {
-      s"""INSERT INTO system_columns (
-table_id,
-column_id,
-column_type,
-user_column_name,
-ordering,
-link_id,
-multilanguage,
-identifier,
-country_codes
-)
-VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?)
-RETURNING column_id, ordering""".stripMargin
+      s"""|INSERT INTO system_columns (
+          | table_id,
+          | column_id,
+          | column_type,
+          | user_column_name,
+          | ordering,
+          | link_id,
+          | multilanguage,
+          | identifier,
+          | frontend_read_only,
+          | country_codes
+          | )
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?)
+          | RETURNING column_id, ordering
+          |""".stripMargin
     }
 
     val countryCodes = createColumn.languageType match {
@@ -425,6 +429,7 @@ RETURNING column_id, ordering""".stripMargin
                 linkId.orNull,
                 createColumn.languageType.toString,
                 createColumn.identifier,
+                createColumn.frontendReadOnly,
                 countryCodes.map(f => Json.arr(f: _*)).orNull
               )
             )
@@ -439,6 +444,7 @@ RETURNING column_id, ordering""".stripMargin
                 linkId.orNull,
                 createColumn.languageType.toString,
                 createColumn.identifier,
+                createColumn.frontendReadOnly,
                 countryCodes.map(f => Json.arr(f: _*)).orNull
               )
             )
@@ -646,7 +652,8 @@ RETURNING column_id, ordering""".stripMargin
          |  (
          |    SELECT json_agg(group_column_id) FROM system_column_groups
          |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
-         |  ) AS group_column_ids
+         |  ) AS group_column_ids,
+         |  frontend_read_only
          |FROM system_columns c
          |WHERE
          |  table_id = ? AND
@@ -730,7 +737,8 @@ RETURNING column_id, ordering""".stripMargin
        |  (
        |    SELECT json_agg(group_column_id) FROM system_column_groups
        |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
-       |  ) AS group_column_ids
+       |  ) AS group_column_ids,
+       |  frontend_read_only
        |FROM system_columns c
        |WHERE
        |  table_id = ?
@@ -844,6 +852,8 @@ RETURNING column_id, ordering""".stripMargin
       .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
       .getOrElse(Seq.empty[ColumnId])
 
+    val frontendReadOnly = row.get[Boolean](8)
+
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
 
@@ -853,6 +863,7 @@ RETURNING column_id, ordering""".stripMargin
         columnName,
         ordering,
         identifier,
+        frontendReadOnly,
         displayInfoSeq,
         groupColumnIds
       )
@@ -1093,6 +1104,7 @@ RETURNING column_id, ordering""".stripMargin
       ordering: Option[Ordering],
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
+      frontendReadOnly: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]]
   ): Future[ColumnType[_]] = {
@@ -1135,6 +1147,15 @@ RETURNING column_id, ordering""".stripMargin
           }
         }
       )
+      (t, resultFrontendReadOnly) <- optionToValidFuture(
+        frontendReadOnly,
+        t, { frontRO: Boolean =>
+          {
+            t.query(s"UPDATE system_columns SET frontend_read_only = ? WHERE table_id = ? AND column_id = ?",
+                    Json.arr(frontRO, tableId, columnId))
+          }
+        }
+      )
       (t, resultCountryCodes) <- optionToValidFuture(
         countryCodes,
         t, { codes: Seq[String] =>
@@ -1159,7 +1180,13 @@ RETURNING column_id, ordering""".stripMargin
         }
       ).recoverWith(t.rollbackAndFail())
 
-      _ <- Future(checkUpdateResults(resultName, resultOrdering, resultKind, resultIdentifier, resultCountryCodes))
+      _ <- Future(
+        checkUpdateResults(resultName,
+                           resultOrdering,
+                           resultKind,
+                           resultIdentifier,
+                           resultFrontendReadOnly,
+                           resultCountryCodes))
         .recoverWith(t.rollbackAndFail())
 
       _ <- t.commit()

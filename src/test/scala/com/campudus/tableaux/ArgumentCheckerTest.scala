@@ -99,7 +99,20 @@ class ArgumentCheckerTest {
       checkArguments(isDefined(Seq(None, None, None)))
       fail("Should throw an exception")
     } catch {
-      case ex: IllegalArgumentException => assertEquals("(0) Non of these options has a value. ()", ex.getMessage)
+      case ex: IllegalArgumentException =>
+        assertEquals("(0) Non of these options has a (valid) value. ()", ex.getMessage)
+      case _: Throwable => fail(s"Should throw an IllegalArgumentException")
+    }
+  }
+
+  @Test
+  def checkIsDefinedAnyOptionWithNames(): Unit = {
+    try {
+      checkArguments(isDefined(Seq(None, None, None), "value1, value2, value3"))
+      fail("Should throw an exception")
+    } catch {
+      case ex: IllegalArgumentException =>
+        assertEquals("(0) Non of these options has a (valid) value. (value1, value2, value3)", ex.getMessage)
       case _: Throwable => fail(s"Should throw an IllegalArgumentException")
     }
   }

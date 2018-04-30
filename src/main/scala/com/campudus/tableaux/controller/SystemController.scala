@@ -116,6 +116,7 @@ class SystemController(override val config: TableauxConfig,
           None,
           singleDirection = false,
           identifier = false,
+          frontendReadOnly = false,
           List(),
           Constraint(Cardinality(1, 0), deleteCascade = false)
         )

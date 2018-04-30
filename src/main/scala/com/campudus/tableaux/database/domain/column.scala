@@ -27,6 +27,7 @@ sealed trait ColumnInformation {
   val name: String
   val ordering: Ordering
   val identifier: Boolean
+  val frontendReadOnly: Boolean
   val displayInfos: Seq[DisplayInfo]
   val groupColumnIds: Seq[ColumnId]
 }
@@ -43,6 +44,7 @@ object BasicColumnInformation {
                            createColumn.name,
                            ordering,
                            createColumn.identifier,
+                           createColumn.frontendReadOnly,
                            displayInfos,
                            Seq.empty)
   }
@@ -53,6 +55,7 @@ case class BasicColumnInformation(override val table: Table,
                                   override val name: String,
                                   override val ordering: Ordering,
                                   override val identifier: Boolean,
+                                  override val frontendReadOnly: Boolean,
                                   override val displayInfos: Seq[DisplayInfo],
                                   override val groupColumnIds: Seq[ColumnId])
     extends ColumnInformation
@@ -63,6 +66,7 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   // Right now, every concat column is
   // an identifier
   override val identifier = true
+  override val frontendReadOnly = false
 
   override val id: ColumnId = 0
   override val ordering: Ordering = 0
@@ -166,6 +170,8 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   final val identifier: Boolean = columnInformation.identifier
 
+  final val frontendReadOnly: Boolean = columnInformation.frontendReadOnly
+
   override def getJson: JsonObject = {
 
     // backward compatibility
@@ -197,6 +203,8 @@ sealed trait ColumnType[+A] extends DomainObject {
       case _ =>
       // do nothing
     }
+
+    if (frontendReadOnly) json.mergeIn(Json.obj("frontendReadOnly" -> frontendReadOnly))
 
     columnInformation.displayInfos.foreach(displayInfo => {
       displayInfo.optionalName.map(name => {

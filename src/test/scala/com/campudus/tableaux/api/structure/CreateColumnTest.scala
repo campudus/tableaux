@@ -5,7 +5,10 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.Json
+import org.scalatest._
+
+import org.skyscreamer.jsonassert.{JSONCompare, JSONCompareMode}
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 @RunWith(classOf[VertxUnitRunner])
 class CreateColumnTest extends TableauxTestBase {
@@ -355,6 +358,70 @@ class CreateColumnTest extends TableauxTestBase {
         test <- sendRequest("POST", "/tables/1/columns", jsonObj)
       } yield {
         assertEquals(expectedJson, test)
+      }
+    }
+  }
+
+  @Test
+  def createTextColumn_frontendReadOnlyIsTrue(implicit c: TestContext): Unit = {
+    okTest {
+      val frontendReadOnlyColumn =
+        RequestCreation.FrontendReadOnly(RequestCreation.TextCol("frontend_read_only_column"))
+      val createColumn = RequestCreation.Columns().add(frontendReadOnlyColumn).getJson
+
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj(
+              "id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj()
+            )
+            .mergeIn(createColumn.getJsonArray("columns").getJsonObject(0))
+        )
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test <- sendRequest("POST", "/tables/1/columns", createColumn)
+      } yield {
+        assertEqualsJSON(expectedJson, test)
+      }
+    }
+  }
+
+  @Test
+  def createCurrencyColumn_frontendReadOnlyIsTrue(implicit c: TestContext): Unit = {
+    okTest {
+      val frontendReadOnlyColumn =
+        RequestCreation.FrontendReadOnly(RequestCreation.CurrencyCol("frontend_read_only_column"))
+      val createColumn = RequestCreation.Columns().add(frontendReadOnlyColumn).getJson
+
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj(
+              "id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj()
+            )
+            .mergeIn(createColumn.getJsonArray("columns").getJsonObject(0))
+        )
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test <- sendRequest("POST", "/tables/1/columns", createColumn)
+      } yield {
+        assertEqualsJSON(expectedJson, test)
       }
     }
   }
