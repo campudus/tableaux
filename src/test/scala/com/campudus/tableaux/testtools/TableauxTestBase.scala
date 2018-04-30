@@ -58,30 +58,42 @@ trait TestAssertionHelper {
     c
   }
 
-  def assertEqualsJSON[A](expected: A, actual: A, compareMode: JSONCompareMode)(
+  // Asserts for JsonArrays
+  def assertEqualsJSON(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext = {
+    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
+  }
+
+  def assertEqualsJSON(expected: JsonArray, actual: JsonArray, compareMode: JSONCompareMode)(
       implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, None, compareMode)
+    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
   }
 
-  def assertEqualsJSON[A](
-      message: String,
-      expected: A,
-      actual: A,
-      compareMode: JSONCompareMode
-  )(implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, Some(message), compareMode)
+  // Asserts for JsonObject
+  def assertEqualsJSON(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
+    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
   }
 
-  private def assertEqualsJSONString(expected: String,
-                                     actual: String,
-                                     messageOpt: Option[String],
-                                     compareMode: JSONCompareMode)(implicit c: TestContext): TestContext = {
+  def assertEqualsJSON(expected: JsonObject, actual: JsonObject, compareMode: JSONCompareMode)(
+      implicit c: TestContext): TestContext = {
+    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
+  }
+
+  // Asserts for Json as String
+  def assertEqualsJSON(expected: String, actual: String)(implicit c: TestContext): TestContext = {
+    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
+  }
+
+  def assertEqualsJSON(expected: String, actual: String, compareMode: JSONCompareMode)(
+      implicit c: TestContext): TestContext = {
+    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
+  }
+
+  private def assertEqualsJSONString(
+      expected: String,
+      actual: String,
+      compareMode: JSONCompareMode = JSONCompareMode.STRICT)(implicit c: TestContext): TestContext = {
     val assertion = JSONCompare.compareJSON(expected, actual, compareMode)
-    val message = messageOpt match {
-      case Some(m) => m
-      case None => assertion.getMessage
-    }
-    c.assertTrue(assertion.passed(), message)
+    c.assertTrue(assertion.passed(), assertion.getMessage)
   }
 
   def assertContainsDeep(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext =

@@ -389,9 +389,7 @@ class CreateColumnTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test <- sendRequest("POST", "/tables/1/columns", createColumn)
       } yield {
-        assertEquals(expectedJson, test)
-//        assertEqualsJSON(expectedJson, test, JSONCompareMode.LENIENT)
-//        assertEqualsJSON(expectedJson, test, JSONCompareMode.STRICT)
+        assertEqualsJSON(expectedJson, test)
       }
     }
   }
@@ -423,7 +421,7 @@ class CreateColumnTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test <- sendRequest("POST", "/tables/1/columns", createColumn)
       } yield {
-        assertEquals(expectedJson, test)
+        assertEqualsJSON(expectedJson, test)
       }
     }
   }
