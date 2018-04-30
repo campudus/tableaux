@@ -8,6 +8,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -22,6 +23,9 @@ class GroupColumnTest extends TableauxTestBase {
   def createBooleanColumnJson(name: String) = Columns(BooleanCol(name)).getJson
 
   def createGroupColumnJson(name: String, groups: Seq[ColumnId]) = Columns(GroupCol(name, groups)).getJson
+
+  def createGroupColumnWithFormatPatternJson(name: String, groups: Seq[ColumnId], formatPattern: String) =
+    Columns(FormattedGroupCol(name, groups, formatPattern)).getJson
 
   def sendCreateColumnRequest(tableId: TableId, columnsJson: DomainObject): Future[Int] =
     sendCreateColumnRequest(tableId, columnsJson.getJson)
@@ -380,6 +384,115 @@ class GroupColumnTest extends TableauxTestBase {
           ),
           groupColumnAfterChange
         )
+      }
+    }
+  }
+
+  @Test
+  def createSingleGroupColumnWithValidFormat(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
+
+        groupColumn <- sendRequest("POST",
+                                   "/tables/1/columns",
+                                   createGroupColumnWithFormatPatternJson("groupcolumn",
+                                                                          Seq(textColumnId),
+                                                                          "The value '{{1}}' with fancy format"))
+          .map(_.getJsonArray("columns").getJsonObject(0))
+      } yield {
+        println("gg: " + groupColumn)
+
+        val expected = """{
+                         |  "groups": [{"id": 1}],
+                         |  "formatPattern": "The value '{{1}}' with fancy format"
+                         |}""".stripMargin
+
+        assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
+
+      }
+    }
+  }
+
+  @Test
+  def createTripleGroupColumn(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textCol1 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn1"))
+        textCol2 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn2"))
+        textCol3 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn3"))
+
+        groupColumn <- sendRequest("POST",
+                                   "/tables/1/columns",
+                                   createGroupColumnJson("groupcolumn", Seq(textCol1, textCol2, textCol3)))
+          .map(_.getJsonArray("columns").getJsonObject(0))
+      } yield {
+        val expected = """{
+                         |  "groups": [
+                         |    {"id": 1},
+                         |    {"id": 2},
+                         |    {"id": 3}
+                         |  ]
+                         |}""".stripMargin
+
+        assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def createTripleGroupColumnWithValidFormat(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textCol1 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn1"))
+        textCol2 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn2"))
+        textCol3 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn3"))
+
+        groupColumn <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnWithFormatPatternJson("groupcolumn",
+                                                 Seq(textCol1, textCol2, textCol3),
+                                                 "{{1}} × {{2}} × {{3}} mm (B × H × T)")
+        ).map(_.getJsonArray("columns").getJsonObject(0))
+      } yield {
+        val expected = """{
+                         |  "groups": [
+                         |    {"id": 1},
+                         |    {"id": 2},
+                         |    {"id": 3}
+                         |  ],
+                         |  "formatPattern": "{{1}} × {{2}} × {{3}} mm (B × H × T)"
+                         |}""".stripMargin
+
+        assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def createSingleGroupColumnWithInvalidFormat(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textCol1 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn1"))
+
+        groupColumn <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnWithFormatPatternJson("groupcolumn", Seq(textCol1), "{{1}} × {{2}} mm"))
+          .map(_.getJsonArray("columns").getJsonObject(0))
+      } yield {
+        val expected = """{TODO failed""".stripMargin
+
+        assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
       }
     }
   }

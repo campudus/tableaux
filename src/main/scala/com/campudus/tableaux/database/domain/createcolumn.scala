@@ -88,6 +88,7 @@ case class CreateGroupColumn(override val name: String,
                              override val ordering: Option[Ordering],
                              override val identifier: Boolean,
                              override val frontendReadOnly: Boolean,
+                             formatPattern: Option[String],
                              override val displayInfos: Seq[DisplayInfo],
                              groups: Seq[ColumnId])
     extends CreateColumn {

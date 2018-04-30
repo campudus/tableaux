@@ -210,7 +210,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             case CreatedColumnInformation(_, id, ordering, displayInfos) =>
               // For simplification we return GroupColumn without grouped columns...
               // ... StructureController will retrieve these anyway
-              GroupColumn(applyColumnInformation(id, ordering, displayInfos), Seq.empty)
+              GroupColumn(applyColumnInformation(id, ordering, displayInfos), Seq.empty, groupColumnInfo.formatPattern)
           })
     }
   }
@@ -238,9 +238,11 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             throw UnprocessableEntityException(
               s"GroupColumn (${groupColumnInfo.name}) can't contain another GroupColumn")
           }
+
+          // TODO validate format pattern with number of group columns
         }
 
-        (t, columnInfo) <- insertSystemColumn(t, tableId, groupColumnInfo, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, groupColumnInfo, None, groupColumnInfo.formatPattern)
 
         // insert group information
         insertPlaceholder = groupColumnInfo.groups.map(_ => "(?, ?, ?)").mkString(", ")
@@ -258,7 +260,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   ): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
-        (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None, None)
         tableSql = simpleColumnInfo.languageType match {
           case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
           case LanguageNeutral => s"user_table_$tableId"
@@ -282,7 +284,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   ): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
-        (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None, None)
       } yield (t, columnInfo)
     }
   }
@@ -327,7 +329,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
-        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId))
+        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), None)
 
         // only add the second link column if tableId != toTableId or singleDirection is false
         t <- {
@@ -346,7 +348,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             )
 
             // ColumnInfo will be ignored, so we can lose it
-            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
+            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId), None)
               .map({
                 case (t, _) => t
               })
@@ -378,7 +380,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       t: connection.Transaction,
       tableId: TableId,
       createColumn: CreateColumn,
-      linkId: Option[LinkId]
+      linkId: Option[LinkId],
+      formatPattern: Option[String]
   ): Future[(connection.Transaction, CreatedColumnInformation)] = {
 
     def insertStatement(tableId: TableId, ordering: String) = {
@@ -392,9 +395,10 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           | multilanguage,
           | identifier,
           | frontend_read_only,
+          | format_pattern,
           | country_codes
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -430,6 +434,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
                 createColumn.languageType.toString,
                 createColumn.identifier,
                 createColumn.frontendReadOnly,
+                formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull
               )
             )
@@ -445,6 +450,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
                 createColumn.languageType.toString,
                 createColumn.identifier,
                 createColumn.frontendReadOnly,
+                formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull
               )
             )
@@ -653,7 +659,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
          |    SELECT json_agg(group_column_id) FROM system_column_groups
          |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
          |  ) AS group_column_ids,
-         |  frontend_read_only
+         |  frontend_read_only,
+         |  format_pattern
          |FROM system_columns c
          |WHERE
          |  table_id = ? AND
@@ -696,7 +703,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             // fill GroupColumn with life!
             // ... till now GroupColumn only was a placeholder
             val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
-            GroupColumn(g.columnInformation, groupedColumns)
+            GroupColumn(g.columnInformation, groupedColumns, g.formatPattern)
 
           case c => c
         })
@@ -738,7 +745,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
        |    SELECT json_agg(group_column_id) FROM system_column_groups
        |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
        |  ) AS group_column_ids,
-       |  frontend_read_only
+       |  frontend_read_only,
+       |  format_pattern
        |FROM system_columns c
        |WHERE
        |  table_id = ?
@@ -784,7 +792,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       depth: Int,
       kind: TableauxDbType,
       languageType: LanguageType,
-      columnInformation: ColumnInformation
+      columnInformation: ColumnInformation,
+      formatPattern: Option[String]
   ): Future[ColumnType[_]] = {
     kind match {
       case AttachmentType =>
@@ -795,7 +804,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       case GroupType =>
         // placeholder for now, grouped columns will be filled in later
-        Future(GroupColumn(columnInformation, Seq.empty))
+        Future(GroupColumn(columnInformation, Seq.empty, formatPattern))
 
       case _ =>
         Future(SimpleValueColumn(kind, languageType, columnInformation))
@@ -854,6 +863,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     val frontendReadOnly = row.get[Boolean](8)
 
+    val formatPattern = Option(row.get[String](9))
+
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
 
@@ -868,7 +879,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         groupColumnIds
       )
 
-      column <- mapColumn(depth, kind, languageType, columnInformation)
+      column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern)
     } yield column
   }
 

@@ -140,4 +140,20 @@ object RequestCreation {
     override def getJson: JsonObject = column.getJson.mergeIn(Json.obj("frontendReadOnly" -> true))
   }
 
+  case class FormattedGroupCol(name: String, groups: Seq[ColumnId], formatPattern: String) extends ColumnType("group") {
+
+    override def getJson: JsonObject = {
+      super.getJson
+        .mergeIn(
+          Json.obj(
+            "groups" -> groups
+          ))
+        .mergeIn(
+          Json.obj(
+            "formatPattern" -> formatPattern
+          )
+        )
+    }
+  }
+
 }
