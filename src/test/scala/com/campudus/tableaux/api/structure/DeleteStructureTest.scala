@@ -159,6 +159,54 @@ class DeleteStructureTest extends TableauxTestBase {
   }
 
   @Test
+  def deleteTableWithOneLinkColumn(implicit c: TestContext): Unit = okTest {
+    val createLinkColumnJson = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "Test Link 1",
+          "kind" -> "link",
+          "toTable" -> 2
+        )
+      )
+    )
+
+    for {
+      table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
+      table2 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
+
+      _ <- sendRequest("POST", s"/tables/$table2/columns", createIdentifierStringColumnJson)
+
+      _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
+
+      deleteResult <- sendRequest("DELETE", "/tables/1")
+    } yield {
+      assertEquals(expectedOkJson, deleteResult)
+    }
+  }
+
+  @Test
+  def deleteTableWithOneAttachmentColumn(implicit c: TestContext): Unit = okTest {
+    val createLinkColumnJson = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "Test Col",
+          "kind" -> "attachment"
+        )
+      )
+    )
+
+    for {
+      table1 <- sendRequest("POST", "/tables", createTableJson).map(_.getLong("id"))
+
+      _ <- sendRequest("POST", s"/tables/$table1/columns", createLinkColumnJson)
+
+      deleteResult <- sendRequest("DELETE", "/tables/1")
+    } yield {
+      assertEquals(expectedOkJson, deleteResult)
+    }
+  }
+
+  @Test
   def deleteLinkInBothDirectionsAndCheckForDependentRows(implicit c: TestContext): Unit = {
     okTest {
       val createLinkColumnJson = Json.obj(
