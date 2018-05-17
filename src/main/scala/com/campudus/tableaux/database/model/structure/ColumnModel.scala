@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{
   DatabaseException,
@@ -156,6 +157,24 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
   }
 }
 
+object ColumnModel {
+
+  def groupingMatchesToFormatPattern(formatPattern: Option[String], groupedColumns: Seq[ColumnType[_]]): Boolean = {
+    val formatVariable = "\\{\\{(\\w+)\\}\\}".r
+
+    formatPattern match {
+      case Some(value) => {
+        val distinctVars = formatVariable.findAllMatchIn(value).toList.flatMap(_.subgroups).distinct
+
+        println("Vars: " + distinctVars)
+
+        distinctVars.contains("1")
+      }
+      case None => true
+    }
+  }
+}
+
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private lazy val tableStruc = new TableModel(connection)
@@ -238,6 +257,9 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             throw UnprocessableEntityException(
               s"GroupColumn (${groupColumnInfo.name}) can't contain another GroupColumn")
           }
+
+//          ColumnModel.groupingMatchesToFormatPattern(groupColumnInfo.formatPattern, groupedColumns)
+//          groupingMatchesToFormatPattern(groupColumnInfo.formatPattern, groupedColumns)
 
           // TODO validate format pattern with number of group columns
         }
