@@ -157,24 +157,6 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
   }
 }
 
-object ColumnModel {
-
-  def groupingMatchesToFormatPattern(formatPattern: Option[String], groupedColumns: Seq[ColumnType[_]]): Boolean = {
-    val formatVariable = "\\{\\{(\\w+)\\}\\}".r
-
-    formatPattern match {
-      case Some(value) => {
-        val distinctVars = formatVariable.findAllMatchIn(value).toList.flatMap(_.subgroups).distinct
-
-        println("Vars: " + distinctVars)
-
-        distinctVars.contains("1")
-      }
-      case None => true
-    }
-  }
-}
-
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private lazy val tableStruc = new TableModel(connection)
@@ -273,6 +255,25 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           Json.arr(groupColumnInfo.groups.flatMap(Seq(tableId, columnInfo.columnId, _)): _*)
         )
       } yield (t, columnInfo)
+    }
+  }
+
+  def groupingMatchesToFormatPattern(formatPattern: Option[String], groupedColumns: Seq[ColumnType[_]]): Boolean = {
+    val formatVariable = "\\{\\{(\\w+)\\}\\}".r
+
+    formatPattern match {
+      case Some(patternString) => {
+        val distinctWildcards = formatVariable.findAllMatchIn(patternString).toList.flatMap(_.subgroups).distinct
+        val columnIDs = groupedColumns.map(_.id.toString)
+
+        logger.info(s"Dependent Links ")
+
+        println("Wildcards: " + distinctWildcards)
+        println("Column IDs: " + columnIDs)
+
+        distinctWildcards == columnIDs
+      }
+      case None => true
     }
   }
 
