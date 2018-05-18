@@ -48,6 +48,8 @@ class ColumnModelTest extends TableauxTestBase {
 //             | [1, 2]  | "{{1}} mm"            | [ ]     |
 //             | [1]     | "{{42}} mm"           | [ ]     |
 //             | [1]     | None                  | [x]     |
+//             | [1]     | "{{a}} mm"            | [ ]     |
+//             | [42]    | "{{42}} mm"           | [x]     |
 
   @Test
   def groupingMatchesToFormatPattern_oneColumn_oneWildcard_isValid(implicit c: TestContext): Unit = {
@@ -116,6 +118,32 @@ class ColumnModelTest extends TableauxTestBase {
     val columns = Seq(col1)
 
     assertTrue(cm.groupingMatchesToFormatPattern(None, columns))
+  }
+
+  @Test
+  def groupingMatchesToFormatPattern_oneColumn_invalidPattern_isNotValid(implicit c: TestContext): Unit = {
+    val cm: ColumnModel = setupColumnModel
+
+    val formatPattern = "{{a}} mm"
+    val columns = Seq(col1)
+
+    assertFalse(cm.groupingMatchesToFormatPattern(Some(formatPattern), columns))
+  }
+
+  @Test
+  def groupingMatchesToFormatPattern_oneHigherColumnId_patternWithHigherWildcard_isValid(
+      implicit c: TestContext): Unit = {
+    val cm: ColumnModel = setupColumnModel
+    val sc42 = CreateSimpleColumn("c42", null, null, LanguageNeutral, false, false, List())
+    val testTable = Table(1, "table", false, null, null, null, null)
+    val bci42 = BasicColumnInformation(testTable, 42, 1, null, sc42)
+
+    val col42 = SimpleValueColumn(ShortTextType, LanguageNeutral, bci42)
+
+    val formatPattern = "{{42}} mm"
+    val columns = Seq(col42)
+
+    assertTrue(cm.groupingMatchesToFormatPattern(Some(formatPattern), columns))
   }
 
   private def setupColumnModel = {

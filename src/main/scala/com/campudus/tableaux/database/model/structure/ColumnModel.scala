@@ -259,7 +259,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def groupingMatchesToFormatPattern(formatPattern: Option[String], groupedColumns: Seq[ColumnType[_]]): Boolean = {
-    val formatVariable = "\\{\\{(\\w+)\\}\\}".r
+    val formatVariable = "\\{\\{(\\d+)\\}\\}".r
 
     formatPattern match {
       case Some(patternString) => {
