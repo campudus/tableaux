@@ -478,7 +478,7 @@ class GroupColumnTest extends TableauxTestBase {
 
   @Test
   def createSingleGroupColumnWithInvalidFormat(implicit c: TestContext): Unit = {
-    okTest {
+    exceptionTest("unprocessable.entity") {
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
 
@@ -489,11 +489,7 @@ class GroupColumnTest extends TableauxTestBase {
           "/tables/1/columns",
           createGroupColumnWithFormatPatternJson("groupcolumn", Seq(textCol1), "{{1}} × {{2}} mm"))
           .map(_.getJsonArray("columns").getJsonObject(0))
-      } yield {
-        val expected = """{TODO failed""".stripMargin
-
-        assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
-      }
+      } yield ()
     }
   }
 }

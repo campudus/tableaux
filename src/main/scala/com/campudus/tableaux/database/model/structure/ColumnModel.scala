@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.helper.JsonUtils
+import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{
   DatabaseException,
@@ -15,8 +15,10 @@ import com.campudus.tableaux.{
   UnprocessableEntityException
 }
 import com.google.common.cache.{CacheBuilder, Cache => GuavaBuiltCache}
+import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
 
+import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
 
 object CachedColumnModel {
@@ -36,8 +38,7 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
     extends ColumnModel(connection) {
 
   import CachedColumnModel._
-  import scalacache.caching
-  import scalacache.ScalaCache
+  import scalacache.{ScalaCache, caching}
   import scalacache.guava.GuavaCache
 
   implicit val scalaCache = ScalaCache(GuavaCache(createCache()))
@@ -157,6 +158,36 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
   }
 }
 
+object ColumnModel extends LazyLogging {
+
+  def isColumnGroupMatchingToFormatPattern(formatPattern: Option[String],
+                                           groupedColumns: Seq[ColumnType[_]]): Boolean = {
+    val formatVariable = "\\{\\{(\\d+)\\}\\}".r
+
+    formatPattern match {
+      case Some(patternString) => {
+        val distinctWildcards =
+          formatVariable
+            .findAllMatchIn(patternString)
+            .toSeq
+            .flatMap(_.subgroups)
+            .distinct
+            .map(_.toLong)
+            .to[SortedSet]
+
+        val columnIDs = groupedColumns.map(_.id).to[SortedSet]
+
+        logger.info(
+          s"Compare distinct wildcards (${distinctWildcards.mkString(", ")}) " +
+            s"with columnIDs (${columnIDs.mkString(", ")})")
+
+        distinctWildcards == columnIDs
+      }
+      case None => true
+    }
+  }
+}
+
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private lazy val tableStruc = new TableModel(connection)
@@ -240,10 +271,11 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
               s"GroupColumn (${groupColumnInfo.name}) can't contain another GroupColumn")
           }
 
-//          ColumnModel.groupingMatchesToFormatPattern(groupColumnInfo.formatPattern, groupedColumns)
-//          groupingMatchesToFormatPattern(groupColumnInfo.formatPattern, groupedColumns)
-
-          // TODO validate format pattern with number of group columns
+          if (!isColumnGroupMatchingToFormatPattern(groupColumnInfo.formatPattern, groupedColumns)) {
+            throw UnprocessableEntityException(
+              s"GroupColumns (${groupedColumns.map(_.id).mkString(", ")}) don't match to formatPattern " +
+                s"${"\"" + groupColumnInfo.formatPattern.map(_.toString).orNull + "\""}")
+          }
         }
 
         (t, columnInfo) <- insertSystemColumn(t, tableId, groupColumnInfo, None, groupColumnInfo.formatPattern)
@@ -255,25 +287,6 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           Json.arr(groupColumnInfo.groups.flatMap(Seq(tableId, columnInfo.columnId, _)): _*)
         )
       } yield (t, columnInfo)
-    }
-  }
-
-  def groupingMatchesToFormatPattern(formatPattern: Option[String], groupedColumns: Seq[ColumnType[_]]): Boolean = {
-    val formatVariable = "\\{\\{(\\d+)\\}\\}".r
-
-    formatPattern match {
-      case Some(patternString) => {
-        val distinctWildcards = formatVariable.findAllMatchIn(patternString).toList.flatMap(_.subgroups).distinct
-        val columnIDs = groupedColumns.map(_.id.toString)
-
-        logger.info(s"Dependent Links ")
-
-        println("Wildcards: " + distinctWildcards)
-        println("Column IDs: " + columnIDs)
-
-        distinctWildcards == columnIDs
-      }
-      case None => true
     }
   }
 
