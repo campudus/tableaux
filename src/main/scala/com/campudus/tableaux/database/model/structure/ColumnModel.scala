@@ -129,10 +129,13 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
     } yield r
   }
 
-  override def delete(table: Table, columnId: ColumnId, bothDirections: Boolean): Future[Unit] = {
+  override def delete(table: Table,
+                      columnId: ColumnId,
+                      bothDirections: Boolean,
+                      checkForLastColumn: Boolean = true): Future[Unit] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
-      r <- super.delete(table, columnId, bothDirections)
+      r <- super.delete(table, columnId, bothDirections, checkForLastColumn)
       _ <- removeCache(table.id, Some(columnId))
     } yield r
   }
@@ -943,12 +946,16 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def deleteLinkBothDirections(table: Table, columnId: ColumnId): Future[Unit] = {
-    delete(table, columnId, bothDirections = true)
+    delete(table, columnId, bothDirections = true, checkForLastColumn = false)
   }
 
-  def delete(table: Table, columnId: ColumnId): Future[Unit] = delete(table, columnId, bothDirections = false)
+  def delete(table: Table, columnId: ColumnId): Future[Unit] =
+    delete(table, columnId, bothDirections = false, checkForLastColumn = true)
 
-  protected def delete(table: Table, columnId: ColumnId, bothDirections: Boolean): Future[Unit] = {
+  protected def delete(table: Table,
+                       columnId: ColumnId,
+                       bothDirections: Boolean,
+                       checkForLastColumn: Boolean = true): Future[Unit] = {
 
     // Retrieve all filter for columnId and check if columns is not empty
     // If columns is empty last column would be deleted => error
@@ -960,13 +967,17 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             Future.failed(NotFoundInDatabaseException("No column found at all", "no-column-found"))
         })
 
-      _ <- Future
-        .successful(columns)
-        .filter(!_.forall(_.id == columnId))
-        .recoverWith({
-          case _: NoSuchElementException =>
-            Future.failed(DatabaseException("Last column can't be deleted", "delete-last-column"))
-        })
+      _ <- if (checkForLastColumn) {
+        Future
+          .successful(columns)
+          .filter(!_.forall(_.id == columnId))
+          .recoverWith({
+            case _: NoSuchElementException =>
+              Future.failed(DatabaseException("Last column can't be deleted", "delete-last-column"))
+          })
+      } else {
+        Future.successful(columns)
+      }
 
       column = columns
         .find(_.id == columnId)
