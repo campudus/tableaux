@@ -403,15 +403,12 @@ class GroupColumnTest extends TableauxTestBase {
                                                                           "The value '{{1}}' with fancy format"))
           .map(_.getJsonArray("columns").getJsonObject(0))
       } yield {
-        println("gg: " + groupColumn)
-
         val expected = """{
                          |  "groups": [{"id": 1}],
                          |  "formatPattern": "The value '{{1}}' with fancy format"
                          |}""".stripMargin
 
         assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
-
       }
     }
   }
@@ -488,7 +485,6 @@ class GroupColumnTest extends TableauxTestBase {
           "POST",
           "/tables/1/columns",
           createGroupColumnWithFormatPatternJson("groupcolumn", Seq(textCol1), "{{1}} × {{2}} mm"))
-          .map(_.getJsonArray("columns").getJsonObject(0))
       } yield ()
     }
   }
