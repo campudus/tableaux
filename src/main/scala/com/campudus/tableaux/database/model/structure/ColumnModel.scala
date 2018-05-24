@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{
@@ -17,7 +18,10 @@ import com.campudus.tableaux.{
 import com.google.common.cache.{CacheBuilder, Cache => GuavaBuiltCache}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
+import scalacache.guava.GuavaCache
+import scalacache.{ScalaCache, caching, remove}
 
+import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
 
@@ -36,10 +40,6 @@ object CachedColumnModel {
 
 class CachedColumnModel(val config: JsonObject, override val connection: DatabaseConnection)
     extends ColumnModel(connection) {
-
-  import CachedColumnModel._
-  import scalacache.{ScalaCache, caching}
-  import scalacache.guava.GuavaCache
 
   implicit val scalaCache = ScalaCache(GuavaCache(createCache()))
 
@@ -65,7 +65,6 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
   }
 
   private def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
-    import scalacache.remove
 
     for {
       // remove retrieveAll cache
@@ -585,7 +584,6 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private[this] def mapRowToDependentColumnInformation(row: JsonArray): DependentColumnInformation = {
-    import scala.collection.JavaConverters._
 
     val tableId = row.get[TableId](0)
     val columnId = row.get[ColumnId](1)
@@ -874,8 +872,6 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def mapRowResultToColumnType(table: Table, row: JsonArray, depth: Int): Future[ColumnType[_]] = {
-    import scala.collection.JavaConverters._
-
     val columnId = row.get[ColumnId](0)
     val columnName = row.get[String](1)
     val kind = TableauxDbType(row.get[String](2))
