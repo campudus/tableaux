@@ -6,6 +6,8 @@ import java.util.concurrent.TimeUnit
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.database.model.structure.CachedColumnModel._
+import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.{
   DatabaseException,
@@ -14,8 +16,13 @@ import com.campudus.tableaux.{
   UnprocessableEntityException
 }
 import com.google.common.cache.{CacheBuilder, Cache => GuavaBuiltCache}
+import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
+import scalacache.guava.GuavaCache
+import scalacache.{ScalaCache, caching, remove}
 
+import scala.collection.JavaConverters._
+import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
 
 object CachedColumnModel {
@@ -33,11 +40,6 @@ object CachedColumnModel {
 
 class CachedColumnModel(val config: JsonObject, override val connection: DatabaseConnection)
     extends ColumnModel(connection) {
-
-  import CachedColumnModel._
-  import scalacache.caching
-  import scalacache.ScalaCache
-  import scalacache.guava.GuavaCache
 
   implicit val scalaCache = ScalaCache(GuavaCache(createCache()))
 
@@ -63,7 +65,6 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
   }
 
   private def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
-    import scalacache.remove
 
     for {
       // remove retrieveAll cache
@@ -159,6 +160,36 @@ class CachedColumnModel(val config: JsonObject, override val connection: Databas
   }
 }
 
+object ColumnModel extends LazyLogging {
+
+  def isColumnGroupMatchingToFormatPattern(formatPattern: Option[String],
+                                           groupedColumns: Seq[ColumnType[_]]): Boolean = {
+    val formatVariable = "\\{\\{(\\d+)\\}\\}".r
+
+    formatPattern match {
+      case Some(patternString) => {
+        val distinctWildcards =
+          formatVariable
+            .findAllMatchIn(patternString)
+            .toSeq
+            .flatMap(_.subgroups)
+            .distinct
+            .map(_.toLong)
+            .to[SortedSet]
+
+        val columnIDs = groupedColumns.map(_.id).to[SortedSet]
+
+        logger.info(
+          s"Compare distinct wildcards (${distinctWildcards.mkString(", ")}) " +
+            s"with columnIDs (${columnIDs.mkString(", ")})")
+
+        distinctWildcards == columnIDs
+      }
+      case None => true
+    }
+  }
+}
+
 class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
   private lazy val tableStruc = new TableModel(connection)
@@ -213,7 +244,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             case CreatedColumnInformation(_, id, ordering, displayInfos) =>
               // For simplification we return GroupColumn without grouped columns...
               // ... StructureController will retrieve these anyway
-              GroupColumn(applyColumnInformation(id, ordering, displayInfos), Seq.empty)
+              GroupColumn(applyColumnInformation(id, ordering, displayInfos), Seq.empty, groupColumnInfo.formatPattern)
           })
     }
   }
@@ -241,9 +272,15 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             throw UnprocessableEntityException(
               s"GroupColumn (${groupColumnInfo.name}) can't contain another GroupColumn")
           }
+
+          if (!isColumnGroupMatchingToFormatPattern(groupColumnInfo.formatPattern, groupedColumns)) {
+            throw UnprocessableEntityException(
+              s"GroupColumns (${groupedColumns.map(_.id).mkString(", ")}) don't match to formatPattern " +
+                s"${"\"" + groupColumnInfo.formatPattern.map(_.toString).orNull + "\""}")
+          }
         }
 
-        (t, columnInfo) <- insertSystemColumn(t, tableId, groupColumnInfo, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, groupColumnInfo, None, groupColumnInfo.formatPattern)
 
         // insert group information
         insertPlaceholder = groupColumnInfo.groups.map(_ => "(?, ?, ?)").mkString(", ")
@@ -261,7 +298,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   ): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
-        (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None, None)
         tableSql = simpleColumnInfo.languageType match {
           case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
           case LanguageNeutral => s"user_table_$tableId"
@@ -285,7 +322,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   ): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
-        (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None, None)
       } yield (t, columnInfo)
     }
   }
@@ -330,7 +367,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
-        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId))
+        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), None)
 
         // only add the second link column if tableId != toTableId or singleDirection is false
         t <- {
@@ -349,7 +386,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             )
 
             // ColumnInfo will be ignored, so we can lose it
-            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId))
+            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId), None)
               .map({
                 case (t, _) => t
               })
@@ -381,7 +418,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       t: connection.Transaction,
       tableId: TableId,
       createColumn: CreateColumn,
-      linkId: Option[LinkId]
+      linkId: Option[LinkId],
+      formatPattern: Option[String]
   ): Future[(connection.Transaction, CreatedColumnInformation)] = {
 
     def insertStatement(tableId: TableId, ordering: String) = {
@@ -395,9 +433,10 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
           | multilanguage,
           | identifier,
           | frontend_read_only,
+          | format_pattern,
           | country_codes
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -433,6 +472,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
                 createColumn.languageType.toString,
                 createColumn.identifier,
                 createColumn.frontendReadOnly,
+                formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull
               )
             )
@@ -448,6 +488,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
                 createColumn.languageType.toString,
                 createColumn.identifier,
                 createColumn.frontendReadOnly,
+                formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull
               )
             )
@@ -546,7 +587,6 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private[this] def mapRowToDependentColumnInformation(row: JsonArray): DependentColumnInformation = {
-    import scala.collection.JavaConverters._
 
     val tableId = row.get[TableId](0)
     val columnId = row.get[ColumnId](1)
@@ -656,7 +696,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
          |    SELECT json_agg(group_column_id) FROM system_column_groups
          |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
          |  ) AS group_column_ids,
-         |  frontend_read_only
+         |  frontend_read_only,
+         |  format_pattern
          |FROM system_columns c
          |WHERE
          |  table_id = ? AND
@@ -699,7 +740,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
             // fill GroupColumn with life!
             // ... till now GroupColumn only was a placeholder
             val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
-            GroupColumn(g.columnInformation, groupedColumns)
+            GroupColumn(g.columnInformation, groupedColumns, g.formatPattern)
 
           case c => c
         })
@@ -741,7 +782,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
        |    SELECT json_agg(group_column_id) FROM system_column_groups
        |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
        |  ) AS group_column_ids,
-       |  frontend_read_only
+       |  frontend_read_only,
+       |  format_pattern
        |FROM system_columns c
        |WHERE
        |  table_id = ?
@@ -787,7 +829,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
       depth: Int,
       kind: TableauxDbType,
       languageType: LanguageType,
-      columnInformation: ColumnInformation
+      columnInformation: ColumnInformation,
+      formatPattern: Option[String]
   ): Future[ColumnType[_]] = {
     kind match {
       case AttachmentType =>
@@ -798,7 +841,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
       case GroupType =>
         // placeholder for now, grouped columns will be filled in later
-        Future(GroupColumn(columnInformation, Seq.empty))
+        Future(GroupColumn(columnInformation, Seq.empty, formatPattern))
 
       case _ =>
         Future(SimpleValueColumn(kind, languageType, columnInformation))
@@ -832,8 +875,6 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   private def mapRowResultToColumnType(table: Table, row: JsonArray, depth: Int): Future[ColumnType[_]] = {
-    import scala.collection.JavaConverters._
-
     val columnId = row.get[ColumnId](0)
     val columnName = row.get[String](1)
     val kind = TableauxDbType(row.get[String](2))
@@ -857,6 +898,8 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
     val frontendReadOnly = row.get[Boolean](8)
 
+    val formatPattern = Option(row.get[String](9))
+
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
 
@@ -871,7 +914,7 @@ class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
         groupColumnIds
       )
 
-      column <- mapColumn(depth, kind, languageType, columnInformation)
+      column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern)
     } yield column
   }
 

@@ -155,7 +155,9 @@ object JsonUtils extends LazyLogging {
                   .map(_.toLong)
                   .toSeq
 
-                CreateGroupColumn(name, ordering, identifier, frontendReadOnly, displayInfos, groups)
+                val formatPattern = Try(Option(json.getString("formatPattern"))).toOption.flatten
+
+                CreateGroupColumn(name, ordering, identifier, frontendReadOnly, formatPattern, displayInfos, groups)
 
               case _ =>
                 CreateSimpleColumn(name, ordering, dbType, languageType, identifier, frontendReadOnly, displayInfos)

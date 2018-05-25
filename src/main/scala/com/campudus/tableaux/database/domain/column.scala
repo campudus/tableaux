@@ -531,11 +531,25 @@ case class ConcatColumn(override val columnInformation: ConcatColumnInformation,
 
 }
 
-case class GroupColumn(override val columnInformation: ColumnInformation, override val columns: Seq[ColumnType[_]])
+case class GroupColumn(override val columnInformation: ColumnInformation,
+                       override val columns: Seq[ColumnType[_]],
+                       formatPattern: Option[String])
     extends ConcatenateColumn {
   override val kind = GroupType
 
-  override def getJson: JsonObject = super.getJson mergeIn Json.obj("groups" -> columns.map(_.getJson))
+  override def getJson: JsonObject = {
+    val json = super.getJson mergeIn Json.obj("groups" -> columns.map(_.getJson))
+
+    formatPattern match {
+      case Some(pattern) =>
+        json mergeIn Json.obj("formatPattern" -> pattern)
+
+      case None =>
+      // do nothing
+    }
+
+    json
+  }
 }
 
 /**
