@@ -1,7 +1,9 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
@@ -611,6 +613,72 @@ class IdentifierTest extends TableauxTestBase {
         assertEquals(expectedJson, testRow)
         assertEquals(expectedCellValue, testCell.getJsonArray("value"))
       }
+    }
+  }
+
+  @Test
+  def retrieveConcatColumnWithAttachmentColumnAsLink(implicit c: TestContext): Unit = okTest {
+    val createAttachmentColumnJson =
+      Json.obj("columns" -> Json.arr(Json.obj("kind" -> "attachment", "name" -> "Test Column 3", "identifier" -> true)))
+
+    val linkColumnToTable2 =
+      Json.obj(
+        "columns" -> Json.arr(
+          Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "singleDirection" -> true)))
+
+    val postAttachmentColumn = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "kind" -> "attachment",
+          "name" -> "Downloads"
+        )))
+
+    val fileName = "Scr$en Shot.pdf"
+    val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+    val mimeType = "application/pdf"
+
+    def insertRow(uuid: String) = Json.obj(
+      "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2), Json.obj("id" -> 3)),
+      "rows" -> Json.arr(Json.obj("values" -> Json.arr("row 3 column 1", 3, Json.obj("uuid" -> uuid))))
+    )
+
+    for {
+      tableId1 <- createDefaultTable()
+      tableId2 <- createDefaultTable("Test Table 2", 2)
+
+      // create a new column with type attachment in table 2
+      _ <- sendRequest("POST", s"/tables/$tableId2/columns", createAttachmentColumnJson)
+
+      // create a new column with type link in table 1 to attachment column of table 2
+      _ <- sendRequest("POST", s"/tables/$tableId1/columns", linkColumnToTable2)
+
+      // create file and link it
+      file <- sendRequest("POST", "/files", Json.obj("title" -> Json.obj("de-DE" -> "Ein Titel")))
+      _ <- uploadFile("PUT", s"/files/${file.getString("uuid")}/de-DE", filePath, mimeType)
+      _ <- sendRequest("POST", s"/tables/$tableId2/rows", insertRow(file.getString("uuid")))
+
+      // insert link to table 2
+      _ <- sendRequest("PATCH", s"/tables/$tableId1/columns/3/rows/1", Json.obj("value" -> 3))
+
+      // invalidate caches of both tables because inserting rows does also caching
+      _ <- vertx
+        .eventBus()
+        .sendFuture[JsonObject](
+          CacheVerticle.ADDRESS_INVALIDATE_TABLE,
+          Json.obj("tableId" -> 1)
+        )
+
+      _ <- vertx
+        .eventBus()
+        .sendFuture[JsonObject](
+          CacheVerticle.ADDRESS_INVALIDATE_TABLE,
+          Json.obj("tableId" -> 2)
+        )
+
+      _ <- sendRequest("GET", "/tables/1/columns/3/rows/1")
+    } yield {
+      // if no exception is thrown test is successful
+      assertTrue(true)
     }
   }
 }

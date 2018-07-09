@@ -1108,6 +1108,8 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
       case _: SimpleValueColumn[_] =>
         (s"column_${c.to.id}", s"ut$toTableId.column_${c.to.id}")
+
+      // no case needed for AttachmentColumn yet
     }
 
     s"""(
