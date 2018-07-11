@@ -135,13 +135,16 @@ class SettingsTableTest extends TableauxTestBase {
   }
 
   @Test
-  def deleteRowOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.row") {
-    for {
-      tableId <- createSettingsTable()
+  def deleteRowOfSettingsTable(implicit c: TestContext): Unit =
+    okTest {
+      val expectedOkJson = Json.obj("status" -> "ok")
 
-      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+      for {
+        tableId <- createSettingsTable()
 
-      _ <- sendRequest("DELETE", s"/tables/$tableId/rows/1")
-    } yield ()
-  }
+        _ <- sendRequest("POST", s"/tables/$tableId/rows")
+
+        test <- sendRequest("DELETE", s"/tables/$tableId/rows/1")
+      } yield assertEquals(expectedOkJson, test)
+    }
 }
