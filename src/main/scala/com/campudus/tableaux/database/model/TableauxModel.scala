@@ -7,7 +7,12 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
+import com.campudus.tableaux.{
+  ForbiddenException,
+  InvalidRequestException,
+  ShouldBeUniqueException,
+  WrongColumnKindException
+}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -191,6 +196,20 @@ class TableauxModel(
 
         futureRows.flatMap { rows =>
           for {
+
+            _ <- table.tableType match {
+              case SettingsTable => {
+
+                val keyColumn = columns.find(_.id == 1).get
+                val keyName = row.find { _._1 == 1 }.head._2
+
+                checkForDuplicateKey(table, keyColumn, keyName)
+//                checkForEmptyKey(table, keyName)
+//                Future.successful(())
+              }
+              case _ => Future.successful(())
+            }
+
             rowId <- createRowModel.createRow(table, columnValuePairs)
             newRow <- retrieveRow(table, columns, rowId)
           } yield {
@@ -368,6 +387,26 @@ class TableauxModel(
       case (SettingsTable, 1 | 2) =>
         Future.failed(ForbiddenException(exceptionMessage, "cell"))
       case _ => Future.successful(())
+    }
+  }
+
+  private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[_], keyName: Any) = {
+
+    for {
+      oldValues <- retrieveRows(table, Seq(keyColumn), Pagination(None, None)).map(_.rows.map(_.values.head))
+    } yield
+      if (oldValues.contains(keyName))
+        throw ShouldBeUniqueException("Key should be unique for each settings table", "cell")
+  }
+
+  private def checkForEmptyKey[A](table: Table, keyName: Any) = {
+
+    keyName match {
+      case key: String => {
+        if (key.isEmpty) {
+          throw InvalidRequestException("Key must not be empty in settings table")
+        }
+      }
     }
   }
 

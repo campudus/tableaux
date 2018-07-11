@@ -147,4 +147,74 @@ class SettingsTableTest extends TableauxTestBase {
         test <- sendRequest("DELETE", s"/tables/$tableId/rows/1")
       } yield assertEquals(expectedOkJson, test)
     }
+
+  @Test
+  def insertKeyIntoSettingsTable(implicit c: TestContext): Unit =
+    okTest {
+      def settingsRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("a_duplicate_key")))
+      )
+
+      for {
+        tableId <- createSettingsTable()
+
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow)
+        test <- sendRequest("GET", s"/tables/$tableId/rows")
+      } yield {
+        assertEquals(test.getJsonArray("rows").size(), 1)
+      }
+    }
+
+  @Test
+  def insertDuplicateKeyIntoSettingsTable(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unique.cell") {
+      def settingsRow = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("a_duplicate_key")))
+      )
+
+      for {
+        tableId <- createSettingsTable()
+
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow)
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow)
+      } yield ()
+    }
+
+  @Test
+  def insertDuplicateKeyIntoSettingsTableWithKeyColumnIsNotFirstColumn(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unique.cell") {
+      def settingsRow1 = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 3), Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "value"), "a_duplicate_key")))
+      )
+
+      def settingsRow2 = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 3), Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "another_value"), "a_duplicate_key")))
+      )
+
+      for {
+        tableId <- createSettingsTable()
+
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow1)
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow2)
+      } yield ()
+    }
+
+  @Test
+  def insertEmptyKeyIntoSettingsTable(implicit c: TestContext): Unit =
+    exceptionTest("error.request.invalid") {
+      def settingsRowWithoutKeyColumn = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 3)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "any_value"))))
+      )
+
+      for {
+        tableId <- createSettingsTable()
+
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRowWithoutKeyColumn)
+      } yield ()
+    }
 }
