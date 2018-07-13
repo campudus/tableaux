@@ -155,11 +155,6 @@ class TableauxModel(
 
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
     for {
-      _ <- table.tableType match {
-        case GenericTable => Future.successful(())
-        case SettingsTable => Future.failed(ForbiddenException("can't delete a row of a settings table", "row"))
-      }
-
       specialColumns <- retrieveColumns(table).map(_.filter({
         case _: AttachmentColumn => true
         case c: LinkColumn if c.linkDirection.constraint.deleteCascade => true
