@@ -197,15 +197,19 @@ class TableauxModel(
         futureRows.flatMap { rows =>
           for {
 
+            // TODO add more checks like unique etc. for all tables depending on column configuration
             _ <- table.tableType match {
               case SettingsTable => {
 
-                val keyColumn = columns.find(_.id == 1).get
-                val keyName = row.find { _._1 == 1 }.head._2
+                val keyColumn = columns.find(_.id == 1).orNull
+                val keyName = row
+                  .find { case (id, _) => id == 1 }
+                  .map { case (_, colName) => colName }
 
-                checkForDuplicateKey(table, keyColumn, keyName)
-//                checkForEmptyKey(table, keyName)
-//                Future.successful(())
+                for {
+                  _ <- checkForDuplicateKey(table, keyColumn, keyName)
+                  _ <- checkForEmptyKey(table, keyName)
+                } yield ()
               }
               case _ => Future.successful(())
             }
@@ -390,23 +394,29 @@ class TableauxModel(
     }
   }
 
-  private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[_], keyName: Any) = {
-
-    for {
-      oldValues <- retrieveRows(table, Seq(keyColumn), Pagination(None, None)).map(_.rows.map(_.values.head))
-    } yield
-      if (oldValues.contains(keyName))
-        throw ShouldBeUniqueException("Key should be unique for each settings table", "cell")
+  private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[_], keyName: Option[Any]) = {
+    retrieveRows(table, Seq(keyColumn), Pagination(None, None))
+      .map(_.rows.map(_.values.head))
+      .flatMap(oldValues => {
+        if (keyName.isDefined && oldValues.contains(keyName.get)) {
+          Future.failed(ShouldBeUniqueException("Key should be unique", "cell"))
+        } else {
+          Future.successful(())
+        }
+      })
   }
 
   private def checkForEmptyKey[A](table: Table, keyName: Any) = {
 
     keyName match {
-      case key: String => {
+      case Some(key: String) => {
         if (key.isEmpty) {
-          throw InvalidRequestException("Key must not be empty in settings table")
+          Future.failed(InvalidRequestException("Key must not be empty in settings table"))
+        } else {
+          Future.successful(())
         }
       }
+      case None => Future.failed(InvalidRequestException("Key must not be empty in settings table"))
     }
   }
 

@@ -206,6 +206,21 @@ class SettingsTableTest extends TableauxTestBase {
   @Test
   def insertEmptyKeyIntoSettingsTable(implicit c: TestContext): Unit =
     exceptionTest("error.request.invalid") {
+      def settingsRowWithEmptyKey = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("")))
+      )
+
+      for {
+        tableId <- createSettingsTable()
+
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRowWithEmptyKey)
+      } yield ()
+    }
+
+  @Test
+  def insertWithoutKeyIntoSettingsTable(implicit c: TestContext): Unit =
+    exceptionTest("error.request.invalid") {
       def settingsRowWithoutKeyColumn = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 3)),
         "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "any_value"))))
