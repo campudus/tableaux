@@ -46,7 +46,7 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
     val obj = key(tableId, columnId, rowId).copy().mergeIn(Json.obj("value" -> encodedValue))
 
     val options = DeliveryOptions()
-      .setSendTimeout(200)
+      .setSendTimeout(CacheVerticle.TIMEOUT_AFTER_MILLISECONDS)
 
     eventBus
       .sendFuture(CacheVerticle.ADDRESS_SET, obj, options)
@@ -56,7 +56,7 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
     val obj = key(tableId, columnId, rowId)
 
     val options = DeliveryOptions()
-      .setSendTimeout(200)
+      .setSendTimeout(CacheVerticle.TIMEOUT_AFTER_MILLISECONDS)
 
     eventBus
       .sendFuture[JsonObject](CacheVerticle.ADDRESS_RETRIEVE, obj, options)
@@ -78,7 +78,7 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
     val obj = key(tableId, columnId, rowId)
 
     val options = DeliveryOptions()
-      .setSendTimeout(200)
+      .setSendTimeout(CacheVerticle.TIMEOUT_AFTER_MILLISECONDS)
 
     eventBus
       .sendFuture(CacheVerticle.ADDRESS_INVALIDATE_CELL, obj, options)

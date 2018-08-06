@@ -40,6 +40,8 @@ object CacheVerticle {
   val ADDRESS_INVALIDATE_ROW = "cache.invalidate.row"
   val ADDRESS_INVALIDATE_TABLE = "cache.invalidate.table"
   val ADDRESS_INVALIDATE_ALL = "cache.invalidate.all"
+
+  val TIMEOUT_AFTER_MILLISECONDS = 400
 }
 
 class CacheVerticle extends ScalaVerticle with LazyLogging {
