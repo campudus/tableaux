@@ -4,12 +4,11 @@ import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.VertxAccess
 import io.vertx.core.eventbus.ReplyException
-import io.vertx.scala.core.eventbus._
 import io.vertx.scala.core.Vertx
-import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.scala.core.eventbus._
 import org.vertx.scala.core.json._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object CacheClient {
 
@@ -33,17 +32,7 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
   }
 
   def setCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId, value: Any): Future[_] = {
-    val encodedValue = value match {
-      case v: Seq[_] =>
-        v.map({
-          case e: DomainObject => e.getJson
-          case e => e
-        })
-      case v: DomainObject => v.getJson
-      case _ => value
-    }
-
-    val obj = key(tableId, columnId, rowId).copy().mergeIn(Json.obj("value" -> encodedValue))
+    val obj = key(tableId, columnId, rowId).copy().mergeIn(Json.obj("value" -> DomainObject.compatibilityGet(value)))
 
     val options = DeliveryOptions()
       .setSendTimeout(CacheVerticle.TIMEOUT_AFTER_MILLISECONDS)

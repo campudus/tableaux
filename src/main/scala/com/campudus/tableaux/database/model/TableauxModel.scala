@@ -618,7 +618,7 @@ class TableauxModel(
           for {
             list <- futureList
             cell <- retrieveCell(concatnateColumn, rowId)
-          } yield list ++ List(Json.obj("id" -> rowId, "value" -> cell.value))
+          } yield list ++ List(Json.obj("id" -> rowId, "value" -> DomainObject.compatibilityGet(cell.value)))
       }
     }
 

@@ -5,6 +5,10 @@ import org.vertx.scala.core.json._
 
 import scala.collection.mutable
 
+object DomainObject extends DomainObject {
+  override def getJson: JsonObject = Json.emptyObj()
+}
+
 trait DomainObjectHelper {
 
   def compatibilityGet[A]: A => Any = compatibility(GetReturn)(_)
