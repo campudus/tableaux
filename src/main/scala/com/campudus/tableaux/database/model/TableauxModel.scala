@@ -203,12 +203,12 @@ class TableauxModel(
 
                 val keyColumn = columns.find(_.id == 1).orNull
                 val keyName = row
-                  .find { case (id, _) => id == 1 }
-                  .map { case (_, colName) => colName }
+                  .find({ case (id, _) => id == 1 })
+                  .map({ case (_, colName) => colName })
 
                 for {
-                  _ <- checkForDuplicateKey(table, keyColumn, keyName)
                   _ <- checkForEmptyKey(table, keyName)
+                  _ <- checkForDuplicateKey(table, keyColumn, keyName)
                 } yield ()
               }
               case _ => Future.successful(())

@@ -153,7 +153,7 @@ class SettingsTableTest extends TableauxTestBase {
     okTest {
       def settingsRow = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 1)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("a_duplicate_key")))
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("already_existing_key")))
       )
 
       for {
@@ -171,7 +171,7 @@ class SettingsTableTest extends TableauxTestBase {
     exceptionTest("error.request.unique.cell") {
       def settingsRow = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 1)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("a_duplicate_key")))
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("already_existing_key")))
       )
 
       for {
@@ -187,12 +187,12 @@ class SettingsTableTest extends TableauxTestBase {
     exceptionTest("error.request.unique.cell") {
       def settingsRow1 = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 3), Json.obj("id" -> 1)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "value"), "a_duplicate_key")))
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "value"), "already_existing_key")))
       )
 
       def settingsRow2 = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 3), Json.obj("id" -> 1)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "another_value"), "a_duplicate_key")))
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "another_value"), "already_existing_key")))
       )
 
       for {
@@ -208,6 +208,21 @@ class SettingsTableTest extends TableauxTestBase {
     exceptionTest("error.request.invalid") {
       def settingsRowWithEmptyKey = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("")))
+      )
+
+      for {
+        tableId <- createSettingsTable()
+
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRowWithEmptyKey)
+      } yield ()
+    }
+
+  @Test
+  def insertNullKeyIntoSettingsTable(implicit c: TestContext): Unit =
+    exceptionTest("error.json.null") {
+      def settingsRowWithEmptyKey = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> null)),
         "rows" -> Json.arr(Json.obj("values" -> Json.arr("")))
       )
 
