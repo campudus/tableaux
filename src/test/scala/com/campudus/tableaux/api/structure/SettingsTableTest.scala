@@ -153,7 +153,7 @@ class SettingsTableTest extends TableauxTestBase {
     okTest {
       def settingsRow = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 1)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("already_existing_key")))
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr("key")))
       )
 
       for {
@@ -220,16 +220,16 @@ class SettingsTableTest extends TableauxTestBase {
 
   @Test
   def insertNullKeyIntoSettingsTable(implicit c: TestContext): Unit =
-    exceptionTest("error.json.null") {
-      def settingsRowWithEmptyKey = Json.obj(
-        "columns" -> Json.arr(Json.obj("id" -> null)),
-        "rows" -> Json.arr(Json.obj("values" -> Json.arr("")))
+    exceptionTest("error.request.invalid") {
+      def settingsRowWithNullKey = Json.obj(
+        "columns" -> Json.arr(Json.obj("id" -> 1)),
+        "rows" -> Json.arr(Json.obj("values" -> Json.arr(null)))
       )
 
       for {
         tableId <- createSettingsTable()
 
-        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRowWithEmptyKey)
+        _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRowWithNullKey)
       } yield ()
     }
 

@@ -204,7 +204,7 @@ class TableauxModel(
                 val keyColumn = columns.find(_.id == 1).orNull
                 val keyName = row
                   .find({ case (id, _) => id == 1 })
-                  .map({ case (_, colName) => colName })
+                  .flatMap({ case (_, colName) => Option(colName) })
 
                 for {
                   _ <- checkForEmptyKey(table, keyName)
@@ -406,17 +406,12 @@ class TableauxModel(
       })
   }
 
-  private def checkForEmptyKey[A](table: Table, keyName: Any) = {
-
+  private def checkForEmptyKey[A](table: Table, keyName: Option[Any]) = {
     keyName match {
-      case Some(key: String) => {
-        if (key.isEmpty) {
-          Future.failed(InvalidRequestException("Key must not be empty in settings table"))
-        } else {
-          Future.successful(())
-        }
+      case Some(key: String) if !key.isEmpty => {
+        Future.successful(())
       }
-      case None => Future.failed(InvalidRequestException("Key must not be empty in settings table"))
+      case _ => Future.failed(InvalidRequestException("Key must not be empty and a string in settings table"))
     }
   }
 
