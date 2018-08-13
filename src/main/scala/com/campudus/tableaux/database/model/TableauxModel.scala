@@ -7,7 +7,12 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{ForbiddenException, WrongColumnKindException}
+import com.campudus.tableaux.{
+  ForbiddenException,
+  InvalidRequestException,
+  ShouldBeUniqueException,
+  WrongColumnKindException
+}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -191,6 +196,24 @@ class TableauxModel(
 
         futureRows.flatMap { rows =>
           for {
+
+            // TODO add more checks like unique etc. for all tables depending on column configuration
+            _ <- table.tableType match {
+              case SettingsTable => {
+
+                val keyColumn = columns.find(_.id == 1).orNull
+                val keyName = row
+                  .find({ case (id, _) => id == 1 })
+                  .flatMap({ case (_, colName) => Option(colName) })
+
+                for {
+                  _ <- checkForEmptyKey(table, keyName)
+                  _ <- checkForDuplicateKey(table, keyColumn, keyName)
+                } yield ()
+              }
+              case _ => Future.successful(())
+            }
+
             rowId <- createRowModel.createRow(table, columnValuePairs)
             newRow <- retrieveRow(table, columns, rowId)
           } yield {
@@ -368,6 +391,27 @@ class TableauxModel(
       case (SettingsTable, 1 | 2) =>
         Future.failed(ForbiddenException(exceptionMessage, "cell"))
       case _ => Future.successful(())
+    }
+  }
+
+  private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[_], keyName: Option[Any]) = {
+    retrieveRows(table, Seq(keyColumn), Pagination(None, None))
+      .map(_.rows.map(_.values.head))
+      .flatMap(oldValues => {
+        if (keyName.isDefined && oldValues.contains(keyName.get)) {
+          Future.failed(ShouldBeUniqueException("Key should be unique", "cell"))
+        } else {
+          Future.successful(())
+        }
+      })
+  }
+
+  private def checkForEmptyKey[A](table: Table, keyName: Option[Any]) = {
+    keyName match {
+      case Some(key: String) if !key.isEmpty => {
+        Future.successful(())
+      }
+      case _ => Future.failed(InvalidRequestException("Key must not be empty and a string in settings table"))
     }
   }
 
