@@ -799,8 +799,67 @@ class FolderTest extends MediaTestBase {
 
         assertEquals(sub1.getJsonArray("parents"), sub2.getJsonArray("parents"))
 
-        // for compatibilty reasons
+        // for compatibility reasons
         assertEquals(sub1.getInteger("parent"), sub2.getInteger("parent"))
+      }
+    }
+  }
+
+  @Test
+  def testCreateAndRetrieveDeepFolderHierarchy(implicit c: TestContext): Unit = {
+    okTest {
+
+      def createFolderPutJson(name: String, parent: Option[Int]): JsonObject = {
+        Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parent.orNull)
+      }
+
+      for {
+        rootId <- sendRequest("POST", s"/folders", createFolderPutJson("root", None)).map(_.getInteger("id"))
+        depthId_02 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-02", Some(rootId)))
+          .map(_.getInteger("id"))
+        depthId_03 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-03", Some(depthId_02)))
+          .map(_.getInteger("id"))
+        depthId_04 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-04", Some(depthId_03)))
+          .map(_.getInteger("id"))
+        depthId_05 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-05", Some(depthId_04)))
+          .map(_.getInteger("id"))
+        depthId_06 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-06", Some(depthId_05)))
+          .map(_.getInteger("id"))
+        depthId_07 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-07", Some(depthId_06)))
+          .map(_.getInteger("id"))
+        depthId_08 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-08", Some(depthId_07)))
+          .map(_.getInteger("id"))
+        depthId_09 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-09", Some(depthId_08)))
+          .map(_.getInteger("id"))
+        depthId_10 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-10", Some(depthId_09)))
+          .map(_.getInteger("id"))
+        depthId_11 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-11", Some(depthId_10)))
+          .map(_.getInteger("id"))
+        depthId_12 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-12", Some(depthId_11)))
+          .map(_.getInteger("id"))
+        depthId_13 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-13", Some(depthId_12)))
+          .map(_.getInteger("id"))
+        depthId_14 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-14", Some(depthId_13)))
+          .map(_.getInteger("id"))
+        depthId_15 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-15", Some(depthId_14)))
+          .map(_.getInteger("id"))
+        depthId_16 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-16", Some(depthId_15)))
+          .map(_.getInteger("id"))
+        depthId_17 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-17", Some(depthId_16)))
+          .map(_.getInteger("id"))
+        depthId_18 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-18", Some(depthId_17)))
+          .map(_.getInteger("id"))
+        depthId_19 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-19", Some(depthId_18)))
+          .map(_.getInteger("id"))
+        depthId_20 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-20", Some(depthId_19)))
+          .map(_.getInteger("id"))
+        depthId_21 <- sendRequest("POST", s"/folders", createFolderPutJson("depth-21", Some(depthId_20)))
+          .map(_.getInteger("id"))
+
+        sub21 <- sendRequest("GET", s"/folders/$depthId_21?langtag=de-DE")
+      } yield {
+        assertEquals(Json.arr(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20),
+                     sub21.getJsonArray("parents"))
       }
     }
   }
