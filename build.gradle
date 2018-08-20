@@ -232,6 +232,7 @@ spotless {
 /**
  * Gradle wrapper
  */
-task wrapper(type: Wrapper) {
-  gradleVersion = '4.7'
+wrapper {
+  gradleVersion = '4.9'
+  distributionType = Wrapper.DistributionType.BIN
 }

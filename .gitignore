@@ -44,3 +44,6 @@ project/plugins/project/
 .project
 .classpath
 .settings
+
+# zsh
+.gradletasknamecache
