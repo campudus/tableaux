@@ -20,8 +20,7 @@ object DocumentationRouter {
 
 class DocumentationRouter(override val config: TableauxConfig) extends BaseRouter {
 
-  //val swaggerUiVersion = "3.0.3"
-  val swaggerUiVersion = "2.2.10-1"
+  val swaggerUiVersion = "3.17.6"
 
   val Index: Regex = "^/docs/index.html$".r
   val IndexRedirect: Regex = "^/docs$|^/docs/$".r
@@ -85,7 +84,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
         .fromInputStream(is, "UTF-8")
         .mkString
         .replace(
-          "http://petstore.swagger.io/v2/swagger.json",
+          "https://petstore.swagger.io/v2/swagger.json",
           swaggerURL.toString
         )
 
