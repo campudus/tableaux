@@ -36,7 +36,7 @@
   "paths": {
     "/files": {
       "post": {
-        "summary": "FIXME Create file handle",
+        "summary": "Create file handle",
         "description": "Creates a new temporary file handle.",
         "tags": ["media"],
         "operationId": "create-file-handle",
@@ -147,19 +147,16 @@
       }
     },
     "/files/{fileuuid}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/fileuuid"
+        }
+      ],
       "get": {
-        "summary": "FIXME Get file meta-information",
+        "summary": "Get file meta-information",
         "description": "Returns meta-information about a file.",
         "tags": ["media"],
         "operationId": "get-file-meta-information",
-        "parameters": [
-          {
-            "name": "fileuuid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "description": "The files meta information",
@@ -170,16 +167,40 @@
         }
       },
       "put": {
-        "summary": "FIXME Change file meta-information",
+        "summary": "Change file meta-information",
         "description": "Changes meta information of file.",
         "tags": ["media"],
         "operationId": "change-file-meta-information",
         "parameters": [
           {
-            "name": "fileuuid",
-            "in": "path",
+            "name": "folder",
+            "in": "body",
             "required": true,
-            "type": "string"
+            "schema": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "description": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "externalName": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "internalName": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "mimeType": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "folder": {
+                  "type": "integer",
+                  "format": "int64",
+                  "example": 1
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -189,19 +210,10 @@
         }
       },
       "delete": {
-        "summary": "FIXME Delete file",
+        "summary": "Delete file",
         "description": "",
         "tags": ["media"],
         "operationId": "delete-file",
-        "parameters": [
-          {
-            "name": "fileuuid",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -210,25 +222,22 @@
       }
     },
     "/files/{fileuuid}/{langtag}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/fileuuid"
+        },
+        {
+          "name": "langtag",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
       "put": {
-        "summary": "FIXME Upload file",
+        "summary": "Upload file",
         "description": "Uploads/replaces a language specific file for this file handle.",
         "tags": ["media"],
         "operationId": "upload-file",
-        "parameters": [
-          {
-            "name": "fileuuid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "langtag",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -236,26 +245,10 @@
         }
       },
       "delete": {
-        "summary": "FIXME Delete file (language specific)",
+        "summary": "Delete file (language specific)",
         "description": "",
         "tags": ["media"],
         "operationId": "delete-file-language-specific",
-        "parameters": [
-          {
-            "name": "fileuuid",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "langtag",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -265,7 +258,7 @@
     },
     "/folders": {
       "get": {
-        "summary": "FIXME Get root folder",
+        "summary": "Get root folder",
         "description": "Returns the root folder. Has no ID because it can't be changed or deleted.",
         "tags": ["media"],
         "operationId": "get-root-folder",
@@ -294,11 +287,20 @@
         }
       },
       "post": {
-        "summary": "FIXME Create folder",
+        "summary": "Create folder",
         "description": "Creates a new folder.",
         "tags": ["media"],
         "operationId": "create-folder",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref":"#/definitions/Request:Folder"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -306,19 +308,18 @@
         }
       }
     },
-    "/folders/{folderid}": {
+    "/folders/{folderId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/folderId"
+        }
+      ],
       "get": {
-        "summary": "FIXME Get folder",
+        "summary": "Get folder",
         "description": "Returns a specific folder. Hierarchy is not relevant.",
         "tags": ["media"],
         "operationId": "get-folder",
         "parameters": [
-          {
-            "name": "folderid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
           {
             "name": "langtag",
             "in": "query",
@@ -337,16 +338,18 @@
         }
       },
       "put": {
-        "summary": "FIXME Change folder",
+        "summary": "Change folder",
         "description": "Changes folder.",
         "tags": ["media"],
         "operationId": "change-folder",
         "parameters": [
           {
-            "name": "folderid",
-            "in": "path",
+            "name": "folder",
+            "in": "body",
             "required": true,
-            "type": "string"
+            "schema": {
+              "$ref":"#/definitions/Request:Folder"
+            }
           }
         ],
         "responses": {
@@ -356,19 +359,10 @@
         }
       },
       "delete": {
-        "summary": "FIXME Delete folder",
+        "summary": "Delete folder",
         "description": "",
         "tags": ["media"],
         "operationId": "delete-folder",
-        "parameters": [
-          {
-            "name": "folderid",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -378,18 +372,13 @@
     },
     "/system/reset": {
       "post": {
-        "summary": "FIXME Reset system tables",
+        "summary": "Reset system tables",
         "description": "Resets whole schema and re-initialize system tables",
         "tags": ["system"],
         "operationId": "reset-system-tables",
         "parameters": [
           {
-            "name": "nonce",
-            "description": "nonce which will be exposed via server log",
-            "in": "query",
-            "type": "string",
-            "format": "uuid",
-            "required": false
+            "$ref": "#/parameters/nonce"
           }
         ],
         "responses": {
@@ -401,18 +390,13 @@
     },
     "/system/resetDemo": {
       "post": {
-        "summary": "FIXME Create demo tables",
+        "summary": "Create demo tables",
         "description": "Creates two demo tables (Bundesländer, Regierungsbezirke) with links.",
         "tags": ["system"],
         "operationId": "create-demo-tables",
         "parameters": [
           {
-            "name": "nonce",
-            "description": "nonce which will be exposed via server log",
-            "in": "query",
-            "type": "string",
-            "format": "uuid",
-            "required": false
+            "$ref": "#/parameters/nonce"
           }
         ],
         "responses": {
@@ -424,7 +408,7 @@
     },
     "/system/versions": {
       "get": {
-        "summary": "FIXME Get current version",
+        "summary": "Get current version",
         "description": "",
         "tags": ["system"],
         "operationId": "get-version",
@@ -438,6 +422,38 @@
             "description": "The versions of the installation",
             "schema": {
               "$ref": "#/definitions/Response: Versions"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
+    },
+    "/completetable": {
+      "post": {
+        "summary": "Create a complete table with columns and rows",
+        "description": "Adds the table structure.",
+        "tags": ["structure"],
+        "operationId": "create-new-complete-table",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/Request: Create complete table"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The new table",
+            "schema": {
+              "$ref": "#/definitions/Shared Response: Table"
             }
           },
           "default": {
@@ -476,17 +492,17 @@
         }
       },
       "post": {
-        "summary": "FIXME Create a new table",
+        "summary": "Create a new empty table",
         "description": "Adds the table structure.",
         "tags": ["structure"],
-        "operationId": "create-new-table",
+        "operationId": "create-new-empty-table",
         "parameters": [
           {
             "name": "table",
             "in": "body",
             "required": false,
             "schema": {
-              "$ref": "#/definitions/Request: Create table"
+              "$ref": "#/definitions/Request: Create empty table"
             }
           }
         ],
@@ -507,6 +523,11 @@
       }
     },
     "/tables/{tableId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        }
+      ],
       "get": {
         "summary": "Get table",
         "description": "Returns the metadata of a table.",
@@ -527,24 +548,17 @@
         }
       },
       "post": {
-        "summary": "FIXME Change table",
+        "summary": "Change table",
         "description": "Changes the table",
         "tags": ["structure"],
         "operationId": "change-table",
         "parameters": [
           {
-            "name": "tableId",
-            "in": "path",
-            "required": true,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
             "name": "table",
             "in": "body",
-            "required": false,
+            "required": true,
             "schema": {
-              "ref$": "#/definitions/Table"
+              "$ref": "#/definitions/Request: Create empty table"
             }
           }
         ],
@@ -555,19 +569,10 @@
         }
       },
       "delete": {
-        "summary": "FIXME (response not shown in Swagger) Delete a table",
+        "summary": "Delete a table",
         "description": "Drops the complete table and deletes its definition.",
         "tags": ["structure"],
         "operationId": "delete-table",
-        "parameters": [
-          {
-            "name": "tableId",
-            "in": "path",
-            "required": true,
-            "type": "integer",
-            "format": "int64"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -578,20 +583,17 @@
         }
       }
     },
-    "/tables/{tableid}/columns": {
+    "/tables/{tableId}/columns": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        }
+      ],
       "get": {
-        "summary": "FIXME Get columns definition",
+        "summary": "Get columns definition",
         "description": "Returns all columns of specific table",
         "tags": ["structure"],
         "operationId": "get-columns-definition",
-        "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "description": "Array of columns",
@@ -602,23 +604,17 @@
         }
       },
       "post": {
-        "summary": "FIXME Create new column",
+        "summary": "Create new column(s)",
         "description": "Alters the user table and add the column definition to the system table.",
         "tags": ["structure"],
         "operationId": "create-new-column",
         "parameters": [
           {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
             "name": "column",
             "in": "body",
             "required": false,
             "schema": {
-              "type": "object",
+              "type": "array",
               "required": [
                 "columns"
               ],
@@ -669,26 +665,20 @@
         }
       }
     },
-    "/tables/{tableid}/columns/{columnid}": {
+    "/tables/{tableId}/columns/{columnId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        }
+      ],
       "get": {
-        "summary": "FIXME Get column definition",
+        "summary": "Get column definition",
         "description": "Returns information about a specific column.",
         "tags": ["structure"],
         "operationId": "get-column-definition",
-        "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "columnid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "description": "The column definition",
@@ -699,23 +689,11 @@
         }
       },
       "post": {
-        "summary": "FIXME Change column",
+        "summary": "Change column",
         "description": "Alters the column definition.",
         "tags": ["structure"],
         "operationId": "change-column",
         "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          },
-          {
-            "name": "columnid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          },
           {
             "name": "column",
             "in": "body",
@@ -746,24 +724,10 @@
         }
       },
       "delete": {
-        "summary": "FIXME Delete column",
+        "summary": "Delete column",
         "description": "Deletes column from user table and table definition.",
         "tags": ["structure"],
         "operationId": "delete-column",
-        "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          },
-          {
-            "name": "columnid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -877,18 +841,10 @@
         }
       ],
       "get": {
-        "summary": "FIXME Get all rows",
+        "summary": "Get all rows",
         "description": "Returns just the rows of the table",
         "tags": ["data"],
         "operationId": "get-all-rows",
-        "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "description": "",
@@ -905,17 +861,11 @@
         }
       },
       "post": {
-        "summary": "FIXME Create new row",
+        "summary": "Create new row",
         "description": "Adds new row to user table.",
         "tags": ["data"],
         "operationId": "create-new-row",
         "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
           {
             "name": "New row object",
             "in": "body",
@@ -928,7 +878,7 @@
               ],
               "properties": {
                 "columns": {
-                  "type": "object",
+                  "type": "array",
                   "description": "Array of column ids",
                   "properties": {
                     "id": {
@@ -942,8 +892,22 @@
                   ]
                 },
                 "rows": {
-                  "$ref": "#/definitions/Shared Request: Row"
+                  "type": "array",
+                  "description": "Array of row ids",
+                  "items": {
+                    "$ref": "#/definitions/Shared Request: Row"
+                  }
                 }
+              },
+              "example": {
+                "columns": [{
+                  "id": 1
+                }],
+                "rows": [{
+                  "values": [
+                    {"de": "Column 1 multi language value"}
+                  ]
+                }]
               }
             }
           }
@@ -965,24 +929,10 @@
         }
       ],
       "get": {
-        "summary": "FIXME Get single row",
+        "summary": "Get single row",
         "description": "Returns a single row and its values.",
         "tags": ["data"],
         "operationId": "get-single-row",
-        "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "rowid",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
         "responses": {
           "200": {
             "description": "Single row",
@@ -993,24 +943,10 @@
         }
       },
       "delete": {
-        "summary": "FIXME Delete row",
+        "summary": "Delete row",
         "description": "Deletes row from user table.",
         "tags": ["data"],
         "operationId": "delete-row",
-        "parameters": [
-          {
-            "name": "tableid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          },
-          {
-            "name": "rowid",
-            "in": "path",
-            "required": true,
-            "type": "integer"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -1052,7 +988,7 @@
         }
       ],
       "get": {
-        "summary": "FIXME response? - Retrieve all dependent rows.",
+        "summary": "Retrieve all dependent rows.",
         "description": "Retrieve all rows of tables that link to this row.",
         "tags": ["content"],
         "operationId": "retrieve-dependent-rows",
@@ -1694,7 +1630,32 @@
       },
       "required": ["dependentRows"]
     },
-
+    "Request:Folder": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the folder"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the folder"
+        },
+        "parent": {
+          "type": "int64",
+          "description": "id of the parent folder"
+        }
+      },
+      "description": "Creates a new folder. If parent is empty the folder will be created in the root folder.",
+      "example": {
+         "name": "Folder 1",
+         "description": "This is a folder description",
+         "parent": 1
+      }
+    },
     "Response: Folder": {
       "type": "object",
       "required": [
@@ -1818,7 +1779,7 @@
       },
       "description": "Value of a single cell."
     },
-    "Request: Create table": {
+    "Request: Create complete table": {
       "type": "object",
       "required": [
         "name"
@@ -1866,6 +1827,40 @@
             "values": ["Bayern", "München"]
           }
         ]
+      }
+    },
+    "Request: Create empty table": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "states of germany"
+        },
+        "displayName": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "description": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "description": "Creates a new empty table.",
+      "example": {
+        "name": "germany_states",
+        "displayName": {
+          "en": "States of Germany",
+          "de": "Bundesländer Deutschlands"
+        },
+        "description": {
+          "en": "This table holds a list of all states of germany",
+          "de": "diese Tabelle beinhaltet alle Bundesländer Deutschlands"
+        },
+        "hidden": false
       }
     },
     "Response: Complete table": {
@@ -2462,8 +2457,14 @@
       "description": "Different types of column",
       "enum": [
         "text",
+        "shorttext",
         "numeric",
-        "link"
+        "boolean",
+        "link",
+        "date",
+        "datetime",
+        "currency",
+        "group"
       ]
     },
     "Response: Subfolder": {
@@ -2505,7 +2506,7 @@
       "description": "A subfolder returned in a request to folders"
     },
     "Shared Request: Column": {
-      "type": "object",
+      "type": "array",
       "required": [
         "kind",
         "name",
@@ -2514,6 +2515,11 @@
       "properties": {
         "kind": {
           "$ref": "#/definitions/Enum: Column type"
+        },
+        "identifier": {
+          "type": "boolean",
+          "description": "Flag if this column should be part of the concatenated identifier column.",
+          "example": true
         },
         "ordering": {
           "type": "integer",
@@ -2530,14 +2536,58 @@
         },
         "description": {
           "$ref": "#/definitions/Multi-language object"
+        },
+        "frontendReadOnly": {
+          "type": "boolean",
+          "description": "Flag if values of this column can be changed from frontend.",
+          "example": true
+        },
+        "groups": {
+          "type": "array",
+          "description": "A list of column ids that should build a group column",
+          "example": [1, 2, 3]
+        },
+        "formatPattern": {
+          "type": "string",
+          "description": "Pattern for the frontend how to render the content of a group column",
+          "example": "{{1}} × {{2}} × {{3}} mm (B × H × T)"
         }
       },
       "description": "A column object, which is used to create a new column.",
-      "example": {
-        "kind": "text",
-        "name": "Hauptstadt",
-        "ordering": "1"
-      }
+      "example": [
+        {
+          "kind": "text",
+          "identifier": true,
+          "description": {
+            "en": "simple text"
+          },
+          "name": "capital city",
+          "displayName": {
+            "en": "Capital City",
+            "de": "Hauptstadt"
+          },
+          "ordering": "1"
+        },
+        {
+          "kind": "numeric",
+          "frontendReadOnly": true,
+          "description": {
+            "en": "simple number column"
+          },
+          "name": "population",
+          "ordering": "2"
+        },
+        {
+          "kind": "group",
+          "name": "capital city with poplation",
+          "description": {
+            "en": "a group example, the column ids in groups array must be absolute"
+          },
+          "ordering": "3",
+          "groups": [1, 2],
+          "formatPattern": "city {{1}} has {{2}} inhabitants"
+        }
+      ]
     }
   },
 
@@ -2613,7 +2663,6 @@
       "type": "integer",
       "format": "int64"
     },
-
     "value": {
       "name": "value",
       "description": "The new value of the cell.",
@@ -2627,6 +2676,26 @@
           }
         }
       }
+    },
+    "fileuuid": {
+      "name": "fileuuid",
+      "in": "path",
+      "required": true,
+      "type": "string"
+    },
+    "folderId": {
+      "name": "folderId",
+      "in": "path",
+      "required": true,
+      "type": "string"
+    },
+    "nonce": {
+      "name": "nonce",
+      "description": "nonce which will be exposed via server log",
+      "in": "query",
+      "type": "string",
+      "format": "uuid",
+      "required": false
     }
   },
   "responses": {
