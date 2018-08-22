@@ -36,7 +36,7 @@
   "paths": {
     "/files": {
       "post": {
-        "summary": "FIXME Create file handle",
+        "summary": "Create file handle",
         "description": "Creates a new temporary file handle.",
         "tags": ["media"],
         "operationId": "create-file-handle",
@@ -167,10 +167,42 @@
         }
       },
       "put": {
-        "summary": "FIXME Change file meta-information",
+        "summary": "Change file meta-information",
         "description": "Changes meta information of file.",
         "tags": ["media"],
         "operationId": "change-file-meta-information",
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "description": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "externalName": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "internalName": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "mimeType": {
+                  "$ref": "#/definitions/Multi-language object"
+                },
+                "folder": {
+                  "type": "integer",
+                  "format": "int64",
+                  "example": 1
+                }
+              }
+            }
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -202,7 +234,7 @@
         }
       ],
       "put": {
-        "summary": "FIXME Upload file",
+        "summary": "Upload file",
         "description": "Uploads/replaces a language specific file for this file handle.",
         "tags": ["media"],
         "operationId": "upload-file",
