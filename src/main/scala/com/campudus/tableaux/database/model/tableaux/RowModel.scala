@@ -849,10 +849,11 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
             |$tableId::bigint as table_id,
             |ua.type,
             |CASE WHEN type = 'flag' THEN value END AS type_value,
-            |CASE WHEN ua.langtags <> '{}' THEN UNNEST(ua.langtags) END AS langtag,
+            |sub.langtag AS langtag,
             |COUNT(*),
             |${parseDateTimeSql("MAX(ua.created_at)")} AS last_created_at
             |FROM user_table_annotations_$tableId ua
+            |LEFT JOIN LATERAL UNNEST(ua.langtags) AS sub(langtag) ON ua.langtags <> '{}'
             |WHERE NOT (type = 'flag' AND value = 'needs_translation' AND (langtags = '{}' OR langtags IS NULL))
             |GROUP BY type, type_value, langtag""".stripMargin
       })
