@@ -2,12 +2,19 @@ language: java
 jdk:
 - oraclejdk8
 sudo: false
+dist: trusty
 cache:
   directories:
   - $HOME/.m2
   - $HOME/.gradle
-addons:
-  postgresql: '9.4'
+matrix:
+  include:
+    - addons:
+        postgresql: '10'
+        apt:
+          packages:
+          - postgresql-10
+          - postgresql-client-10
 install: /bin/true
 before_script:
 - psql -c 'SHOW SERVER_VERSION;' -U postgres
@@ -24,3 +31,4 @@ env:
   - CI_NAME=travis-ci
   - MALLOC_ARENA_MAX=2
   - secure: Ld8TSElGS54hAfrAQZcTWw47chK1lliOpDf7yluExco/K+W1Ddj2UzVrPspRJXCcl6bBZTwE4aosEB0P6EAX4IAQVyKOUvJVN2tlp8tq13/KltWCV7Wt0HWC96kVp4nZv8QpZhT3cyilDDE7h1WgKQY2NXB7JIyQDvO2NROjno0O8Nfi8Jf1/faSnfWqMj2W5Z7p+GIxYXiQS2LxUZ9YpCMrs0cEnL6EjJyVj+LkJgp3exCYNtmbD0jQ5uWxmKJaO1SijfPuztIq4F8SDcikKdOTaLpDvB2tj/aq9x4pcjVG/66TaX8RusVtrkh/L4G4oApAs9AFjXz3PUPqXQQ9e5WrTckrMRaOunPc5K0ajdCw3v6aWwAJyXpdP3M572vSPxn5EQCrOXaLJd+LotDiSTvRDTPvX2uaf3aSB+G405YGoJ6Y+xjZfSngcP8r1Hlnh+eGJ/lmlIvBYuYJeALa8Rmniog3mmhh0iavuLDENWszHOHgooxhcPy8cFI1AklaKgOyAXnbwQYWF+K633GgVD5AZxfGdfpjbvOSsnB+kge6JcxFYXI4z/mL02yckl+nBY7S40Z1rRjtvEkrN6ZbnMOA6dA83kjQfazvR0PxLvZntCsApaNcayrngZpIcvMzkznFGowzcSIFOQNKBKRg3ulgAQsl4WVnwg+WEd1ieY8=
+  - PGPORT=5432
