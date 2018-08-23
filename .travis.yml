@@ -2,12 +2,22 @@ language: java
 jdk:
 - oraclejdk8
 sudo: false
+dist: trusty
 cache:
   directories:
   - $HOME/.m2
   - $HOME/.gradle
-addons:
-  postgresql: '9.4'
+matrix:
+  include:
+    - name: "Test with postgresql 9.4"
+      addons:
+        postgresql: '9.4'
+    - name: "Test with postgresql 9.5"
+      addons:
+        postgresql: '9.5'
+    - name: "Test with postgresql 9.6"
+      addons:
+        postgresql: '9.6'
 install: /bin/true
 before_script:
 - psql -c 'SHOW SERVER_VERSION;' -U postgres
