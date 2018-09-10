@@ -102,7 +102,6 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
                            | CREATE TABLE user_table_lang_$id (
                            |   id BIGINT,
                            |   langtag VARCHAR(255),
-                           |   needs_translation BOOLEAN DEFAULT false,
                            |
                            |   PRIMARY KEY (id, langtag),
                            |
