@@ -20,7 +20,7 @@ project.group = 'com.campudus'
 project.version = '0.1.0'
 
 def vertxVersion = '3.5.3'
-def scalaVersion = '2.12.6'
+def scalaVersion = '2.12.7'
 
 sourceCompatibility = '1.8'
 
@@ -97,9 +97,9 @@ run {
   }
 
   args = [
-      "run",
-      mainVerticle,
-      "-conf", configFile
+          "run",
+          mainVerticle,
+          "-conf", configFile
   ]
 
   environment ENV: "development"
@@ -111,12 +111,12 @@ task runRedeploy(type: JavaExec) {
   main = mainClassName
 
   args = [
-      "run",
-      mainVerticle,
-      "-conf", "conf.json",
-      "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
-      "--launcher-class=${mainClassName}",
-      "--on-redeploy=./gradlew classes"
+          "run",
+          mainVerticle,
+          "-conf", "conf.json",
+          "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
+          "--launcher-class=${mainClassName}",
+          "--on-redeploy=./gradlew classes"
   ]
 
   environment ENV: "development"
@@ -153,9 +153,9 @@ checkScoverage {
 
 scoverage {
   excludedPackages = [
-      'io.vertx.scala.*',
-      'org.vertx.scala.*',
-      'com.github.mauricio.async.db.*'
+          'io.vertx.scala.*',
+          'org.vertx.scala.*',
+          'com.github.mauricio.async.db.*'
   ]
 }
 
@@ -232,6 +232,6 @@ spotless {
  * Gradle wrapper
  */
 wrapper {
-  gradleVersion = '4.9'
+  gradleVersion = '4.10.2'
   distributionType = Wrapper.DistributionType.BIN
 }
