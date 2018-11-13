@@ -95,6 +95,7 @@ class TableauxModel(
   val updateRowModel = new UpdateRowModel(connection)
 
   val attachmentModel = AttachmentModel(connection)
+  val retrieveHistoryModel = RetrieveHistoryModel(connection)
 
   def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
 
@@ -727,5 +728,9 @@ class TableauxModel(
 
   def retrieveTotalSize(table: Table): Future[Long] = {
     retrieveRowModel.size(table.id)
+  }
+
+  def retrieveCellHistory(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[SeqCellHistory] = {
+    retrieveHistoryModel.retrieve(tableId, columnId, rowId);
   }
 }

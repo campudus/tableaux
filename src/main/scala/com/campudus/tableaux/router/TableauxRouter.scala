@@ -54,6 +54,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   private val TranslationStatus: Regex = "/tables/translationStatus".r
 
+  private val CellHistory: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/history".r
+  private val RowHistory: Regex = "/tables/(\\d+)/rows/(\\d+)/history".r
+
   override def routes(implicit context: RoutingContext): Routing = {
 
     /**
@@ -366,6 +369,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Get(ColumnsValuesWithLangtag(tableId, columnId, langtag)) =>
       asyncGetReply {
         controller.retrieveColumnValues(tableId.toLong, columnId.toLong, Some(langtag))
+      }
+
+    /**
+      * Retrieve Cell History
+      */
+    case Get(CellHistory(tableId, columnId, rowId)) =>
+      asyncGetReply {
+        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong)
       }
   }
 }

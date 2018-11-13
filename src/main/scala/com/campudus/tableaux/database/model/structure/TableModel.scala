@@ -55,6 +55,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
             s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, PRIMARY KEY (id))")
           t <- createLanguageTable(t, id)
           t <- createCellAnnotationsTable(t, id)
+          t <- createHistoryTable(t, id)
           (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
 
           (t, _) <- createTableDisplayInfos(t, TableDisplayInfos(id, displayInfos))
@@ -129,6 +130,25 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
                            |   FOREIGN KEY (row_id) REFERENCES user_table_$id (id) ON DELETE CASCADE
                            | )
          """.stripMargin)
+    } yield t
+  }
+
+  private def createHistoryTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+    for {
+      (t, _) <- t.query(s"""
+                           | CREATE TABLE user_table_history_$id (
+                           |   revision BIGSERIAL,
+                           |   row_id BIGINT NOT NULL,
+                           |   column_id BIGINT,
+                           |   event VARCHAR(255) NOT NULL DEFAULT 'cell_changed',
+                           |   column_type VARCHAR(255),
+                           |   multilanguage VARCHAR(255) NOT NULL DEFAULT 'neutral',
+                           |   value JSON NULL,
+                           |   author VARCHAR(255),
+                           |   timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+                           |   PRIMARY KEY (revision)
+                           | )
+           """.stripMargin)
     } yield t
   }
 
@@ -251,6 +271,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_annotations_$tableId")
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_lang_$tableId")
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId")
+      (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_history_$tableId")
 
       (t, result) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
 
