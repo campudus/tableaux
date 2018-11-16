@@ -143,9 +143,9 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
                            |   event VARCHAR(255) NOT NULL DEFAULT 'cell_changed',
                            |   column_type VARCHAR(255),
                            |   multilanguage VARCHAR(255) NOT NULL DEFAULT 'neutral',
-                           |   value JSON NULL,
                            |   author VARCHAR(255),
                            |   timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+                           |   value JSON NULL,
                            |   PRIMARY KEY (revision)
                            | )
            """.stripMargin)
