@@ -43,7 +43,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveInvalidJson(implicit c: TestContext): Unit = {
+  def retrieveInvalidValueJson(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)

@@ -181,6 +181,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
     /**
       * Duplicate Row
+      * currently not used by frontend because of cardinality constraints
+      * TODO validation should be checked by backend
       */
     case Post(RowDuplicate(tableId, rowId)) =>
       asyncGetReply {

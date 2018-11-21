@@ -96,6 +96,7 @@ class TableauxModel(
 
   val attachmentModel = AttachmentModel(connection)
   val retrieveHistoryModel = RetrieveHistoryModel(connection)
+  val createHistoryModel = CreateHistoryModel(connection)
 
   def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
 
@@ -360,6 +361,7 @@ class TableauxModel(
       }
 
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
+      _ <- createHistoryModel.create(table, rowId, Seq((column, value)))
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
 
@@ -636,6 +638,8 @@ class TableauxModel(
             deleteRow(table, duplicatedRowId)
               .flatMap(_ => Future.failed(ex))
         })
+
+      _ <- createHistoryModel.create(table, rowId, columns.zip(rowValues))
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
