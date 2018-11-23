@@ -9,21 +9,7 @@ import org.vertx.scala.core.json._
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-object RetrieveHistoryModel {
-
-  def apply(connection: DatabaseConnection): RetrieveHistoryModel = {
-    new RetrieveHistoryModel(connection)
-  }
-}
-
-//object CreateHistoryModel {
-//
-//  def apply(connection: DatabaseConnection): CreateHistoryModel = {
-//    new CreateHistoryModel(connection)
-//  }
-//}
-
-class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
   def retrieve(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[SeqCellHistory] = {
     val select =
@@ -93,11 +79,58 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       case Success((simples, multis, links, attachments)) =>
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
-//          _ <- if (multis.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
+          _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
 //          _ <- if (links.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
 //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
         } yield ()
     }
+  }
+
+  def createTranslation(table: Table,
+                        rowId: RowId,
+                        values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]): Future[List[RowId]] = {
+
+    def wrapLanguageValue(langtag: String, value: Any) = Json.obj("value" -> Json.obj(langtag -> value)).toString
+
+    val entries = for {
+      (column, langtagValueOptMap) <- values
+      (langtag: String, valueOpt) <- langtagValueOptMap
+    } yield (langtag, (column, valueOpt))
+
+    val columnsForLang = entries
+      .groupBy({ case (langtag, _) => langtag })
+      .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
+
+    val futureSequence: Seq[Future[RowId]] = columnsForLang.toSeq
+      .flatMap({
+        case (langtag, columnValueOptSeq) =>
+          val languageEntries = columnValueOptSeq
+            .map({
+              case (column: SimpleValueColumn[_], valueOpt) =>
+                (column.id, column.kind, column.languageType, wrapLanguageValue(langtag, valueOpt.orNull))
+            })
+
+          languageEntries.map({
+            case (columnId, columnType, languageType, value) =>
+              logger.info(s"createHistory ${table.id} $columnId $rowId $value")
+
+              for {
+                result <- connection.query(
+                  s"""INSERT INTO
+                     |  user_table_history_${table.id}
+                     |    (row_id, column_id, column_type, multilanguage, value)
+                     |  VALUES
+                     |    (?, ?, ?, ?, ?)
+                     |  RETURNING revision""".stripMargin,
+                  Json.arr(rowId, columnId, columnType.toString, languageType.toString, value)
+                )
+              } yield {
+                insertNotNull(result).head.get[RowId](0)
+              }
+          })
+      })
+
+    Future.sequence(futureSequence.toList)
   }
 
   def createSimple(table: Table,
@@ -112,8 +145,8 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
           (column.id, column.kind, wrapValue(valueOpt.orNull))
       })
       .map({
-        case (columnId, columnType, value) => {
-          logger.info(s"createHistory ${table.id} ${columnId} ${rowId} ${value}")
+        case (columnId, columnType, value) =>
+          logger.info(s"createHistory ${table.id} $columnId $rowId $value")
 
           for {
             result <- connection.query(
@@ -128,7 +161,6 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
           } yield {
             insertNotNull(result).head.get[RowId](0)
           }
-        }
       })
 
     Future.sequence(futureSequence)
