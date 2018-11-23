@@ -100,4 +100,44 @@ class CreateHistoryTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def changeMultilanguageValue_text(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[
+          |  {
+          |    "event": "cell_changed",
+          |    "columnType": "text",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": "first change"
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "columnType": "text",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": "second change"
+          |    }
+          |  }
+          |]
+        """.stripMargin
+
+      val newValue1 = Json.obj("value" -> Json.obj("de-DE" -> "first change"))
+      val newValue2 = Json.obj("value" -> Json.obj("de-DE" -> "second change"))
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue1)
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue2)
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+        historyAfterCreation = test.getJsonArray("rows")
+      } yield {
+        assertEqualsJSON(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
 }

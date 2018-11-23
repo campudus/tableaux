@@ -590,7 +590,7 @@ trait TableauxTestBase
                              s"/tables/$tableId/columns",
                              Json.obj(
                                "columns" -> Json.arr(
-                                 Json.obj("kind" -> "text", "name" -> columnName, "multilanguage" -> true)
+                                 Json.obj("kind" -> "text", "name" -> columnName, "languageType" -> "language")
                                )))
       columnId = columns.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
     } yield {
@@ -602,13 +602,13 @@ trait TableauxTestBase
     val createMultilanguageColumn = Json.obj(
       "columns" ->
         Json.arr(
-          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true, "identifier" -> true),
-          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true),
-          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
-          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
-          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "multilanguage" -> true),
-          Json.obj("kind" -> "date", "name" -> "Test Column 6", "multilanguage" -> true),
-          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "multilanguage" -> true)
+          Json.obj("kind" -> "text", "name" -> "Test Column 1", "languageType" -> "language", "identifier" -> true),
+          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "languageType" -> "language"),
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "languageType" -> "language"),
+          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "languageType" -> "language"),
+          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "languageType" -> "language"),
+          Json.obj("kind" -> "date", "name" -> "Test Column 6", "languageType" -> "language"),
+          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "languageType" -> "language")
         )
     )
     for {
@@ -627,13 +627,13 @@ trait TableauxTestBase
     val createColumns = Json.obj(
       "columns" -> Json.arr(
         Json.obj("kind" -> "text", "name" -> "column 1 (text)"),
-        Json.obj("kind" -> "text", "name" -> "column 2 (text multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "text", "name" -> "column 2 (text multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "numeric", "name" -> "column 3 (numeric)"),
-        Json.obj("kind" -> "numeric", "name" -> "column 4 (numeric multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "numeric", "name" -> "column 4 (numeric multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "richtext", "name" -> "column 5 (richtext)"),
-        Json.obj("kind" -> "richtext", "name" -> "column 6 (richtext multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "richtext", "name" -> "column 6 (richtext multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "date", "name" -> "column 7 (date)"),
-        Json.obj("kind" -> "date", "name" -> "column 8 (date multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "date", "name" -> "column 8 (date multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "attachment", "name" -> "column 9 (attachment)")
       )
     )

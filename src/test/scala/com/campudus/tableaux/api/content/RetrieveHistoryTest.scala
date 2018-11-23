@@ -8,22 +8,20 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveHistoryTest extends TableauxTestBase {
 
-  val createTableJson: JsonObject = Json.obj("name" -> "History Test Table 1")
-
   @Test
-  def retrieveSimple(implicit c: TestContext): Unit = {
+  def retrieveSimpleValue(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-      val historyModel = RetrieveHistoryModel(dbConnection)
 
       for {
-        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- createEmptyDefaultTable()
 
         // manually insert row
         _ <- dbConnection.query("""INSERT INTO
@@ -31,13 +29,13 @@ class RetrieveHistoryTest extends TableauxTestBase {
                                   |VALUES
                                   |  (1, 1, 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
 
-        result <- historyModel.retrieve(1, 1, 1)
+        result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
-        val historyCell = result.rows.head
-        assertEquals(historyCell.revision, 1)
-        assertEquals(historyCell.columnType, NumericType)
-        assertEquals(historyCell.languageType.toString, LanguageType.NEUTRAL.toString)
-        assertEquals(historyCell.value, Json.obj("value" -> 42))
+        val historyCell = result.getJsonArray("rows", Json.emptyArr()).getJsonObject(0)
+        assertEquals(historyCell.getInteger("revision"), 1)
+        assertEquals(historyCell.getString("columnType"), NumericType.toString)
+        assertEquals(historyCell.getString("languageType"), LanguageType.NEUTRAL.toString)
+        assertEquals(historyCell.getInteger("value"), 42)
       }
     }
   }
@@ -47,10 +45,9 @@ class RetrieveHistoryTest extends TableauxTestBase {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-      val historyModel = RetrieveHistoryModel(dbConnection)
 
       for {
-        _ <- sendRequest("POST", "/tables", createTableJson)
+        _ <- createEmptyDefaultTable()
 
         // manually insert row
         _ <- dbConnection.query("""INSERT INTO
@@ -58,10 +55,76 @@ class RetrieveHistoryTest extends TableauxTestBase {
                                   |VALUES
                                   |  (1, 1, 'numeric', 'neutral', null)""".stripMargin)
 
-        result <- historyModel.retrieve(1, 1, 1)
+        result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
-        val historyCell = result.rows.head
-        assertEquals(historyCell.value, Json.emptyObj())
+        val historyCell = result.getJsonArray("rows", Json.emptyArr()).getJsonObject(0)
+        assertEquals(historyCell.getJsonObject("value"), Json.emptyObj())
+      }
+    }
+  }
+
+  @Test
+  def retrieveMultilanguageValues(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expected =
+        """
+          |[{
+          |  "value": {"de": "change1"}
+          |}, {
+          |  "value": {"de": "change2"}
+          |}, {
+          |  "value": {"de": "change3"}
+          |}]
+        """.stripMargin
+
+      for {
+        _ <- createEmptyDefaultTable()
+
+        // manually insert rows
+        _ <- dbConnection.query("""INSERT INTO
+                                  |  user_table_history_1(row_id, column_id, column_type, multilanguage, value)
+                                  |VALUES
+                                  |  (1, 1, 'numeric', 'language', '{"value": {"de": "change1"}}'),
+                                  |  (1, 1, 'numeric', 'language', '{"value": {"de": "change2"}}'),
+                                  |  (1, 1, 'numeric', 'language', '{"value": {"de": "change3"}}')
+                                  |  """.stripMargin)
+
+        result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+      } yield {
+        val historyCells = result.getJsonArray("rows", Json.emptyArr())
+        assertEqualsJSON(expected, historyCells.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def retrieveMultilanguageValuesFiltered(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[{
+          |  "value": {"de": "de change2"}
+          |}, {
+          |  "value": {"de": "de change3"}
+          |}]
+        """.stripMargin
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("en" -> "en change1")))
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("de" -> "de change2")))
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("de" -> "de change3")))
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("en" -> "en change4")))
+
+        // only get history for lang "de"
+        result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de")
+      } yield {
+        val historyCells = result.getJsonArray("rows", Json.emptyArr())
+        assertEqualsJSON(expected, historyCells.toString, JSONCompareMode.LENIENT)
       }
     }
   }

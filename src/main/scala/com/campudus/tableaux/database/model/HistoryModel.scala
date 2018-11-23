@@ -1,8 +1,8 @@
 package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery, LanguageType, TableauxDbType}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
@@ -11,7 +11,19 @@ import scala.util.{Failure, Success, Try}
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def retrieve(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[SeqCellHistory] = {
+  def retrieve(table: Table,
+               column: ColumnType[_],
+               rowId: RowId,
+               langtagOpt: Option[String]): Future[SeqCellHistory] = {
+
+    val whereLanguage = (column.languageType, langtagOpt) match {
+      case (MultiLanguage, Some(langtag)) => s" AND value -> 'value' -> '$langtag' IS NOT NULL"
+      case (_, None) => ""
+      case (_, Some(_)) =>
+        throw new IllegalArgumentException(
+          "History values filtered by langtags can only be retrieved from multi-language columns")
+    }
+
     val select =
       s"""
          |  SELECT
@@ -23,17 +35,18 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    timestamp,
          |    value
          |  FROM
-         |    user_table_history_$tableId
+         |    user_table_history_${table.id}
          |  WHERE
          |    row_id = ?
          |    AND column_id = ?
          |    AND event = 'cell_changed'
+         |    $whereLanguage
          |  ORDER BY
          |    timestamp ASC
          """.stripMargin
 
     for {
-      result <- connection.query(select, Json.arr(rowId, columnId))
+      result <- connection.query(select, Json.arr(rowId, column.id))
     } yield {
       val cellHistory = resultObjectToJsonArray(result).map(mapToCellHistory)
       SeqCellHistory(cellHistory)
@@ -90,7 +103,7 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
                         rowId: RowId,
                         values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]): Future[List[RowId]] = {
 
-    def wrapLanguageValue(langtag: String, value: Any) = Json.obj("value" -> Json.obj(langtag -> value)).toString
+    def wrapLanguageValue(langtag: String, value: Any): JsonObject = Json.obj("value" -> Json.obj(langtag -> value))
 
     val entries = for {
       (column, langtagValueOptMap) <- values
@@ -112,21 +125,7 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
 
           languageEntries.map({
             case (columnId, columnType, languageType, value) =>
-              logger.info(s"createHistory ${table.id} $columnId $rowId $value")
-
-              for {
-                result <- connection.query(
-                  s"""INSERT INTO
-                     |  user_table_history_${table.id}
-                     |    (row_id, column_id, column_type, multilanguage, value)
-                     |  VALUES
-                     |    (?, ?, ?, ?, ?)
-                     |  RETURNING revision""".stripMargin,
-                  Json.arr(rowId, columnId, columnType.toString, languageType.toString, value)
-                )
-              } yield {
-                insertNotNull(result).head.get[RowId](0)
-              }
+              insertHistory(table, rowId, columnId, columnType, languageType, value)
           })
       })
 
@@ -137,33 +136,43 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
                    rowId: RowId,
                    simples: List[(SimpleValueColumn[_], Option[Any])]): Future[List[RowId]] = {
 
-    def wrapValue(value: Any) = Json.obj("value" -> value).toString
+    def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
 
     val futureSequence: List[Future[RowId]] = simples
       .map({
         case (column: SimpleValueColumn[_], valueOpt) =>
-          (column.id, column.kind, wrapValue(valueOpt.orNull))
+          (column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))
       })
       .map({
-        case (columnId, columnType, value) =>
-          logger.info(s"createHistory ${table.id} $columnId $rowId $value")
-
-          for {
-            result <- connection.query(
-              s"""INSERT INTO
-                 |  user_table_history_${table.id}
-                 |    (row_id, column_id, column_type, value)
-                 |  VALUES
-                 |    (?, ?, ?, ?)
-                 |  RETURNING revision""".stripMargin,
-              Json.arr(rowId, columnId, columnType.toString, value)
-            )
-          } yield {
-            insertNotNull(result).head.get[RowId](0)
-          }
+        case (columnId, columnType, languageType, value) =>
+          insertHistory(table, rowId, columnId, columnType, languageType, value)
       })
 
     Future.sequence(futureSequence)
+  }
+
+  private def insertHistory(table: Table,
+                            rowId: RowId,
+                            columnId: ColumnId,
+                            columnType: TableauxDbType,
+                            languageType: LanguageType,
+                            json: JsonObject): Future[RowId] = {
+
+    logger.info(s"createHistory ${table.id} $columnId $rowId $json")
+
+    for {
+      result <- connection.query(
+        s"""INSERT INTO
+           |  user_table_history_${table.id}
+           |    (row_id, column_id, column_type, multilanguage, value)
+           |  VALUES
+           |    (?, ?, ?, ?, ?)
+           |  RETURNING revision""".stripMargin,
+        Json.arr(rowId, columnId, columnType.toString, languageType.toString, json.toString)
+      )
+    } yield {
+      insertNotNull(result).head.get[RowId](0)
+    }
   }
 
 }

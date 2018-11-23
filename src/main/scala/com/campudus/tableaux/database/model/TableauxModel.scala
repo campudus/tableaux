@@ -734,7 +734,13 @@ class TableauxModel(
     retrieveRowModel.size(table.id)
   }
 
-  def retrieveCellHistory(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[SeqCellHistory] = {
-    retrieveHistoryModel.retrieve(tableId, columnId, rowId);
+  def retrieveCellHistory(table: Table,
+                          columnId: ColumnId,
+                          rowId: RowId,
+                          langtagOpt: Option[String]): Future[SeqCellHistory] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+      cellHistorySeq <- retrieveHistoryModel.retrieve(table, column, rowId, langtagOpt)
+    } yield cellHistorySeq
   }
 }
