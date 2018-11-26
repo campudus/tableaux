@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.InvalidRequestException
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
 import com.campudus.tableaux.database._
@@ -20,7 +21,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       case (MultiLanguage, Some(langtag)) => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL"
       case (_, None) => ""
       case (_, Some(_)) =>
-        throw new IllegalArgumentException(
+        throw new InvalidRequestException(
           "History values filtered by langtags can only be retrieved from multi-language columns")
     }
 

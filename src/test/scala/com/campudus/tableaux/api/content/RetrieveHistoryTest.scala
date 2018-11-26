@@ -124,8 +124,28 @@ class RetrieveHistoryTest extends TableauxTestBase {
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de")
       } yield {
         val historyCells = result.getJsonArray("rows", Json.emptyArr())
+
         assertEqualsJSON(expected, historyCells.toString, JSONCompareMode.LENIENT)
       }
+    }
+  }
+
+  @Test
+  def retrieveMultilanguageValuesFromSingleLanguageColumn(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.invalid") {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        _ <- createEmptyDefaultTable()
+
+        // manually insert row
+        _ <- dbConnection.query("""INSERT INTO
+                                  |  user_table_history_1(row_id, column_id, column_type, multilanguage, value)
+                                  |VALUES
+                                  |  (1, 1, 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
+        _ <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de")
+      } yield ()
     }
   }
 }
