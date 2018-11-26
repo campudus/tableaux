@@ -1,5 +1,6 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -222,7 +223,7 @@ class CreateHistoryTest extends TableauxTestBase {
   }
 
   @Test
-  def changeMultilanguageValue_datetimes(implicit c: TestContext): Unit = {
+  def changeMultilanguageValue_datetime(implicit c: TestContext): Unit = {
     okTest {
       val expected =
         """
@@ -254,6 +255,45 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/columns/7/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/7/rows/1", newValue2)
         test <- sendRequest("GET", "/tables/1/columns/7/rows/1/history")
+        historyAfterCreation = test.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeMultilanguageValue_currency(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[
+          |  {
+          |    "event": "cell_changed",
+          |    "columnType": "currency",
+          |    "languageType": "country",
+          |    "value": {
+          |      "DE": 2999.99
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "columnType": "currency",
+          |    "languageType": "country",
+          |    "value": {
+          |      "DE": 4000
+          |    }
+          |  }
+          |]
+        """.stripMargin
+
+      val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB"))
+
+      for {
+        _ <- createSimpleTableWithCell("table1", multiCountryCurrencyColumn)
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("DE" -> 2999.99)))
+        _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("DE" -> 4000)))
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
         historyAfterCreation = test.getJsonArray("rows")
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
