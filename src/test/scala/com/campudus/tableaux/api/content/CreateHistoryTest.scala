@@ -5,7 +5,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.skyscreamer.jsonassert.JSONCompareMode
+import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 @RunWith(classOf[VertxUnitRunner])
@@ -29,7 +29,7 @@ class CreateHistoryTest extends TableauxTestBase {
         test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
         historyAfterCreation = test.getJsonArray("rows").get[JsonObject](0)
       } yield {
-        assertEqualsJSON(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -56,7 +56,7 @@ class CreateHistoryTest extends TableauxTestBase {
         test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
         historyAfterCreation = test.getJsonArray("rows").get[JsonObject](0)
       } yield {
-        assertEqualsJSON(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -96,7 +96,7 @@ class CreateHistoryTest extends TableauxTestBase {
         history <- sendRequest("GET", "/tables/1/columns/2/rows/1/history")
         historyRows = history.getJsonArray("rows")
       } yield {
-        assertEqualsJSON(expected, historyRows.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expected, historyRows.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -136,7 +136,127 @@ class CreateHistoryTest extends TableauxTestBase {
         test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
         historyAfterCreation = test.getJsonArray("rows")
       } yield {
-        assertEqualsJSON(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeMultilanguageValue_boolean(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[
+          |  {
+          |    "event": "cell_changed",
+          |    "columnType": "boolean",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": true
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "columnType": "boolean",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": false
+          |    }
+          |  }
+          |]
+        """.stripMargin
+
+      val newValue1 = Json.obj("value" -> Json.obj("de-DE" -> true))
+      val newValue2 = Json.obj("value" -> Json.obj("de-DE" -> false))
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", newValue1)
+        _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", newValue2)
+        test <- sendRequest("GET", "/tables/1/columns/2/rows/1/history")
+        historyAfterCreation = test.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeMultilanguageValue_numeric(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[
+          |  {
+          |    "event": "cell_changed",
+          |    "columnType": "numeric",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": 42
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "columnType": "numeric",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": 1337
+          |    }
+          |  }
+          |]
+        """.stripMargin
+
+      val newValue1 = Json.obj("value" -> Json.obj("de-DE" -> 42))
+      val newValue2 = Json.obj("value" -> Json.obj("de-DE" -> 1337))
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue1)
+        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue2)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        historyAfterCreation = test.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeMultilanguageValue_datetimes(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[
+          |  {
+          |    "event": "cell_changed",
+          |    "columnType": "datetime",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": "2019-01-18T00:00:00.000Z"
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "columnType": "datetime",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": "2018-12-12T00:00:00.000Z"
+          |    }
+          |  }
+          |]
+        """.stripMargin
+
+      val newValue1 = Json.obj("value" -> Json.obj("de-DE" -> "2019-01-18T00:00:00.000Z"))
+      val newValue2 = Json.obj("value" -> Json.obj("de-DE" -> "2018-12-12T00:00:00.000Z"))
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/7/rows/1", newValue1)
+        _ <- sendRequest("POST", "/tables/1/columns/7/rows/1", newValue2)
+        test <- sendRequest("GET", "/tables/1/columns/7/rows/1/history")
+        historyAfterCreation = test.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
     }
   }
