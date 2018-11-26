@@ -17,7 +17,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
                langtagOpt: Option[String]): Future[SeqCellHistory] = {
 
     val whereLanguage = (column.languageType, langtagOpt) match {
-      case (MultiLanguage, Some(langtag)) => s" AND value -> 'value' -> '$langtag' IS NOT NULL"
+      case (MultiLanguage, Some(langtag)) => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL"
       case (_, None) => ""
       case (_, Some(_)) =>
         throw new IllegalArgumentException(
