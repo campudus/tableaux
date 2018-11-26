@@ -114,22 +114,22 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       .groupBy({ case (langtag, _) => langtag })
       .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
 
-    val futureSequence: Seq[Future[RowId]] = columnsForLang.toSeq
+    val futureSequence: List[Future[RowId]] = columnsForLang.toList
       .flatMap({
         case (langtag, columnValueOptSeq) =>
-          val languageEntries = columnValueOptSeq
+          val languageCellEntries = columnValueOptSeq
             .map({
               case (column: SimpleValueColumn[_], valueOpt) =>
                 (column.id, column.kind, column.languageType, wrapLanguageValue(langtag, valueOpt.orNull))
             })
 
-          languageEntries.map({
+          languageCellEntries.map({
             case (columnId, columnType, languageType, value) =>
               insertHistory(table, rowId, columnId, columnType, languageType, value)
           })
       })
 
-    Future.sequence(futureSequence.toList)
+    Future.sequence(futureSequence)
   }
 
   def createSimple(table: Table,
@@ -138,11 +138,13 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
 
     def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
 
-    val futureSequence: List[Future[RowId]] = simples
+    val cellEntries = simples
       .map({
         case (column: SimpleValueColumn[_], valueOpt) =>
           (column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))
       })
+
+    val futureSequence: List[Future[RowId]] = cellEntries
       .map({
         case (columnId, columnType, languageType, value) =>
           insertHistory(table, rowId, columnId, columnType, languageType, value)
@@ -174,5 +176,4 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       insertNotNull(result).head.get[RowId](0)
     }
   }
-
 }
