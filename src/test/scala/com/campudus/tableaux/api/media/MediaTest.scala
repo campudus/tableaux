@@ -15,7 +15,7 @@ import org.vertx.scala.core.json.Json
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
 
-sealed trait MediaTestBase extends TableauxTestBase {
+trait MediaTestBase extends TableauxTestBase {
 
   protected def createFile(langtag: String, filePath: String, mimeType: String, folder: Option[FolderId])(
       implicit c: TestContext
@@ -94,8 +94,8 @@ class AttachmentTest extends MediaTestBase {
       val fileName = "Scr$en Shot.pdf"
       val filePath = s"/com/campudus/tableaux/uploads/$fileName"
       val mimetype = "application/pdf"
-      val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"),
-                             "description" -> Json.obj("de_DE" -> "A description about that PDF."))
+      val putFile = Json.obj("title" -> Json.obj("de-DE" -> "Test PDF"),
+                             "description" -> Json.obj("de-DE" -> "A description about that PDF."))
 
       for {
         tableId <- createDefaultTable()
@@ -105,7 +105,7 @@ class AttachmentTest extends MediaTestBase {
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid <- createFile("de_DE", filePath, mimetype, None) map (_.getString("uuid"))
+        fileUuid <- createFile("de-DE", filePath, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
 
         // Add attachment
@@ -127,11 +127,11 @@ class AttachmentTest extends MediaTestBase {
             "ordering" -> 1,
             "folder" -> null,
             "uuid" -> uuid,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill.getJsonArray("value").getJsonObject(0)
         )
@@ -154,8 +154,8 @@ class AttachmentTest extends MediaTestBase {
       val fileName = "Scr$en Shot.pdf"
       val file = s"/com/campudus/tableaux/uploads/$fileName"
       val mimetype = "application/pdf"
-      val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"),
-                             "description" -> Json.obj("de_DE" -> "A description about that PDF."))
+      val putFile = Json.obj("title" -> Json.obj("de-DE" -> "Test PDF"),
+                             "description" -> Json.obj("de-DE" -> "A description about that PDF."))
 
       for {
         tableId <- createDefaultTable()
@@ -165,11 +165,11 @@ class AttachmentTest extends MediaTestBase {
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
-        fileUuid2 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
-        fileUuid3 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid3 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid3", putFile)
 
         // Add attachment
@@ -222,11 +222,11 @@ class AttachmentTest extends MediaTestBase {
             "ordering" -> 1,
             "folder" -> null,
             "uuid" -> uuid1,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid1/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid1/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill.getJsonArray("value").getJsonObject(0)
         )
@@ -298,8 +298,8 @@ class AttachmentTest extends MediaTestBase {
       val file = s"/com/campudus/tableaux/uploads/$fileName"
       val mimetype = "application/pdf"
 
-      val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"),
-                             "description" -> Json.obj("de_DE" -> "A description about that PDF."))
+      val putFile = Json.obj("title" -> Json.obj("de-DE" -> "Test PDF"),
+                             "description" -> Json.obj("de-DE" -> "A description about that PDF."))
 
       for {
         tableId <- createDefaultTable()
@@ -309,10 +309,10 @@ class AttachmentTest extends MediaTestBase {
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
 
-        fileUuid2 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
 
         // Add attachments
@@ -355,11 +355,11 @@ class AttachmentTest extends MediaTestBase {
             "ordering" -> 1,
             "folder" -> null,
             "uuid" -> uuid1,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid1/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid1/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill1.getJsonArray("value").getJsonObject(0)
         )
@@ -367,11 +367,11 @@ class AttachmentTest extends MediaTestBase {
           Json.obj(
             "folder" -> null,
             "uuid" -> uuid2,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid2/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid2/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill2.getJsonArray("value").getJsonObject(0)
         )
@@ -400,8 +400,8 @@ class AttachmentTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       val putFile = Json.obj(
-        "title" -> Json.obj("de_DE" -> "Test PDF"),
-        "description" -> Json.obj("de_DE" -> "A description about that PDF.")
+        "title" -> Json.obj("de-DE" -> "Test PDF"),
+        "description" -> Json.obj("de-DE" -> "A description about that PDF.")
       )
 
       for {
@@ -412,10 +412,10 @@ class AttachmentTest extends MediaTestBase {
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
 
-        fileUuid2 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
 
         // Add attachments
@@ -448,11 +448,11 @@ class AttachmentTest extends MediaTestBase {
             "ordering" -> 1,
             "folder" -> null,
             "uuid" -> uuid1,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid1/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid1/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill1.getJsonArray("value").getJsonObject(0)
         )
@@ -460,11 +460,11 @@ class AttachmentTest extends MediaTestBase {
           Json.obj(
             "folder" -> null,
             "uuid" -> uuid2,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid2/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid2/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill2.getJsonArray("value").getJsonObject(0)
         )
@@ -490,8 +490,8 @@ class AttachmentTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       val putFile = Json.obj(
-        "title" -> Json.obj("de_DE" -> "Test PDF"),
-        "description" -> Json.obj("de_DE" -> "A description about that PDF.")
+        "title" -> Json.obj("de-DE" -> "Test PDF"),
+        "description" -> Json.obj("de-DE" -> "A description about that PDF.")
       )
 
       for {
@@ -502,10 +502,10 @@ class AttachmentTest extends MediaTestBase {
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
 
-        fileUuid2 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
 
         // Add attachments
@@ -535,11 +535,11 @@ class AttachmentTest extends MediaTestBase {
             "ordering" -> 1,
             "folder" -> null,
             "uuid" -> uuid1,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid1/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid1/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill1.getJsonArray("value").getJsonObject(0)
         )
@@ -547,11 +547,11 @@ class AttachmentTest extends MediaTestBase {
           Json.obj(
             "folder" -> null,
             "uuid" -> uuid2,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid2/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid2/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill2.getJsonArray("value").getJsonObject(0)
         )
@@ -577,8 +577,8 @@ class AttachmentTest extends MediaTestBase {
       val fileName = "Scr$en Shot.pdf"
       val filePath = s"/com/campudus/tableaux/uploads/$fileName"
       val mimetype = "application/pdf"
-      val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"),
-                             "description" -> Json.obj("de_DE" -> "A description about that PDF."))
+      val putFile = Json.obj("title" -> Json.obj("de-DE" -> "Test PDF"),
+                             "description" -> Json.obj("de-DE" -> "A description about that PDF."))
 
       val fileName2 = "Screen.Shot.png"
       val filePath2 = s"/com/campudus/tableaux/uploads/$fileName2"
@@ -595,7 +595,7 @@ class AttachmentTest extends MediaTestBase {
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
         // Upload file
-        fileUuid <- createFile("de_DE", filePath, mimetype, None) map (_.getString("uuid"))
+        fileUuid <- createFile("de-DE", filePath, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
 
         // Add attachment
@@ -607,7 +607,7 @@ class AttachmentTest extends MediaTestBase {
         resultRetrieve1 <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
 
         // Replace file
-        _ <- replaceFile(fileUuid, "de_DE", filePath2, mimetype2)
+        _ <- replaceFile(fileUuid, "de-DE", filePath2, mimetype2)
 
         // Retrieve attachment after replace file
         resultRetrieve2 <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
@@ -623,11 +623,11 @@ class AttachmentTest extends MediaTestBase {
             "ordering" -> 1,
             "folder" -> null,
             "uuid" -> uuid,
-            "title" -> Json.obj("de_DE" -> "Test PDF"),
-            "url" -> Json.obj("de_DE" -> s"/files/$uuid/de_DE/Scr%24en+Shot.pdf"),
-            "description" -> Json.obj("de_DE" -> "A description about that PDF."),
-            "externalName" -> Json.obj("de_DE" -> "Scr$en Shot.pdf"),
-            "mimeType" -> Json.obj("de_DE" -> "application/pdf")
+            "title" -> Json.obj("de-DE" -> "Test PDF"),
+            "url" -> Json.obj("de-DE" -> s"/files/$uuid/de-DE/Scr%24en+Shot.pdf"),
+            "description" -> Json.obj("de-DE" -> "A description about that PDF."),
+            "externalName" -> Json.obj("de-DE" -> "Scr$en Shot.pdf"),
+            "mimeType" -> Json.obj("de-DE" -> "application/pdf")
           ),
           resultFill.getJsonArray("value").getJsonObject(0)
         )
@@ -643,7 +643,7 @@ class AttachmentTest extends MediaTestBase {
         assertEquals(attachment1.getJsonObject("title"), attachment2.getJsonObject("title"))
         assertEquals(attachment1.getJsonObject("description"), attachment2.getJsonObject("description"))
 
-        assertEquals(Json.obj("de_DE" -> "Screen.Shot.png"), attachment2.getJsonObject("externalName"))
+        assertEquals(Json.obj("de-DE" -> "Screen.Shot.png"), attachment2.getJsonObject("externalName"))
       }
     }
   }
@@ -661,8 +661,8 @@ class AttachmentTest extends MediaTestBase {
       val fileName = "Scr$en Shot.pdf"
       val filePath = s"/com/campudus/tableaux/uploads/$fileName"
       val mimetype = "application/pdf"
-      val putFile = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF"),
-                             "description" -> Json.obj("de_DE" -> "A description about that PDF."))
+      val putFile = Json.obj("title" -> Json.obj("de-DE" -> "Test PDF"),
+                             "description" -> Json.obj("de-DE" -> "A description about that PDF."))
 
       for {
         tableId <- createDefaultTable()
@@ -672,10 +672,10 @@ class AttachmentTest extends MediaTestBase {
 
         rowId <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
 
-        fileUuid1 <- createFile("de_DE", filePath, mimetype, None) map (_.getString("uuid"))
+        fileUuid1 <- createFile("de-DE", filePath, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
 
-        fileUuid2 <- createFile("de_DE", filePath, mimetype, None) map (_.getString("uuid"))
+        fileUuid2 <- createFile("de-DE", filePath, mimetype, None) map (_.getString("uuid"))
         _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
 
         // Add two attachments with POST
@@ -966,24 +966,24 @@ class FileTest extends MediaTestBase {
 
       val meta = Json.obj(
         "title" -> Json.obj(
-          "de_DE" -> "Test PDF"
+          "de-DE" -> "Test PDF"
         ),
         "description" -> Json.obj(
-          "de_DE" -> "A description about that PDF."
+          "de-DE" -> "A description about that PDF."
         )
       )
 
       for {
         file <- sendRequest("POST", "/files", meta)
 
-        uploadedFile <- replaceFile(file.getString("uuid"), "de_DE", filePath, mimetype)
+        uploadedFile <- replaceFile(file.getString("uuid"), "de-DE", filePath, mimetype)
         puttedFile <- sendRequest("PUT", s"/files/${file.getString("uuid")}", meta)
 
         file <- sendRequest("GET", s"/files/${file.getString("uuid")}")
 
         _ <- futurify { p: Promise[Unit] =>
           {
-            val url = file.getJsonObject("url").getString("de_DE")
+            val url = file.getJsonObject("url").getString("de-DE")
 
             httpRequest(
               "GET",
@@ -1093,55 +1093,55 @@ class FileTest extends MediaTestBase {
 
       val putOne = Json.obj(
         "title" -> Json.obj(
-          "de_DE" -> "Ein schöner deutscher Titel."
+          "de-DE" -> "Ein schöner deutscher Titel."
         ),
         "description" -> Json.obj(
-          "de_DE" -> "Und hier folgt eine tolle hochdeutsche Beschreibung."
+          "de-DE" -> "Und hier folgt eine tolle hochdeutsche Beschreibung."
         )
       )
 
       val putTwo = Json.obj(
         "title" -> Json.obj(
-          "en_GB" -> "A beautiful German title."
+          "en-GB" -> "A beautiful German title."
         ),
         "description" -> Json.obj(
-          "en_GB" -> "And here is a great High German description."
+          "en-GB" -> "And here is a great High German description."
         )
       )
 
       for {
         file <- sendRequest("POST", "/files", putOne)
 
-        uploadedFile <- replaceFile(file.getString("uuid"), "de_DE", filePath, mimetype)
+        uploadedFile <- replaceFile(file.getString("uuid"), "de-DE", filePath, mimetype)
 
         _ <- sendRequest("PUT", s"/files/${file.getString("uuid")}", putOne)
         _ <- sendRequest("PUT", s"/files/${file.getString("uuid")}", putTwo)
 
         fileRequested <- sendRequest("GET", s"/files/${file.getString("uuid")}")
 
-        _ <- replaceFile(file.getString("uuid"), "en_GB", filePath, mimetype)
+        _ <- replaceFile(file.getString("uuid"), "en-GB", filePath, mimetype)
         fileReplaced <- sendRequest("GET", s"/files/${file.getString("uuid")}")
 
-        _ <- replaceFile(file.getString("uuid"), "de_DE", filePath, mimetype)
+        _ <- replaceFile(file.getString("uuid"), "de-DE", filePath, mimetype)
         fileReplaced2 <- sendRequest("GET", s"/files/${file.getString("uuid")}")
 
-        deletedEnGB <- sendRequest("DELETE", s"/files/${file.getString("uuid")}/en_GB")
+        deletedEnGB <- sendRequest("DELETE", s"/files/${file.getString("uuid")}/en-GB")
 
         _ <- sendRequest("DELETE", s"/files/${file.getString("uuid")}")
       } yield {
         assertEquals(putOne.getJsonObject("title").mergeIn(putTwo.getJsonObject("title")),
                      fileRequested.getJsonObject("title"))
 
-        assertFalse(file.getJsonObject("url").containsKey("en_GB"))
+        assertFalse(file.getJsonObject("url").containsKey("en-GB"))
         assertTrue(
           fileReplaced
             .getJsonObject("url")
-            .containsKey("en_GB") && fileReplaced.getJsonObject("url").getString("en_GB") != null)
+            .containsKey("en-GB") && fileReplaced.getJsonObject("url").getString("en-GB") != null)
 
-        assertNotSame(fileReplaced.getJsonObject("internalName").getString("de_DE"),
-                      fileReplaced2.getJsonObject("internalName").getString("de_DE"))
+        assertNotSame(fileReplaced.getJsonObject("internalName").getString("de-DE"),
+                      fileReplaced2.getJsonObject("internalName").getString("de-DE"))
 
-        assertFalse(deletedEnGB.getJsonObject("internalName").containsKey("en_GB"))
+        assertFalse(deletedEnGB.getJsonObject("internalName").containsKey("en-GB"))
       }
     }
   }
@@ -1157,8 +1157,8 @@ class FileTest extends MediaTestBase {
       }
 
       def createFilePutJson(folder: Int): JsonObject = {
-        Json.obj("title" -> Json.obj("de_DE" -> "Test File"),
-                 "description" -> Json.obj("de_DE" -> "Test Description"),
+        Json.obj("title" -> Json.obj("de-DE" -> "Test File"),
+                 "description" -> Json.obj("de-DE" -> "Test Description"),
                  "folder" -> folder)
       }
 
@@ -1178,12 +1178,12 @@ class FileTest extends MediaTestBase {
 
         file1 <- sendRequest("POST", "/files", createFilePutJson(folder11))
         file1Uuid = file1.getString("uuid")
-        _ <- replaceFile(file1Uuid, "de_DE", filePath, mimetype)
+        _ <- replaceFile(file1Uuid, "de-DE", filePath, mimetype)
         puttedFile1 <- sendRequest("PUT", s"/files/$file1Uuid", createFilePutJson(folder11))
 
         file2 <- sendRequest("POST", "/files", createFilePutJson(folder21))
         file2Uuid = file2.getString("uuid")
-        _ <- replaceFile(file2Uuid, "de_DE", filePath, mimetype)
+        _ <- replaceFile(file2Uuid, "de-DE", filePath, mimetype)
         puttedFile2 <- sendRequest("PUT", s"/files/$file2Uuid", createFilePutJson(folder21))
 
         deleteFolder1 <- sendRequest("DELETE", s"/folders/$folder1")
@@ -1202,10 +1202,10 @@ class FileTest extends MediaTestBase {
   def testDeleteTmpFile(implicit c: TestContext): Unit = okTest {
     val meta = Json.obj(
       "title" -> Json.obj(
-        "en_GB" -> "A beautiful German title."
+        "en-GB" -> "A beautiful German title."
       ),
       "description" -> Json.obj(
-        "en_GB" -> "And here is a great High German description."
+        "en-GB" -> "And here is a great High German description."
       )
     )
 
@@ -1240,21 +1240,21 @@ class FileTest extends MediaTestBase {
 
       val meta = Json.obj(
         "title" -> Json.obj(
-          "en_GB" -> "A beautiful German title."
+          "en-GB" -> "A beautiful German title."
         ),
         "description" -> Json.obj(
-          "en_GB" -> "And here is a great High German description."
+          "en-GB" -> "And here is a great High German description."
         )
       )
 
       for {
         tmpFile <- sendRequest("POST", "/files", meta)
-        uploadedFile <- replaceFile(tmpFile.getString("uuid"), "de_DE", file, mimetype)
+        uploadedFile <- replaceFile(tmpFile.getString("uuid"), "de-DE", file, mimetype)
 
         _ <- {
           val uploadsDirectory = tableauxConfig.uploadsDirectoryPath()
 
-          val path = uploadsDirectory / Path(uploadedFile.getJsonObject("internalName").getString("de_DE"))
+          val path = uploadsDirectory / Path(uploadedFile.getJsonObject("internalName").getString("de-DE"))
 
           // delete tmp file
           vertx
@@ -1276,13 +1276,13 @@ class FileTest extends MediaTestBase {
       val file = s"/com/campudus/tableaux/uploads/$fileName"
       val mimetype = "application/pdf"
 
-      val putFile1 = Json.obj("title" -> Json.obj("de_DE" -> "Test PDF 1"),
-                              "description" -> Json.obj("de_DE" -> "A description about that PDF. 1"))
+      val putFile1 = Json.obj("title" -> Json.obj("de-DE" -> "Test PDF 1"),
+                              "description" -> Json.obj("de-DE" -> "A description about that PDF. 1"))
       val putFile2 = Json.obj("title" -> Json.obj("en_US" -> "Test PDF 2"),
                               "description" -> Json.obj("en_US" -> "A description about that PDF. 2"))
 
       for {
-        fileUuid1 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         fileAfterPut1 <- sendRequest("PUT", s"/files/$fileUuid1", putFile1)
 
         fileUuid2 <- createFile("en_US", file, mimetype, None) map (_.getString("uuid"))
@@ -1292,14 +1292,14 @@ class FileTest extends MediaTestBase {
 
         fileAfterMerge <- sendRequest("GET", s"/files/$fileUuid1")
 
-        files <- sendRequest("GET", s"/folders?langtag=de_DE")
+        files <- sendRequest("GET", s"/folders?langtag=de-DE")
 
         _ <- sendRequest("DELETE", s"/files/$fileUuid1")
       } yield {
         assertEquals(1, files.getJsonArray("files", Json.emptyArr()).size())
 
-        assertEquals(fileAfterPut1.getJsonObject("internalName").getString("de_DE"),
-                     fileAfterMerge.getJsonObject("internalName").getString("de_DE"))
+        assertEquals(fileAfterPut1.getJsonObject("internalName").getString("de-DE"),
+                     fileAfterMerge.getJsonObject("internalName").getString("de-DE"))
         assertEquals(fileAfterPut2.getJsonObject("internalName").getString("en_US"),
                      fileAfterMerge.getJsonObject("internalName").getString("en_US"))
       }
@@ -1313,21 +1313,21 @@ class FileTest extends MediaTestBase {
       val file = s"/com/campudus/tableaux/uploads/$fileName"
       val mimetype = "application/pdf"
 
-      val putFileA = Json.obj("externalName" -> Json.obj("de_DE" -> "A.pdf"))
-      val putFileB = Json.obj("externalName" -> Json.obj("de_DE" -> "B.pdf"))
-      val putFileC = Json.obj("externalName" -> Json.obj("de_DE" -> "C.pdf"))
+      val putFileA = Json.obj("externalName" -> Json.obj("de-DE" -> "A.pdf"))
+      val putFileB = Json.obj("externalName" -> Json.obj("de-DE" -> "B.pdf"))
+      val putFileC = Json.obj("externalName" -> Json.obj("de-DE" -> "C.pdf"))
 
       for {
-        fileUuid1 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         fileAfterPut1 <- sendRequest("PUT", s"/files/$fileUuid1", putFileC)
 
-        fileUuid2 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         fileAfterPut2 <- sendRequest("PUT", s"/files/$fileUuid2", putFileA)
 
-        fileUuid3 <- createFile("de_DE", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid3 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         fileAfterPut3 <- sendRequest("PUT", s"/files/$fileUuid3", putFileB)
 
-        files <- sendRequest("GET", s"/folders?langtag=de_DE")
+        files <- sendRequest("GET", s"/folders?langtag=de-DE")
 
         _ <- sendRequest("DELETE", s"/files/$fileUuid1")
         _ <- sendRequest("DELETE", s"/files/$fileUuid2")
@@ -1340,19 +1340,19 @@ class FileTest extends MediaTestBase {
                        .getJsonArray("files", Json.emptyArr())
                        .getJsonObject(0)
                        .getJsonObject("externalName")
-                       .getString("de_DE"))
+                       .getString("de-DE"))
         assertEquals("B.pdf",
                      files
                        .getJsonArray("files", Json.emptyArr())
                        .getJsonObject(1)
                        .getJsonObject("externalName")
-                       .getString("de_DE"))
+                       .getString("de-DE"))
         assertEquals("C.pdf",
                      files
                        .getJsonArray("files", Json.emptyArr())
                        .getJsonObject(2)
                        .getJsonObject("externalName")
-                       .getString("de_DE"))
+                       .getString("de-DE"))
 
       }
     }
@@ -1366,51 +1366,51 @@ class FileTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       for {
-        fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
-        fileAfterUploadEn <- uploadFile("PUT", s"/files/$fileUuid/en_GB", file, mimetype)
-        internalNameEn <- Future.successful(fileAfterUploadEn.getJsonObject("internalName").getString("en_GB"))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE")))
+        fileAfterUploadEn <- uploadFile("PUT", s"/files/$fileUuid/en-GB", file, mimetype)
+        internalNameEn <- Future.successful(fileAfterUploadEn.getJsonObject("internalName").getString("en-GB"))
         fileAfterChange <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
           Json.obj(
             "title" -> Json.obj(
-              "de_DE" -> "A_de.pdf",
-              "en_GB" -> "A_en.pdf"
+              "de-DE" -> "A_de.pdf",
+              "en-GB" -> "A_en.pdf"
             ),
             "description" -> Json.obj(
-              "de_DE" -> "desc deutsch",
-              "en_GB" -> "desc english"
+              "de-DE" -> "desc deutsch",
+              "en-GB" -> "desc english"
             ),
             "externalName" -> Json.obj(
-              "de_DE" -> "A_de.pdf",
-              "en_GB" -> "A_en.pdf"
+              "de-DE" -> "A_de.pdf",
+              "en-GB" -> "A_en.pdf"
             ),
             "internalName" -> Json.obj(
-              "de_DE" -> internalNameEn,
-              "en_GB" -> internalNameDe
+              "de-DE" -> internalNameEn,
+              "en-GB" -> internalNameDe
             ),
             "mimeType" -> Json.obj(
-              "de_DE" -> "application/pdf",
-              "en_GB" -> "application/pdf"
+              "de-DE" -> "application/pdf",
+              "en-GB" -> "application/pdf"
             )
           )
         )
 
         _ <- sendRequest("DELETE", s"/files/$fileUuid")
       } yield {
-        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de_DE"))
-        assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de_DE"))
-        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de_DE"))
-        assertEquals(internalNameEn, fileAfterChange.getJsonObject("internalName").getString("de_DE"))
-        assertEquals("application/pdf", fileAfterChange.getJsonObject("mimeType").getString("de_DE"))
+        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de-DE"))
+        assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de-DE"))
+        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de-DE"))
+        assertEquals(internalNameEn, fileAfterChange.getJsonObject("internalName").getString("de-DE"))
+        assertEquals("application/pdf", fileAfterChange.getJsonObject("mimeType").getString("de-DE"))
 
-        assertEquals("A_en.pdf", fileAfterChange.getJsonObject("title").getString("en_GB"))
-        assertEquals("desc english", fileAfterChange.getJsonObject("description").getString("en_GB"))
-        assertEquals("A_en.pdf", fileAfterChange.getJsonObject("externalName").getString("en_GB"))
-        assertEquals(internalNameDe, fileAfterChange.getJsonObject("internalName").getString("en_GB"))
-        assertEquals("application/pdf", fileAfterChange.getJsonObject("mimeType").getString("en_GB"))
+        assertEquals("A_en.pdf", fileAfterChange.getJsonObject("title").getString("en-GB"))
+        assertEquals("desc english", fileAfterChange.getJsonObject("description").getString("en-GB"))
+        assertEquals("A_en.pdf", fileAfterChange.getJsonObject("externalName").getString("en-GB"))
+        assertEquals(internalNameDe, fileAfterChange.getJsonObject("internalName").getString("en-GB"))
+        assertEquals("application/pdf", fileAfterChange.getJsonObject("mimeType").getString("en-GB"))
 
       }
     }
@@ -1424,27 +1424,27 @@ class FileTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       for {
-        fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE")))
         exception <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
           Json.obj(
             "title" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "description" -> Json.obj(
-              "de_DE" -> "desc deutsch"
+              "de-DE" -> "desc deutsch"
             ),
             "externalName" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "internalName" -> Json.obj(
-              "de_DE" -> "../blablubb.config"
+              "de-DE" -> "../blablubb.config"
             ),
             "mimeType" -> Json.obj(
-              "de_DE" -> "application/pdf"
+              "de-DE" -> "application/pdf"
             )
           )
         ) recover {
@@ -1468,27 +1468,27 @@ class FileTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       for {
-        fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE")))
         exception <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
           Json.obj(
             "title" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "description" -> Json.obj(
-              "de_DE" -> "desc deutsch"
+              "de-DE" -> "desc deutsch"
             ),
             "externalName" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "internalName" -> Json.obj(
-              "de_DE" -> "..\\bla\\blablubb.config"
+              "de-DE" -> "..\\bla\\blablubb.config"
             ),
             "mimeType" -> Json.obj(
-              "de_DE" -> "application/pdf"
+              "de-DE" -> "application/pdf"
             )
           )
         ) recover {
@@ -1512,27 +1512,27 @@ class FileTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       for {
-        fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE")))
         exception <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
           Json.obj(
             "title" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "description" -> Json.obj(
-              "de_DE" -> "desc deutsch"
+              "de-DE" -> "desc deutsch"
             ),
             "externalName" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "internalName" -> Json.obj(
-              "de_DE" -> ".."
+              "de-DE" -> ".."
             ),
             "mimeType" -> Json.obj(
-              "de_DE" -> "application/pdf"
+              "de-DE" -> "application/pdf"
             )
           )
         ) recover {
@@ -1556,27 +1556,27 @@ class FileTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       for {
-        fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE")))
         exception <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
           Json.obj(
             "title" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "description" -> Json.obj(
-              "de_DE" -> "desc deutsch"
+              "de-DE" -> "desc deutsch"
             ),
             "externalName" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "internalName" -> Json.obj(
-              "de_DE" -> "."
+              "de-DE" -> "."
             ),
             "mimeType" -> Json.obj(
-              "de_DE" -> "application/pdf"
+              "de-DE" -> "application/pdf"
             )
           )
         ) recover {
@@ -1600,38 +1600,38 @@ class FileTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       for {
-        fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE")))
         fileAfterChange <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
           Json.obj(
             "title" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "description" -> Json.obj(
-              "de_DE" -> "desc deutsch"
+              "de-DE" -> "desc deutsch"
             ),
             "externalName" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "internalName" -> Json.obj(
-              "de_DE" -> null
+              "de-DE" -> null
             ),
             "mimeType" -> Json.obj(
-              "de_DE" -> null
+              "de-DE" -> null
             )
           )
         )
 
         _ <- sendRequest("DELETE", s"/files/$fileUuid")
       } yield {
-        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de_DE"))
-        assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de_DE"))
-        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de_DE"))
-        assertEquals(null, fileAfterChange.getJsonObject("internalName").getString("de_DE"))
-        assertEquals(null, fileAfterChange.getJsonObject("mimeType").getString("de_DE"))
+        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de-DE"))
+        assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de-DE"))
+        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de-DE"))
+        assertEquals(null, fileAfterChange.getJsonObject("internalName").getString("de-DE"))
+        assertEquals(null, fileAfterChange.getJsonObject("mimeType").getString("de-DE"))
       }
     }
   }
@@ -1644,38 +1644,38 @@ class FileTest extends MediaTestBase {
       val mimetype = "application/pdf"
 
       for {
-        fileAfterCreate <- createFile("de_DE", file, mimetype, None)
+        fileAfterCreate <- createFile("de-DE", file, mimetype, None)
         (fileUuid, internalNameDe) <- Future.successful(
-          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de_DE")))
+          (fileAfterCreate.getString("uuid"), fileAfterCreate.getJsonObject("internalName").getString("de-DE")))
         fileAfterChange <- sendRequest(
           "PUT",
           s"/files/$fileUuid",
           Json.obj(
             "title" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "description" -> Json.obj(
-              "de_DE" -> "desc deutsch"
+              "de-DE" -> "desc deutsch"
             ),
             "externalName" -> Json.obj(
-              "de_DE" -> "A_de.pdf"
+              "de-DE" -> "A_de.pdf"
             ),
             "internalName" -> Json.obj(
-              "de_DE" -> internalNameDe
+              "de-DE" -> internalNameDe
             ),
             "mimeType" -> Json.obj(
-              "de_DE" -> "text/plain"
+              "de-DE" -> "text/plain"
             )
           )
         )
 
         _ <- sendRequest("DELETE", s"/files/$fileUuid")
       } yield {
-        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de_DE"))
-        assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de_DE"))
-        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de_DE"))
-        assertEquals(internalNameDe, fileAfterChange.getJsonObject("internalName").getString("de_DE"))
-        assertEquals("text/plain", fileAfterChange.getJsonObject("mimeType").getString("de_DE"))
+        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("title").getString("de-DE"))
+        assertEquals("desc deutsch", fileAfterChange.getJsonObject("description").getString("de-DE"))
+        assertEquals("A_de.pdf", fileAfterChange.getJsonObject("externalName").getString("de-DE"))
+        assertEquals(internalNameDe, fileAfterChange.getJsonObject("internalName").getString("de-DE"))
+        assertEquals("text/plain", fileAfterChange.getJsonObject("mimeType").getString("de-DE"))
       }
     }
   }
