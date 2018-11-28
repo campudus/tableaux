@@ -361,7 +361,7 @@ class TableauxModel(
       }
 
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
-      _ <- createHistoryModel.create(table, rowId, Seq((column, value)))
+      _ <- createHistoryModel.create(table, rowId, Seq((column, value)), retrieveCell, replace)
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
 
@@ -639,7 +639,7 @@ class TableauxModel(
               .flatMap(_ => Future.failed(ex))
         })
 
-      _ <- createHistoryModel.create(table, rowId, columns.zip(rowValues))
+      _ <- createHistoryModel.create(table, rowId, columns.zip(rowValues), retrieveCell)
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
