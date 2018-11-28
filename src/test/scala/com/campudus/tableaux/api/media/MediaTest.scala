@@ -1278,17 +1278,17 @@ class FileTest extends MediaTestBase {
 
       val putFile1 = Json.obj("title" -> Json.obj("de-DE" -> "Test PDF 1"),
                               "description" -> Json.obj("de-DE" -> "A description about that PDF. 1"))
-      val putFile2 = Json.obj("title" -> Json.obj("en_US" -> "Test PDF 2"),
-                              "description" -> Json.obj("en_US" -> "A description about that PDF. 2"))
+      val putFile2 = Json.obj("title" -> Json.obj("en-GB" -> "Test PDF 2"),
+                              "description" -> Json.obj("en-GB" -> "A description about that PDF. 2"))
 
       for {
         fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
         fileAfterPut1 <- sendRequest("PUT", s"/files/$fileUuid1", putFile1)
 
-        fileUuid2 <- createFile("en_US", file, mimetype, None) map (_.getString("uuid"))
+        fileUuid2 <- createFile("en-GB", file, mimetype, None) map (_.getString("uuid"))
         fileAfterPut2 <- sendRequest("PUT", s"/files/$fileUuid2", putFile2)
 
-        _ <- sendRequest("POST", s"/files/$fileUuid1/merge", Json.obj("mergeWith" -> fileUuid2, "langtag" -> "en_US"))
+        _ <- sendRequest("POST", s"/files/$fileUuid1/merge", Json.obj("mergeWith" -> fileUuid2, "langtag" -> "en-GB"))
 
         fileAfterMerge <- sendRequest("GET", s"/files/$fileUuid1")
 
@@ -1300,8 +1300,8 @@ class FileTest extends MediaTestBase {
 
         assertEquals(fileAfterPut1.getJsonObject("internalName").getString("de-DE"),
                      fileAfterMerge.getJsonObject("internalName").getString("de-DE"))
-        assertEquals(fileAfterPut2.getJsonObject("internalName").getString("en_US"),
-                     fileAfterMerge.getJsonObject("internalName").getString("en_US"))
+        assertEquals(fileAfterPut2.getJsonObject("internalName").getString("en-GB"),
+                     fileAfterMerge.getJsonObject("internalName").getString("en-GB"))
       }
     }
   }

@@ -18,16 +18,16 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "name" -> "column1",
         "kind" -> "shorttext",
         "displayName" -> Json.obj(
-          "de_DE" -> "Spalte Eins",
-          "en_US" -> "Column One"
+          "de-DE" -> "Spalte Eins",
+          "en-GB" -> "Column One"
         )
       )
       val columnWithDisplayName2 = Json.obj(
         "name" -> "column1",
         "kind" -> "shorttext",
         "displayName" -> Json.obj(
-          "de_DE" -> "Spalte Zwei",
-          "en_US" -> "Column Two"
+          "de-DE" -> "Spalte Zwei",
+          "en-GB" -> "Column Two"
         )
       )
       val postColumnWithDisplayNames1 = Json.obj("columns" -> Json.arr(columnWithDisplayName1))
@@ -51,8 +51,8 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "name" -> "column1",
         "kind" -> "shorttext",
         "displayName" -> Json.obj(
-          "de_DE" -> "Spalte Eins",
-          "en_US" -> "Column One"
+          "de-DE" -> "Spalte Eins",
+          "en-GB" -> "Column One"
         )
       )
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(columnWithDisplayName))
@@ -80,14 +80,14 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       "name" -> "column1",
       "kind" -> "shorttext",
       "displayName" -> Json.obj(
-        "de_DE" -> "Spalte Eins",
-        "en_US" -> "Column One"
+        "de-DE" -> "Spalte Eins",
+        "en-GB" -> "Column One"
       )
     )
     val columnWithDisplayName2 = Json.obj(
       "displayName" -> Json.obj(
-        "de_DE" -> "Erste Spalte",
-        "en_US" -> "First column"
+        "de-DE" -> "Erste Spalte",
+        "en-GB" -> "First column"
       )
     )
     val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(columnWithDisplayName))
@@ -117,12 +117,12 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "name" -> "column1",
         "kind" -> "shorttext",
         "displayName" -> Json.obj(
-          "de_DE" -> "Spalte Eins"
+          "de-DE" -> "Spalte Eins"
         )
       )
       val columnWithDisplayName2 = Json.obj(
         "displayName" -> Json.obj(
-          "en_US" -> "Column One"
+          "en-GB" -> "Column One"
         )
       )
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(columnWithDisplayName))
@@ -140,7 +140,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       } yield {
         logger.info(s"changedResult=${changedResult.encode()}")
         assertContains(columnWithDisplayName, createResult)
-        assertEquals(Json.obj("de_DE" -> "Spalte Eins", "en_US" -> "Column One"),
+        assertEquals(Json.obj("de-DE" -> "Spalte Eins", "en-GB" -> "Column One"),
                      changedResult.getJsonObject("displayName"))
         assertEquals(changedResult.mergeIn(Json.obj("status" -> "ok")), getColumnResult)
       }
@@ -154,13 +154,13 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       "name" -> "column1",
       "kind" -> "shorttext",
       "displayName" -> Json.obj(
-        "de_DE" -> "Spalte Eins",
-        "en_US" -> "Column One"
+        "de-DE" -> "Spalte Eins",
+        "en-GB" -> "Column One"
       )
     )
     val columnWithDisplayName2 = Json.obj(
       "displayName" -> Json.obj(
-        "en_US" -> null
+        "en-GB" -> null
       )
     )
     val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(columnWithDisplayName))
@@ -177,7 +177,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
     } yield {
       assertContains(columnWithDisplayName, createResult)
-      assertEquals(Json.obj("de_DE" -> "Spalte Eins"), changedResult.getJsonObject("displayName"))
+      assertEquals(Json.obj("de-DE" -> "Spalte Eins"), changedResult.getJsonObject("displayName"))
       assertEquals(getColumnResult, changedResult.mergeIn(Json.obj("status" -> "ok")))
     }
   }
@@ -190,12 +190,12 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "name" -> "column1",
         "kind" -> "shorttext",
         "displayName" -> Json.obj(
-          "de_DE" -> "Spalte 1",
-          "en_US" -> "Column 1"
+          "de-DE" -> "Spalte 1",
+          "en-GB" -> "Column 1"
         ),
         "description" -> Json.obj(
-          "de_DE" -> "Beschreibung Spalte 1",
-          "en_US" -> "Description Column 1"
+          "de-DE" -> "Beschreibung Spalte 1",
+          "en-GB" -> "Description Column 1"
         )
       )
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(columnWithDisplayNameAndDescription))
@@ -224,23 +224,23 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "name" -> "column1",
         "kind" -> "shorttext",
         "displayName" -> Json.obj(
-          "de_DE" -> "Spalte 1",
-          "en_US" -> "Column 1",
+          "de-DE" -> "Spalte 1",
+          "en-GB" -> "Column 1",
           "fr_FR" -> "Colonne 1"
         ),
         "description" -> Json.obj(
-          "de_DE" -> "Beschreibung Spalte 1",
-          "en_US" -> "Description column 1",
+          "de-DE" -> "Beschreibung Spalte 1",
+          "en-GB" -> "Description column 1",
           "fr_FR" -> "Description colonne 1"
         )
       )
       val columnWithDisplayName2 = Json.obj(
         "displayName" -> Json.obj(
-          "en_US" -> "First column",
+          "en-GB" -> "First column",
           "fr_FR" -> "Première colonne"
         ),
         "description" -> Json.obj(
-          "de_DE" -> "Beschreibung Spalte Eins",
+          "de-DE" -> "Beschreibung Spalte Eins",
           "fr_FR" -> "Description première colonne"
         )
       )
@@ -260,13 +260,13 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         assertContains(
           Json.obj(
             "displayName" -> Json.obj(
-              "de_DE" -> "Spalte 1",
-              "en_US" -> "First column",
+              "de-DE" -> "Spalte 1",
+              "en-GB" -> "First column",
               "fr_FR" -> "Première colonne"
             ),
             "description" -> Json.obj(
-              "de_DE" -> "Beschreibung Spalte Eins",
-              "en_US" -> "Description column 1",
+              "de-DE" -> "Beschreibung Spalte Eins",
+              "en-GB" -> "Description column 1",
               "fr_FR" -> "Description première colonne"
             )
           ),
@@ -284,22 +284,22 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       "name" -> "column1",
       "kind" -> "shorttext",
       "displayName" -> Json.obj(
-        "de_DE" -> "Spalte 1",
-        "en_US" -> "Column 1"
+        "de-DE" -> "Spalte 1",
+        "en-GB" -> "Column 1"
       ),
       "description" -> Json.obj(
-        "de_DE" -> "Beschreibung Spalte 1",
-        "en_US" -> "Description Column 1"
+        "de-DE" -> "Beschreibung Spalte 1",
+        "en-GB" -> "Description Column 1"
       )
     )
     val columnWithNulledValues = Json.obj(
       "displayName" -> Json.obj(
-        "de_DE" -> null,
-        "en_US" -> null
+        "de-DE" -> null,
+        "en-GB" -> null
       ),
       "description" -> Json.obj(
-        "de_DE" -> null,
-        "en_US" -> null
+        "de-DE" -> null,
+        "en-GB" -> null
       )
     )
     val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(columnWithDisplayNameAndDescription))
@@ -329,10 +329,10 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "name" -> "column1",
         "kind" -> "shorttext",
         "displayName" -> Json.obj(
-          "de_DE" -> "Spalte 1"
+          "de-DE" -> "Spalte 1"
         ),
         "description" -> Json.obj(
-          "en_US" -> "Description Column 1"
+          "en-GB" -> "Description Column 1"
         )
       )
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(columnWithDisplayNameAndDescription))
@@ -366,18 +366,18 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       )
 
       val postColumnJson = columnWithNameAndDescription(name = Json.obj(
-                                                          "de_DE" -> "Spalte 1"
+                                                          "de-DE" -> "Spalte 1"
                                                         ),
                                                         description = Json.obj(
-                                                          "en_US" -> "Description Column 1"
+                                                          "en-GB" -> "Description Column 1"
                                                         ))
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(postColumnJson))
 
       val patchColumnJson = columnWithNameAndDescription(name = Json.obj(
-                                                           "de_DE" -> "Erste Spalte"
+                                                           "de-DE" -> "Erste Spalte"
                                                          ),
                                                          description = Json.obj(
-                                                           "en_US" -> "Description of first column"
+                                                           "en-GB" -> "Description of first column"
                                                          ))
       val patchColumnWithDisplayNames = patchColumnJson
 
@@ -408,8 +408,8 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "name" -> "column1",
         "kind" -> "shorttext",
         "description" -> Json.obj(
-          "de_DE" -> "Beschreibung Spalte 1",
-          "en_US" -> "Description Column 1"
+          "de-DE" -> "Beschreibung Spalte 1",
+          "en-GB" -> "Description Column 1"
         )
       )
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(columnWithDescription))
@@ -441,10 +441,10 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "description" -> description
       )
 
-      val postColumnJson = columnWithDescription(Json.obj("en_US" -> "Description Column 1"))
+      val postColumnJson = columnWithDescription(Json.obj("en-GB" -> "Description Column 1"))
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(postColumnJson))
 
-      val patchColumnJson = columnWithDescription(Json.obj("en_US" -> "Description first column"))
+      val patchColumnJson = columnWithDescription(Json.obj("en-GB" -> "Description first column"))
       val patchColumnWithDisplayNames = patchColumnJson
 
       for {

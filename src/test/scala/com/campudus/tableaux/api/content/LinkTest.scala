@@ -756,9 +756,9 @@ class LinkTest extends LinkTestBase {
           "status" -> "ok",
           "value" -> Json.arr(
             Json.obj("id" -> 1,
-                     "value" -> Json.obj("en_US" -> "Hello, Table 2 World!", "de_DE" -> "Hallo, Table 2 Welt!")),
+                     "value" -> Json.obj("en-GB" -> "Hello, Table 2 World!", "de-DE" -> "Hallo, Table 2 Welt!")),
             Json.obj("id" -> 2,
-                     "value" -> Json.obj("en_US" -> "Hello, Table 2 World2!", "de_DE" -> "Hallo, Table 2 Welt2!"))
+                     "value" -> Json.obj("en-GB" -> "Hello, Table 2 World2!", "de-DE" -> "Hallo, Table 2 Welt2!"))
           )
         )
         val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr())
@@ -767,8 +767,8 @@ class LinkTest extends LinkTestBase {
                                    Json.arr(
                                      Json.obj("id" -> 1,
                                               "value" -> Json.obj(
-                                                "de_DE" -> "Hallo, Table 1 Welt!",
-                                                "en_US" -> "Hello, Table 1 World!"
+                                                "de-DE" -> "Hallo, Table 1 Welt!",
+                                                "en-GB" -> "Hello, Table 1 World!"
                                               ))))
         val expected4 = expected3
 
@@ -817,9 +817,9 @@ class LinkTest extends LinkTestBase {
           "status" -> "ok",
           "value" -> Json.arr(
             Json.obj("id" -> 1,
-                     "value" -> Json.obj("en_US" -> "Hello, Table 2 World!", "de_DE" -> "Hallo, Table 2 Welt!")),
+                     "value" -> Json.obj("en-GB" -> "Hello, Table 2 World!", "de-DE" -> "Hallo, Table 2 Welt!")),
             Json.obj("id" -> 2,
-                     "value" -> Json.obj("en_US" -> "Hello, Table 2 World2!", "de_DE" -> "Hallo, Table 2 Welt2!"))
+                     "value" -> Json.obj("en-GB" -> "Hello, Table 2 World2!", "de-DE" -> "Hallo, Table 2 Welt2!"))
           )
         )
         val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr())
@@ -828,8 +828,8 @@ class LinkTest extends LinkTestBase {
                                    Json.arr(
                                      Json.obj("id" -> 1,
                                               "value" -> Json.obj(
-                                                "de_DE" -> "Hallo, Table 1 Welt!",
-                                                "en_US" -> "Hello, Table 1 World!"
+                                                "de-DE" -> "Hallo, Table 1 Welt!",
+                                                "en-GB" -> "Hello, Table 1 World!"
                                               ))))
         val expected4 = expected3
 

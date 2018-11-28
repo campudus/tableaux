@@ -12,7 +12,7 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
 
   @Test
   def checkSingleName(): Unit = {
-    val di = singleName(1, 1, "de_DE", "Spalte 1")
+    val di = singleName(1, 1, "de-DE", "Spalte 1")
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -20,12 +20,12 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
          |VALUES (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "),
       statement
     )
-    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", null), binds)
+    assertEquals(Seq(1, 1, "de-DE", "Spalte 1", null), binds)
   }
 
   @Test
   def checkMultipleNames(): Unit = {
-    val di = multipleNames(1, 1, List("de_DE" -> "Spalte 1", "en_US" -> "Column 1"))
+    val di = multipleNames(1, 1, List("de-DE" -> "Spalte 1", "en-GB" -> "Column 1"))
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -34,15 +34,15 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
       statement
     )
     checkPartsInRandomOrder(Seq(
-                              Seq(1, 1, "de_DE", "Spalte 1", null),
-                              Seq(1, 1, "en_US", "Column 1", null)
+                              Seq(1, 1, "de-DE", "Spalte 1", null),
+                              Seq(1, 1, "en-GB", "Column 1", null)
                             ),
                             binds)
   }
 
   @Test
   def checkSingleDescription(): Unit = {
-    val di = singleDesc(1, 1, "de_DE", "Spalte 1 Beschreibung")
+    val di = singleDesc(1, 1, "de-DE", "Spalte 1 Beschreibung")
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -50,12 +50,12 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
          |VALUES (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "),
       statement
     )
-    assertEquals(Seq(1, 1, "de_DE", null, "Spalte 1 Beschreibung"), binds)
+    assertEquals(Seq(1, 1, "de-DE", null, "Spalte 1 Beschreibung"), binds)
   }
 
   @Test
   def checkMultipleDescriptions(): Unit = {
-    val di = multipleDescs(1, 1, List("de_DE" -> "Spalte 1 Beschreibung", "en_US" -> "Column 1 Description"))
+    val di = multipleDescs(1, 1, List("de-DE" -> "Spalte 1 Beschreibung", "en-GB" -> "Column 1 Description"))
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -64,15 +64,15 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
       statement
     )
     checkPartsInRandomOrder(Seq(
-                              Seq(1, 1, "de_DE", null, "Spalte 1 Beschreibung"),
-                              Seq(1, 1, "en_US", null, "Column 1 Description")
+                              Seq(1, 1, "de-DE", null, "Spalte 1 Beschreibung"),
+                              Seq(1, 1, "en-GB", null, "Column 1 Description")
                             ),
                             binds)
   }
 
   @Test
   def checkSingleNameAndDescription(): Unit = {
-    val di = singleNameAndDesc(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung")
+    val di = singleNameAndDesc(1, 1, "de-DE", "Spalte 1", "Spalte 1 Beschreibung")
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -80,7 +80,7 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
          |VALUES (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "),
       statement
     )
-    assertEquals(Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung"), binds)
+    assertEquals(Seq(1, 1, "de-DE", "Spalte 1", "Spalte 1 Beschreibung"), binds)
   }
 
   @Test
@@ -88,7 +88,7 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
     val di = multipleNameAndDesc(
       1,
       1,
-      List(("de_DE", "Spalte 1", "Spalte 1 Beschreibung"), ("en_US", "Column 1", "Column 1 Description")))
+      List(("de-DE", "Spalte 1", "Spalte 1 Beschreibung"), ("en-GB", "Column 1", "Column 1 Description")))
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -97,15 +97,15 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
       statement
     )
     checkPartsInRandomOrder(Seq(
-                              Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung"),
-                              Seq(1, 1, "en_US", "Column 1", "Column 1 Description")
+                              Seq(1, 1, "de-DE", "Spalte 1", "Spalte 1 Beschreibung"),
+                              Seq(1, 1, "en-GB", "Column 1", "Column 1 Description")
                             ),
                             binds)
   }
 
   @Test
   def checkNameAndOtherDesc(): Unit = {
-    val di = multipleNameAndDesc(1, 1, List(("de_DE", "Spalte 1", null), ("en_US", null, "Column 1 Description")))
+    val di = multipleNameAndDesc(1, 1, List(("de-DE", "Spalte 1", null), ("en-GB", null, "Column 1 Description")))
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -114,8 +114,8 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
       statement
     )
     checkPartsInRandomOrder(Seq(
-                              Seq(1, 1, "de_DE", "Spalte 1", null),
-                              Seq(1, 1, "en_US", null, "Column 1 Description")
+                              Seq(1, 1, "de-DE", "Spalte 1", null),
+                              Seq(1, 1, "en-GB", null, "Column 1 Description")
                             ),
                             binds)
   }
@@ -125,8 +125,8 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
     val di = multipleNameAndDesc(1,
                                  1,
                                  List(
-                                   ("de_DE", "Spalte 1", "Spalte 1 Beschreibung"),
-                                   ("en_US", null, "Column 1 Description"),
+                                   ("de-DE", "Spalte 1", "Spalte 1 Beschreibung"),
+                                   ("en-GB", null, "Column 1 Description"),
                                    ("fr_FR", "Colonne 1", null)
                                  ))
     val (statement, binds) = di.createSql
@@ -137,8 +137,8 @@ abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
       statement
     )
     val all = Seq(
-      Seq(1, 1, "de_DE", "Spalte 1", "Spalte 1 Beschreibung"),
-      Seq(1, 1, "en_US", null, "Column 1 Description"),
+      Seq(1, 1, "de-DE", "Spalte 1", "Spalte 1 Beschreibung"),
+      Seq(1, 1, "en-GB", null, "Column 1 Description"),
       Seq(1, 1, "fr_FR", "Colonne 1", null)
     )
 
