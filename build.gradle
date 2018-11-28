@@ -110,10 +110,18 @@ task runRedeploy(type: JavaExec) {
 
   main = mainClassName
 
+  def configFile = "conf.json"
+
+  if (project.hasProperty("conf")) {
+    configFile = conf
+  } else {
+    println("Using default config file 'conf.json'")
+  }
+
   args = [
           "run",
           mainVerticle,
-          "-conf", "conf.json",
+          "-conf", configFile,
           "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
           "--launcher-class=${mainClassName}",
           "--on-redeploy=./gradlew classes"
