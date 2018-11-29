@@ -54,14 +54,3 @@ class DomainObjectTest {
                     JSONCompareMode.STRICT)
   }
 }
-
-class DomainObjectConcatenationTest {
-
-//  private def wrapIntoJsonObj(value: Any): JsonObject = Json.obj("value" -> value)
-
-  @Test
-  def simple(): Unit = {
-    val actual = DomainObject.compatibilityConcatenatedGet(1)
-    JSONAssert.assertEquals("1", actual.toString, JSONCompareMode.STRICT)
-  }
-}
