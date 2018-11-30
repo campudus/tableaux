@@ -22,6 +22,8 @@ object IdentifierFlattener {
     */
   private[helper] def flatSeq[A](maybeSeq: A): Seq[Any] = {
     maybeSeq match {
+      case Some(s) => flatSeq(s)
+      case None => Seq.empty
       case seq: Seq[_] => {
         seq flatten {
           case seq: Seq[_] => flatSeq(seq)
@@ -50,7 +52,7 @@ object IdentifierFlattener {
 
   def flatten[A](maybeSeq: A): String = {
 //    TODO case für return string und JsonObject (containsMultiLanguageValue)
-    concatenate(flatSeq(maybeSeq))
+    concatenate(flatSeq(Option(maybeSeq)))
   }
 
 }
