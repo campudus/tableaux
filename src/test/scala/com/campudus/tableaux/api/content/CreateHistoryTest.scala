@@ -2,9 +2,10 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry}
 import com.campudus.tableaux.testtools.TableauxTestBase
+import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -295,6 +296,151 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("DE" -> 4000)))
         test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
         historyAfterCreation = test.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateLinkHistoryTest extends LinkTestBase {
+
+  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
+    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
+  }
+
+  @Test
+  def changeSimpleLink_addLink(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
+
+      val expected =
+        """
+          |[
+          |  {"id": 1, "value": "table2row1"}
+          |]
+          |""".stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeSimpleLink_addTwoLinksAtOnce(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+
+      val expected =
+        """
+          |[
+          |  {"id": 1, "value": "table2row1"},
+          |  {"id": 2, "value": "table2row2"}
+          |]
+        """.stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeSimpleLink_singleLanguageMultiIdentifiers(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
+
+      val expected =
+        """
+          |[
+          |  {"id": 1, "value": "table2row1 1"}
+          |]
+          |""".stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        // Change target table structure to have a second identifier
+        _ <- sendRequest("POST", s"/tables/2/columns/2", Json.obj("identifier" -> true))
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  @Ignore
+  // TODO History Entry must create a diff for adding links
+  def changeSimpleLink_addSecondLink(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLink1 = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
+      val putLink2 = Json.obj("value" -> Json.obj("values" -> Json.arr(2)))
+
+      val expected =
+        """
+          |[
+          |  {"id": 1, "value": "table2row1"},
+          |  {"id": 2, "value": "table2row2"}
+          |]
+          |""".stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink1)
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink2)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test, 1)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  @Ignore
+  // TODO History Entry must create a diff for deleting single links
+  def changeSimpleLink_deleteOneOfTwoLinks(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+
+      val expected =
+        """
+          |[
+          |  {"id": 1, "value": "table2row1"}
+          |]
+        """.stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
+        _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/2")
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test, 1)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }

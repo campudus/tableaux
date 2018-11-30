@@ -1,9 +1,9 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.helper.IdentifierFlattener._
-import org.junit.Test
-import org.vertx.scala.core.json.{Json, JsonObject}
 import org.junit.Assert._
+import org.junit.Test
+import org.vertx.scala.core.json.Json
 
 class IsMultiLanguageValueTest {
 
@@ -60,37 +60,52 @@ class FlattenTest {
 
   @Test
   def flatten_seqOfIntegers(): Unit = {
-    val actual = flatten(Seq(1, 2, 3))
+    val actual = flatSeq(Seq(1, 2, 3))
     assertEquals(Seq(1, 2, 3), actual)
   }
 
   @Test
   def flatten_seqOfStrings(): Unit = {
-    val actual = flatten(Seq("hello", "world", "!"))
+    val actual = flatSeq(Seq("hello", "world", "!"))
     assertEquals(Seq("hello", "world", "!"), actual)
   }
 
   @Test
   def flatten_seqOfMixedTypes(): Unit = {
-    val actual = flatten(Seq(2, "or", 3, "wishes"))
+    val actual = flatSeq(Seq(2, "or", 3, "wishes"))
     assertEquals(Seq(2, "or", 3, "wishes"), actual)
   }
 
   @Test
   def flatten_simpleValue(): Unit = {
-    val actual = flatten("a string")
+    val actual = flatSeq("a string")
     assertEquals(Seq("a string"), actual)
   }
 
   @Test
   def flatten_seqOfNestedIntegerSequences(): Unit = {
-    val actual = flatten(Seq(1, Seq(2, Seq(3, 4), 5), 6))
+    val actual = flatSeq(Seq(1, Seq(2, Seq(3, 4), 5), 6))
     assertEquals(Seq(1, 2, 3, 4, 5, 6), actual)
   }
 
   @Test
   def flatten_seqOfNestedMixedTypeSequences(): Unit = {
-    val actual = flatten(Seq("Hello", Seq("now", "it", Seq("is", 10), "past", 5), "O’clock"))
+    val actual = flatSeq(Seq("Hello", Seq("now", "it", Seq("is", 10), "past", 5), "O’clock"))
     assertEquals(Seq("Hello", "now", "it", "is", 10, "past", 5, "O’clock"), actual)
   }
+}
+
+class ConcatenationTest extends IdentifierFlattener {
+
+  @Test
+  def concatenate_mixedSeq(): Unit = {
+    val actual = concatenate(Seq("Hello,", "now", "it", "is", 10, "past", 5, "O’clock"))
+    assertEquals("Hello, now it is 10 past 5 O’clock", actual)
+  }
+
+//  @Test
+//  def concatenate_mixedSeq1(): Unit = {
+//    val actual = concatenate(Seq("Hello", Json.obj("foo" -> "bar")))
+//    assertEquals("Hello", actual)
+//  }
 }

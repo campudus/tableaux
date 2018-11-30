@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.tableaux.RetrieveRowModel
+import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
@@ -118,60 +119,35 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
   ): Future[Unit] = {
 
     def wrapValue(cellSeq: Seq[Cell[_]]): JsonObject = {
-      val seq = cellSeq.map(c => c.rowId)
-
-      cellSeq.foreach(c => {
-        println("XXX: " + c.value)
-      })
-
       Json.obj(
         "value" ->
-          seq.map(rowId => {
-            Json.obj("id" -> rowId)
+          cellSeq.map(cell => {
+            Json.obj("id" -> cell.rowId, "value" -> IdentifierFlattener.flatten(cell.value))
           })
       )
     }
 
-    val cols: Seq[LinkColumn] = links.map({ case (col, _) => col })
-//    val linkIds: Seq[Seq[RowId]] = links.map({ case (_, linkIds) => linkIds })
-
-    val (col, linkIds) = links.head
-//    val col = cols.head
-
-    println("cols: " + cols.size + " " + cols)
-
-    if (linkIds.isEmpty) {
-      println("Just insert [] into history")
-      insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
-    } else {
-      val linkedCellSeq = linkIds.map(linkId =>
-        for {
-          // in some cases we are too fast, so the links could NOT be inserted yet
-          changedCell <- retrieveCellFn(table, col.id, rowId)
-          foreignIdentifier <- retrieveCellFn(col.to.table, col.to.id, linkId)
-        } yield {
-//          println("XXX linkCell:    " + changedCell)
-//          println("XXX from:        " + table.id + " " + col.id + " " + rowId)
-//          println("")
-//          println("XXX foreignCell: " + foreignIdentifier)
-//          println("XXX to:          " + col.to.table.id + " " + col.to.id + " " + linkId)
-          foreignIdentifier
-      })
-
-      for {
-        cellSeq <- Future.sequence(linkedCellSeq)
-      } yield {
-        insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(cellSeq))
-      }
-    }
-
     val futureSequence = links.map({
-      case (column: LinkColumn, toIds) =>
-//        insertHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(toIds))
-        Future(42)
+      case (col, linkIds) => {
+        if (linkIds.isEmpty) {
+          println("Just insert [] into history")
+          insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
+        } else {
+          val linkedCellSeq = linkIds.map(linkId =>
+            for {
+              // in some cases we are too fast, so the links could NOT be inserted yet
+              foreignIdentifier <- retrieveCellFn(col.to.table, col.to.id, linkId)
+            } yield foreignIdentifier)
+
+          for {
+            cellSeq <- Future.sequence(linkedCellSeq)
+          } yield {
+            insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(cellSeq))
+          }
+        }
+      }
     })
 
-//    Future.sequence(futureSequence)
     Future.sequence(futureSequence).map(_ => ())
   }
 
