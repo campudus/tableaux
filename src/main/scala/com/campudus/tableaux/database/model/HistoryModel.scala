@@ -122,7 +122,7 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       Json.obj(
         "value" ->
           cellSeq.map(cell => {
-            Json.obj("id" -> cell.rowId, "value" -> IdentifierFlattener.flatten(cell.value))
+            Json.obj("id" -> cell.rowId, "value" -> IdentifierFlattener.compress(cell.value))
           })
       )
     }

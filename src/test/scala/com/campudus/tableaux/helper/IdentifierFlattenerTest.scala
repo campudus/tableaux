@@ -60,38 +60,57 @@ class FlattenTest {
 
   @Test
   def flatten_seqOfIntegers(): Unit = {
-    val actual = flatSeq(Seq(1, 2, 3))
+    val actual = flatten(Seq(1, 2, 3))
     assertEquals(Seq(1, 2, 3), actual)
   }
 
   @Test
   def flatten_seqOfStrings(): Unit = {
-    val actual = flatSeq(Seq("hello", "world", "!"))
+    val actual = flatten(Seq("hello", "world", "!"))
     assertEquals(Seq("hello", "world", "!"), actual)
   }
 
   @Test
   def flatten_seqOfMixedTypes(): Unit = {
-    val actual = flatSeq(Seq(2, "or", 3, "wishes"))
+    val actual = flatten(Seq(2, "or", 3, "wishes"))
     assertEquals(Seq(2, "or", 3, "wishes"), actual)
   }
 
   @Test
   def flatten_simpleValue(): Unit = {
-    val actual = flatSeq("a string")
+    val actual = flatten("a string")
     assertEquals(Seq("a string"), actual)
   }
 
   @Test
   def flatten_seqOfNestedIntegerSequences(): Unit = {
-    val actual = flatSeq(Seq(1, Seq(2, Seq(3, 4), 5), 6))
+    val actual = flatten(Seq(1, Seq(2, Seq(3, 4), 5), 6))
     assertEquals(Seq(1, 2, 3, 4, 5, 6), actual)
   }
 
   @Test
   def flatten_seqOfNestedMixedTypeSequences(): Unit = {
-    val actual = flatSeq(Seq("Hello", Seq("now", "it", Seq("is", 10), "past", 5), "O’clock"))
+    val actual = flatten(Seq("Hello", Seq("now", "it", Seq("is", 10), "past", 5), "O’clock"))
     assertEquals(Seq("Hello", "now", "it", "is", 10, "past", 5, "O’clock"), actual)
+  }
+
+  @Test
+  def flatJsonObjectSeq_simple(): Unit = {
+    val expected = Seq(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> "qux"))
+    val actual = flatten(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> "qux"))))
+    assertEquals(expected, actual)
+  }
+
+  @Test
+  def flatJsonObjectSeq_nested(): Unit = {
+    val expected = Seq(Json.obj("de" -> "foo", "en" -> "bar"),
+                       Json.obj("de" -> "foo", "en" -> "bar"),
+                       Json.obj("de" -> "baz", "en" -> "qux"))
+    val actual = flatten(
+      Seq(
+        Json.arr(Json.obj("de" -> "foo", "en" -> "bar"),
+                 Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> "qux")))))
+    assertEquals(expected, actual)
   }
 }
 
@@ -99,7 +118,7 @@ class ConcatenationTest extends IdentifierFlattener {
 
   @Test
   def concatenate_mixedSeq(): Unit = {
-    val actual = concatenate(Seq("Hello,", "now", "it", "is", 10, "past", 5, "O’clock"))
+    val actual = concatenateSingleLang(Seq("Hello,", "now", "it", "is", 10, "past", 5, "O’clock"))
     assertEquals("Hello, now it is 10 past 5 O’clock", actual)
   }
 
@@ -109,3 +128,51 @@ class ConcatenationTest extends IdentifierFlattener {
 //    assertEquals("Hello", actual)
 //  }
 }
+
+//class MultilanguageConcatenationTest extends IdentifierFlattener {
+//
+//  @Test
+//  def concatenate_fullSuppliedLangtags(): Unit = {
+//    val expected =
+//      """
+//        |{
+//        |  {"de": "foo bar"},
+//        |  {"en": "baz qux"}
+//        |}
+//        |""".stripMargin
+//
+//    val actual = compress(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> "qux"))))
+//
+//    assertEquals(expected, actual)
+//  }
+//
+//  @Test
+//  def language_fehlt(): Unit = {
+//    val expected =
+//      """
+//        |{
+//        |  {"de": "foo 1"},
+//        |  {"en": "bar 1"}
+//        |}
+//        |""".stripMargin
+//
+//    val actual = compress(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> 1))))
+//
+//    assertEquals(expected, actual)
+//  }
+//
+//  @Test
+//  def fallback_defualt_language(): Unit = {
+//    val expected =
+//      """
+//        |{
+//        |  {"de": "foo 1"},
+//        |  {"en": "bar 1"}
+//        |}
+//        |""".stripMargin
+//
+//    val actual = compress(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> 1))))
+//
+//    assertEquals(expected, actual)
+//  }
+//}

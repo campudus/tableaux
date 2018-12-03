@@ -304,14 +304,14 @@ class CreateHistoryTest extends TableauxTestBase {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class CreateLinkHistoryTest extends LinkTestBase {
+class CreateSimpleLinkHistoryTest extends LinkTestBase {
 
   def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
     obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
   }
 
   @Test
-  def changeSimpleLink_addLink(implicit c: TestContext): Unit = {
+  def changeLink_addLink(implicit c: TestContext): Unit = {
     okTest {
 
       val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
@@ -336,7 +336,7 @@ class CreateLinkHistoryTest extends LinkTestBase {
   }
 
   @Test
-  def changeSimpleLink_addTwoLinksAtOnce(implicit c: TestContext): Unit = {
+  def changeLink_addTwoLinksAtOnce(implicit c: TestContext): Unit = {
     okTest {
 
       val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
@@ -362,7 +362,7 @@ class CreateLinkHistoryTest extends LinkTestBase {
   }
 
   @Test
-  def changeSimpleLink_singleLanguageMultiIdentifiers(implicit c: TestContext): Unit = {
+  def changeLink_singleLanguageMultiIdentifiers(implicit c: TestContext): Unit = {
     okTest {
 
       val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
@@ -392,7 +392,7 @@ class CreateLinkHistoryTest extends LinkTestBase {
   @Test
   @Ignore
   // TODO History Entry must create a diff for adding links
-  def changeSimpleLink_addSecondLink(implicit c: TestContext): Unit = {
+  def changeLink_addSecondLink(implicit c: TestContext): Unit = {
     okTest {
 
       val putLink1 = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
@@ -422,7 +422,7 @@ class CreateLinkHistoryTest extends LinkTestBase {
   @Test
   @Ignore
   // TODO History Entry must create a diff for deleting single links
-  def changeSimpleLink_deleteOneOfTwoLinks(implicit c: TestContext): Unit = {
+  def changeLink_deleteOneOfTwoLinks(implicit c: TestContext): Unit = {
     okTest {
 
       val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
@@ -444,6 +444,53 @@ class CreateLinkHistoryTest extends LinkTestBase {
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateMultiLanguageLinkHistoryTest extends LinkTestBase {
+
+  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
+    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
+  }
+
+  @Test
+  def postLinkValueOnMultiLanguageColumns1(implicit c: TestContext): Unit = {
+    okTest {
+      val postLinkColumn = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Test Link 1",
+            "kind" -> "link",
+            "toTable" -> 2
+          )
+        )
+      )
+      val postLinkValue = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+
+      for {
+        (tableId1, columnIds1, table1rowIds) <- createFullTableWithMultilanguageColumns("Table 1")
+        (tableId2, columnIds2, table2rowIds) <- createFullTableWithMultilanguageColumns("Table 2")
+
+        // Change target table structure to have a second identifier
+        _ <- sendRequest("POST", s"/tables/2/columns/3", Json.obj("identifier" -> true))
+
+        linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkColumn)
+        linkColumnId = linkColumn.getJsonArray("columns").get[JsonObject](0).getNumber("id")
+
+        resPost <- sendRequest("POST",
+                               s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}",
+                               postLinkValue)
+        // check first table for the link (links to t2, r1 and r2, c4)
+        resGet1 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}")
+        // check first table for the link in row 2 (links to nothing)
+        resGet2 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.drop(1).head}")
+        // check second table for the link (links to t1, r1, c1)
+        resGet3 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId/rows/${table2rowIds.head}")
+        // check second table for the link in row 2 (links to t1, r1, c1)
+        resGet4 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId/rows/${table2rowIds.drop(1).head}")
+      } yield {}
     }
   }
 }
