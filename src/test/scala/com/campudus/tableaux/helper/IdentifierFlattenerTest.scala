@@ -3,6 +3,7 @@ package com.campudus.tableaux.helper
 import com.campudus.tableaux.helper.IdentifierFlattener._
 import org.junit.Assert._
 import org.junit.Test
+import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.Json
 
 class IsMultiLanguageValueTest {
@@ -129,50 +130,99 @@ class ConcatenationTest extends IdentifierFlattener {
 //  }
 }
 
-//class MultilanguageConcatenationTest extends IdentifierFlattener {
-//
-//  @Test
-//  def concatenate_fullSuppliedLangtags(): Unit = {
-//    val expected =
-//      """
-//        |{
-//        |  {"de": "foo bar"},
-//        |  {"en": "baz qux"}
-//        |}
-//        |""".stripMargin
-//
-//    val actual = compress(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> "qux"))))
-//
-//    assertEquals(expected, actual)
-//  }
-//
-//  @Test
-//  def language_fehlt(): Unit = {
-//    val expected =
-//      """
-//        |{
-//        |  {"de": "foo 1"},
-//        |  {"en": "bar 1"}
-//        |}
-//        |""".stripMargin
-//
-//    val actual = compress(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> 1))))
-//
-//    assertEquals(expected, actual)
-//  }
-//
-//  @Test
-//  def fallback_defualt_language(): Unit = {
-//    val expected =
-//      """
-//        |{
-//        |  {"de": "foo 1"},
-//        |  {"en": "bar 1"}
-//        |}
-//        |""".stripMargin
-//
-//    val actual = compress(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> 1))))
-//
-//    assertEquals(expected, actual)
-//  }
-//}
+class MultilanguageConcatenationTest extends IdentifierFlattener {
+
+  @Test
+  def concatenate_fullSuppliedLangtags(): Unit = {
+    val expected =
+      """
+        |{
+        |  "de":"foo baz",
+        |  "en":"bar 42"
+        |}
+        |""".stripMargin
+
+    val actual = compress(Seq("de", "en"),
+                          Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> 42))))
+    JSONAssert.assertEquals(expected, actual.getOrElse(Json.emptyObj()).toString, JSONCompareMode.STRICT)
+  }
+
+  @Test
+  def concatenate_MultiLanguageAndSingleLanguage(): Unit = {
+    val langtags = Seq("de", "en")
+    val expected =
+      """
+        |{
+        |  "de":"foo 42",
+        |  "en":"bar 42"
+        |}
+        |""".stripMargin
+
+    val flatValues = flatten(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), 42)))
+    val actual = concatenateMultiLang(langtags, flatValues)
+    JSONAssert.assertEquals(expected, actual.toString, JSONCompareMode.STRICT)
+  }
+
+  @Test
+  def concatenate_fallbackLanguageIsDefined_FallbackToHeadLangtag(): Unit = {
+    val langtags = Seq("de", "en")
+    val expected =
+      """
+        |{
+        |  "de": "foo 1337",
+        |  "en": "bar 1337"
+        |}
+        |""".stripMargin
+
+    val flatValues = flatten(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> 1337))))
+    val actual = concatenateMultiLang(langtags, flatValues)
+    JSONAssert.assertEquals(expected, actual.toString, JSONCompareMode.STRICT)
+  }
+
+  @Test
+  def concatenate_fallbackLanguageIs_NOT_Defined_NO_FallbackToHeadLangtag(): Unit = {
+    val langtags = Seq("de", "en")
+    val expected =
+      """
+        |{
+        |  "de": "foo",
+        |  "en": "bar 42"
+        |}
+        |""".stripMargin
+
+    val flatValues = flatten(Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("en" -> 42))))
+    val actual = concatenateMultiLang(langtags, flatValues)
+    JSONAssert.assertEquals(expected, actual.toString, JSONCompareMode.STRICT)
+  }
+
+  @Test
+  def concatenate_fallbackLanguageIs_NOT_DefinedAndInt(): Unit = {
+    val langtags = Seq("de", "en")
+    val expected =
+      """
+        |{
+        |  "de": "1337",
+        |  "en": "foo 1337"
+        |}
+        |""".stripMargin
+
+    val actual = concatenateMultiLang(langtags, Seq(Json.obj("en" -> "foo"), 1337))
+    JSONAssert.assertEquals(expected, actual.toString, JSONCompareMode.STRICT)
+  }
+
+  @Test
+  def concatenate_filterInvalidValues(): Unit = {
+    val langtags = Seq("de", "en")
+    val expected =
+      """
+        |{
+        |  "de": "1337 is super!",
+        |  "en": "1337 is super!"
+        |}
+        |""".stripMargin
+
+    val actual = concatenateMultiLang(langtags, Seq(Json.obj("de" -> null), 1337, Json.obj("de" -> " "), "is super!"))
+    JSONAssert.assertEquals(expected, actual.toString, JSONCompareMode.STRICT)
+  }
+
+}

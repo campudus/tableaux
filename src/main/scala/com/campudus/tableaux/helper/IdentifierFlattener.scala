@@ -1,7 +1,8 @@
 package com.campudus.tableaux.helper
 
-import io.vertx.core.json.JsonArray
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
+import com.campudus.tableaux.helper.IdentifierFlattener.flattenSeq
+import io.vertx.core.json.{JsonArray, JsonObject}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
@@ -30,12 +31,13 @@ object IdentifierFlattener {
   private def flattenSeq[A](maybeSeq: A): Seq[Any] = {
     maybeSeq match {
       case Some(s) => flattenSeq(s)
-      case None => Seq.empty
+      case None | Nil | null => Seq.empty
       case seq: Seq[_] => {
         seq flatten {
           case seq: Seq[_] => flattenSeq(seq)
           case ja: JsonArray => flattenSeq(ja)
-          case simpleValue => Seq(simpleValue)
+          case o: JsonObject => Seq(o)
+          case v => Seq(v)
         }
       }
       case ja: JsonArray => {
@@ -43,6 +45,7 @@ object IdentifierFlattener {
           case seq: Seq[_] => flattenSeq(seq)
           case ja: JsonArray => flattenSeq(ja)
           case o: JsonObject => Seq(o)
+          case v => Seq(v)
         }
       }.toSeq
       case simpleValue => Seq(simpleValue)
@@ -52,7 +55,7 @@ object IdentifierFlattener {
   private[helper] def flatten[A](maybeSeq: A): Seq[Any] = {
     maybeSeq match {
       case Some(s) => flatten(s)
-      case None => Seq.empty
+      case None | Nil | null => Seq.empty
       case seq: Seq[_] => flattenSeq(seq)
       case ja: JsonArray => flattenSeq(ja)
       case simpleValue => Seq(simpleValue)
@@ -60,22 +63,37 @@ object IdentifierFlattener {
   }
 
   private[helper] def concatenateSingleLang(values: Seq[Any], sep: String = " "): String = {
-    values.map(_.toString).mkString(sep)
+    values.filter(_ != null).map(_.toString.trim).filter(!_.isEmpty).mkString(sep)
   }
 
-  private[helper] def concatenateMultiLang(values: Seq[Any], sep: String = " "): String = {
-    values.foreach(a => println("XXX: " + a))
+  private[helper] def concatenateMultiLang(langtags: Seq[String], flatValues: Seq[Any]): JsonObject = {
 
-    values.map(_.toString).mkString(sep)
+    val defaultLang = langtags.head
+
+    val jsonTuples = langtags.map(langtag => {
+      val valueList = flatValues.map({
+        case languageObject: JsonObject => getLanguageValue(languageObject, langtag, defaultLang)
+        case v => v
+      })
+      (langtag, concatenateSingleLang(valueList))
+    })
+
+    Json.obj(jsonTuples: _*)
   }
 
-  def compress[A](maybeSeq: A): String = {
-//    TODO case für return string und JsonObject (containsMultiLanguageValue)
-    println("XXX is es a multi? " + containsMultiLanguageValue(maybeSeq))
-//    if (containsMultiLanguageValue(maybeSeq))
-//      concatenateMultiLang(flatJsonObjectSeq(maybeSeq))
-//    else
-    concatenateSingleLang(flattenSeq(Option(maybeSeq)))
+  private def getLanguageValue(languageObject: JsonObject, langtag: String, fallbackLangtag: String) = {
+    val map = languageObject.getMap
+    val fallbackValue = map.getOrDefault(fallbackLangtag, "")
+    map.getOrDefault(langtag, fallbackValue)
+  }
+
+  def compress[A](langtags: Seq[String], maybeSeq: A): Either[String, JsonObject] = {
+    val flatSeq: Seq[Any] = flattenSeq(Option(maybeSeq))
+
+    if (containsMultiLanguageValue(flatSeq))
+      Right(concatenateMultiLang(langtags, flatSeq))
+    else
+      Left(concatenateSingleLang(flatSeq))
   }
 }
 

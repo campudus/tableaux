@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.{InvalidRequestException, UnprocessableEntityException}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
@@ -7,6 +8,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.tableaux.RetrieveRowModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
+import io.vertx.core.json.JsonObject
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -86,6 +88,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
 
 case class CreateHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
+  val systemModel = SystemModel(connection)
+
   def create(
       table: Table,
       rowId: RowId,
@@ -118,13 +122,25 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       replace: Boolean
   ): Future[Unit] = {
 
-    def wrapValue(cellSeq: Seq[Cell[_]]): JsonObject = {
+    def wrapValue(valueSeq: Seq[(_, RowId, Object)]): JsonObject = {
       Json.obj(
         "value" ->
-          cellSeq.map(cell => {
-            Json.obj("id" -> cell.rowId, "value" -> IdentifierFlattener.compress(cell.value))
+          valueSeq.map({
+            case (_, rowId, value) => Json.obj("id" -> rowId, "value" -> value)
           })
       )
+    }
+
+    def retrieveSystemLangTags(): Future[Seq[String]] = {
+      import scala.collection.JavaConverters._
+      systemModel
+        .retrieveSetting(SystemController.SETTING_LANGTAGS)
+        .map(
+          valueOpt =>
+            valueOpt
+              .map(f => Json.fromArrayString(f).asScala.map({ case str: String => str }).toSeq)
+              .getOrElse(Seq.empty[String])
+        )
     }
 
     val futureSequence = links.map({
@@ -141,8 +157,18 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
 
           for {
             cellSeq <- Future.sequence(linkedCellSeq)
+            langTags <- retrieveSystemLangTags
           } yield {
-            insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(cellSeq))
+            val preparedData = cellSeq.map(cell => {
+              IdentifierFlattener.compress(langTags, cell.value) match {
+                case Right(v) => (MultiLanguage, cell.rowId, v)
+                case Left(v) => (LanguageNeutral, cell.rowId, v)
+              }
+            })
+
+            val languageType = preparedData.head._1
+
+            insertHistory(table, rowId, col.id, col.kind, languageType, wrapValue(preparedData))
           }
         }
       }
