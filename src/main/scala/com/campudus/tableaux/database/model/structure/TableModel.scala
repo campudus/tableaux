@@ -152,8 +152,8 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield t
   }
 
-  private def retrieveGlobalLangtags(): Future[Seq[String]] = {
-
+  def retrieveGlobalLangtags(): Future[Seq[String]] = {
+    // TODO cache global settings
     systemModel
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(valueOpt =>

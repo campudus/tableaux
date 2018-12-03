@@ -456,8 +456,17 @@ class CreateMultiLanguageLinkHistoryTest extends LinkTestBase {
   }
 
   @Test
-  def postLinkValueOnMultiLanguageColumns1(implicit c: TestContext): Unit = {
+  def changeLink_MultiIdentifiers_MultiLangAndSingleLangNumeric(implicit c: TestContext): Unit = {
     okTest {
+
+      val expected =
+        """
+          |[
+          |  {"id":1,"value":{"de-DE":"Hallo, Table 2 Welt! 3.1415926","en-GB":"Hello, Table 2 World! 3.1415926"}},
+          |  {"id":2,"value":{"de-DE":"Hallo, Table 2 Welt2! 2.1415926","en-GB":"Hello, Table 2 World2! 2.1415926"}}
+          |]
+          |""".stripMargin
+
       val postLinkColumn = Json.obj(
         "columns" -> Json.arr(
           Json.obj(
@@ -467,30 +476,25 @@ class CreateMultiLanguageLinkHistoryTest extends LinkTestBase {
           )
         )
       )
-      val postLinkValue = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+      val putLinkValue = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
 
       for {
-        (tableId1, columnIds1, table1rowIds) <- createFullTableWithMultilanguageColumns("Table 1")
-        (tableId2, columnIds2, table2rowIds) <- createFullTableWithMultilanguageColumns("Table 2")
+        _ <- createFullTableWithMultilanguageColumns("Table 1")
+        _ <- createFullTableWithMultilanguageColumns("Table 2")
 
         // Change target table structure to have a second identifier
         _ <- sendRequest("POST", s"/tables/2/columns/3", Json.obj("identifier" -> true))
 
-        linkColumn <- sendRequest("POST", s"/tables/$tableId1/columns", postLinkColumn)
+        // Add link column
+        linkColumn <- sendRequest("POST", s"/tables/1/columns", postLinkColumn)
         linkColumnId = linkColumn.getJsonArray("columns").get[JsonObject](0).getNumber("id")
 
-        resPost <- sendRequest("POST",
-                               s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}",
-                               postLinkValue)
-        // check first table for the link (links to t2, r1 and r2, c4)
-        resGet1 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.head}")
-        // check first table for the link in row 2 (links to nothing)
-        resGet2 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/${table1rowIds.drop(1).head}")
-        // check second table for the link (links to t1, r1, c1)
-        resGet3 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId/rows/${table2rowIds.head}")
-        // check second table for the link in row 2 (links to t1, r1, c1)
-        resGet4 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId/rows/${table2rowIds.drop(1).head}")
-      } yield {}
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinkValue)
+        test <- sendRequest("GET", "/tables/1/columns/8/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
     }
   }
 }

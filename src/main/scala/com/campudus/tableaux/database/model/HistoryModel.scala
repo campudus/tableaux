@@ -5,6 +5,7 @@ import com.campudus.tableaux.{InvalidRequestException, UnprocessableEntityExcept
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
 import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.database.model.tableaux.RetrieveRowModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
@@ -88,7 +89,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
 
 case class CreateHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
-  val systemModel = SystemModel(connection)
+  val tableModel = new TableModel(connection)
 
   def create(
       table: Table,
@@ -131,16 +132,8 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       )
     }
 
-    def retrieveSystemLangTags(): Future[Seq[String]] = {
-      import scala.collection.JavaConverters._
-      systemModel
-        .retrieveSetting(SystemController.SETTING_LANGTAGS)
-        .map(
-          valueOpt =>
-            valueOpt
-              .map(f => Json.fromArrayString(f).asScala.map({ case str: String => str }).toSeq)
-              .getOrElse(Seq.empty[String])
-        )
+    def retrieveGlobalLangtags(): Future[Seq[String]] = {
+      tableModel.retrieveGlobalLangtags()
     }
 
     val futureSequence = links.map({
@@ -157,7 +150,7 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
 
           for {
             cellSeq <- Future.sequence(linkedCellSeq)
-            langTags <- retrieveSystemLangTags
+            langTags <- retrieveGlobalLangtags
           } yield {
             val preparedData = cellSeq.map(cell => {
               IdentifierFlattener.compress(langTags, cell.value) match {
