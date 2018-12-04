@@ -390,13 +390,11 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
   }
 
   @Test
-  @Ignore
-  // TODO History Entry must create a diff for adding links
   def changeLink_addSecondLink(implicit c: TestContext): Unit = {
     okTest {
 
-      val putLink1 = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
-      val putLink2 = Json.obj("value" -> Json.obj("values" -> Json.arr(2)))
+      val postLink1 = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
+      val postLink2 = Json.obj("value" -> Json.obj("values" -> Json.arr(2)))
 
       val expected =
         """
@@ -409,8 +407,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
       for {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink1)
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink2)
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", postLink1)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", postLink2)
         test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
         historyAfterCreation = getLinksJsonArray(test, 1)
       } yield {

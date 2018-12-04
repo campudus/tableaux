@@ -1,16 +1,13 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.controller.SystemController
-import com.campudus.tableaux.{InvalidRequestException, UnprocessableEntityException}
+import com.campudus.tableaux.InvalidRequestException
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
-import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.structure.TableModel
-import com.campudus.tableaux.database.model.tableaux.RetrieveRowModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
-import io.vertx.core.json.JsonObject
-import org.vertx.scala.core.json._
+import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -132,35 +129,36 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       )
     }
 
-    def retrieveGlobalLangtags(): Future[Seq[String]] = {
-      tableModel.retrieveGlobalLangtags()
-    }
-
     val futureSequence = links.map({
-      case (col, linkIds) => {
-        if (linkIds.isEmpty) {
+      case (col, linkIdsToPutOrAdd) => {
+        if (linkIdsToPutOrAdd.isEmpty) {
           println("Just insert [] into history")
           insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
         } else {
-          val linkedCellSeq = linkIds.map(linkId =>
-            for {
-              // in some cases we are too fast, so the links could NOT be inserted yet
-              foreignIdentifier <- retrieveCellFn(col.to.table, col.to.id, linkId)
-            } yield foreignIdentifier)
-
+          // retrieve
           for {
-            cellSeq <- Future.sequence(linkedCellSeq)
-            langTags <- retrieveGlobalLangtags
+            linkIds <- if (replace)
+              Future.successful(linkIdsToPutOrAdd)
+            else
+              for {
+                currentLinkIds <- retrieveCurrentLinks(table, col, rowId, retrieveCellFn)
+              } yield {
+                // in some cases the new links are already inserted we have to use just only once
+                val diffSeq = linkIdsToPutOrAdd.diff(currentLinkIds)
+                currentLinkIds.union(diffSeq)
+              }
+
+            cellSeq <- retrieveForeignLinkCells(col, linkIds, retrieveCellFn)
+            langTags <- tableModel.retrieveGlobalLangtags()
           } yield {
             val preparedData = cellSeq.map(cell => {
               IdentifierFlattener.compress(langTags, cell.value) match {
-                case Right(v) => (MultiLanguage, cell.rowId, v)
-                case Left(v) => (LanguageNeutral, cell.rowId, v)
+                case Right(m) => (MultiLanguage, cell.rowId, m)
+                case Left(s) => (LanguageNeutral, cell.rowId, s)
               }
             })
 
             val languageType = preparedData.head._1
-
             insertHistory(table, rowId, col.id, col.kind, languageType, wrapValue(preparedData))
           }
         }
@@ -168,6 +166,45 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
     })
 
     Future.sequence(futureSequence).map(_ => ())
+  }
+
+  private def retrieveForeignLinkCells(
+      col: LinkColumn,
+      linkIds: Seq[RowId],
+      retrieveCellFn: (Table, ColumnId, RowId) => Future[Cell[Any]]
+  ): Future[Seq[Cell[Any]]] = {
+    val linkedCellSeq = linkIds.map(
+      linkId =>
+        for {
+          foreignIdentifier <- retrieveCellFn(col.to.table, col.to.id, linkId)
+        } yield foreignIdentifier
+    )
+    Future.sequence(linkedCellSeq)
+  }
+
+  private def retrieveCurrentLinks(
+      table: Table,
+      col: LinkColumn,
+      rowId: RowId,
+      retrieveCellFn: (Table, ColumnId, RowId) => Future[Cell[Any]]
+  ): Future[Seq[RowId]] = {
+    for {
+      cell <- retrieveCellFn(table, col.id, rowId)
+    } yield {
+      import scala.collection.JavaConverters._
+
+      Option(cell.value) match {
+        case Some(value) =>
+          Json
+            .fromArrayString(value.toString)
+            .asScala
+            .map(_.asInstanceOf[JsonObject])
+            .map(_.getLong("id").longValue())
+            .toSeq
+
+        case None => Seq[RowId]()
+      }
+    }
   }
 
   private def createTranslation(
@@ -236,9 +273,7 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       languageType: LanguageType,
       json: JsonObject
   ): Future[RowId] = {
-
     logger.info(s"createHistory ${table.id} $columnId $rowId $json")
-
     for {
       result <- connection.query(
         s"""INSERT INTO
