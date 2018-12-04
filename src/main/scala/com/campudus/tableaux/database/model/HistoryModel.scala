@@ -84,7 +84,9 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
   }
 }
 
-case class CreateHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
+case class CreateHistoryModel(protected[this] val tableauxModel: TableauxModel,
+                              protected[this] val connection: DatabaseConnection)
+    extends DatabaseQuery {
 
   val tableModel = new TableModel(connection)
 
@@ -92,7 +94,6 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       table: Table,
       rowId: RowId,
       values: Seq[(ColumnType[_], _)],
-      retrieveCellFn: (Table, ColumnId, RowId) => Future[Cell[Any]],
       replace: Boolean = false
   ): Future[Unit] = {
 
@@ -106,7 +107,7 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, retrieveCellFn, replace)
+          _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, replace)
 //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
         } yield ()
     }
@@ -116,7 +117,6 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
       table: Table,
       rowId: RowId,
       links: Seq[(LinkColumn, Seq[RowId])],
-      retrieveCellFn: (Table, ColumnId, RowId) => Future[Cell[Any]],
       replace: Boolean
   ): Future[Unit] = {
 
@@ -141,14 +141,14 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
               Future.successful(linkIdsToPutOrAdd)
             else
               for {
-                currentLinkIds <- retrieveCurrentLinks(table, col, rowId, retrieveCellFn)
+                currentLinkIds <- retrieveCurrentLinks(table, col, rowId)
               } yield {
                 // in some cases the new links are already inserted we have to use just only once
                 val diffSeq = linkIdsToPutOrAdd.diff(currentLinkIds)
                 currentLinkIds.union(diffSeq)
               }
 
-            cellSeq <- retrieveForeignLinkCells(col, linkIds, retrieveCellFn)
+            cellSeq <- retrieveForeignLinkCells(col, linkIds)
             langTags <- tableModel.retrieveGlobalLangtags()
           } yield {
             val preparedData = cellSeq.map(cell => {
@@ -170,13 +170,12 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
 
   private def retrieveForeignLinkCells(
       col: LinkColumn,
-      linkIds: Seq[RowId],
-      retrieveCellFn: (Table, ColumnId, RowId) => Future[Cell[Any]]
+      linkIds: Seq[RowId]
   ): Future[Seq[Cell[Any]]] = {
     val linkedCellSeq = linkIds.map(
       linkId =>
         for {
-          foreignIdentifier <- retrieveCellFn(col.to.table, col.to.id, linkId)
+          foreignIdentifier <- tableauxModel.retrieveCell(col.to.table, col.to.id, linkId)
         } yield foreignIdentifier
     )
     Future.sequence(linkedCellSeq)
@@ -185,11 +184,10 @@ case class CreateHistoryModel(protected[this] val connection: DatabaseConnection
   private def retrieveCurrentLinks(
       table: Table,
       col: LinkColumn,
-      rowId: RowId,
-      retrieveCellFn: (Table, ColumnId, RowId) => Future[Cell[Any]]
+      rowId: RowId
   ): Future[Seq[RowId]] = {
     for {
-      cell <- retrieveCellFn(table, col.id, rowId)
+      cell <- tableauxModel.retrieveCell(table, col.id, rowId)
     } yield {
       import scala.collection.JavaConverters._
 

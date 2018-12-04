@@ -96,7 +96,7 @@ class TableauxModel(
 
   val attachmentModel = AttachmentModel(connection)
   val retrieveHistoryModel = RetrieveHistoryModel(connection)
-  val createHistoryModel = CreateHistoryModel(connection)
+  val createHistoryModel = CreateHistoryModel(this, connection)
 
   def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
 
@@ -302,7 +302,8 @@ class TableauxModel(
       _ <- column match {
         case linkColumn: LinkColumn => {
           updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
-          createHistoryModel.create(table, rowId, Seq((column, Seq.empty[RowId])), retrieveCell)
+          createHistoryModel.create(table, rowId, Seq((column, Seq.empty[RowId])))
+          createHistoryModel.create(table, rowId, Seq((column, Seq.empty[RowId])))
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
@@ -364,7 +365,7 @@ class TableauxModel(
       }
 
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
-      _ <- createHistoryModel.create(table, rowId, Seq((column, value)), retrieveCell, replace)
+      _ <- createHistoryModel.create(table, rowId, Seq((column, value)), replace)
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
 
@@ -642,7 +643,7 @@ class TableauxModel(
               .flatMap(_ => Future.failed(ex))
         })
 
-      _ <- createHistoryModel.create(table, rowId, columns.zip(rowValues), retrieveCell)
+      _ <- createHistoryModel.create(table, rowId, columns.zip(rowValues))
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
