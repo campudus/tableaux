@@ -1,7 +1,5 @@
 package com.campudus.tableaux.helper
 
-import com.campudus.tableaux.helper.IdentifierFlattener.flattenSeq
-import io.vertx.core.json.{JsonArray, JsonObject}
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
@@ -17,42 +15,37 @@ object IdentifierFlattener {
   /**
     * Returns true if at least one element of Seq is a MultiLanguageElement
     */
-  private[helper] def containsMultiLanguageValue[A](values: A): Boolean =
-    values match {
-      case s: Seq[_] => s.exists(isMultiLanguageValue)
-      case v => isMultiLanguageValue(v)
-    }
+  private[helper] def containsMultiLanguageValue(values: Seq[Any]): Boolean = values.exists(isMultiLanguageValue)
 
   /**
-    *
-    * @param maybeSeq of type Seq or
+    * @param maybeSeq any type or seq of mixed types (also deeply nested) that is stored in cell value
     * @return a flattened sequence
     */
-  private def flattenSeq[A](maybeSeq: A): Seq[Any] = {
-    maybeSeq match {
-      case Some(s) => flattenSeq(s)
-      case None | Nil | null => Seq.empty
-      case seq: Seq[_] => {
-        seq flatten {
-          case seq: Seq[_] => flattenSeq(seq)
-          case ja: JsonArray => flattenSeq(ja)
-          case o: JsonObject => Seq(o)
-          case v => Seq(v)
-        }
-      }
-      case ja: JsonArray => {
-        ja.asScala flatten {
-          case seq: Seq[_] => flattenSeq(seq)
-          case ja: JsonArray => flattenSeq(ja)
-          case o: JsonObject => Seq(o)
-          case v => Seq(v)
-        }
-      }.toSeq
-      case simpleValue => Seq(simpleValue)
-    }
-  }
-
   private[helper] def flatten[A](maybeSeq: A): Seq[Any] = {
+    def flattenSeq[A](innerMaybeSeq: A): Seq[Any] = {
+      innerMaybeSeq match {
+        case Some(s) => flattenSeq(s)
+        case None | Nil | null => Seq.empty
+        case seq: Seq[_] => {
+          seq flatten {
+            case seq: Seq[_] => flattenSeq(seq)
+            case ja: JsonArray => flattenSeq(ja)
+            case o: JsonObject => Seq(o)
+            case v => Seq(v)
+          }
+        }
+        case ja: JsonArray => {
+          ja.asScala flatten {
+            case seq: Seq[_] => flattenSeq(seq)
+            case ja: JsonArray => flattenSeq(ja)
+            case o: JsonObject => Seq(o)
+            case v => Seq(v)
+          }
+        }.toSeq
+        case simpleValue => Seq(simpleValue)
+      }
+    }
+
     maybeSeq match {
       case Some(s) => flatten(s)
       case None | Nil | null => Seq.empty
@@ -81,14 +74,27 @@ object IdentifierFlattener {
     Json.obj(jsonTuples: _*)
   }
 
-  private def getLanguageValue(languageObject: JsonObject, langtag: String, fallbackLangtag: String) = {
+  /**
+    * Get string for a specified langtag
+    * If langtag key doesn't exist, return string for fallbackLangtag else empty string
+    */
+  private def getLanguageValue(languageObject: JsonObject, langtag: String, fallbackLangtag: String): String = {
     val map = languageObject.getMap
     val fallbackValue = map.getOrDefault(fallbackLangtag, "")
-    map.getOrDefault(langtag, fallbackValue)
+    Option(map.getOrDefault(langtag, fallbackValue)) match {
+      case Some(v) => v.toString
+      case None => ""
+    }
   }
 
+  /**
+    * Compresses a maybe nested sequence of single- and/or multilanguage values into a single object.
+    * There are two cases:
+    *  (1) If the sequence contains at least one multilanguage item the result is a Multilanguage item (JsonObject)
+    *  (2) else result type is a Singlelanguage item (String)
+    */
   def compress[A](langtags: Seq[String], maybeSeq: A): Either[String, JsonObject] = {
-    val flatSeq: Seq[Any] = flattenSeq(Option(maybeSeq))
+    val flatSeq: Seq[Any] = flatten(Option(maybeSeq))
 
     if (containsMultiLanguageValue(flatSeq))
       Right(concatenateMultiLang(langtags, flatSeq))
@@ -96,5 +102,3 @@ object IdentifierFlattener {
       Left(concatenateSingleLang(flatSeq))
   }
 }
-
-class IdentifierFlattener {}

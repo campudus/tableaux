@@ -115,7 +115,7 @@ class FlattenTest {
   }
 }
 
-class ConcatenationTest extends IdentifierFlattener {
+class SinglelanguageConcatenationTest {
 
   @Test
   def concatenate_mixedSeq(): Unit = {
@@ -123,14 +123,14 @@ class ConcatenationTest extends IdentifierFlattener {
     assertEquals("Hello, now it is 10 past 5 O’clock", actual)
   }
 
-//  @Test
-//  def concatenate_mixedSeq1(): Unit = {
-//    val actual = concatenate(Seq("Hello", Json.obj("foo" -> "bar")))
-//    assertEquals("Hello", actual)
-//  }
+  @Test
+  def concatenate_withInvalidValues(): Unit = {
+    val actual = concatenateSingleLang(Seq("1", null, 2, "  3  ", "    ", null, 4))
+    assertEquals("1 2 3 4", actual)
+  }
 }
 
-class MultilanguageConcatenationTest extends IdentifierFlattener {
+class MultilanguageConcatenationTest {
 
   @Test
   def concatenate_fullSuppliedLangtags(): Unit = {
