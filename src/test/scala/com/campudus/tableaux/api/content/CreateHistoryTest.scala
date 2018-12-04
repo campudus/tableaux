@@ -418,8 +418,6 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
   }
 
   @Test
-  @Ignore
-  // TODO History Entry must create a diff for deleting single links
   def changeLink_deleteOneOfTwoLinks(implicit c: TestContext): Unit = {
     okTest {
 

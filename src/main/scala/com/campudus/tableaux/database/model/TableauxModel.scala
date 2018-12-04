@@ -302,8 +302,7 @@ class TableauxModel(
       _ <- column match {
         case linkColumn: LinkColumn => {
           updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
-          createHistoryModel.create(table, rowId, Seq((column, Seq.empty[RowId])))
-          createHistoryModel.create(table, rowId, Seq((column, Seq.empty[RowId])))
+          createHistoryModel.deleteLinks(table, rowId, Seq((linkColumn, Seq(toId))))
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }

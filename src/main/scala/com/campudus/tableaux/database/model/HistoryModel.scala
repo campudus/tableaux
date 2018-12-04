@@ -14,10 +14,12 @@ import scala.util.{Failure, Success, Try}
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def retrieve(table: Table,
-               column: ColumnType[_],
-               rowId: RowId,
-               langtagOpt: Option[String]): Future[SeqCellHistory] = {
+  def retrieve(
+      table: Table,
+      column: ColumnType[_],
+      rowId: RowId,
+      langtagOpt: Option[String]
+  ): Future[SeqCellHistory] = {
 
     val whereLanguage = (column.languageType, langtagOpt) match {
       case (MultiLanguage, Some(langtag)) => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL"
@@ -84,9 +86,10 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
   }
 }
 
-case class CreateHistoryModel(protected[this] val tableauxModel: TableauxModel,
-                              protected[this] val connection: DatabaseConnection)
-    extends DatabaseQuery {
+case class CreateHistoryModel(
+    protected[this] val tableauxModel: TableauxModel,
+    protected[this] val connection: DatabaseConnection
+) extends DatabaseQuery {
 
   val tableModel = new TableModel(connection)
 
@@ -96,9 +99,6 @@ case class CreateHistoryModel(protected[this] val tableauxModel: TableauxModel,
       values: Seq[(ColumnType[_], _)],
       replace: Boolean = false
   ): Future[Unit] = {
-
-    // TODO if we put/replace the values we must not merge old and new values, but just replace the values
-
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -129,26 +129,31 @@ case class CreateHistoryModel(protected[this] val tableauxModel: TableauxModel,
       )
     }
 
+    def retrieveLinkIdsToPut(
+        col: LinkColumn,
+        linkIdsToPutOrAdd: Seq[RowId]
+    ): Future[Seq[RowId]] = {
+      if (replace)
+        Future.successful(linkIdsToPutOrAdd)
+      else
+        for {
+          currentLinkIds <- retrieveCurrentLinks(table, col, rowId)
+        } yield {
+          // In some cases the new links are already inserted, in other cases not.
+          // To be on the safe side, we only add them if they haven't been added yet.
+          val diffSeq = linkIdsToPutOrAdd.diff(currentLinkIds)
+          currentLinkIds.union(diffSeq)
+        }
+    }
+
     val futureSequence = links.map({
       case (col, linkIdsToPutOrAdd) => {
         if (linkIdsToPutOrAdd.isEmpty) {
-          println("Just insert [] into history")
           insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
         } else {
-          // retrieve
           for {
-            linkIds <- if (replace)
-              Future.successful(linkIdsToPutOrAdd)
-            else
-              for {
-                currentLinkIds <- retrieveCurrentLinks(table, col, rowId)
-              } yield {
-                // in some cases the new links are already inserted we have to use just only once
-                val diffSeq = linkIdsToPutOrAdd.diff(currentLinkIds)
-                currentLinkIds.union(diffSeq)
-              }
-
-            cellSeq <- retrieveForeignLinkCells(col, linkIds)
+            linkIds <- retrieveLinkIdsToPut(col, linkIdsToPutOrAdd)
+            cellSeq <- retrieveForeignIdentifierCells(col, linkIds)
             langTags <- tableModel.retrieveGlobalLangtags()
           } yield {
             val preparedData = cellSeq.map(cell => {
@@ -168,7 +173,29 @@ case class CreateHistoryModel(protected[this] val tableauxModel: TableauxModel,
     Future.sequence(futureSequence).map(_ => ())
   }
 
-  private def retrieveForeignLinkCells(
+  def deleteLinks(
+      table: Table,
+      rowId: RowId,
+      links: Seq[(LinkColumn, Seq[RowId])]
+  ): Future[Unit] = {
+    val futureSequenceLinksToPut = links.map({
+      case (col, linkIdsToDelete) => {
+        for {
+          currentLinkIds <- retrieveCurrentLinks(table, col, rowId)
+          linkIds = currentLinkIds.diff(linkIdsToDelete)
+        } yield (col, linkIds)
+      }
+    })
+
+    for {
+      linksToPut <- Future.sequence(futureSequenceLinksToPut)
+    } yield {
+      // For deleting links, we pretend to put a new sequence of links
+      createLinks(table, rowId, linksToPut, true)
+    }
+  }
+
+  private def retrieveForeignIdentifierCells(
       col: LinkColumn,
       linkIds: Seq[RowId]
   ): Future[Seq[Cell[Any]]] = {
