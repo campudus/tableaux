@@ -218,17 +218,12 @@ case class CreateHistoryModel(
     } yield {
       import scala.collection.JavaConverters._
 
-      Option(cell.value) match {
-        case Some(value) =>
-          Json
-            .fromArrayString(value.toString)
-            .asScala
-            .map(_.asInstanceOf[JsonObject])
-            .map(_.getLong("id").longValue())
-            .toSeq
-
-        case None => Seq[RowId]()
-      }
+      cell.getJson
+        .getJsonArray("value")
+        .asScala
+        .map(_.asInstanceOf[JsonObject])
+        .map(_.getLong("id").longValue())
+        .toSeq
     }
   }
 
