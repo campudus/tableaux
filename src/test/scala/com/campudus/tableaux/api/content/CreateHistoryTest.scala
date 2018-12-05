@@ -1,5 +1,6 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.database.model.TableauxModel.RowId
 import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.core.json.JsonArray
@@ -418,6 +419,35 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
   }
 
   @Test
+  def changeLink_addThirdLinkToExistingTwo(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(3, 5)))
+      val postThirdLink = Json.obj("value" -> Json.obj("values" -> Json.arr(4)))
+
+      val expected =
+        """
+          |[
+          |  {"id": 3, "value": "table2RowId1"},
+          |  {"id": 5, "value": "table2RowId3"},
+          |  {"id": 4, "value": "table2RowId2"}
+          |]
+          |""".stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", postThirdLink)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test, 1)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
   def changeLink_deleteOneOfTwoLinks(implicit c: TestContext): Unit = {
     okTest {
 
@@ -438,6 +468,81 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
         test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
         historyAfterCreation = getLinksJsonArray(test, 1)
       } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeLink_deleteOneOfThreeLinks(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(3, 4, 5)))
+
+      val expected =
+        """
+          |[
+          |  {"id": 3, "value": "table2RowId1"},
+          |  {"id": 5, "value": "table2RowId3"}
+          |]
+        """.stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
+        _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/4")
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test, 1)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateSimpleLinkOrderHistoryTest extends LinkTestBase {
+
+  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
+    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
+  }
+
+  @Test
+  def changeLinkOrder_reverseOrder(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLinks = s"""
+                        |{"value":
+                        |  { "values": [3, 4, 5] }
+                        |}
+                        |""".stripMargin
+
+      val expected =
+        """
+          |[
+          |  {"id": 5, "value": "table2RowId3"},
+          |  {"id": 4, "value": "table2RowId2"},
+          |  {"id": 3, "value": "table2RowId1"}
+          |]
+        """.stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", Json.fromObjectString(putLinks))
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/3/order", Json.obj("location" -> "end"))
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/5/order", Json.obj("location" -> "start"))
+
+        links <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
+        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history")
+        historyAfterCreation = getLinksJsonArray(test, 1)
+      } yield {
+        import scala.collection.JavaConverters._
+
+        assertEquals(List(5, 4, 3),
+                     links.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
     }

@@ -195,6 +195,20 @@ case class CreateHistoryModel(
     }
   }
 
+  def updateLinkOrder(
+      table: Table,
+      column: LinkColumn,
+      rowId: RowId,
+  ): Future[Unit] = {
+
+    for {
+      linkIds <- retrieveCurrentLinks(table, column, rowId)
+    } yield {
+      // For deleting links, we pretend to put a new sequence of links
+      createLinks(table, rowId, Seq((column, linkIds)), true)
+    }
+  }
+
   private def retrieveForeignIdentifierCells(
       col: LinkColumn,
       linkIds: Seq[RowId]

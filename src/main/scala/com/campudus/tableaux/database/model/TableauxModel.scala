@@ -324,11 +324,15 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
 
       _ <- column match {
-        case linkColumn: LinkColumn => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
+        case linkColumn: LinkColumn => {
+          for {
+            _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
+            _ <- invalidateCellAndDependentColumns(column, rowId)
+            _ <- createHistoryModel.updateLinkOrder(table, linkColumn, rowId)
+          } yield Future.successful(())
+        }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
-
-      _ <- invalidateCellAndDependentColumns(column, rowId)
 
       updatedCell <- retrieveCell(column, rowId)
     } yield updatedCell
@@ -364,9 +368,10 @@ class TableauxModel(
       }
 
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
-      _ <- createHistoryModel.create(table, rowId, Seq((column, value)), replace)
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
+
+      _ <- createHistoryModel.create(table, rowId, Seq((column, value)), replace)
 
       changedCell <- retrieveCell(column, rowId)
     } yield changedCell
