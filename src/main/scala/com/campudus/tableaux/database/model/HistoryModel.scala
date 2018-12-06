@@ -1,15 +1,15 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.InvalidRequestException
+import com.campudus.tableaux.{InvalidRequestException, RowNotFoundException}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.{JsonObject, _}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
@@ -93,12 +93,67 @@ case class CreateHistoryModel(
 
   val tableModel = new TableModel(connection)
 
+  def createInitialHistoryIfNotExists(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+    ColumnType.splitIntoTypesWithValues(values) match {
+      case Failure(ex) =>
+        Future.failed(ex)
+
+      case Success((simples, multis, links, attachments)) =>
+        for {
+          _ <- if (simples.isEmpty) Future.successful(())
+          else {
+            val column = simples.head
+            for {
+              historyEntryExists <- historyExists(table.id, column._1.id, rowId)
+              _ <- if (!historyEntryExists) {
+                for {
+                  cell <- retrieveCell(table, column._1, rowId)
+                  // Filter null values
+                  _ <- Option(cell.value) match {
+                    case Some(_) => {
+                      println("XXX: " + Option(cell.value))
+                      create(table, rowId, Seq((column._1, cell.value)), true)
+                    }
+                    case None => Future.successful(())
+                  }
+                } yield ()
+              } else
+                Future.successful(())
+            } yield {
+              Future.successful(())
+            }
+          }
+          _ <- if (multis.isEmpty) Future.successful(())
+          else {
+            Future.successful(())
+//            createTranslation(table, rowId, multis)
+          }
+          _ <- if (links.isEmpty) Future.successful(())
+          else {
+            Future.successful(())
+//            createLinks(table, rowId, links, true)
+          }
+          //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
+        } yield ()
+    }
+  }
+
+  private def historyExists(tableId: TableId, columnId: ColumnId, rowId: RowId)(
+      implicit ec: ExecutionContext): Future[Boolean] = {
+
+    connection
+      .selectSingleValue[Boolean](
+        s"SELECT COUNT(*) > 0 FROM user_table_history_${tableId} WHERE column_id = ? AND row_id = ?",
+        Json.arr(columnId, rowId))
+  }
+
   def create(
       table: Table,
       rowId: RowId,
       values: Seq[(ColumnType[_], _)],
       replace: Boolean = false
   ): Future[Unit] = {
+
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -222,6 +277,16 @@ case class CreateHistoryModel(
     Future.sequence(linkedCellSeq)
   }
 
+  private def retrieveCell(table: Table, column: ColumnType[_], rowId: RowId): Future[Cell[Any]] = {
+//    val cells = rowIds.map(
+//      rowId =>
+    for {
+      cell <- tableauxModel.retrieveCell(table, column.id, rowId)
+    } yield cell
+//    )
+//    Future.sequence(cells)
+  }
+
   private def retrieveCurrentLinks(
       table: Table,
       col: LinkColumn,
@@ -245,7 +310,7 @@ case class CreateHistoryModel(
       table: Table,
       rowId: RowId,
       values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
-  ): Future[List[RowId]] = {
+  ): Future[Seq[RowId]] = {
 
     def wrapLanguageValue(langtag: String, value: Any): JsonObject = Json.obj("value" -> Json.obj(langtag -> value))
 
@@ -258,7 +323,7 @@ case class CreateHistoryModel(
       .groupBy({ case (langtag, _) => langtag })
       .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
 
-    val futureSequence: List[Future[RowId]] = columnsForLang.toList
+    val futureSequence: Seq[Future[RowId]] = columnsForLang.toSeq
       .flatMap({
         case (langtag, columnValueOptSeq) =>
           val languageCellEntries = columnValueOptSeq
@@ -279,18 +344,22 @@ case class CreateHistoryModel(
   private def createSimple(
       table: Table,
       rowId: RowId,
-      simples: List[(SimpleValueColumn[_], Option[Any])]
-  ): Future[List[RowId]] = {
+      simples: Seq[(SimpleValueColumn[_], Option[Any])]
+  ): Future[Seq[RowId]] = {
 
     def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
 
     val cellEntries = simples
+//      .filter({
+//        case (_, Some(valueOpt)) => valueOpt.equals(null)
+//        case _ => false
+//      })
       .map({
         case (column: SimpleValueColumn[_], valueOpt) =>
           (column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))
       })
 
-    val futureSequence: List[Future[RowId]] = cellEntries
+    val futureSequence: Seq[Future[RowId]] = cellEntries
       .map({
         case (columnId, columnType, languageType, value) =>
           insertHistory(table, rowId, columnId, columnType, languageType, value)

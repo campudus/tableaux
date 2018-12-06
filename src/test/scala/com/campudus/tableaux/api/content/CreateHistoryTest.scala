@@ -1,12 +1,13 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.database.model.TableauxModel.RowId
+import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.{Ignore, Test}
+import io.vertx.scala.SQLConnection
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -91,8 +92,8 @@ class CreateHistoryTest extends TableauxTestBase {
 
       for {
         _ <- createEmptyDefaultTable()
-        _ <- sendRequest("POST", "/tables/1/rows")
 
+        _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", Json.obj("value" -> 42))
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", Json.obj("value" -> 1337))
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", Json.obj("value" -> 1123581321))
@@ -595,6 +596,82 @@ class CreateMultiLanguageLinkHistoryTest extends LinkTestBase {
         historyAfterCreation = getLinksJsonArray(test)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateHistoryCompatibilityTest extends TableauxTestBase {
+// For migrated systems it is necessary to also write a history entry for a currently existing cell value
+
+  @Test
+  def changeSimpleValue_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(implicit c: TestContext): Unit = {
+    okTest {
+
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val initialValue = """{ "value": "value before history feature" }"""
+      val firstChangedValue = """{ "value": "my first change with history feature" }"""
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query("""UPDATE
+                                  |user_table_1
+                                  |SET column_1 = 'value before history feature'
+                                  |WHERE id = 1""".stripMargin)
+
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", firstChangedValue)
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+
+        rows = test.getJsonArray("rows")
+        initialHistoryCreation = rows.get[JsonObject](0)
+        firstHistoryCreation = rows.get[JsonObject](1)
+      } yield {
+        JSONAssert.assertEquals(initialValue, initialHistoryCreation.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(firstChangedValue, firstHistoryCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeSimpleValue_secondChangeWithHistoryFeature_shouldAgainCreateSingleHistoryEntries(
+      implicit c: TestContext): Unit = {
+    okTest {
+
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val initialValue = """{ "value": "value before history feature" }"""
+      val change1 = """{ "value": "first change" }"""
+      val change2 = """{ "value": "second change" }"""
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query("""UPDATE
+                                  |user_table_1
+                                  |SET column_1 = 'value before history feature'
+                                  |WHERE id = 1""".stripMargin)
+
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change1)
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change2)
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.get[JsonObject](0)
+        history1 = rows.get[JsonObject](1)
+        history2 = rows.get[JsonObject](2)
+      } yield {
+        JSONAssert.assertEquals(initialValue, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(change1, history1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(change2, history2.toString, JSONCompareMode.LENIENT)
       }
     }
   }

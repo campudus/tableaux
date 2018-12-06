@@ -367,6 +367,8 @@ class TableauxModel(
         Future.successful(())
       }
 
+      _ <- createHistoryModel.createInitialHistoryIfNotExists(table, rowId, Seq((column, value)))
+
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
