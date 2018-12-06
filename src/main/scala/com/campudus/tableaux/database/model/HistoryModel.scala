@@ -100,50 +100,55 @@ case class CreateHistoryModel(
 
       case Success((simples, multis, links, attachments)) =>
         for {
-          _ <- if (simples.isEmpty) Future.successful(())
-          else {
-            val column = simples.head
-            for {
-              historyEntryExists <- historyExists(table.id, column._1.id, rowId)
-              _ <- if (!historyEntryExists) {
-                for {
-                  cell <- retrieveCell(table, column._1, rowId)
-                  // Filter null values
-                  _ <- Option(cell.value) match {
-                    case Some(_) => {
-                      println("XXX: " + Option(cell.value))
-                      create(table, rowId, Seq((column._1, cell.value)), true)
-                    }
-                    case None => Future.successful(())
-                  }
-                } yield ()
-              } else
-                Future.successful(())
-            } yield {
-              Future.successful(())
-            }
-          }
-          _ <- if (multis.isEmpty) Future.successful(())
-          else {
-            Future.successful(())
-//            createTranslation(table, rowId, multis)
-          }
-          _ <- if (links.isEmpty) Future.successful(())
-          else {
-            Future.successful(())
-//            createLinks(table, rowId, links, true)
-          }
+          _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
+//          _ <- if (multis.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
+//          _ <- if (links.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, links, true)
           //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
         } yield ()
     }
   }
 
-  private def historyExists(tableId: TableId, columnId: ColumnId, rowId: RowId)(
-      implicit ec: ExecutionContext): Future[Boolean] = {
+  private def createSimpleInit(
+      table: Table,
+      rowId: RowId,
+      simples: Seq[(SimpleValueColumn[_], Option[Any])]
+  ): Future[Seq[Unit]] = {
+
+    Future.sequence(simples.map({
+      case (column: SimpleValueColumn[_], _) =>
+        for {
+          historyEntryExists <- historyExists(table.id, column.id, rowId)
+          _ <- if (!historyEntryExists) {
+            for {
+              cell <- retrieveCellValue(table, column, rowId)
+              // Filter null values
+              _ <- Option(cell.value) match {
+                case Some(_) =>
+                  create(table, rowId, Seq((column, cell.value)), true)
+                case None => Future.successful(())
+              }
+            } yield ()
+          } else
+            Future.successful(())
+        } yield ()
+    }))
+  }
+
+  private def historyExists(
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      langtagOpt: Option[String] = None
+  )(implicit ec: ExecutionContext): Future[Boolean] = {
+
+    val whereLanguage = langtagOpt match {
+      case Some(langtag) => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL"
+      case _ => ""
+    }
 
     connection
       .selectSingleValue[Boolean](
-        s"SELECT COUNT(*) > 0 FROM user_table_history_${tableId} WHERE column_id = ? AND row_id = ?",
+        s"SELECT COUNT(*) > 0 FROM user_table_history_$tableId WHERE column_id = ? AND row_id = ? $whereLanguage",
         Json.arr(columnId, rowId))
   }
 
@@ -277,11 +282,16 @@ case class CreateHistoryModel(
     Future.sequence(linkedCellSeq)
   }
 
-  private def retrieveCell(table: Table, column: ColumnType[_], rowId: RowId): Future[Cell[Any]] = {
+  private def retrieveCellValue(table: Table, column: ColumnType[_], rowId: RowId) = {
 //    val cells = rowIds.map(
 //      rowId =>
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId)
+//      value <- Future.successful(Option(cell.value))
+//      match {
+//        case Some(v) => v
+//        case None => Future.successful(())
+//      }
     } yield cell
 //    )
 //    Future.sequence(cells)
@@ -350,10 +360,6 @@ case class CreateHistoryModel(
     def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
 
     val cellEntries = simples
-//      .filter({
-//        case (_, Some(valueOpt)) => valueOpt.equals(null)
-//        case _ => false
-//      })
       .map({
         case (column: SimpleValueColumn[_], valueOpt) =>
           (column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))

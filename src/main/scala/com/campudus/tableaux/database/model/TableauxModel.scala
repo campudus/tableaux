@@ -368,11 +368,8 @@ class TableauxModel(
       }
 
       _ <- createHistoryModel.createInitialHistoryIfNotExists(table, rowId, Seq((column, value)))
-
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
-
       _ <- invalidateCellAndDependentColumns(column, rowId)
-
       _ <- createHistoryModel.create(table, rowId, Seq((column, value)), replace)
 
       changedCell <- retrieveCell(column, rowId)

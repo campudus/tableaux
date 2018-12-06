@@ -7,7 +7,7 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -303,6 +303,39 @@ class CreateHistoryTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def changeMultilanguageValue_multipleLanguagesAtOnce(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[
+          |  {
+          |    "value": {
+          |      "de-DE": "first de-DE change"
+          |    }
+          |  }, {
+          |    "value": {
+          |      "en-GB": "first en-GB change"
+          |    }
+          |  }
+          |]
+        """.stripMargin
+
+      val newValue1 = Json.obj("value" -> Json.obj("de-DE" -> "first de-DE change", "en-GB" -> "first en-GB change"))
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue1)
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+        historyAfterCreation = test.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -660,6 +693,58 @@ class CreateHistoryCompatibilityTest extends TableauxTestBase {
                                   |SET column_1 = 'value before history feature'
                                   |WHERE id = 1""".stripMargin)
 
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change1)
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change2)
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.get[JsonObject](0)
+        history1 = rows.get[JsonObject](1)
+        history2 = rows.get[JsonObject](2)
+      } yield {
+        JSONAssert.assertEquals(initialValue, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(change1, history1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(change2, history2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  @Ignore
+  def changeMultilanguageValue_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(
+      implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[
+          |  {
+          |    "event": "cell_changed",
+          |    "columnType": "text",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": "first change"
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "columnType": "text",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": "second change"
+          |    }
+          |  }
+          |]
+        """.stripMargin
+
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val initialValue = """{ "value": { "de-DE": "language value before history feature" } }"""
+      val change1 = """{ "value": { "de-DE": "language first change" } }"""
+      val change2 = """{ "value": { "de-DE": "language second change" } }"""
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change1)
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change2)
         test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
