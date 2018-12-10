@@ -7,7 +7,7 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.junit.{Ignore, Test}
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -675,7 +675,6 @@ class CreateHistoryCompatibilityTest extends TableauxTestBase {
   def changeSimpleValue_secondChangeWithHistoryFeature_shouldAgainCreateSingleHistoryEntries(
       implicit c: TestContext): Unit = {
     okTest {
-
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
@@ -710,53 +709,47 @@ class CreateHistoryCompatibilityTest extends TableauxTestBase {
   }
 
   @Test
-  @Ignore
+//  @Ignore
   def changeMultilanguageValue_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(
       implicit c: TestContext): Unit = {
     okTest {
-      val expected =
-        """
-          |[
-          |  {
-          |    "event": "cell_changed",
-          |    "columnType": "text",
-          |    "languageType": "language",
-          |    "value": {
-          |      "de-DE": "first change"
-          |    }
-          |  }, {
-          |    "event": "cell_changed",
-          |    "columnType": "text",
-          |    "languageType": "language",
-          |    "value": {
-          |      "de-DE": "second change"
-          |    }
-          |  }
-          |]
-        """.stripMargin
-
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
-      val initialValue = """{ "value": { "de-DE": "language value before history feature" } }"""
-      val change1 = """{ "value": { "de-DE": "language first change" } }"""
-      val change2 = """{ "value": { "de-DE": "language second change" } }"""
+      val initialValueDE = """{ "value": { "de-DE": "de-DE init" } }"""
+      val initialValueEN = """{ "value": { "en-GB": "en-GB init" } }"""
+      val change1 = """{ "value": { "de-DE": "de-DE first change" } }"""
+      val change2 = """{ "value": { "de-DE": "de-DE second change" } }"""
+      val change3 = """{ "value": { "en-GB": "en-GB first change" } }"""
 
       for {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows")
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query("""INSERT INTO user_table_lang_1(id, langtag,column_1)
+                                  |  VALUES
+                                  |(1, E'de-DE', E'de-DE init'),
+                                  |(1, E'en-GB', E'en-GB init')
+                                  |""".stripMargin)
+
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change1)
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change2)
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change3)
         test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
 
         rows = test.getJsonArray("rows")
-        initialHistory = rows.get[JsonObject](0)
-        history1 = rows.get[JsonObject](1)
-        history2 = rows.get[JsonObject](2)
+        initialHistoryDE = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+        history2 = rows.getJsonObject(2)
+        initialHistoryEN = rows.getJsonObject(3)
+        history3 = rows.getJsonObject(4)
       } yield {
-        JSONAssert.assertEquals(initialValue, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(initialValueDE, initialHistoryDE.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(change1, history1.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(change2, history2.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(initialValueEN, initialHistoryEN.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(change3, history3.toString, JSONCompareMode.LENIENT)
       }
     }
   }

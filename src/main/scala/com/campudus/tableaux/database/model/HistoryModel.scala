@@ -101,8 +101,8 @@ case class CreateHistoryModel(
       case Success((simples, multis, links, attachments)) =>
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
-//          _ <- if (multis.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
-//          _ <- if (links.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, links, true)
+          _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multis)
+//          _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links, true)
           //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
         } yield ()
     }
@@ -120,18 +120,55 @@ case class CreateHistoryModel(
           historyEntryExists <- historyExists(table.id, column.id, rowId)
           _ <- if (!historyEntryExists) {
             for {
-              cell <- retrieveCellValue(table, column, rowId)
-              // Filter null values
-              _ <- Option(cell.value) match {
-                case Some(_) =>
-                  create(table, rowId, Seq((column, cell.value)), true)
-                case None => Future.successful(())
-              }
+              value <- retrieveCellValue(table, column, rowId)
+              _ <- if (value.nonEmpty)
+                createSimple(table, rowId, Seq((column, Option(value))))
+              else
+                Future.successful(())
             } yield ()
           } else
             Future.successful(())
         } yield ()
     }))
+  }
+
+  private def createTranslationInit(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
+  ): Future[Seq[Unit]] = {
+
+    val entries = for {
+      (column, langtagValueOptMap) <- values
+      (langtag: String, valueOpt) <- langtagValueOptMap
+    } yield (langtag, (column, valueOpt))
+
+    val columnsForLang = entries
+      .groupBy({ case (langtag, _) => langtag })
+      .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
+
+    Future.sequence(
+      columnsForLang.toSeq
+        .flatMap({
+          case (langtag, columnValueOptSeq) => {
+            columnValueOptSeq
+              .map({
+                case (column: SimpleValueColumn[_], _) =>
+                  for {
+                    historyEntryExists <- historyExists(table.id, column.id, rowId, Option(langtag))
+                    _ <- if (!historyEntryExists) for {
+                      value <- retrieveCellValue(table, column, rowId, Option(langtag))
+                      _ <- if (value.nonEmpty)
+                        createTranslation(table, rowId, Seq((column, Map(langtag -> Option(value)))))
+                      else
+                        Future.successful(())
+                    } yield ()
+                    else
+                      Future.successful(())
+                  } yield ()
+              })
+          }
+        }))
   }
 
   private def historyExists(
@@ -197,7 +234,7 @@ case class CreateHistoryModel(
         Future.successful(linkIdsToPutOrAdd)
       else
         for {
-          currentLinkIds <- retrieveCurrentLinks(table, col, rowId)
+          currentLinkIds <- retrieveCurrentLinkIds(table, col, rowId)
         } yield {
           // In some cases the new links are already inserted, in other cases not.
           // To be on the safe side, we only add them if they haven't been added yet.
@@ -241,7 +278,7 @@ case class CreateHistoryModel(
     val futureSequenceLinksToPut = links.map({
       case (col, linkIdsToDelete) => {
         for {
-          currentLinkIds <- retrieveCurrentLinks(table, col, rowId)
+          currentLinkIds <- retrieveCurrentLinkIds(table, col, rowId)
           linkIds = currentLinkIds.diff(linkIdsToDelete)
         } yield (col, linkIds)
       }
@@ -262,9 +299,9 @@ case class CreateHistoryModel(
   ): Future[Unit] = {
 
     for {
-      linkIds <- retrieveCurrentLinks(table, column, rowId)
+      linkIds <- retrieveCurrentLinkIds(table, column, rowId)
     } yield {
-      // For deleting links, we pretend to put a new sequence of links
+      // For updating links ordering, we pretend to put a new sequence of links
       createLinks(table, rowId, Seq((column, linkIds)), true)
     }
   }
@@ -282,22 +319,32 @@ case class CreateHistoryModel(
     Future.sequence(linkedCellSeq)
   }
 
-  private def retrieveCellValue(table: Table, column: ColumnType[_], rowId: RowId) = {
-//    val cells = rowIds.map(
-//      rowId =>
+  private def retrieveCellValue(
+      table: Table,
+      column: ColumnType[_],
+      rowId: RowId,
+      langtagCountryOpt: Option[String] = None
+  ): Future[String] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId)
-//      value <- Future.successful(Option(cell.value))
-//      match {
-//        case Some(v) => v
-//        case None => Future.successful(())
-//      }
-    } yield cell
-//    )
-//    Future.sequence(cells)
+    } yield {
+      Option(cell.value) match {
+        case Some(v) =>
+          column match {
+            case MultiLanguageColumn(_) =>
+              cell.getJson
+                .getJsonObject("value")
+                .getString(langtagCountryOpt.getOrElse(""), "")
+            case _: SimpleValueColumn[_] => v.toString
+            //        case c: LinkColumn => ???
+            case _: AttachmentColumn => ???
+          }
+        case None => ""
+      }
+    }
   }
 
-  private def retrieveCurrentLinks(
+  private def retrieveCurrentLinkIds(
       table: Table,
       col: LinkColumn,
       rowId: RowId
