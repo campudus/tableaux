@@ -635,7 +635,7 @@ class CreateMultiLanguageLinkHistoryTest extends LinkTestBase {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class CreateHistoryCompatibilityTest extends TableauxTestBase {
+class CreateHistoryCompatibilityTest extends LinkTestBase {
 // For migrated systems it is necessary to also write a history entry for a currently existing cell value
 
   @Test
@@ -709,7 +709,6 @@ class CreateHistoryCompatibilityTest extends TableauxTestBase {
   }
 
   @Test
-//  @Ignore
   def changeMultilanguageValue_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(
       implicit c: TestContext): Unit = {
     okTest {
@@ -750,6 +749,71 @@ class CreateHistoryCompatibilityTest extends TableauxTestBase {
         JSONAssert.assertEquals(change2, history2.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(initialValueEN, initialHistoryEN.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(change3, history3.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeLinkValue_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedInitialLinks = """{ "value": [ {"id":3}, {"id": 4} ] }"""
+      val expectedAfterPostLinks = """{ "value": [ {"id":3}, {"id": 4}, {"id": 5} ] }"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2, ordering_1, ordering_2)
+                                  |VALUES
+                                  |  (1,3,1,1),
+                                  |  (1,4,1,1)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 5 ] }""")
+        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPostLinks, history1.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeLinkValue_twoLinkChanges_onlyFirstOneShouldCreateInitialHistoryEntry(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedInitialLinks = """{ "value": [ {"id":3} ] }"""
+      val expectedAfterPostLinks1 = """{ "value": [ {"id":3}, {"id": 4} ] }"""
+      val expectedAfterPostLinks2 = """{ "value": [ {"id":3}, {"id": 4}, {"id": 5} ] }"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2, ordering_1, ordering_2)
+                                  |VALUES
+                                  |  (1,3,1,1)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 4 ] }""")
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 5 ] }""")
+        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+        history2 = rows.getJsonObject(2)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPostLinks2, history2.toString, JSONCompareMode.LENIENT)
       }
     }
   }

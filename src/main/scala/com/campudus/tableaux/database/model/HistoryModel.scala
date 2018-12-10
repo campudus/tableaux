@@ -102,10 +102,35 @@ case class CreateHistoryModel(
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multis)
-//          _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links, true)
+          _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links)
           //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
         } yield ()
     }
+  }
+
+  private def createLinksInit(
+      table: Table,
+      rowId: RowId,
+      links: Seq[(LinkColumn, Seq[RowId])],
+  ): Future[Seq[Unit]] = {
+
+    Future.sequence(links.map({
+      case (column, _) => {
+        for {
+          historyEntryExists <- historyExists(table.id, column.id, rowId)
+          _ <- if (!historyEntryExists) {
+            for {
+              linkIds <- retrieveCurrentLinkIds(table, column, rowId)
+              _ <- if (linkIds.nonEmpty)
+                createLinks(table, rowId, Seq((column, linkIds)), true)
+              else
+                Future.successful(())
+            } yield ()
+          } else
+            Future.successful(())
+        } yield ()
+      }
+    }))
   }
 
   private def createSimpleInit(
@@ -183,10 +208,9 @@ case class CreateHistoryModel(
       case _ => ""
     }
 
-    connection
-      .selectSingleValue[Boolean](
-        s"SELECT COUNT(*) > 0 FROM user_table_history_$tableId WHERE column_id = ? AND row_id = ? $whereLanguage",
-        Json.arr(columnId, rowId))
+    connection.selectSingleValue[Boolean](
+      s"SELECT COUNT(*) > 0 FROM user_table_history_$tableId WHERE column_id = ? AND row_id = ? $whereLanguage",
+      Json.arr(columnId, rowId))
   }
 
   def create(
@@ -215,7 +239,7 @@ case class CreateHistoryModel(
       rowId: RowId,
       links: Seq[(LinkColumn, Seq[RowId])],
       replace: Boolean
-  ): Future[Unit] = {
+  ): Future[Seq[Any]] = {
 
     def wrapValue(valueSeq: Seq[(_, RowId, Object)]): JsonObject = {
       Json.obj(
@@ -243,31 +267,32 @@ case class CreateHistoryModel(
         }
     }
 
-    val futureSequence = links.map({
-      case (col, linkIdsToPutOrAdd) => {
-        if (linkIdsToPutOrAdd.isEmpty) {
-          insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
-        } else {
-          for {
-            linkIds <- retrieveLinkIdsToPut(col, linkIdsToPutOrAdd)
-            cellSeq <- retrieveForeignIdentifierCells(col, linkIds)
-            langTags <- tableModel.retrieveGlobalLangtags()
-          } yield {
-            val preparedData = cellSeq.map(cell => {
-              IdentifierFlattener.compress(langTags, cell.value) match {
-                case Right(m) => (MultiLanguage, cell.rowId, m)
-                case Left(s) => (LanguageNeutral, cell.rowId, s)
-              }
-            })
+    Future.sequence(
+      links.map({
+        case (col, linkIdsToPutOrAdd) => {
+          if (linkIdsToPutOrAdd.isEmpty) {
+            insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
+          } else {
+            for {
+              linkIds <- retrieveLinkIdsToPut(col, linkIdsToPutOrAdd)
+              cellSeq <- retrieveForeignIdentifierCells(col, linkIds)
+              langTags <- tableModel.retrieveGlobalLangtags()
+            } yield {
+              val preparedData = cellSeq.map(cell => {
+                IdentifierFlattener.compress(langTags, cell.value) match {
+                  case Right(m) => (MultiLanguage, cell.rowId, m)
+                  case Left(s) => (LanguageNeutral, cell.rowId, s)
+                }
+              })
 
-            val languageType = preparedData.head._1
-            insertHistory(table, rowId, col.id, col.kind, languageType, wrapValue(preparedData))
+              val languageType = preparedData.head._1
+              insertHistory(table, rowId, col.id, col.kind, languageType, wrapValue(preparedData))
+            }
           }
         }
-      }
-    })
+      })
+    )
 
-    Future.sequence(futureSequence).map(_ => ())
   }
 
   def deleteLinks(
