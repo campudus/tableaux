@@ -97,6 +97,7 @@ class TableauxModel(
   val attachmentModel = AttachmentModel(connection)
   val retrieveHistoryModel = RetrieveHistoryModel(connection)
   val createHistoryModel = CreateHistoryModel(this, connection)
+  val createInitialHistoryModel = CreateInitialHistoryModel(this, connection)
 
   def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
 
@@ -301,8 +302,11 @@ class TableauxModel(
 
       _ <- column match {
         case linkColumn: LinkColumn => {
-          updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
-          createHistoryModel.deleteLinks(table, rowId, Seq((linkColumn, Seq(toId))))
+          for {
+            _ <- createInitialHistoryModel.createHistoryIfNotExists(table, rowId, Seq((column, Seq(toId))))
+            _ <- updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
+            _ <- createHistoryModel.deleteLinks(table, rowId, Seq((linkColumn, Seq(toId))))
+          } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
@@ -326,6 +330,8 @@ class TableauxModel(
       _ <- column match {
         case linkColumn: LinkColumn => {
           for {
+//            _ <- createInitialHistoryModel.createHistoryLinkOrderIfNotExists(table, linkColumn, rowId)
+            _ <- createInitialHistoryModel.createLinksInit(table, rowId, Seq((linkColumn, Seq.empty[RowId])))
             _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
             _ <- invalidateCellAndDependentColumns(column, rowId)
             _ <- createHistoryModel.updateLinkOrder(table, linkColumn, rowId)
@@ -367,7 +373,7 @@ class TableauxModel(
         Future.successful(())
       }
 
-      _ <- createHistoryModel.createInitialHistoryIfNotExists(table, rowId, Seq((column, value)))
+      _ <- createInitialHistoryModel.createHistoryIfNotExists(table, rowId, Seq((column, value)))
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
       _ <- invalidateCellAndDependentColumns(column, rowId)
       _ <- createHistoryModel.create(table, rowId, Seq((column, value)), replace)

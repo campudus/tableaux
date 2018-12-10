@@ -86,14 +86,195 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
   }
 }
 
-case class CreateHistoryModel(
-    protected[this] val tableauxModel: TableauxModel,
-    protected[this] val connection: DatabaseConnection
-) extends DatabaseQuery {
+sealed trait CreateHistoryModelBase extends DatabaseQuery {
+  protected[this] val tableauxModel: TableauxModel
+  protected[this] val connection: DatabaseConnection
 
   val tableModel = new TableModel(connection)
 
-  def createInitialHistoryIfNotExists(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  protected def retrieveCurrentLinkIds(
+      table: Table,
+      col: LinkColumn,
+      rowId: RowId
+  ): Future[Seq[RowId]] = {
+    for {
+      cell <- tableauxModel.retrieveCell(table, col.id, rowId)
+    } yield {
+      import scala.collection.JavaConverters._
+
+      cell.getJson
+        .getJsonArray("value")
+        .asScala
+        .map(_.asInstanceOf[JsonObject])
+        .map(_.getLong("id").longValue())
+        .toSeq
+    }
+  }
+
+  protected def createLinks(
+      table: Table,
+      rowId: RowId,
+      links: Seq[(LinkColumn, Seq[RowId])],
+      replace: Boolean
+  ): Future[Seq[Any]] = {
+
+    def wrapValue(valueSeq: Seq[(_, RowId, Object)]): JsonObject = {
+      Json.obj(
+        "value" ->
+          valueSeq.map({
+            case (_, rowId, value) => Json.obj("id" -> rowId, "value" -> value)
+          })
+      )
+    }
+
+    def retrieveLinkIdsToPut(
+        col: LinkColumn,
+        linkIdsToPutOrAdd: Seq[RowId]
+    ): Future[Seq[RowId]] = {
+      if (replace)
+        Future.successful(linkIdsToPutOrAdd)
+      else
+        for {
+          currentLinkIds <- retrieveCurrentLinkIds(table, col, rowId)
+        } yield {
+          // In some cases the new links are already inserted, in other cases not.
+          // To be on the safe side, we only add them if they haven't been added yet.
+          val diffSeq = linkIdsToPutOrAdd.diff(currentLinkIds)
+          currentLinkIds.union(diffSeq)
+        }
+    }
+
+    Future.sequence(
+      links.map({
+        case (col, linkIdsToPutOrAdd) => {
+          if (linkIdsToPutOrAdd.isEmpty) {
+            insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
+          } else {
+            for {
+              linkIds <- retrieveLinkIdsToPut(col, linkIdsToPutOrAdd)
+              cellSeq <- retrieveForeignIdentifierCells(col, linkIds)
+              langTags <- tableModel.retrieveGlobalLangtags()
+            } yield {
+              val preparedData = cellSeq.map(cell => {
+                IdentifierFlattener.compress(langTags, cell.value) match {
+                  case Right(m) => (MultiLanguage, cell.rowId, m)
+                  case Left(s) => (LanguageNeutral, cell.rowId, s)
+                }
+              })
+
+              val languageType = preparedData.head._1
+              insertHistory(table, rowId, col.id, col.kind, languageType, wrapValue(preparedData))
+            }
+          }
+        }
+      })
+    )
+  }
+
+  private def retrieveForeignIdentifierCells(
+      col: LinkColumn,
+      linkIds: Seq[RowId]
+  ): Future[Seq[Cell[Any]]] = {
+    val linkedCellSeq = linkIds.map(
+      linkId =>
+        for {
+          foreignIdentifier <- tableauxModel.retrieveCell(col.to.table, col.to.id, linkId)
+        } yield foreignIdentifier
+    )
+    Future.sequence(linkedCellSeq)
+  }
+
+  protected def createTranslation(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
+  ): Future[Seq[RowId]] = {
+
+    def wrapLanguageValue(langtag: String, value: Any): JsonObject = Json.obj("value" -> Json.obj(langtag -> value))
+
+    val entries = for {
+      (column, langtagValueOptMap) <- values
+      (langtag: String, valueOpt) <- langtagValueOptMap
+    } yield (langtag, (column, valueOpt))
+
+    val columnsForLang = entries
+      .groupBy({ case (langtag, _) => langtag })
+      .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
+
+    val futureSequence: Seq[Future[RowId]] = columnsForLang.toSeq
+      .flatMap({
+        case (langtag, columnValueOptSeq) =>
+          val languageCellEntries = columnValueOptSeq
+            .map({
+              case (column: SimpleValueColumn[_], valueOpt) =>
+                (column.id, column.kind, column.languageType, wrapLanguageValue(langtag, valueOpt.orNull))
+            })
+
+          languageCellEntries.map({
+            case (columnId, columnType, languageType, value) =>
+              insertHistory(table, rowId, columnId, columnType, languageType, value)
+          })
+      })
+
+    Future.sequence(futureSequence)
+  }
+
+  protected def createSimple(
+      table: Table,
+      rowId: RowId,
+      simples: Seq[(SimpleValueColumn[_], Option[Any])]
+  ): Future[Seq[RowId]] = {
+
+    def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
+
+    val cellEntries = simples
+      .map({
+        case (column: SimpleValueColumn[_], valueOpt) =>
+          (column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))
+      })
+
+    val futureSequence: Seq[Future[RowId]] = cellEntries
+      .map({
+        case (columnId, columnType, languageType, value) =>
+          insertHistory(table, rowId, columnId, columnType, languageType, value)
+      })
+
+    Future.sequence(futureSequence)
+  }
+
+  private def insertHistory(
+      table: Table,
+      rowId: RowId,
+      columnId: ColumnId,
+      columnType: TableauxDbType,
+      languageType: LanguageType,
+      json: JsonObject
+  ): Future[RowId] = {
+    logger.info(s"createHistory ${table.id} $columnId $rowId $json")
+    for {
+      result <- connection.query(
+        s"""INSERT INTO
+           |  user_table_history_${table.id}
+           |    (row_id, column_id, column_type, multilanguage, value)
+           |  VALUES
+           |    (?, ?, ?, ?, ?)
+           |  RETURNING revision""".stripMargin,
+        Json.arr(rowId, columnId, columnType.toString, languageType.toString, json.toString)
+      )
+    } yield {
+      insertNotNull(result).head.get[RowId](0)
+    }
+  }
+
+}
+
+case class CreateInitialHistoryModel(
+    protected[this] val tableauxModel: TableauxModel,
+    protected[this] val connection: DatabaseConnection
+) extends DatabaseQuery
+    with CreateHistoryModelBase {
+
+  def createHistoryIfNotExists(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -108,7 +289,7 @@ case class CreateHistoryModel(
     }
   }
 
-  private def createLinksInit(
+  def createLinksInit(
       table: Table,
       rowId: RowId,
       links: Seq[(LinkColumn, Seq[RowId])],
@@ -213,6 +394,41 @@ case class CreateHistoryModel(
       Json.arr(columnId, rowId))
   }
 
+  private def retrieveCellValue(
+      table: Table,
+      column: ColumnType[_],
+      rowId: RowId,
+      langtagCountryOpt: Option[String] = None
+  ): Future[String] = {
+    for {
+      cell <- tableauxModel.retrieveCell(table, column.id, rowId)
+    } yield {
+      Option(cell.value) match {
+        case Some(v) =>
+          column match {
+//            case _: BooleanColumn =>
+//              cell.getJson
+//                .getBoolean(langtagCountryOpt.get, false)
+
+            case MultiLanguageColumn(_) =>
+              cell.getJson
+                .getJsonObject("value")
+                .getString(langtagCountryOpt.getOrElse(""), "")
+            case _: SimpleValueColumn[_] => v.toString
+            case _: AttachmentColumn => ???
+          }
+        case None => ""
+      }
+    }
+  }
+}
+
+case class CreateHistoryModel(
+    protected[this] val tableauxModel: TableauxModel,
+    protected[this] val connection: DatabaseConnection
+) extends DatabaseQuery
+    with CreateHistoryModelBase {
+
   def create(
       table: Table,
       rowId: RowId,
@@ -232,67 +448,6 @@ case class CreateHistoryModel(
 //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
         } yield ()
     }
-  }
-
-  private def createLinks(
-      table: Table,
-      rowId: RowId,
-      links: Seq[(LinkColumn, Seq[RowId])],
-      replace: Boolean
-  ): Future[Seq[Any]] = {
-
-    def wrapValue(valueSeq: Seq[(_, RowId, Object)]): JsonObject = {
-      Json.obj(
-        "value" ->
-          valueSeq.map({
-            case (_, rowId, value) => Json.obj("id" -> rowId, "value" -> value)
-          })
-      )
-    }
-
-    def retrieveLinkIdsToPut(
-        col: LinkColumn,
-        linkIdsToPutOrAdd: Seq[RowId]
-    ): Future[Seq[RowId]] = {
-      if (replace)
-        Future.successful(linkIdsToPutOrAdd)
-      else
-        for {
-          currentLinkIds <- retrieveCurrentLinkIds(table, col, rowId)
-        } yield {
-          // In some cases the new links are already inserted, in other cases not.
-          // To be on the safe side, we only add them if they haven't been added yet.
-          val diffSeq = linkIdsToPutOrAdd.diff(currentLinkIds)
-          currentLinkIds.union(diffSeq)
-        }
-    }
-
-    Future.sequence(
-      links.map({
-        case (col, linkIdsToPutOrAdd) => {
-          if (linkIdsToPutOrAdd.isEmpty) {
-            insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
-          } else {
-            for {
-              linkIds <- retrieveLinkIdsToPut(col, linkIdsToPutOrAdd)
-              cellSeq <- retrieveForeignIdentifierCells(col, linkIds)
-              langTags <- tableModel.retrieveGlobalLangtags()
-            } yield {
-              val preparedData = cellSeq.map(cell => {
-                IdentifierFlattener.compress(langTags, cell.value) match {
-                  case Right(m) => (MultiLanguage, cell.rowId, m)
-                  case Left(s) => (LanguageNeutral, cell.rowId, s)
-                }
-              })
-
-              val languageType = preparedData.head._1
-              insertHistory(table, rowId, col.id, col.kind, languageType, wrapValue(preparedData))
-            }
-          }
-        }
-      })
-    )
-
   }
 
   def deleteLinks(
@@ -328,145 +483,6 @@ case class CreateHistoryModel(
     } yield {
       // For updating links ordering, we pretend to put a new sequence of links
       createLinks(table, rowId, Seq((column, linkIds)), true)
-    }
-  }
-
-  private def retrieveForeignIdentifierCells(
-      col: LinkColumn,
-      linkIds: Seq[RowId]
-  ): Future[Seq[Cell[Any]]] = {
-    val linkedCellSeq = linkIds.map(
-      linkId =>
-        for {
-          foreignIdentifier <- tableauxModel.retrieveCell(col.to.table, col.to.id, linkId)
-        } yield foreignIdentifier
-    )
-    Future.sequence(linkedCellSeq)
-  }
-
-  private def retrieveCellValue(
-      table: Table,
-      column: ColumnType[_],
-      rowId: RowId,
-      langtagCountryOpt: Option[String] = None
-  ): Future[String] = {
-    for {
-      cell <- tableauxModel.retrieveCell(table, column.id, rowId)
-    } yield {
-      Option(cell.value) match {
-        case Some(v) =>
-          column match {
-            case MultiLanguageColumn(_) =>
-              cell.getJson
-                .getJsonObject("value")
-                .getString(langtagCountryOpt.getOrElse(""), "")
-            case _: SimpleValueColumn[_] => v.toString
-            //        case c: LinkColumn => ???
-            case _: AttachmentColumn => ???
-          }
-        case None => ""
-      }
-    }
-  }
-
-  private def retrieveCurrentLinkIds(
-      table: Table,
-      col: LinkColumn,
-      rowId: RowId
-  ): Future[Seq[RowId]] = {
-    for {
-      cell <- tableauxModel.retrieveCell(table, col.id, rowId)
-    } yield {
-      import scala.collection.JavaConverters._
-
-      cell.getJson
-        .getJsonArray("value")
-        .asScala
-        .map(_.asInstanceOf[JsonObject])
-        .map(_.getLong("id").longValue())
-        .toSeq
-    }
-  }
-
-  private def createTranslation(
-      table: Table,
-      rowId: RowId,
-      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
-  ): Future[Seq[RowId]] = {
-
-    def wrapLanguageValue(langtag: String, value: Any): JsonObject = Json.obj("value" -> Json.obj(langtag -> value))
-
-    val entries = for {
-      (column, langtagValueOptMap) <- values
-      (langtag: String, valueOpt) <- langtagValueOptMap
-    } yield (langtag, (column, valueOpt))
-
-    val columnsForLang = entries
-      .groupBy({ case (langtag, _) => langtag })
-      .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
-
-    val futureSequence: Seq[Future[RowId]] = columnsForLang.toSeq
-      .flatMap({
-        case (langtag, columnValueOptSeq) =>
-          val languageCellEntries = columnValueOptSeq
-            .map({
-              case (column: SimpleValueColumn[_], valueOpt) =>
-                (column.id, column.kind, column.languageType, wrapLanguageValue(langtag, valueOpt.orNull))
-            })
-
-          languageCellEntries.map({
-            case (columnId, columnType, languageType, value) =>
-              insertHistory(table, rowId, columnId, columnType, languageType, value)
-          })
-      })
-
-    Future.sequence(futureSequence)
-  }
-
-  private def createSimple(
-      table: Table,
-      rowId: RowId,
-      simples: Seq[(SimpleValueColumn[_], Option[Any])]
-  ): Future[Seq[RowId]] = {
-
-    def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
-
-    val cellEntries = simples
-      .map({
-        case (column: SimpleValueColumn[_], valueOpt) =>
-          (column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))
-      })
-
-    val futureSequence: Seq[Future[RowId]] = cellEntries
-      .map({
-        case (columnId, columnType, languageType, value) =>
-          insertHistory(table, rowId, columnId, columnType, languageType, value)
-      })
-
-    Future.sequence(futureSequence)
-  }
-
-  private def insertHistory(
-      table: Table,
-      rowId: RowId,
-      columnId: ColumnId,
-      columnType: TableauxDbType,
-      languageType: LanguageType,
-      json: JsonObject
-  ): Future[RowId] = {
-    logger.info(s"createHistory ${table.id} $columnId $rowId $json")
-    for {
-      result <- connection.query(
-        s"""INSERT INTO
-           |  user_table_history_${table.id}
-           |    (row_id, column_id, column_type, multilanguage, value)
-           |  VALUES
-           |    (?, ?, ?, ?, ?)
-           |  RETURNING revision""".stripMargin,
-        Json.arr(rowId, columnId, columnType.toString, languageType.toString, json.toString)
-      )
-    } yield {
-      insertNotNull(result).head.get[RowId](0)
     }
   }
 }

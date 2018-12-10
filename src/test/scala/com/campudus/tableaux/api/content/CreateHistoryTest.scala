@@ -766,10 +766,10 @@ class CreateHistoryCompatibilityTest extends LinkTestBase {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
         _ <- dbConnection.query("""INSERT INTO link_table_1
-                                  |  (id_1, id_2, ordering_1, ordering_2)
+                                  |  (id_1, id_2)
                                   |VALUES
-                                  |  (1,3,1,1),
-                                  |  (1,4,1,1)
+                                  |  (1, 3),
+                                  |  (1, 4)
                                   |  """.stripMargin)
 
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 5 ] }""")
@@ -791,20 +791,125 @@ class CreateHistoryCompatibilityTest extends LinkTestBase {
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
       val expectedInitialLinks = """{ "value": [ {"id":3} ] }"""
-      val expectedAfterPostLinks1 = """{ "value": [ {"id":3}, {"id": 4} ] }"""
-      val expectedAfterPostLinks2 = """{ "value": [ {"id":3}, {"id": 4}, {"id": 5} ] }"""
+      val expectedAfterPostLinks1 = """{ "value": [ {"id":3}, {"id":4} ] }"""
+      val expectedAfterPostLinks2 = """{ "value": [ {"id":3}, {"id":4}, {"id":5} ] }"""
 
       for {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
         _ <- dbConnection.query("""INSERT INTO link_table_1
-                                  |  (id_1, id_2, ordering_1, ordering_2)
+                                  |  (id_1, id_2)
                                   |VALUES
-                                  |  (1,3,1,1)
+                                  |  (1, 3)
                                   |  """.stripMargin)
 
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 4 ] }""")
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 5 ] }""")
+        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+        history2 = rows.getJsonObject(2)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPostLinks2, history2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteLinkValue_threeLinks_deleteOneOfThem(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedInitialLinks = """{ "value": [ {"id":3}, {"id":4}, {"id":5} ] }"""
+      val expectedAfterPostLinks1 = """{ "value": [ {"id":3}, {"id":5} ] }"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4),
+                                  |  (1, 5)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/4")
+        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeLinkOrder_reverseOrderInTwoSteps_createOnlyOneInitHistory(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedInitialLinks = """{ "value": [ {"id":3}, {"id":4}, {"id":5} ] }"""
+      val expectedAfterPostLinks1 = """{ "value": [ {"id":4}, {"id":5}, {"id":3} ] }"""
+      val expectedAfterPostLinks2 = """{ "value": [ {"id":5}, {"id":4}, {"id":3} ] }"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4),
+                                  |  (1, 5)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/3/order", s""" {"location": "end"} """)
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/5/order", s""" {"location": "start"} """)
+
+        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+        history2 = rows.getJsonObject(2)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPostLinks2, history2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteLinkValue_threeLinks_deleteTwoTimesOnlyOneInitHistory(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedInitialLinks = """{ "value": [ {"id":3}, {"id":4}, {"id":5} ] }"""
+      val expectedAfterPostLinks1 = """{ "value": [ {"id":3}, {"id":5} ] }"""
+      val expectedAfterPostLinks2 = """{ "value": [ {"id":5} ] }"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4),
+                                  |  (1, 5)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/4")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/3")
         test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history")
         rows = test.getJsonArray("rows")
         initialHistory = rows.getJsonObject(0)

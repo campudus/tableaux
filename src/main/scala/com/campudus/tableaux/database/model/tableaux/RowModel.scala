@@ -150,10 +150,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         // we only care about links because of delete cascade handling
         // for simple, multis, and attachments do same as in clearRow()
         for {
-          _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.unzip._1.map((_, None)))
-          _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis.unzip._1)
+          _ <- if (simple.isEmpty) Future.successful(())
+          else updateSimple(table, rowId, simple.map({ case (c, _) => (c, None) }))
+          _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis.map(_._1))
           _ <- if (links.isEmpty) Future.successful(()) else clearLinksWithValues(table, rowId, links, deleteRowFn)
-          _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments.unzip._1)
+          _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments.map(_._1))
         } yield ()
     }
   }
