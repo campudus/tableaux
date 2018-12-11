@@ -7,7 +7,7 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -538,6 +538,31 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
         historyAfterCreation = getLinksJsonArray(test, 1)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  @Ignore
+  def changeLink_addLinkBidirectional(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
+
+      val linkTable1 = """[ {"id": 1, "value": "table2row1"} ]""".stripMargin
+      val linkTable2 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+        history1 <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        history2 <- sendRequest("GET", "/tables/2/columns/3/rows/1/history")
+        historyAfterCreation1 = getLinksJsonArray(history1)
+        historyAfterCreation2 = getLinksJsonArray(history2)
+      } yield {
+        JSONAssert.assertEquals(linkTable1, historyAfterCreation1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(linkTable2, historyAfterCreation2.toString, JSONCompareMode.LENIENT)
       }
     }
   }
