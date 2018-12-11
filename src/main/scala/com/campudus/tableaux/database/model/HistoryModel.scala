@@ -320,20 +320,22 @@ case class CreateInitialHistoryModel(
       simples: Seq[(SimpleValueColumn[_], Option[Any])]
   ): Future[Seq[Unit]] = {
 
+    def createIfNotEmpty(column: SimpleValueColumn[_]) = {
+      for {
+        value <- retrieveCellValue(table, column, rowId)
+      } yield {
+        value match {
+          case Some(v) => createSimple(table, rowId, Seq((column, Option(v))))
+          case None => Future.successful(())
+        }
+      }
+    }
+
     Future.sequence(simples.map({
       case (column: SimpleValueColumn[_], _) =>
         for {
           historyEntryExists <- historyExists(table.id, column.id, rowId)
-          _ <- if (!historyEntryExists) {
-            for {
-              value <- retrieveCellValue(table, column, rowId)
-              _ <- if (value.nonEmpty)
-                createSimple(table, rowId, Seq((column, Option(value))))
-              else
-                Future.successful(())
-            } yield ()
-          } else
-            Future.successful(())
+          _ <- if (!historyEntryExists) createIfNotEmpty(column) else Future.successful(())
         } yield ()
     }))
   }
@@ -353,6 +355,17 @@ case class CreateInitialHistoryModel(
       .groupBy({ case (langtag, _) => langtag })
       .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
 
+    def createIfNotEmpty(column: SimpleValueColumn[_], langtag: String) = {
+      for {
+        value <- retrieveCellValue(table, column, rowId, Option(langtag))
+      } yield {
+        value match {
+          case Some(v) => createTranslation(table, rowId, Seq((column, Map(langtag -> Option(v)))))
+          case None => Future.successful(())
+        }
+      }
+    }
+
     Future.sequence(
       columnsForLang.toSeq
         .flatMap({
@@ -362,15 +375,7 @@ case class CreateInitialHistoryModel(
                 case (column: SimpleValueColumn[_], _) =>
                   for {
                     historyEntryExists <- historyExists(table.id, column.id, rowId, Option(langtag))
-                    _ <- if (!historyEntryExists) for {
-                      value <- retrieveCellValue(table, column, rowId, Option(langtag))
-                      _ <- if (value.nonEmpty)
-                        createTranslation(table, rowId, Seq((column, Map(langtag -> Option(value)))))
-                      else
-                        Future.successful(())
-                    } yield ()
-                    else
-                      Future.successful(())
+                    _ <- if (!historyEntryExists) createIfNotEmpty(column, langtag) else Future.successful(())
                   } yield ()
               })
           }
@@ -399,25 +404,23 @@ case class CreateInitialHistoryModel(
       column: ColumnType[_],
       rowId: RowId,
       langtagCountryOpt: Option[String] = None
-  ): Future[String] = {
+  ): Future[Option[Any]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId)
     } yield {
       Option(cell.value) match {
         case Some(v) =>
           column match {
-//            case _: BooleanColumn =>
-//              cell.getJson
-//                .getBoolean(langtagCountryOpt.get, false)
-
             case MultiLanguageColumn(_) =>
-              cell.getJson
-                .getJsonObject("value")
-                .getString(langtagCountryOpt.getOrElse(""), "")
-            case _: SimpleValueColumn[_] => v.toString
+              val rawValue = cell.getJson.getJsonObject("value")
+              column match {
+                case _: BooleanColumn => Option(rawValue.getBoolean(langtagCountryOpt.getOrElse(""), false))
+                case _ => Option(rawValue.getValue(langtagCountryOpt.getOrElse("")))
+              }
+            case _: SimpleValueColumn[_] => Some(v)
             case _: AttachmentColumn => ???
           }
-        case None => ""
+        case _ => None
       }
     }
   }

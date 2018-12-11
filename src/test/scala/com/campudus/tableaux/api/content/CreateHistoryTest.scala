@@ -148,10 +148,18 @@ class CreateHistoryTest extends TableauxTestBase {
   @Test
   def changeMultilanguageValue_boolean(implicit c: TestContext): Unit = {
     okTest {
+      // Booleans always gets a initial history entry on first change
       val expected =
         """
           |[
           |  {
+          |    "event": "cell_changed",
+          |    "columnType": "boolean",
+          |    "languageType": "language",
+          |    "value": {
+          |      "de-DE": false
+          |    }
+          |  }, {
           |    "event": "cell_changed",
           |    "columnType": "boolean",
           |    "languageType": "language",
@@ -919,6 +927,130 @@ class CreateHistoryCompatibilityTest extends LinkTestBase {
         JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(expectedAfterPostLinks2, history2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeSimpleValue_booleanInitHistoryWithValueFalse(implicit c: TestContext): Unit = {
+    okTest {
+      // Booleans always gets a initial history entry on first change
+      val expectedInitialLinks = """{ "value": false} """
+      val expectedAfterPost1 = """{ "value": true }"""
+
+      val booleanColumn =
+        s"""{"columns": [{"kind": "boolean", "name": "Boolean Column", "languageType": "neutral"} ] }"""
+
+      for {
+        _ <- createEmptyDefaultTable("history test")
+
+        // create simple boolean column
+        _ <- sendRequest("POST", "/tables/1/columns", booleanColumn)
+
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", expectedAfterPost1)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeSimpleValue_booleanInitHistoryWithSameValue(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      // Booleans always gets a initial history entry on first change
+      val expectedInitialLinks = """{ "value": true} """
+      val expectedAfterPost1 = """{ "value": true }"""
+
+      val booleanColumn =
+        s"""{"columns": [{"kind": "boolean", "name": "Boolean Column", "languageType": "neutral"} ] }"""
+
+      for {
+        _ <- createEmptyDefaultTable("history test")
+
+        // create simple boolean column
+        _ <- sendRequest("POST", "/tables/1/columns", booleanColumn)
+
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // manually update value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query("""UPDATE user_table_1 SET column_3 = TRUE WHERE id = 1""".stripMargin)
+
+        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", expectedAfterPost1)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeSimpleValue_boolean(implicit c: TestContext): Unit = {
+    okTest {
+      // Booleans always gets a initial history entry on first change
+      val expectedInitialLinks = """{ "value": false} """
+      val expectedAfterPost1 = """{ "value": true }"""
+      val expectedAfterPost2 = """{ "value": false }"""
+
+      val booleanColumn =
+        s"""{"columns": [{"kind": "boolean", "name": "Boolean Column", "languageType": "neutral"} ] }"""
+
+      for {
+        _ <- createEmptyDefaultTable("history test")
+
+        // create simple boolean column
+        _ <- sendRequest("POST", "/tables/1/columns", booleanColumn)
+
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", expectedAfterPost1)
+        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", expectedAfterPost2)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+        history2 = rows.getJsonObject(2)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPost2, history2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeMultilanguageValue_boolean(implicit c: TestContext): Unit = {
+    okTest {
+      // Booleans always gets a initial history entry on first change
+      val expectedInitialLinks = """{ "value": {"de-DE": false} }"""
+      val expectedAfterPost1 = """{ "value": {"de-DE": true} }"""
+      val expectedAfterPost2 = """{ "value": {"de-DE": false} }"""
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", expectedAfterPost1)
+        _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", expectedAfterPost2)
+        test <- sendRequest("GET", "/tables/1/columns/2/rows/1/history")
+        rows = test.getJsonArray("rows")
+        initialHistory = rows.getJsonObject(0)
+        history1 = rows.getJsonObject(1)
+        history2 = rows.getJsonObject(2)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedAfterPost2, history2.toString, JSONCompareMode.LENIENT)
       }
     }
   }
