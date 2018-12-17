@@ -119,10 +119,6 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       bidirectionalInsert: Boolean = false
   ): Future[Seq[Any]] = {
 
-    if (bidirectionalInsert) {
-      println("XXX Bidirectional baby: " + table.id + " " + rowId + " " + links)
-    }
-
     def wrapValue(valueSeq: Seq[(_, RowId, Object)]): JsonObject = {
       Json.obj(
         "value" ->
@@ -157,29 +153,24 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
           } else {
             for {
               linkIds <- retrieveLinkIdsToPut(col, linkIdsToPutOrAdd)
-              cellSeq <- retrieveForeignIdentifierCells(col, linkIds)
+              identifierCellSeq <- retrieveForeignIdentifierCells(col, linkIds)
               langTags <- tableModel.retrieveGlobalLangtags()
 
-              dependentColumns <- tableauxModel.retrieveDependencies(table)
-
-              _ <- Future.sequence(dependentColumns.map({
-
-                case DependentColumnInformation(tableId, columnId, _, _, _) => {
-                  for {
-                    table <- tableModel.retrieve(tableId)
-                    column <- tableauxModel.retrieveColumn(table, columnId)
-//                    row <- tableauxModel.retrieveRow(table, column.id)
-                    _ <- createLinks(table, col.linkId, Seq((column.asInstanceOf[LinkColumn], Seq())), false, true)
-                  } yield {}
-
-                  println("XXX: " + tableId + " " + columnId + " ")
-                  Future.successful(())
-                }
-
-              }))
+//               dependentColumns <- tableauxModel.retrieveDependencies(table)
+//               _ <- Future.sequence(dependentColumns.map({
+//                 case DependentColumnInformation(tableId, columnId, _, _, _) => {
+//                   for {
+//                     table <- tableModel.retrieve(tableId)
+//                     column <- tableauxModel.retrieveColumn(table, columnId)
+//                     _ <- createLinks(table, col.linkId, Seq((column.asInstanceOf[LinkColumn], Seq())), false, true)
+//                   } yield {}
+//                   Future.successful(())
+//                 }
+//
+//               }))
 
             } yield {
-              val preparedData = cellSeq.map(cell => {
+              val preparedData = identifierCellSeq.map(cell => {
                 IdentifierFlattener.compress(langTags, cell.value) match {
                   case Right(m) => (MultiLanguage, cell.rowId, m)
                   case Left(s) => (LanguageNeutral, cell.rowId, s)
