@@ -344,6 +344,50 @@ class CreateHistoryTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def createRowsWithValues(implicit c: TestContext): Unit = {
+    okTest {
+
+      val rowData = """{
+                      |  "columns": [ {"id": 1}, {"id": 2}, {"id": 3} ],
+                      |  "rows": [{
+                      |    "values": [
+                      |      {
+                      |        "de-DE": "value de",
+                      |        "en-GB": "value en"
+                      |      }, {
+                      |        "de-DE": true,
+                      |        "en-GB": false
+                      |      }, {
+                      |        "de-DE": 111,
+                      |        "en-GB": 222
+                      |      }
+                      |    ]
+                      |  }]
+                      |}""".stripMargin
+
+      val expectedText = """[ {"value":{"de-DE": "value de"}}, {"value":{"en-GB": "value en"}} ]"""
+      val expectedBoolean = """[ {"value":{"de-DE": true}}, {"value":{"en-GB": false}} ]"""
+      val expectedNumeric = """[ {"value":{"de-DE": 111}}, {"value":{"en-GB": 222}} ]"""
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows", rowData)
+
+        textHistory <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+        booleanHistory <- sendRequest("GET", "/tables/1/columns/2/rows/1/history")
+        numericHistory <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        textRows = textHistory.getJsonArray("rows")
+        booleanRows = booleanHistory.getJsonArray("rows")
+        numericRows = numericHistory.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expectedText, textRows.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedBoolean, booleanRows.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedNumeric, numericRows.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -541,28 +585,69 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
       }
     }
   }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateBidirectionalLinkHistoryTest extends LinkTestBase {
+
+  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
+    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
+  }
+
+  // TODO
+  // very bidirectional is very complex
+  // wwe have to handle deletion, adding, etc. and there shouldn't be created duplicate history entries
 
   @Test
   @Ignore
-  def changeLink_addLinkBidirectional(implicit c: TestContext): Unit = {
+  def changeLink_addOneLinkBidirectional(implicit c: TestContext): Unit = {
     okTest {
 
-      val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(1)))
+      val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(5)))
 
-      val linkTable1 = """[ {"id": 1, "value": "table2row1"} ]""".stripMargin
-      val linkTable2 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
+      val linkTable = """[ {"id": 5, "value": "table2RowId3"} ]""".stripMargin
+      val targetLinkTable = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
 
       for {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
-        history1 <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
-        history2 <- sendRequest("GET", "/tables/2/columns/3/rows/1/history")
-        historyAfterCreation1 = getLinksJsonArray(history1)
-        historyAfterCreation2 = getLinksJsonArray(history2)
+        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        targetHistory <- sendRequest("GET", "/tables/2/columns/3/rows/5/history")
+        historyLinks = getLinksJsonArray(history)
+        historyTargetLinks = getLinksJsonArray(targetHistory)
       } yield {
-        JSONAssert.assertEquals(linkTable1, historyAfterCreation1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(linkTable2, historyAfterCreation2.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(targetLinkTable, historyTargetLinks.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  @Ignore
+  def changeLink_addTwoLinksBidirectional(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(4, 5)))
+
+      val linkTable = """[ {"id": 4, "value": "table2RowId2"},  {"id": 5, "value": "table2RowId3"} ]""".stripMargin
+      val targetLinkTable1 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
+      val targetLinkTable2 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history")
+        targetHistory2 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history")
+        historyLinks = getLinksJsonArray(history)
+        historyTargetLinks1 = getLinksJsonArray(targetHistory1)
+        historyTargetLinks2 = getLinksJsonArray(targetHistory2)
+      } yield {
+        JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(targetLinkTable1, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(targetLinkTable2, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
       }
     }
   }

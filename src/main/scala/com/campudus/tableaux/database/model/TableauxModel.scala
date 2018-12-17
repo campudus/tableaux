@@ -218,6 +218,8 @@ class TableauxModel(
             }
 
             rowId <- createRowModel.createRow(table, columnValuePairs)
+            _ <- createHistoryModel.create(table, rowId, columnValuePairs)
+
             newRow <- retrieveRow(table, columns, rowId)
           } yield {
             rows ++ Seq(newRow)
