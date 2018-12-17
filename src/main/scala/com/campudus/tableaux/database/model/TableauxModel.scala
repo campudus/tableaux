@@ -369,13 +369,14 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
+      _ <- createInitialHistoryModel.createHistoryIfNotExists(table, rowId, Seq((column, value)))
+
       _ <- if (replace) {
         updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
       } else {
         Future.successful(())
       }
 
-      _ <- createInitialHistoryModel.createHistoryIfNotExists(table, rowId, Seq((column, value)))
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
       _ <- invalidateCellAndDependentColumns(column, rowId)
       _ <- createHistoryModel.create(table, rowId, Seq((column, value)), replace)

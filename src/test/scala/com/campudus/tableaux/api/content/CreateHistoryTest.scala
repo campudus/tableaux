@@ -872,6 +872,77 @@ class CreateHistoryCompatibilityTest extends LinkTestBase {
   }
 
   @Test
+  def changeCurrencyPOST_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(
+      implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedValues =
+        """[
+          |  {"value": {"DE": 11}},
+          |  {"value": {"GB": 22}},
+          |  {"value": {"DE": 33}},
+          |  {"value": {"GB": 44}}
+          |]""".stripMargin
+
+      val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB"))
+
+      for {
+        _ <- createSimpleTableWithCell("table1", multiCountryCurrencyColumn)
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query("""INSERT INTO user_table_lang_1(id, langtag, column_1)
+                                  |  VALUES
+                                  |(1, E'DE', 11),
+                                  |(1, E'GB', 22)
+                                  |""".stripMargin)
+
+        _ <- sendRequest("POST", s"/tables/1/columns/1/rows/1", """{"value": {"DE": 33, "GB": 44}}""")
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+        rows = test.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expectedValues, rows.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeCurrencyPUT_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedValues =
+        """[
+          |  {"value": {"DE": 11}},
+          |  {"value": {"GB": 22}},
+          |  {"value": {"DE": 33}},
+          |  {"value": {"GB": 44}}
+          |]""".stripMargin
+
+      val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB"))
+
+      for {
+        _ <- createSimpleTableWithCell("table1", multiCountryCurrencyColumn)
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query("""INSERT INTO user_table_lang_1(id, langtag, column_1)
+                                  |  VALUES
+                                  |(1, E'DE', 11),
+                                  |(1, E'GB', 22)
+                                  |""".stripMargin)
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", """{"value": {"DE": 33, "GB": 44}}""")
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+        rows = test.getJsonArray("rows")
+      } yield {
+        JSONAssert.assertEquals(expectedValues, rows.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
   def changeLinkValue_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
