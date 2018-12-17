@@ -388,6 +388,40 @@ class CreateHistoryTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def createCompleteTable(implicit c: TestContext): Unit = {
+    okTest {
+      val createCompleteTableJson = """{
+                                      |  "name": "TestTable",
+                                      |  "columns": [
+                                      |    {"kind": "text", "name": "Test Column 1"},
+                                      |    {"kind": "numeric", "name": "Test Column 2"}
+                                      |  ],
+                                      |  "rows": [
+                                      |    {"values": ["Test Field 1", 1]},
+                                      |    {"values": ["Test Field 2", 2]}
+                                      |  ]
+                                      |}""".stripMargin
+
+      for {
+        test <- sendRequest("POST", "/completetable", createCompleteTableJson)
+
+        textHistory1 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+        textHistory2 <- sendRequest("GET", "/tables/1/columns/1/rows/2/history")
+        numericHistory1 <- sendRequest("GET", "/tables/1/columns/2/rows/1/history")
+        numericHistory2 <- sendRequest("GET", "/tables/1/columns/2/rows/2/history")
+        textRows1 = textHistory1.getJsonArray("rows").getJsonObject(0)
+        textRows2 = textHistory2.getJsonArray("rows").getJsonObject(0)
+        numericRows1 = numericHistory1.getJsonArray("rows").getJsonObject(0)
+        numericRows2 = numericHistory2.getJsonArray("rows").getJsonObject(0)
+      } yield {
+        JSONAssert.assertEquals("""{"value": "Test Field 1"}""", textRows1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{"value": "Test Field 2"}""", textRows2.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{"value": 1}""", numericRows1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{"value": 2}""", numericRows2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
