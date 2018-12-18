@@ -289,7 +289,7 @@ case class CreateInitialHistoryModel(
 ) extends DatabaseQuery
     with CreateHistoryModelBase {
 
-  def createHistoryIfNotExists(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  def createIfNotExists(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -302,6 +302,33 @@ case class CreateInitialHistoryModel(
           //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
         } yield ()
     }
+  }
+
+  def createClearCellIfNotExists(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
+    val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
+
+    val simplesWithEmptyValues = for {
+      column <- simples
+    } yield (column, None)
+
+    val multisWithEmptyValues = for {
+      column <- multis
+      langtag <- table.langtags match {
+        case Some(value) => value
+        case _ => Seq.empty[String]
+      }
+    } yield (column, Map(langtag -> None))
+
+    val linksWithEmptyValues = for {
+      column <- links
+    } yield (column, Seq.empty[RowId])
+
+    for {
+      _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simplesWithEmptyValues)
+      _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multisWithEmptyValues)
+      _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, linksWithEmptyValues)
+      //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
+    } yield ()
   }
 
   def createLinksInit(

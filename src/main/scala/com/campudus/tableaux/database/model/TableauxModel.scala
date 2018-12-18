@@ -305,7 +305,7 @@ class TableauxModel(
       _ <- column match {
         case linkColumn: LinkColumn => {
           for {
-            _ <- createInitialHistoryModel.createHistoryIfNotExists(table, rowId, Seq((column, Seq(toId))))
+            _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((column, Seq(toId))))
             _ <- updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
             _ <- createHistoryModel.deleteLinks(table, rowId, Seq((linkColumn, Seq(toId))))
           } yield Future.successful(())
@@ -332,7 +332,6 @@ class TableauxModel(
       _ <- column match {
         case linkColumn: LinkColumn => {
           for {
-//            _ <- createInitialHistoryModel.createHistoryLinkOrderIfNotExists(table, linkColumn, rowId)
             _ <- createInitialHistoryModel.createLinksInit(table, rowId, Seq((linkColumn, Seq.empty[RowId])))
             _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
             _ <- invalidateCellAndDependentColumns(column, rowId)
@@ -369,7 +368,7 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
-      _ <- createInitialHistoryModel.createHistoryIfNotExists(table, rowId, Seq((column, value)))
+      _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((column, value)))
 
       _ <- if (replace) {
         updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
@@ -397,7 +396,7 @@ class TableauxModel(
 
       column <- retrieveColumn(table, columnId)
 
-//      _ <- createInitialHistoryModel.createHistoryIfNotExists(table, rowId, Seq(column))
+      _ <- createInitialHistoryModel.createClearCellIfNotExists(table, rowId, Seq(column))
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
       _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
 

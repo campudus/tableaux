@@ -12,6 +12,13 @@ import org.junit.{Ignore, Test}
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
+trait TestHelper {
+
+  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
+    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
+  }
+}
+
 @RunWith(classOf[VertxUnitRunner])
 class CreateHistoryTest extends TableauxTestBase {
 
@@ -475,11 +482,7 @@ class CreateHistoryTest extends TableauxTestBase {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class CreateSimpleLinkHistoryTest extends LinkTestBase {
-
-  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
-    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
-  }
+class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
 
   @Test
   def changeLink_addLink(implicit c: TestContext): Unit = {
@@ -691,11 +694,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class CreateBidirectionalLinkHistoryTest extends LinkTestBase {
-
-  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
-    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
-  }
+class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
 
   // TODO
   // very bidirectional is very complex
@@ -757,11 +756,7 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class CreateSimpleLinkOrderHistoryTest extends LinkTestBase {
-
-  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
-    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
-  }
+class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
 
   @Test
   def changeLinkOrder_reverseOrder(implicit c: TestContext): Unit = {
@@ -805,11 +800,7 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class CreateMultiLanguageLinkHistoryTest extends LinkTestBase {
-
-  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
-    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
-  }
+class CreateMultiLanguageLinkHistoryTest extends LinkTestBase with TestHelper {
 
   @Test
   def changeLink_MultiIdentifiers_MultiLangAndSingleLangNumeric(implicit c: TestContext): Unit = {
@@ -856,7 +847,7 @@ class CreateMultiLanguageLinkHistoryTest extends LinkTestBase {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class CreateHistoryCompatibilityTest extends LinkTestBase {
+class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 // For migrated systems it is necessary to also write a history entry for a currently existing cell value
 
   @Test
@@ -1335,6 +1326,101 @@ class CreateHistoryCompatibilityTest extends LinkTestBase {
         JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(expectedAfterPost2, history2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteSimpleCell_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(implicit c: TestContext): Unit = {
+    okTest {
+
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val initialValue = """{ "value": "value before history feature" }"""
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query("""UPDATE
+                                  |user_table_1
+                                  |SET column_1 = 'value before history feature'
+                                  |WHERE id = 1""".stripMargin)
+
+        _ <- sendRequest("DELETE", "/tables/1/columns/1/rows/1")
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+
+        rows = test.getJsonArray("rows")
+        initialHistoryCreation = rows.get[JsonObject](0)
+        firstHistoryCreation = rows.get[JsonObject](1)
+      } yield {
+        JSONAssert.assertEquals(initialValue, initialHistoryCreation.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{ "value": null }""", firstHistoryCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteMultilanguageCell_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(
+      implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val initialValueDE = """{ "value": { "de-DE": "de-DE init" } }"""
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query("""INSERT INTO user_table_lang_1(id, langtag,column_1)
+                                  |  VALUES
+                                  |(1, E'de-DE', E'de-DE init'),
+                                  |(1, E'en-GB', E'en-GB init')
+                                  |""".stripMargin)
+
+        _ <- sendRequest("DELETE", "/tables/1/columns/1/rows/1")
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE")
+
+        rows = test.getJsonArray("rows")
+        initialHistoryDE = rows.getJsonObject(0)
+        history = rows.getJsonObject(1)
+      } yield {
+        JSONAssert.assertEquals(initialValueDE, initialHistoryDE.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{ "value": { "de-DE": null } }""", history.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteLinkCell_threeLinks_deleteTwoTimesOnlyOneInitHistory(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedInitialLinks = """[ {"id":3}, {"id":4}, {"id":5} ]"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4),
+                                  |  (1, 5)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1")
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        initialHistory = getLinksJsonArray(test, 0)
+        history = getLinksJsonArray(test, 1)
+      } yield {
+        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("[]", history.toString, JSONCompareMode.LENIENT)
       }
     }
   }
