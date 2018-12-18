@@ -397,7 +397,9 @@ class TableauxModel(
 
       column <- retrieveColumn(table, columnId)
 
+//      _ <- createInitialHistoryModel.createHistoryIfNotExists(table, rowId, Seq(column))
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
+      _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
 

@@ -7,8 +7,8 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.junit.{Ignore, Test}
 import org.junit.runner.RunWith
+import org.junit.{Ignore, Test}
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -422,6 +422,56 @@ class CreateHistoryTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def deleteCell_singleLang(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("DELETE", "/tables/1/columns/1/rows/1")
+        _ <- sendRequest("DELETE", "/tables/1/columns/2/rows/1")
+
+        textHistoryRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+        numericHistoryRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history")
+
+        textHistory = textHistoryRows.getJsonArray("rows").get[JsonObject](1)
+        numericHistory = numericHistoryRows.getJsonArray("rows").get[JsonObject](1)
+      } yield {
+        JSONAssert.assertEquals("""{"value": null}""", textHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{"value": null}""", numericHistory.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteCell_multiLang(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", """{"value": {"de-DE": "first change"}}""")
+        _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", """{"value": {"de-DE": true}}""")
+        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", """{"value": {"de-DE": 42}}""")
+
+        _ <- sendRequest("DELETE", "/tables/1/columns/1/rows/1")
+        _ <- sendRequest("DELETE", "/tables/1/columns/2/rows/1")
+        _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
+
+        textHistoryRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE")
+        numericHistoryRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history/de-DE")
+        booelanHistoryRows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history/de-DE")
+
+        textHistory = textHistoryRows.getJsonArray("rows").get[JsonObject](1)
+        //for boolean setting one value also sets all other langtags to false, so take pos=2
+        numericHistory = numericHistoryRows.getJsonArray("rows").get[JsonObject](2)
+        booleanHistory = booelanHistoryRows.getJsonArray("rows").get[JsonObject](1)
+      } yield {
+        JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", textHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", numericHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", booleanHistory.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -616,6 +666,25 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase {
         historyAfterCreation = getLinksJsonArray(test, 1)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteCell_link(implicit c: TestContext): Unit = {
+    okTest {
+      val putLinks = """{"value": {"values": [1, 2]} }"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
+        _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
+
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history")
+        history = getLinksJsonArray(test, 1)
+      } yield {
+        JSONAssert.assertEquals("[]", history.toString, JSONCompareMode.LENIENT)
       }
     }
   }

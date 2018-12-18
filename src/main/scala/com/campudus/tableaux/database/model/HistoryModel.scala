@@ -447,6 +447,37 @@ case class CreateHistoryModel(
 ) extends DatabaseQuery
     with CreateHistoryModelBase {
 
+  def createClearCell(
+      table: Table,
+      rowId: RowId,
+      columns: Seq[ColumnType[_]]
+  ): Future[Unit] = {
+    val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
+
+    val simplesWithEmptyValues = for {
+      column <- simples
+    } yield (column, None)
+
+    val multisWithEmptyValues = for {
+      column <- multis
+      langtag <- table.langtags match {
+        case Some(value) => value
+        case _ => Seq.empty[String]
+      }
+    } yield (column, Map(langtag -> None))
+
+    val linksWithEmptyValues = for {
+      column <- links
+    } yield (column, Seq.empty[RowId])
+
+    for {
+      _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simplesWithEmptyValues)
+      _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multisWithEmptyValues)
+      _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, linksWithEmptyValues, true)
+      //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
+    } yield ()
+  }
+
   def create(
       table: Table,
       rowId: RowId,
