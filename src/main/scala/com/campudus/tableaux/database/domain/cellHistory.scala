@@ -9,7 +9,7 @@ case class CellHistory(
 //    rowId: RowId,
 //    columnId: ColumnId,
     event: String,
-    columnType: TableauxDbType,
+    columnType: String,
     languageType: LanguageType,
     author: String,
     timestamp: Option[DateTime],
@@ -20,7 +20,7 @@ case class CellHistory(
     val json = Json.obj(
       "revision" -> revision,
       "event" -> event,
-      "columnType" -> columnType.toString,
+      "columnType" -> columnType,
       "languageType" -> languageType.toString,
       "author" -> author,
       "value" -> value,

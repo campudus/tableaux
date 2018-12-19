@@ -44,7 +44,6 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |  WHERE
          |    row_id = ?
          |    AND column_id = ?
-         |    AND event = 'cell_changed'
          |    $whereLanguage
          |  ORDER BY
          |    timestamp ASC
@@ -77,7 +76,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     CellHistory(
       row.getLong(0),
       row.getString(1),
-      TableauxDbType(row.getString(2)),
+      Try(TableauxDbType(row.getString(2)).toString).getOrElse(null),
       LanguageType(Option(row.getString(3))),
       row.getString(4),
       convertStringToDateTime(row.getString(5)),
