@@ -235,6 +235,53 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
+  def addSameCommentAnnotations_annotationsWithTypeErrorInfoWaringShouldBeCreateableMultipleTimes(
+      implicit c: TestContext): Unit = {
+    okTest {
+
+      val errorComment = """{"type": "error", "value": "error comment"}"""
+      val warningComment = """{"type": "warning", "value": "warning comment"}"""
+      val infoComment = """{"type": "info", "value": "info comment"}"""
+
+      for {
+        (tableId, _) <- createTableWithMultilanguageColumns("Test")
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations", errorComment)
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations", errorComment)
+
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/$rowId/annotations", warningComment)
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/$rowId/annotations", warningComment)
+
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/3/rows/$rowId/annotations", infoComment)
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/3/rows/$rowId/annotations", infoComment)
+
+        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+      } yield {
+        val rowAnnotations = rowJson1.getJsonArray("annotations")
+
+        val column1Annotations = rowAnnotations.getJsonArray(0)
+        val column2Annotations = rowAnnotations.getJsonArray(1)
+        val column3Annotations = rowAnnotations.getJsonArray(2)
+
+        assertEquals(2, column1Annotations.size())
+        assertEquals(2, column2Annotations.size())
+        assertEquals(2, column3Annotations.size())
+
+        assertEquals("error comment", column1Annotations.getJsonObject(0).getString("value"))
+        assertEquals("error comment", column1Annotations.getJsonObject(1).getString("value"))
+        assertEquals("warning comment", column2Annotations.getJsonObject(0).getString("value"))
+        assertEquals("warning comment", column2Annotations.getJsonObject(1).getString("value"))
+        assertEquals("info comment", column3Annotations.getJsonObject(0).getString("value"))
+        assertEquals("info comment", column3Annotations.getJsonObject(1).getString("value"))
+      }
+    }
+  }
+
+  @Test
   def deleteLangtagFromExistingAnnotation(implicit c: TestContext): Unit = {
     okTest {
       for {
