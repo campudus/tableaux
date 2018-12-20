@@ -395,8 +395,12 @@ class TableauxController(override val config: TableauxConfig, override protected
 
     //TODO introduce a Cell identifier with tableId, columnId and rowId
     for {
+      table <- repository.retrieveTable(tableId)
+      column <- repository.retrieveColumn(table, columnId)
+
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
       _ <- CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
+      _ <- repository.createHistoryModel.create(table, rowId, Seq((column, uuid)), true)
     } yield EmptyObject()
   }
 

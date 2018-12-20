@@ -1,9 +1,11 @@
 package com.campudus.tableaux.database.model
 
+import java.util.UUID
+
 import com.campudus.tableaux.{InvalidRequestException, RowNotFoundException}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, RowId, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
@@ -90,6 +92,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
   protected[this] val connection: DatabaseConnection
 
   val tableModel = new TableModel(connection)
+  val attachmentModel = AttachmentModel(connection)
 
   protected def retrieveCurrentLinkIds(
       table: Table,
@@ -252,6 +255,29 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
         case (columnId, columnType, languageType, value) =>
           insertHistory(table, rowId, columnId, columnType, languageType, value)
       })
+
+    Future.sequence(futureSequence)
+  }
+
+  protected def createAttachments(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
+  ): Future[_] = {
+
+    def wrapValue(attachments: Seq[AttachmentFile]): JsonObject = {
+      Json.obj("value" -> attachments.map(_.getJson))
+    }
+
+    val futureSequence = values.map({
+      case (column: AttachmentColumn, _) => {
+        for {
+          files <- attachmentModel.retrieveAll(table.id, column.id, rowId)
+        } yield {
+          insertHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(files))
+        }
+      }
+    })
 
     Future.sequence(futureSequence)
   }
@@ -520,7 +546,8 @@ case class CreateHistoryModel(
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
           _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, replace)
-//          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
+          // TODO Hm, wieso kann ich die history bei attachemnts so einfach schreiben und bei links nicht??? Vll. viel zu kompliziert gedacht?
+          _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(table, rowId, attachments)
         } yield ()
     }
   }

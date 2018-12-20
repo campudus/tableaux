@@ -1,5 +1,6 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry}
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -12,10 +13,31 @@ import org.junit.{Ignore, Test}
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-trait TestHelper {
+import scala.concurrent.Future
+
+trait TestHelper extends MediaTestBase {
 
   def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
     obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
+  }
+
+  protected def createTestAttachment(name: String)(implicit c: TestContext): Future[String] = {
+
+    val path = s"/com/campudus/tableaux/uploads/Screen.Shot.png"
+    val mimetype = "application/png"
+
+    val file = Json.obj("title" -> Json.obj("de-DE" -> name))
+
+    for {
+      fileUuid <- createFile("de-DE", path, mimetype, None) map (_.getString("uuid"))
+      _ <- sendRequest("PUT", s"/files/$fileUuid", file)
+
+    } yield fileUuid
+  }
+
+  def assertEquals(jsonObjectExpected: JsonObject, jsonObjectCurrent: JsonObject, compareMode: JSONCompareMode) {
+    JSONAssert
+      .assertEquals(jsonObjectExpected.toString, jsonObjectCurrent.toString, JSONCompareMode.LENIENT)
   }
 }
 
@@ -1424,4 +1446,161 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
       }
     }
   }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
+
+  @Test
+  def addAttachment_toEmptyCell(implicit c: TestContext): Unit = {
+    okTest {
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid <- createTestAttachment("Test 1")
+
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid)))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+        currentUuid = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0).getString("uuid")
+      } yield {
+        assertEquals(fileUuid, currentUuid)
+      }
+    }
+  }
+
+  @Test
+  def addAttachment_toCellContainingOneAttachment(implicit c: TestContext): Unit = {
+    okTest {
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid1 <- createTestAttachment("Test 1")
+        fileUuid2 <- createTestAttachment("Test 2")
+
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)))
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+        firstHistory = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0)
+        secondHistory1 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
+        secondHistory2 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(1)
+      } yield {
+        assertEquals(Json.obj("uuid" -> fileUuid1), firstHistory, JSONCompareMode.LENIENT)
+        assertEquals(Json.obj("uuid" -> fileUuid1), secondHistory1, JSONCompareMode.LENIENT)
+        assertEquals(Json.obj("uuid" -> fileUuid2), secondHistory2, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def addAttachments_addThreeAttachmentsAtOnce(implicit c: TestContext): Unit = {
+    okTest {
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid1 <- createTestAttachment("Test 1")
+        fileUuid2 <- createTestAttachment("Test 2")
+
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.arr(fileUuid1, fileUuid2)))
+
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+        history1 = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0)
+        history2 = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(1)
+      } yield {
+        assertEquals(Json.obj("uuid" -> fileUuid1), history1, JSONCompareMode.LENIENT)
+        assertEquals(Json.obj("uuid" -> fileUuid2), history2, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteAttachment_fromCellContainingTwoAttachments(implicit c: TestContext): Unit = {
+    okTest {
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid1 <- createTestAttachment("Test 1")
+        fileUuid2 <- createTestAttachment("Test 2")
+
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.arr(fileUuid1, fileUuid2)))
+        _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/${fileUuid1}")
+
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+
+        afterDeletionHistory = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
+      } yield {
+
+        assertEquals(Json.obj("uuid" -> fileUuid2), afterDeletionHistory, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteAttachment_fromCellContainingThreeAttachments(implicit c: TestContext): Unit = {
+    okTest {
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid1 <- createTestAttachment("Test 1")
+        fileUuid2 <- createTestAttachment("Test 2")
+        fileUuid3 <- createTestAttachment("Test 3")
+
+        _ <- sendRequest("POST",
+                         s"/tables/1/columns/3/rows/1",
+                         Json.obj("value" -> Json.arr(fileUuid1, fileUuid2, fileUuid3)))
+        _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/${fileUuid2}")
+
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+
+        afterDeletionHistory1 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
+        afterDeletionHistory2 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(1)
+      } yield {
+        assertEquals(Json.obj("uuid" -> fileUuid1), afterDeletionHistory1, JSONCompareMode.LENIENT)
+        assertEquals(Json.obj("uuid" -> fileUuid3), afterDeletionHistory2, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
+
+  @Test
+  @Ignore
+  def add(implicit c: TestContext): Unit = {
+    okTest {
+      val initialValue = """{ "value": "value before history feature" }"""
+      val firstChangedValue = """{ "value": "my first change with history feature" }"""
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", firstChangedValue)
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+
+        rows = test.getJsonArray("rows")
+        initialHistoryCreation = rows.get[JsonObject](0)
+        firstHistoryCreation = rows.get[JsonObject](1)
+      } yield {
+        JSONAssert.assertEquals(initialValue, initialHistoryCreation.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(firstChangedValue, firstHistoryCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
 }
