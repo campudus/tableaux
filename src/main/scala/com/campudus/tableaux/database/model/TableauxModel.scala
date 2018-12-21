@@ -307,13 +307,13 @@ class TableauxModel(
           for {
             _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((column, Seq(toId))))
             _ <- updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
-            _ <- createHistoryModel.deleteLinks(table, rowId, Seq((linkColumn, Seq(toId))))
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
+      _ <- createHistoryModel.create(table, rowId, Seq((column, Seq(toId))))
 
       updatedCell <- retrieveCell(column, rowId)
     } yield updatedCell
@@ -332,10 +332,10 @@ class TableauxModel(
       _ <- column match {
         case linkColumn: LinkColumn => {
           for {
-            _ <- createInitialHistoryModel.createLinksInit(table, rowId, Seq((linkColumn, Seq.empty[RowId])))
+            _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((linkColumn, Seq(rowId))))
             _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
             _ <- invalidateCellAndDependentColumns(column, rowId)
-            _ <- createHistoryModel.updateLinkOrder(table, linkColumn, rowId)
+            _ <- createHistoryModel.create(table, rowId, Seq((linkColumn, Seq(rowId))))
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
@@ -378,7 +378,7 @@ class TableauxModel(
 
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
       _ <- invalidateCellAndDependentColumns(column, rowId)
-      _ <- createHistoryModel.create(table, rowId, Seq((column, value)), replace)
+      _ <- createHistoryModel.create(table, rowId, Seq((column, value)))
 
       changedCell <- retrieveCell(column, rowId)
     } yield changedCell
@@ -398,9 +398,8 @@ class TableauxModel(
 
       _ <- createInitialHistoryModel.createClearCellIfNotExists(table, rowId, Seq(column))
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
-      _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
-
       _ <- invalidateCellAndDependentColumns(column, rowId)
+      _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
 
       clearedCell <- retrieveCell(column, rowId)
     } yield clearedCell

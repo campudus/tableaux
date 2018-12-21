@@ -117,7 +117,6 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       table: Table,
       rowId: RowId,
       links: Seq[(LinkColumn, Seq[RowId])],
-      replace: Boolean,
       bidirectionalInsert: Boolean = false
   ): Future[Seq[Any]] = {
 
@@ -130,23 +129,6 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       )
     }
 
-    def retrieveLinkIdsToPut(
-        col: LinkColumn,
-        linkIdsToPutOrAdd: Seq[RowId]
-    ): Future[Seq[RowId]] = {
-      if (replace)
-        Future.successful(linkIdsToPutOrAdd)
-      else
-        for {
-          currentLinkIds <- retrieveCurrentLinkIds(table, col, rowId)
-        } yield {
-          // In some cases the new links are already inserted, in other cases not.
-          // To be on the safe side, we only add them if they haven't been added yet.
-          val diffSeq = linkIdsToPutOrAdd.diff(currentLinkIds)
-          currentLinkIds.union(diffSeq)
-        }
-    }
-
     Future.sequence(
       links.map({
         case (col, linkIdsToPutOrAdd) => {
@@ -154,7 +136,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
             insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
           } else {
             for {
-              linkIds <- retrieveLinkIdsToPut(col, linkIdsToPutOrAdd)
+              linkIds <- retrieveCurrentLinkIds(table, col, rowId)
               identifierCellSeq <- retrieveForeignIdentifierCells(col, linkIds)
               langTags <- tableModel.retrieveGlobalLangtags()
 
@@ -179,7 +161,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
                 }
               })
 
-              val languageType = preparedData.head._1
+              // Fallback for languageType if there is no link (case for clear cell)
+              val languageType = Try(preparedData.head._1).getOrElse(LanguageNeutral)
               insertHistory(table, rowId, col.id, col.kind, languageType, wrapValue(preparedData))
             }
           }
@@ -309,8 +292,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 }
 
 case class CreateInitialHistoryModel(
-    protected[this] val tableauxModel: TableauxModel,
-    protected[this] val connection: DatabaseConnection
+    override val tableauxModel: TableauxModel,
+    override val connection: DatabaseConnection
 ) extends DatabaseQuery
     with CreateHistoryModelBase {
 
@@ -519,8 +502,8 @@ case class CreateInitialHistoryModel(
 }
 
 case class CreateHistoryModel(
-    protected[this] val tableauxModel: TableauxModel,
-    protected[this] val connection: DatabaseConnection
+    override val tableauxModel: TableauxModel,
+    override val connection: DatabaseConnection
 ) extends DatabaseQuery
     with CreateHistoryModelBase {
 
@@ -550,7 +533,7 @@ case class CreateHistoryModel(
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simplesWithEmptyValues)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multisWithEmptyValues)
-      _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, linksWithEmptyValues, true)
+      _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, linksWithEmptyValues)
       //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
     } yield ()
   }
@@ -559,7 +542,6 @@ case class CreateHistoryModel(
       table: Table,
       rowId: RowId,
       values: Seq[(ColumnType[_], _)],
-      replace: Boolean = false
   ): Future[Unit] = {
 
     ColumnType.splitIntoTypesWithValues(values) match {
@@ -570,32 +552,9 @@ case class CreateHistoryModel(
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, replace)
-          // TODO Hm, wieso kann ich die history bei attachemnts so einfach schreiben und bei links nicht??? Vll. viel zu kompliziert gedacht?
+          _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links)
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(table, rowId, attachments)
         } yield ()
-    }
-  }
-
-  def deleteLinks(
-      table: Table,
-      rowId: RowId,
-      links: Seq[(LinkColumn, Seq[RowId])]
-  ): Future[Unit] = {
-    val futureSequenceLinksToPut = links.map({
-      case (col, linkIdsToDelete) => {
-        for {
-          currentLinkIds <- retrieveCurrentLinkIds(table, col, rowId)
-          linkIds = currentLinkIds.diff(linkIdsToDelete)
-        } yield (col, linkIds)
-      }
-    })
-
-    for {
-      linksToPut <- Future.sequence(futureSequenceLinksToPut)
-    } yield {
-      // For deleting links, we pretend to put a new sequence of links
-      createLinks(table, rowId, linksToPut, true)
     }
   }
 
@@ -609,7 +568,7 @@ case class CreateHistoryModel(
       linkIds <- retrieveCurrentLinkIds(table, column, rowId)
     } yield {
       // For updating links ordering, we pretend to put a new sequence of links
-      createLinks(table, rowId, Seq((column, linkIds)), true)
+      createLinks(table, rowId, Seq((column, linkIds)))
     }
   }
 }
