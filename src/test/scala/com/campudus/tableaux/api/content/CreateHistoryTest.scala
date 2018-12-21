@@ -1511,6 +1511,40 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
     }
   }
 
+  @Test
+  def deleteAttachmentCell_shouldCreateInitialHistoryEntry(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid1 <- createTestAttachment("Test 1")
+        fileUuid2 <- createTestAttachment("Test 2")
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query(s"""INSERT INTO system_attachment
+                                   |  (table_id, column_id, row_id, attachment_uuid, ordering)
+                                   |VALUES
+                                   |  (1, 3, 1, '$fileUuid1', 1),
+                                   |  (1, 3, 1, '$fileUuid2', 2)
+                                   |  """.stripMargin)
+
+        _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
+
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+        initialCountBeforeDeletion = rows.get[JsonObject](0).getJsonArray("value")
+        attachmentCountAfterDeletion = rows.get[JsonObject](1).getJsonArray("value")
+      } yield {
+        assertEquals(2, initialCountBeforeDeletion.size())
+        assertEquals(0, attachmentCountAfterDeletion.size())
+      }
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -1636,6 +1670,31 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
       } yield {
         assertEquals(Json.obj("uuid" -> fileUuid1), afterDeletionHistory1, JSONCompareMode.LENIENT)
         assertEquals(Json.obj("uuid" -> fileUuid3), afterDeletionHistory2, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteCell_attachment(implicit c: TestContext): Unit = {
+    okTest {
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid1 <- createTestAttachment("Test 1")
+        fileUuid2 <- createTestAttachment("Test 2")
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.arr(fileUuid1, fileUuid2)))
+
+        _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
+
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+        attachmentCountBeforeDeletion = rows.get[JsonObject](0).getJsonArray("value")
+        attachmentCountAfterDeletion = rows.get[JsonObject](1).getJsonArray("value")
+      } yield {
+        assertEquals(2, attachmentCountBeforeDeletion.size())
+        assertEquals(0, attachmentCountAfterDeletion.size())
       }
     }
   }

@@ -331,11 +331,16 @@ case class CreateInitialHistoryModel(
       column <- links
     } yield (column, Seq.empty[RowId])
 
+    val attachmentsWithEmptyValues = for {
+      column <- attachments
+    } yield (column, Seq())
+
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simplesWithEmptyValues)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multisWithEmptyValues)
       _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, linksWithEmptyValues)
-      //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
+      _ <- if (attachments.isEmpty) Future.successful(())
+      else createAttachmentsInit(table, rowId, attachmentsWithEmptyValues)
     } yield ()
   }
 
@@ -389,6 +394,7 @@ case class CreateInitialHistoryModel(
     }))
   }
 
+  // TODO refactor init methods
   private def createSimpleInit(
       table: Table,
       rowId: RowId,
@@ -530,11 +536,16 @@ case class CreateHistoryModel(
       column <- links
     } yield (column, Seq.empty[RowId])
 
+    val attachmentsWithEmptyValues = for {
+      column <- attachments
+    } yield (column, Seq())
+
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simplesWithEmptyValues)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multisWithEmptyValues)
       _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, linksWithEmptyValues)
-      //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
+      _ <- if (attachments.isEmpty) Future.successful(())
+      else createAttachments(table, rowId, attachmentsWithEmptyValues)
     } yield ()
   }
 
@@ -555,20 +566,6 @@ case class CreateHistoryModel(
           _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links)
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(table, rowId, attachments)
         } yield ()
-    }
-  }
-
-  def updateLinkOrder(
-      table: Table,
-      column: LinkColumn,
-      rowId: RowId,
-  ): Future[Unit] = {
-
-    for {
-      linkIds <- retrieveCurrentLinkIds(table, column, rowId)
-    } yield {
-      // For updating links ordering, we pretend to put a new sequence of links
-      createLinks(table, rowId, Seq((column, linkIds)))
     }
   }
 }
