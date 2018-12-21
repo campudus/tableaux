@@ -398,6 +398,7 @@ class TableauxController(override val config: TableauxConfig, override protected
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
 
+      _ <- repository.createInitialHistoryModel.createIfNotExists(table, rowId, Seq((column, uuid)))
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
       _ <- CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
       _ <- repository.createHistoryModel.create(table, rowId, Seq((column, uuid)), true)

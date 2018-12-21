@@ -1428,6 +1428,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
       for {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
+        // manually insert a value that simulates cell value changes before implementation of the history feature
         _ <- dbConnection.query("""INSERT INTO link_table_1
                                   |  (id_1, id_2)
                                   |VALUES
@@ -1446,6 +1447,70 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
       }
     }
   }
+
+  @Test
+  def addAttachment_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid1 <- createTestAttachment("Test 1")
+        fileUuid2 <- createTestAttachment("Test 2")
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query(s"""INSERT INTO system_attachment
+                                   |  (table_id, column_id, row_id, attachment_uuid, ordering)
+                                   |VALUES
+                                   |  (1, 3, 1, '$fileUuid1', 1)
+                                   |  """.stripMargin)
+
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+        initialHistory = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0)
+        history = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
+      } yield {
+        assertEquals(Json.obj("uuid" -> fileUuid1), initialHistory, JSONCompareMode.LENIENT)
+        assertEquals(Json.obj("uuid" -> fileUuid1), history, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def addAttachment_twoTimes_shouldOnlyCreateOneInitialHistoryEntry(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+      val attachmentColumn = """{"columns": [{"kind": "attachment", "name": "Downloads"}] }"""
+
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/1/columns", attachmentColumn)
+
+        fileUuid1 <- createTestAttachment("Test 1")
+        fileUuid2 <- createTestAttachment("Test 2")
+        fileUuid3 <- createTestAttachment("Test 3")
+
+        // manually insert a value that simulates cell value changes before implementation of the history feature
+        _ <- dbConnection.query(s"""INSERT INTO system_attachment
+                                   |  (table_id, column_id, row_id, attachment_uuid, ordering)
+                                   |VALUES
+                                   |  (1, 3, 1, '$fileUuid1', 1)
+                                   |  """.stripMargin)
+
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
+        _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid3)))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
+      } yield {
+        assertEquals(3, rows.size())
+      }
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -1562,7 +1627,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         _ <- sendRequest("POST",
                          s"/tables/1/columns/3/rows/1",
                          Json.obj("value" -> Json.arr(fileUuid1, fileUuid2, fileUuid3)))
-        _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/${fileUuid2}")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/$fileUuid2")
 
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history").map(_.getJsonArray("rows"))
 

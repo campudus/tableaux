@@ -324,7 +324,7 @@ case class CreateInitialHistoryModel(
           _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multis)
           _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links)
-          //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
+          _ <- if (attachments.isEmpty) Future.successful(()) else createAttachmentsInit(table, rowId, attachments)
         } yield ()
     }
   }
@@ -354,6 +354,31 @@ case class CreateInitialHistoryModel(
       _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, linksWithEmptyValues)
       //          _ <- if (attachments.isEmpty) Future.successful(()) else createSimple(table, columnId, rowId, simple)
     } yield ()
+  }
+
+  def createAttachmentsInit(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
+  ): Future[Seq[Unit]] = {
+
+    Future.sequence(values.map({
+      case (column, _) => {
+        for {
+          historyEntryExists <- historyExists(table.id, column.id, rowId)
+          _ <- if (!historyEntryExists) {
+            for {
+              currentAttachments <- attachmentModel.retrieveAll(table.id, column.id, rowId)
+              _ <- if (currentAttachments.nonEmpty)
+                createAttachments(table, rowId, values)
+              else
+                Future.successful(())
+            } yield ()
+          } else
+            Future.successful(())
+        } yield ()
+      }
+    }))
   }
 
   def createLinksInit(
