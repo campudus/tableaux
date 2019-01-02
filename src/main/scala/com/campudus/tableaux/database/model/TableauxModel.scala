@@ -185,6 +185,7 @@ class TableauxModel(
   def createRow(table: Table): Future[Row] = {
     for {
       rowId <- createRowModel.createRow(table, Seq.empty)
+      _ <- createHistoryModel.createRow(table, rowId)
       row <- retrieveRow(table, rowId)
     } yield row
   }
@@ -750,13 +751,16 @@ class TableauxModel(
     retrieveRowModel.size(table.id)
   }
 
-  def retrieveCellHistory(table: Table,
-                          columnId: ColumnId,
-                          rowId: RowId,
-                          langtagOpt: Option[String]): Future[SeqCellHistory] = {
+  def retrieveCellHistory(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      langtagOpt: Option[String],
+      eventOpt: Option[String]
+  ): Future[SeqCellHistory] = {
     for {
       column <- retrieveColumn(table, columnId)
-      cellHistorySeq <- retrieveHistoryModel.retrieve(table, column, rowId, langtagOpt)
+      cellHistorySeq <- retrieveHistoryModel.retrieve(table, column, rowId, langtagOpt, eventOpt)
     } yield cellHistorySeq
   }
 }

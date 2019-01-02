@@ -1,6 +1,5 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.database.model.RetrieveHistoryModel
 import com.campudus.tableaux.database.{DatabaseConnection, LanguageType, NumericType}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
@@ -9,7 +8,7 @@ import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.Json
 
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveHistoryTest extends TableauxTestBase {

@@ -379,7 +379,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       */
     case Get(CellHistory(tableId, columnId, rowId)) =>
       asyncGetReply {
-        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, None)
+        val eventOpt = getStringParam("event", context)
+        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, None, eventOpt)
       }
 
     /**
@@ -387,7 +388,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       */
     case Get(CellHistoryWithLangtag(tableId, columnId, rowId, langtag)) =>
       asyncGetReply {
-        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, Some(langtag))
+        val eventOpt = getStringParam("event", context)
+        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, Some(langtag), eventOpt)
       }
   }
 }

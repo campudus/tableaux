@@ -438,16 +438,19 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield PlainDomainObject(Json.obj("values" -> values))
   }
 
-  def retrieveCellHistory(tableId: TableId,
-                          columnId: ColumnId,
-                          rowId: RowId,
-                          langtagOpt: Option[Langtag]): Future[SeqCellHistory] = {
+  def retrieveCellHistory(
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      langtagOpt: Option[Langtag],
+      eventOpt: Option[String]
+  ): Future[SeqCellHistory] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      cell <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt)
+      cell <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, eventOpt)
     } yield cell
   }
 }

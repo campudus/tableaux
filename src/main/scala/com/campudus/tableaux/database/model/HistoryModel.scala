@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
-import com.campudus.tableaux.{InvalidRequestException, RowNotFoundException}
+import com.campudus.tableaux.InvalidRequestException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, RowId, TableId}
@@ -20,7 +20,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       table: Table,
       column: ColumnType[_],
       rowId: RowId,
-      langtagOpt: Option[String]
+      langtagOpt: Option[String],
+      eventOpt: Option[String]
   ): Future[SeqCellHistory] = {
 
     val whereLanguage = (column.languageType, langtagOpt) match {
@@ -29,6 +30,16 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       case (_, Some(_)) =>
         throw new InvalidRequestException(
           "History values filtered by langtags can only be retrieved from multi-language columns")
+    }
+
+    val binds = eventOpt match {
+      case Some(event) => List(rowId, column.id, event)
+      case None => List(rowId, column.id)
+    }
+
+    val whereEvent = eventOpt match {
+      case Some(_) => s" AND event = ?"
+      case None => ""
     }
 
     val select =
@@ -45,14 +56,15 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    user_table_history_${table.id}
          |  WHERE
          |    row_id = ?
-         |    AND column_id = ?
+         |    AND (column_id = ? OR column_id IS NULL)
          |    $whereLanguage
+         |    $whereEvent
          |  ORDER BY
          |    timestamp ASC
          """.stripMargin
 
     for {
-      result <- connection.query(select, Json.arr(rowId, column.id))
+      result <- connection.query(select, Json.arr(binds: _*))
     } yield {
       val cellHistory = resultObjectToJsonArray(result).map(mapToCellHistory)
       SeqCellHistory(cellHistory)
@@ -96,11 +108,11 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 
   protected def retrieveCurrentLinkIds(
       table: Table,
-      col: LinkColumn,
+      column: LinkColumn,
       rowId: RowId
   ): Future[Seq[RowId]] = {
     for {
-      cell <- tableauxModel.retrieveCell(table, col.id, rowId)
+      cell <- tableauxModel.retrieveCell(table, column.id, rowId)
     } yield {
       import scala.collection.JavaConverters._
 
@@ -131,13 +143,13 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 
     Future.sequence(
       links.map({
-        case (col, linkIdsToPutOrAdd) => {
+        case (column, linkIdsToPutOrAdd) => {
           if (linkIdsToPutOrAdd.isEmpty) {
-            insertHistory(table, rowId, col.id, col.kind, col.languageType, wrapValue(Seq()))
+            insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(Seq()))
           } else {
             for {
-              linkIds <- retrieveCurrentLinkIds(table, col, rowId)
-              identifierCellSeq <- retrieveForeignIdentifierCells(col, linkIds)
+              linkIds <- retrieveCurrentLinkIds(table, column, rowId)
+              identifierCellSeq <- retrieveForeignIdentifierCells(column, linkIds)
               langTags <- tableModel.retrieveGlobalLangtags()
 
 //               dependentColumns <- tableauxModel.retrieveDependencies(table)
@@ -146,7 +158,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 //                   for {
 //                     table <- tableModel.retrieve(tableId)
 //                     column <- tableauxModel.retrieveColumn(table, columnId)
-//                     _ <- createLinks(table, col.linkId, Seq((column.asInstanceOf[LinkColumn], Seq())), false, true)
+//                     _ <- createLinks(table, column.linkId, Seq((column.asInstanceOf[LinkColumn], Seq())), false, true)
 //                   } yield {}
 //                   Future.successful(())
 //                 }
@@ -163,7 +175,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 
               // Fallback for languageType if there is no link (case for clear cell)
               val languageType = Try(preparedData.head._1).getOrElse(LanguageNeutral)
-              insertHistory(table, rowId, col.id, col.kind, languageType, wrapValue(preparedData))
+              insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapValue(preparedData))
             }
           }
         }
@@ -172,13 +184,13 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
   }
 
   private def retrieveForeignIdentifierCells(
-      col: LinkColumn,
+      column: LinkColumn,
       linkIds: Seq[RowId]
   ): Future[Seq[Cell[Any]]] = {
     val linkedCellSeq = linkIds.map(
       linkId =>
         for {
-          foreignIdentifier <- tableauxModel.retrieveCell(col.to.table, col.to.id, linkId)
+          foreignIdentifier <- tableauxModel.retrieveCell(column.to.table, column.to.id, linkId)
         } yield foreignIdentifier
     )
     Future.sequence(linkedCellSeq)
@@ -212,7 +224,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 
           languageCellEntries.map({
             case (columnId, columnType, languageType, value) =>
-              insertHistory(table, rowId, columnId, columnType, languageType, value)
+              insertCellHistory(table, rowId, columnId, columnType, languageType, value)
           })
       })
 
@@ -236,7 +248,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     val futureSequence: Seq[Future[RowId]] = cellEntries
       .map({
         case (columnId, columnType, languageType, value) =>
-          insertHistory(table, rowId, columnId, columnType, languageType, value)
+          insertCellHistory(table, rowId, columnId, columnType, languageType, value)
       })
 
     Future.sequence(futureSequence)
@@ -257,7 +269,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
         for {
           files <- attachmentModel.retrieveAll(table.id, column.id, rowId)
         } yield {
-          insertHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(files))
+          insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(files))
         }
       }
     })
@@ -265,7 +277,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     Future.sequence(futureSequence)
   }
 
-  private def insertHistory(
+  private def insertCellHistory(
       table: Table,
       rowId: RowId,
       columnId: ColumnId,
@@ -273,16 +285,36 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       languageType: LanguageType,
       json: JsonObject
   ): Future[RowId] = {
-    logger.info(s"createHistory ${table.id} $columnId $rowId $json")
+    logger.info(s"createCellHistory ${table.id} $columnId $rowId $json")
     for {
       result <- connection.query(
         s"""INSERT INTO
            |  user_table_history_${table.id}
-           |    (row_id, column_id, column_type, multilanguage, value)
+           |    (row_id, column_id, event, column_type, multilanguage, value)
            |  VALUES
-           |    (?, ?, ?, ?, ?)
+           |    (?, ?, ?, ?, ?, ?)
            |  RETURNING revision""".stripMargin,
-        Json.arr(rowId, columnId, columnType.toString, languageType.toString, json.toString)
+        Json.arr(rowId, columnId, CellChangedEvent.toString, columnType.toString, languageType.toString, json.toString)
+      )
+    } yield {
+      insertNotNull(result).head.get[RowId](0)
+    }
+  }
+
+  protected def insertRowHistory(
+      table: Table,
+      rowId: RowId,
+  ): Future[RowId] = {
+    logger.info(s"createRowHistory ${table.id} $rowId")
+    for {
+      result <- connection.query(
+        s"""INSERT INTO
+           |  user_table_history_${table.id}
+           |    (row_id, event, multilanguage)
+           |  VALUES
+           |    (?, ?, NULL)
+           |  RETURNING revision""".stripMargin,
+        Json.arr(rowId, RowCreatedEvent.toString)
       )
     } yield {
       insertNotNull(result).head.get[RowId](0)
@@ -499,7 +531,6 @@ case class CreateInitialHistoryModel(
                 case _ => Option(rawValue.getValue(langtagCountryOpt.getOrElse("")))
               }
             case _: SimpleValueColumn[_] => Some(v)
-            case _: AttachmentColumn => ???
           }
         case _ => None
       }
@@ -513,11 +544,7 @@ case class CreateHistoryModel(
 ) extends DatabaseQuery
     with CreateHistoryModelBase {
 
-  def createClearCell(
-      table: Table,
-      rowId: RowId,
-      columns: Seq[ColumnType[_]]
-  ): Future[Unit] = {
+  def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
     val simplesWithEmptyValues = for {
@@ -549,12 +576,7 @@ case class CreateHistoryModel(
     } yield ()
   }
 
-  def create(
-      table: Table,
-      rowId: RowId,
-      values: Seq[(ColumnType[_], _)],
-  ): Future[Unit] = {
-
+  def create(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -567,5 +589,9 @@ case class CreateHistoryModel(
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(table, rowId, attachments)
         } yield ()
     }
+  }
+
+  def createRow(table: Table, rowId: RowId): Future[RowId] = {
+    insertRowHistory(table, rowId)
   }
 }
