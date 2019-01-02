@@ -2,7 +2,7 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry}
+import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry, Rows}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
@@ -1771,6 +1771,57 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
         JSONAssert.assertEquals(rowCreated, test3.toString, JSONCompareMode.LENIENT)
 
         assertEquals(3, allRows.size())
+      }
+    }
+  }
+
+  @Test
+  def createRows_withValues(implicit c: TestContext): Unit = {
+    okTest {
+      val createStringColumnJson =
+        Json.obj(
+          "columns" -> Json.arr(
+            Json.obj("kind" -> "shorttext", "name" -> "column", "identifier" -> true, "languageType" -> "language")))
+
+      for {
+        // prepare table
+        _ <- sendRequest("POST", "/tables", Json.obj("name" -> "test")).map(_.getLong("id"))
+        columns <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson).map(_.getJsonArray("columns"))
+
+        // add rows
+        _ <- sendRequest("POST",
+                         s"/tables/1/rows",
+                         Rows(columns, Json.obj("column" -> Json.obj("de-DE" -> "a", "en-GB" -> "b"))))
+        _ <- sendRequest("POST",
+                         s"/tables/1/rows",
+                         Rows(columns, Json.obj("column" -> Json.obj("de-DE" -> "c", "en-GB" -> "d"))))
+
+        rowsCreated <- sendRequest("GET", s"/tables/1/history?event=row_created").map(_.getJsonArray("rows"))
+      } yield {
+        assertEquals(2, rowsCreated.size())
+      }
+    }
+  }
+
+  @Test
+  def createRows_duplicateRow(implicit c: TestContext): Unit = {
+    okTest {
+      val newValue = Json.obj("value" -> "any change")
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue)
+
+        _ <- sendRequest("POST", "/tables/1/rows/1/duplicate")
+
+        rowsCreated <- sendRequest("GET", "/tables/1/history?event=row_created").map(_.getJsonArray("rows"))
+        row1 = rowsCreated.get[JsonObject](0)
+        row2 = rowsCreated.get[JsonObject](1)
+      } yield {
+        assertEquals(2, rowsCreated.size())
+        JSONAssert.assertEquals(s"""{ "row_id": 1, "event": "row_created" }""", row1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(s"""{ "row_id": 2, "event": "row_created" }""", row2.toString, JSONCompareMode.LENIENT)
       }
     }
   }

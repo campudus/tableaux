@@ -8,6 +8,8 @@ object CellHistory {
 
   def apply(
       revision: Long,
+      row_id: Long,
+      column_id: Long,
       event: String,
       columnType: String,
       languageType: LanguageType,
@@ -16,8 +18,9 @@ object CellHistory {
       value: JsonObject
   ): CellHistory = {
     HistoryEventType(event) match {
-      case CellChangedEvent => CellChangedHistory(revision, event, author, timestamp, columnType, languageType, value)
-      case RowCreatedEvent => RowCreatedHistory(revision, event, author, timestamp)
+      case CellChangedEvent =>
+        CellChangedHistory(revision, row_id, column_id, event, author, timestamp, columnType, languageType, value)
+      case RowCreatedEvent => RowCreatedHistory(revision, row_id, event, author, timestamp)
       case _ => throw new IllegalArgumentException("Invalid argument for CellHistory.apply")
     }
   }
@@ -25,6 +28,7 @@ object CellHistory {
 
 sealed trait CellHistory extends DomainObject {
   val revision: Long
+  val row_id: Long
   val event: String
   val author: String
   val timestamp: Option[DateTime]
@@ -32,6 +36,7 @@ sealed trait CellHistory extends DomainObject {
   override def getJson: JsonObject = {
     Json.obj(
       "revision" -> revision,
+      "row_id" -> row_id,
       "event" -> event,
       "author" -> author,
       "timestamp" -> optionToString(timestamp)
@@ -41,6 +46,7 @@ sealed trait CellHistory extends DomainObject {
 
 case class RowCreatedHistory(
     override val revision: Long,
+    override val row_id: Long,
     override val event: String,
     override val author: String,
     override val timestamp: Option[DateTime]
@@ -53,6 +59,8 @@ case class RowCreatedHistory(
 
 case class CellChangedHistory(
     override val revision: Long,
+    override val row_id: Long,
+    column_id: Long,
     override val event: String,
     override val author: String,
     override val timestamp: Option[DateTime],
@@ -66,6 +74,7 @@ case class CellChangedHistory(
     super.getJson
       .mergeIn(
         Json.obj(
+          "column_id" -> column_id,
           "columnType" -> columnType,
           "languageType" -> languageType.toString,
           "value" -> Json.emptyObj()

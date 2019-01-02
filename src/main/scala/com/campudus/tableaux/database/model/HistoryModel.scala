@@ -46,6 +46,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       s"""
          |  SELECT
          |    revision,
+         |    row_id,
+         |    column_id,
          |    event,
          |    column_type,
          |    multilanguage,
@@ -90,6 +92,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       s"""
          |  SELECT
          |    revision,
+         |    row_id,
+         |    column_id,
          |    event,
          |    column_type,
          |    multilanguage,
@@ -131,12 +135,14 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
 
     CellHistory(
       row.getLong(0),
-      row.getString(1),
-      Try(TableauxDbType(row.getString(2)).toString).getOrElse(null),
-      LanguageType(Option(row.getString(3))),
-      row.getString(4),
-      convertStringToDateTime(row.getString(5)),
-      parseJson(row.getString(6))
+      row.getLong(1),
+      row.getLong(2),
+      row.getString(3),
+      Try(TableauxDbType(row.getString(4)).toString).getOrElse(null),
+      LanguageType(Option(row.getString(5))),
+      row.getString(6),
+      convertStringToDateTime(row.getString(7)),
+      parseJson(row.getString(8))
     )
   }
 }

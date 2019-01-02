@@ -219,6 +219,7 @@ class TableauxModel(
             }
 
             rowId <- createRowModel.createRow(table, columnValuePairs)
+            _ <- createHistoryModel.createRow(table, rowId)
             _ <- createHistoryModel.create(table, rowId, columnValuePairs)
 
             newRow <- retrieveRow(table, columns, rowId)
@@ -656,6 +657,7 @@ class TableauxModel(
               .flatMap(_ => Future.failed(ex))
         })
 
+      _ <- createHistoryModel.createRow(table, duplicatedRowId)
       _ <- createHistoryModel.create(table, rowId, columns.zip(rowValues))
 
       // Retrieve duplicated row with all columns
