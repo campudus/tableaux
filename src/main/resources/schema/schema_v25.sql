@@ -8,7 +8,7 @@ EXECUTE 'CREATE TABLE user_table_history_' || tableid || '(
   column_id BIGINT,
   event VARCHAR(255) NOT NULL DEFAULT ''cell_changed'',
   column_type VARCHAR(255),
-  multilanguage VARCHAR(255) NOT NULL DEFAULT ''neutral'',
+  multilanguage VARCHAR(255) DEFAULT ''neutral'',
   author VARCHAR(255),
   timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
   value JSON NULL,
