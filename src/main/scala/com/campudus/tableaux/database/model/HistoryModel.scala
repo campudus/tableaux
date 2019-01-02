@@ -16,7 +16,7 @@ import scala.util.{Failure, Success, Try}
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
-  def retrieve(
+  def retrieveCell(
       table: Table,
       column: ColumnType[_],
       rowId: RowId,
@@ -58,6 +58,48 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    row_id = ?
          |    AND (column_id = ? OR column_id IS NULL)
          |    $whereLanguage
+         |    $whereEvent
+         |  ORDER BY
+         |    timestamp ASC
+         """.stripMargin
+
+    for {
+      result <- connection.query(select, Json.arr(binds: _*))
+    } yield {
+      val cellHistory = resultObjectToJsonArray(result).map(mapToCellHistory)
+      SeqCellHistory(cellHistory)
+    }
+  }
+
+  def retrieveTable(
+      table: Table,
+      eventOpt: Option[String]
+  ): Future[SeqCellHistory] = {
+
+    val binds = eventOpt match {
+      case Some(event) => List(event)
+      case None => List.empty[String]
+    }
+
+    val whereEvent = eventOpt match {
+      case Some(_) => s" AND event = ?"
+      case None => ""
+    }
+
+    val select =
+      s"""
+         |  SELECT
+         |    revision,
+         |    event,
+         |    column_type,
+         |    multilanguage,
+         |    author,
+         |    timestamp,
+         |    value
+         |  FROM
+         |    user_table_history_${table.id}
+         |  WHERE
+         |    1 = 1
          |    $whereEvent
          |  ORDER BY
          |    timestamp ASC

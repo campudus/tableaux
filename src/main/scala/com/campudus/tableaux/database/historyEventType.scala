@@ -13,7 +13,7 @@ object HistoryEventType {
     Option(eventType) match {
       case Some(CELL_CHANGED) => CellChangedEvent
       case Some(ROW_CREATED) => RowCreatedEvent
-      case _ => throw new IllegalArgumentException("Invalid argument for HistoryEventType")
+      case _ => throw new IllegalArgumentException(s"Invalid argument for HistoryEventType: '$eventType'")
     }
   }
 }

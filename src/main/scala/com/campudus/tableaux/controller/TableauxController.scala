@@ -446,11 +446,21 @@ class TableauxController(override val config: TableauxConfig, override protected
       eventOpt: Option[String]
   ): Future[SeqCellHistory] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
-    logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt")
+    logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt $eventOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
       cell <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, eventOpt)
+    } yield cell
+  }
+
+  def retrieveTableHistory(tableId: TableId, eventOpt: Option[String]): Future[SeqCellHistory] = {
+    checkArguments(greaterZero(tableId))
+    logger.info(s"retrieveCellHistory $tableId $eventOpt")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      cell <- repository.retrieveTableHistory(table, eventOpt)
     } yield cell
   }
 }

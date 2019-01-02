@@ -147,4 +147,38 @@ class RetrieveHistoryTest extends TableauxTestBase {
       } yield ()
     }
   }
+
+  @Test
+  def retrieveTableHistory(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        _ <- createEmptyDefaultTable()
+
+        // manually insert rows
+        _ <- dbConnection.query("""INSERT INTO
+                                  |  user_table_history_1
+                                  |  (row_id, column_id, event, column_type, multilanguage, value)
+                                  |VALUES
+                                  |  (1, null, 'row_created',     null,     null,       null),
+                                  |  (1, 2,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change2"}}'),
+                                  |  (1, 3,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change3"}}'),
+                                  |  (2, null, 'row_created',     null,     null,       null),
+                                  |  (2, 2,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change5"}}'),
+                                  |  (2, 3,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change6"}}')
+                                  |  """.stripMargin)
+
+        allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
+        createdRows <- sendRequest("GET", "/tables/1/history?event=row_created").map(_.getJsonArray("rows"))
+        changedCells <- sendRequest("GET", "/tables/1/history?event=cell_changed").map(_.getJsonArray("rows"))
+      } yield {
+//        assertEqualsJSON(expected, rows.toString, JSONCompareMode.LENIENT)
+        assertEquals(6, allRows.size())
+        assertEquals(2, createdRows.size())
+        assertEquals(4, changedCells.size())
+      }
+    }
+  }
 }

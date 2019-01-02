@@ -1763,10 +1763,14 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
         test1 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(_.getJsonArray("rows").get[JsonObject](0))
         test2 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(_.getJsonArray("rows").get[JsonObject](0))
         test3 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(_.getJsonArray("rows").get[JsonObject](0))
+
+        allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
       } yield {
         JSONAssert.assertEquals(rowCreated, test1.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(rowCreated, test2.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(rowCreated, test3.toString, JSONCompareMode.LENIENT)
+
+        assertEquals(3, allRows.size())
       }
     }
   }

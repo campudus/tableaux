@@ -760,7 +760,11 @@ class TableauxModel(
   ): Future[SeqCellHistory] = {
     for {
       column <- retrieveColumn(table, columnId)
-      cellHistorySeq <- retrieveHistoryModel.retrieve(table, column, rowId, langtagOpt, eventOpt)
+      cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, eventOpt)
     } yield cellHistorySeq
+  }
+
+  def retrieveTableHistory(table: Table, eventOpt: Option[String]): Future[SeqCellHistory] = {
+    retrieveHistoryModel.retrieveTable(table, eventOpt)
   }
 }
