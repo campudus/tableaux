@@ -138,7 +138,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       row.getLong(1),
       row.getLong(2),
       row.getString(3),
-      Try(TableauxDbType(row.getString(4)).toString).getOrElse(null),
+      row.getString(4),
       LanguageType(Option(row.getString(5))),
       row.getString(6),
       convertStringToDateTime(row.getString(7)),
@@ -325,6 +325,35 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     Future.sequence(futureSequence)
   }
 
+  private def insertHistory(
+      tableId: TableId,
+      rowId: RowId,
+      columnIdOpt: Option[ColumnId],
+      eventType: String,
+      historyTypeOpt: Option[String],
+      languageTypeOpt: Option[String],
+      jsonStringOpt: Option[String]
+  ): Future[RowId] = {
+    for {
+      result <- connection.query(
+        s"""INSERT INTO
+           |  user_table_history_$tableId
+           |    (row_id, column_id, event, type, language_type, value)
+           |  VALUES
+           |    (?, ?, ?, ?, ?, ?)
+           |  RETURNING revision""".stripMargin,
+        Json.arr(rowId,
+                 columnIdOpt.getOrElse(null),
+                 eventType,
+                 historyTypeOpt.getOrElse(null),
+                 languageTypeOpt.getOrElse(null),
+                 jsonStringOpt.getOrElse(null))
+      )
+    } yield {
+      insertNotNull(result).head.get[RowId](0)
+    }
+  }
+
   private def insertCellHistory(
       table: Table,
       rowId: RowId,
@@ -334,19 +363,13 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       json: JsonObject
   ): Future[RowId] = {
     logger.info(s"createCellHistory ${table.id} $columnId $rowId $json")
-    for {
-      result <- connection.query(
-        s"""INSERT INTO
-           |  user_table_history_${table.id}
-           |    (row_id, column_id, event, type, language_type, value)
-           |  VALUES
-           |    (?, ?, ?, ?, ?, ?)
-           |  RETURNING revision""".stripMargin,
-        Json.arr(rowId, columnId, CellChangedEvent.toString, columnType.toString, languageType.toString, json.toString)
-      )
-    } yield {
-      insertNotNull(result).head.get[RowId](0)
-    }
+    insertHistory(table.id,
+                  rowId,
+                  Some(columnId),
+                  CellChangedEvent.toString,
+                  Some(columnType.toString),
+                  Some(languageType.toString),
+                  Some(json.toString))
   }
 
   protected def insertRowHistory(
@@ -354,21 +377,27 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       rowId: RowId,
   ): Future[RowId] = {
     logger.info(s"createRowHistory ${table.id} $rowId")
-    for {
-      result <- connection.query(
-        s"""INSERT INTO
-           |  user_table_history_${table.id}
-           |    (row_id, event, language_type)
-           |  VALUES
-           |    (?, ?, NULL)
-           |  RETURNING revision""".stripMargin,
-        Json.arr(rowId, RowCreatedEvent.toString)
-      )
-    } yield {
-      insertNotNull(result).head.get[RowId](0)
-    }
+    insertHistory(table.id, rowId, None, RowCreatedEvent.toString, None, None, None)
   }
 
+  protected def insertAnnotationHistory(
+      table: Table,
+      rowId: RowId,
+      columnId: ColumnId,
+      event: HistoryEventType,
+      annotationType: String,
+      languageType: LanguageType,
+      json: JsonObject
+  ): Future[RowId] = {
+    logger.info(s"createAnnotationHistory ${table.id} $rowId")
+    insertHistory(table.id,
+                  rowId,
+                  Some(columnId),
+                  event.toString,
+                  Some(annotationType),
+                  Some(languageType.toString),
+                  Some(json.toString))
+  }
 }
 
 case class CreateInitialHistoryModel(
@@ -592,6 +621,18 @@ case class CreateHistoryModel(
 ) extends DatabaseQuery
     with CreateHistoryModelBase {
 
+  def createCellAnnotation(
+      column: ColumnType[_],
+      rowId: RowId,
+      langtags: Seq[String],
+      annotationType: CellAnnotationType,
+      value: String
+  ) = {
+//    for {
+//      _ <-
+//    } yield ()
+  }
+
   def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
@@ -624,7 +665,7 @@ case class CreateHistoryModel(
     } yield ()
   }
 
-  def create(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)

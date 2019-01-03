@@ -220,7 +220,7 @@ class TableauxModel(
 
             rowId <- createRowModel.createRow(table, columnValuePairs)
             _ <- createHistoryModel.createRow(table, rowId)
-            _ <- createHistoryModel.create(table, rowId, columnValuePairs)
+            _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
 
             newRow <- retrieveRow(table, columns, rowId)
           } yield {
@@ -247,6 +247,7 @@ class TableauxModel(
         annotationType,
         value
       )
+//      _ <- createHistoryModel.createCellAnnotation(column, rowId, langtags, annotationType, value)
     } yield CellLevelAnnotation(uuid, annotationType, mergedLangtags, value, createdAt)
   }
 
@@ -315,7 +316,7 @@ class TableauxModel(
       }
 
       _ <- invalidateCellAndDependentColumns(column, rowId)
-      _ <- createHistoryModel.create(table, rowId, Seq((column, Seq(toId))))
+      _ <- createHistoryModel.createCells(table, rowId, Seq((column, Seq(toId))))
 
       updatedCell <- retrieveCell(column, rowId)
     } yield updatedCell
@@ -337,7 +338,7 @@ class TableauxModel(
             _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((linkColumn, Seq(rowId))))
             _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
             _ <- invalidateCellAndDependentColumns(column, rowId)
-            _ <- createHistoryModel.create(table, rowId, Seq((linkColumn, Seq(rowId))))
+            _ <- createHistoryModel.createCells(table, rowId, Seq((linkColumn, Seq(rowId))))
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
@@ -380,7 +381,7 @@ class TableauxModel(
 
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
       _ <- invalidateCellAndDependentColumns(column, rowId)
-      _ <- createHistoryModel.create(table, rowId, Seq((column, value)))
+      _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
 
       changedCell <- retrieveCell(column, rowId)
     } yield changedCell
@@ -658,7 +659,7 @@ class TableauxModel(
         })
 
       _ <- createHistoryModel.createRow(table, duplicatedRowId)
-      _ <- createHistoryModel.create(table, rowId, columns.zip(rowValues))
+      _ <- createHistoryModel.createCells(table, rowId, columns.zip(rowValues))
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)

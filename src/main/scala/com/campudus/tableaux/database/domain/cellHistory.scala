@@ -4,6 +4,8 @@ import com.campudus.tableaux.database._
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
+import scala.util.Try
+
 object CellHistory {
 
   def apply(
@@ -75,7 +77,7 @@ case class CellChangedHistory(
       .mergeIn(
         Json.obj(
           "column_id" -> column_id,
-          "type" -> historyType,
+          "type" -> Try(TableauxDbType(historyType).toString).getOrElse(null),
           "languageType" -> languageType.toString,
           "value" -> Json.emptyObj()
         )
