@@ -15,8 +15,8 @@ object HistoryEventType {
     eventType match {
       case CELL_CHANGED => CellChangedEvent
       case ROW_CREATED => RowCreatedEvent
-      case ANNOTATION_ADDED => RowCreatedEvent
-      case ANNOTATION_REMOVED => RowCreatedEvent
+      case ANNOTATION_ADDED => AnnotationAddedEvent
+      case ANNOTATION_REMOVED => AnnotationRemovedEvent
       case _ => throw new IllegalArgumentException(s"Invalid argument for HistoryEventType $eventType")
     }
   }

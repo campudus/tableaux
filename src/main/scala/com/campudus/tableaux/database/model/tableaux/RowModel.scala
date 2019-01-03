@@ -906,6 +906,19 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
     }
   }
 
+  def retrieveAnnotation(
+      tableId: TableId,
+      rowId: RowId,
+      column: ColumnType[_],
+      uuid: UUID
+  ): Future[Option[CellLevelAnnotation]] = {
+    for {
+      (_, cellLevelAnnotations) <- retrieveAnnotations(tableId, rowId, Seq(column))
+      annotations = cellLevelAnnotations.annotations.get(column.id).getOrElse(Seq.empty[CellLevelAnnotation])
+    } yield annotations.find(_.uuid == uuid)
+
+  }
+
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)

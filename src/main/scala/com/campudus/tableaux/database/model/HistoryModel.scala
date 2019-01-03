@@ -385,16 +385,15 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       rowId: RowId,
       columnId: ColumnId,
       event: HistoryEventType,
-      annotationType: String,
+      annotationType: CellAnnotationType,
       languageType: LanguageType,
       json: JsonObject
   ): Future[RowId] = {
-    logger.info(s"createAnnotationHistory ${table.id} $rowId")
     insertHistory(table.id,
                   rowId,
                   Some(columnId),
                   event.toString,
-                  Some(annotationType),
+                  Some(annotationType.toString),
                   Some(languageType.toString),
                   Some(json.toString))
   }
@@ -621,16 +620,60 @@ case class CreateHistoryModel(
 ) extends DatabaseQuery
     with CreateHistoryModelBase {
 
-  def createCellAnnotation(
+  def removeCellAnnotation(
       column: ColumnType[_],
       rowId: RowId,
+      uuid: UUID,
+      annotation: CellLevelAnnotation
+  ): Future[Unit] = {
+    val languagetype = if (annotation.langtags.isEmpty) LanguageNeutral else MultiLanguage
+
+    def wrapValue(value: String, uuid: UUID): JsonObject = {
+      Json.obj(
+        "value" -> value,
+        "uuid" -> uuid.toString
+      )
+    }
+
+    logger.info(s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.value}")
+    for {
+      _ <- insertAnnotationHistory(column.table,
+                                   rowId,
+                                   column.id,
+                                   AnnotationRemovedEvent,
+                                   annotation.annotationType,
+                                   languagetype,
+                                   wrapValue(annotation.value, uuid))
+    } yield ()
+  }
+
+  def addCellAnnotation(
+      column: ColumnType[_],
+      rowId: RowId,
+      uuid: UUID,
       langtags: Seq[String],
       annotationType: CellAnnotationType,
       value: String
   ) = {
-//    for {
-//      _ <-
-//    } yield ()
+    val languagetype = if (langtags.isEmpty) LanguageNeutral else MultiLanguage
+
+    def wrapValue(value: String, uuid: UUID): JsonObject = {
+      Json.obj(
+        "value" -> value,
+        "uuid" -> uuid.toString
+      )
+    }
+
+    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $value")
+    for {
+      _ <- insertAnnotationHistory(column.table,
+                                   rowId,
+                                   column.id,
+                                   AnnotationAddedEvent,
+                                   annotationType,
+                                   languagetype,
+                                   wrapValue(value, uuid))
+    } yield ()
   }
 
   def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {

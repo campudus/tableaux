@@ -247,13 +247,18 @@ class TableauxModel(
         annotationType,
         value
       )
-//      _ <- createHistoryModel.createCellAnnotation(column, rowId, langtags, annotationType, value)
+      _ <- createHistoryModel.addCellAnnotation(column, rowId, uuid, langtags, annotationType, value)
     } yield CellLevelAnnotation(uuid, annotationType, mergedLangtags, value, createdAt)
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Unit] = {
     for {
+      annotationOpt <- retrieveRowModel.retrieveAnnotation(column.table.id, rowId, column, uuid)
       _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid)
+      _ <- annotationOpt match {
+        case Some(annotation) => createHistoryModel.removeCellAnnotation(column, rowId, uuid, annotation)
+        case None => Future.successful(())
+      }
     } yield ()
   }
 
@@ -672,7 +677,7 @@ class TableauxModel(
       * Fetches ConcatColumn values for
       * linked rows
       */
-    def fetchConcatValuesForLinkedRows(concatnateColumn: ConcatenateColumn,
+    def fetchConcatValuesForLinkedRows(concatenateColumn: ConcatenateColumn,
                                        linkedRows: JsonArray): Future[List[JsonObject]] = {
       import scala.collection.JavaConverters._
 
@@ -686,7 +691,7 @@ class TableauxModel(
 
           for {
             list <- futureList
-            cell <- retrieveCell(concatnateColumn, rowId)
+            cell <- retrieveCell(concatenateColumn, rowId)
           } yield list ++ List(Json.obj("id" -> rowId, "value" -> DomainObject.compatibilityGet(cell.value)))
       }
     }

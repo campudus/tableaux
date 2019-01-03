@@ -4,8 +4,7 @@ import com.campudus.tableaux.database._
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
-import scala.util.Try
-
+// TODO refactor CellHistory structure
 object CellHistory {
 
   def apply(
@@ -23,6 +22,8 @@ object CellHistory {
       case CellChangedEvent =>
         CellChangedHistory(revision, row_id, column_id, event, author, timestamp, historyType, languageType, value)
       case RowCreatedEvent => RowCreatedHistory(revision, row_id, event, author, timestamp)
+      case AnnotationAddedEvent | AnnotationRemovedEvent =>
+        CellChangedHistory(revision, row_id, column_id, event, author, timestamp, historyType, languageType, value)
       case _ => throw new IllegalArgumentException("Invalid argument for CellHistory.apply")
     }
   }
@@ -77,7 +78,7 @@ case class CellChangedHistory(
       .mergeIn(
         Json.obj(
           "column_id" -> column_id,
-          "type" -> Try(TableauxDbType(historyType).toString).getOrElse(null),
+          "type" -> historyType,
           "languageType" -> languageType.toString,
           "value" -> Json.emptyObj()
         )

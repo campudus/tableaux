@@ -1704,28 +1704,69 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
 class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
   @Test
-  @Ignore
-  def add(implicit c: TestContext): Unit = {
+  def addAnnotation_twoComments(implicit c: TestContext): Unit = {
     okTest {
-      val initialValue = """{ "value": "value before history feature" }"""
-      val firstChangedValue = """{ "value": "my first change with history feature" }"""
-
       for {
         _ <- createEmptyDefaultTable()
         _ <- sendRequest("POST", "/tables/1/rows")
 
-        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", firstChangedValue)
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=cell_changed")
+        uuid1 <- sendRequest("POST",
+                             "/tables/1/columns/1/rows/1/annotations",
+                             Json.obj("type" -> "info", "value" -> "Test 1")).map(_.getString("uuid"))
 
-        rows = test.getJsonArray("rows")
-        initialHistoryCreation = rows.get[JsonObject](0)
-        firstHistoryCreation = rows.get[JsonObject](1)
+        uuid2 <- sendRequest("POST",
+                             "/tables/1/columns/1/rows/1/annotations",
+                             Json.obj("type" -> "info", "value" -> "Test 2")).map(_.getString("uuid"))
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_added").map(
+          _.getJsonArray("rows"))
+
+        testHistory1 = rows.get[JsonObject](0)
+        testHistory2 = rows.get[JsonObject](1)
       } yield {
-        JSONAssert.assertEquals(initialValue, initialHistoryCreation.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(firstChangedValue, firstHistoryCreation.toString, JSONCompareMode.LENIENT)
+        JSONAssert
+          .assertEquals(s"""{"value": "Test 1", "uuid": "${uuid1}"}""", testHistory1.toString, JSONCompareMode.LENIENT)
+        JSONAssert
+          .assertEquals(s"""{"value": "Test 2", "uuid": "${uuid2}"}""", testHistory2.toString, JSONCompareMode.LENIENT)
       }
     }
   }
+
+  @Test
+  def removeAnnotation_twoCommentsRemoveBoth(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // add annotations
+        uuid1 <- sendRequest("POST",
+                             "/tables/1/columns/1/rows/1/annotations",
+                             Json.obj("type" -> "info", "value" -> "Test 1")).map(_.getString("uuid"))
+        uuid2 <- sendRequest("POST",
+                             "/tables/1/columns/1/rows/1/annotations",
+                             Json.obj("type" -> "info", "value" -> "Test 2")).map(_.getString("uuid"))
+
+        // remove annotations
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid1}")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid2}")
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
+          _.getJsonArray("rows"))
+
+        testHistory1 = rows.get[JsonObject](0)
+        testHistory2 = rows.get[JsonObject](1)
+      } yield {
+        JSONAssert
+          .assertEquals(s"""{"value": "Test 1", "uuid": "${uuid1}"}""", testHistory1.toString, JSONCompareMode.LENIENT)
+        JSONAssert
+          .assertEquals(s"""{"value": "Test 2", "uuid": "${uuid2}"}""", testHistory2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  // languageNeutral annotations add/remove
+  // multilang annotations add/remove
 
 }
 
