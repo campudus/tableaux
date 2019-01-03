@@ -11,7 +11,7 @@ object CellHistory {
       row_id: Long,
       column_id: Long,
       event: String,
-      columnType: String,
+      historyType: String,
       languageType: LanguageType,
       author: String,
       timestamp: Option[DateTime],
@@ -19,7 +19,7 @@ object CellHistory {
   ): CellHistory = {
     HistoryEventType(event) match {
       case CellChangedEvent =>
-        CellChangedHistory(revision, row_id, column_id, event, author, timestamp, columnType, languageType, value)
+        CellChangedHistory(revision, row_id, column_id, event, author, timestamp, historyType, languageType, value)
       case RowCreatedEvent => RowCreatedHistory(revision, row_id, event, author, timestamp)
       case _ => throw new IllegalArgumentException("Invalid argument for CellHistory.apply")
     }
@@ -64,7 +64,7 @@ case class CellChangedHistory(
     override val event: String,
     override val author: String,
     override val timestamp: Option[DateTime],
-    columnType: String,
+    historyType: String,
     languageType: LanguageType,
     value: JsonObject
 ) extends CellHistory {
@@ -75,7 +75,7 @@ case class CellChangedHistory(
       .mergeIn(
         Json.obj(
           "column_id" -> column_id,
-          "columnType" -> columnType,
+          "type" -> historyType,
           "languageType" -> languageType.toString,
           "value" -> Json.emptyObj()
         )

@@ -51,7 +51,7 @@ class CreateHistoryTest extends TableauxTestBase {
         """
           |{
           |  "event": "cell_changed",
-          |  "columnType": "text",
+          |  "type": "text",
           |  "languageType": "neutral",
           |  "value": "table1row1"
           |}
@@ -74,7 +74,7 @@ class CreateHistoryTest extends TableauxTestBase {
         """
           |{
           |  "event": "cell_changed",
-          |  "columnType": "text",
+          |  "type": "text",
           |  "languageType": "neutral",
           |  "value": "my first change"
           |}
@@ -102,17 +102,17 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "columnType": "numeric",
+          |    "type": "numeric",
           |    "languageType": "neutral",
           |    "value": 42
           |  }, {
           |    "event": "cell_changed",
-          |    "columnType": "numeric",
+          |    "type": "numeric",
           |    "languageType": "neutral",
           |    "value": 1337
           |  },{
           |    "event": "cell_changed",
-          |    "columnType": "numeric",
+          |    "type": "numeric",
           |    "languageType": "neutral",
           |    "value": 1123581321
           |  }
@@ -142,14 +142,14 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "columnType": "text",
+          |    "type": "text",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": "first change"
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "columnType": "text",
+          |    "type": "text",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": "second change"
@@ -183,21 +183,21 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "columnType": "boolean",
+          |    "type": "boolean",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": false
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "columnType": "boolean",
+          |    "type": "boolean",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": true
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "columnType": "boolean",
+          |    "type": "boolean",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": false
@@ -230,14 +230,14 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "columnType": "numeric",
+          |    "type": "numeric",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": 42
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "columnType": "numeric",
+          |    "type": "numeric",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": 1337
@@ -270,14 +270,14 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "columnType": "datetime",
+          |    "type": "datetime",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": "2019-01-18T00:00:00.000Z"
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "columnType": "datetime",
+          |    "type": "datetime",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": "2018-12-12T00:00:00.000Z"
@@ -310,14 +310,14 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "columnType": "currency",
+          |    "type": "currency",
           |    "languageType": "country",
           |    "value": {
           |      "DE": 2999.99
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "columnType": "currency",
+          |    "type": "currency",
           |    "languageType": "country",
           |    "value": {
           |      "DE": 4000
@@ -1398,7 +1398,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
 
         // manually insert a value that simulates cell value changes before implementation of the history feature
-        _ <- dbConnection.query("""INSERT INTO user_table_lang_1(id, langtag,column_1)
+        _ <- dbConnection.query("""INSERT INTO user_table_lang_1(id, langtag, column_1)
                                   |  VALUES
                                   |(1, E'de-DE', E'de-DE init'),
                                   |(1, E'en-GB', E'en-GB init')

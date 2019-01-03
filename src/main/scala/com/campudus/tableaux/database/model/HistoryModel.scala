@@ -49,8 +49,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    row_id,
          |    column_id,
          |    event,
-         |    column_type,
-         |    multilanguage,
+         |    type,
+         |    language_type,
          |    author,
          |    timestamp,
          |    value
@@ -95,8 +95,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    row_id,
          |    column_id,
          |    event,
-         |    column_type,
-         |    multilanguage,
+         |    type,
+         |    language_type,
          |    author,
          |    timestamp,
          |    value
@@ -338,7 +338,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       result <- connection.query(
         s"""INSERT INTO
            |  user_table_history_${table.id}
-           |    (row_id, column_id, event, column_type, multilanguage, value)
+           |    (row_id, column_id, event, type, language_type, value)
            |  VALUES
            |    (?, ?, ?, ?, ?, ?)
            |  RETURNING revision""".stripMargin,
@@ -358,7 +358,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       result <- connection.query(
         s"""INSERT INTO
            |  user_table_history_${table.id}
-           |    (row_id, event, multilanguage)
+           |    (row_id, event, language_type)
            |  VALUES
            |    (?, ?, NULL)
            |  RETURNING revision""".stripMargin,

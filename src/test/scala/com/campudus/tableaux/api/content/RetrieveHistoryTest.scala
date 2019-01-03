@@ -24,7 +24,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
 
         // manually insert row
         _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1(row_id, column_id, column_type, multilanguage, value)
+                                  |  user_table_history_1(row_id, column_id, type, language_type, value)
                                   |VALUES
                                   |  (1, 1, 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
 
@@ -32,7 +32,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
       } yield {
         val historyCell = result.getJsonArray("rows", Json.emptyArr()).getJsonObject(0)
         assertEquals(historyCell.getInteger("revision"), 1)
-        assertEquals(historyCell.getString("columnType"), NumericType.toString)
+        assertEquals(historyCell.getString("type"), NumericType.toString)
         assertEquals(historyCell.getString("languageType"), LanguageType.NEUTRAL.toString)
         assertEquals(historyCell.getInteger("value"), 42)
       }
@@ -50,7 +50,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
 
         // manually insert row
         _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1(row_id, column_id, column_type, multilanguage, value)
+                                  |  user_table_history_1(row_id, column_id, type, language_type, value)
                                   |VALUES
                                   |  (1, 1, 'numeric', 'neutral', null)""".stripMargin)
 
@@ -84,7 +84,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
 
         // manually insert rows
         _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1(row_id, column_id, column_type, multilanguage, value)
+                                  |  user_table_history_1(row_id, column_id, type, language_type, value)
                                   |VALUES
                                   |  (1, 1, 'numeric', 'language', '{"value": {"de": "change1"}}'),
                                   |  (1, 1, 'numeric', 'language', '{"value": {"de": "change2"}}'),
@@ -140,7 +140,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
 
         // manually insert row
         _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1(row_id, column_id, column_type, multilanguage, value)
+                                  |  user_table_history_1(row_id, column_id, type, language_type, value)
                                   |VALUES
                                   |  (1, 1, 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
         _ <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de")
@@ -160,7 +160,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
         // manually insert rows
         _ <- dbConnection.query("""INSERT INTO
                                   |  user_table_history_1
-                                  |  (row_id, column_id, event, column_type, multilanguage, value)
+                                  |  (row_id, column_id, event, type, language_type, value)
                                   |VALUES
                                   |  (1, null, 'row_created',     null,     null,       null),
                                   |  (1, 2,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change2"}}'),
@@ -174,7 +174,6 @@ class RetrieveHistoryTest extends TableauxTestBase {
         createdRows <- sendRequest("GET", "/tables/1/history?event=row_created").map(_.getJsonArray("rows"))
         changedCells <- sendRequest("GET", "/tables/1/history?event=cell_changed").map(_.getJsonArray("rows"))
       } yield {
-//        assertEqualsJSON(expected, rows.toString, JSONCompareMode.LENIENT)
         assertEquals(6, allRows.size())
         assertEquals(2, createdRows.size())
         assertEquals(4, changedCells.size())
