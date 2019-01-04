@@ -1822,7 +1822,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
-  def addAnnotations_addAnnotationToOneLanguage(implicit c: TestContext): Unit = {
+  def addAnnotations_addAnnotationForOneLanguage(implicit c: TestContext): Unit = {
     okTest {
 
       def annotation(value: String, langtags: JsonArray) =
@@ -1840,15 +1840,43 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
           _.getJsonArray("rows"))
 
         row1 = rows.get[JsonObject](0)
+
       } yield {
         assertEquals(1, rows.size())
-        assertJSONEquals(s"""{"value": "needs_translation", "uuid": "${uuid}"}""", row1.toString)
+        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}"}""", row1.toString)
       }
     }
   }
 
-  // languageNeutral annotations add/remove
-  // multilang annotations add/remove
+  @Test
+  def addAnnotations_addAnnotationForTwoLanguageAtOnce(implicit c: TestContext): Unit = {
+    okTest {
+
+      def annotation(value: String, langtags: JsonArray) =
+        Json.obj("type" -> "flag", "value" -> value, "langtags" -> langtags)
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        uuid <- sendRequest("POST",
+                            "/tables/1/columns/1/rows/1/annotations",
+                            annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_added").map(
+          _.getJsonArray("rows"))
+
+        row1 = rows.get[JsonObject](0)
+        row2 = rows.get[JsonObject](1)
+
+      } yield {
+        assertEquals(2, rows.size())
+        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}"}""", row1.toString)
+        assertJSONEquals(s"""{"value": {"en-GB": "needs_translation"}, "uuid": "${uuid}"}""", row2.toString)
+      }
+    }
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])

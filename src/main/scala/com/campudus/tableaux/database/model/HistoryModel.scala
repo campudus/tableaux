@@ -654,26 +654,42 @@ case class CreateHistoryModel(
       langtags: Seq[String],
       annotationType: CellAnnotationType,
       value: String
-  ) = {
+  ): Future[Seq[RowId]] = {
     val languagetype = if (langtags.isEmpty) LanguageNeutral else MultiLanguage
 
-    def wrapValue(value: String, uuid: UUID): JsonObject = {
-      Json.obj(
-        "value" -> value,
-        "uuid" -> uuid.toString
-      )
-    }
+    def wrapValue(value: String, uuid: UUID): JsonObject = Json.obj("value" -> value, "uuid" -> uuid.toString)
+    def wrapLanguageValue(langtag: String, value: String, uuid: UUID): JsonObject =
+      Json.obj("value" -> Json.obj(langtag -> value), "uuid" -> uuid.toString)
 
-    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $value")
+    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value")
+
+    val futureSequence: Seq[Future[RowId]] = languagetype match {
+      case LanguageNeutral =>
+        Seq(for {
+          historyRowId <- insertAnnotationHistory(column.table,
+                                                  rowId,
+                                                  column.id,
+                                                  AnnotationAddedEvent,
+                                                  annotationType,
+                                                  languagetype,
+                                                  wrapValue(value, uuid))
+        } yield historyRowId)
+      case MultiLanguage => {
+        langtags.map(langtag =>
     for {
-      _ <- insertAnnotationHistory(column.table,
+            historyRowId <- insertAnnotationHistory(column.table,
                                    rowId,
                                    column.id,
                                    AnnotationAddedEvent,
                                    annotationType,
                                    languagetype,
-                                   wrapValue(value, uuid))
-    } yield ()
+                                                    wrapLanguageValue(langtag, value, uuid))
+          } yield historyRowId)
+      }
+      case MultiCountry(_) => Seq.empty[Future[RowId]]
+    }
+
+    Future.sequence(futureSequence)
   }
 
   def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
