@@ -94,7 +94,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
         val historyCells = result.getJsonArray("rows", Json.emptyArr())
-        assertEqualsJSON(expected, historyCells.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyCells.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -124,7 +124,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
       } yield {
         val historyCells = result.getJsonArray("rows", Json.emptyArr())
 
-        assertEqualsJSON(expected, historyCells.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyCells.toString, JSONCompareMode.LENIENT)
       }
     }
   }

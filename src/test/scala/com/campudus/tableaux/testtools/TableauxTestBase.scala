@@ -9,24 +9,23 @@ import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod
-import io.vertx.scala.core.http._
-import org.vertx.scala.core.json.JsonObject
-import io.vertx.scala.core.streams.Pump
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
+import io.vertx.scala.core.http._
+import io.vertx.scala.core.streams.Pump
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
-import org.vertx.scala.core.json._
+import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
+import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
-import org.skyscreamer.jsonassert.{JSONCompare, JSONCompareMode}
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable {
 
@@ -58,42 +57,12 @@ trait TestAssertionHelper {
     c
   }
 
-  // Asserts for JsonArrays
-  def assertEqualsJSON(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
+  def assertJSONEquals(expected: JsonObject, actual: JsonObject, compareMode: JSONCompareMode) {
+    JSONAssert.assertEquals(expected.toString, actual.toString, compareMode)
   }
 
-  def assertEqualsJSON(expected: JsonArray, actual: JsonArray, compareMode: JSONCompareMode)(
-      implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
-  }
-
-  // Asserts for JsonObject
-  def assertEqualsJSON(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
-  }
-
-  def assertEqualsJSON(expected: JsonObject, actual: JsonObject, compareMode: JSONCompareMode)(
-      implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
-  }
-
-  // Asserts for Json as String
-  def assertEqualsJSON(expected: String, actual: String)(implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
-  }
-
-  def assertEqualsJSON(expected: String, actual: String, compareMode: JSONCompareMode)(
-      implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
-  }
-
-  private def assertEqualsJSONString(
-      expected: String,
-      actual: String,
-      compareMode: JSONCompareMode = JSONCompareMode.STRICT)(implicit c: TestContext): TestContext = {
-    val assertion = JSONCompare.compareJSON(expected, actual, compareMode)
-    c.assertTrue(assertion.passed(), assertion.getMessage)
+  def assertJSONEquals(expected: String, actual: String, compareMode: JSONCompareMode = JSONCompareMode.LENIENT) {
+    JSONAssert.assertEquals(expected, actual, compareMode)
   }
 
   def assertContainsDeep(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext =

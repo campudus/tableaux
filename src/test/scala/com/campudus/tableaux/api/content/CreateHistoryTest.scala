@@ -34,11 +34,6 @@ trait TestHelper extends MediaTestBase {
 
     } yield fileUuid
   }
-
-  def assertEquals(jsonObjectExpected: JsonObject, jsonObjectCurrent: JsonObject, compareMode: JSONCompareMode) {
-    JSONAssert
-      .assertEquals(jsonObjectExpected.toString, jsonObjectCurrent.toString, JSONCompareMode.LENIENT)
-  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -1474,8 +1469,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistory = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0)
         history = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
       } yield {
-        assertEquals(Json.obj("uuid" -> fileUuid1), initialHistory, JSONCompareMode.LENIENT)
-        assertEquals(Json.obj("uuid" -> fileUuid1), history, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid1), initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid1), history, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1589,9 +1584,9 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         secondHistory1 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
         secondHistory2 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(1)
       } yield {
-        assertEquals(Json.obj("uuid" -> fileUuid1), firstHistory, JSONCompareMode.LENIENT)
-        assertEquals(Json.obj("uuid" -> fileUuid1), secondHistory1, JSONCompareMode.LENIENT)
-        assertEquals(Json.obj("uuid" -> fileUuid2), secondHistory2, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid1), firstHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid1), secondHistory1, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid2), secondHistory2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1614,8 +1609,8 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         history1 = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0)
         history2 = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(1)
       } yield {
-        assertEquals(Json.obj("uuid" -> fileUuid1), history1, JSONCompareMode.LENIENT)
-        assertEquals(Json.obj("uuid" -> fileUuid2), history2, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid1), history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid2), history2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1640,7 +1635,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         afterDeletionHistory = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
       } yield {
 
-        assertEquals(Json.obj("uuid" -> fileUuid2), afterDeletionHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid2), afterDeletionHistory, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1668,8 +1663,8 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         afterDeletionHistory1 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
         afterDeletionHistory2 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(1)
       } yield {
-        assertEquals(Json.obj("uuid" -> fileUuid1), afterDeletionHistory1, JSONCompareMode.LENIENT)
-        assertEquals(Json.obj("uuid" -> fileUuid3), afterDeletionHistory2, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid1), afterDeletionHistory1, JSONCompareMode.LENIENT)
+        assertJSONEquals(Json.obj("uuid" -> fileUuid3), afterDeletionHistory2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1724,10 +1719,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         testHistory1 = rows.get[JsonObject](0)
         testHistory2 = rows.get[JsonObject](1)
       } yield {
-        JSONAssert
-          .assertEquals(s"""{"value": "Test 1", "uuid": "${uuid1}"}""", testHistory1.toString, JSONCompareMode.LENIENT)
-        JSONAssert
-          .assertEquals(s"""{"value": "Test 2", "uuid": "${uuid2}"}""", testHistory2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{"value": "Test 1", "uuid": "${uuid1}"}""", testHistory1.toString)
+        assertJSONEquals(s"""{"value": "Test 2", "uuid": "${uuid2}"}""", testHistory2.toString)
       }
     }
   }
@@ -1736,6 +1729,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   def removeAnnotation_twoCommentsRemoveBoth(implicit c: TestContext): Unit = {
     okTest {
       for {
+
         _ <- createEmptyDefaultTable()
         _ <- sendRequest("POST", "/tables/1/rows")
 
@@ -1757,17 +1751,104 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         testHistory1 = rows.get[JsonObject](0)
         testHistory2 = rows.get[JsonObject](1)
       } yield {
-        JSONAssert
-          .assertEquals(s"""{"value": "Test 1", "uuid": "${uuid1}"}""", testHistory1.toString, JSONCompareMode.LENIENT)
-        JSONAssert
-          .assertEquals(s"""{"value": "Test 2", "uuid": "${uuid2}"}""", testHistory2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{"value": "Test 1", "uuid": "${uuid1}"}""", testHistory1.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{"value": "Test 2", "uuid": "${uuid2}"}""", testHistory2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def addAnnotations_threeFlagAnnotations(implicit c: TestContext): Unit = {
+    okTest {
+
+      def annotation(value: String) = Json.obj("type" -> "flag", "value" -> value)
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        uuid_check_me <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("check-me"))
+          .map(_.getString("uuid"))
+
+        uuid_important <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("important"))
+          .map(_.getString("uuid"))
+
+        uuid_postpone <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("postpone"))
+          .map(_.getString("uuid"))
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_added").map(
+          _.getJsonArray("rows"))
+
+        row1 = rows.get[JsonObject](0)
+        row2 = rows.get[JsonObject](1)
+        row3 = rows.get[JsonObject](2)
+      } yield {
+        assertEquals(3, rows.size())
+        assertJSONEquals(s"""{"value": "check-me", "uuid": "${uuid_check_me}"}""", row1.toString)
+        assertJSONEquals(s"""{"value": "important", "uuid": "${uuid_important}"}""", row2.toString)
+        assertJSONEquals(s"""{"value": "postpone", "uuid": "${uuid_postpone}"}""", row3.toString)
+      }
+    }
+  }
+
+  @Test
+  def removeAnnotation_oneOfTwoAnnotations(implicit c: TestContext): Unit = {
+    okTest {
+
+      def annotation(value: String) = Json.obj("type" -> "flag", "value" -> value)
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // add annotations
+        uuid_important <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("important"))
+          .map(_.getString("uuid"))
+        uuid_postpone <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("postpone"))
+          .map(_.getString("uuid"))
+
+        // remove annotation
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid_important}")
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
+          _.getJsonArray("rows"))
+
+        row = rows.get[JsonObject](0)
+      } yield {
+        assertEquals(1, rows.size())
+        assertJSONEquals(s"""{"value": "important", "uuid": "${uuid_important}"}""", row.toString)
+      }
+    }
+  }
+
+  @Test
+  def addAnnotations_addAnnotationToOneLanguage(implicit c: TestContext): Unit = {
+    okTest {
+
+      def annotation(value: String, langtags: JsonArray) =
+        Json.obj("type" -> "flag", "value" -> value, "langtags" -> langtags)
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        uuid <- sendRequest("POST",
+                            "/tables/1/columns/1/rows/1/annotations",
+                            annotation("needs_translation", Json.arr("de-DE"))).map(_.getString("uuid"))
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_added").map(
+          _.getJsonArray("rows"))
+
+        row1 = rows.get[JsonObject](0)
+      } yield {
+        assertEquals(1, rows.size())
+        assertJSONEquals(s"""{"value": "needs_translation", "uuid": "${uuid}"}""", row1.toString)
       }
     }
   }
 
   // languageNeutral annotations add/remove
   // multilang annotations add/remove
-
 }
 
 @RunWith(classOf[VertxUnitRunner])
