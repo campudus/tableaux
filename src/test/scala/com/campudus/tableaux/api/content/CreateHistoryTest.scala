@@ -1849,7 +1849,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
-  def addAnnotations_addAnnotationForTwoLanguageAtOnce(implicit c: TestContext): Unit = {
+  def addAnnotations_addAnnotationForTwoLanguagesAtOnce(implicit c: TestContext): Unit = {
     okTest {
 
       def annotation(value: String, langtags: JsonArray) =
@@ -1865,10 +1865,112 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_added").map(
           _.getJsonArray("rows"))
+      } yield {
+        assertEquals(2, rows.size())
+
+        val expected =
+          s"""[
+             | {"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}", "event": "annotation_added"},
+             | {"value": {"en-GB": "needs_translation"}, "uuid": "${uuid}", "event": "annotation_added"}
+           ]""".stripMargin
+
+        // assert whole array because ordering is not guaranteed
+        assertJSONEquals(expected, rows.toString)
+      }
+    }
+  }
+
+  @Test
+  def removeAnnotation_removeAnnotationForAllLanguages(implicit c: TestContext): Unit = {
+    okTest {
+
+      def annotation(value: String, langtags: JsonArray) =
+        Json.obj("type" -> "flag", "value" -> value, "langtags" -> langtags)
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // add two annotations
+        uuid <- sendRequest("POST",
+                            "/tables/1/columns/1/rows/1/annotations",
+                            annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
+
+        // remove both annotations
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid}")
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
+          _.getJsonArray("rows"))
+      } yield {
+        assertEquals(2, rows.size())
+
+        val expected =
+          s"""[
+             | {"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}", "event": "annotation_removed"},
+             | {"value": {"en-GB": "needs_translation"}, "uuid": "${uuid}", "event": "annotation_removed"}
+           ]""".stripMargin
+
+        // assert whole array because ordering is not guaranteed
+        assertJSONEquals(expected, rows.toString)
+      }
+    }
+  }
+
+  @Test
+  def removeAnnotation_removeAnnotationForOneSpecificLanguage(implicit c: TestContext): Unit = {
+    okTest {
+
+      def annotation(value: String, langtags: JsonArray) =
+        Json.obj("type" -> "flag", "value" -> value, "langtags" -> langtags)
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // add two annotations
+        uuid <- sendRequest("POST",
+                            "/tables/1/columns/1/rows/1/annotations",
+                            annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
+
+        // remove german annotation
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid}/de-DE")
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
+          _.getJsonArray("rows"))
+
+        row = rows.get[JsonObject](0)
+      } yield {
+        assertEquals(1, rows.size())
+        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}"}""", row.toString)
+      }
+    }
+  }
+
+  @Test
+  def removeAnnotations_removeAnnotationOneByOne(implicit c: TestContext): Unit = {
+    okTest {
+
+      def annotation(value: String, langtags: JsonArray) =
+        Json.obj("type" -> "flag", "value" -> value, "langtags" -> langtags)
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        // add two annotations
+        uuid <- sendRequest("POST",
+                            "/tables/1/columns/1/rows/1/annotations",
+                            annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
+
+        // remove them one by one
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid}/de-DE")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid}/en-GB")
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
+          _.getJsonArray("rows"))
 
         row1 = rows.get[JsonObject](0)
         row2 = rows.get[JsonObject](1)
-
       } yield {
         assertEquals(2, rows.size())
         assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}"}""", row1.toString)
@@ -1876,7 +1978,6 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
       }
     }
   }
-
 }
 
 @RunWith(classOf[VertxUnitRunner])

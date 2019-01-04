@@ -62,8 +62,10 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    $whereLanguage
          |    $whereEvent
          |  ORDER BY
-         |    timestamp ASC
+         |    revision ASC
          """.stripMargin
+    // order by must base on revision, because a lower revision could have a minimal later timestamp
+    // TODO investigate why that may be possible
 
     for {
       result <- connection.query(select, Json.arr(binds: _*))
@@ -106,8 +108,10 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    1 = 1
          |    $whereEvent
          |  ORDER BY
-         |    timestamp ASC
+         |    revision ASC
          """.stripMargin
+    // order by must base on revision, because a lower revision could have a minimal later timestamp
+    // TODO investigate why that may be possible
 
     for {
       result <- connection.query(select, Json.arr(binds: _*))
@@ -620,31 +624,60 @@ case class CreateHistoryModel(
 ) extends DatabaseQuery
     with CreateHistoryModelBase {
 
+  def wrapAnnotationValue(value: String, uuid: UUID, langtagOpt: Option[String] = None): JsonObject = {
+    langtagOpt match {
+      case Some(langtag) => Json.obj("value" -> Json.obj(langtag -> value), "uuid" -> uuid.toString)
+      case None => Json.obj("value" -> value, "uuid" -> uuid.toString)
+    }
+  }
+
   def removeCellAnnotation(
       column: ColumnType[_],
       rowId: RowId,
       uuid: UUID,
-      annotation: CellLevelAnnotation
-  ): Future[Unit] = {
+      annotation: CellLevelAnnotation,
+      langtagOpt: Option[String] = None
+  ): Future[Seq[RowId]] = {
     val languagetype = if (annotation.langtags.isEmpty) LanguageNeutral else MultiLanguage
 
-    def wrapValue(value: String, uuid: UUID): JsonObject = {
-      Json.obj(
-        "value" -> value,
-        "uuid" -> uuid.toString
-      )
+    val annotationsToBeRemoved = langtagOpt match {
+      case Some(langtag) => Seq(langtag)
+      case None => annotation.langtags
     }
 
-    logger.info(s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.value}")
-    for {
-      _ <- insertAnnotationHistory(column.table,
-                                   rowId,
-                                   column.id,
-                                   AnnotationRemovedEvent,
-                                   annotation.annotationType,
-                                   languagetype,
-                                   wrapValue(annotation.value, uuid))
-    } yield ()
+    logger.info(
+      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value}")
+
+    val futureSequence: Seq[Future[RowId]] = languagetype match {
+
+      case LanguageNeutral =>
+        Seq(for {
+          historyRowId <- insertAnnotationHistory(column.table,
+                                                  rowId,
+                                                  column.id,
+                                                  AnnotationRemovedEvent,
+                                                  annotation.annotationType,
+                                                  languagetype,
+                                                  wrapAnnotationValue(annotation.value, uuid))
+        } yield historyRowId)
+
+      case MultiLanguage => {
+        annotationsToBeRemoved.map(langtag =>
+          for {
+            historyRowId <- insertAnnotationHistory(column.table,
+                                                    rowId,
+                                                    column.id,
+                                                    AnnotationRemovedEvent,
+                                                    annotation.annotationType,
+                                                    languagetype,
+                                                    wrapAnnotationValue(annotation.value, uuid, Some(langtag)))
+          } yield historyRowId)
+      }
+
+      case MultiCountry(_) => Seq.empty[Future[RowId]]
+    }
+
+    Future.sequence(futureSequence)
   }
 
   def addCellAnnotation(
@@ -657,10 +690,6 @@ case class CreateHistoryModel(
   ): Future[Seq[RowId]] = {
     val languagetype = if (langtags.isEmpty) LanguageNeutral else MultiLanguage
 
-    def wrapValue(value: String, uuid: UUID): JsonObject = Json.obj("value" -> value, "uuid" -> uuid.toString)
-    def wrapLanguageValue(langtag: String, value: String, uuid: UUID): JsonObject =
-      Json.obj("value" -> Json.obj(langtag -> value), "uuid" -> uuid.toString)
-
     logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value")
 
     val futureSequence: Seq[Future[RowId]] = languagetype match {
@@ -672,18 +701,18 @@ case class CreateHistoryModel(
                                                   AnnotationAddedEvent,
                                                   annotationType,
                                                   languagetype,
-                                                  wrapValue(value, uuid))
+                                                  wrapAnnotationValue(value, uuid))
         } yield historyRowId)
       case MultiLanguage => {
         langtags.map(langtag =>
-    for {
+          for {
             historyRowId <- insertAnnotationHistory(column.table,
-                                   rowId,
-                                   column.id,
-                                   AnnotationAddedEvent,
-                                   annotationType,
-                                   languagetype,
-                                                    wrapLanguageValue(langtag, value, uuid))
+                                                    rowId,
+                                                    column.id,
+                                                    AnnotationAddedEvent,
+                                                    annotationType,
+                                                    languagetype,
+                                                    wrapAnnotationValue(value, uuid, Some(langtag)))
           } yield historyRowId)
       }
       case MultiCountry(_) => Seq.empty[Future[RowId]]

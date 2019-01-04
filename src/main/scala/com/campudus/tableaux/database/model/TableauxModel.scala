@@ -254,16 +254,21 @@ class TableauxModel(
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Unit] = {
     for {
       annotationOpt <- retrieveRowModel.retrieveAnnotation(column.table.id, rowId, column, uuid)
-      _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid)
       _ <- annotationOpt match {
         case Some(annotation) => createHistoryModel.removeCellAnnotation(column, rowId, uuid, annotation)
         case None => Future.successful(())
       }
+      _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid)
     } yield ()
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String): Future[Unit] = {
     for {
+      annotationOpt <- retrieveRowModel.retrieveAnnotation(column.table.id, rowId, column, uuid)
+      _ <- annotationOpt match {
+        case Some(annotation) => createHistoryModel.removeCellAnnotation(column, rowId, uuid, annotation, Some(langtag))
+        case None => Future.successful(())
+      }
       _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid, langtag)
     } yield ()
   }
