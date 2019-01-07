@@ -7,9 +7,10 @@ import com.campudus.tableaux.router.RouterRegistry
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.scala.core.http.HttpServer
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import io.vertx.scala.ext.web.Router
+import io.vertx.scala.ext.web.{Cookie, Router, RoutingContext}
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
+import io.vertx.scala.ext.web.handler.CookieHandler
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -86,6 +87,9 @@ class Starter extends ScalaVerticle with LazyLogging {
     val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
 
     val router = Router.router(vertx)
+
+    // This cookie handler will be called for all routes
+    router.route().handler(CookieHandler.create())
 
     router.route().handler(routerRegistry.apply)
 

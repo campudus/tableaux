@@ -7,7 +7,7 @@ import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.scala.ext.web.{Cookie, RoutingContext}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.Vertx
 import org.vertx.scala.core.json._
@@ -107,5 +107,9 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
 
   def getStringParam(name: String, context: RoutingContext): Option[String] = {
     context.request().getParam(name)
+  }
+
+  def getStringCookie(name: String, context: RoutingContext): Option[String] = {
+    context.getCookie(name).map(_.getValue())
   }
 }
