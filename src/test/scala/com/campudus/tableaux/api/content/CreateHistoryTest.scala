@@ -8,6 +8,7 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import io.vertx.scala.ext.web.Cookie
 import org.junit.runner.RunWith
 import org.junit.{Ignore, Test}
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
@@ -493,6 +494,30 @@ class CreateHistoryTest extends TableauxTestBase {
         JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", textHistory.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", numericHistory.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", booleanHistory.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeSimpleValue_withUserNameInCookie(implicit c: TestContext): Unit = {
+    okTest {
+      val cookie = Cookie.cookie("userName", "Alice")
+
+      val expectedRowCreated = """{ "event": "row_created", "author": "Alice" }"""
+      val expectedCellChanged = """{ "event": "cell_changed", "author": "Alice" }"""
+
+      val newValue = Json.obj("value" -> "my first change")
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows", Some(cookie))
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue, Some(cookie))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(_.getJsonArray("rows"))
+        rowCreated = rows.get[JsonObject](0)
+        cellChanged = rows.get[JsonObject](1)
+      } yield {
+        JSONAssert.assertEquals(expectedRowCreated, rowCreated.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedCellChanged, cellChanged.toString, JSONCompareMode.LENIENT)
       }
     }
   }

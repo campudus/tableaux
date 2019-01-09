@@ -7,12 +7,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{
-  ForbiddenException,
-  InvalidRequestException,
-  ShouldBeUniqueException,
-  WrongColumnKindException
-}
+import com.campudus.tableaux._
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -28,7 +23,8 @@ object TableauxModel {
 
   type Ordering = Long
 
-  def apply(connection: DatabaseConnection, structureModel: StructureModel): TableauxModel = {
+  def apply(connection: DatabaseConnection, structureModel: StructureModel)(
+      implicit requestContext: RequestContext): TableauxModel = {
     new TableauxModel(connection, structureModel)
   }
 }
@@ -85,7 +81,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 class TableauxModel(
     override protected[this] val connection: DatabaseConnection,
     override protected[this] val structureModel: StructureModel
-) extends DatabaseQuery
+)(implicit requestContext: RequestContext)
+    extends DatabaseQuery
     with StructureDelegateModel {
 
   import TableauxModel._

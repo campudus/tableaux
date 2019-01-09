@@ -2,16 +2,16 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
-import com.campudus.tableaux.InvalidRequestException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, RowId, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.{InvalidRequestException, RequestContext}
 import org.vertx.scala.core.json.{JsonObject, _}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
@@ -152,6 +152,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
 }
 
 sealed trait CreateHistoryModelBase extends DatabaseQuery {
+  implicit val requestContext: RequestContext
   protected[this] val tableauxModel: TableauxModel
   protected[this] val connection: DatabaseConnection
 
@@ -336,22 +337,24 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       eventType: String,
       historyTypeOpt: Option[String],
       languageTypeOpt: Option[String],
-      jsonStringOpt: Option[String]
+      jsonStringOpt: Option[String],
+      userName: String
   ): Future[RowId] = {
     for {
       result <- connection.query(
         s"""INSERT INTO
            |  user_table_history_$tableId
-           |    (row_id, column_id, event, type, language_type, value)
+           |    (row_id, column_id, event, type, language_type, value, author)
            |  VALUES
-           |    (?, ?, ?, ?, ?, ?)
+           |    (?, ?, ?, ?, ?, ?, ?)
            |  RETURNING revision""".stripMargin,
         Json.arr(rowId,
                  columnIdOpt.getOrElse(null),
                  eventType,
                  historyTypeOpt.getOrElse(null),
                  languageTypeOpt.getOrElse(null),
-                 jsonStringOpt.getOrElse(null))
+                 jsonStringOpt.getOrElse(null),
+                 userName)
       )
     } yield {
       insertNotNull(result).head.get[RowId](0)
@@ -366,22 +369,25 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       languageType: LanguageType,
       json: JsonObject
   ): Future[RowId] = {
-    logger.info(s"createCellHistory ${table.id} $columnId $rowId $json")
+    val userName: String = requestContext.getCookieValue("userName")
+    logger.info(s"createCellHistory ${table.id} $columnId $rowId $json $userName")
     insertHistory(table.id,
                   rowId,
                   Some(columnId),
                   CellChangedEvent.toString,
                   Some(columnType.toString),
                   Some(languageType.toString),
-                  Some(json.toString))
+                  Some(json.toString),
+                  userName)
   }
 
   protected def insertRowHistory(
       table: Table,
-      rowId: RowId,
+      rowId: RowId
   ): Future[RowId] = {
-    logger.info(s"createRowHistory ${table.id} $rowId")
-    insertHistory(table.id, rowId, None, RowCreatedEvent.toString, None, None, None)
+    val userName: String = requestContext.getCookieValue("userName")
+    logger.info(s"createRowHistory ${table.id} $rowId $userName")
+    insertHistory(table.id, rowId, None, RowCreatedEvent.toString, None, None, None, userName)
   }
 
   protected def insertAnnotationHistory(
@@ -391,7 +397,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       event: HistoryEventType,
       annotationType: CellAnnotationType,
       languageType: LanguageType,
-      json: JsonObject
+      json: JsonObject,
+      userName: String
   ): Future[RowId] = {
     insertHistory(table.id,
                   rowId,
@@ -399,14 +406,16 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
                   event.toString,
                   Some(annotationType.toString),
                   Some(languageType.toString),
-                  Some(json.toString))
+                  Some(json.toString),
+                  userName)
   }
 }
 
 case class CreateInitialHistoryModel(
     override val tableauxModel: TableauxModel,
     override val connection: DatabaseConnection
-) extends DatabaseQuery
+)(implicit val requestContext: RequestContext)
+    extends DatabaseQuery
     with CreateHistoryModelBase {
 
   def createIfNotExists(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
@@ -580,7 +589,7 @@ case class CreateInitialHistoryModel(
       columnId: ColumnId,
       rowId: RowId,
       langtagOpt: Option[String] = None
-  )(implicit ec: ExecutionContext): Future[Boolean] = {
+  ): Future[Boolean] = {
 
     val whereLanguage = langtagOpt match {
       case Some(langtag) => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL"
@@ -621,7 +630,8 @@ case class CreateInitialHistoryModel(
 case class CreateHistoryModel(
     override val tableauxModel: TableauxModel,
     override val connection: DatabaseConnection
-) extends DatabaseQuery
+)(implicit val requestContext: RequestContext)
+    extends DatabaseQuery
     with CreateHistoryModelBase {
 
   def wrapAnnotationValue(value: String, uuid: UUID, langtagOpt: Option[String] = None): JsonObject = {
@@ -645,8 +655,9 @@ case class CreateHistoryModel(
       case None => annotation.langtags
     }
 
+    val userName: String = requestContext.getCookieValue("userName")
     logger.info(
-      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value}")
+      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} $userName")
 
     val futureSequence: Seq[Future[RowId]] = languagetype match {
 
@@ -658,19 +669,23 @@ case class CreateHistoryModel(
                                                   AnnotationRemovedEvent,
                                                   annotation.annotationType,
                                                   languagetype,
-                                                  wrapAnnotationValue(annotation.value, uuid))
+                                                  wrapAnnotationValue(annotation.value, uuid),
+                                                  userName)
         } yield historyRowId)
 
       case MultiLanguage => {
         annotationsToBeRemoved.map(langtag =>
           for {
-            historyRowId <- insertAnnotationHistory(column.table,
-                                                    rowId,
-                                                    column.id,
-                                                    AnnotationRemovedEvent,
-                                                    annotation.annotationType,
-                                                    languagetype,
-                                                    wrapAnnotationValue(annotation.value, uuid, Some(langtag)))
+            historyRowId <- insertAnnotationHistory(
+              column.table,
+              rowId,
+              column.id,
+              AnnotationRemovedEvent,
+              annotation.annotationType,
+              languagetype,
+              wrapAnnotationValue(annotation.value, uuid, Some(langtag)),
+              userName
+            )
           } yield historyRowId)
       }
 
@@ -690,7 +705,8 @@ case class CreateHistoryModel(
   ): Future[Seq[RowId]] = {
     val languagetype = if (langtags.isEmpty) LanguageNeutral else MultiLanguage
 
-    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value")
+    val userName: String = requestContext.getCookieValue("userName")
+    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value $userName")
 
     val futureSequence: Seq[Future[RowId]] = languagetype match {
       case LanguageNeutral =>
@@ -701,7 +717,8 @@ case class CreateHistoryModel(
                                                   AnnotationAddedEvent,
                                                   annotationType,
                                                   languagetype,
-                                                  wrapAnnotationValue(value, uuid))
+                                                  wrapAnnotationValue(value, uuid),
+                                                  userName)
         } yield historyRowId)
       case MultiLanguage => {
         langtags.map(langtag =>
@@ -712,7 +729,8 @@ case class CreateHistoryModel(
                                                     AnnotationAddedEvent,
                                                     annotationType,
                                                     languagetype,
-                                                    wrapAnnotationValue(value, uuid, Some(langtag)))
+                                                    wrapAnnotationValue(value, uuid, Some(langtag)),
+                                                    userName)
           } yield historyRowId)
       }
       case MultiCountry(_) => Seq.empty[Future[RowId]]

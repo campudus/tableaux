@@ -1,7 +1,7 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
@@ -21,7 +21,7 @@ object SystemController {
       repository: SystemModel,
       tableauxModel: TableauxModel,
       structureModel: StructureModel
-  ): SystemController = {
+  )(implicit requestContext: RequestContext): SystemController = {
     new SystemController(config, repository, tableauxModel, structureModel)
   }
 }
@@ -31,7 +31,7 @@ case class SchemaVersion(databaseVersion: Int, specificationVersion: Int)
 class SystemController(override val config: TableauxConfig,
                        override protected val repository: SystemModel,
                        protected val tableauxModel: TableauxModel,
-                       protected val structureModel: StructureModel)
+                       protected val structureModel: StructureModel)(implicit requestContext: RequestContext)
     extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {

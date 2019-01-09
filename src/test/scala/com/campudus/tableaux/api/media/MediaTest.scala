@@ -1007,7 +1007,8 @@ class FileTest extends MediaTestBase {
                 client.close()
                 c.fail(x)
                 p.failure(x)
-              }
+              },
+              None
             ).end()
           }
         }
@@ -1071,7 +1072,8 @@ class FileTest extends MediaTestBase {
                 client.close()
                 c.fail(x)
                 p.failure(x)
-              }
+              },
+              None
             ).end()
           }
         }

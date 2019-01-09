@@ -1,6 +1,6 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.{TableauxConfig, RequestContext}
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
@@ -11,6 +11,8 @@ import org.vertx.scala.router.routing.{Error, Get, SendEmbeddedFile}
 object RouterRegistry {
 
   def apply(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection): RouterRegistry = {
+
+    implicit val requestContext: RequestContext = RequestContext()
 
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
@@ -31,9 +33,14 @@ object RouterRegistry {
   }
 }
 
-class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseRouter]) extends BaseRouter {
+class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseRouter])(
+    implicit requestContext: RequestContext)
+    extends BaseRouter {
 
   override def routes(implicit context: RoutingContext): Routing = {
+
+    requestContext.cookies = context.cookies().toSet
+
     routers
       .map(_.routes)
       .foldLeft(defaultRoutes)({

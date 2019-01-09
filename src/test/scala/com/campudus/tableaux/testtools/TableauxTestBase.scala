@@ -18,6 +18,7 @@ import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
 import io.vertx.scala.core.http._
 import io.vertx.scala.core.streams.Pump
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
+import io.vertx.scala.ext.web.Cookie
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
@@ -259,37 +260,79 @@ trait TableauxTestBase
 
   def sendRequest(method: String, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).end()
+    httpJsonRequest(method, path, p, None).end()
+    p.future
+  }
+
+  def sendRequest(method: String, path: String, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p, cookieOpt).end()
     p.future
   }
 
   def sendRequest(method: String, path: String, jsonObj: JsonObject): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).end(jsonObj.encode())
+    httpJsonRequest(method, path, p, None).end(jsonObj.encode())
+    p.future
+  }
+
+  def sendRequest(method: String, path: String, jsonObj: JsonObject, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p, cookieOpt).end(jsonObj.encode())
     p.future
   }
 
   def sendRequest(method: String, path: String, body: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).end(body)
+    httpJsonRequest(method, path, p, None).end(body)
+    p.future
+  }
+
+  def sendRequest(method: String, path: String, body: String, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p, cookieOpt).end(body)
     p.future
   }
 
   def sendRequest(method: String, path: String, domainObject: DomainObject): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).end(domainObject.getJson.encode())
+    httpJsonRequest(method, path, p, None).end(domainObject.getJson.encode())
+    p.future
+  }
+
+  def sendRequest(method: String,
+                  path: String,
+                  domainObject: DomainObject,
+                  cookieOpt: Option[Cookie]): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p, cookieOpt).end(domainObject.getJson.encode())
     p.future
   }
 
   def sendStringRequest(method: String, path: String): Future[String] = {
     val p = Promise[String]()
-    httpStringRequest(method, path, p).end()
+    httpStringRequest(method, path, p, None).end()
+    p.future
+  }
+
+  def sendStringRequest(method: String, path: String, cookieOpt: Option[Cookie]): Future[String] = {
+    val p = Promise[String]()
+    httpStringRequest(method, path, p, cookieOpt).end()
     p.future
   }
 
   def sendStringRequest(method: String, path: String, jsonObj: JsonObject): Future[String] = {
     val p = Promise[String]()
-    httpStringRequest(method, path, p).end(jsonObj.encode())
+    httpStringRequest(method, path, p, None).end(jsonObj.encode())
+    p.future
+  }
+
+  def sendStringRequest(method: String,
+                        path: String,
+                        jsonObj: JsonObject,
+                        cookieOpt: Option[Cookie]): Future[String] = {
+    val p = Promise[String]()
+    httpStringRequest(method, path, p, cookieOpt).end(jsonObj.encode())
     p.future
   }
 
@@ -341,19 +384,26 @@ trait TableauxTestBase
       p.failure(x)
   }
 
-  private def httpStringRequest(method: String, path: String, p: Promise[String]): HttpClientRequest = {
-    httpRequest(method, path, createStringResponseHandler(p), createExceptionHandler[String](p))
+  private def httpStringRequest(method: String,
+                                path: String,
+                                p: Promise[String],
+                                cookieOpt: Option[Cookie]): HttpClientRequest = {
+    httpRequest(method, path, createStringResponseHandler(p), createExceptionHandler[String](p), cookieOpt)
   }
 
-  private def httpJsonRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = {
-    httpRequest(method, path, createJsonResponseHandler(p), createExceptionHandler[JsonObject](p))
+  private def httpJsonRequest(method: String,
+                              path: String,
+                              p: Promise[JsonObject],
+                              cookieOpt: Option[Cookie]): HttpClientRequest = {
+    httpRequest(method, path, createJsonResponseHandler(p), createExceptionHandler[JsonObject](p), cookieOpt)
   }
 
   def httpRequest(
       method: String,
       path: String,
       responseHandler: (HttpClient, HttpClientResponse) => Unit,
-      exceptionHandler: (HttpClient, Throwable) => Unit
+      exceptionHandler: (HttpClient, Throwable) => Unit,
+      cookieOpt: Option[Cookie]
   ): HttpClientRequest = {
     val _method = HttpMethod.valueOf(method.toUpperCase)
 
@@ -364,6 +414,7 @@ trait TableauxTestBase
 
     client
       .request(_method, port, host, path)
+      .putHeader("cookie", cookieOpt.map(_.encode()).getOrElse(""))
       .handler(responseHandler(client, _: HttpClientResponse))
       .exceptionHandler(exceptionHandler(client, _: Throwable))
   }
@@ -418,7 +469,7 @@ trait TableauxTestBase
         })
       }
 
-      requestHandler(httpJsonRequest(method, url, p))
+      requestHandler(httpJsonRequest(method, url, p, None))
     })
   }
 
