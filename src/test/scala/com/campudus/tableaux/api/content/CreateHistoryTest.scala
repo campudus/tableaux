@@ -429,7 +429,7 @@ class CreateHistoryTest extends TableauxTestBase {
                                       |}""".stripMargin
 
       for {
-        test <- sendRequest("POST", "/completetable", createCompleteTableJson)
+        _ <- sendRequest("POST", "/completetable", createCompleteTableJson)
 
         textHistory1 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=cell_changed")
         textHistory2 <- sendRequest("GET", "/tables/1/columns/1/rows/2/history?event=cell_changed")
@@ -1459,7 +1459,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1")
         test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?event=cell_changed")
-        initialHistory = getLinksJsonArray(test, 0)
+        initialHistory = getLinksJsonArray(test)
         history = getLinksJsonArray(test, 1)
       } yield {
         JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
@@ -1653,7 +1653,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         fileUuid2 <- createTestAttachment("Test 2")
 
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.arr(fileUuid1, fileUuid2)))
-        _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/${fileUuid1}")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/$fileUuid1")
 
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?event=cell_changed").map(_.getJsonArray("rows"))
 
@@ -1744,8 +1744,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         testHistory1 = rows.get[JsonObject](0)
         testHistory2 = rows.get[JsonObject](1)
       } yield {
-        assertJSONEquals(s"""{"value": "Test 1", "uuid": "${uuid1}"}""", testHistory1.toString)
-        assertJSONEquals(s"""{"value": "Test 2", "uuid": "${uuid2}"}""", testHistory2.toString)
+        assertJSONEquals(s"""{"value": "Test 1", "uuid": "$uuid1"}""", testHistory1.toString)
+        assertJSONEquals(s"""{"value": "Test 2", "uuid": "$uuid2"}""", testHistory2.toString)
       }
     }
   }
@@ -1767,8 +1767,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
                              Json.obj("type" -> "info", "value" -> "Test 2")).map(_.getString("uuid"))
 
         // remove annotations
-        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid1}")
-        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid2}")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid1")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid2")
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
           _.getJsonArray("rows"))
@@ -1776,8 +1776,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         testHistory1 = rows.get[JsonObject](0)
         testHistory2 = rows.get[JsonObject](1)
       } yield {
-        assertJSONEquals(s"""{"value": "Test 1", "uuid": "${uuid1}"}""", testHistory1.toString, JSONCompareMode.LENIENT)
-        assertJSONEquals(s"""{"value": "Test 2", "uuid": "${uuid2}"}""", testHistory2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{"value": "Test 1", "uuid": "$uuid1"}""", testHistory1.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{"value": "Test 2", "uuid": "$uuid2"}""", testHistory2.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1809,9 +1809,9 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         row3 = rows.get[JsonObject](2)
       } yield {
         assertEquals(3, rows.size())
-        assertJSONEquals(s"""{"value": "check-me", "uuid": "${uuid_check_me}"}""", row1.toString)
-        assertJSONEquals(s"""{"value": "important", "uuid": "${uuid_important}"}""", row2.toString)
-        assertJSONEquals(s"""{"value": "postpone", "uuid": "${uuid_postpone}"}""", row3.toString)
+        assertJSONEquals(s"""{"value": "check-me", "uuid": "$uuid_check_me"}""", row1.toString)
+        assertJSONEquals(s"""{"value": "important", "uuid": "$uuid_important"}""", row2.toString)
+        assertJSONEquals(s"""{"value": "postpone", "uuid": "$uuid_postpone"}""", row3.toString)
       }
     }
   }
@@ -1829,11 +1829,11 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         // add annotations
         uuid_important <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("important"))
           .map(_.getString("uuid"))
-        uuid_postpone <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("postpone"))
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("postpone"))
           .map(_.getString("uuid"))
 
         // remove annotation
-        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid_important}")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid_important")
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
           _.getJsonArray("rows"))
@@ -1841,7 +1841,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         row = rows.get[JsonObject](0)
       } yield {
         assertEquals(1, rows.size())
-        assertJSONEquals(s"""{"value": "important", "uuid": "${uuid_important}"}""", row.toString)
+        assertJSONEquals(s"""{"value": "important", "uuid": "$uuid_important"}""", row.toString)
       }
     }
   }
@@ -1868,7 +1868,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
       } yield {
         assertEquals(1, rows.size())
-        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}"}""", row1.toString)
+        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "$uuid"}""", row1.toString)
       }
     }
   }
@@ -1895,8 +1895,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
         val expected =
           s"""[
-             | {"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}", "event": "annotation_added"},
-             | {"value": {"en-GB": "needs_translation"}, "uuid": "${uuid}", "event": "annotation_added"}
+             | {"value": {"de-DE": "needs_translation"}, "uuid": "$uuid", "event": "annotation_added"},
+             | {"value": {"en-GB": "needs_translation"}, "uuid": "$uuid", "event": "annotation_added"}
            ]""".stripMargin
 
         // assert whole array because ordering is not guaranteed
@@ -1922,7 +1922,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
                             annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
 
         // remove both annotations
-        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid}")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid")
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
           _.getJsonArray("rows"))
@@ -1931,8 +1931,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
         val expected =
           s"""[
-             | {"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}", "event": "annotation_removed"},
-             | {"value": {"en-GB": "needs_translation"}, "uuid": "${uuid}", "event": "annotation_removed"}
+             | {"value": {"de-DE": "needs_translation"}, "uuid": "$uuid", "event": "annotation_removed"},
+             | {"value": {"en-GB": "needs_translation"}, "uuid": "$uuid", "event": "annotation_removed"}
            ]""".stripMargin
 
         // assert whole array because ordering is not guaranteed
@@ -1958,7 +1958,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
                             annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
 
         // remove german annotation
-        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid}/de-DE")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid/de-DE")
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
           _.getJsonArray("rows"))
@@ -1966,7 +1966,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         row = rows.get[JsonObject](0)
       } yield {
         assertEquals(1, rows.size())
-        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}"}""", row.toString)
+        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "$uuid"}""", row.toString)
       }
     }
   }
@@ -1988,8 +1988,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
                             annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
 
         // remove them one by one
-        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid}/de-DE")
-        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/${uuid}/en-GB")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid/de-DE")
+        _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid/en-GB")
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?event=annotation_removed").map(
           _.getJsonArray("rows"))
@@ -1998,8 +1998,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         row2 = rows.get[JsonObject](1)
       } yield {
         assertEquals(2, rows.size())
-        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "${uuid}"}""", row1.toString)
-        assertJSONEquals(s"""{"value": {"en-GB": "needs_translation"}, "uuid": "${uuid}"}""", row2.toString)
+        assertJSONEquals(s"""{"value": {"de-DE": "needs_translation"}, "uuid": "$uuid"}""", row1.toString)
+        assertJSONEquals(s"""{"value": {"en-GB": "needs_translation"}, "uuid": "$uuid"}""", row2.toString)
       }
     }
   }

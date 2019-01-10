@@ -1,5 +1,18 @@
 package com.campudus.tableaux.database
 
+sealed trait HistoryType {
+  val typeName: String
+  override def toString: String = typeName
+}
+
+object HistoryType {
+  final val ROW = "row"
+  final val CELL = "cell"
+  final val COMMENT = "comment"
+  final val CELL_FLAG = "cell_flag"
+  final val ROW_FLAG = "row_flag"
+}
+
 sealed trait HistoryEventType {
   val eventName: String
   override def toString: String = eventName

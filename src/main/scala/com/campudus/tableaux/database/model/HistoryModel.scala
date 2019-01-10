@@ -330,7 +330,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     Future.sequence(futureSequence)
   }
 
-  private def insertHistory(
+  protected def insertHistory(
       tableId: TableId,
       rowId: RowId,
       columnIdOpt: Option[ColumnId],
@@ -388,26 +388,6 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     val userName: String = requestContext.getCookieValue("userName")
     logger.info(s"createRowHistory ${table.id} $rowId $userName")
     insertHistory(table.id, rowId, None, RowCreatedEvent.toString, None, None, None, userName)
-  }
-
-  protected def insertAnnotationHistory(
-      table: Table,
-      rowId: RowId,
-      columnId: ColumnId,
-      event: HistoryEventType,
-      annotationType: CellAnnotationType,
-      languageType: LanguageType,
-      json: JsonObject,
-      userName: String
-  ): Future[RowId] = {
-    insertHistory(table.id,
-                  rowId,
-                  Some(columnId),
-                  event.toString,
-                  Some(annotationType.toString),
-                  Some(languageType.toString),
-                  Some(json.toString),
-                  userName)
   }
 }
 
@@ -648,7 +628,7 @@ case class CreateHistoryModel(
       annotation: CellLevelAnnotation,
       langtagOpt: Option[String] = None
   ): Future[Seq[RowId]] = {
-    val languagetype = if (annotation.langtags.isEmpty) LanguageNeutral else MultiLanguage
+    val languageType = if (annotation.langtags.isEmpty) LanguageNeutral else MultiLanguage
 
     val annotationsToBeRemoved = langtagOpt match {
       case Some(langtag) => Seq(langtag)
@@ -659,40 +639,16 @@ case class CreateHistoryModel(
     logger.info(
       s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} $userName")
 
-    val futureSequence: Seq[Future[RowId]] = languagetype match {
-
-      case LanguageNeutral =>
-        Seq(for {
-          historyRowId <- insertAnnotationHistory(column.table,
-                                                  rowId,
-                                                  column.id,
-                                                  AnnotationRemovedEvent,
-                                                  annotation.annotationType,
-                                                  languagetype,
-                                                  wrapAnnotationValue(annotation.value, uuid),
-                                                  userName)
-        } yield historyRowId)
-
-      case MultiLanguage => {
-        annotationsToBeRemoved.map(langtag =>
-          for {
-            historyRowId <- insertAnnotationHistory(
-              column.table,
-              rowId,
-              column.id,
-              AnnotationRemovedEvent,
-              annotation.annotationType,
-              languagetype,
-              wrapAnnotationValue(annotation.value, uuid, Some(langtag)),
-              userName
-            )
-          } yield historyRowId)
-      }
-
-      case MultiCountry(_) => Seq.empty[Future[RowId]]
-    }
-
-    Future.sequence(futureSequence)
+    insertAnnotationHistory(column.table,
+                            column,
+                            rowId,
+                            uuid,
+                            AnnotationRemovedEvent,
+                            annotationsToBeRemoved,
+                            annotation.annotationType,
+                            annotation.value,
+                            languageType,
+                            userName)
   }
 
   def addCellAnnotation(
@@ -703,34 +659,62 @@ case class CreateHistoryModel(
       annotationType: CellAnnotationType,
       value: String
   ): Future[Seq[RowId]] = {
-    val languagetype = if (langtags.isEmpty) LanguageNeutral else MultiLanguage
+    val languageType = if (langtags.isEmpty) LanguageNeutral else MultiLanguage
 
     val userName: String = requestContext.getCookieValue("userName")
     logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value $userName")
 
-    val futureSequence: Seq[Future[RowId]] = languagetype match {
+    insertAnnotationHistory(column.table,
+                            column,
+                            rowId,
+                            uuid,
+                            AnnotationAddedEvent,
+                            langtags,
+                            annotationType,
+                            value,
+                            languageType,
+                            userName)
+  }
+
+  private def insertAnnotationHistory(
+      table: Table,
+      column: ColumnType[_],
+      rowId: RowId,
+      uuid: UUID,
+      eventType: HistoryEventType,
+      langtags: Seq[String],
+      annotationType: CellAnnotationType,
+      value: String,
+      languageType: LanguageType,
+      userName: String
+  ): Future[Seq[RowId]] = {
+    val futureSequence: Seq[Future[RowId]] = languageType match {
       case LanguageNeutral =>
         Seq(for {
-          historyRowId <- insertAnnotationHistory(column.table,
-                                                  rowId,
-                                                  column.id,
-                                                  AnnotationAddedEvent,
-                                                  annotationType,
-                                                  languagetype,
-                                                  wrapAnnotationValue(value, uuid),
-                                                  userName)
+          historyRowId <- insertHistory(
+            table.id,
+            rowId,
+            Some(column.id),
+            eventType.toString,
+            Some(annotationType.toString),
+            Some(languageType.toString),
+            Some(wrapAnnotationValue(value, uuid).toString),
+            userName
+          )
         } yield historyRowId)
       case MultiLanguage => {
         langtags.map(langtag =>
           for {
-            historyRowId <- insertAnnotationHistory(column.table,
-                                                    rowId,
-                                                    column.id,
-                                                    AnnotationAddedEvent,
-                                                    annotationType,
-                                                    languagetype,
-                                                    wrapAnnotationValue(value, uuid, Some(langtag)),
-                                                    userName)
+            historyRowId <- insertHistory(
+              table.id,
+              rowId,
+              Some(column.id),
+              eventType.toString,
+              Some(annotationType.toString),
+              Some(languageType.toString),
+              Some(wrapAnnotationValue(value, uuid, Some(langtag)).toString),
+              userName
+            )
           } yield historyRowId)
       }
       case MultiCountry(_) => Seq.empty[Future[RowId]]
