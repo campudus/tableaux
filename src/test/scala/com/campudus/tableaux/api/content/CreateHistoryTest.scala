@@ -47,7 +47,8 @@ class CreateHistoryTest extends TableauxTestBase {
         """
           |{
           |  "event": "cell_changed",
-          |  "type": "text",
+          |  "historyType": "cell",
+          |  "valueType": "text",
           |  "languageType": "neutral",
           |  "value": "table1row1"
           |}
@@ -70,7 +71,8 @@ class CreateHistoryTest extends TableauxTestBase {
         """
           |{
           |  "event": "cell_changed",
-          |  "type": "text",
+          |  "historyType": "cell",
+          |  "valueType": "text",
           |  "languageType": "neutral",
           |  "value": "my first change"
           |}
@@ -98,17 +100,20 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "type": "numeric",
+          |    "historyType": "cell",
+          |    "valueType": "numeric",
           |    "languageType": "neutral",
           |    "value": 42
           |  }, {
           |    "event": "cell_changed",
-          |    "type": "numeric",
+          |    "historyType": "cell",
+          |    "valueType": "numeric",
           |    "languageType": "neutral",
           |    "value": 1337
           |  },{
           |    "event": "cell_changed",
-          |    "type": "numeric",
+          |    "historyType": "cell",
+          |    "valueType": "numeric",
           |    "languageType": "neutral",
           |    "value": 1123581321
           |  }
@@ -138,14 +143,16 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "type": "text",
+          |    "historyType": "cell",
+          |    "valueType": "text",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": "first change"
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "type": "text",
+          |    "historyType": "cell",
+          |    "valueType": "text",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": "second change"
@@ -179,21 +186,24 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "type": "boolean",
+          |    "historyType": "cell",
+          |    "valueType": "boolean",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": false
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "type": "boolean",
+          |    "historyType": "cell",
+          |    "valueType": "boolean",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": true
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "type": "boolean",
+          |    "historyType": "cell",
+          |    "valueType": "boolean",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": false
@@ -226,14 +236,16 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "type": "numeric",
+          |    "historyType": "cell",
+          |    "valueType": "numeric",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": 42
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "type": "numeric",
+          |    "historyType": "cell",
+          |    "valueType": "numeric",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": 1337
@@ -266,14 +278,16 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "type": "datetime",
+          |    "historyType": "cell",
+          |    "valueType": "datetime",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": "2019-01-18T00:00:00.000Z"
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "type": "datetime",
+          |    "historyType": "cell",
+          |    "valueType": "datetime",
           |    "languageType": "language",
           |    "value": {
           |      "de-DE": "2018-12-12T00:00:00.000Z"
@@ -306,14 +320,16 @@ class CreateHistoryTest extends TableauxTestBase {
           |[
           |  {
           |    "event": "cell_changed",
-          |    "type": "currency",
+          |    "historyType": "cell",
+          |    "valueType": "currency",
           |    "languageType": "country",
           |    "value": {
           |      "DE": 2999.99
           |    }
           |  }, {
           |    "event": "cell_changed",
-          |    "type": "currency",
+          |    "historyType": "cell",
+          |    "valueType": "currency",
           |    "languageType": "country",
           |    "value": {
           |      "DE": 4000
@@ -2096,8 +2112,8 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
         row2 = rowsCreated.get[JsonObject](1)
       } yield {
         assertEquals(2, rowsCreated.size())
-        JSONAssert.assertEquals(s"""{ "row_id": 1, "event": "row_created" }""", row1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(s"""{ "row_id": 2, "event": "row_created" }""", row2.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(s"""{ "rowId": 1, "event": "row_created" }""", row1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(s"""{ "rowId": 2, "event": "row_created" }""", row2.toString, JSONCompareMode.LENIENT)
       }
     }
   }

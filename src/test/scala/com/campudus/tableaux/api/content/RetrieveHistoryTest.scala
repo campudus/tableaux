@@ -1,6 +1,6 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.database.{DatabaseConnection, LanguageType, NumericType}
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -23,18 +23,20 @@ class RetrieveHistoryTest extends TableauxTestBase {
         _ <- createEmptyDefaultTable()
 
         // manually insert row
-        _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1(row_id, column_id, type, language_type, value)
-                                  |VALUES
-                                  |  (1, 1, 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
+        _ <- dbConnection.query(
+          """INSERT INTO
+            |  user_table_history_1(row_id, column_id, history_type, value_type, language_type, value)
+            |VALUES
+            |  (1, 1, 'cell', 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
         val historyCell = result.getJsonArray("rows", Json.emptyArr()).getJsonObject(0)
-        assertEquals(historyCell.getInteger("revision"), 1)
-        assertEquals(historyCell.getString("type"), NumericType.toString)
-        assertEquals(historyCell.getString("languageType"), LanguageType.NEUTRAL.toString)
-        assertEquals(historyCell.getInteger("value"), 42)
+        assertEquals(1, historyCell.getInteger("revision"))
+        assertEquals(HistoryType.CELL, historyCell.getString("historyType"))
+        assertEquals(NumericType.toString, historyCell.getString("valueType"))
+        assertEquals(LanguageType.NEUTRAL.toString, historyCell.getString("languageType"))
+        assertEquals(42, historyCell.getInteger("value"))
       }
     }
   }
@@ -49,15 +51,16 @@ class RetrieveHistoryTest extends TableauxTestBase {
         _ <- createEmptyDefaultTable()
 
         // manually insert row
-        _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1(row_id, column_id, type, language_type, value)
-                                  |VALUES
-                                  |  (1, 1, 'numeric', 'neutral', null)""".stripMargin)
+        _ <- dbConnection.query(
+          """INSERT INTO
+            |  user_table_history_1(row_id, column_id, history_type, value_type, language_type, value)
+            |VALUES
+            |  (1, 1, 'cell', 'numeric', 'neutral', null)""".stripMargin)
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
         val historyCell = result.getJsonArray("rows", Json.emptyArr()).getJsonObject(0)
-        assertEquals(historyCell.getJsonObject("value"), Json.emptyObj())
+        assertEquals(Json.emptyObj(), historyCell.getJsonObject("value"))
       }
     }
   }
@@ -83,13 +86,14 @@ class RetrieveHistoryTest extends TableauxTestBase {
         _ <- createEmptyDefaultTable()
 
         // manually insert rows
-        _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1(row_id, column_id, type, language_type, value)
-                                  |VALUES
-                                  |  (1, 1, 'numeric', 'language', '{"value": {"de": "change1"}}'),
-                                  |  (1, 1, 'numeric', 'language', '{"value": {"de": "change2"}}'),
-                                  |  (1, 1, 'numeric', 'language', '{"value": {"de": "change3"}}')
-                                  |  """.stripMargin)
+        _ <- dbConnection.query(
+          """INSERT INTO
+            |  user_table_history_1(row_id, column_id, history_type, value_type, language_type, value)
+            |VALUES
+            |  (1, 1, 'cell', 'numeric', 'language', '{"value": {"de": "change1"}}'),
+            |  (1, 1, 'cell', 'numeric', 'language', '{"value": {"de": "change2"}}'),
+            |  (1, 1, 'cell', 'numeric', 'language', '{"value": {"de": "change3"}}')
+            |  """.stripMargin)
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
@@ -139,10 +143,11 @@ class RetrieveHistoryTest extends TableauxTestBase {
         _ <- createEmptyDefaultTable()
 
         // manually insert row
-        _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1(row_id, column_id, type, language_type, value)
-                                  |VALUES
-                                  |  (1, 1, 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
+        _ <- dbConnection.query(
+          """INSERT INTO
+            |  user_table_history_1(row_id, column_id, history_type, value_type, language_type, value)
+            |VALUES
+            |  (1, 1, 'cell', 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
         _ <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de")
       } yield ()
     }
@@ -158,17 +163,18 @@ class RetrieveHistoryTest extends TableauxTestBase {
         _ <- createEmptyDefaultTable()
 
         // manually insert rows
-        _ <- dbConnection.query("""INSERT INTO
-                                  |  user_table_history_1
-                                  |  (row_id, column_id, event, type, language_type, value)
-                                  |VALUES
-                                  |  (1, null, 'row_created',     null,     null,       null),
-                                  |  (1, 2,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change2"}}'),
-                                  |  (1, 3,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change3"}}'),
-                                  |  (2, null, 'row_created',     null,     null,       null),
-                                  |  (2, 2,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change5"}}'),
-                                  |  (2, 3,    'cell_changed',   'numeric', 'language', '{"value": {"de": "change6"}}')
-                                  |  """.stripMargin)
+        _ <- dbConnection.query(
+          """INSERT INTO
+            |  user_table_history_1
+            |  (row_id, column_id, event, history_type, value_type, language_type, value)
+            |VALUES
+            |  (1, null, 'row_created',  'row',    null,     null,       null),
+            |  (1, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change2"}}'),
+            |  (1, 3,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change3"}}'),
+            |  (2, null, 'row_created',  'row',    null,     null,       null),
+            |  (2, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change5"}}'),
+            |  (2, 3,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change6"}}')
+            |  """.stripMargin)
 
         allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
         createdRows <- sendRequest("GET", "/tables/1/history?event=row_created").map(_.getJsonArray("rows"))

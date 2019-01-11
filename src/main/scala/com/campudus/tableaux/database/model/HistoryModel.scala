@@ -49,7 +49,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    row_id,
          |    column_id,
          |    event,
-         |    type,
+         |    history_type,
+         |    value_type,
          |    language_type,
          |    author,
          |    timestamp,
@@ -65,7 +66,6 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    revision ASC
          """.stripMargin
     // order by must base on revision, because a lower revision could have a minimal later timestamp
-    // TODO investigate why that may be possible
 
     for {
       result <- connection.query(select, Json.arr(binds: _*))
@@ -97,7 +97,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    row_id,
          |    column_id,
          |    event,
-         |    type,
+         |    history_type,
+         |    value_type,
          |    language_type,
          |    author,
          |    timestamp,
@@ -111,7 +112,6 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |    revision ASC
          """.stripMargin
     // order by must base on revision, because a lower revision could have a minimal later timestamp
-    // TODO investigate why that may be possible
 
     for {
       result <- connection.query(select, Json.arr(binds: _*))
@@ -121,7 +121,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     }
   }
 
-  private def mapToCellHistory(row: JsonArray): CellHistory = {
+  private def mapToCellHistory(row: JsonArray): BaseHistory = {
 
     def parseJson(jsonString: String): JsonObject = {
       jsonString match {
@@ -137,16 +137,17 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       }
     }
 
-    CellHistory(
+    BaseHistory(
       row.getLong(0),
       row.getLong(1),
       row.getLong(2),
       row.getString(3),
-      row.getString(4),
-      LanguageType(Option(row.getString(5))),
-      row.getString(6),
-      convertStringToDateTime(row.getString(7)),
-      parseJson(row.getString(8))
+      HistoryType(row.getString(4)),
+      row.getString(5),
+      LanguageType(Option(row.getString(6))),
+      row.getString(7),
+      convertStringToDateTime(row.getString(8)),
+      parseJson(row.getString(9))
     )
   }
 }
@@ -335,7 +336,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       rowId: RowId,
       columnIdOpt: Option[ColumnId],
       eventType: String,
-      historyTypeOpt: Option[String],
+      historyType: String,
+      valueTypeOpt: Option[String],
       languageTypeOpt: Option[String],
       jsonStringOpt: Option[String],
       userName: String
@@ -344,17 +346,20 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       result <- connection.query(
         s"""INSERT INTO
            |  user_table_history_$tableId
-           |    (row_id, column_id, event, type, language_type, value, author)
+           |    (row_id, column_id, event, history_type, value_type, language_type, value, author)
            |  VALUES
-           |    (?, ?, ?, ?, ?, ?, ?)
+           |    (?, ?, ?, ?, ?, ?, ?, ?)
            |  RETURNING revision""".stripMargin,
-        Json.arr(rowId,
-                 columnIdOpt.getOrElse(null),
-                 eventType,
-                 historyTypeOpt.getOrElse(null),
-                 languageTypeOpt.getOrElse(null),
-                 jsonStringOpt.getOrElse(null),
-                 userName)
+        Json.arr(
+          rowId,
+          columnIdOpt.getOrElse(null),
+          eventType,
+          historyType,
+          valueTypeOpt.getOrElse(null),
+          languageTypeOpt.getOrElse(null),
+          jsonStringOpt.getOrElse(null),
+          userName
+        )
       )
     } yield {
       insertNotNull(result).head.get[RowId](0)
@@ -371,14 +376,17 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
   ): Future[RowId] = {
     val userName: String = requestContext.getCookieValue("userName")
     logger.info(s"createCellHistory ${table.id} $columnId $rowId $json $userName")
-    insertHistory(table.id,
-                  rowId,
-                  Some(columnId),
-                  CellChangedEvent.toString,
-                  Some(columnType.toString),
-                  Some(languageType.toString),
-                  Some(json.toString),
-                  userName)
+    insertHistory(
+      table.id,
+      rowId,
+      Some(columnId),
+      HistoryEventType.CELL_CHANGED,
+      HistoryType.CELL,
+      Some(columnType.toString),
+      Some(languageType.toString),
+      Some(json.toString),
+      userName
+    )
   }
 
   protected def insertRowHistory(
@@ -387,7 +395,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
   ): Future[RowId] = {
     val userName: String = requestContext.getCookieValue("userName")
     logger.info(s"createRowHistory ${table.id} $rowId $userName")
-    insertHistory(table.id, rowId, None, RowCreatedEvent.toString, None, None, None, userName)
+    insertHistory(table.id, rowId, None, HistoryEventType.ROW_CREATED, HistoryType.ROW, None, None, None, userName)
   }
 }
 
@@ -495,7 +503,6 @@ case class CreateInitialHistoryModel(
     }))
   }
 
-  // TODO refactor init methods
   private def createSimpleInit(
       table: Table,
       rowId: RowId,
@@ -688,21 +695,37 @@ case class CreateHistoryModel(
       languageType: LanguageType,
       userName: String
   ): Future[Seq[RowId]] = {
-    val futureSequence: Seq[Future[RowId]] = languageType match {
-      case LanguageNeutral =>
+    val futureSequence: Seq[Future[RowId]] = (annotationType, languageType) match {
+      // All comment annotation types are of languageType LanguageNeutral
+      case (InfoAnnotationType | WarningAnnotationType | ErrorAnnotationType, _) =>
         Seq(for {
           historyRowId <- insertHistory(
             table.id,
             rowId,
             Some(column.id),
             eventType.toString,
+            HistoryType.COMMENT,
             Some(annotationType.toString),
             Some(languageType.toString),
             Some(wrapAnnotationValue(value, uuid).toString),
             userName
           )
         } yield historyRowId)
-      case MultiLanguage => {
+      case (_, LanguageNeutral) =>
+        Seq(for {
+          historyRowId <- insertHistory(
+            table.id,
+            rowId,
+            Some(column.id),
+            eventType.toString,
+            HistoryType.CELL_FLAG,
+            Some(value),
+            Some(languageType.toString),
+            Some(wrapAnnotationValue(value, uuid).toString),
+            userName
+          )
+        } yield historyRowId)
+      case (_, MultiLanguage) => {
         langtags.map(langtag =>
           for {
             historyRowId <- insertHistory(
@@ -710,14 +733,15 @@ case class CreateHistoryModel(
               rowId,
               Some(column.id),
               eventType.toString,
-              Some(annotationType.toString),
+              HistoryType.CELL_FLAG,
+              Some(value),
               Some(languageType.toString),
               Some(wrapAnnotationValue(value, uuid, Some(langtag)).toString),
               userName
             )
           } yield historyRowId)
       }
-      case MultiCountry(_) => Seq.empty[Future[RowId]]
+      case (_, MultiCountry(_)) => Seq.empty[Future[RowId]]
     }
 
     Future.sequence(futureSequence)

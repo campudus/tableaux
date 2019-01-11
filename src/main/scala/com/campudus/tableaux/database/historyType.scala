@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database
 
 sealed trait HistoryType {
-  val typeName: String
+  def typeName: String
   override def toString: String = typeName
 }
 
@@ -11,6 +11,33 @@ object HistoryType {
   final val COMMENT = "comment"
   final val CELL_FLAG = "cell_flag"
   final val ROW_FLAG = "row_flag"
+
+  def apply(historyType: String): HistoryType = {
+    historyType match {
+      case ROW => HistoryTypeRow
+      case CELL => HistoryTypeCell
+      case COMMENT => HistoryTypeComment
+      case CELL_FLAG => HistoryTypeCellFlag
+      case ROW_FLAG => HistoryTypeRowFlag
+      case _ => throw new IllegalArgumentException(s"Invalid argument for HistoryType $historyType")
+    }
+  }
+}
+
+case object HistoryTypeRow extends HistoryType {
+  override val typeName = HistoryType.ROW
+}
+case object HistoryTypeCell extends HistoryType {
+  override val typeName = HistoryType.CELL
+}
+case object HistoryTypeComment extends HistoryType {
+  override val typeName = HistoryType.COMMENT
+}
+case object HistoryTypeCellFlag extends HistoryType {
+  override val typeName = HistoryType.CELL_FLAG
+}
+case object HistoryTypeRowFlag extends HistoryType {
+  override val typeName = HistoryType.ROW_FLAG
 }
 
 sealed trait HistoryEventType {

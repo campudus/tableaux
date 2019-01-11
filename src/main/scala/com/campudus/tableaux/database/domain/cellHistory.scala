@@ -4,81 +4,103 @@ import com.campudus.tableaux.database._
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
-// TODO refactor CellHistory structure
-object CellHistory {
+object BaseHistory {
 
   def apply(
       revision: Long,
       row_id: Long,
       column_id: Long,
       event: String,
-      historyType: String,
+      historyType: HistoryType,
+      valueType: String,
       languageType: LanguageType,
       author: String,
       timestamp: Option[DateTime],
       value: JsonObject
-  ): CellHistory = {
-    HistoryEventType(event) match {
-      case CellChangedEvent =>
-        CellChangedHistory(revision, row_id, column_id, event, author, timestamp, historyType, languageType, value)
-      case RowCreatedEvent => RowCreatedHistory(revision, row_id, event, author, timestamp)
-      case AnnotationAddedEvent | AnnotationRemovedEvent =>
-        CellChangedHistory(revision, row_id, column_id, event, author, timestamp, historyType, languageType, value)
+  ): BaseHistory = {
+    historyType match {
+      case HistoryTypeCell | HistoryTypeComment =>
+        CellHistory(revision, row_id, column_id, event, historyType, valueType, languageType, author, timestamp, value)
+      case HistoryTypeCellFlag =>
+        CellFlagHistory(revision, row_id, column_id, event, historyType, languageType, author, timestamp, value)
+      case HistoryTypeRow =>
+        RowHistory(revision, row_id, event, historyType, author, timestamp)
+      case HistoryTypeRowFlag =>
+        RowFlagHistory(revision, row_id, event, historyType, valueType, author, timestamp)
       case _ => throw new IllegalArgumentException("Invalid argument for CellHistory.apply")
     }
   }
 }
 
-sealed trait CellHistory extends DomainObject {
-  val revision: Long
-  val row_id: Long
-  val event: String
-  val author: String
-  val timestamp: Option[DateTime]
+sealed trait BaseHistory extends DomainObject {
+  def revision: Long
+  def row_id: Long
+  def event: String
+  def historyType: HistoryType
+  def author: String
+  def timestamp: Option[DateTime]
 
   override def getJson: JsonObject = {
     Json.obj(
       "revision" -> revision,
-      "row_id" -> row_id,
+      "rowId" -> row_id,
       "event" -> event,
+      "historyType" -> historyType.toString,
       "author" -> author,
       "timestamp" -> optionToString(timestamp)
     )
   }
 }
 
-case class RowCreatedHistory(
+case class RowHistory(
     override val revision: Long,
     override val row_id: Long,
     override val event: String,
+    override val historyType: HistoryType,
     override val author: String,
     override val timestamp: Option[DateTime]
-) extends CellHistory {
+) extends BaseHistory {
 
   override def getJson: JsonObject = {
     super.getJson
   }
 }
 
-case class CellChangedHistory(
+case class RowFlagHistory(
+    override val revision: Long,
+    override val row_id: Long,
+    override val event: String,
+    override val historyType: HistoryType,
+    valueType: String,
+    override val author: String,
+    override val timestamp: Option[DateTime]
+) extends BaseHistory {
+
+  override def getJson: JsonObject = {
+    super.getJson
+      .mergeIn(
+        Json.obj("valueType" -> valueType)
+      )
+  }
+}
+
+case class CellFlagHistory(
     override val revision: Long,
     override val row_id: Long,
     column_id: Long,
     override val event: String,
+    override val historyType: HistoryType,
+    languageType: LanguageType,
     override val author: String,
     override val timestamp: Option[DateTime],
-    historyType: String,
-    languageType: LanguageType,
     value: JsonObject
-) extends CellHistory {
+) extends BaseHistory {
 
   override def getJson: JsonObject = {
-
     super.getJson
       .mergeIn(
         Json.obj(
-          "column_id" -> column_id,
-          "type" -> historyType,
+          "columnId" -> column_id,
           "languageType" -> languageType.toString,
           "value" -> Json.emptyObj()
         )
@@ -87,7 +109,34 @@ case class CellChangedHistory(
   }
 }
 
-case class SeqCellHistory(rows: Seq[CellHistory]) extends DomainObject {
+case class CellHistory(
+    override val revision: Long,
+    override val row_id: Long,
+    column_id: Long,
+    override val event: String,
+    override val historyType: HistoryType,
+    valueType: String,
+    languageType: LanguageType,
+    override val author: String,
+    override val timestamp: Option[DateTime],
+    value: JsonObject
+) extends BaseHistory {
+
+  override def getJson: JsonObject = {
+    super.getJson
+      .mergeIn(
+        Json.obj(
+          "columnId" -> column_id,
+          "valueType" -> valueType,
+          "languageType" -> languageType.toString,
+          "value" -> Json.emptyObj()
+        )
+      )
+      .mergeIn(value)
+  }
+}
+
+case class SeqCellHistory(rows: Seq[BaseHistory]) extends DomainObject {
 
   override def getJson: JsonObject = {
     Json.obj("rows" -> (rows map (_.getJson)))
