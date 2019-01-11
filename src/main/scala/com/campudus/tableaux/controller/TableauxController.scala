@@ -446,7 +446,7 @@ class TableauxController(override val config: TableauxConfig, override protected
       rowId: RowId,
       langtagOpt: Option[Langtag],
       eventOpt: Option[String]
-  ): Future[SeqCellHistory] = {
+  ): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt $eventOpt")
 
@@ -456,7 +456,7 @@ class TableauxController(override val config: TableauxConfig, override protected
     } yield cell
   }
 
-  def retrieveTableHistory(tableId: TableId, eventOpt: Option[String]): Future[SeqCellHistory] = {
+  def retrieveTableHistory(tableId: TableId, eventOpt: Option[String]): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveCellHistory $tableId $eventOpt")
 

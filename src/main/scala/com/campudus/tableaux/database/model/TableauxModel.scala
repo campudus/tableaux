@@ -767,14 +767,14 @@ class TableauxModel(
       rowId: RowId,
       langtagOpt: Option[String],
       eventOpt: Option[String]
-  ): Future[SeqCellHistory] = {
+  ): Future[SeqHistory] = {
     for {
       column <- retrieveColumn(table, columnId)
       cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, eventOpt)
     } yield cellHistorySeq
   }
 
-  def retrieveTableHistory(table: Table, eventOpt: Option[String]): Future[SeqCellHistory] = {
+  def retrieveTableHistory(table: Table, eventOpt: Option[String]): Future[SeqHistory] = {
     retrieveHistoryModel.retrieveTable(table, eventOpt)
   }
 }

@@ -22,7 +22,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       rowId: RowId,
       langtagOpt: Option[String],
       eventOpt: Option[String]
-  ): Future[SeqCellHistory] = {
+  ): Future[SeqHistory] = {
 
     val whereLanguage = (column.languageType, langtagOpt) match {
       case (MultiLanguage, Some(langtag)) => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL"
@@ -70,15 +70,15 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     for {
       result <- connection.query(select, Json.arr(binds: _*))
     } yield {
-      val cellHistory = resultObjectToJsonArray(result).map(mapToCellHistory)
-      SeqCellHistory(cellHistory)
+      val histories = resultObjectToJsonArray(result).map(mapToHistory)
+      SeqHistory(histories)
     }
   }
 
   def retrieveTable(
       table: Table,
       eventOpt: Option[String]
-  ): Future[SeqCellHistory] = {
+  ): Future[SeqHistory] = {
 
     val binds = eventOpt match {
       case Some(event) => List(event)
@@ -116,12 +116,12 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     for {
       result <- connection.query(select, Json.arr(binds: _*))
     } yield {
-      val cellHistory = resultObjectToJsonArray(result).map(mapToCellHistory)
-      SeqCellHistory(cellHistory)
+      val histories = resultObjectToJsonArray(result).map(mapToHistory)
+      SeqHistory(histories)
     }
   }
 
-  private def mapToCellHistory(row: JsonArray): BaseHistory = {
+  private def mapToHistory(row: JsonArray): History = {
 
     def parseJson(jsonString: String): JsonObject = {
       jsonString match {
@@ -137,7 +137,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       }
     }
 
-    BaseHistory(
+    History(
       row.getLong(0),
       row.getLong(1),
       row.getLong(2),
@@ -335,8 +335,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       tableId: TableId,
       rowId: RowId,
       columnIdOpt: Option[ColumnId],
-      eventType: String,
-      historyType: String,
+      eventType: HistoryEventType,
+      historyType: HistoryType,
       valueTypeOpt: Option[String],
       languageTypeOpt: Option[String],
       jsonStringOpt: Option[String],
@@ -353,8 +353,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
         Json.arr(
           rowId,
           columnIdOpt.getOrElse(null),
-          eventType,
-          historyType,
+          eventType.toString,
+          historyType.toString,
           valueTypeOpt.getOrElse(null),
           languageTypeOpt.getOrElse(null),
           jsonStringOpt.getOrElse(null),
@@ -380,8 +380,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       table.id,
       rowId,
       Some(columnId),
-      HistoryEventType.CELL_CHANGED,
-      HistoryType.CELL,
+      CellChangedEvent,
+      HistoryTypeCell,
       Some(columnType.toString),
       Some(languageType.toString),
       Some(json.toString),
@@ -395,7 +395,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
   ): Future[RowId] = {
     val userName: String = requestContext.getCookieValue("userName")
     logger.info(s"createRowHistory ${table.id} $rowId $userName")
-    insertHistory(table.id, rowId, None, HistoryEventType.ROW_CREATED, HistoryType.ROW, None, None, None, userName)
+    insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None, userName)
   }
 }
 
@@ -703,8 +703,8 @@ case class CreateHistoryModel(
             table.id,
             rowId,
             Some(column.id),
-            eventType.toString,
-            HistoryType.COMMENT,
+            eventType,
+            HistoryTypeComment,
             Some(annotationType.toString),
             Some(languageType.toString),
             Some(wrapAnnotationValue(value, uuid).toString),
@@ -717,8 +717,8 @@ case class CreateHistoryModel(
             table.id,
             rowId,
             Some(column.id),
-            eventType.toString,
-            HistoryType.CELL_FLAG,
+            eventType,
+            HistoryTypeCellFlag,
             Some(value),
             Some(languageType.toString),
             Some(wrapAnnotationValue(value, uuid).toString),
@@ -732,8 +732,8 @@ case class CreateHistoryModel(
               table.id,
               rowId,
               Some(column.id),
-              eventType.toString,
-              HistoryType.CELL_FLAG,
+              eventType,
+              HistoryTypeCellFlag,
               Some(value),
               Some(languageType.toString),
               Some(wrapAnnotationValue(value, uuid, Some(langtag)).toString),
