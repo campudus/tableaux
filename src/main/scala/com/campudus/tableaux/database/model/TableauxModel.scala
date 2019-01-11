@@ -766,15 +766,36 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       langtagOpt: Option[String],
-      eventOpt: Option[String]
+      typeOpt: Option[String]
   ): Future[SeqHistory] = {
     for {
       column <- retrieveColumn(table, columnId)
-      cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, eventOpt)
+      _ <- checkColumnTypeForLangtag(column, langtagOpt)
+      cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt)
     } yield cellHistorySeq
   }
 
-  def retrieveTableHistory(table: Table, eventOpt: Option[String]): Future[SeqHistory] = {
-    retrieveHistoryModel.retrieveTable(table, eventOpt)
+  def retrieveRowHistory(
+      table: Table,
+      rowId: RowId,
+      langtagOpt: Option[String],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
+  }
+
+  def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String]): Future[SeqHistory] = {
+    retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt)
+  }
+
+  private def checkColumnTypeForLangtag[A](column: ColumnType[_], langtagOpt: Option[String]): Future[Unit] = {
+    (column.languageType, langtagOpt) match {
+      case (LanguageNeutral, Some(_)) =>
+        Future.failed(
+          InvalidRequestException(
+            "History values filtered by langtags can only be retrieved from multi-language columns"))
+      case (_, _) => Future.successful(())
+
+    }
   }
 }

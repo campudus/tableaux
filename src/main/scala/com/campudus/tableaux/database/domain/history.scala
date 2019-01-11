@@ -23,7 +23,7 @@ object History {
       timestamp: Option[DateTime],
       value: JsonObject
   ): History = {
-    val baseHistory = new BaseHistory(revision, rowId, event, historyType, author, timestamp)
+    val baseHistory = BaseHistory(revision, rowId, event, historyType, author, timestamp)
     historyType match {
       case HistoryTypeCell | HistoryTypeComment => CellHistory(baseHistory, columnId, valueType, languageType, value)
       case HistoryTypeCellFlag => CellFlagHistory(baseHistory, columnId, languageType, value)

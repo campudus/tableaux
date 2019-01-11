@@ -445,24 +445,43 @@ class TableauxController(override val config: TableauxConfig, override protected
       columnId: ColumnId,
       rowId: RowId,
       langtagOpt: Option[Langtag],
-      eventOpt: Option[String]
+      typeOpt: Option[String]
   ): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
-    logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt $eventOpt")
+    logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt $typeOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      cell <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, eventOpt)
+      cell <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, typeOpt)
     } yield cell
   }
 
-  def retrieveTableHistory(tableId: TableId, eventOpt: Option[String]): Future[SeqHistory] = {
-    checkArguments(greaterZero(tableId))
-    logger.info(s"retrieveCellHistory $tableId $eventOpt")
+  def retrieveRowHistory(
+      tableId: TableId,
+      rowId: RowId,
+      langtagOpt: Option[Langtag],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"retrieveTableHistory $tableId $rowId $langtagOpt $typeOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      cell <- repository.retrieveTableHistory(table, eventOpt)
+      cell <- repository.retrieveRowHistory(table, rowId, langtagOpt, typeOpt)
+    } yield cell
+  }
+
+  def retrieveTableHistory(
+      tableId: TableId,
+      langtagOpt: Option[Langtag],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    checkArguments(greaterZero(tableId))
+    logger.info(s"retrieveTableHistory $tableId $typeOpt")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      cell <- repository.retrieveTableHistory(table, langtagOpt, typeOpt)
     } yield cell
   }
 }

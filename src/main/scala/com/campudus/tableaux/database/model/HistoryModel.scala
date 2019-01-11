@@ -21,104 +21,29 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       column: ColumnType[_],
       rowId: RowId,
       langtagOpt: Option[String],
-      eventOpt: Option[String]
+      typeOpt: Option[String]
   ): Future[SeqHistory] = {
+    val (where, binds) = generateWhereAndBinds(Some(column.id), Some(rowId), langtagOpt, typeOpt)
+    retrieve(table, where, binds)
+  }
 
-    val whereLanguage = (column.languageType, langtagOpt) match {
-      case (MultiLanguage, Some(langtag)) => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL"
-      case (_, None) => ""
-      case (_, Some(_)) =>
-        throw new InvalidRequestException(
-          "History values filtered by langtags can only be retrieved from multi-language columns")
-    }
-
-    val binds = eventOpt match {
-      case Some(event) => List(rowId, column.id, event)
-      case None => List(rowId, column.id)
-    }
-
-    val whereEvent = eventOpt match {
-      case Some(_) => s" AND event = ?"
-      case None => ""
-    }
-
-    val select =
-      s"""
-         |  SELECT
-         |    revision,
-         |    row_id,
-         |    column_id,
-         |    event,
-         |    history_type,
-         |    value_type,
-         |    language_type,
-         |    author,
-         |    timestamp,
-         |    value
-         |  FROM
-         |    user_table_history_${table.id}
-         |  WHERE
-         |    row_id = ?
-         |    AND (column_id = ? OR column_id IS NULL)
-         |    $whereLanguage
-         |    $whereEvent
-         |  ORDER BY
-         |    revision ASC
-         """.stripMargin
-    // order by must base on revision, because a lower revision could have a minimal later timestamp
-
-    for {
-      result <- connection.query(select, Json.arr(binds: _*))
-    } yield {
-      val histories = resultObjectToJsonArray(result).map(mapToHistory)
-      SeqHistory(histories)
-    }
+  def retrieveRow(
+      table: Table,
+      rowId: RowId,
+      langtagOpt: Option[String],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    val (where, binds) = generateWhereAndBinds(None, Some(rowId), langtagOpt, typeOpt)
+    retrieve(table, where, binds)
   }
 
   def retrieveTable(
       table: Table,
-      eventOpt: Option[String]
+      langtagOpt: Option[String],
+      typeOpt: Option[String]
   ): Future[SeqHistory] = {
-
-    val binds = eventOpt match {
-      case Some(event) => List(event)
-      case None => List.empty[String]
-    }
-
-    val whereEvent = eventOpt match {
-      case Some(_) => s" AND event = ?"
-      case None => ""
-    }
-
-    val select =
-      s"""
-         |  SELECT
-         |    revision,
-         |    row_id,
-         |    column_id,
-         |    event,
-         |    history_type,
-         |    value_type,
-         |    language_type,
-         |    author,
-         |    timestamp,
-         |    value
-         |  FROM
-         |    user_table_history_${table.id}
-         |  WHERE
-         |    1 = 1
-         |    $whereEvent
-         |  ORDER BY
-         |    revision ASC
-         """.stripMargin
-    // order by must base on revision, because a lower revision could have a minimal later timestamp
-
-    for {
-      result <- connection.query(select, Json.arr(binds: _*))
-    } yield {
-      val histories = resultObjectToJsonArray(result).map(mapToHistory)
-      SeqHistory(histories)
-    }
+    val (where, binds) = generateWhereAndBinds(None, None, langtagOpt, typeOpt)
+    retrieve(table, where, binds)
   }
 
   private def mapToHistory(row: JsonArray): History = {
@@ -149,6 +74,78 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       convertStringToDateTime(row.getString(8)),
       parseJson(row.getString(9))
     )
+  }
+
+  private def retrieve(table: Table, where: String, binds: Seq[Any]): Future[SeqHistory] = {
+    val select =
+      s"""
+         |  SELECT
+         |    revision,
+         |    row_id,
+         |    column_id,
+         |    event,
+         |    history_type,
+         |    value_type,
+         |    language_type,
+         |    author,
+         |    timestamp,
+         |    value
+         |  FROM
+         |    user_table_history_${table.id}
+         |  WHERE
+         |    1 = 1
+         |    $where
+         |  ORDER BY
+         |    revision ASC
+         """.stripMargin
+    // order by must base on revision, because a lower revision could have a minimal later timestamp
+
+    for {
+      result <- connection.query(select, Json.arr(binds: _*))
+    } yield {
+      val histories = resultObjectToJsonArray(result).map(mapToHistory)
+      SeqHistory(histories)
+    }
+  }
+
+  private def generateWhereAndBinds(
+      columnIdOpt: Option[ColumnId],
+      rowIdOpt: Option[RowId],
+      langtagOpt: Option[String],
+      typeOpt: Option[String]
+  ): (String, Seq[Any]) = {
+
+    val whereColumnId: Option[(String, ColumnId)] = columnIdOpt match {
+      case Some(columnId) => Some(s" AND (column_id = ? OR column_id IS NULL)", columnId)
+      case None => None
+    }
+
+    val whereRowId: Option[(String, RowId)] = rowIdOpt match {
+      case Some(rowId) => Some(s" AND row_id = ?", rowId)
+      case None => None
+    }
+
+    val whereLangtag: Option[(String, String)] = langtagOpt match {
+      case Some(langtag) => Some(s" AND (value -> 'value' -> ?)::json IS NOT NULL", langtag)
+      case None => None
+    }
+
+    val whereType: Option[(String, String)] = typeOpt match {
+      case Some(historyType) => Some(s" AND history_type = ?", historyType)
+      case None => None
+    }
+
+    val opts: List[Option[(String, Any)]] = List(whereColumnId, whereRowId, whereLangtag, whereType)
+
+    opts.foldLeft(("", Seq.empty[Any])) { (acc, op) =>
+      {
+        val (foldWhere, foldBind) = acc
+        op match {
+          case Some((where, bind: Any)) => (s"$foldWhere $where", foldBind :+ bind)
+          case None => acc
+        }
+      }
+    }
   }
 }
 

@@ -177,8 +177,8 @@ class RetrieveHistoryTest extends TableauxTestBase {
             |  """.stripMargin)
 
         allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
-        createdRows <- sendRequest("GET", "/tables/1/history?event=row_created").map(_.getJsonArray("rows"))
-        changedCells <- sendRequest("GET", "/tables/1/history?event=cell_changed").map(_.getJsonArray("rows"))
+        createdRows <- sendRequest("GET", "/tables/1/history?historyType=row").map(_.getJsonArray("rows"))
+        changedCells <- sendRequest("GET", "/tables/1/history?historyType=cell").map(_.getJsonArray("rows"))
       } yield {
         assertEquals(6, allRows.size())
         assertEquals(2, createdRows.size())
