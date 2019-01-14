@@ -498,18 +498,21 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("DELETE", "/tables/1/columns/2/rows/1")
         _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
 
-        textHistoryRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE")
-        numericHistoryRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history/de-DE")
-        booelanHistoryRows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history/de-DE")
+        textHistoryRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE?historyType=cell").map(
+          _.getJsonArray("rows"))
+        booleanHistoryRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history/de-DE?historyType=cell").map(
+          _.getJsonArray("rows"))
+        numericHistoryRows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history/de-DE?historyType=cell").map(
+          _.getJsonArray("rows"))
 
-        textHistory = textHistoryRows.getJsonArray("rows").get[JsonObject](1)
+        textHistory = textHistoryRows.get[JsonObject](1)
         //for boolean setting one value also sets all other langtags to false, so take pos=2
-        numericHistory = numericHistoryRows.getJsonArray("rows").get[JsonObject](2)
-        booleanHistory = booelanHistoryRows.getJsonArray("rows").get[JsonObject](1)
+        booleanHistory = booleanHistoryRows.get[JsonObject](2)
+        numericHistory = numericHistoryRows.get[JsonObject](1)
       } yield {
         JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", textHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", numericHistory.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", booleanHistory.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", numericHistory.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1441,7 +1444,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |""".stripMargin)
 
         _ <- sendRequest("DELETE", "/tables/1/columns/1/rows/1")
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE")
+        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE?historyType=cell")
 
         rows = test.getJsonArray("rows")
         initialHistoryDE = rows.getJsonObject(0)
@@ -1754,7 +1757,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
                              "/tables/1/columns/1/rows/1/annotations",
                              Json.obj("type" -> "info", "value" -> "Test 2")).map(_.getString("uuid"))
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=comment").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_comment").map(
+          _.getJsonArray("rows"))
 
         testHistory1 = rows.get[JsonObject](0)
         testHistory2 = rows.get[JsonObject](1)
@@ -1785,7 +1789,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid1")
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid2")
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=comment").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_comment").map(
+          _.getJsonArray("rows"))
 
         testHistory1 = rows.get[JsonObject](2)
         testHistory2 = rows.get[JsonObject](3)

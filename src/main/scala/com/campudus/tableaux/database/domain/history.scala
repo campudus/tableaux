@@ -25,7 +25,8 @@ object History {
   ): History = {
     val baseHistory = BaseHistory(revision, rowId, event, historyType, author, timestamp)
     historyType match {
-      case HistoryTypeCell | HistoryTypeComment => CellHistory(baseHistory, columnId, valueType, languageType, value)
+      case HistoryTypeCell | HistoryTypeCellComment =>
+        CellHistory(baseHistory, columnId, valueType, languageType, value)
       case HistoryTypeCellFlag => CellFlagHistory(baseHistory, columnId, languageType, value)
       case HistoryTypeRow => baseHistory
       case HistoryTypeRowFlag => RowFlagHistory(baseHistory, valueType)

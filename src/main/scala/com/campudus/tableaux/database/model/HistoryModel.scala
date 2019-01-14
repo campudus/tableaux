@@ -2,13 +2,13 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
+import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, RowId, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{InvalidRequestException, RequestContext}
 import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.concurrent.Future
@@ -126,7 +126,18 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     }
 
     val whereLangtag: Option[(String, String)] = langtagOpt match {
-      case Some(langtag) => Some(s" AND (value -> 'value' -> ?)::json IS NOT NULL", langtag)
+//      case Some(langtag) => Some(s" AND (value -> 'value' -> ?)::json IS NOT NULL", langtag)
+      case Some(langtag) =>
+        Some(
+          s"""
+             |AND (
+             |  language_type != 'language' OR
+             |  language_type IS NULL OR
+             |  (language_type = 'language' AND (value -> 'value' -> ?)::json IS NOT NULL)
+             |)
+         """.stripMargin,
+          langtag
+        )
       case None => None
     }
 
@@ -410,7 +421,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
                   AnnotationAddedEvent,
                   HistoryTypeRowFlag,
                   Some(value),
-                  None,
+                  Some(LanguageType.NEUTRAL),
                   Some(json.toString),
                   getUserName)
   }
@@ -428,7 +439,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
                   AnnotationRemovedEvent,
                   HistoryTypeRowFlag,
                   Some(value),
-                  None,
+                  Some(LanguageType.NEUTRAL),
                   Some(json.toString),
                   getUserName)
   }
@@ -737,7 +748,7 @@ case class CreateHistoryModel(
             rowId,
             Some(column.id),
             eventType,
-            HistoryTypeComment,
+            HistoryTypeCellComment,
             Some(annotationType.toString),
             Some(languageType.toString),
             Some(wrapAnnotationValue(value, uuid).toString),

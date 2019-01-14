@@ -8,7 +8,7 @@ sealed trait HistoryType {
 object HistoryType {
   final val ROW = "row"
   final val CELL = "cell"
-  final val COMMENT = "comment"
+  final val CELL_COMMENT = "cell_comment"
   final val CELL_FLAG = "cell_flag"
   final val ROW_FLAG = "row_flag"
 
@@ -16,7 +16,7 @@ object HistoryType {
     historyType match {
       case ROW => HistoryTypeRow
       case CELL => HistoryTypeCell
-      case COMMENT => HistoryTypeComment
+      case CELL_COMMENT => HistoryTypeCellComment
       case CELL_FLAG => HistoryTypeCellFlag
       case ROW_FLAG => HistoryTypeRowFlag
       case _ => throw new IllegalArgumentException(s"Invalid argument for HistoryType $historyType")
@@ -30,8 +30,8 @@ case object HistoryTypeRow extends HistoryType {
 case object HistoryTypeCell extends HistoryType {
   override val typeName = HistoryType.CELL
 }
-case object HistoryTypeComment extends HistoryType {
-  override val typeName = HistoryType.COMMENT
+case object HistoryTypeCellComment extends HistoryType {
+  override val typeName = HistoryType.CELL_COMMENT
 }
 case object HistoryTypeCellFlag extends HistoryType {
   override val typeName = HistoryType.CELL_FLAG
