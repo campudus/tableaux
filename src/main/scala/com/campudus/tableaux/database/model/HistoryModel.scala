@@ -157,6 +157,10 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
   val tableModel = new TableModel(connection)
   val attachmentModel = AttachmentModel(connection)
 
+  protected def getUserName: String = {
+    requestContext.getCookieValue("userName")
+  }
+
   protected def retrieveCurrentLinkIds(
       table: Table,
       column: LinkColumn,
@@ -371,8 +375,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       languageType: LanguageType,
       json: JsonObject
   ): Future[RowId] = {
-    val userName: String = requestContext.getCookieValue("userName")
-    logger.info(s"createCellHistory ${table.id} $columnId $rowId $json $userName")
+    logger.info(s"createCellHistory ${table.id} $columnId $rowId $json $getUserName")
     insertHistory(
       table.id,
       rowId,
@@ -382,7 +385,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       Some(columnType.toString),
       Some(languageType.toString),
       Some(json.toString),
-      userName
+      getUserName
     )
   }
 
@@ -390,9 +393,44 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       table: Table,
       rowId: RowId
   ): Future[RowId] = {
-    val userName: String = requestContext.getCookieValue("userName")
-    logger.info(s"createRowHistory ${table.id} $rowId $userName")
-    insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None, userName)
+    logger.info(s"createRowHistory ${table.id} $rowId $getUserName")
+    insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None, getUserName)
+  }
+
+  protected def addRowAnnotationHistory(
+      tableId: TableId,
+      rowId: RowId,
+      value: String
+  ): Future[RowId] = {
+    logger.info(s"createAddRowAnnotationHistory $tableId $rowId $getUserName")
+    val json = Json.obj("value" -> value)
+    insertHistory(tableId,
+                  rowId,
+                  None,
+                  AnnotationAddedEvent,
+                  HistoryTypeRowFlag,
+                  Some(value),
+                  None,
+                  Some(json.toString),
+                  getUserName)
+  }
+
+  protected def removeRowAnnotationHistory(
+      tableId: TableId,
+      rowId: RowId,
+      value: String
+  ): Future[RowId] = {
+    logger.info(s"createRemoveRowAnnotationHistory $tableId $rowId $getUserName")
+    val json = Json.obj("value" -> value)
+    insertHistory(tableId,
+                  rowId,
+                  None,
+                  AnnotationRemovedEvent,
+                  HistoryTypeRowFlag,
+                  Some(value),
+                  None,
+                  Some(json.toString),
+                  getUserName)
   }
 }
 
@@ -639,9 +677,8 @@ case class CreateHistoryModel(
       case None => annotation.langtags
     }
 
-    val userName: String = requestContext.getCookieValue("userName")
     logger.info(
-      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} $userName")
+      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} $getUserName")
 
     insertAnnotationHistory(column.table,
                             column,
@@ -652,7 +689,7 @@ case class CreateHistoryModel(
                             annotation.annotationType,
                             annotation.value,
                             languageType,
-                            userName)
+                            getUserName)
   }
 
   def addCellAnnotation(
@@ -665,8 +702,7 @@ case class CreateHistoryModel(
   ): Future[Seq[RowId]] = {
     val languageType = if (langtags.isEmpty) LanguageNeutral else MultiLanguage
 
-    val userName: String = requestContext.getCookieValue("userName")
-    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value $userName")
+    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value $getUserName")
 
     insertAnnotationHistory(column.table,
                             column,
@@ -677,7 +713,7 @@ case class CreateHistoryModel(
                             annotationType,
                             value,
                             languageType,
-                            userName)
+                            getUserName)
   }
 
   private def insertAnnotationHistory(
@@ -793,5 +829,18 @@ case class CreateHistoryModel(
 
   def createRow(table: Table, rowId: RowId): Future[RowId] = {
     insertRowHistory(table, rowId)
+  }
+
+  def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], finalFlagOpt: Option[Boolean]): Future[Unit] = {
+    for {
+      _ <- finalFlagOpt match {
+        case None => Future.successful(())
+        case Some(isFinal) =>
+          if (isFinal)
+            Future.sequence(rowIds.map(rowId => addRowAnnotationHistory(tableId, rowId, "final")))
+          else
+            Future.sequence(rowIds.map(rowId => removeRowAnnotationHistory(tableId, rowId, "final")))
+      }
+    } yield ()
   }
 }

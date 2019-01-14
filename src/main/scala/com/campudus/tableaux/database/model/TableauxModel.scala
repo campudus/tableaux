@@ -273,6 +273,7 @@ class TableauxModel(
   def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean]): Future[Row] = {
     for {
       _ <- updateRowModel.updateRowAnnotations(table.id, rowId, finalFlag)
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, Seq(rowId), finalFlag)
       row <- retrieveRow(table, rowId)
     } yield row
   }
@@ -280,6 +281,8 @@ class TableauxModel(
   def updateRowsAnnotations(table: Table, finalFlag: Option[Boolean]): Future[Unit] = {
     for {
       _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
+      rowIds <- retrieveRows(table, Pagination(None, None)).map(_.rows.map(_.id))
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, finalFlag)
     } yield ()
   }
 
