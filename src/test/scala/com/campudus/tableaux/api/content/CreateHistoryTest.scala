@@ -9,8 +9,8 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.ext.web.Cookie
+import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.{Ignore, Test}
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -18,8 +18,12 @@ import scala.concurrent.Future
 
 trait TestHelper extends MediaTestBase {
 
-  def getLinksJsonArray(obj: JsonObject, pos: Int = 0): JsonArray = {
-    obj.getJsonArray("rows", Json.emptyArr()).getJsonObject(pos).getJsonArray("value")
+  def toRowsArray(obj: JsonObject): JsonArray = {
+    obj.getJsonArray("rows")
+  }
+
+  def getLinksValue(arr: JsonArray, pos: Int = 0): JsonArray = {
+    arr.getJsonObject(pos).getJsonArray("value")
   }
 
   protected def createTestAttachment(name: String)(implicit c: TestContext): Future[String] = {
@@ -38,7 +42,7 @@ trait TestHelper extends MediaTestBase {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class CreateHistoryTest extends TableauxTestBase {
+class CreateHistoryTest extends TableauxTestBase with TestHelper {
 
   @Test
   def changeSimpleValue_historyAfterDefaultTableCreation(implicit c: TestContext): Unit = {
@@ -56,8 +60,8 @@ class CreateHistoryTest extends TableauxTestBase {
 
       for {
         _ <- createDefaultTable()
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        historyAfterCreation = test.getJsonArray("rows").get[JsonObject](0)
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = rows.get[JsonObject](0)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -84,8 +88,8 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- createEmptyDefaultTable()
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue)
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        historyAfterCreation = test.getJsonArray("rows").get[JsonObject](0)
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = rows.get[JsonObject](0)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -127,8 +131,7 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", Json.obj("value" -> 42))
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", Json.obj("value" -> 1337))
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", Json.obj("value" -> 1123581321))
-        history <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell")
-        historyRows = history.getJsonArray("rows")
+        historyRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         JSONAssert.assertEquals(expected, historyRows.toString, JSONCompareMode.LENIENT)
       }
@@ -169,8 +172,8 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue2)
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        historyAfterCreation = test.getJsonArray("rows")
+        historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(
+          toRowsArray)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -220,8 +223,8 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", newValue2)
-        test <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell")
-        historyAfterCreation = test.getJsonArray("rows")
+        historyAfterCreation <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(
+          toRowsArray)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -262,8 +265,8 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue2)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        historyAfterCreation = test.getJsonArray("rows")
+        historyAfterCreation <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(
+          toRowsArray)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -304,8 +307,8 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/7/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/7/rows/1", newValue2)
-        test <- sendRequest("GET", "/tables/1/columns/7/rows/1/history?historyType=cell")
-        historyAfterCreation = test.getJsonArray("rows")
+        historyAfterCreation <- sendRequest("GET", "/tables/1/columns/7/rows/1/history?historyType=cell").map(
+          toRowsArray)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -345,8 +348,8 @@ class CreateHistoryTest extends TableauxTestBase {
 
         _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("DE" -> 2999.99)))
         _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("DE" -> 4000)))
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        historyAfterCreation = test.getJsonArray("rows")
+        historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(
+          toRowsArray)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -377,8 +380,8 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue1)
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        historyAfterCreation = test.getJsonArray("rows")
+        historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(
+          toRowsArray)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -415,12 +418,9 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows", rowData)
 
-        textHistory <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        booleanHistory <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell")
-        numericHistory <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        textRows = textHistory.getJsonArray("rows")
-        booleanRows = booleanHistory.getJsonArray("rows")
-        numericRows = numericHistory.getJsonArray("rows")
+        textRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
+        booleanRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
+        numericRows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         JSONAssert.assertEquals(expectedText, textRows.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(expectedBoolean, booleanRows.toString, JSONCompareMode.LENIENT)
@@ -447,14 +447,14 @@ class CreateHistoryTest extends TableauxTestBase {
       for {
         _ <- sendRequest("POST", "/completetable", createCompleteTableJson)
 
-        textHistory1 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        textHistory2 <- sendRequest("GET", "/tables/1/columns/1/rows/2/history?historyType=cell")
-        numericHistory1 <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell")
-        numericHistory2 <- sendRequest("GET", "/tables/1/columns/2/rows/2/history?historyType=cell")
-        textRows1 = textHistory1.getJsonArray("rows").getJsonObject(0)
-        textRows2 = textHistory2.getJsonArray("rows").getJsonObject(0)
-        numericRows1 = numericHistory1.getJsonArray("rows").getJsonObject(0)
-        numericRows2 = numericHistory2.getJsonArray("rows").getJsonObject(0)
+        textHistory1 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
+        textHistory2 <- sendRequest("GET", "/tables/1/columns/1/rows/2/history?historyType=cell").map(toRowsArray)
+        numericHistory1 <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
+        numericHistory2 <- sendRequest("GET", "/tables/1/columns/2/rows/2/history?historyType=cell").map(toRowsArray)
+        textRows1 = textHistory1.getJsonObject(0)
+        textRows2 = textHistory2.getJsonObject(0)
+        numericRows1 = numericHistory1.getJsonObject(0)
+        numericRows2 = numericHistory2.getJsonObject(0)
       } yield {
         JSONAssert.assertEquals("""{"value": "Test Field 1"}""", textRows1.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals("""{"value": "Test Field 2"}""", textRows2.toString, JSONCompareMode.LENIENT)
@@ -472,11 +472,11 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("DELETE", "/tables/1/columns/1/rows/1")
         _ <- sendRequest("DELETE", "/tables/1/columns/2/rows/1")
 
-        textHistoryRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        numericHistoryRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell")
+        textHistoryRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
+        numericHistoryRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
 
-        textHistory = textHistoryRows.getJsonArray("rows").get[JsonObject](1)
-        numericHistory = numericHistoryRows.getJsonArray("rows").get[JsonObject](1)
+        textHistory = textHistoryRows.get[JsonObject](1)
+        numericHistory = numericHistoryRows.get[JsonObject](1)
       } yield {
         JSONAssert.assertEquals("""{"value": null}""", textHistory.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals("""{"value": null}""", numericHistory.toString, JSONCompareMode.LENIENT)
@@ -499,11 +499,11 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
 
         textHistoryRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE?historyType=cell").map(
-          _.getJsonArray("rows"))
+          toRowsArray)
         booleanHistoryRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history/de-DE?historyType=cell").map(
-          _.getJsonArray("rows"))
+          toRowsArray)
         numericHistoryRows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history/de-DE?historyType=cell").map(
-          _.getJsonArray("rows"))
+          toRowsArray)
 
         textHistory = textHistoryRows.get[JsonObject](1)
         //for boolean setting one value also sets all other langtags to false, so take pos=2
@@ -531,7 +531,7 @@ class CreateHistoryTest extends TableauxTestBase {
         _ <- createEmptyDefaultTable()
         _ <- sendRequest("POST", "/tables/1/rows", Some(cookie))
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue, Some(cookie))
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(toRowsArray)
         rowCreated = rows.get[JsonObject](0)
         cellChanged = rows.get[JsonObject](1)
       } yield {
@@ -562,8 +562,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -588,8 +588,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -616,8 +616,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", s"/tables/2/columns/2", Json.obj("identifier" -> true))
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -644,8 +644,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", postLink1)
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", postLink2)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test, 1)
+        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(test, 1)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -673,8 +673,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", postThirdLink)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test, 1)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows, 1)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -699,8 +699,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
         _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/2")
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test, 1)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows, 1)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -726,8 +726,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
         _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/4")
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test, 1)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows, 1)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -745,8 +745,8 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinks)
         _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
 
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        history = getLinksJsonArray(test, 1)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        history = getLinksValue(rows, 1)
       } yield {
         JSONAssert.assertEquals("[]", history.toString, JSONCompareMode.LENIENT)
       }
@@ -757,12 +757,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
 @RunWith(classOf[VertxUnitRunner])
 class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
 
-  // TODO
-  // very bidirectional is very complex
-  // wwe have to handle deletion, adding, etc. and there shouldn't be created duplicate history entries
-
   @Test
-//  @Ignore
   def changeLink_addOneLink(implicit c: TestContext): Unit = {
     okTest {
       val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(5)))
@@ -776,10 +771,10 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
 
         _ = Thread.sleep(100)
-        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        targetHistory <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell")
-        historyLinks = getLinksJsonArray(history)
-        historyTargetLinks = getLinksJsonArray(targetHistory)
+        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        targetHistory <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+        historyLinks = getLinksValue(history)
+        historyTargetLinks = getLinksValue(targetHistory)
       } yield {
         JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(targetLinkTable, historyTargetLinks.toString, JSONCompareMode.LENIENT)
@@ -788,7 +783,6 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
   }
 
   @Test
-//  @Ignore
   def changeLink_addTwoLinksAtOnce(implicit c: TestContext): Unit = {
     okTest {
       val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(4, 5)))
@@ -804,12 +798,12 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
 
         _ = Thread.sleep(100)
 
-        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell")
-        targetHistory2 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell")
-        historyLinks = getLinksJsonArray(history)
-        historyTargetLinks1 = getLinksJsonArray(targetHistory1)
-        historyTargetLinks2 = getLinksJsonArray(targetHistory2)
+        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+        targetHistory2 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+        historyLinks = getLinksValue(history)
+        historyTargetLinks1 = getLinksValue(targetHistory1)
+        historyTargetLinks2 = getLinksValue(targetHistory2)
       } yield {
         JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(targetLinkTable1, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
@@ -819,15 +813,18 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
   }
 
   @Test
-  //  @Ignore
   def changeLink_addASecondLink(implicit c: TestContext): Unit = {
     okTest {
       val putInitialLink = Json.obj("value" -> Json.obj("values" -> Json.arr(5)))
       val patchSecondLink = Json.obj("value" -> Json.obj("values" -> Json.arr(4)))
 
-      val linkTable = """[ {"id": 4, "value": "table2RowId2"},  {"id": 5, "value": "table2RowId3"} ]""".stripMargin
-      val targetLinkTable1 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
-      val targetLinkTable2 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
+      val linkTable =
+        """[
+          |  {"id": 4, "value": "table2RowId2"},
+          |  {"id": 5, "value": "table2RowId3"}
+          |]""".stripMargin
+
+      val backLink = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
 
       for {
         _ <- setupTwoTablesWithEmptyLinks()
@@ -837,21 +834,71 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
 
         _ = Thread.sleep(100)
 
-        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell")
-        targetHistory2 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell")
-        historyLinks = getLinksJsonArray(history, 1)
-        historyTargetLinks1 = getLinksJsonArray(targetHistory1)
-        historyTargetLinks2 = getLinksJsonArray(targetHistory2)
+        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+        targetHistory2 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+
+        historyLinks = getLinksValue(history, 1)
+        historyTargetLinks1 = getLinksValue(targetHistory1)
+        historyTargetLinks2 = getLinksValue(targetHistory2)
       } yield {
         JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
         println("XXX: " + historyLinks)
-        JSONAssert.assertEquals(targetLinkTable1, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
-        println("XXX: " + targetHistory1.getJsonArray("rows") + " " + targetHistory1.getJsonArray("rows").size())
-        assertEquals(1, targetHistory1.getJsonArray("rows").size())
-        JSONAssert.assertEquals(targetLinkTable2, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
-        println("XXX: " + targetHistory2.getJsonArray("rows") + " " + targetHistory2.getJsonArray("rows").size())
-        assertEquals(1, targetHistory2.getJsonArray("rows").size())
+        JSONAssert.assertEquals(backLink, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
+        println("XXX: " + targetHistory1 + " " + targetHistory1.size())
+        assertEquals(1, targetHistory1.size())
+        JSONAssert.assertEquals(backLink, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
+        println("XXX: " + targetHistory2 + " " + targetHistory2.size())
+        assertEquals(1, targetHistory2.size())
+      }
+    }
+  }
+
+  @Test
+  def changeLink_oneLinkExisting_addTwoLinksAtOnce(implicit c: TestContext): Unit = {
+    okTest {
+      val putInitialLink = Json.obj("value" -> Json.obj("values" -> Json.arr(5)))
+      val patchSecondLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(4, 3)))
+
+      val linkTable =
+        """[
+          |  {"id": 3, "value": "table2RowId1"},
+          |  {"id": 4, "value": "table2RowId2"},
+          |  {"id": 5, "value": "table2RowId3"}
+          |]""".stripMargin
+
+      val backLink = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putInitialLink)
+        _ <- sendRequest("PATCH", s"/tables/1/columns/3/rows/1", patchSecondLinks)
+
+        _ = Thread.sleep(100)
+
+        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        targetHistoryRows1 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
+        targetHistoryRows2 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+        targetHistoryRows3 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+
+        initialHistoryLinks = history.getJsonObject(0).getJsonArray("value")
+        historyLinks = history.getJsonObject(1).getJsonArray("value")
+        historyTargetLinks1 = targetHistoryRows1.getJsonObject(0).getJsonArray("value")
+        historyTargetLinks2 = targetHistoryRows2.getJsonObject(0).getJsonArray("value")
+        historyTargetLinks3 = targetHistoryRows3.getJsonObject(0).getJsonArray("value")
+      } yield {
+        assertEquals(1, initialHistoryLinks.size())
+        assertEquals(3, historyLinks.size())
+        JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
+
+        assertEquals(1, targetHistoryRows1.size())
+        assertEquals(1, targetHistoryRows2.size())
+        assertEquals(1, targetHistoryRows3.size())
+
+        JSONAssert.assertEquals(backLink, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(backLink, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(backLink, historyTargetLinks3.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -888,8 +935,8 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/5/order", Json.obj("location" -> "start"))
 
         links <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
-        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test, 1)
+        rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows, 1)
       } yield {
         import scala.collection.JavaConverters._
 
@@ -939,8 +986,8 @@ class CreateMultiLanguageLinkHistoryTest extends LinkTestBase with TestHelper {
         linkColumnId = linkColumn.getJsonArray("columns").get[JsonObject](0).getNumber("id")
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLinkValue)
-        test <- sendRequest("GET", "/tables/1/columns/8/rows/1/history?historyType=cell")
-        historyAfterCreation = getLinksJsonArray(test)
+        rows <- sendRequest("GET", "/tables/1/columns/8/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows)
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -973,9 +1020,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |WHERE id = 1""".stripMargin)
 
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", firstChangedValue)
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
 
-        rows = test.getJsonArray("rows")
         initialHistoryCreation = rows.get[JsonObject](0)
         firstHistoryCreation = rows.get[JsonObject](1)
       } yield {
@@ -1008,9 +1054,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change1)
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change2)
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
 
-        rows = test.getJsonArray("rows")
         initialHistory = rows.get[JsonObject](0)
         history1 = rows.get[JsonObject](1)
         history2 = rows.get[JsonObject](2)
@@ -1049,9 +1094,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change1)
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change2)
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change3)
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
 
-        rows = test.getJsonArray("rows")
         initialHistoryDE = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
@@ -1095,8 +1139,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |""".stripMargin)
 
         _ <- sendRequest("POST", s"/tables/1/columns/1/rows/1", """{"value": {"DE": 33, "GB": 44}}""")
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         JSONAssert.assertEquals(expectedValues, rows.toString, JSONCompareMode.LENIENT)
       }
@@ -1130,8 +1173,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |""".stripMargin)
 
         _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", """{"value": {"DE": 33, "GB": 44}}""")
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         JSONAssert.assertEquals(expectedValues, rows.toString, JSONCompareMode.LENIENT)
       }
@@ -1158,8 +1200,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |  """.stripMargin)
 
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 5 ] }""")
-        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
       } yield {
@@ -1190,8 +1231,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 4 ] }""")
         _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 5 ] }""")
-        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
+
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
@@ -1224,8 +1265,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |  """.stripMargin)
 
         _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/4")
-        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
+
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
       } yield {
@@ -1259,8 +1300,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/3/order", s""" {"location": "end"} """)
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/5/order", s""" {"location": "start"} """)
 
-        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
+
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
@@ -1295,8 +1336,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/4")
         _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1/link/3")
-        test <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
+
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
@@ -1326,8 +1367,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", expectedAfterPost1)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
       } yield {
@@ -1362,8 +1403,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- dbConnection.query("""UPDATE user_table_1 SET column_3 = TRUE WHERE id = 1""".stripMargin)
 
         _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", expectedAfterPost1)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
       } yield {
@@ -1393,8 +1434,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", expectedAfterPost1)
         _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", expectedAfterPost2)
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
@@ -1419,8 +1460,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", expectedAfterPost1)
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", expectedAfterPost2)
-        test <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell")
-        rows = test.getJsonArray("rows")
+        rows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
+
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
@@ -1452,9 +1493,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |WHERE id = 1""".stripMargin)
 
         _ <- sendRequest("DELETE", "/tables/1/columns/1/rows/1")
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
 
-        rows = test.getJsonArray("rows")
         initialHistoryCreation = rows.get[JsonObject](0)
         firstHistoryCreation = rows.get[JsonObject](1)
       } yield {
@@ -1485,9 +1525,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |""".stripMargin)
 
         _ <- sendRequest("DELETE", "/tables/1/columns/1/rows/1")
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE?historyType=cell")
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE?historyType=cell").map(toRowsArray)
 
-        rows = test.getJsonArray("rows")
         initialHistoryDE = rows.getJsonObject(0)
         history = rows.getJsonObject(1)
       } yield {
@@ -1518,9 +1557,9 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                   |  """.stripMargin)
 
         _ <- sendRequest("DELETE", s"/tables/1/columns/$linkColumnId/rows/1")
-        test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
-        initialHistory = getLinksJsonArray(test)
-        history = getLinksJsonArray(test, 1)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        initialHistory = getLinksValue(rows)
+        history = getLinksValue(rows, 1)
       } yield {
         JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals("[]", history.toString, JSONCompareMode.LENIENT)
@@ -1550,7 +1589,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
                                    |  """.stripMargin)
 
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         initialHistory = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0)
         history = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
       } yield {
@@ -1584,7 +1623,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid3)))
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         assertEquals(3, rows.size())
       }
@@ -1615,7 +1654,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
 
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         initialCountBeforeDeletion = rows.get[JsonObject](0).getJsonArray("value")
         attachmentCountAfterDeletion = rows.get[JsonObject](1).getJsonArray("value")
       } yield {
@@ -1642,7 +1681,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         fileUuid <- createTestAttachment("Test 1")
 
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid)))
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         currentUuid = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0).getString("uuid")
       } yield {
         assertEquals(fileUuid, currentUuid)
@@ -1664,7 +1703,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
 
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid1)))
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.obj("uuid" -> fileUuid2)))
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         firstHistory = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0)
         secondHistory1 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
         secondHistory2 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(1)
@@ -1690,7 +1729,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
 
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.arr(fileUuid1, fileUuid2)))
 
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         history1 = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(0)
         history2 = rows.get[JsonObject](0).getJsonArray("value").getJsonObject(1)
       } yield {
@@ -1715,7 +1754,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         _ <- sendRequest("POST", s"/tables/1/columns/3/rows/1", Json.obj("value" -> Json.arr(fileUuid1, fileUuid2)))
         _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/$fileUuid1")
 
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
 
         afterDeletionHistory = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
       } yield {
@@ -1743,7 +1782,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
                          Json.obj("value" -> Json.arr(fileUuid1, fileUuid2, fileUuid3)))
         _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/$fileUuid2")
 
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
 
         afterDeletionHistory1 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(0)
         afterDeletionHistory2 = rows.get[JsonObject](1).getJsonArray("value").getJsonObject(1)
@@ -1769,7 +1808,7 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
 
         _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
 
-        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         attachmentCountBeforeDeletion = rows.get[JsonObject](0).getJsonArray("value")
         attachmentCountAfterDeletion = rows.get[JsonObject](1).getJsonArray("value")
       } yield {
@@ -1798,8 +1837,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
                              "/tables/1/columns/1/rows/1/annotations",
                              Json.obj("type" -> "info", "value" -> "Test 2")).map(_.getString("uuid"))
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_comment").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_comment").map(toRowsArray)
 
         testHistory1 = rows.get[JsonObject](0)
         testHistory2 = rows.get[JsonObject](1)
@@ -1830,8 +1868,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid1")
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid2")
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_comment").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_comment").map(toRowsArray)
 
         testHistory1 = rows.get[JsonObject](2)
         testHistory2 = rows.get[JsonObject](3)
@@ -1861,8 +1898,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         uuid_postpone <- sendRequest("POST", "/tables/1/columns/1/rows/1/annotations", annotation("postpone"))
           .map(_.getString("uuid"))
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
 
         row1 = rows.get[JsonObject](0)
         row2 = rows.get[JsonObject](1)
@@ -1895,8 +1931,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         // remove annotation
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid_important")
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
 
         row = rows.get[JsonObject](2)
       } yield {
@@ -1922,8 +1957,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
                             "/tables/1/columns/1/rows/1/annotations",
                             annotation("needs_translation", Json.arr("de-DE"))).map(_.getString("uuid"))
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
 
         row1 = rows.get[JsonObject](0)
 
@@ -1949,8 +1983,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
                             "/tables/1/columns/1/rows/1/annotations",
                             annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
       } yield {
         assertEquals(2, rows.size())
 
@@ -1985,8 +2018,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         // remove both annotations
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid")
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
       } yield {
         // 2 added | 2 removed
         assertEquals(4, rows.size())
@@ -2024,8 +2056,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         // remove german annotation
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid/de-DE")
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
 
         row = rows.get[JsonObject](2)
       } yield {
@@ -2056,8 +2087,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid/de-DE")
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid/en-GB")
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
 
         row1 = rows.get[JsonObject](2)
         row2 = rows.get[JsonObject](3)
@@ -2090,8 +2120,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
         _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("final" -> true))
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=row_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=row_flag").map(toRowsArray)
 
         row = rows.get[JsonObject](0)
       } yield {
@@ -2119,8 +2148,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
         _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("final" -> false))
 
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=row_flag").map(
-          _.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=row_flag").map(toRowsArray)
 
         row = rows.get[JsonObject](0)
       } yield {
@@ -2150,7 +2178,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
         _ <- sendRequest("PATCH", "/tables/1/rows/annotations", Json.obj("final" -> true))
 
-        rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(toRowsArray)
 
         row1 = rows.get[JsonObject](0)
         row2 = rows.get[JsonObject](1)
@@ -2185,7 +2213,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
 
         _ <- sendRequest("PATCH", "/tables/1/rows/annotations", Json.obj("final" -> false))
 
-        rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(_.getJsonArray("rows"))
+        rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(toRowsArray)
 
         row1 = rows.get[JsonObject](0)
         row2 = rows.get[JsonObject](1)
@@ -2211,9 +2239,8 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
         _ <- createEmptyDefaultTable()
         _ <- sendRequest("POST", "/tables/1/rows")
 
-        test <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(toRowsArray)
 
-        rows = test.getJsonArray("rows")
         rowHistoryCreation = rows.get[JsonObject](0)
       } yield {
         JSONAssert.assertEquals(rowCreated, rowHistoryCreation.toString, JSONCompareMode.LENIENT)
@@ -2231,11 +2258,11 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/rows")
 
-        test1 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(_.getJsonArray("rows").get[JsonObject](0))
-        test2 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(_.getJsonArray("rows").get[JsonObject](0))
-        test3 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(_.getJsonArray("rows").get[JsonObject](0))
+        test1 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(toRowsArray).map(_.get[JsonObject](0))
+        test2 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(toRowsArray).map(_.get[JsonObject](0))
+        test3 <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(toRowsArray).map(_.get[JsonObject](0))
 
-        allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
+        allRows <- sendRequest("GET", "/tables/1/history").map(toRowsArray)
       } yield {
         JSONAssert.assertEquals(rowCreated, test1.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(rowCreated, test2.toString, JSONCompareMode.LENIENT)
@@ -2267,7 +2294,7 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
                          s"/tables/1/rows",
                          Rows(columns, Json.obj("column" -> Json.obj("de-DE" -> "c", "en-GB" -> "d"))))
 
-        rowsCreated <- sendRequest("GET", s"/tables/1/history?historyType=row").map(_.getJsonArray("rows"))
+        rowsCreated <- sendRequest("GET", s"/tables/1/history?historyType=row").map(toRowsArray)
       } yield {
         assertEquals(2, rowsCreated.size())
       }
@@ -2286,7 +2313,7 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
 
         _ <- sendRequest("POST", "/tables/1/rows/1/duplicate")
 
-        rowsCreated <- sendRequest("GET", "/tables/1/history?historyType=row").map(_.getJsonArray("rows"))
+        rowsCreated <- sendRequest("GET", "/tables/1/history?historyType=row").map(toRowsArray)
         row1 = rowsCreated.get[JsonObject](0)
         row2 = rowsCreated.get[JsonObject](1)
       } yield {
