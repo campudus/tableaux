@@ -762,10 +762,9 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
   // wwe have to handle deletion, adding, etc. and there shouldn't be created duplicate history entries
 
   @Test
-  @Ignore
-  def changeLink_addOneLinkBidirectional(implicit c: TestContext): Unit = {
+//  @Ignore
+  def changeLink_addOneLink(implicit c: TestContext): Unit = {
     okTest {
-
       val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(5)))
 
       val linkTable = """[ {"id": 5, "value": "table2RowId3"} ]""".stripMargin
@@ -775,6 +774,8 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+
+        _ = Thread.sleep(100)
         history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
         targetHistory <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell")
         historyLinks = getLinksJsonArray(history)
@@ -787,10 +788,9 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
   }
 
   @Test
-  @Ignore
-  def changeLink_addTwoLinksBidirectional(implicit c: TestContext): Unit = {
+//  @Ignore
+  def changeLink_addTwoLinksAtOnce(implicit c: TestContext): Unit = {
     okTest {
-
       val putLink = Json.obj("value" -> Json.obj("values" -> Json.arr(4, 5)))
 
       val linkTable = """[ {"id": 4, "value": "table2RowId2"},  {"id": 5, "value": "table2RowId3"} ]""".stripMargin
@@ -801,6 +801,9 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         linkColumnId <- setupTwoTablesWithEmptyLinks()
 
         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+
+        _ = Thread.sleep(100)
+
         history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
         targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell")
         targetHistory2 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell")
@@ -811,6 +814,44 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(targetLinkTable1, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(targetLinkTable2, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  //  @Ignore
+  def changeLink_addASecondLink(implicit c: TestContext): Unit = {
+    okTest {
+      val putInitialLink = Json.obj("value" -> Json.obj("values" -> Json.arr(5)))
+      val patchSecondLink = Json.obj("value" -> Json.obj("values" -> Json.arr(4)))
+
+      val linkTable = """[ {"id": 4, "value": "table2RowId2"},  {"id": 5, "value": "table2RowId3"} ]""".stripMargin
+      val targetLinkTable1 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
+      val targetLinkTable2 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putInitialLink)
+        _ <- sendRequest("PATCH", s"/tables/1/columns/3/rows/1", patchSecondLink)
+
+        _ = Thread.sleep(100)
+
+        history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell")
+        targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell")
+        targetHistory2 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell")
+        historyLinks = getLinksJsonArray(history, 1)
+        historyTargetLinks1 = getLinksJsonArray(targetHistory1)
+        historyTargetLinks2 = getLinksJsonArray(targetHistory2)
+      } yield {
+        JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
+        println("XXX: " + historyLinks)
+        JSONAssert.assertEquals(targetLinkTable1, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
+        println("XXX: " + targetHistory1.getJsonArray("rows") + " " + targetHistory1.getJsonArray("rows").size())
+        assertEquals(1, targetHistory1.getJsonArray("rows").size())
+        JSONAssert.assertEquals(targetLinkTable2, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
+        println("XXX: " + targetHistory2.getJsonArray("rows") + " " + targetHistory2.getJsonArray("rows").size())
+        assertEquals(1, targetHistory2.getJsonArray("rows").size())
       }
     }
   }

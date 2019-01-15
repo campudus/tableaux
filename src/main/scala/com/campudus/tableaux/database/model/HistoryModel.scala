@@ -211,6 +211,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       links.map({
         case (column, linkIdsToPutOrAdd) => {
           if (linkIdsToPutOrAdd.isEmpty) {
+            println(s"XXX0: ${table.id} ${column.id} $rowId $linkIdsToPutOrAdd $bidirectionalInsert")
             insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(Seq()))
           } else {
             for {
@@ -218,19 +219,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
               identifierCellSeq <- retrieveForeignIdentifierCells(column, linkIds)
               langTags <- tableModel.retrieveGlobalLangtags()
 
-//               dependentColumns <- tableauxModel.retrieveDependencies(table)
-//               _ <- Future.sequence(dependentColumns.map({
-//                 case DependentColumnInformation(tableId, columnId, _, _, _) => {
-//                   for {
-//                     table <- tableModel.retrieve(tableId)
-//                     column <- tableauxModel.retrieveColumn(table, columnId)
-//                     _ <- createLinks(table, column.linkId, Seq((column.asInstanceOf[LinkColumn], Seq())), false, true)
-//                   } yield {}
-//                   Future.successful(())
-//                 }
-//
-//               }))
-
+              dependentColumns <- tableauxModel.retrieveDependencies(table)
             } yield {
               val preparedData = identifierCellSeq.map(cell => {
                 IdentifierFlattener.compress(langTags, cell.value) match {
@@ -241,7 +230,37 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 
               // Fallback for languageType if there is no link (case for clear cell)
               val languageType = Try(preparedData.head._1).getOrElse(LanguageNeutral)
-              insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapValue(preparedData))
+
+              for {
+                _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapValue(preparedData))
+
+                _ = println(
+                  s"XXX1: ${table.id} ${column.id} $rowId currentIDs: $linkIds toChangeIDs: $linkIdsToPutOrAdd $bidirectionalInsert")
+
+                _ <- if (!bidirectionalInsert)
+                  Future.sequence(dependentColumns.map({
+                    case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) => {
+                      for {
+                        linkedTable <- tableModel.retrieve(linkedTableId)
+                        linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
+                      } yield {
+                        println(
+                          s"XXX2: ${linkedTableId} ${linkedColumnId} $rowId $linkIdsToPutOrAdd $bidirectionalInsert")
+                        linkIdsToPutOrAdd.map(linkId => {
+                          for {
+                            _ <- createLinks(linkedTable,
+                                             linkId,
+                                             Seq((linkedColumn.asInstanceOf[LinkColumn], Seq(linkId))),
+                                             true)
+                          } yield ()
+                        })
+                      }
+                      Future.successful(())
+                    }
+                  }))
+                else
+                  Future.successful(())
+              } yield ()
             }
           }
         }
