@@ -447,7 +447,7 @@ class TableauxModel(
     }
   }
 
-  private def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
+  def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
 
     def invalidateColumn: (TableId, ColumnId) => Future[_] =
       CacheClient(this.connection).invalidateColumn

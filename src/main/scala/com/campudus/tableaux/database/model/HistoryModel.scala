@@ -248,6 +248,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
                           s"XXX2: ${linkedTableId} ${linkedColumnId} $rowId $linkIdsToPutOrAdd $bidirectionalInsert")
                         linkIdsToPutOrAdd.map(linkId => {
                           for {
+                            // invalidate dependent columns from backlinks point of view
+                            _ <- tableauxModel.invalidateCellAndDependentColumns(linkedColumn, linkId)
                             _ <- createLinks(linkedTable,
                                              linkId,
                                              Seq((linkedColumn.asInstanceOf[LinkColumn], Seq(linkId))),
