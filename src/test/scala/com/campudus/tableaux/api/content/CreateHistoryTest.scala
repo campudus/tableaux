@@ -710,7 +710,6 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
   @Test
   def changeLink_deleteOneOfThreeLinks(implicit c: TestContext): Unit = {
     okTest {
-
       val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(3, 4, 5)))
 
       val expected =
@@ -938,6 +937,47 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
         assertEquals(0, backLinkHistory.size())
       }
+    }
+  }
+
+  @Test
+  def changeLink_threeExistingLinks_deleteOneLink(implicit c: TestContext): Unit = {
+    okTest {
+      val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(3, 4, 5)))
+
+      val expected =
+        """
+          |[
+          |  {"id": 3, "value": "table2RowId1"},
+          |  {"id": 5, "value": "table2RowId3"}
+          |]
+        """.stripMargin
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putLinks)
+        _ = Thread.sleep(100)
+        _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/link/4")
+        _ = Thread.sleep(100)
+
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows, 1)
+        backLinkRow3 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
+        backLinkRow4 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+        backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+
+        assertEquals(1, backLinkRow3.size())
+        assertEquals(2, backLinkRow4.size())
+        assertEquals(1, backLinkRow5.size())
+
+        JSONAssert.assertEquals("""[{"id": 1}]""", getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
+      }
+
     }
   }
 }

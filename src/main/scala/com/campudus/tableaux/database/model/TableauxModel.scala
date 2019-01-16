@@ -320,13 +320,13 @@ class TableauxModel(
           for {
             _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((column, Seq(toId))))
             _ <- updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
+            _ <- invalidateCellAndDependentColumns(column, rowId)
+            _ <- createHistoryModel.createCells(table, rowId, Seq((column, Seq(toId))))
+//            _ <- createHistoryModel.deleteLink(table, linkColumn, rowId, toId)
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
-
-      _ <- invalidateCellAndDependentColumns(column, rowId)
-      _ <- createHistoryModel.createCells(table, rowId, Seq((column, Seq(toId))))
 
       updatedCell <- retrieveCell(column, rowId)
     } yield updatedCell
