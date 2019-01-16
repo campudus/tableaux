@@ -902,20 +902,16 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
       }
     }
   }
-}
-
-@RunWith(classOf[VertxUnitRunner])
-class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
 
   @Test
-  def changeLinkOrder_reverseOrder(implicit c: TestContext): Unit = {
+  def changeLink_reverseOrder_doesNotChangeBackLinks(implicit c: TestContext): Unit = {
     okTest {
-
-      val putLinks = s"""
-                        |{"value":
-                        |  { "values": [3, 4, 5] }
-                        |}
-                        |""".stripMargin
+      val putLinks =
+        """
+          |{"value":
+          |  { "values": [3, 4, 5] }
+          |}
+          |""".stripMargin
 
       val expected =
         """
@@ -927,15 +923,58 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
         """.stripMargin
 
       for {
-        linkColumnId <- setupTwoTablesWithEmptyLinks()
+        _ <- setupTwoTablesWithEmptyLinks()
 
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", Json.fromObjectString(putLinks))
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", Json.fromObjectString(putLinks))
 
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/3/order", Json.obj("location" -> "end"))
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1/link/5/order", Json.obj("location" -> "start"))
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/3/order", Json.obj("location" -> "end"))
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/5/order", Json.obj("location" -> "start"))
 
-        links <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1")
-        rows <- sendRequest("GET", s"/tables/1/columns/$linkColumnId/rows/1/history?historyType=cell").map(toRowsArray)
+        backLinkHistory <- sendRequest("GET", "/tables/2/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+
+        rows <- sendRequest("GET", s"/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows, 1)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertEquals(0, backLinkHistory.size())
+      }
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
+
+  @Test
+  def changeLinkOrder_reverseOrder(implicit c: TestContext): Unit = {
+    okTest {
+
+      val putLinks =
+        """
+          |{"value":
+          |  { "values": [3, 4, 5] }
+          |}
+          |""".stripMargin
+
+      val expected =
+        """
+          |[
+          |  {"id": 5, "value": "table2RowId3"},
+          |  {"id": 4, "value": "table2RowId2"},
+          |  {"id": 3, "value": "table2RowId1"}
+          |]
+        """.stripMargin
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", Json.fromObjectString(putLinks))
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/3/order", Json.obj("location" -> "end"))
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/5/order", Json.obj("location" -> "start"))
+
+        links <- sendRequest("GET", s"/tables/1/columns/3/rows/1")
+        rows <- sendRequest("GET", s"/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 1)
       } yield {
         import scala.collection.JavaConverters._

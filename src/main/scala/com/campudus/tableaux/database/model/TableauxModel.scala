@@ -348,7 +348,7 @@ class TableauxModel(
             _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((linkColumn, Seq(rowId))))
             _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
             _ <- invalidateCellAndDependentColumns(column, rowId)
-            _ <- createHistoryModel.createCells(table, rowId, Seq((linkColumn, Seq(rowId))))
+            _ <- createHistoryModel.updateLinkOrder(table, linkColumn, rowId)
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))

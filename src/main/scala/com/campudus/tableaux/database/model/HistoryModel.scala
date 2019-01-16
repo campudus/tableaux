@@ -191,6 +191,15 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     }
   }
 
+  private def wrapLinkValue(valueSeq: Seq[(_, RowId, Object)]): JsonObject = {
+    Json.obj(
+      "value" ->
+        valueSeq.map({
+          case (_, rowId, value) => Json.obj("id" -> rowId, "value" -> value)
+        })
+    )
+  }
+
   protected def createLinks(
       table: Table,
       rowId: RowId,
@@ -198,21 +207,12 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       bidirectionalInsert: Boolean = false
   ): Future[Seq[Any]] = {
 
-    def wrapValue(valueSeq: Seq[(_, RowId, Object)]): JsonObject = {
-      Json.obj(
-        "value" ->
-          valueSeq.map({
-            case (_, rowId, value) => Json.obj("id" -> rowId, "value" -> value)
-          })
-      )
-    }
-
     Future.sequence(
       links.map({
         case (column, linkIdsToPutOrAdd) => {
           if (linkIdsToPutOrAdd.isEmpty) {
             println(s"XXX0: ${table.id} ${column.id} $rowId $linkIdsToPutOrAdd $bidirectionalInsert")
-            insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(Seq()))
+            insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapLinkValue(Seq()))
           } else {
             for {
               linkIds <- retrieveCurrentLinkIds(table, column, rowId)
@@ -232,7 +232,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
               val languageType = Try(preparedData.head._1).getOrElse(LanguageNeutral)
 
               for {
-                _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapValue(preparedData))
+                _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapLinkValue(preparedData))
 
                 _ = println(
                   s"XXX1: ${table.id} ${column.id} $rowId currentIDs: $linkIds toChangeIDs: $linkIdsToPutOrAdd $bidirectionalInsert")
@@ -266,6 +266,33 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
         }
       })
     )
+  }
+
+  def updateLinkOrder(
+      table: Table,
+      linkColumn: LinkColumn,
+      rowId: RowId
+  ): Future[Unit] = {
+
+    for {
+      linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
+      identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)
+      langTags <- tableModel.retrieveGlobalLangtags()
+
+      preparedData = identifierCellSeq.map(cell => {
+        IdentifierFlattener.compress(langTags, cell.value) match {
+          case Right(m) => (MultiLanguage, cell.rowId, m)
+          case Left(s) => (LanguageNeutral, cell.rowId, s)
+        }
+      })
+      _ <- insertCellHistory(table,
+                             rowId,
+                             linkColumn.id,
+                             linkColumn.kind,
+                             preparedData.head._1,
+                             wrapLinkValue(preparedData))
+    } yield ()
+
   }
 
   private def retrieveForeignIdentifierCells(
