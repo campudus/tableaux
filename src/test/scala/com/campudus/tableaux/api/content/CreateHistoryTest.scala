@@ -765,11 +765,10 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
       val targetLinkTable = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
 
       for {
-        linkColumnId <- setupTwoTablesWithEmptyLinks()
+        _ <- setupTwoTablesWithEmptyLinks()
 
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putLink)
 
-        _ = Thread.sleep(100)
         history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         targetHistory <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
         historyLinks = getLinksValue(history)
@@ -791,11 +790,9 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
       val targetLinkTable2 = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
 
       for {
-        linkColumnId <- setupTwoTablesWithEmptyLinks()
+        _ <- setupTwoTablesWithEmptyLinks()
 
-        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putLink)
-
-        _ = Thread.sleep(100)
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putLink)
 
         history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
@@ -831,8 +828,6 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putInitialLink)
         _ <- sendRequest("PATCH", s"/tables/1/columns/3/rows/1", patchSecondLink)
 
-        _ = Thread.sleep(100)
-
         history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         targetHistory1 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
         targetHistory2 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
@@ -842,12 +837,9 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         historyTargetLinks2 = getLinksValue(targetHistory2)
       } yield {
         JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
-        println("XXX: " + historyLinks)
         JSONAssert.assertEquals(backLink, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
-        println("XXX: " + targetHistory1 + " " + targetHistory1.size())
         assertEquals(1, targetHistory1.size())
         JSONAssert.assertEquals(backLink, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
-        println("XXX: " + targetHistory2 + " " + targetHistory2.size())
         assertEquals(1, targetHistory2.size())
       }
     }
@@ -873,8 +865,6 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
 
         _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putInitialLink)
         _ <- sendRequest("PATCH", s"/tables/1/columns/3/rows/1", patchSecondLinks)
-
-        _ = Thread.sleep(100)
 
         history <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         targetHistoryRows1 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
@@ -957,9 +947,7 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         _ <- setupTwoTablesWithEmptyLinks()
 
         _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putLinks)
-        _ = Thread.sleep(100)
         _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/link/4")
-        _ = Thread.sleep(100)
 
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 1)
@@ -978,6 +966,38 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
       }
 
+    }
+  }
+
+  @Test
+//  @Ignore
+  def changeLink_threeExistingLinks_deleteCell(implicit c: TestContext): Unit = {
+    okTest {
+      val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(3, 4, 5)))
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putLinks)
+        _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1")
+
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows, 1)
+        backLinkRow3 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
+        backLinkRow4 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+        backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+
+      } yield {
+        JSONAssert.assertEquals("[]", historyAfterCreation.toString, JSONCompareMode.LENIENT)
+
+        assertEquals(2, backLinkRow3.size())
+        assertEquals(2, backLinkRow4.size())
+        assertEquals(2, backLinkRow5.size())
+
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow5, 1).toString, JSONCompareMode.LENIENT)
+      }
     }
   }
 }

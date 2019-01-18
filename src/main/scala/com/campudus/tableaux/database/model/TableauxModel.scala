@@ -217,7 +217,7 @@ class TableauxModel(
 
             rowId <- createRowModel.createRow(table, columnValuePairs)
             _ <- createHistoryModel.createRow(table, rowId)
-            _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
+            _ <- createHistoryModel.createCells(table, rowId, columnValuePairs, false)
 
             newRow <- retrieveRow(table, columns, rowId)
           } yield {
@@ -321,8 +321,7 @@ class TableauxModel(
             _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((column, Seq(toId))))
             _ <- updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
             _ <- invalidateCellAndDependentColumns(column, rowId)
-            _ <- createHistoryModel.createCells(table, rowId, Seq((column, Seq(toId))))
-//            _ <- createHistoryModel.deleteLink(table, linkColumn, rowId, toId)
+            _ <- createHistoryModel.deleteLink(table, linkColumn, rowId, toId)
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
@@ -410,9 +409,10 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
 
       _ <- createInitialHistoryModel.createClearCellIfNotExists(table, rowId, Seq(column))
+      // vorm löschen, weil sonst sind die verlinkungen schon weg
+      _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
       _ <- invalidateCellAndDependentColumns(column, rowId)
-      _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
 
       clearedCell <- retrieveCell(column, rowId)
     } yield clearedCell

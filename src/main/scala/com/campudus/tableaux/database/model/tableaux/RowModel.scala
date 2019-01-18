@@ -239,7 +239,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       })
   }
 
-  private def retrieveLinkedRows(
+  def retrieveLinkedRows(
       table: Table,
       rowId: RowId,
       column: LinkColumn
