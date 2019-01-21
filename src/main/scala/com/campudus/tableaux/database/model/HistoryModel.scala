@@ -586,7 +586,7 @@ case class CreateHistoryModel(
             for {
               linkIds <- retrieveCurrentLinkIds(table, column, rowId)
               _ <- if (linkIds.nonEmpty)
-                createLinks(table, rowId, Seq((column, linkIds)), allowRecursion = false)
+                createLinks(table, rowId, Seq((column, linkIds)), allowRecursion = true)
               else
                 Future.successful(())
             } yield ()

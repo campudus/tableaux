@@ -2458,3 +2458,42 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
     }
   }
 }
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with TestHelper {
+
+  @Test
+  def changeLink_linksExistInOneDirection_addOneLink(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedBacklink = """[{"id": 1, "value": "table1row1"}]"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("POST", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 5 ] }""")
+        backLinkRow3 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
+        backLinkRow4 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+        backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+
+      } yield {
+        assertEquals(1, backLinkRow3.size())
+        assertEquals(1, backLinkRow4.size())
+        assertEquals(1, backLinkRow5.size())
+
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow3, 0).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow5, 0).toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+}
