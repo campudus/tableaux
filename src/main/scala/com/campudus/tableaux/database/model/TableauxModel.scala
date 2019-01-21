@@ -383,7 +383,10 @@ class TableauxModel(
       _ <- createInitialHistoryModel.createIfNotExists(table, rowId, Seq((column, value)))
 
       _ <- if (replace) {
-        updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
+        for {
+          _ <- createHistoryModel.clearBackLinksWhichWillBeDeleted(table, rowId, Seq((column, value)))
+          _ <- updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
+        } yield ()
       } else {
         Future.successful(())
       }

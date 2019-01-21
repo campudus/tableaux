@@ -998,6 +998,43 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
       }
     }
   }
+
+  @Test
+  def changeLink_threeExistingLinks_putOne(implicit c: TestContext): Unit = {
+    okTest {
+      val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(3, 4, 5)))
+      val putNewLink = Json.obj("value" -> Json.obj("values" -> Json.arr(4)))
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putLinks)
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", putNewLink)
+
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        historyAfterCreation = getLinksValue(rows, 1)
+        backLinkRow3 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
+        backLinkRow4 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+        backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+
+      } yield {
+        JSONAssert
+          .assertEquals("""[{"id": 4, "value": "table2RowId2"}]""",
+                        historyAfterCreation.toString,
+                        JSONCompareMode.STRICT)
+
+        assertEquals(2, backLinkRow3.size())
+        assertEquals(2, backLinkRow4.size())
+        assertEquals(2, backLinkRow5.size())
+
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""[{"id": 1, "value": "table1row1"}]""",
+                                getLinksValue(backLinkRow4, 1).toString,
+                                JSONCompareMode.STRICT)
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow5, 1).toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])

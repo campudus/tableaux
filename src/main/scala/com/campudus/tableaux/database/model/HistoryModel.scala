@@ -213,7 +213,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 
     Future.sequence(
       links.map({
-        case (column, linkIdsToPutOrAdd) => {
+        case (column, linkIdsToPutOrAdd) =>
           if (linkIdsToPutOrAdd.isEmpty) {
             insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapLinkValue(Seq()))
           } else {
@@ -238,7 +238,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 
               _ <- if (allowRecursion && isNotDeleteCascade(column)) {
                 Future.sequence(dependentColumns.map({
-                  case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) => {
+                  case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) =>
                     for {
                       linkedTable <- tableModel.retrieve(linkedTableId)
                       linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
@@ -249,18 +249,16 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
                           _ <- createLinks(linkedTable,
                                            linkId,
                                            Seq((linkedColumn.asInstanceOf[LinkColumn], Seq(linkId))),
-                                           false)
+                                           allowRecursion = false)
                         } yield ()
                       }))
                     } yield ()
-                  }
                 }))
               } else {
                 Future.successful(())
               }
             } yield ()
           }
-        }
       })
     )
   }
@@ -380,12 +378,11 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     }
 
     val futureSequence = values.map({
-      case (column: AttachmentColumn, _) => {
+      case (column: AttachmentColumn, _) =>
         for {
           files <- attachmentModel.retrieveAll(table.id, column.id, rowId)
           _ <- insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(files))
         } yield ()
-      }
     })
 
     Future.sequence(futureSequence)
@@ -412,12 +409,12 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
            |  RETURNING revision""".stripMargin,
         Json.arr(
           rowId,
-          columnIdOpt.getOrElse(null),
+          columnIdOpt.orNull,
           eventType.toString,
           historyType.toString,
-          valueTypeOpt.getOrElse(null),
-          languageTypeOpt.getOrElse(null),
-          jsonStringOpt.getOrElse(null),
+          valueTypeOpt.orNull,
+          languageTypeOpt.orNull,
+          jsonStringOpt.orNull,
           userName
         )
       )
@@ -711,6 +708,32 @@ case class CreateHistoryModel(
     extends DatabaseQuery
     with CreateHistoryModelBase {
 
+  def clearBackLinksWhichWillBeDeleted(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(ColumnType[_], _)],
+  ): Future[_] = {
+    ColumnType.splitIntoTypesWithValues(values) match {
+      case Failure(ex) =>
+        Future.failed(ex)
+
+      // we only care about links, other types are handled directly by `createCells`
+      case Success((_, _, links, _)) =>
+        if (links.isEmpty) {
+          Future.successful(())
+        } else {
+          val futureSeq = links.map({
+            case (linkColumn, newForeignIds) =>
+              for {
+                foreignIdsBeforeClearing <- tableauxModel.updateRowModel.retrieveLinkedRows(table, rowId, linkColumn)
+                _ <- createClearBackLinks(table, foreignIdsBeforeClearing.diff(newForeignIds))
+              } yield ()
+          })
+          Future.sequence(futureSeq)
+        }
+    }
+  }
+
   def wrapAnnotationValue(value: String, uuid: UUID, langtagOpt: Option[String] = None): JsonObject = {
     langtagOpt match {
       case Some(langtag) => Json.obj("value" -> Json.obj(langtag -> value), "uuid" -> uuid.toString)
@@ -851,8 +874,7 @@ case class CreateHistoryModel(
       _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simplesWithEmptyValues)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multisWithEmptyValues)
       _ <- if (links.isEmpty) Future.successful(()) else createClearLink(table, rowId, links)
-      _ <- if (attachments.isEmpty) Future.successful(())
-      else clearAttachments(table, rowId, attachments)
+      _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
     } yield ()
   }
 
@@ -917,35 +939,40 @@ case class CreateHistoryModel(
       columns: Seq[LinkColumn]
   ): Future[Unit] = {
     for {
-      _ <- createLinks(table, rowId, columns.map(column => (column, Seq.empty[RowId])), false)
+      _ <- createLinks(table, rowId, columns.map(column => (column, Seq.empty[RowId])), allowRecursion = false)
       _ <- Future.sequence(
         columns.map({ column =>
           {
             for {
-              dependentColumns <- tableauxModel.retrieveDependencies(table)
               foreignIds <- tableauxModel.updateRowModel.retrieveLinkedRows(table, rowId, column)
-              _ <- Future.sequence(dependentColumns.map({
-                case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) => {
-                  for {
-                    linkedTable <- tableModel.retrieve(linkedTableId)
-                    linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
-                    _ <- Future.sequence(foreignIds.map(linkId => {
-                      for {
-                        _ <- insertCellHistory(linkedTable,
-                                               linkId,
-                                               linkedColumn.id,
-                                               linkedColumn.kind,
-                                               linkedColumn.languageType,
-                                               wrapLinkValue(Seq()))
-                      } yield ()
-                    }))
-                  } yield ()
-                }
-              }))
+              _ <- createClearBackLinks(table, foreignIds)
             } yield ()
           }
         })
       )
+    } yield ()
+  }
+
+  private def createClearBackLinks(table: Table, foreignIds: Seq[RowId]): Future[Unit] = {
+    for {
+      dependentColumns <- tableauxModel.retrieveDependencies(table)
+      _ <- Future.sequence(dependentColumns.map({
+        case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) =>
+          for {
+            linkedTable <- tableModel.retrieve(linkedTableId)
+            linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
+            _ <- Future.sequence(foreignIds.map(linkId => {
+              for {
+                _ <- insertCellHistory(linkedTable,
+                                       linkId,
+                                       linkedColumn.id,
+                                       linkedColumn.kind,
+                                       linkedColumn.languageType,
+                                       wrapLinkValue(Seq()))
+              } yield ()
+            }))
+          } yield ()
+      }))
     } yield ()
   }
 
@@ -955,6 +982,6 @@ case class CreateHistoryModel(
       rowId: RowId,
       toId: RowId
   ): Future[_] = {
-    createLinks(table, rowId, Seq((linkColumn, Seq(toId))), true)
+    createLinks(table, rowId, Seq((linkColumn, Seq(toId))))
   }
 }
