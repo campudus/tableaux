@@ -9,6 +9,7 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, R
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
+import io.vertx.core.json.JsonObject
 import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.concurrent.Future
@@ -191,11 +192,32 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     }
   }
 
-  protected def wrapLinkValue(valueSeq: Seq[(_, RowId, Object)]): JsonObject = {
+  private def getLinksData(
+      identifierCellSeq: Seq[Cell[Any]],
+      langTags: Seq[String]
+  ): (LanguageType, Seq[(RowId, Object)]) = {
+    val preparedData = identifierCellSeq
+      .map(cell => {
+        IdentifierFlattener.compress(langTags, cell.value) match {
+          case Right(m) => (MultiLanguage, cell.rowId, m)
+          case Left(s) => (LanguageNeutral, cell.rowId, s)
+        }
+      })
+
+    val languageType = Try(preparedData.head._1).getOrElse(LanguageNeutral)
+
+    val cellValues = preparedData.map({
+      case (_, rowIds, values) => (rowIds, values)
+    })
+
+    (languageType, cellValues)
+  }
+
+  protected def wrapLinkValue(linksData: Seq[(RowId, Object)] = Seq.empty[(RowId, Object)]): JsonObject = {
     Json.obj(
       "value" ->
-        valueSeq.map({
-          case (_, rowId, value) => Json.obj("id" -> rowId, "value" -> value)
+        linksData.map({
+          case (rowId, value) => Json.obj("id" -> rowId, "value" -> value)
         })
     )
   }
@@ -215,8 +237,9 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       links.map({
         case (column, linkIdsToPutOrAdd) =>
           if (linkIdsToPutOrAdd.isEmpty) {
-            insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapLinkValue(Seq()))
+            insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapLinkValue())
           } else {
+
             for {
               linkIds <- retrieveCurrentLinkIds(table, column, rowId)
               identifierCellSeq <- retrieveForeignIdentifierCells(column, linkIds)
@@ -224,17 +247,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
 
               dependentColumns <- tableauxModel.retrieveDependencies(table)
 
-              preparedData = identifierCellSeq.map(cell => {
-                IdentifierFlattener.compress(langTags, cell.value) match {
-                  case Right(m) => (MultiLanguage, cell.rowId, m)
-                  case Left(s) => (LanguageNeutral, cell.rowId, s)
-                }
-              })
-
-              // Fallback for languageType if there is no link (case for clear cell)
-              languageType = Try(preparedData.head._1).getOrElse(LanguageNeutral)
-
-              _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapLinkValue(preparedData))
+              (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
+              _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapLinkValue(linksData))
 
               _ <- if (allowRecursion && isNotDeleteCascade(column)) {
                 Future.sequence(dependentColumns.map({
@@ -273,19 +287,8 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
       identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)
       langTags <- getLangTags(table)
-
-      preparedData = identifierCellSeq.map(cell => {
-        IdentifierFlattener.compress(langTags, cell.value) match {
-          case Right(m) => (MultiLanguage, cell.rowId, m)
-          case Left(s) => (LanguageNeutral, cell.rowId, s)
-        }
-      })
-      _ <- insertCellHistory(table,
-                             rowId,
-                             linkColumn.id,
-                             linkColumn.kind,
-                             preparedData.head._1,
-                             wrapLinkValue(preparedData))
+      (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
+      _ <- insertCellHistory(table, rowId, linkColumn.id, linkColumn.kind, languageType, wrapLinkValue(linksData))
     } yield ()
   }
 
@@ -968,7 +971,7 @@ case class CreateHistoryModel(
                                        linkedColumn.id,
                                        linkedColumn.kind,
                                        linkedColumn.languageType,
-                                       wrapLinkValue(Seq()))
+                                       wrapLinkValue())
               } yield ()
             }))
           } yield ()
