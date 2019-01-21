@@ -409,7 +409,6 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
 
       _ <- createInitialHistoryModel.createClearCellIfNotExists(table, rowId, Seq(column))
-      // vorm löschen, weil sonst sind die verlinkungen schon weg
       _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
       _ <- invalidateCellAndDependentColumns(column, rowId)

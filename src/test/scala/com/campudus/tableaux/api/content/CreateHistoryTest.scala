@@ -962,15 +962,13 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         assertEquals(2, backLinkRow4.size())
         assertEquals(1, backLinkRow5.size())
 
-        JSONAssert.assertEquals("""[{"id": 1}]""", getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("""[{"id": 1}]""", getLinksValue(backLinkRow4).toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
       }
-
     }
   }
 
   @Test
-//  @Ignore
   def changeLink_threeExistingLinks_deleteCell(implicit c: TestContext): Unit = {
     okTest {
       val putLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(3, 4, 5)))

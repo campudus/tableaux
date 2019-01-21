@@ -23,7 +23,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
       tableType: TableType,
-      tableGroupId: Option[TableGroupId]
+      tableGroupIdOpt: Option[TableGroupId]
   ): Future[Table] = {
     connection.transactional { t =>
       {
@@ -47,7 +47,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
                      hidden,
                      langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull,
                      tableType.NAME,
-                     tableGroupId.orNull)
+                     tableGroupIdOpt.orNull)
             )
           id = insertNotNull(result).head.get[TableId](0)
 
@@ -60,7 +60,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
 
           (t, _) <- createTableDisplayInfos(t, TableDisplayInfos(id, displayInfos))
 
-          tableGroup <- tableGroupId match {
+          tableGroup <- tableGroupIdOpt match {
             case Some(tableGroupId) =>
               tableGroupModel
                 .retrieve(tableGroupId)
@@ -154,7 +154,6 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
   }
 
   def retrieveGlobalLangtags(): Future[Seq[String]] = {
-    // TODO cache global settings
     systemModel
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(valueOpt =>
@@ -231,7 +230,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def mapDisplayInfosIntoTable(tables: Seq[Table], result: JsonObject): Seq[(Table)] = {
+  private def mapDisplayInfosIntoTable(tables: Seq[Table], result: JsonObject): Seq[Table] = {
     val displayInfoTable = resultObjectToJsonArray(result)
       .groupBy(_.getLong(0).longValue())
       .mapValues(
