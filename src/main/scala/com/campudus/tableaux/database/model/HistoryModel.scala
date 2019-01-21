@@ -9,8 +9,7 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, R
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
-import io.vertx.core.json.JsonObject
-import org.vertx.scala.core.json.{JsonObject, _}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -161,19 +160,20 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
   }
 }
 
-sealed trait CreateHistoryModelBase extends DatabaseQuery {
-  implicit val requestContext: RequestContext
-  protected[this] val tableauxModel: TableauxModel
-  protected[this] val connection: DatabaseConnection
+case class CreateHistoryModel(
+    tableauxModel: TableauxModel,
+    connection: DatabaseConnection
+)(implicit val requestContext: RequestContext)
+    extends DatabaseQuery {
 
   val tableModel = new TableModel(connection)
   val attachmentModel = AttachmentModel(connection)
 
-  protected def getUserName: String = {
+  private def getUserName: String = {
     requestContext.getCookieValue("userName")
   }
 
-  protected def retrieveCurrentLinkIds(
+  private def retrieveCurrentLinkIds(
       table: Table,
       column: LinkColumn,
       rowId: RowId
@@ -213,7 +213,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     (languageType, cellValues)
   }
 
-  protected def wrapLinkValue(linksData: Seq[(RowId, Object)] = Seq.empty[(RowId, Object)]): JsonObject = {
+  private def wrapLinkValue(linksData: Seq[(RowId, Object)] = Seq.empty[(RowId, Object)]): JsonObject = {
     Json.obj(
       "value" ->
         linksData.map({
@@ -222,7 +222,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     )
   }
 
-  protected def createLinks(
+  private def createLinks(
       table: Table,
       rowId: RowId,
       links: Seq[(LinkColumn, Seq[RowId])],
@@ -299,7 +299,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     }
   }
 
-  protected def retrieveForeignIdentifierCells(
+  private def retrieveForeignIdentifierCells(
       column: LinkColumn,
       linkIds: Seq[RowId]
   ): Future[Seq[Cell[Any]]] = {
@@ -312,7 +312,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     Future.sequence(linkedCellSeq)
   }
 
-  protected def createTranslation(
+  private def createTranslation(
       table: Table,
       rowId: RowId,
       values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
@@ -347,7 +347,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     Future.sequence(futureSequence)
   }
 
-  protected def createSimple(
+  private def createSimple(
       table: Table,
       rowId: RowId,
       simples: Seq[(SimpleValueColumn[_], Option[Any])]
@@ -370,7 +370,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     Future.sequence(futureSequence)
   }
 
-  protected def createAttachments(
+  private def createAttachments(
       table: Table,
       rowId: RowId,
       values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
@@ -391,7 +391,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     Future.sequence(futureSequence)
   }
 
-  protected def insertHistory(
+  private def insertHistory(
       tableId: TableId,
       rowId: RowId,
       columnIdOpt: Option[ColumnId],
@@ -399,8 +399,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       historyType: HistoryType,
       valueTypeOpt: Option[String],
       languageTypeOpt: Option[String],
-      jsonStringOpt: Option[String],
-      userName: String
+      jsonStringOpt: Option[String]
   ): Future[RowId] = {
     for {
       result <- connection.query(
@@ -418,7 +417,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
           valueTypeOpt.orNull,
           languageTypeOpt.orNull,
           jsonStringOpt.orNull,
-          userName
+          getUserName
         )
       )
     } yield {
@@ -426,7 +425,7 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
     }
   }
 
-  protected def insertCellHistory(
+  private def insertCellHistory(
       table: Table,
       rowId: RowId,
       columnId: ColumnId,
@@ -443,20 +442,19 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
       HistoryTypeCell,
       Some(columnType.toString),
       Some(languageType.toString),
-      Some(json.toString),
-      getUserName
+      Some(json.toString)
     )
   }
 
-  protected def insertRowHistory(
+  private def insertRowHistory(
       table: Table,
       rowId: RowId
   ): Future[RowId] = {
     logger.info(s"createRowHistory ${table.id} $rowId $getUserName")
-    insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None, getUserName)
+    insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None)
   }
 
-  protected def addRowAnnotationHistory(
+  private def addRowAnnotationHistory(
       tableId: TableId,
       rowId: RowId,
       value: String
@@ -470,11 +468,10 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
                   HistoryTypeRowFlag,
                   Some(value),
                   Some(LanguageType.NEUTRAL),
-                  Some(json.toString),
-                  getUserName)
+                  Some(json.toString))
   }
 
-  protected def removeRowAnnotationHistory(
+  private def removeRowAnnotationHistory(
       tableId: TableId,
       rowId: RowId,
       value: String
@@ -488,19 +485,16 @@ sealed trait CreateHistoryModelBase extends DatabaseQuery {
                   HistoryTypeRowFlag,
                   Some(value),
                   Some(LanguageType.NEUTRAL),
-                  Some(json.toString),
-                  getUserName)
+                  Some(json.toString))
   }
-}
 
-case class CreateInitialHistoryModel(
-    override val tableauxModel: TableauxModel,
-    override val connection: DatabaseConnection
-)(implicit val requestContext: RequestContext)
-    extends DatabaseQuery
-    with CreateHistoryModelBase {
-
-  def createIfNotExists(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  /**
+    * Creates an initial history cell value when changing a cell value (for backward compatibility).
+    *
+    * If we didn't call this method on any cell change/deletion the previously
+    * valid value wouldn't be logged in a history table.
+    */
+  def createCellsInit(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -515,7 +509,13 @@ case class CreateInitialHistoryModel(
     }
   }
 
-  def createClearCellIfNotExists(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
+  /**
+    * Creates an initial history cell value when deleting a cell value (for backward compatibility).
+    *
+    * If we didn't call this method on any cell change/deletion the previously
+    * valid value wouldn't be logged in a history table.
+    */
+  def createClearCellInit(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
     val simplesWithEmptyValues = for {
@@ -702,14 +702,6 @@ case class CreateInitialHistoryModel(
       }
     }
   }
-}
-
-case class CreateHistoryModel(
-    override val tableauxModel: TableauxModel,
-    override val connection: DatabaseConnection
-)(implicit val requestContext: RequestContext)
-    extends DatabaseQuery
-    with CreateHistoryModelBase {
 
   def clearBackLinksWhichWillBeDeleted(
       table: Table,
@@ -821,8 +813,7 @@ case class CreateHistoryModel(
             HistoryTypeCellComment,
             Some(annotationType.toString),
             Some(languageType.toString),
-            Some(wrapAnnotationValue(value, uuid).toString),
-            userName
+            Some(wrapAnnotationValue(value, uuid).toString)
           )
         } yield historyRowId)
       case (_, LanguageNeutral) =>
@@ -835,8 +826,7 @@ case class CreateHistoryModel(
             HistoryTypeCellFlag,
             Some(value),
             Some(languageType.toString),
-            Some(wrapAnnotationValue(value, uuid).toString),
-            userName
+            Some(wrapAnnotationValue(value, uuid).toString)
           )
         } yield historyRowId)
       case (_, MultiLanguage) =>
@@ -850,8 +840,7 @@ case class CreateHistoryModel(
               HistoryTypeCellFlag,
               Some(value),
               Some(languageType.toString),
-              Some(wrapAnnotationValue(value, uuid, Some(langtag)).toString),
-              userName
+              Some(wrapAnnotationValue(value, uuid, Some(langtag)).toString)
             )
           } yield historyRowId)
       case (_, MultiCountry(_)) => Seq.empty[Future[RowId]]
@@ -881,7 +870,7 @@ case class CreateHistoryModel(
     } yield ()
   }
 
-  protected def clearAttachments(
+  private def clearAttachments(
       table: Table,
       rowId: RowId,
       columns: Seq[AttachmentColumn]
