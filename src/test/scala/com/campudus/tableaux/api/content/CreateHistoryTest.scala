@@ -2463,7 +2463,7 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
 class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with TestHelper {
 
   @Test
-  def changeLink_linksExistInOneDirection_addOneLink(implicit c: TestContext): Unit = {
+  def changeLink_twoLinksExisting_postOtherLink(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
@@ -2490,10 +2490,112 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         assertEquals(1, backLinkRow4.size())
         assertEquals(1, backLinkRow5.size())
 
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow3, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow5, 0).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow3).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow4).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow5).toString, JSONCompareMode.LENIENT)
       }
     }
   }
+
+  @Test
+  def changeLink_twoLinksExisting_putOneOfThem(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedBacklink = """[{"id": 1, "value": "table1row1"}]"""
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", """{ "value": [ 4 ] }""")
+        backLinkRow3 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
+        backLinkRow4 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+        backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
+
+      } yield {
+        assertEquals(2, backLinkRow3.size())
+        assertEquals(2, backLinkRow4.size())
+
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow3).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
+
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow4).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeLink_twoLinksExisting_putEmptyLinkArray(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val expectedInitialBacklink = """[{"id": 1, "value": "table1row1"}]"""
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", """{ "value": [] }""")
+        backLinkRow3 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
+        backLinkRow4 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+      } yield {
+        assertEquals(2, backLinkRow3.size())
+        assertEquals(2, backLinkRow4.size())
+
+        JSONAssert
+          .assertEquals(expectedInitialBacklink, getLinksValue(backLinkRow3).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
+
+        JSONAssert
+          .assertEquals(expectedInitialBacklink, getLinksValue(backLinkRow4).toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def changeLinkOrder_reverseOrderInTwoSteps_shouldNotCreateBacklinkHistory(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4),
+                                  |  (1, 5)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/3/order", s""" {"location": "end"} """)
+        _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1/link/5/order", s""" {"location": "start"} """)
+
+        backLinkRow3 <- sendRequest("GET", "/tables/2/columns/3/rows/3/history?historyType=cell").map(toRowsArray)
+        backLinkRow4 <- sendRequest("GET", "/tables/2/columns/3/rows/4/history?historyType=cell").map(toRowsArray)
+      } yield {
+        assertEquals(1, backLinkRow3.size())
+        assertEquals(1, backLinkRow4.size())
+      }
+    }
+  }
+
 }
