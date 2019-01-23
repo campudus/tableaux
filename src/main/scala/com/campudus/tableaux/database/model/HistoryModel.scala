@@ -126,7 +126,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     }
 
     val whereLangtag: Option[(String, String)] = langtagOpt match {
-//      case Some(langtag) => Some(s" AND (value -> 'value' -> ?)::json IS NOT NULL", langtag)
+      //      case Some(langtag) => Some(s" AND (value -> 'value' -> ?)::json IS NOT NULL", langtag)
       case Some(langtag) =>
         Some(
           s"""
@@ -239,35 +239,35 @@ case class CreateHistoryModel(
           if (linkIdsToPutOrAdd.isEmpty) {
             insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapLinkValue())
           } else {
-
             for {
               linkIds <- retrieveCurrentLinkIds(table, column, rowId)
               identifierCellSeq <- retrieveForeignIdentifierCells(column, linkIds)
               langTags <- getLangTags(table)
 
-              dependentColumns <- tableauxModel.retrieveDependencies(table)
-
               (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
               _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapLinkValue(linksData))
 
               _ <- if (allowRecursion && isNotDeleteCascade(column)) {
-                Future.sequence(dependentColumns.map({
-                  case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) =>
-                    for {
-                      linkedTable <- tableModel.retrieve(linkedTableId)
-                      linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
-                      _ <- Future.sequence(linkIdsToPutOrAdd.map(linkId => {
-                        for {
-                          // invalidate dependent columns from backlinks point of view
-                          _ <- tableauxModel.invalidateCellAndDependentColumns(linkedColumn, linkId)
-                          _ <- createLinks(linkedTable,
-                                           linkId,
-                                           Seq((linkedColumn.asInstanceOf[LinkColumn], Seq(linkId))),
-                                           allowRecursion = false)
-                        } yield ()
-                      }))
-                    } yield ()
-                }))
+                for {
+                  dependentColumns <- tableauxModel.retrieveDependencies(table)
+                  _ <- Future.sequence(dependentColumns.map({
+                    case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) =>
+                      for {
+                        linkedTable <- tableModel.retrieve(linkedTableId)
+                        linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
+                        _ <- Future.sequence(linkIdsToPutOrAdd.map(linkId => {
+                          for {
+                            // invalidate dependent columns from backlinks point of view
+                            _ <- tableauxModel.invalidateCellAndDependentColumns(linkedColumn, linkId)
+                            _ <- createLinks(linkedTable,
+                                             linkId,
+                                             Seq((linkedColumn.asInstanceOf[LinkColumn], Seq(linkId))),
+                                             allowRecursion = false)
+                          } yield ()
+                        }))
+                      } yield ()
+                  }))
+                } yield ()
               } else {
                 Future.successful(())
               }
