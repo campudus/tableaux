@@ -891,8 +891,7 @@ case class CreateHistoryModel(
   def createCells(
       table: Table,
       rowId: RowId,
-      values: Seq[(ColumnType[_], _)],
-      allowRecursion: Boolean = true
+      values: Seq[(ColumnType[_], _)]
   ): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -902,7 +901,7 @@ case class CreateHistoryModel(
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, allowRecursion)
+          _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, allowRecursion = true)
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(table, rowId, attachments)
         } yield ()
     }

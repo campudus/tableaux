@@ -216,7 +216,7 @@ class TableauxModel(
 
             rowId <- createRowModel.createRow(table, columnValuePairs)
             _ <- createHistoryModel.createRow(table, rowId)
-            _ <- createHistoryModel.createCells(table, rowId, columnValuePairs, false)
+            _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
 
             newRow <- retrieveRow(table, columns, rowId)
           } yield {

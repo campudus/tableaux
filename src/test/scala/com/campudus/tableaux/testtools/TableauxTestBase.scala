@@ -551,7 +551,7 @@ trait TableauxTestBase
     def valuesRow(columnIds: Seq[Long]) = {
       Json.obj(
         "columns" -> Json.arr(
-          Json.obj("id" -> columnIds.head),
+          Json.obj("id" -> columnIds.head, "identifier" -> true),
           Json.obj("id" -> columnIds(1)),
           Json.obj("id" -> columnIds(2)),
           Json.obj("id" -> columnIds(3)),
@@ -646,7 +646,7 @@ trait TableauxTestBase
   ): Future[(TableId, Seq[ColumnId], ColumnId)] = {
     val createColumns = Json.obj(
       "columns" -> Json.arr(
-        Json.obj("kind" -> "text", "name" -> "column 1 (text)"),
+        Json.obj("kind" -> "text", "name" -> "column 1 (text)", "identifier" -> true),
         Json.obj("kind" -> "text", "name" -> "column 2 (text multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "numeric", "name" -> "column 3 (numeric)"),
         Json.obj("kind" -> "numeric", "name" -> "column 4 (numeric multilanguage)", "languageType" -> "language"),
