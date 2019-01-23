@@ -41,7 +41,7 @@ class PerformanceTest extends TableauxTestBase {
     }
   }
 
-  private def createPerformanceTestData(rows: Int): Future[Unit] = {
+  private def createPerformanceTestData(rows: Int) = {
 
     def createLinkColumns(linkTo: TableId) = {
       Json.obj(
@@ -192,9 +192,12 @@ class PerformanceTest extends TableauxTestBase {
           (id1, id2, id3)
       }
 
+      _ = logger.info(s"Start writing rows data...")
+
       // Split range in groups & do as many request in parallel as big each group is
 
       // Fill table 2
+      startFillTable2 = System.currentTimeMillis()
       _ <- Range(1, rows).grouped(100).foldLeft(Future.successful(())) {
         case (future, group) =>
           future.flatMap({ _ =>
@@ -212,8 +215,10 @@ class PerformanceTest extends TableauxTestBase {
             }
           })
       }
+      elapsedTimesWritingRowsTable2 = System.currentTimeMillis() - startFillTable2
 
       // Fill table 1
+      startFillTable1 = System.currentTimeMillis()
       _ <- Range(1, rows).grouped(100).foldLeft(Future.successful(())) {
         case (future, group) =>
           future.flatMap({ _ =>
@@ -235,12 +240,14 @@ class PerformanceTest extends TableauxTestBase {
             }
           })
       }
-    } yield ()
+      elapsedTimesWritingRowsTable1 = System.currentTimeMillis() - startFillTable1
+
+    } yield (elapsedTimesWritingRowsTable1, elapsedTimesWritingRowsTable2)
   }
 
   private def sendTimedRequest(method: String, path: String): Future[Long] = {
     val startTime = System.currentTimeMillis()
-    sendStringRequest("GET", "/tables/1/rows")
+    sendStringRequest(method, path)
       .map(_ => System.currentTimeMillis - startTime)
   }
 
@@ -248,10 +255,10 @@ class PerformanceTest extends TableauxTestBase {
     val warmUp = 10
 
     for {
-      _ <- createPerformanceTestData(rows)
+      (elapsedTimesWritingRowsTable1, elapsedTimesWritingRowsTable2) <- createPerformanceTestData(rows)
 
-      elapsedTimes <- Range(1, times + warmUp).foldLeft(Future.successful(Seq.empty[Long]))({
-        case (resultsFuture, x) =>
+      elapsedTimesReadingRows <- Range(1, times + warmUp).foldLeft(Future.successful(Seq.empty[Long]))({
+        case (resultsFuture, _) =>
           resultsFuture.flatMap({ results => // Send request and measure round-trip time in ms
           {
             sendTimedRequest("GET", "/tables/1/rows")
@@ -262,13 +269,16 @@ class PerformanceTest extends TableauxTestBase {
               })
           }
           })
+
       })
     } yield {
       // Drop measurements of warmup phase
-      val withoutWarmup = elapsedTimes.drop(warmUp)
-
-      val average = elapsedTimes.sum / elapsedTimes.length
-      logger.info(s"\n=====\n$times performance tests with $rows rows took $average ms in average\n=====")
+      val withoutWarmup = elapsedTimesReadingRows.drop(warmUp)
+      logger.info("\n=====")
+      logger.info(s"performance tests with writing $rows rows to table 1 took $elapsedTimesWritingRowsTable1 ms")
+      logger.info(s"performance tests with writing $rows rows to table 2 took $elapsedTimesWritingRowsTable2 ms")
+      val average = elapsedTimesReadingRows.sum / elapsedTimesReadingRows.length
+      logger.info(s"$times performance tests with reading $rows rows took $average ms in average\n=====\n")
 
       withoutWarmup
     }
