@@ -95,6 +95,30 @@ class TableauxModel(
   val retrieveHistoryModel = RetrieveHistoryModel(connection)
   val createHistoryModel = CreateHistoryModel(this, connection)
 
+  def retrieveBacklink(column: LinkColumn): Future[Option[LinkColumn]] = {
+    val select =
+      s"""
+         |SELECT
+         |  cback.column_id
+         |FROM
+         |  system_columns c
+         |JOIN system_link_table l ON (l.link_id = c.link_id)
+         |JOIN system_columns cback ON (c.link_id = cback.link_id AND cback.table_id != ?)
+         |WHERE c.table_id = ? AND c.column_id = ?""".stripMargin
+
+    for {
+      foreignColumnIdOpt <- connection
+        .query(select, Json.arr(column.table.id, column.table.id, column.id))
+        .map(json => resultObjectToJsonArray(json).headOption.map(row => row.get[ColumnId](0)))
+
+      backlinkColumnOpt <- foreignColumnIdOpt match {
+        case Some(columnId) =>
+          structureModel.columnStruc.retrieve(column.to.table, columnId).map(res => Some(res.asInstanceOf[LinkColumn]))
+        case None => Future.successful(None)
+      }
+    } yield backlinkColumnOpt
+  }
+
   def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
 
     def selectDependentRows(linkId: LinkId, linkDirection: LinkDirection) = {

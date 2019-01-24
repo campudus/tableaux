@@ -249,24 +249,24 @@ case class CreateHistoryModel(
 
               _ <- if (allowRecursion && isNotDeleteCascade(column)) {
                 for {
-                  dependentColumns <- tableauxModel.retrieveDependencies(table)
-                  _ <- Future.sequence(dependentColumns.map({
-                    case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) =>
+                  backLinkColumn <- tableauxModel.retrieveBacklink(column)
+                  _ <- backLinkColumn match {
+                    case Some(linkColumn) => {
                       for {
-                        linkedTable <- tableModel.retrieve(linkedTableId)
-                        linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
                         _ <- Future.sequence(linkIdsToPutOrAdd.map(linkId => {
                           for {
                             // invalidate dependent columns from backlinks point of view
-                            _ <- tableauxModel.invalidateCellAndDependentColumns(linkedColumn, linkId)
-                            _ <- createLinks(linkedTable,
+                            _ <- tableauxModel.invalidateCellAndDependentColumns(linkColumn, linkId)
+                            _ <- createLinks(column.to.table,
                                              linkId,
-                                             Seq((linkedColumn.asInstanceOf[LinkColumn], Seq(linkId))),
+                                             Seq((linkColumn, Seq(linkId))),
                                              allowRecursion = false)
                           } yield ()
                         }))
                       } yield ()
-                  }))
+                    }
+                    case None => Future.successful(())
+                  }
                 } yield ()
               } else {
                 Future.successful(())
