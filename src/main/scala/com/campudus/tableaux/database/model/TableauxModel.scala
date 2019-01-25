@@ -99,11 +99,11 @@ class TableauxModel(
     val select =
       s"""
          |SELECT
-         |  cback.column_id
+         |  columns_back.column_id
          |FROM
          |  system_columns c
          |JOIN system_link_table l ON (l.link_id = c.link_id)
-         |JOIN system_columns cback ON (c.link_id = cback.link_id AND cback.table_id != ?)
+         |JOIN system_columns columns_back ON (c.link_id = columns_back.link_id AND columns_back.table_id != ?)
          |WHERE c.table_id = ? AND c.column_id = ?""".stripMargin
 
     for {

@@ -160,10 +160,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
   }
 }
 
-case class CreateHistoryModel(
-    tableauxModel: TableauxModel,
-    connection: DatabaseConnection
-)(implicit val requestContext: RequestContext)
+case class CreateHistoryModel(tableauxModel: TableauxModel, connection: DatabaseConnection)(
+    implicit val requestContext: RequestContext)
     extends DatabaseQuery {
 
   val tableModel = new TableModel(connection)
@@ -173,11 +171,7 @@ case class CreateHistoryModel(
     requestContext.getCookieValue("userName")
   }
 
-  private def retrieveCurrentLinkIds(
-      table: Table,
-      column: LinkColumn,
-      rowId: RowId
-  ): Future[Seq[RowId]] = {
+  private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId): Future[Seq[RowId]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId)
     } yield {
@@ -192,11 +186,8 @@ case class CreateHistoryModel(
     }
   }
 
-  private def getLinksData(
-      identifierCellSeq: Seq[Cell[Any]],
-      langTags: Seq[String]
-  ): (LanguageType, Seq[(RowId, Object)]) = {
-    val preparedData = identifierCellSeq
+  private def getLinksData(idCellSeq: Seq[Cell[Any]], langTags: Seq[String]): (LanguageType, Seq[(RowId, Object)]) = {
+    val preparedData = idCellSeq
       .map(cell => {
         IdentifierFlattener.compress(langTags, cell.value) match {
           case Right(m) => (MultiLanguage, cell.rowId, m)
@@ -226,17 +217,32 @@ case class CreateHistoryModel(
       table: Table,
       rowId: RowId,
       links: Seq[(LinkColumn, Seq[RowId])],
-      allowRecursion: Boolean = true
+      allowRecursion: Boolean
   ): Future[Seq[Any]] = {
 
-    def isNotDeleteCascade(column: LinkColumn): Boolean = {
-      !column.linkDirection.constraint.deleteCascade
+    def createLinksRecursive(column: LinkColumn, changedLinkIds: Seq[RowId]): Future[Unit] = {
+      for {
+        backLinkColumn <- tableauxModel.retrieveBacklink(column)
+        _ <- backLinkColumn match {
+          case Some(linkColumn) =>
+            for {
+              _ <- Future.sequence(changedLinkIds.map(linkId => {
+                for {
+                  // invalidate dependent columns from backlinks point of view
+                  _ <- tableauxModel.invalidateCellAndDependentColumns(linkColumn, linkId)
+                  _ <- createLinks(column.to.table, linkId, Seq((linkColumn, Seq(linkId))), allowRecursion = false)
+                } yield ()
+              }))
+            } yield ()
+          case None => Future.successful(())
+        }
+      } yield ()
     }
 
     Future.sequence(
       links.map({
-        case (column, linkIdsToPutOrAdd) =>
-          if (linkIdsToPutOrAdd.isEmpty) {
+        case (column, changedLinkIds) =>
+          if (changedLinkIds.isEmpty) {
             insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapLinkValue())
           } else {
             for {
@@ -247,27 +253,8 @@ case class CreateHistoryModel(
               (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
               _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapLinkValue(linksData))
 
-              _ <- if (allowRecursion && isNotDeleteCascade(column)) {
-                for {
-                  backLinkColumn <- tableauxModel.retrieveBacklink(column)
-                  _ <- backLinkColumn match {
-                    case Some(linkColumn) => {
-                      for {
-                        _ <- Future.sequence(linkIdsToPutOrAdd.map(linkId => {
-                          for {
-                            // invalidate dependent columns from backlinks point of view
-                            _ <- tableauxModel.invalidateCellAndDependentColumns(linkColumn, linkId)
-                            _ <- createLinks(column.to.table,
-                                             linkId,
-                                             Seq((linkColumn, Seq(linkId))),
-                                             allowRecursion = false)
-                          } yield ()
-                        }))
-                      } yield ()
-                    }
-                    case None => Future.successful(())
-                  }
-                } yield ()
+              _ <- if (allowRecursion) {
+                createLinksRecursive(column, changedLinkIds)
               } else {
                 Future.successful(())
               }
@@ -277,12 +264,7 @@ case class CreateHistoryModel(
     )
   }
 
-  def updateLinkOrder(
-      table: Table,
-      linkColumn: LinkColumn,
-      rowId: RowId
-  ): Future[Unit] = {
-
+  def updateLinkOrder(table: Table, linkColumn: LinkColumn, rowId: RowId): Future[Unit] = {
     for {
       linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
       identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)
@@ -299,10 +281,7 @@ case class CreateHistoryModel(
     }
   }
 
-  private def retrieveForeignIdentifierCells(
-      column: LinkColumn,
-      linkIds: Seq[RowId]
-  ): Future[Seq[Cell[Any]]] = {
+  private def retrieveForeignIdentifierCells(column: LinkColumn, linkIds: Seq[RowId]): Future[Seq[Cell[Any]]] = {
     val linkedCellSeq = linkIds.map(
       linkId =>
         for {
@@ -328,23 +307,23 @@ case class CreateHistoryModel(
     val columnsForLang = entries
       .groupBy({ case (langtag, _) => langtag })
       .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
+      .toSeq
 
-    val futureSequence: Seq[Future[RowId]] = columnsForLang.toSeq
-      .flatMap({
-        case (langtag, columnValueOptSeq) =>
-          val languageCellEntries = columnValueOptSeq
-            .map({
-              case (column: SimpleValueColumn[_], valueOpt) =>
-                (column.id, column.kind, column.languageType, wrapLanguageValue(langtag, valueOpt.orNull))
-            })
-
-          languageCellEntries.map({
-            case (columnId, columnType, languageType, value) =>
-              insertCellHistory(table, rowId, columnId, columnType, languageType, value)
-          })
-      })
-
-    Future.sequence(futureSequence)
+    Future.sequence(
+      columnsForLang
+        .flatMap({
+          case (langtag, columnValueOptSeq) =>
+            columnValueOptSeq
+              .map({
+                case (column: SimpleValueColumn[_], valueOpt) =>
+                  insertCellHistory(table,
+                                    rowId,
+                                    column.id,
+                                    column.kind,
+                                    column.languageType,
+                                    wrapLanguageValue(langtag, valueOpt.orNull))
+              })
+        }))
   }
 
   private def createSimple(
@@ -355,37 +334,29 @@ case class CreateHistoryModel(
 
     def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
 
-    val cellEntries = simples
-      .map({
-        case (column: SimpleValueColumn[_], valueOpt) =>
-          (column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))
-      })
-
-    val futureSequence: Seq[Future[RowId]] = cellEntries
-      .map({
-        case (columnId, columnType, languageType, value) =>
-          insertCellHistory(table, rowId, columnId, columnType, languageType, value)
-      })
-
-    Future.sequence(futureSequence)
+    Future.sequence(
+      simples
+        .map({
+          case (column: SimpleValueColumn[_], valueOpt) =>
+            insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))
+        }))
   }
 
   private def createAttachments(
       table: Table,
       rowId: RowId,
-      values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
+      columns: Seq[AttachmentColumn]
   ): Future[_] = {
 
     def wrapValue(attachments: Seq[AttachmentFile]): JsonObject = {
       Json.obj("value" -> attachments.map(_.getJson))
     }
 
-    val futureSequence = values.map({
-      case (column: AttachmentColumn, _) =>
-        for {
-          files <- attachmentModel.retrieveAll(table.id, column.id, rowId)
-          _ <- insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(files))
-        } yield ()
+    val futureSequence = columns.map({ column =>
+      for {
+        files <- attachmentModel.retrieveAll(table.id, column.id, rowId)
+        _ <- insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(files))
+      } yield ()
     })
 
     Future.sequence(futureSequence)
@@ -495,14 +466,23 @@ case class CreateHistoryModel(
     * valid value wouldn't be logged in a history table.
     */
   def createCellsInit(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+    val columns = values.map({ case (col: ColumnType[_], _) => col })
+    val (simples, _, links, attachments) = ColumnType.splitIntoTypes(columns)
+
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
 
-      case Success((simples, multis, links, attachments)) =>
+      case Success((_, multis, _, _)) =>
+        // for changes on multi language cells create init values only for langtags to be changed
+        val langtagColumns = for {
+          (column, langtags) <- multis
+          langtagSeq = langtags.toSeq.map({ case (langtag, _) => langtag })
+        } yield (langtagSeq, column)
+
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
-          _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multis)
+          _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, langtagColumns)
           _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links)
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachmentsInit(table, rowId, attachments)
         } yield ()
@@ -518,89 +498,64 @@ case class CreateHistoryModel(
   def createClearCellInit(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
-    val simplesWithEmptyValues = for {
-      column <- simples
-    } yield (column, None)
-
-    val multisWithEmptyValues = for {
+    // for clearing of multi language cells create init values for all langtags
+    val langtagColumns = for {
       column <- multis
-      langtag <- table.langtags match {
+      langtag = table.langtags match {
         case Some(value) => value
         case _ => Seq.empty[String]
       }
-    } yield (column, Map(langtag -> None))
-
-    val linksWithEmptyValues = for {
-      column <- links
-    } yield (column, Seq.empty[RowId])
-
-    val attachmentsWithEmptyValues = for {
-      column <- attachments
-    } yield (column, Seq())
+    } yield (langtag, column)
 
     for {
-      _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simplesWithEmptyValues)
-      _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multisWithEmptyValues)
-      _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, linksWithEmptyValues)
-      _ <- if (attachments.isEmpty) Future.successful(())
-      else createAttachmentsInit(table, rowId, attachmentsWithEmptyValues)
+      _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
+      _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, langtagColumns)
+      _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links)
+      _ <- if (attachments.isEmpty) Future.successful(()) else createAttachmentsInit(table, rowId, attachments)
     } yield ()
   }
 
-  def createAttachmentsInit(
-      table: Table,
-      rowId: RowId,
-      values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
-  ): Future[Seq[Unit]] = {
-
-    Future.sequence(values.map({
-      case (column, _) =>
-        for {
-          historyEntryExists <- historyExists(table.id, column.id, rowId)
-          _ <- if (!historyEntryExists) {
-            for {
-              currentAttachments <- attachmentModel.retrieveAll(table.id, column.id, rowId)
-              _ <- if (currentAttachments.nonEmpty)
-                createAttachments(table, rowId, values)
-              else {
-                Future.successful(())
-              }
-            } yield ()
-          } else
-            Future.successful(())
-        } yield ()
+  def createAttachmentsInit(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[Seq[Unit]] = {
+    Future.sequence(columns.map({ column =>
+      for {
+        historyEntryExists <- historyExists(table.id, column.id, rowId, None)
+        _ <- if (!historyEntryExists) {
+          for {
+            currentAttachments <- attachmentModel.retrieveAll(table.id, column.id, rowId)
+            _ <- if (currentAttachments.nonEmpty) {
+              createAttachments(table, rowId, Seq(column))
+            } else {
+              Future.successful(())
+            }
+          } yield ()
+        } else
+          Future.successful(())
+      } yield ()
     }))
   }
 
-  def createLinksInit(
-      table: Table,
-      rowId: RowId,
-      links: Seq[(LinkColumn, Seq[RowId])],
-  ): Future[Seq[Unit]] = {
+  def createLinksInit(table: Table, rowId: RowId, links: Seq[LinkColumn]): Future[Seq[Unit]] = {
 
-    Future.sequence(links.map({
-      case (column, _) =>
-        for {
-          historyEntryExists <- historyExists(table.id, column.id, rowId)
-          _ <- if (!historyEntryExists) {
-            for {
-              linkIds <- retrieveCurrentLinkIds(table, column, rowId)
-              _ <- if (linkIds.nonEmpty)
-                createLinks(table, rowId, Seq((column, linkIds)), allowRecursion = true)
-              else
-                Future.successful(())
-            } yield ()
-          } else
-            Future.successful(())
-        } yield ()
+    def createIfNotEmpty(linkColumn: LinkColumn): Future[Unit] = {
+      for {
+        linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
+        _ <- if (linkIds.nonEmpty) {
+          createLinks(table, rowId, Seq((linkColumn, linkIds)), allowRecursion = true)
+        } else {
+          Future.successful(())
+        }
+      } yield ()
+    }
+
+    Future.sequence(links.map({ linkColumn =>
+      for {
+        historyEntryExists <- historyExists(table.id, linkColumn.id, rowId, None)
+        _ <- if (!historyEntryExists) createIfNotEmpty(linkColumn) else Future.successful(())
+      } yield ()
     }))
   }
 
-  private def createSimpleInit(
-      table: Table,
-      rowId: RowId,
-      simples: Seq[(SimpleValueColumn[_], Option[Any])]
-  ): Future[Seq[Unit]] = {
+  private def createSimpleInit(table: Table, rowId: RowId, simples: Seq[SimpleValueColumn[_]]): Future[Seq[Unit]] = {
 
     def createIfNotEmpty(column: SimpleValueColumn[_]): Future[Unit] = {
       for {
@@ -612,29 +567,29 @@ case class CreateHistoryModel(
       } yield ()
     }
 
-    Future.sequence(simples.map({
-      case (column: SimpleValueColumn[_], _) =>
-        for {
-          historyEntryExists <- historyExists(table.id, column.id, rowId)
-          _ <- if (!historyEntryExists) createIfNotEmpty(column) else Future.successful(())
-        } yield ()
+    Future.sequence(simples.map({ column =>
+      for {
+        historyEntryExists <- historyExists(table.id, column.id, rowId, None)
+        _ <- if (!historyEntryExists) createIfNotEmpty(column) else Future.successful(())
+      } yield ()
     }))
   }
 
   private def createTranslationInit(
       table: Table,
       rowId: RowId,
-      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
+      langtagColumns: Seq[(Seq[String], SimpleValueColumn[_])]
   ): Future[Seq[Unit]] = {
 
     val entries = for {
-      (column, langtagValueOptMap) <- values
-      (langtag: String, valueOpt) <- langtagValueOptMap
-    } yield (langtag, (column, valueOpt))
+      (langtags, column) <- langtagColumns
+      langtag <- langtags
+    } yield (langtag, column)
 
     val columnsForLang = entries
       .groupBy({ case (langtag, _) => langtag })
-      .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
+      .mapValues(_.map({ case (_, columns) => columns }))
+      .toSeq
 
     def createIfNotEmpty(column: SimpleValueColumn[_], langtag: String): Future[Unit] = {
       for {
@@ -647,16 +602,15 @@ case class CreateHistoryModel(
     }
 
     Future.sequence(
-      columnsForLang.toSeq
+      columnsForLang
         .flatMap({
-          case (langtag, columnValueOptSeq) =>
-            columnValueOptSeq
-              .map({
-                case (column: SimpleValueColumn[_], _) =>
-                  for {
-                    historyEntryExists <- historyExists(table.id, column.id, rowId, Option(langtag))
-                    _ <- if (!historyEntryExists) createIfNotEmpty(column, langtag) else Future.successful(())
-                  } yield ()
+          case (langtag, columns) =>
+            columns
+              .map({ column =>
+                for {
+                  historyEntryExists <- historyExists(table.id, column.id, rowId, Option(langtag))
+                  _ <- if (!historyEntryExists) createIfNotEmpty(column, langtag) else Future.successful(())
+                } yield ()
               })
         }))
   }
@@ -665,7 +619,7 @@ case class CreateHistoryModel(
       tableId: TableId,
       columnId: ColumnId,
       rowId: RowId,
-      langtagOpt: Option[String] = None
+      langtagOpt: Option[String]
   ): Future[Boolean] = {
 
     val whereLanguage = langtagOpt match {
@@ -703,11 +657,7 @@ case class CreateHistoryModel(
     }
   }
 
-  def clearBackLinksWhichWillBeDeleted(
-      table: Table,
-      rowId: RowId,
-      values: Seq[(ColumnType[_], _)],
-  ): Future[_] = {
+  def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[_] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -729,7 +679,7 @@ case class CreateHistoryModel(
     }
   }
 
-  def wrapAnnotationValue(value: String, uuid: UUID, langtagOpt: Option[String] = None): JsonObject = {
+  def wrapAnnotationValue(value: String, uuid: UUID, langtagOpt: Option[String]): JsonObject = {
     langtagOpt match {
       case Some(langtag) => Json.obj("value" -> Json.obj(langtag -> value), "uuid" -> uuid.toString)
       case None => Json.obj("value" -> value, "uuid" -> uuid.toString)
@@ -813,7 +763,7 @@ case class CreateHistoryModel(
             HistoryTypeCellComment,
             Some(annotationType.toString),
             Some(languageType.toString),
-            Some(wrapAnnotationValue(value, uuid).toString)
+            Some(wrapAnnotationValue(value, uuid, None).toString)
           )
         } yield historyRowId)
       case (_, LanguageNeutral) =>
@@ -826,7 +776,7 @@ case class CreateHistoryModel(
             HistoryTypeCellFlag,
             Some(value),
             Some(languageType.toString),
-            Some(wrapAnnotationValue(value, uuid).toString)
+            Some(wrapAnnotationValue(value, uuid, None).toString)
           )
         } yield historyRowId)
       case (_, MultiLanguage) =>
@@ -870,12 +820,7 @@ case class CreateHistoryModel(
     } yield ()
   }
 
-  private def clearAttachments(
-      table: Table,
-      rowId: RowId,
-      columns: Seq[AttachmentColumn]
-  ): Future[_] = {
-
+  private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
     val futureSequence = columns.map(
       column =>
         insertCellHistory(table,
@@ -888,16 +833,15 @@ case class CreateHistoryModel(
     Future.sequence(futureSequence)
   }
 
-  def createCells(
-      table: Table,
-      rowId: RowId,
-      values: Seq[(ColumnType[_], _)]
-  ): Future[Unit] = {
+  def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+    val columns = values.map({ case (col: ColumnType[_], _) => col })
+    val (_, _, _, attachments) = ColumnType.splitIntoTypes(columns)
+
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
 
-      case Success((simples, multis, links, attachments)) =>
+      case Success((simples, multis, links, _)) =>
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
@@ -924,11 +868,7 @@ case class CreateHistoryModel(
     } yield ()
   }
 
-  def createClearLink(
-      table: Table,
-      rowId: RowId,
-      columns: Seq[LinkColumn]
-  ): Future[Unit] = {
+  def createClearLink(table: Table, rowId: RowId, columns: Seq[LinkColumn]): Future[Unit] = {
     for {
       _ <- createLinks(table, rowId, columns.map(column => (column, Seq.empty[RowId])), allowRecursion = false)
       _ <- Future.sequence(
@@ -967,12 +907,11 @@ case class CreateHistoryModel(
     } yield ()
   }
 
-  def deleteLink(
-      table: Table,
-      linkColumn: LinkColumn,
-      rowId: RowId,
-      toId: RowId
-  ): Future[_] = {
-    createLinks(table, rowId, Seq((linkColumn, Seq(toId))))
+  def deleteLink(table: Table, linkColumn: LinkColumn, rowId: RowId, toId: RowId): Future[_] = {
+    if (linkColumn.linkDirection.constraint.deleteCascade) {
+      createLinks(table, rowId, Seq((linkColumn, Seq(toId))), allowRecursion = false)
+    } else {
+      createLinks(table, rowId, Seq((linkColumn, Seq(toId))), allowRecursion = true)
+    }
   }
 }

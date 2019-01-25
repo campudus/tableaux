@@ -21,13 +21,13 @@ class PerformanceTest extends TableauxTestBase {
     val createMultilanguageColumn = Json.obj(
       "columns" ->
         Json.arr(
-          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true, "identifier" -> true),
-          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true, "identifier" -> true),
-          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
-          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
-          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "multilanguage" -> true),
-          Json.obj("kind" -> "date", "name" -> "Test Column 6", "multilanguage" -> true),
-          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "multilanguage" -> true)
+          Json.obj("kind" -> "text", "name" -> "Test Column 1", "languageType" -> "language", "identifier" -> true),
+          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "languageType" -> "language"),
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "languageType" -> "language"),
+          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "languageType" -> "language"),
+          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "languageType" -> "language"),
+          Json.obj("kind" -> "date", "name" -> "Test Column 6", "languageType" -> "language"),
+          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "languageType" -> "language")
         )
     )
 
