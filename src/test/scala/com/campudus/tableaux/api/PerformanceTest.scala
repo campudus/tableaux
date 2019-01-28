@@ -1,10 +1,13 @@
 package com.campudus.tableaux.api
 
+import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import org.vertx.scala.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.scala.SQLConnection
 import org.junit.runner.RunWith
 import org.junit.{Ignore, Test}
 import org.vertx.scala.core.json.Json
@@ -175,7 +178,15 @@ class PerformanceTest extends TableauxTestBase {
       )
     }
 
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val system = SystemModel(dbConnection)
+
     for {
+      // reset for warmup
+      _ <- system.uninstall()
+      _ <- system.install()
+
       table1 <- createTableWithMultilanguageColumnsAndConcatColumn("Table 1")
       table2 <- createTableWithMultilanguageColumnsAndConcatColumn("Table 2")
 
@@ -215,7 +226,9 @@ class PerformanceTest extends TableauxTestBase {
             }
           })
       }
+
       elapsedTimesWritingRowsTable2 = System.currentTimeMillis() - startFillTable2
+      _ = logger.info(s"elapsedTimesWritingRowsTable2: $elapsedTimesWritingRowsTable2")
 
       // Fill table 1
       startFillTable1 = System.currentTimeMillis()
@@ -241,6 +254,7 @@ class PerformanceTest extends TableauxTestBase {
           })
       }
       elapsedTimesWritingRowsTable1 = System.currentTimeMillis() - startFillTable1
+      _ = logger.info(s"elapsedTimesWritingRowsTable1: $elapsedTimesWritingRowsTable1")
 
     } yield (elapsedTimesWritingRowsTable1, elapsedTimesWritingRowsTable2)
   }
@@ -255,18 +269,28 @@ class PerformanceTest extends TableauxTestBase {
     val warmUp = 10
 
     for {
+      // 3 warmup iterations for writing
+      _ <- Range(1, 3).foldLeft(Future.successful(()))({
+        case (resultsFuture, _) =>
+          resultsFuture.flatMap({ _ =>
+            {
+              for {
+                _ <- createPerformanceTestData(rows)
+              } yield ()
+            }
+          })
+      })
+
+      // measure writing times
       (elapsedTimesWritingRowsTable1, elapsedTimesWritingRowsTable2) <- createPerformanceTestData(rows)
 
       elapsedTimesReadingRows <- Range(1, times + warmUp).foldLeft(Future.successful(Seq.empty[Long]))({
         case (resultsFuture, _) =>
           resultsFuture.flatMap({ results => // Send request and measure round-trip time in ms
           {
-            sendTimedRequest("GET", "/tables/1/rows")
-              .flatMap({ duration =>
-                {
-                  Future(results ++ Seq(duration))
-                }
-              })
+            for {
+              duration <- sendTimedRequest("GET", "/tables/1/rows")
+            } yield results ++ Seq(duration)
           }
           })
 
