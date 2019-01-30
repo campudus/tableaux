@@ -54,381 +54,318 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   private val TranslationStatus: Regex = "/tables/translationStatus".r
 
-  private val CellHistory: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/history".r
-  private val CellHistoryWithLangtag: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/history/($langtagRegex)".r
-  private val RowHistory: Regex = "/tables/(\\d+)/rows/(\\d+)/history".r
-  private val RowHistoryWithLangtag: Regex = s"/tables/(\\d+)/rows/(\\d+)/history/($langtagRegex)".r
-  private val TableHistory: Regex = "/tables/(\\d+)/history".r
-  private val TableHistoryWithLangtag: Regex = s"/tables/(\\d+)/history/($langtagRegex)".r
-
-  override def routes(implicit context: RoutingContext): Routing = {
-
-    /**
-      * Get Rows
-      */
-    case Get(Rows(tableId)) =>
-      asyncGetReply {
-        val limit = getLongParam("limit", context)
-        val offset = getLongParam("offset", context)
-
-        val pagination = Pagination(offset, limit)
-
-        controller.retrieveRows(tableId.toLong, pagination)
-      }
-
-    /**
-      * Get foreign rows from a link cell point of view
-      * e.g. cardinality in both direction will be considered
-      */
-    case Get(RowsOfLinkCell(tableId, columnId, rowId)) =>
-      asyncGetReply {
-        val limit = getLongParam("limit", context)
-        val offset = getLongParam("offset", context)
-
-        val pagination = Pagination(offset, limit)
-
-        controller.retrieveForeignRows(tableId.toLong, columnId.toLong, rowId.toLong, pagination)
-      }
-
-    /**
-      * Get rows of column
-      */
-    case Get(RowsOfColumn(tableId, columnId)) =>
-      asyncGetReply {
-        val limit = getLongParam("limit", context)
-        val offset = getLongParam("offset", context)
-
-        val pagination = Pagination(offset, limit)
-
-        controller.retrieveRowsOfColumn(tableId.toLong, columnId.toLong, pagination)
-      }
-
-    /**
-      * Get rows of first column
-      */
-    case Get(RowsOfFirstColumn(tableId)) =>
-      asyncGetReply {
-        val limit = getLongParam("limit", context)
-        val offset = getLongParam("offset", context)
-
-        val pagination = Pagination(offset, limit)
-
-        controller.retrieveRowsOfFirstColumn(tableId.toLong, pagination)
-      }
-
-    /**
-      * Get Row
-      */
-    case Get(Row(tableId, rowId)) =>
-      asyncGetReply {
-        controller.retrieveRow(tableId.toLong, rowId.toLong)
-      }
-
-    /**
-      * Get dependent rows
-      */
-    case Get(RowDependent(tableId, rowId)) =>
-      asyncGetReply {
-        controller.retrieveDependentRows(tableId.toLong, rowId.toLong)
-      }
-
-    /**
-      * Get Cell
-      */
-    case Get(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply {
-        controller.retrieveCell(tableId.toLong, columnId.toLong, rowId.toLong)
-      }
-
-    /**
-      * Get complete table
-      */
-    case Get(CompleteTableId(tableId)) =>
-      asyncGetReply {
-        controller.retrieveCompleteTable(tableId.toLong)
-      }
-
-    /**
-      * Create table with columns and rows
-      */
-    case Post(CompleteTable()) =>
-      asyncGetReply {
-        for {
-          json <- getJson(context)
-          completeTable <- if (json.containsKey("rows")) {
-            controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), toRowValueSeq(json))
-          } else {
-            controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), Seq())
-          }
-        } yield completeTable
-      }
-
-    /**
-      * Create Row
-      */
-    case Post(Rows(tableId)) =>
-      asyncGetReply {
-        for {
-          optionalValues <- (for {
-            json <- getJson(context)
-            option = if (json.containsKey("columns") && json.containsKey("rows")) {
-              Some(toColumnValueSeq(json))
-            } else {
-              None
-            }
-          } yield option) recover {
-            case _: NoJsonFoundException => None
-          }
-          result <- controller.createRow(tableId.toLong, optionalValues)
-        } yield result
-      }
-
-    /**
-      * Duplicate Row
-      * currently not used by frontend because of cardinality constraints
-      * TODO validation should be checked by backend
-      */
-    case Post(RowDuplicate(tableId, rowId)) =>
-      asyncGetReply {
-        controller.duplicateRow(tableId.toLong, rowId.toLong)
-      }
-
-    /**
-      * Update Row Annotations
-      */
-    case Patch(RowAnnotations(tableId, rowId)) =>
-      asyncGetReply {
-        for {
-          json <- getJson(context)
-          finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
-            .map(_.booleanValue())
-
-          updated <- controller.updateRowAnnotations(tableId.toLong, rowId.toLong, finalFlagOpt)
-        } yield updated
-      }
-
-    /**
-      * Update Row Annotations
-      */
-    case Patch(RowsAnnotations(tableId)) =>
-      asyncGetReply {
-        for {
-          json <- getJson(context)
-          finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
-            .map(_.booleanValue())
-
-          updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt)
-        } yield updated
-      }
-
-    /**
-      * Add Cell Annotation (will possibly be merged with an existing annotation)
-      */
-    case Post(CellAnnotations(tableId, columnId, rowId)) =>
-      asyncGetReply {
-        import com.campudus.tableaux.ArgumentChecker._
-
-        for {
-          json <- getJson(context)
-
-          langtags = checked(asCastedList[String](json.getJsonArray("langtags", new JsonArray())))
-          flagType = checked(hasString("type", json).map(CellAnnotationType(_)))
-          value = json.getString("value")
-
-          cellAnnotation <- controller
-            .addCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, langtags, flagType, value)
-        } yield cellAnnotation
-      }
-
-    /**
-      * Delete Cell Annotation
-      */
-    case Delete(CellAnnotation(tableId, columnId, rowId, uuid)) =>
-      asyncGetReply {
-        controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid))
-      }
-
-    /**
-      * Delete Langtag from Cell Annotation
-      */
-    case Delete(CellAnnotationLangtag(tableId, columnId, rowId, uuid, langtag)) =>
-      asyncGetReply {
-        controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid), langtag)
-      }
-
-    /**
-      * Retrieve all Cell Annotations for a specific table
-      */
-    case Get(AnnotationsTable(tableId)) =>
-      asyncGetReply {
-        controller.retrieveTableWithCellAnnotations(tableId.toLong)
-      }
-
-    /**
-      * Retrieve Cell Annotation count for all tables
-      */
-    case Get(AnnotationCount()) =>
-      asyncGetReply {
-        controller.retrieveTablesWithCellAnnotationCount()
-      }
-
-    /**
-      * Retrieve translation status for all tables
-      */
-    case Get(TranslationStatus()) =>
-      asyncGetReply {
-        controller.retrieveTranslationStatus()
-      }
-
-    /**
-      * Update Cell or add Link/Attachment
-      */
-    case Post(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply {
-        for {
-          json <- getJson(context)
-          updated <- controller.updateCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-        } yield updated
-      }
-
-    /**
-      * Update Cell or add Link/Attachment
-      */
-    case Patch(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply {
-        for {
-          json <- getJson(context)
-          updated <- controller.updateCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-        } yield updated
-      }
-
-    /**
-      * Replace Cell value
-      */
-    case Put(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply {
-        for {
-          json <- getJson(context)
-          updated <- if (json.containsKey("value")) {
-            controller.replaceCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
-          } else {
-            Future.failed(InvalidJsonException("request must contain a value", "value_is_missing"))
-          }
-        } yield updated
-      }
-
-    /**
-      * Change order of link
-      */
-    case Put(LinkOrderOfCell(tableId, columnId, rowId, toId)) =>
-      asyncGetReply {
-        for {
-          json <- getJson(context)
-          updated <- controller
-            .updateCellLinkOrder(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong, toLocationType(json))
-        } yield updated
-      }
-
-    /**
-      * Delete Row
-      */
-    case Delete(Row(tableId, rowId)) =>
-      asyncEmptyReply {
-        controller.deleteRow(tableId.toLong, rowId.toLong)
-      }
-
-    /**
-      * Clear Cell value
-      */
-    case Delete(Cell(tableId, columnId, rowId)) =>
-      asyncGetReply {
-        controller.clearCellValue(tableId.toLong, columnId.toLong, rowId.toLong)
-      }
-
-    /**
-      * Delete Attachment from Cell
-      */
-    case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) =>
-      asyncEmptyReply {
-        controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid)
-      }
-
-    /**
-      * Delete Link from Cell
-      */
-    case Delete(LinkOfCell(tableId, columnId, rowId, toId)) =>
-      asyncGetReply {
-        controller.deleteLink(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong)
-      }
-
-    /**
-      * Retrieve unique values of a shorttext column
-      */
-    case Get(ColumnsValues(tableId, columnId)) =>
-      asyncGetReply {
-        controller.retrieveColumnValues(tableId.toLong, columnId.toLong, None)
-      }
-
-    /**
-      * Retrieve unique values of a multi-language shorttext column
-      */
-    case Get(ColumnsValuesWithLangtag(tableId, columnId, langtag)) =>
-      asyncGetReply {
-        controller.retrieveColumnValues(tableId.toLong, columnId.toLong, Some(langtag))
-      }
-
-    /**
-      * Retrieve Cell History
-      */
-    case Get(CellHistory(tableId, columnId, rowId)) =>
-      asyncGetReply {
-        val typeOpt = getStringParam("historyType", context)
-        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, None, typeOpt)
-      }
-
-    /**
-      * Retrieve Cell History with langtag
-      */
-    case Get(CellHistoryWithLangtag(tableId, columnId, rowId, langtag)) =>
-      asyncGetReply {
-        val typeOpt = getStringParam("historyType", context)
-        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, Some(langtag), typeOpt)
-      }
-
-    /**
-      * Retrieve Row History
-      */
-    case Get(RowHistory(tableId, rowId)) =>
-      asyncGetReply {
-        val typeOpt = getStringParam("historyType", context)
-        controller.retrieveRowHistory(tableId.toLong, rowId.toLong, None, typeOpt)
-      }
-
-    /**
-      * Retrieve Row History with langtag
-      */
-    case Get(RowHistoryWithLangtag(tableId, rowId, langtag)) =>
-      asyncGetReply {
-        val typeOpt = getStringParam("historyType", context)
-        controller.retrieveRowHistory(tableId.toLong, rowId.toLong, Some(langtag), typeOpt)
-      }
-
-    /**
-      * Retrieve Table History
-      */
-    case Get(TableHistory(tableId)) =>
-      asyncGetReply {
-        val typeOpt = getStringParam("historyType", context)
-        controller.retrieveTableHistory(tableId.toLong, None, typeOpt)
-      }
-
-    /**
-      * Retrieve Table History with langtag
-      */
-    case Get(TableHistoryWithLangtag(tableId, langtag)) =>
-      asyncGetReply {
-        val typeOpt = getStringParam("historyType", context)
-        controller.retrieveTableHistory(tableId.toLong, Some(langtag), typeOpt)
-      }
-  }
+//  override def routes(implicit context: RoutingContext): Routing = {
+//
+//    /**
+//      * Get Rows
+//      */
+//    case Get(Rows(tableId)) =>
+//      asyncGetReply {
+//        val limit = getLongParam("limit", context)
+//        val offset = getLongParam("offset", context)
+//
+//        val pagination = Pagination(offset, limit)
+//
+//        controller.retrieveRows(tableId.toLong, pagination)
+//      }
+//
+//    /**
+//      * Get foreign rows from a link cell point of view
+//      * e.g. cardinality in both direction will be considered
+//      */
+//    case Get(RowsOfLinkCell(tableId, columnId, rowId)) =>
+//      asyncGetReply {
+//        val limit = getLongParam("limit", context)
+//        val offset = getLongParam("offset", context)
+//
+//        val pagination = Pagination(offset, limit)
+//
+//        controller.retrieveForeignRows(tableId.toLong, columnId.toLong, rowId.toLong, pagination)
+//      }
+//
+//    /**
+//      * Get rows of column
+//      */
+//    case Get(RowsOfColumn(tableId, columnId)) =>
+//      asyncGetReply {
+//        val limit = getLongParam("limit", context)
+//        val offset = getLongParam("offset", context)
+//
+//        val pagination = Pagination(offset, limit)
+//
+//        controller.retrieveRowsOfColumn(tableId.toLong, columnId.toLong, pagination)
+//      }
+//
+//    /**
+//      * Get rows of first column
+//      */
+//    case Get(RowsOfFirstColumn(tableId)) =>
+//      asyncGetReply {
+//        val limit = getLongParam("limit", context)
+//        val offset = getLongParam("offset", context)
+//
+//        val pagination = Pagination(offset, limit)
+//
+//        controller.retrieveRowsOfFirstColumn(tableId.toLong, pagination)
+//      }
+//
+//    /**
+//      * Get Row
+//      */
+//    case Get(Row(tableId, rowId)) =>
+//      asyncGetReply {
+//        controller.retrieveRow(tableId.toLong, rowId.toLong)
+//      }
+//
+//    /**
+//      * Get dependent rows
+//      */
+//    case Get(RowDependent(tableId, rowId)) =>
+//      asyncGetReply {
+//        controller.retrieveDependentRows(tableId.toLong, rowId.toLong)
+//      }
+//
+//    /**
+//      * Get Cell
+//      */
+//    case Get(Cell(tableId, columnId, rowId)) =>
+//      asyncGetReply {
+//        controller.retrieveCell(tableId.toLong, columnId.toLong, rowId.toLong)
+//      }
+//
+//    /**
+//      * Get complete table
+//      */
+//    case Get(CompleteTableId(tableId)) =>
+//      asyncGetReply {
+//        controller.retrieveCompleteTable(tableId.toLong)
+//      }
+//
+//    /**
+//      * Create table with columns and rows
+//      */
+//    case Post(CompleteTable()) =>
+//      asyncGetReply {
+//        for {
+//          json <- getJson(context)
+//          completeTable <- if (json.containsKey("rows")) {
+//            controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), toRowValueSeq(json))
+//          } else {
+//            controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), Seq())
+//          }
+//        } yield completeTable
+//      }
+//
+//    /**
+//      * Create Row
+//      */
+//    case Post(Rows(tableId)) =>
+//      asyncGetReply {
+//        for {
+//          optionalValues <- (for {
+//            json <- getJson(context)
+//            option = if (json.containsKey("columns") && json.containsKey("rows")) {
+//              Some(toColumnValueSeq(json))
+//            } else {
+//              None
+//            }
+//          } yield option) recover {
+//            case _: NoJsonFoundException => None
+//          }
+//          result <- controller.createRow(tableId.toLong, optionalValues)
+//        } yield result
+//      }
+//
+//    /**
+//      * Duplicate Row
+//      */
+//    case Post(RowDuplicate(tableId, rowId)) =>
+//      asyncGetReply {
+//        controller.duplicateRow(tableId.toLong, rowId.toLong)
+//      }
+//
+//    /**
+//      * Update Row Annotations
+//      */
+//    case Patch(RowAnnotations(tableId, rowId)) =>
+//      asyncGetReply {
+//        for {
+//          json <- getJson(context)
+//          finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
+//            .map(_.booleanValue())
+//
+//          updated <- controller.updateRowAnnotations(tableId.toLong, rowId.toLong, finalFlagOpt)
+//        } yield updated
+//      }
+//
+//    /**
+//      * Update Row Annotations
+//      */
+//    case Patch(RowsAnnotations(tableId)) =>
+//      asyncGetReply {
+//        for {
+//          json <- getJson(context)
+//          finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
+//            .map(_.booleanValue())
+//
+//          updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt)
+//        } yield updated
+//      }
+//
+//    /**
+//      * Add Cell Annotation (will possibly be merged with an existing annotation)
+//      */
+//    case Post(CellAnnotations(tableId, columnId, rowId)) =>
+//      asyncGetReply {
+//        import com.campudus.tableaux.ArgumentChecker._
+//
+//        for {
+//          json <- getJson(context)
+//
+//          langtags = checked(asCastedList[String](json.getJsonArray("langtags", new JsonArray())))
+//          flagType = checked(hasString("type", json).map(CellAnnotationType(_)))
+//          value = json.getString("value")
+//
+//          cellAnnotation <- controller
+//            .addCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, langtags, flagType, value)
+//        } yield cellAnnotation
+//      }
+//
+//    /**
+//      * Delete Cell Annotation
+//      */
+//    case Delete(CellAnnotation(tableId, columnId, rowId, uuid)) =>
+//      asyncGetReply {
+//        controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid))
+//      }
+//
+//    /**
+//      * Delete Langtag from Cell Annotation
+//      */
+//    case Delete(CellAnnotationLangtag(tableId, columnId, rowId, uuid, langtag)) =>
+//      asyncGetReply {
+//        controller.deleteCellAnnotation(tableId.toLong, columnId.toLong, rowId.toLong, UUID.fromString(uuid), langtag)
+//      }
+//
+//    /**
+//      * Retrieve all Cell Annotations for a specific table
+//      */
+//    case Get(AnnotationsTable(tableId)) =>
+//      asyncGetReply {
+//        controller.retrieveTableWithCellAnnotations(tableId.toLong)
+//      }
+//
+//    /**
+//      * Retrieve Cell Annotation count for all tables
+//      */
+//    case Get(AnnotationCount()) =>
+//      asyncGetReply {
+//        controller.retrieveTablesWithCellAnnotationCount()
+//      }
+//
+//    /**
+//      * Retrieve translation status for all tables
+//      */
+//    case Get(TranslationStatus()) =>
+//      asyncGetReply {
+//        controller.retrieveTranslationStatus()
+//      }
+//
+//    /**
+//      * Update Cell or add Link/Attachment
+//      */
+//    case Post(Cell(tableId, columnId, rowId)) =>
+//      asyncGetReply {
+//        for {
+//          json <- getJson(context)
+//          updated <- controller.updateCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+//        } yield updated
+//      }
+//
+//    /**
+//      * Update Cell or add Link/Attachment
+//      */
+//    case Patch(Cell(tableId, columnId, rowId)) =>
+//      asyncGetReply {
+//        for {
+//          json <- getJson(context)
+//          updated <- controller.updateCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+//        } yield updated
+//      }
+//
+//    /**
+//      * Replace Cell value
+//      */
+//    case Put(Cell(tableId, columnId, rowId)) =>
+//      asyncGetReply {
+//        for {
+//          json <- getJson(context)
+//          updated <- if (json.containsKey("value")) {
+//            controller.replaceCellValue(tableId.toLong, columnId.toLong, rowId.toLong, json.getValue("value"))
+//          } else {
+//            Future.failed(InvalidJsonException("request must contain a value", "value_is_missing"))
+//          }
+//        } yield updated
+//      }
+//
+//    /**
+//      * Change order of link
+//      */
+//    case Put(LinkOrderOfCell(tableId, columnId, rowId, toId)) =>
+//      asyncGetReply {
+//        for {
+//          json <- getJson(context)
+//          updated <- controller
+//            .updateCellLinkOrder(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong, toLocationType(json))
+//        } yield updated
+//      }
+//
+//    /**
+//      * Delete Row
+//      */
+//    case Delete(Row(tableId, rowId)) =>
+//      asyncEmptyReply {
+//        controller.deleteRow(tableId.toLong, rowId.toLong)
+//      }
+//
+//    /**
+//      * Clear Cell value
+//      */
+//    case Delete(Cell(tableId, columnId, rowId)) =>
+//      asyncGetReply {
+//        controller.clearCellValue(tableId.toLong, columnId.toLong, rowId.toLong)
+//      }
+//
+//    /**
+//      * Delete Attachment from Cell
+//      */
+//    case Delete(AttachmentOfCell(tableId, columnId, rowId, uuid)) =>
+//      asyncEmptyReply {
+//        controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid)
+//      }
+//
+//    /**
+//      * Delete Link from Cell
+//      */
+//    case Delete(LinkOfCell(tableId, columnId, rowId, toId)) =>
+//      asyncGetReply {
+//        controller.deleteLink(tableId.toLong, columnId.toLong, rowId.toLong, toId.toLong)
+//      }
+//
+//    /**
+//      * Retrieve unique values of a shorttext column
+//      */
+//    case Get(ColumnsValues(tableId, columnId)) =>
+//      asyncGetReply {
+//        controller.retrieveColumnValues(tableId.toLong, columnId.toLong, None)
+//      }
+//
+//    /**
+//      * Retrieve unique values of a multi-language shorttext column
+//      */
+//    case Get(ColumnsValuesWithLangtag(tableId, columnId, langtag)) =>
+//      asyncGetReply {
+//        controller.retrieveColumnValues(tableId.toLong, columnId.toLong, Some(langtag))
+//      }
+//  }
 }

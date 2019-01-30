@@ -7,11 +7,11 @@ import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
-import io.vertx.scala.ext.web.RoutingContext
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.Vertx
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
-import org.vertx.scala.router.routing.{AsyncReply, Error, Header, Ok}
+import org.vertx.scala.router.routing._
 import org.vertx.scala.router.{Router, RouterException}
 
 import scala.concurrent.{Future, Promise}
@@ -115,5 +115,23 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
 
   def getStringCookie(name: String, context: RoutingContext): Option[String] = {
     context.getCookie(name).map(_.getValue())
+  }
+
+  def noRouteMatched(context: RoutingContext): Unit = {
+    sendReply(
+      context.request(),
+      Error(
+        RouterException(message =
+                          s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
+                        id = "NOT FOUND",
+                        statusCode = 404))
+    )
+  }
+
+  def defaultRoute(context: RoutingContext): Unit = {
+    sendReply(
+      context.request(),
+      SendEmbeddedFile("/index.html")
+    )
   }
 }
