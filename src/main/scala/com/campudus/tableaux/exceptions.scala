@@ -2,7 +2,7 @@ package com.campudus.tableaux
 
 import com.campudus.tableaux.database.domain.ColumnType
 import com.campudus.tableaux.database.model.TableauxModel.{RowId, TableId}
-import org.vertx.scala.router.RouterException
+import com.campudus.tableaux.router.RouterException
 
 sealed trait CustomException extends Throwable {
   val message: String

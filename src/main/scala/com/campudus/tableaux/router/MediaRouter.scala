@@ -9,8 +9,6 @@ import com.campudus.tableaux.{ArgumentChecker, TableauxConfig}
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.JsonObject
-import org.vertx.scala.router.RouterException
-import org.vertx.scala.router.routing._
 
 import scala.concurrent.{Future, Promise}
 import scala.util.matching.Regex

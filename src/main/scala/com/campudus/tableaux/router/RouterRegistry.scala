@@ -5,10 +5,6 @@ import com.campudus.tableaux.controller.{MediaController, StructureController, S
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
 import io.vertx.scala.ext.web.{Router, RoutingContext}
-import org.vertx.scala.router.RouterException
-import org.vertx.scala.router.routing.{Error, Get, SendEmbeddedFile}
-
-import scala.concurrent.Future
 
 object RouterRegistry {
 
@@ -23,31 +19,23 @@ object RouterRegistry {
     val fileModel = FileModel(dbConnection)
     val attachmentModel = AttachmentModel(dbConnection, fileModel)
 
-    val routers = Seq(
-      SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel)),
-      TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel)),
-      MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel)),
-      StructureRouter(tableauxConfig, StructureController(_, structureModel)),
-      DocumentationRouter(tableauxConfig)
-    )
-
     val systemRouter = SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel))
-//      val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel)),
-//      val mediaRouter = MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel)),
-//      val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel)),
+//      val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel))
+//      val mediaRouter = MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel))
+    val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel))
 //      val documentationRouter = DocumentationRouter(tableauxConfig)
 
-    val rr = new RouterRegistry(tableauxConfig, routers)
+    val routerRegistry = new RouterRegistry(tableauxConfig)
 
-    router.mountSubRouter("/system", systemRouter.apply())
+    router.mountSubRouter("/system", systemRouter.getRouter())
 
-    router.get("/").handler(rr.defaultRoute)
-    router.get("/index.html").handler(rr.defaultRoute)
+    router.get("/").handler(routerRegistry.defaultRoute)
+    router.get("/index.html").handler(systemRouter.defaultRoute)
 
-    router.route().handler(rr.noRouteMatched)
+    router.route().handler(systemRouter.noRouteMatched)
 
-    rr
+    routerRegistry
   }
 }
 
-class RouterRegistry(override val config: TableauxConfig, routers: Seq[BaseRouter]) extends BaseRouter {}
+class RouterRegistry(val config: TableauxConfig) extends BaseRouter {}

@@ -82,27 +82,20 @@ class Starter extends ScalaVerticle with LazyLogging {
     FileUtils(vertxAccessContainer()).mkdirs(config.uploadsDirectoryPath())
   }
 
-  private def deployHttpServer(port: Int,
-                               host: String,
-                               tableauxConfig: TableauxConfig,
-                               connection: SQLConnection): Future[HttpServer] = {
+  private def deployHttpServer(
+      port: Int,
+      host: String,
+      tableauxConfig: TableauxConfig,
+      connection: SQLConnection
+  ): Future[HttpServer] = {
     val dbConnection = DatabaseConnection(vertxAccessContainer(), connection)
 
-    val router = Router.router(vertx)
+    val router: Router = Router.router(vertx)
 
     // This cookie handler will be called for all routes
     router.route().handler(CookieHandler.create())
 
     RouterRegistry(tableauxConfig, dbConnection, router)
-
-//    val systemModel = SystemModel(dbConnection)
-//    val structureModel = StructureModel(dbConnection)
-//    val tableauxModel = TableauxModel(dbConnection, structureModel)
-
-//    val systemRouter = SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel))
-//    router.mountSubRouter("/system", systemRouter.apply())
-
-//    router.route().handler(routerRegistry.apply)
 
     vertx
       .createHttpServer()
@@ -110,7 +103,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       .listenFuture(port, host)
   }
 
-  private def deployCacheVerticle(config: JsonObject) = {
+  private def deployCacheVerticle(config: JsonObject): Future[String] = {
     val options = DeploymentOptions()
       .setConfig(config)
 

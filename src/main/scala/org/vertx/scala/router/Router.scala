@@ -4,6 +4,7 @@ import java.io.FileNotFoundException
 import java.net.URLEncoder
 
 import com.campudus.tableaux.helper.VertxAccess
+import com.campudus.tableaux.router.RouterException
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.scala.core.http.{HttpServerRequest, HttpServerResponse}
@@ -205,13 +206,13 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
     logger.info(s"${req.method()}-Request: ${req.uri()}")
   }
 }
-
-/**
-  * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
-  */
-case class RouterException(
-    message: String = "",
-    cause: Throwable = null,
-    id: String = "UNKNOWN_SERVER_ERROR",
-    statusCode: Int = 500
-) extends Exception(message, cause)
+//
+///**
+//  * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
+//  */
+//case class RouterException(
+//    message: String = "",
+//    cause: Throwable = null,
+//    id: String = "UNKNOWN_SERVER_ERROR",
+//    statusCode: Int = 500
+//) extends Exception(message, cause)

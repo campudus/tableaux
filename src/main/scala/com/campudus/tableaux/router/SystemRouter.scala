@@ -38,10 +38,7 @@ object SystemRouter {
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
-  private val CacheColumnInvalidate =
-    "\\/cache\\/invalidate\\/tables\\/(?<tableId>[\\d^\\/]+)\\/columns\\/(?<columnId>[\\d^\\/]+)"
-
-  def apply(): Router = {
+  def getRouter(): Router = {
     val router = Router.router(vertx)
 
     router.get("/versions").handler(retrieveVersions)
@@ -55,7 +52,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.post("/settings/:settings").handler(updateSettings)
 
     router
-      .postWithRegex(CacheColumnInvalidate)
+      .postWithRegex("\\/cache\\/invalidate\\/tables\\/(?<tableId>[\\d^\\/]+)\\/columns\\/(?<columnId>[\\d^\\/]+)")
       .handler(invalidateColumnCache)
 
     router
