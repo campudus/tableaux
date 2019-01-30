@@ -1,7 +1,7 @@
 package org.vertx.scala.router.routing
 
+import com.campudus.tableaux.router.RouterException
 import org.vertx.scala.core.json._
-import org.vertx.scala.router.RouterException
 
 import scala.concurrent.Future
 
@@ -28,27 +28,3 @@ case class Header(key: String, value: String, endReply: Reply) extends Reply
 case class SetCookie(key: String, value: String, endReply: Reply) extends Reply
 
 case class StatusCode(statusCode: Int, endReply: Reply) extends Reply
-
-sealed trait RouteMatch
-
-case class All(path: String) extends RouteMatch
-
-case class Connect(path: String) extends RouteMatch
-
-case class Delete(path: String) extends RouteMatch
-
-case class Get(path: String) extends RouteMatch
-
-case class Head(path: String) extends RouteMatch
-
-case class Options(path: String) extends RouteMatch
-
-case class Patch(path: String) extends RouteMatch
-
-case class Post(path: String) extends RouteMatch
-
-case class Put(path: String) extends RouteMatch
-
-case class Trace(path: String) extends RouteMatch
-
-case class Other(path: String) extends RouteMatch
