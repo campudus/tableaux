@@ -1,15 +1,18 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.cache.CacheVerticle
+import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.database.model._
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
-import com.campudus.tableaux.router.RouterRegistry
+import com.campudus.tableaux.router._
 import com.typesafe.scalalogging.LazyLogging
-import io.vertx.scala.core.http.HttpServer
+import io.vertx.scala.core.http.{HttpServer, HttpServerOptions}
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import io.vertx.scala.ext.web.Router
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
+import io.vertx.scala.ext.web.handler.ErrorHandler
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -83,19 +86,27 @@ class Starter extends ScalaVerticle with LazyLogging {
                                tableauxConfig: TableauxConfig,
                                connection: SQLConnection): Future[HttpServer] = {
     val dbConnection = DatabaseConnection(vertxAccessContainer(), connection)
-    val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
 
     val router = Router.router(vertx)
 
-    router.route().handler(routerRegistry.apply)
+    RouterRegistry(tableauxConfig, dbConnection, router)
+
+//    val systemModel = SystemModel(dbConnection)
+//    val structureModel = StructureModel(dbConnection)
+//    val tableauxModel = TableauxModel(dbConnection, structureModel)
+
+//    val systemRouter = SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel))
+//    router.mountSubRouter("/system", systemRouter.apply())
+
+//    router.route().handler(routerRegistry.apply)
 
     vertx
       .createHttpServer()
-      .requestHandler(request => router.accept(request))
+      .requestHandler(router.accept)
       .listenFuture(port, host)
   }
 
-  private def deployCacheVerticle(config: JsonObject): Future[String] = {
+  private def deployCacheVerticle(config: JsonObject) = {
     val options = DeploymentOptions()
       .setConfig(config)
 

@@ -6,7 +6,6 @@ import java.net.URLEncoder
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
-import io.vertx.core.http.HttpMethod
 import io.vertx.scala.core.http.{HttpServerRequest, HttpServerResponse}
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.router.routing._
@@ -23,7 +22,7 @@ import scala.util.{Failure, Success}
   */
 trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging {
 
-  type Routing = PartialFunction[RouteMatch, Reply]
+  //  type Routing = PartialFunction[RouteMatch, Reply]
 
   /**
     * Override this method to define your routes for the request handler.
@@ -31,31 +30,13 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
     * @param context The HttpServerRequest that came in.
     * @return A partial function that matches all routes.
     */
-  def routes(implicit context: RoutingContext): Routing
+  //  def routes(implicit context: RoutingContext): Routing
 
   /** The working directory */
   protected def workingDirectory: String = "./"
 
   /** File to send if the given file in SendFile was not found. */
   protected def notFoundFile: String = "404.html"
-
-  private def matcherFor(routeMatch: RouteMatch, context: RoutingContext): Reply = {
-    val pf: PartialFunction[RouteMatch, Reply] = routes(context)
-    val tryAllThenNoRouteMatch: Function[RouteMatch, Reply] = _ => {
-      pf.applyOrElse(All(context.normalisedPath()), noRouteMatched(context))
-    }
-    pf.applyOrElse(routeMatch, tryAllThenNoRouteMatch)
-  }
-
-  private def noRouteMatched(context: RoutingContext): (RouteMatch => Reply) = { _ =>
-    {
-      Error(
-        RouterException(message =
-                          s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
-                        id = "NOT FOUND",
-                        statusCode = 404))
-    }
-  }
 
   private def fileExists(file: String): Future[String] = {
     vertx
@@ -185,7 +166,7 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
     }
   }
 
-  private def sendReply(req: HttpServerRequest, reply: Reply): Unit = {
+  def sendReply(req: HttpServerRequest, reply: Reply): Unit = {
     logger.debug(s"Sending back reply as response: $reply")
 
     reply match {
@@ -222,42 +203,15 @@ trait Router extends (RoutingContext => Unit) with VertxAccess with LazyLogging 
   override final def apply(context: RoutingContext): Unit = {
     val req = context.request()
     logger.info(s"${req.method()}-Request: ${req.uri()}")
-
-    val path = req.path().orNull
-
-    val reply = try {
-      val routeMatch: RouteMatch = req.method() match {
-        case HttpMethod.GET => Get(path)
-        case HttpMethod.PUT => Put(path)
-        case HttpMethod.POST => Post(path)
-        case HttpMethod.DELETE => Delete(path)
-        case HttpMethod.OPTIONS => Options(path)
-        case HttpMethod.HEAD => Head(path)
-        case HttpMethod.TRACE => Trace(path)
-        case HttpMethod.PATCH => Patch(path)
-        case HttpMethod.CONNECT => Connect(path)
-        case HttpMethod.OTHER => Other(path)
-      }
-
-      matcherFor(routeMatch, context)
-    } catch {
-      case ex: RouterException =>
-        errorReplyFromException(ex)
-      case ex: Throwable =>
-        logger.warn(s"Uncaught Exception for request ${req.absoluteURI()}", ex)
-        errorReplyFromException(routerException(ex))
-    }
-
-    sendReply(req, reply)
   }
-
 }
 
 /**
   * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
   */
-case class RouterException(message: String = "",
-                           cause: Throwable = null,
-                           id: String = "UNKNOWN_SERVER_ERROR",
-                           statusCode: Int = 500)
-    extends Exception(message, cause)
+case class RouterException(
+    message: String = "",
+    cause: Throwable = null,
+    id: String = "UNKNOWN_SERVER_ERROR",
+    statusCode: Int = 500
+) extends Exception(message, cause)

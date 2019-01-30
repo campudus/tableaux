@@ -1,16 +1,18 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.{InvalidRequestException, TableauxConfig}
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
-import io.vertx.scala.ext.web.RoutingContext
+import io.vertx.scala.ext.web.{Router, RoutingContext}
 import org.vertx.scala.router.RouterException
 import org.vertx.scala.router.routing.{Error, Get, SendEmbeddedFile}
 
+import scala.concurrent.Future
+
 object RouterRegistry {
 
-  def apply(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection): RouterRegistry = {
+  def apply(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection, router: Router): RouterRegistry = {
 
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
@@ -27,31 +29,23 @@ object RouterRegistry {
       DocumentationRouter(tableauxConfig)
     )
 
-    new RouterRegistry(tableauxConfig, routers)
+    val systemRouter = SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel))
+//      val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel)),
+//      val mediaRouter = MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel)),
+//      val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel)),
+//      val documentationRouter = DocumentationRouter(tableauxConfig)
+
+    val rr = new RouterRegistry(tableauxConfig, routers)
+
+    router.mountSubRouter("/system", systemRouter.apply())
+
+    router.get("/").handler(rr.defaultRoute)
+    router.get("/index.html").handler(rr.defaultRoute)
+
+    router.route().handler(rr.noRouteMatched)
+
+    rr
   }
 }
 
-class RouterRegistry(override val config: TableauxConfig, val routers: Seq[BaseRouter]) extends BaseRouter {
-
-  override def routes(implicit context: RoutingContext): Routing = {
-    routers
-      .map(_.routes)
-      .foldLeft(defaultRoutes)({
-        case (last, current) =>
-          last orElse current
-      }) orElse noRouteFound
-  }
-
-  private def defaultRoutes(implicit context: RoutingContext): Routing = {
-    case Get("/") | Get("/index.html") => SendEmbeddedFile("/index.html")
-  }
-
-  private def noRouteFound(implicit context: RoutingContext): Routing = {
-    case _ =>
-      Error(
-        RouterException(message =
-                          s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
-                        id = "NOT FOUND",
-                        statusCode = 404))
-  }
-}
+class RouterRegistry(override val config: TableauxConfig, routers: Seq[BaseRouter]) extends BaseRouter {}
