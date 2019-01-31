@@ -25,6 +25,8 @@ trait BaseRouter extends VertxAccess with LazyLogging {
 
   protected val TABLE_ID = """(?<tableId>[\d]+)"""
   protected val COLUMN_ID = """(?<columnId>[\d]+)"""
+  protected val ROW_ID = """(?<rowId>[\d]+)"""
+  protected val LINK_ID = """(?<linkId>[\d]+)"""
   protected val GROUP_ID = """(?<groupId>[\d]+)"""
 
   val config: TableauxConfig
@@ -134,6 +136,10 @@ trait BaseRouter extends VertxAccess with LazyLogging {
 
   def getRowId(context: RoutingContext): Option[Long] = {
     getLongParam("rowId", context)
+  }
+
+  def getLinkId(context: RoutingContext): Option[Long] = {
+    getLongParam("linkId", context)
   }
 
   def getGroupId(context: RoutingContext): Option[Long] = {
