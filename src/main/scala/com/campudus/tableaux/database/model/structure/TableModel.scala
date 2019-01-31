@@ -210,7 +210,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     }
   }
 
-  private def mapDisplayInfosIntoTable(tables: Seq[Table], result: JsonObject): Seq[(Table)] = {
+  private def mapDisplayInfosIntoTable(tables: Seq[Table], result: JsonObject): Seq[Table] = {
     val displayInfoTable = resultObjectToJsonArray(result)
       .groupBy(_.getLong(0).longValue())
       .mapValues(
