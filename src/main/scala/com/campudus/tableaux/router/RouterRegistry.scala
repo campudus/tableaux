@@ -18,7 +18,7 @@ object RouterRegistry {
     val attachmentModel = AttachmentModel(dbConnection, fileModel)
 
     val systemRouter = SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel))
-//      val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel))
+    val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel))
 //      val mediaRouter = MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel))
     val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel))
 //      val documentationRouter = DocumentationRouter(tableauxConfig)
@@ -27,6 +27,7 @@ object RouterRegistry {
 
     mainRouter.mountSubRouter("/system", systemRouter.route)
     mainRouter.mountSubRouter("/", structureRouter.route)
+    mainRouter.mountSubRouter("/", tableauxRouter.route)
 
     mainRouter.get("/").handler(routerRegistry.defaultRoute)
     mainRouter.get("/index.html").handler(systemRouter.defaultRoute)

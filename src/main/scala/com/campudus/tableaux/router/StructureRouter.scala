@@ -7,11 +7,10 @@ import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
-import scala.util.matching.Regex
 
 object StructureRouter {
 
-  def apply(config: TableauxConfig, controllerCurry: (TableauxConfig) => StructureController): StructureRouter = {
+  def apply(config: TableauxConfig, controllerCurry: TableauxConfig => StructureController): StructureRouter = {
     new StructureRouter(config, controllerCurry(config))
   }
 }
@@ -42,18 +41,18 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     router.postWithRegex(Columns).handler(createColumn)
     router.post(Groups).handler(createGroup)
 
-    // CHANGE
-    router.postWithRegex(Table).handler(changeTable)
-    router.patchWithRegex(Table).handler(changeTable)
+    // UPDATE
+    router.postWithRegex(Table).handler(updateTable)
+    router.patchWithRegex(Table).handler(updateTable)
 
-    router.postWithRegex(TableOrder).handler(changeTableOrdering)
-    router.patchWithRegex(TableOrder).handler(changeTableOrdering)
+    router.postWithRegex(TableOrder).handler(updateTableOrdering)
+    router.patchWithRegex(TableOrder).handler(updateTableOrdering)
 
-    router.postWithRegex(Column).handler(changeColumn)
-    router.patchWithRegex(Column).handler(changeColumn)
+    router.postWithRegex(Column).handler(updateColumn)
+    router.patchWithRegex(Column).handler(updateColumn)
 
-    router.postWithRegex(Group).handler(changeGroup)
-    router.patchWithRegex(Group).handler(changeGroup)
+    router.postWithRegex(Group).handler(updateGroup)
+    router.patchWithRegex(Group).handler(updateGroup)
 
     // DELETE
     router.deleteWithRegex(Group).handler(deleteGroup)
@@ -158,7 +157,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def changeTable(context: RoutingContext): Unit = {
+  def updateTable(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -198,7 +197,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def changeTableOrdering(context: RoutingContext): Unit = {
+  def updateTableOrdering(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -214,7 +213,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def changeColumn(context: RoutingContext): Unit = {
+  def updateColumn(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -260,7 +259,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     )
   }
 
-  def changeGroup(context: RoutingContext): Unit = {
+  def updateGroup(context: RoutingContext): Unit = {
     for {
       groupId <- getGroupId(context)
     } yield {
