@@ -6,7 +6,6 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper.DocUriParser
 import io.vertx.scala.core.http.HttpServerRequest
 import io.vertx.scala.ext.web.RoutingContext
-import org.vertx.scala.router.routing._
 
 import scala.io.Source
 import scala.util.matching.Regex

@@ -1,7 +1,7 @@
-package org.vertx.scala.router.routing
+package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.router.RouterException
-import org.vertx.scala.core.json._
+import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
 

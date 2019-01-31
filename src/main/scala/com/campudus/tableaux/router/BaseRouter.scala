@@ -6,24 +6,26 @@ import java.net.URLEncoder
 import com.campudus.tableaux._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
-import com.campudus.tableaux.helper.VertxAccess
+import com.campudus.tableaux.helper._
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.http.{HttpServerRequest, HttpServerResponse}
-import io.vertx.scala.ext.web.{Router, RoutingContext}
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
-import org.vertx.scala.router.routing._
-
-import scala.io.Source
 
 import scala.concurrent.{Future, Promise}
+import scala.io.Source
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 trait BaseRouter extends VertxAccess with LazyLogging {
+
+  protected val TABLE_ID = """(?<tableId>[\d]+)"""
+  protected val COLUMN_ID = """(?<columnId>[\d]+)"""
+  protected val GROUP_ID = """(?<groupId>[\d]+)"""
 
   val config: TableauxConfig
 
@@ -114,9 +116,25 @@ trait BaseRouter extends VertxAccess with LazyLogging {
     context.request().getParam(name)
   }
 
+  def getTableId(context: RoutingContext): Option[Long] = {
+    getLongParam("tableId", context)
+  }
+
+  def getColumnId(context: RoutingContext): Option[Long] = {
+    getLongParam("columnId", context)
+  }
+
+  def getRowId(context: RoutingContext): Option[Long] = {
+    getLongParam("rowId", context)
+  }
+
+  def getGroupId(context: RoutingContext): Option[Long] = {
+    getLongParam("groupId", context)
+  }
+
   def noRouteMatched(context: RoutingContext): Unit = {
     sendReply(
-      context.request(),
+      context,
       Error(
         RouterException(message =
                           s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
@@ -126,10 +144,7 @@ trait BaseRouter extends VertxAccess with LazyLogging {
   }
 
   def defaultRoute(context: RoutingContext): Unit = {
-    sendReply(
-      context.request(),
-      SendEmbeddedFile("/index.html")
-    )
+    sendReply(context, SendEmbeddedFile("/index.html"))
   }
 
   /** The working directory */
@@ -266,25 +281,26 @@ trait BaseRouter extends VertxAccess with LazyLogging {
     }
   }
 
-  def sendReply(req: HttpServerRequest, reply: Reply): Unit = {
+  def sendReply(context: RoutingContext, reply: Reply): Unit = {
     logger.debug(s"Sending back reply as response: $reply")
+    val req = context.request()
 
     reply match {
       case AsyncReply(future) =>
         future.onComplete {
-          case Success(r) => sendReply(req, r)
+          case Success(r) => sendReply(context, r)
           case Failure(x: RouterException) => endResponse(req.response(), errorReplyFromException(x))
           case Failure(x: Throwable) => endResponse(req.response(), Error(routerException(x)))
         }
       case SetCookie(key, value, nextReply) =>
         req.response().headers().add("Set-Cookie", s"${urlEncode(key)}=${urlEncode(value)}")
-        sendReply(req, nextReply)
+        sendReply(context, nextReply)
       case Header(key, value, nextReply) =>
         req.response().putHeader(key, value)
-        sendReply(req, nextReply)
+        sendReply(context, nextReply)
       case StatusCode(statusCode, nextReply) =>
         req.response().setStatusCode(statusCode)
-        sendReply(req, nextReply)
+        sendReply(context, nextReply)
       case x: SyncReply => endResponse(req.response(), x)
     }
   }

@@ -8,7 +8,7 @@ import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 object RouterRegistry {
 
-  def apply(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection, router: Router): RouterRegistry = {
+  def apply(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection, mainRouter: Router): RouterRegistry = {
 
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
@@ -25,12 +25,13 @@ object RouterRegistry {
 
     val routerRegistry = new RouterRegistry(tableauxConfig)
 
-    router.mountSubRouter("/system", systemRouter.getRouter())
+    mainRouter.mountSubRouter("/system", systemRouter.route)
+    mainRouter.mountSubRouter("/", structureRouter.route)
 
-    router.get("/").handler(routerRegistry.defaultRoute)
-    router.get("/index.html").handler(systemRouter.defaultRoute)
+    mainRouter.get("/").handler(routerRegistry.defaultRoute)
+    mainRouter.get("/index.html").handler(systemRouter.defaultRoute)
 
-    router.route().handler(systemRouter.noRouteMatched)
+    mainRouter.route().handler(systemRouter.noRouteMatched)
 
     routerRegistry
   }
