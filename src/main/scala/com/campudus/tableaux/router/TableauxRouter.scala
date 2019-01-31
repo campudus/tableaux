@@ -7,8 +7,6 @@ import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import io.vertx.scala.ext.web.RoutingContext
-import org.vertx.scala.core.json.JsonArray
-import org.vertx.scala.router.routing._
 
 import scala.concurrent.Future
 import scala.util.matching.Regex
