@@ -20,26 +20,24 @@ object TableauxRouter {
 
 class TableauxRouter(override val config: TableauxConfig, val controller: TableauxController) extends BaseRouter {
 
-  private val AttachmentOfCell: String =
-    s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/attachment/($uuidRegex)"""
+  private val AttachmentOfCell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/attachment/$uuidRegex"""
   private val LinkOfCell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/link/$LINK_ID"""
   private val LinkOrderOfCell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/link/$LINK_ID/order"""
 
   private val ColumnsValues: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/values"""
-  private val ColumnsValuesWithLangtag: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/values/($langtagRegex)"""
+  private val ColumnsValuesWithLangtag: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/values/$langtagRegex"""
 
   private val Cell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID"""
   private val CellAnnotations: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/annotations"""
-  private val CellAnnotation: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/annotations/($uuidRegex)"""
+  private val CellAnnotation: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/annotations/$uuidRegex"""
   private val CellAnnotationLangtag: String =
-    s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/annotations/($uuidRegex)/($langtagRegex)"""
+    s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/annotations/$uuidRegex/$langtagRegex"""
 
   private val Row: String = s"""/tables/$TABLE_ID/rows/$ROW_ID"""
   private val RowDuplicate: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/duplicate"""
   private val RowDependent: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/dependent"""
   private val RowAnnotations: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/annotations"""
   private val Rows: String = s"""/tables/$TABLE_ID/rows"""
-  private val RowsFOO: String = s"""/tables/:id/rows"""
   private val RowsAnnotations: String = s"""/tables/$TABLE_ID/rows/annotations"""
   private val RowsOfColumn: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows"""
   private val RowsOfFirstColumn: String = s"""/tables/$TABLE_ID/columns/first/rows"""
@@ -397,8 +395,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
       rowId <- getRowId(context)
-      //TODO get uuid
-      uuid = "todo"
+      uuid <- getUUID(context)
     } yield {
       sendReply(
         context,
@@ -417,10 +414,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
       rowId <- getRowId(context)
-      //TODO get uuid
-      uuid = "todo"
-      //TODO get langtag
-      langtag = "todo"
+      uuid <- getUUID(context)
+      langtag <- getLangtag(context)
     } yield {
       sendReply(
         context,
@@ -582,8 +577,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
       rowId <- getRowId(context)
-      //TODO get uuid
-      uuid = "todo"
+      uuid <- getUUID(context)
     } yield {
       sendReply(
         context,
@@ -637,8 +631,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
-      //TODO get langtag
-      langtag = "todo"
+      langtag <- getLangtag(context)
     } yield {
       sendReply(
         context,
