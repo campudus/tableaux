@@ -7,12 +7,11 @@ import com.campudus.tableaux._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
 import com.campudus.tableaux.helper._
-import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.Vertx
-import io.vertx.scala.core.http.{HttpServerRequest, HttpServerResponse}
+import io.vertx.scala.core.http.HttpServerResponse
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
@@ -21,7 +20,7 @@ import scala.io.Source
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-trait BaseRouter extends VertxAccess with LazyLogging {
+trait BaseRouter extends VertxAccess {
 
   protected val TABLE_ID = """(?<tableId>[\d]+)"""
   protected val COLUMN_ID = """(?<columnId>[\d]+)"""
@@ -36,12 +35,13 @@ trait BaseRouter extends VertxAccess with LazyLogging {
   /**
     * Regex for a UUID Version 4
     */
-  val uuidRegex: String = """(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})"""
+  protected val uuidRegex: String =
+    """(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})"""
 
   /**
     * Regex for a Language tag e.g. de, en, de_DE, de-DE, or en_GB
     */
-  val langtagRegex: String = """(?<langtag>[a-z]{2,3}|[a-z]{2,3}[-_][A-Z]{2,3})"""
+  protected val langtagRegex: String = """(?<langtag>[a-z]{2,3}|[a-z]{2,3}[-_][A-Z]{2,3})"""
 
   /**
     * Base result JSON
@@ -126,31 +126,19 @@ trait BaseRouter extends VertxAccess with LazyLogging {
     context.getCookie(name).map(_.getValue())
   }
 
-  def getTableId(context: RoutingContext): Option[Long] = {
+  protected def getTableId(context: RoutingContext): Option[Long] = {
     getLongParam("tableId", context)
   }
 
-  def getColumnId(context: RoutingContext): Option[Long] = {
+  protected def getColumnId(context: RoutingContext): Option[Long] = {
     getLongParam("columnId", context)
   }
 
-  def getRowId(context: RoutingContext): Option[Long] = {
-    getLongParam("rowId", context)
-  }
-
-  def getLinkId(context: RoutingContext): Option[Long] = {
-    getLongParam("linkId", context)
-  }
-
-  def getGroupId(context: RoutingContext): Option[Long] = {
-    getLongParam("groupId", context)
-  }
-
-  def getLangtag(context: RoutingContext): Option[String] = {
+  protected def getLangtag(context: RoutingContext): Option[String] = {
     getStringParam("langtag", context)
   }
 
-  def getUUID(context: RoutingContext): Option[String] = {
+  protected def getUUID(context: RoutingContext): Option[String] = {
     getStringParam("uuid", context)
   }
 

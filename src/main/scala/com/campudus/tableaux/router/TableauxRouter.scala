@@ -99,7 +99,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Get Rows
     */
-  def retrieveRows(context: RoutingContext): Unit = {
+  private def retrieveRows(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -121,7 +121,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get foreign rows from a link cell point of view
     * e.g. cardinality in both direction will be considered
     */
-  def retrieveRowsOfLinkCell(context: RoutingContext): Unit = {
+  private def retrieveRowsOfLinkCell(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -142,7 +142,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Get rows of column
     */
-  def retrieveRowsOfColumn(context: RoutingContext): Unit = {
+  private def retrieveRowsOfColumn(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -164,7 +164,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Get rows of first column
     */
-  def retrieveRowsOfFirstColumn(context: RoutingContext): Unit = {
+  private def retrieveRowsOfFirstColumn(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -185,7 +185,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Get Row
     */
-  def retrieveRow(context: RoutingContext): Unit = {
+  private def retrieveRow(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -202,7 +202,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Get dependent rows
     */
-  def retrieveDependentRows(context: RoutingContext): Unit = {
+  private def retrieveDependentRows(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -219,7 +219,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Get Cell
     */
-  def retrieveCell(context: RoutingContext): Unit = {
+  private def retrieveCell(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -237,7 +237,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Get complete table
     */
-  def retrieveCompleteTable(context: RoutingContext): Unit = {
+  private def retrieveCompleteTable(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -253,7 +253,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Create table with columns and rows
     */
-  def createCompleteTable(context: RoutingContext): Unit = {
+  private def createCompleteTable(context: RoutingContext): Unit = {
     sendReply(
       context,
       asyncGetReply {
@@ -272,7 +272,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Create Row
     */
-  def createRow(context: RoutingContext): Unit = {
+  private def createRow(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -300,7 +300,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Duplicate Row
     */
-  def duplicateRow(context: RoutingContext): Unit = {
+  private def duplicateRow(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -317,7 +317,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Update Row Annotations
     */
-  def updateRowAnnotations(context: RoutingContext): Unit = {
+  private def updateRowAnnotations(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -340,7 +340,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Update all Row Annotations of a table
     */
-  def updateRowsAnnotations(context: RoutingContext): Unit = {
+  private def updateRowsAnnotations(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -362,7 +362,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Add Cell Annotation (will possibly be merged with an existing annotation)
     */
-  def createCellAnnotation(context: RoutingContext): Unit = {
+  private def createCellAnnotation(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -390,7 +390,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Delete Cell Annotation
     */
-  def deleteCellAnnotation(context: RoutingContext): Unit = {
+  private def deleteCellAnnotation(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -409,7 +409,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Delete Langtag from Cell Annotation
     */
-  def deleteCellAnnotationLangtag(context: RoutingContext): Unit = {
+  private def deleteCellAnnotationLangtag(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -429,7 +429,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Retrieve all Cell Annotations for a specific table
     */
-  def retrieveAnnotations(context: RoutingContext): Unit = {
+  private def retrieveAnnotations(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -445,7 +445,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Retrieve Cell Annotation count for all tables
     */
-  def retrieveAnnotationCount(context: RoutingContext): Unit = {
+  private def retrieveAnnotationCount(context: RoutingContext): Unit = {
     sendReply(
       context,
       asyncGetReply {
@@ -457,7 +457,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Retrieve translation status for all tables
     */
-  def retrieveTranslationStatus(context: RoutingContext): Unit = {
+  private def retrieveTranslationStatus(context: RoutingContext): Unit = {
     sendReply(
       context,
       asyncGetReply {
@@ -469,7 +469,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Update Cell or add Link/Attachment
     */
-  def updateCell(context: RoutingContext): Unit = {
+  private def updateCell(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -490,7 +490,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Replace Cell value
     */
-  def replaceCell(context: RoutingContext): Unit = {
+  private def replaceCell(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -515,7 +515,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Change order of link
     */
-  def changeLinkOrder(context: RoutingContext): Unit = {
+  private def changeLinkOrder(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -537,7 +537,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Delete Row
     */
-  def deleteRow(context: RoutingContext): Unit = {
+  private def deleteRow(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -554,7 +554,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Clear Cell value
     */
-  def clearCell(context: RoutingContext): Unit = {
+  private def clearCell(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -572,7 +572,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Delete Attachment from Cell
     */
-  def deleteAttachmentOfCell(context: RoutingContext): Unit = {
+  private def deleteAttachmentOfCell(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -591,7 +591,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Delete Link from Cell
     */
-  def deleteLinkOfCell(context: RoutingContext): Unit = {
+  private def deleteLinkOfCell(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -610,7 +610,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     * Retrieve unique values of a shorttext column
     */
-  def retrieveUniqueColumnValues(context: RoutingContext): Unit = {
+  private def retrieveUniqueColumnValues(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -627,7 +627,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   /**
     *  Retrieve unique values of a multi-language shorttext column
     */
-  def retrieveUniqueColumnValuesWithLangtag(context: RoutingContext): Unit = {
+  private def retrieveUniqueColumnValuesWithLangtag(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -640,5 +640,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         }
       )
     }
+  }
+
+  private def getRowId(context: RoutingContext): Option[Long] = {
+    getLongParam("rowId", context)
+  }
+
+  private def getLinkId(context: RoutingContext): Option[Long] = {
+    getLongParam("linkId", context)
   }
 }

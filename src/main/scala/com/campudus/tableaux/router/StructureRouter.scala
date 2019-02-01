@@ -206,7 +206,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         asyncEmptyReply {
           for {
             json <- getJson(context)
-            result <- controller.changeTableOrder(tableId.toLong, toLocationType(json))
+            result <- controller.changeTableOrder(tableId, toLocationType(json))
           } yield result
         }
       )
@@ -287,7 +287,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       sendReply(
         context,
         asyncEmptyReply {
-          controller.deleteTableGroup(groupId.toLong)
+          controller.deleteTableGroup(groupId)
         }
       )
     }
@@ -318,5 +318,9 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         }
       )
     }
+  }
+
+  private def getGroupId(context: RoutingContext): Option[Long] = {
+    getLongParam("groupId", context)
   }
 }
