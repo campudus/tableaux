@@ -36,12 +36,12 @@ trait BaseRouter extends VertxAccess with LazyLogging {
   /**
     * Regex for a UUID Version 4
     */
-  val uuidRegex: String = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+  val uuidRegex: String = """(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})"""
 
   /**
     * Regex for a Language tag e.g. de, en, de_DE, de-DE, or en_GB
     */
-  val langtagRegex: String = "[a-z]{2,3}|[a-z]{2,3}[-_][A-Z]{2,3}"
+  val langtagRegex: String = """(?<langtag>[a-z]{2,3}|[a-z]{2,3}[-_][A-Z]{2,3})"""
 
   /**
     * Base result JSON
@@ -144,6 +144,14 @@ trait BaseRouter extends VertxAccess with LazyLogging {
 
   def getGroupId(context: RoutingContext): Option[Long] = {
     getLongParam("groupId", context)
+  }
+
+  def getLangtag(context: RoutingContext): Option[String] = {
+    getStringParam("langtag", context)
+  }
+
+  def getUUID(context: RoutingContext): Option[String] = {
+    getStringParam("uuid", context)
   }
 
   def noRouteMatched(context: RoutingContext): Unit = {
