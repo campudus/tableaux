@@ -33,7 +33,7 @@ class RetrieveHistoryTest extends TableauxTestBase {
       } yield {
         val historyCell = result.getJsonArray("rows", Json.emptyArr()).getJsonObject(0)
         assertEquals(1, historyCell.getInteger("revision"))
-        assertEquals(HistoryType.CELL, historyCell.getString("historyType"))
+        assertEquals(HistoryType.Cell, historyCell.getString("historyType"))
         assertEquals(NumericType.toString, historyCell.getString("valueType"))
         assertEquals(LanguageType.NEUTRAL.toString, historyCell.getString("languageType"))
         assertEquals(42, historyCell.getInteger("value"))

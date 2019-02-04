@@ -6,38 +6,38 @@ sealed trait HistoryType {
 }
 
 object HistoryType {
-  final val ROW = "row"
-  final val CELL = "cell"
-  final val CELL_COMMENT = "cell_comment"
-  final val CELL_FLAG = "cell_flag"
-  final val ROW_FLAG = "row_flag"
+  final val Row = "row"
+  final val Cell = "cell"
+  final val CellComment = "cell_comment"
+  final val CellFlag = "cell_flag"
+  final val RowFlag = "row_flag"
 
   def apply(historyType: String): HistoryType = {
     historyType match {
-      case ROW => HistoryTypeRow
-      case CELL => HistoryTypeCell
-      case CELL_COMMENT => HistoryTypeCellComment
-      case CELL_FLAG => HistoryTypeCellFlag
-      case ROW_FLAG => HistoryTypeRowFlag
+      case Row => HistoryTypeRow
+      case Cell => HistoryTypeCell
+      case CellComment => HistoryTypeCellComment
+      case CellFlag => HistoryTypeCellFlag
+      case RowFlag => HistoryTypeRowFlag
       case _ => throw new IllegalArgumentException(s"Invalid argument for HistoryType $historyType")
     }
   }
 }
 
 case object HistoryTypeRow extends HistoryType {
-  override val typeName = HistoryType.ROW
+  override val typeName = HistoryType.Row
 }
 case object HistoryTypeCell extends HistoryType {
-  override val typeName = HistoryType.CELL
+  override val typeName = HistoryType.Cell
 }
 case object HistoryTypeCellComment extends HistoryType {
-  override val typeName = HistoryType.CELL_COMMENT
+  override val typeName = HistoryType.CellComment
 }
 case object HistoryTypeCellFlag extends HistoryType {
-  override val typeName = HistoryType.CELL_FLAG
+  override val typeName = HistoryType.CellFlag
 }
 case object HistoryTypeRowFlag extends HistoryType {
-  override val typeName = HistoryType.ROW_FLAG
+  override val typeName = HistoryType.RowFlag
 }
 
 sealed trait HistoryEventType {
@@ -46,34 +46,34 @@ sealed trait HistoryEventType {
 }
 
 object HistoryEventType {
-  final val CELL_CHANGED = "cell_changed"
-  final val ROW_CREATED = "row_created"
-  final val ANNOTATION_ADDED = "annotation_added"
-  final val ANNOTATION_REMOVED = "annotation_removed"
+  final val CellChanged = "cell_changed"
+  final val RowCreated = "row_created"
+  final val AnnotationAdded = "annotation_added"
+  final val AnnotationRemoved = "annotation_removed"
 
   def apply(eventType: String): HistoryEventType = {
     eventType match {
-      case CELL_CHANGED => CellChangedEvent
-      case ROW_CREATED => RowCreatedEvent
-      case ANNOTATION_ADDED => AnnotationAddedEvent
-      case ANNOTATION_REMOVED => AnnotationRemovedEvent
+      case CellChanged => CellChangedEvent
+      case RowCreated => RowCreatedEvent
+      case AnnotationAdded => AnnotationAddedEvent
+      case AnnotationRemoved => AnnotationRemovedEvent
       case _ => throw new IllegalArgumentException(s"Invalid argument for HistoryEventType $eventType")
     }
   }
 }
 
 case object CellChangedEvent extends HistoryEventType {
-  override val eventName = HistoryEventType.CELL_CHANGED
+  override val eventName = HistoryEventType.CellChanged
 }
 
 case object RowCreatedEvent extends HistoryEventType {
-  override val eventName = HistoryEventType.ROW_CREATED
+  override val eventName = HistoryEventType.RowCreated
 }
 
 case object AnnotationAddedEvent extends HistoryEventType {
-  override val eventName = HistoryEventType.ANNOTATION_ADDED
+  override val eventName = HistoryEventType.AnnotationAdded
 }
 
 case object AnnotationRemovedEvent extends HistoryEventType {
-  override val eventName = HistoryEventType.ANNOTATION_REMOVED
+  override val eventName = HistoryEventType.AnnotationRemoved
 }

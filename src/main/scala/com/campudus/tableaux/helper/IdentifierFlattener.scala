@@ -25,7 +25,7 @@ object IdentifierFlattener {
     def flattenSeq[A](innerMaybeSeq: A): Seq[Any] = {
       innerMaybeSeq match {
         case Some(s) => flattenSeq(s)
-        case None | Nil | null => Seq.empty
+        case None | Nil => Seq.empty[A]
         case seq: Seq[_] => {
           seq flatten {
             case seq: Seq[_] => flattenSeq(seq)
@@ -48,7 +48,7 @@ object IdentifierFlattener {
 
     maybeSeq match {
       case Some(s) => flatten(s)
-      case None | Nil | null => Seq.empty
+      case None | Nil => Seq.empty[A]
       case seq: Seq[_] => flattenSeq(seq)
       case ja: JsonArray => flattenSeq(ja)
       case simpleValue => Seq(simpleValue)
@@ -61,7 +61,7 @@ object IdentifierFlattener {
 
   private[helper] def concatenateMultiLang(langtags: Seq[String], flatValues: Seq[Any]): JsonObject = {
 
-    val defaultLang = langtags.head
+    val defaultLang = langtags.headOption.getOrElse("")
 
     val jsonTuples = langtags.map(langtag => {
       val valueList = flatValues.map({
