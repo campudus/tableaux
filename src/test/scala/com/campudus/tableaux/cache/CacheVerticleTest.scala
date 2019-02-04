@@ -15,7 +15,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 @RunWith(classOf[VertxUnitRunner])
-class CacheVerticleTest extends VertxAccess with LazyLogging with TestAssertionHelper {
+class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
 
   override val vertx: Vertx = Vertx.vertx()
 

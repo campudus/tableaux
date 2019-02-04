@@ -52,9 +52,7 @@ object DatabaseConnection {
   }
 }
 
-class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnection)
-    extends VertxAccess
-    with LazyLogging {
+class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnection) extends VertxAccess {
 
   import DatabaseConnection._
 
