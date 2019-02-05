@@ -3,10 +3,10 @@ package com.campudus.tableaux.router
 import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker._
+import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.helper.{AsyncReply, Header, SendFile}
-import com.campudus.tableaux.{ArgumentChecker, TableauxConfig}
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
@@ -88,15 +88,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     sendReply(
       context,
       asyncGetReply {
-        for {
-          json <- getJson(context)
-          name = json.getString("name")
-          description = json.getString("description")
-          parent = getNullableLong("parent")(json)
-
-          added <- controller.addNewFolder(name, description, parent)
-          // TODO sortByLangtag should be removed and the real folder should be fetched
-        } yield added
+        val json = getJson(context)
+        val name = json.getString("name")
+        val description = json.getString("description")
+        val parent = getNullableLong("parent")(json)
+        // TODO sortByLangtag should be removed and the real folder should be fetched
+        controller.addNewFolder(name, description, parent)
       }
     )
   }
@@ -105,8 +102,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     sendReply(
       context,
       asyncGetReply {
-        import ArgumentChecker._
-
         val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
         controller.retrieveRootFolder(sortByLangtag)
       }
@@ -120,8 +115,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       sendReply(
         context,
         asyncGetReply {
-          import ArgumentChecker._
-
           val sortByLangtag = checked(isDefined(getStringParam("langtag", context), "langtag"))
           controller.retrieveFolder(folderId, sortByLangtag)
         }
@@ -136,15 +129,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       sendReply(
         context,
         asyncGetReply {
-          for {
-            json <- getJson(context)
-            name = json.getString("name")
-            description = json.getString("description")
-            parent = getNullableLong("parent")(json)
-
-            changed <- controller.changeFolder(folderId, name, description, parent)
-            // TODO sortByLangtag should be removed and the real folder should be fetched
-          } yield changed
+          val json = getJson(context)
+          val name = json.getString("name")
+          val description = json.getString("description")
+          val parent = getNullableLong("parent")(json)
+          // TODO sortByLangtag should be removed and the real folder should be fetched
+          controller.changeFolder(folderId, name, description, parent)
         }
       )
     }
@@ -173,16 +163,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     sendReply(
       context,
       asyncGetReply {
-        for {
-          json <- getJson(context)
-
-          title = MultiLanguageValue[String](getNullableObject("title")(json))
-          description = MultiLanguageValue[String](getNullableObject("description")(json))
-          externalName = MultiLanguageValue[String](getNullableObject("externalName")(json))
-          folder = getNullableLong("folder")(json)
-
-          added <- controller.addFile(title, description, externalName, folder)
-        } yield added
+        val json = getJson(context)
+        val title = MultiLanguageValue[String](getNullableObject("title")(json))
+        val description = MultiLanguageValue[String](getNullableObject("description")(json))
+        val externalName = MultiLanguageValue[String](getNullableObject("externalName")(json))
+        val folder = getNullableLong("folder")(json)
+        controller.addFile(title, description, externalName, folder)
       }
     )
   }
@@ -233,20 +219,17 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       sendReply(
         context,
         asyncGetReply {
-          for {
-            json <- getJson(context)
+          val json = getJson(context)
+          val title = MultiLanguageValue[String](getNullableObject("title")(json))
+          val description = MultiLanguageValue[String](getNullableObject("description")(json))
+          val externalName = MultiLanguageValue[String](getNullableObject("externalName")(json))
+          val internalName = MultiLanguageValue[String](getNullableObject("internalName")(json))
+          val mimeType = MultiLanguageValue[String](getNullableObject("mimeType")(json))
 
-            title = MultiLanguageValue[String](getNullableObject("title")(json))
-            description = MultiLanguageValue[String](getNullableObject("description")(json))
-            externalName = MultiLanguageValue[String](getNullableObject("externalName")(json))
-            internalName = MultiLanguageValue[String](getNullableObject("internalName")(json))
-            mimeType = MultiLanguageValue[String](getNullableObject("mimeType")(json))
+          val folder = getNullableLong("folder")(json)
+          val uuid = UUID.fromString(fileUuid)
 
-            folder = getNullableLong("folder")(json)
-
-            changed <- controller
-              .changeFile(UUID.fromString(fileUuid), title, description, externalName, internalName, mimeType, folder)
-          } yield changed
+          controller.changeFile(uuid, title, description, externalName, internalName, mimeType, folder)
         }
       )
     }
@@ -277,13 +260,11 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       sendReply(
         context,
         asyncGetReply {
-          for {
-            json <- getJson(context)
-            langtag = checked(hasString("langtag", json))
-            mergeWith = UUID.fromString(checked(hasString("mergeWith", json)))
+          val json = getJson(context)
+          val langtag = checked(hasString("langtag", json))
+          val mergeWith = UUID.fromString(checked(hasString("mergeWith", json)))
 
-            merged <- controller.mergeFile(UUID.fromString(fileUuid), langtag, mergeWith)
-          } yield merged
+          controller.mergeFile(UUID.fromString(fileUuid), langtag, mergeWith)
         }
       )
     }
@@ -323,62 +304,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   private def getNullableLong(field: String)(implicit json: JsonObject): Option[Long] = {
     Option(json.getLong(field)).map(_.toLong)
   }
-
-//  private def handleUploadTNG(implicit context: RoutingContext,
-//                              fn: UploadAction => Future[DomainObject]): Future[DomainObject] = {
-//
-//    var upload: FileUpload = context.fileUploads().toSet[FileUpload].head
-//
-//    println("XXX: " + upload.fileName())
-//
-//    val req = context.request()
-//
-//    logger.info(s"Handle upload for ${req.absoluteURI()}")
-//
-//    val p = Promise[DomainObject]()
-//
-//    println("XXX: " + uploadsDirectory + " " + upload.uploadedFileName())
-//
-////    config.vertx
-////      .fileSystem()
-////      .readFile(upload.uploadedFileName(), { fileHandler =>
-////        })
-//
-////    val timerId = vertx.setTimer(
-////      10000L,
-////      _ => {
-////        p.failure(
-////          RouterException(message = "No valid file upload received",
-////                          id = "errors.upload.invalidRequest",
-////                          statusCode = 400))
-////      }
-////    )
-//
-////    // TODO this only can handle one file upload per request
-////    req.uploadHandler({ upload: HttpServerFileUpload => {
-//    logger.info("Received a file upload")
-//
-////        vertx.cancelTimer(timerId)
-//
-////        val setExceptionHandler = (exHandler: Throwable => Unit) => upload.exceptionHandler(t => exHandler(t))
-////        val setEndHandler = (fn: () => Unit) => upload.endHandler(_ => fn())
-////        val setStreamToFile = (fPath: String) => upload.streamToFileSystem(fPath)
-//
-//    val action = UploadAction(upload.fileName(), upload.contentType())
-//
-//    fn(action)
-//      .map(p.success)
-//      .recoverWith({
-//        case e =>
-//          logger.error("Upload failed", e)
-//          p.failure(e)
-//          Future.failed(e)
-//      })
-////      }
-////    })
-//
-//    p.future
-//  }
 
   private def handleUpload(implicit context: RoutingContext,
                            fn: UploadAction => Future[DomainObject]): Future[DomainObject] = {

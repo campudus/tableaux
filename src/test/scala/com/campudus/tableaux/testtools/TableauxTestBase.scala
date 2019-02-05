@@ -21,7 +21,7 @@ import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import io.vertx.scala.ext.web.Cookie
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
-import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
+import org.skyscreamer.jsonassert.{JSONAssert, JSONCompare, JSONCompareMode}
 import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.JavaConverters._
@@ -344,6 +344,7 @@ trait TableauxTestBase
         client.close()
 
         if (resp.statusCode() != 200) {
+          logger.warn(s"Error occurred while requesting ${resp.request().absoluteURI()}")
           p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
         } else {
           try {

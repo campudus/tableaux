@@ -120,31 +120,29 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     sendReply(
       context,
       asyncGetReply {
-        for {
-          json <- getJson(context)
+        val json = getJson(context)
 
-          name = json.getString("name")
-          hidden = json.getBoolean("hidden", false).booleanValue()
-          displayInfos = DisplayInfos.fromJson(json)
-          tableType = TableType(json.getString("type", GenericTable.NAME))
+        val name = json.getString("name")
+        val hidden = json.getBoolean("hidden", false).booleanValue()
+        val displayInfos = DisplayInfos.fromJson(json)
+        val tableType = TableType(json.getString("type", GenericTable.NAME))
 
-          // if contains than user wants langtags to be set
-          // but then langtags could be null so that's the second option
-          //
-          // langtags == null => global langtags
-          // langtags == [] => [] table without langtags
-          // langtags == ['de-DE', 'en-GB'] => table with two langtags
-          //
-          // {} => None => db: null
-          // {langtags:null} => Some(None) => db: null
-          // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: ['de-DE']
-          langtags = booleanToValueOption(
-            json.containsKey("langtags"),
-            Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq)
-          )
-          tableGroupId = booleanToValueOption(json.containsKey("group"), json.getLong("group")).map(_.toLong)
-          created <- controller.createTable(name, hidden, langtags, displayInfos, tableType, tableGroupId)
-        } yield created
+        // if contains than user wants langtags to be set
+        // but then langtags could be null so that's the second option
+        //
+        // langtags == null => global langtags
+        // langtags == [] => [] table without langtags
+        // langtags == ['de-DE', 'en-GB'] => table with two langtags
+        //
+        // {} => None => db: null
+        // {langtags:null} => Some(None) => db: null
+        // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: ['de-DE']
+        val langtags = booleanToValueOption(
+          json.containsKey("langtags"),
+          Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq)
+        )
+        val tableGroupId = booleanToValueOption(json.containsKey("group"), json.getLong("group")).map(_.toLong)
+        controller.createTable(name, hidden, langtags, displayInfos, tableType, tableGroupId)
       }
     )
   }
@@ -156,10 +154,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       sendReply(
         context,
         asyncGetReply {
-          for {
-            json <- getJson(context)
-            created <- controller.createColumns(tableId, toCreateColumnSeq(json))
-          } yield created
+          val json = getJson(context)
+          controller.createColumns(tableId, toCreateColumnSeq(json))
         }
       )
     }
@@ -172,34 +168,35 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       sendReply(
         context,
         asyncGetReply {
-          for {
-            json <- getJson(context)
+          val json = getJson(context)
+          val name = Option(json.getString("name"))
+          val hidden = Option(json.getBoolean("hidden")).map(_.booleanValue())
+          val displayInfos = DisplayInfos.fromJson(json) match {
+            case Nil => None
+            case list => Some(list)
+          }
 
-            name = Option(json.getString("name"))
-            hidden = Option(json.getBoolean("hidden")).map(_.booleanValue())
-            displayInfos = DisplayInfos.fromJson(json) match {
-              case Nil => None
-              case list => Some(list)
-            }
+          // if contains than user wants langtags to be set
+          // but then langtags could be null so that's the second option
+          //
+          // langtags == null => global langtags
+          // langtags == [] => [] table without langtags
+          // langtags == ['de-DE', 'en-GB'] => table with two langtags
+          //
+          // {} => None => db: do nothing
+          // {langtags:null} => Some(None) => db: overwrite with null
+          // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: overwrite with ['de-DE']
+          val langtags = booleanToValueOption(
+            json.containsKey("langtags"),
+            Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq)
+          )
 
-            // if contains than user wants langtags to be set
-            // but then langtags could be null so that's the second option
-            //
-            // langtags == null => global langtags
-            // langtags == [] => [] table without langtags
-            // langtags == ['de-DE', 'en-GB'] => table with two langtags
-            //
-            // {} => None => db: do nothing
-            // {langtags:null} => Some(None) => db: overwrite with null
-            // {langtags:['de-DE']} => Some(Seq('de-DE')) => db: overwrite with ['de-DE']
-            langtags = booleanToValueOption(
-              json.containsKey("langtags"),
-              Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq)
-            )
+          val tableGroupId = booleanToValueOption(
+            json.containsKey("group"),
+            Option(json.getLong("group")).map(_.toLong)
+          )
 
-            tableGroupId = booleanToValueOption(json.containsKey("group"), Option(json.getLong("group")).map(_.toLong))
-            updated <- controller.changeTable(tableId, name, hidden, langtags, displayInfos, tableGroupId)
-          } yield updated
+          controller.changeTable(tableId, name, hidden, langtags, displayInfos, tableGroupId)
         }
       )
     }
@@ -212,10 +209,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       sendReply(
         context,
         asyncEmptyReply {
-          for {
-            json <- getJson(context)
-            result <- controller.changeTableOrder(tableId, toLocationType(json))
-          } yield result
+          val json = getJson(context)
+          controller.changeTableOrder(tableId, toLocationType(json))
         }
       )
     }
@@ -229,21 +224,19 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       sendReply(
         context,
         asyncGetReply {
-          for {
-            json <- getJson(context)
-            (optName, optOrd, optKind, optId, optFrontendReadOnly, optDisplayInfos, optCountryCodes) = toColumnChanges(
-              json)
-            changed <- controller
-              .changeColumn(tableId,
-                            columnId,
-                            optName,
-                            optOrd,
-                            optKind,
-                            optId,
-                            optFrontendReadOnly,
-                            optDisplayInfos,
-                            optCountryCodes)
-          } yield changed
+          val json = getJson(context)
+          val (optName, optOrd, optKind, optId, optFrontendReadOnly, optDisplayInfos, optCountryCodes) =
+            toColumnChanges(json)
+
+          controller.changeColumn(tableId,
+                                  columnId,
+                                  optName,
+                                  optOrd,
+                                  optKind,
+                                  optId,
+                                  optFrontendReadOnly,
+                                  optDisplayInfos,
+                                  optCountryCodes)
         }
       )
     }
@@ -253,16 +246,14 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     sendReply(
       context,
       asyncGetReply {
-        for {
-          json <- getJson(context)
-          displayInfos = DisplayInfos.fromJson(json) match {
-            case Nil =>
-              throw InvalidJsonException("Either displayName or description or both must be defined!", "groups")
-            case list => list
-          }
+        val json = getJson(context)
+        val displayInfos = DisplayInfos.fromJson(json) match {
+          case Nil =>
+            throw InvalidJsonException("Either displayName or description or both must be defined!", "groups")
+          case list => list
+        }
 
-          created <- controller.createTableGroup(displayInfos)
-        } yield created
+        controller.createTableGroup(displayInfos)
       }
     )
   }
@@ -274,15 +265,13 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
       sendReply(
         context,
         asyncGetReply {
-          for {
-            json <- getJson(context)
-            displayInfos = DisplayInfos.fromJson(json) match {
-              case list if list.isEmpty => None
-              case list => Some(list)
-            }
+          val json = getJson(context)
+          val displayInfos = DisplayInfos.fromJson(json) match {
+            case list if list.isEmpty => None
+            case list => Some(list)
+          }
 
-            changed <- controller.changeTableGroup(groupId, displayInfos)
-          } yield changed
+          controller.changeTableGroup(groupId, displayInfos)
         }
       )
     }
