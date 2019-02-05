@@ -8,6 +8,7 @@ import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.helper.{AsyncReply, Header, SendFile}
 import com.campudus.tableaux.{ArgumentChecker, TableauxConfig}
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
+import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import org.vertx.scala.core.json.JsonObject
 
@@ -54,20 +55,27 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     router.getWithRegex(File).handler(retrieveFile)
     router.getWithRegex(FileLangStatic).handler(serveFile)
 
-    // CREATE
-    router.post(Folders).handler(createFolder)
-    router.post(Files).handler(createFile)
-
-    // UPDATE
-    router.putWithRegex(Folder).handler(updateFolder)
-    router.putWithRegex(File).handler(updateFile)
-    router.putWithRegex(FileLang).handler(uploadFile)
-    router.postWithRegex(FileMerge).handler(mergeFile)
-
-    // DELETE
     router.deleteWithRegex(Folder).handler(deleteFolder)
     router.deleteWithRegex(File).handler(deleteFile)
     router.deleteWithRegex(FileLang).handler(deleteFileLang)
+
+    // route for file uploading doesn't need a handler yet
+    // TODO change to BodyHandler uploading
+    // router.put("/files/*").handler(BodyHandler.create().setUploadsDirectory(uploadsDirectory.path))
+    // all following routes may require Json in the request body
+    val bodyHandler = BodyHandler.create()
+    router.putWithRegex(File).handler(bodyHandler)
+    router.post("/files/*").handler(bodyHandler)
+    router.put("/folders/*").handler(bodyHandler)
+    router.post("/folders/*").handler(bodyHandler)
+
+    router.putWithRegex(FileLang).handler(uploadFile)
+
+    router.post(Folders).handler(createFolder)
+    router.putWithRegex(Folder).handler(updateFolder)
+    router.post(Files).handler(createFile)
+    router.postWithRegex(FileMerge).handler(mergeFile)
+    router.putWithRegex(File).handler(updateFile)
 
     router
   }
@@ -315,6 +323,62 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   private def getNullableLong(field: String)(implicit json: JsonObject): Option[Long] = {
     Option(json.getLong(field)).map(_.toLong)
   }
+
+//  private def handleUploadTNG(implicit context: RoutingContext,
+//                              fn: UploadAction => Future[DomainObject]): Future[DomainObject] = {
+//
+//    var upload: FileUpload = context.fileUploads().toSet[FileUpload].head
+//
+//    println("XXX: " + upload.fileName())
+//
+//    val req = context.request()
+//
+//    logger.info(s"Handle upload for ${req.absoluteURI()}")
+//
+//    val p = Promise[DomainObject]()
+//
+//    println("XXX: " + uploadsDirectory + " " + upload.uploadedFileName())
+//
+////    config.vertx
+////      .fileSystem()
+////      .readFile(upload.uploadedFileName(), { fileHandler =>
+////        })
+//
+////    val timerId = vertx.setTimer(
+////      10000L,
+////      _ => {
+////        p.failure(
+////          RouterException(message = "No valid file upload received",
+////                          id = "errors.upload.invalidRequest",
+////                          statusCode = 400))
+////      }
+////    )
+//
+////    // TODO this only can handle one file upload per request
+////    req.uploadHandler({ upload: HttpServerFileUpload => {
+//    logger.info("Received a file upload")
+//
+////        vertx.cancelTimer(timerId)
+//
+////        val setExceptionHandler = (exHandler: Throwable => Unit) => upload.exceptionHandler(t => exHandler(t))
+////        val setEndHandler = (fn: () => Unit) => upload.endHandler(_ => fn())
+////        val setStreamToFile = (fPath: String) => upload.streamToFileSystem(fPath)
+//
+//    val action = UploadAction(upload.fileName(), upload.contentType())
+//
+//    fn(action)
+//      .map(p.success)
+//      .recoverWith({
+//        case e =>
+//          logger.error("Upload failed", e)
+//          p.failure(e)
+//          Future.failed(e)
+//      })
+////      }
+////    })
+//
+//    p.future
+//  }
 
   private def handleUpload(implicit context: RoutingContext,
                            fn: UploadAction => Future[DomainObject]): Future[DomainObject] = {

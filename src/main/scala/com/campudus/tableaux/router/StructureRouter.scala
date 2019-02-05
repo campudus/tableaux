@@ -4,6 +4,7 @@ import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
+import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
@@ -36,6 +37,18 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     router.getWithRegex(Columns).handler(retrieveColumns)
     router.getWithRegex(Column).handler(retrieveColumn)
 
+    // DELETE
+    router.deleteWithRegex(Group).handler(deleteGroup)
+    router.deleteWithRegex(Table).handler(deleteTable)
+    router.deleteWithRegex(Column).handler(deleteColumn)
+
+    // all following routes may require Json in the request body
+    val bodyHandler = BodyHandler.create()
+    router.post("/tables/*").handler(bodyHandler)
+    router.patch("/tables/*").handler(bodyHandler)
+    router.post("/groups/*").handler(bodyHandler)
+    router.patch("/groups/*").handler(bodyHandler)
+
     // CREATE
     router.post(Tables).handler(createTable)
     router.postWithRegex(Columns).handler(createColumn)
@@ -54,21 +67,16 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     router.postWithRegex(Group).handler(updateGroup)
     router.patchWithRegex(Group).handler(updateGroup)
 
-    // DELETE
-    router.deleteWithRegex(Group).handler(deleteGroup)
-    router.deleteWithRegex(Table).handler(deleteTable)
-    router.deleteWithRegex(Column).handler(deleteColumn)
-
     router
   }
 
-  def retrieveTables(context: RoutingContext): Unit = {
+  private def retrieveTables(context: RoutingContext): Unit = {
     sendReply(context, asyncGetReply {
       controller.retrieveTables()
     })
   }
 
-  def retrieveTable(context: RoutingContext): Unit = {
+  private def retrieveTable(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -81,7 +89,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def retrieveColumns(context: RoutingContext): Unit = {
+  private def retrieveColumns(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -94,7 +102,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def retrieveColumn(context: RoutingContext): Unit = {
+  private def retrieveColumn(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -108,7 +116,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def createTable(context: RoutingContext): Unit = {
+  private def createTable(context: RoutingContext): Unit = {
     sendReply(
       context,
       asyncGetReply {
@@ -141,7 +149,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     )
   }
 
-  def createColumn(context: RoutingContext): Unit = {
+  private def createColumn(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -157,7 +165,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def updateTable(context: RoutingContext): Unit = {
+  private def updateTable(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -197,7 +205,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def updateTableOrdering(context: RoutingContext): Unit = {
+  private def updateTableOrdering(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -213,7 +221,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def updateColumn(context: RoutingContext): Unit = {
+  private def updateColumn(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -241,7 +249,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def createGroup(context: RoutingContext): Unit = {
+  private def createGroup(context: RoutingContext): Unit = {
     sendReply(
       context,
       asyncGetReply {
@@ -259,7 +267,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     )
   }
 
-  def updateGroup(context: RoutingContext): Unit = {
+  private def updateGroup(context: RoutingContext): Unit = {
     for {
       groupId <- getGroupId(context)
     } yield {
@@ -280,7 +288,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def deleteGroup(context: RoutingContext): Unit = {
+  private def deleteGroup(context: RoutingContext): Unit = {
     for {
       groupId <- getGroupId(context)
     } yield {
@@ -293,7 +301,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def deleteTable(context: RoutingContext): Unit = {
+  private def deleteTable(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
     } yield {
@@ -306,7 +314,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     }
   }
 
-  def deleteColumn(context: RoutingContext): Unit = {
+  private def deleteColumn(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)

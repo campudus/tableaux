@@ -6,6 +6,7 @@ import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
+import io.vertx.scala.ext.web.handler.BodyHandler
 import org.vertx.scala.core.json.JsonArray
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
@@ -70,6 +71,20 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.getWithRegex(ColumnsValues).handler(retrieveUniqueColumnValues)
     router.getWithRegex(ColumnsValuesWithLangtag).handler(retrieveUniqueColumnValuesWithLangtag)
 
+    // DELETE
+    router.deleteWithRegex(CellAnnotation).handler(deleteCellAnnotation)
+    router.deleteWithRegex(CellAnnotationLangtag).handler(deleteCellAnnotationLangtag)
+    router.deleteWithRegex(Row).handler(deleteRow)
+    router.deleteWithRegex(Cell).handler(clearCell)
+    router.deleteWithRegex(AttachmentOfCell).handler(deleteAttachmentOfCell)
+    router.deleteWithRegex(LinkOfCell).handler(deleteLinkOfCell)
+
+    val bodyHandler = BodyHandler.create()
+    router.post("/tables/*").handler(bodyHandler)
+    router.patch("/tables/*").handler(bodyHandler)
+    router.put("/tables/*").handler(bodyHandler)
+    router.post("/completetable").handler(bodyHandler)
+
     // CREATE
     router.postWithRegex(CompleteTable).handler(createCompleteTable)
     router.postWithRegex(Rows).handler(createRow)
@@ -84,14 +99,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.postWithRegex(Cell).handler(updateCell)
     router.putWithRegex(Cell).handler(replaceCell)
     router.putWithRegex(LinkOrderOfCell).handler(changeLinkOrder)
-
-    // DELETE
-    router.deleteWithRegex(CellAnnotation).handler(deleteCellAnnotation)
-    router.deleteWithRegex(CellAnnotationLangtag).handler(deleteCellAnnotationLangtag)
-    router.deleteWithRegex(Row).handler(deleteRow)
-    router.deleteWithRegex(Cell).handler(clearCell)
-    router.deleteWithRegex(AttachmentOfCell).handler(deleteAttachmentOfCell)
-    router.deleteWithRegex(LinkOfCell).handler(deleteLinkOfCell)
 
     router
   }
@@ -251,6 +258,81 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
+    * Retrieve all Cell Annotations for a specific table
+    */
+  private def retrieveAnnotations(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveTableWithCellAnnotations(tableId)
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve Cell Annotation count for all tables
+    */
+  private def retrieveAnnotationCount(context: RoutingContext): Unit = {
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveTablesWithCellAnnotationCount()
+      }
+    )
+  }
+
+  /**
+    * Retrieve translation status for all tables
+    */
+  private def retrieveTranslationStatus(context: RoutingContext): Unit = {
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveTranslationStatus()
+      }
+    )
+  }
+
+  /**
+    * Retrieve unique values of a shorttext column
+    */
+  private def retrieveUniqueColumnValues(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveColumnValues(tableId, columnId, None)
+        }
+      )
+    }
+  }
+
+  /**
+    *  Retrieve unique values of a multi-language shorttext column
+    */
+  private def retrieveUniqueColumnValuesWithLangtag(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      langtag <- getLangtag(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveColumnValues(tableId, columnId, Some(langtag))
+        }
+      )
+    }
+  }
+
+  /**
     * Create table with columns and rows
     */
   private def createCompleteTable(context: RoutingContext): Unit = {
@@ -388,85 +470,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Delete Cell Annotation
-    */
-  private def deleteCellAnnotation(context: RoutingContext): Unit = {
-    for {
-      tableId <- getTableId(context)
-      columnId <- getColumnId(context)
-      rowId <- getRowId(context)
-      uuid <- getUUID(context)
-    } yield {
-      sendReply(
-        context,
-        asyncGetReply {
-          controller.deleteCellAnnotation(tableId, columnId, rowId, UUID.fromString(uuid))
-        }
-      )
-    }
-  }
-
-  /**
-    * Delete Langtag from Cell Annotation
-    */
-  private def deleteCellAnnotationLangtag(context: RoutingContext): Unit = {
-    for {
-      tableId <- getTableId(context)
-      columnId <- getColumnId(context)
-      rowId <- getRowId(context)
-      uuid <- getUUID(context)
-      langtag <- getLangtag(context)
-    } yield {
-      sendReply(
-        context,
-        asyncGetReply {
-          controller.deleteCellAnnotation(tableId, columnId, rowId, UUID.fromString(uuid), langtag)
-        }
-      )
-    }
-  }
-
-  /**
-    * Retrieve all Cell Annotations for a specific table
-    */
-  private def retrieveAnnotations(context: RoutingContext): Unit = {
-    for {
-      tableId <- getTableId(context)
-    } yield {
-      sendReply(
-        context,
-        asyncGetReply {
-          controller.retrieveTableWithCellAnnotations(tableId)
-        }
-      )
-    }
-  }
-
-  /**
-    * Retrieve Cell Annotation count for all tables
-    */
-  private def retrieveAnnotationCount(context: RoutingContext): Unit = {
-    sendReply(
-      context,
-      asyncGetReply {
-        controller.retrieveTablesWithCellAnnotationCount()
-      }
-    )
-  }
-
-  /**
-    * Retrieve translation status for all tables
-    */
-  private def retrieveTranslationStatus(context: RoutingContext): Unit = {
-    sendReply(
-      context,
-      asyncGetReply {
-        controller.retrieveTranslationStatus()
-      }
-    )
-  }
-
-  /**
     * Update Cell or add Link/Attachment
     */
   private def updateCell(context: RoutingContext): Unit = {
@@ -529,6 +532,45 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
             json <- getJson(context)
             updated <- controller.updateCellLinkOrder(tableId, columnId, rowId, linkId, toLocationType(json))
           } yield updated
+        }
+      )
+    }
+  }
+
+  /**
+    * Delete Cell Annotation
+    */
+  private def deleteCellAnnotation(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      rowId <- getRowId(context)
+      uuid <- getUUID(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.deleteCellAnnotation(tableId, columnId, rowId, UUID.fromString(uuid))
+        }
+      )
+    }
+  }
+
+  /**
+    * Delete Langtag from Cell Annotation
+    */
+  private def deleteCellAnnotationLangtag(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      rowId <- getRowId(context)
+      uuid <- getUUID(context)
+      langtag <- getLangtag(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.deleteCellAnnotation(tableId, columnId, rowId, UUID.fromString(uuid), langtag)
         }
       )
     }
@@ -602,41 +644,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           controller.deleteLink(tableId, columnId, rowId, linkId)
-        }
-      )
-    }
-  }
-
-  /**
-    * Retrieve unique values of a shorttext column
-    */
-  private def retrieveUniqueColumnValues(context: RoutingContext): Unit = {
-    for {
-      tableId <- getTableId(context)
-      columnId <- getColumnId(context)
-    } yield {
-      sendReply(
-        context,
-        asyncGetReply {
-          controller.retrieveColumnValues(tableId, columnId, None)
-        }
-      )
-    }
-  }
-
-  /**
-    *  Retrieve unique values of a multi-language shorttext column
-    */
-  private def retrieveUniqueColumnValuesWithLangtag(context: RoutingContext): Unit = {
-    for {
-      tableId <- getTableId(context)
-      columnId <- getColumnId(context)
-      langtag <- getLangtag(context)
-    } yield {
-      sendReply(
-        context,
-        asyncGetReply {
-          controller.retrieveColumnValues(tableId, columnId, Some(langtag))
         }
       )
     }

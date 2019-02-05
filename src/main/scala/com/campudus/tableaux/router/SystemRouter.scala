@@ -5,6 +5,7 @@ import java.util.UUID
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
+import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.concurrent.Future
@@ -48,8 +49,12 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.post("/update").handler(update)
     router.post("/cache/invalidate").handler(invalidateCache)
 
-    router.post("/settings/:settings").handler(updateSettings)
     router.postWithRegex(s"""/cache/invalidate/tables/$TABLE_ID/columns/$COLUMN_ID""").handler(invalidateColumnCache)
+
+    // init body handler for settings routes
+    router.post("/settings/*").handler(BodyHandler.create())
+
+    router.post("/settings/:settings").handler(updateSettings)
 
     router
   }
@@ -57,7 +62,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   /**
     * Get the current version
     */
-  def retrieveVersions(context: RoutingContext): Unit = {
+  private def retrieveVersions(context: RoutingContext): Unit = {
     sendReply(context, asyncGetReply {
       controller.retrieveVersions()
     })
@@ -66,7 +71,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   /**
     * Resets the database (needs nonce)
     */
-  def reset(context: RoutingContext): Unit = {
+  private def reset(context: RoutingContext): Unit = {
     sendReply(context, asyncGetReply {
       for {
         _ <- Future.successful(checkNonce(context))
@@ -78,7 +83,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   /**
     * Create the demo tables (needs nonce)
     */
-  def resetDemo(context: RoutingContext): Unit = {
+  private def resetDemo(context: RoutingContext): Unit = {
     sendReply(context, asyncGetReply {
       for {
         _ <- Future.successful(checkNonce(context))
@@ -90,7 +95,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   /**
     * Update the database (needs POST and nonce)
     */
-  def update(context: RoutingContext): Unit = {
+  private def update(context: RoutingContext): Unit = {
     sendReply(context, asyncGetReply {
       for {
         _ <- Future.successful(checkNonce(context))
@@ -102,7 +107,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   /**
     * Invalidate all caches
     */
-  def invalidateCache(context: RoutingContext): Unit = {
+  private def invalidateCache(context: RoutingContext): Unit = {
     sendReply(context, asyncGetReply {
       controller.invalidateCache()
     })
@@ -111,7 +116,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   /**
     * Invalidate column cache
     */
-  def invalidateColumnCache(context: RoutingContext): Unit = {
+  private def invalidateColumnCache(context: RoutingContext): Unit = {
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -128,7 +133,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   /**
     * Retrieve system settings
     */
-  def retrieveSettings(context: RoutingContext): Unit = {
+  private def retrieveSettings(context: RoutingContext): Unit = {
     for {
       key <- getStringParam("settings", context)
     } yield {
@@ -151,7 +156,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   /**
     * Update system settings
     */
-  def updateSettings(context: RoutingContext): Unit = {
+  private def updateSettings(context: RoutingContext): Unit = {
     for {
       key <- getStringParam("settings", context)
     } yield {

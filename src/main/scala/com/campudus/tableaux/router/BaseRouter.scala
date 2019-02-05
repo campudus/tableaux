@@ -79,31 +79,36 @@ trait BaseRouter extends VertxAccess {
   }
 
   def getJson(context: RoutingContext): Future[JsonObject] = futurify { p: Promise[JsonObject] =>
-    context.request().bodyHandler(parseRequestBuffer(p))
+    parseRequestBuffer(p, context.getBody())
   }
 
-  private def parseRequestBuffer(p: Promise[JsonObject])(buffer: Buffer): Unit = {
-    val requestBody = buffer.toString()
-    Option(requestBody).getOrElse("").isEmpty match {
+  private def parseRequestBuffer(p: Promise[JsonObject], bufferOpt: Option[Buffer]): Unit = {
+
+    val buffer = bufferOpt match {
+      case Some(b) => b.toString()
+      case None => ""
+    }
+
+    buffer.isEmpty match {
       case true =>
         p.failure(NoJsonFoundException("No JSON found."))
 
       case false =>
-        requestBody match {
+        buffer match {
           case "null" =>
             p.success(Json.emptyObj())
 
           case _ =>
-            Try(Json.fromObjectString(requestBody)) match {
+            Try(Json.fromObjectString(buffer)) match {
               case Success(r) =>
                 p.success(r)
 
               case Failure(ex: DecodeException) =>
-                logger.error(s"Couldn't parse requestBody. JSON is valid: [$requestBody]")
+                logger.error(s"Couldn't parse requestBody. JSON is valid: [$buffer]")
                 p.failure(InvalidJsonException(ex.getMessage, "invalid"))
 
               case Failure(ex) =>
-                logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$requestBody]")
+                logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$buffer]")
                 p.failure(ex)
             }
         }
@@ -193,7 +198,7 @@ trait BaseRouter extends VertxAccess {
       })
   }
 
-  private def urlEncode(str: String) = URLEncoder.encode(str, "UTF-8")
+  private def urlEncode(str: String): String = URLEncoder.encode(str, "UTF-8")
 
   private def endResponse(resp: HttpServerResponse, reply: SyncReply): Unit = {
     reply match {
@@ -321,15 +326,6 @@ trait BaseRouter extends VertxAccess {
   }
 
   private def errorReplyFromException(ex: RouterException) = Error(ex)
-
-//  /**
-//    * To be able to use this in `HttpServer.requestHandler()`, the Router needs to be a `HttpServerRequest => Unit`. This
-//    * apply method starts the magic to be able to use `override def request() = ...` for the routes.
-//    */
-//  final def apply(context: RoutingContext): Unit = {
-//    val req = context.request()
-//    logger.info(s"${req.method()}-Request: ${req.uri()}")
-//  }
 }
 
 /**
