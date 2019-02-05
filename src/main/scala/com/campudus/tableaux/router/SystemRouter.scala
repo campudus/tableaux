@@ -163,16 +163,16 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       sendReply(
         context,
         asyncGetReply {
-          getJson(context).flatMap(json => {
-            key match {
-              case SystemController.SETTING_LANGTAGS =>
-                controller.updateLangtags(asCastedList[String](json.getJsonArray("value")).get)
-              case SystemController.SETTING_SENTRY_URL =>
-                controller.updateSentryUrl(json.getString("value"))
-              case _ =>
-                Future.failed(InvalidRequestException(s"No system setting for key $key"))
-            }
-          })
+          val json = getJson(context)
+
+          key match {
+            case SystemController.SETTING_LANGTAGS =>
+              controller.updateLangtags(asCastedList[String](json.getJsonArray("value")).get)
+            case SystemController.SETTING_SENTRY_URL =>
+              controller.updateSentryUrl(json.getString("value"))
+            case _ =>
+              Future.failed(InvalidRequestException(s"No system setting for key $key"))
+          }
         }
       )
     }

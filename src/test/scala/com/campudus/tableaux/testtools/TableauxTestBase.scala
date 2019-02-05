@@ -9,24 +9,23 @@ import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod
-import io.vertx.scala.core.http._
-import org.vertx.scala.core.json.JsonObject
-import io.vertx.scala.core.streams.Pump
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
+import io.vertx.scala.core.http._
+import io.vertx.scala.core.streams.Pump
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
-import org.vertx.scala.core.json._
+import org.skyscreamer.jsonassert.{JSONCompare, JSONCompareMode}
+import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
-import org.skyscreamer.jsonassert.{JSONCompare, JSONCompareMode}
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable {
 
@@ -332,6 +331,7 @@ trait TableauxTestBase
         client.close()
 
         if (resp.statusCode() != 200) {
+          logger.warn(s"Error occurred while requesting ${resp.request().absoluteURI()}")
           p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
         } else {
           try {

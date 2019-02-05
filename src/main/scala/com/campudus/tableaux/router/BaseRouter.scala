@@ -9,13 +9,12 @@ import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
 import com.campudus.tableaux.helper._
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
-import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.http.HttpServerResponse
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 import scala.io.Source
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -78,38 +77,31 @@ trait BaseRouter extends VertxAccess {
     }
   }
 
-  def getJson(context: RoutingContext): Future[JsonObject] = futurify { p: Promise[JsonObject] =>
-    parseRequestBuffer(p, context.getBody())
-  }
+  def getJson(context: RoutingContext): JsonObject = {
 
-  private def parseRequestBuffer(p: Promise[JsonObject], bufferOpt: Option[Buffer]): Unit = {
-
-    val buffer = bufferOpt match {
+    val buffer = context.getBody() match {
       case Some(b) => b.toString()
       case None => ""
     }
 
     buffer.isEmpty match {
-      case true =>
-        p.failure(NoJsonFoundException("No JSON found."))
+      case true => throw NoJsonFoundException("No JSON found.")
 
       case false =>
         buffer match {
-          case "null" =>
-            p.success(Json.emptyObj())
+          case "null" => Json.emptyObj()
 
           case _ =>
             Try(Json.fromObjectString(buffer)) match {
-              case Success(r) =>
-                p.success(r)
+              case Success(r) => r
 
               case Failure(ex: DecodeException) =>
                 logger.error(s"Couldn't parse requestBody. JSON is valid: [$buffer]")
-                p.failure(InvalidJsonException(ex.getMessage, "invalid"))
+                throw InvalidJsonException(ex.getMessage, "invalid")
 
               case Failure(ex) =>
                 logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$buffer]")
-                p.failure(ex)
+                throw ex
             }
         }
     }

@@ -7,10 +7,11 @@ import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler
-import org.vertx.scala.core.json.JsonArray
 import io.vertx.scala.ext.web.{Router, RoutingContext}
+import org.vertx.scala.core.json.JsonArray
 
 import scala.concurrent.Future
+import scala.util.Try
 
 object TableauxRouter {
 
@@ -339,8 +340,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     sendReply(
       context,
       asyncGetReply {
+        val json = getJson(context)
         for {
-          json <- getJson(context)
           completeTable <- if (json.containsKey("rows")) {
             controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), toRowValueSeq(json))
           } else {
@@ -361,19 +362,19 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          for {
-            optionalValues <- (for {
-              json <- getJson(context)
-              option = if (json.containsKey("columns") && json.containsKey("rows")) {
-                Some(toColumnValueSeq(json))
-              } else {
-                None
-              }
-            } yield option) recover {
-              case _: NoJsonFoundException => None
+          val optionalValues = Try({
+            val json = getJson(context)
+            if (json.containsKey("columns") && json.containsKey("rows")) {
+              Some(toColumnValueSeq(json))
+            } else {
+              None
             }
-            result <- controller.createRow(tableId, optionalValues)
-          } yield result
+          }).recover({
+              case _: NoJsonFoundException => None
+            })
+            .get
+
+          controller.createRow(tableId, optionalValues)
         }
       )
     }
@@ -407,11 +408,11 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
+          val json = getJson(context)
+          val finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
+            .map(_.booleanValue())
           for {
-            json <- getJson(context)
-            finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
-              .map(_.booleanValue())
-
+//            json <- getJson(context)
             updated <- controller.updateRowAnnotations(tableId, rowId, finalFlagOpt)
           } yield updated
         }
@@ -429,11 +430,11 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
+          val json = getJson(context)
+          val finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
+            .map(_.booleanValue())
           for {
-            json <- getJson(context)
-            finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
-              .map(_.booleanValue())
-
+//            json <- getJson(context)
             updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt)
           } yield updated
         }
@@ -454,14 +455,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           import com.campudus.tableaux.ArgumentChecker._
-
+          val json = getJson(context)
+          val langtags = checked(asCastedList[String](json.getJsonArray("langtags", new JsonArray())))
+          val flagType = checked(hasString("type", json).map(CellAnnotationType(_)))
+          val value = json.getString("value")
           for {
-            json <- getJson(context)
-
-            langtags = checked(asCastedList[String](json.getJsonArray("langtags", new JsonArray())))
-            flagType = checked(hasString("type", json).map(CellAnnotationType(_)))
-            value = json.getString("value")
-
+//            json <- getJson(context)
             cellAnnotation <- controller.addCellAnnotation(tableId, columnId, rowId, langtags, flagType, value)
           } yield cellAnnotation
         }
@@ -481,8 +480,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
+          val json = getJson(context)
           for {
-            json <- getJson(context)
+//            json <- getJson(context)
             updated <- controller.updateCellValue(tableId, columnId, rowId, json.getValue("value"))
           } yield updated
         }
@@ -502,8 +502,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
+          val json = getJson(context)
           for {
-            json <- getJson(context)
+//            json <- getJson(context)
             updated <- if (json.containsKey("value")) {
               controller.replaceCellValue(tableId, columnId, rowId, json.getValue("value"))
             } else {
@@ -528,8 +529,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
+          val json = getJson(context)
           for {
-            json <- getJson(context)
+//            json <- getJson(context)
             updated <- controller.updateCellLinkOrder(tableId, columnId, rowId, linkId, toLocationType(json))
           } yield updated
         }
