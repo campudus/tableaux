@@ -19,7 +19,7 @@ plugins {
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-def vertxVersion = '3.5.3'
+def vertxVersion = '3.6.3'
 def scalaVersion = '2.12.6'
 
 sourceCompatibility = '1.8'
