@@ -7,7 +7,7 @@ plugins {
   id 'scala'
   id 'application'
 
-  id 'org.scoverage' version '2.3.0'
+  id 'org.scoverage' version '3.0.0'
   id 'com.github.kt3k.coveralls' version '2.8.2'
 
   id 'com.github.johnrengelman.shadow' version '2.0.4'
@@ -20,7 +20,8 @@ project.group = 'com.campudus'
 project.version = '0.1.0'
 
 def vertxVersion = '3.6.3'
-def scalaVersion = '2.12.6'
+def scalaVersion = '2.12.8'
+def circeVersion = '0.11.1'
 
 sourceCompatibility = '1.8'
 
@@ -57,12 +58,11 @@ dependencies {
 
   compile 'org.webjars:swagger-ui:3.17.6'
 
-  compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
+  compile "io.circe:circe-core_2.12:${circeVersion}"
+  compile "io.circe:circe-parser_2.12:${circeVersion}"
+  compile "io.circe:circe-generic_2.12:${circeVersion}"
 
-  // scala version for scoverage must be the same
-  scoverage "org.scala-lang:scala-library:${scalaVersion}"
-  scoverage 'org.scoverage:scalac-scoverage-plugin_2.12:1.3.1'
-  scoverage 'org.scoverage:scalac-scoverage-runtime_2.12:1.3.1'
+  compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
   testCompile "io.vertx:vertx-unit:${vertxVersion}"
   testCompile 'junit:junit:4.12'
@@ -74,13 +74,6 @@ mainClassName = "io.vertx.core.Launcher"
 def mainVerticle = "scala:com.campudus.tableaux.Starter"
 
 test {
-  maxHeapSize = "512m"
-  // http://www.oracle.com/technetwork/java/javase/relnotes-139183.html#vm
-  // https://stackoverflow.com/a/4659279/104779
-  jvmArgs = ["-Xmx512m", "-XX:-OmitStackTraceInFastThrow"]
-}
-
-testScoverage {
   maxHeapSize = "512m"
   // http://www.oracle.com/technetwork/java/javase/relnotes-139183.html#vm
   // https://stackoverflow.com/a/4659279/104779
@@ -147,11 +140,9 @@ sourceSets {
 /**
  * Code coverage
  */
-checkScoverage {
-  minimumRate = 0.85
-}
 
 scoverage {
+  minimumRate = 0.85
   excludedPackages = [
       'io.vertx.scala.*',
       'org.vertx.scala.*',
@@ -232,6 +223,6 @@ spotless {
  * Gradle wrapper
  */
 wrapper {
-  gradleVersion = '4.9'
+  gradleVersion = '5.2.1'
   distributionType = Wrapper.DistributionType.BIN
 }
