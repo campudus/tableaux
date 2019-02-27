@@ -38,11 +38,15 @@ object SystemRouter {
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
+  val SERVICE_ID = """(?<serviceId>[\d]+)"""
+
   def route: Router = {
     val router = Router.router(vertx)
 
     router.get("/versions").handler(retrieveVersions)
     router.get("/settings/:settings").handler(retrieveSettings)
+    router.get("/services").handler(retrieveServices)
+    router.getWithRegex(s"""/services/$SERVICE_ID""").handler(retrieveService)
 
     router.post("/reset").handler(reset)
     router.post("/resetDemo").handler(resetDemo)
@@ -55,6 +59,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.post("/settings/*").handler(BodyHandler.create())
 
     router.post("/settings/:settings").handler(updateSettings)
+
+    router.post("/services").handler(createService)
 
     router
   }
@@ -176,6 +182,51 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         }
       )
     }
+  }
+
+  /**
+    * Retrieve all services
+    */
+  private def retrieveServices(context: RoutingContext): Unit = {
+    sendReply(
+      context,
+      asyncCirceGetReply {
+        controller.retrieveServices()
+      }
+    )
+  }
+
+  /**
+    * Retrieve single service
+    */
+  private def retrieveService(context: RoutingContext): Unit = {
+    for {
+      serviceId <- getServiceId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncCirceGetReply {
+          controller.retrieveService(serviceId)
+        }
+      )
+    }
+  }
+
+  /**
+    * Create a new service
+    */
+  private def createService(context: RoutingContext): Unit = {
+    sendReply(
+      context,
+      asyncCirceGetReply {
+        val json = getJson(context)
+        controller.createService(json)
+      }
+    )
+  }
+
+  private def getServiceId(context: RoutingContext): Option[Long] = {
+    getLongParam("serviceId", context)
   }
 
   private def checkNonce(implicit context: RoutingContext): Unit = {

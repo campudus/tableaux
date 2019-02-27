@@ -69,8 +69,8 @@ class SystemControllerTest extends TableauxTestBase {
     okTest {
       val expectedJson = Json.obj(
         "database" -> Json.obj(
-          "current" -> 24,
-          "specification" -> 24
+          "current" -> 26,
+          "specification" -> 25
         )
       )
 

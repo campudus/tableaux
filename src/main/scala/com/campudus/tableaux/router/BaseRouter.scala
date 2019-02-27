@@ -19,6 +19,8 @@ import scala.io.Source
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
+import io.circe.literal._
+
 trait BaseRouter extends VertxAccess {
 
   protected val TABLE_ID = """(?<tableId>[\d]+)"""
@@ -46,10 +48,14 @@ trait BaseRouter extends VertxAccess {
     * Base result JSON
     */
   val baseResult = Json.obj("status" -> "ok")
+  val circeBaseResult = json"""{"status": "ok"}"""
 
   type AsyncReplyFunction = (=> Future[DomainObject]) => AsyncReply
+  type AsyncCirceReplyFunction = (=> Future[io.circe.Json]) => AsyncReply
 
   def asyncGetReply: AsyncReplyFunction = asyncReply(GetReturn)(_)
+
+  def asyncCirceGetReply: AsyncCirceReplyFunction = asyncCirceReply(GetReturn)(_)
 
   def asyncEmptyReply: AsyncReplyFunction = asyncReply(EmptyReturn)(_)
 
@@ -63,6 +69,30 @@ trait BaseRouter extends VertxAccess {
       catchedReplyFunction
         .map({ result =>
           Ok(result.toJson(returnType).mergeIn(baseResult))
+        })
+        .map({ reply =>
+          Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))
+        })
+        .recover({
+          case ex: InvalidNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
+          case ex: NoNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
+          case ex: CustomException => Error(ex.toRouterException)
+          case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
+          case NonFatal(ex) => Error(RouterException("unknown error", ex, "error.unknown", 500))
+        })
+    }
+  }
+
+  private def asyncCirceReply(returnType: ReturnType)(replyFunction: => Future[io.circe.Json]): AsyncReply = {
+    AsyncReply {
+      val catchedReplyFunction = Try(replyFunction) match {
+        case Success(future) => future
+        case Failure(ex) => Future.failed(ex)
+      }
+
+      catchedReplyFunction
+        .map({ result =>
+          OkCirce(result.deepMerge(circeBaseResult))
         })
         .map({ reply =>
           Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))
@@ -198,6 +228,11 @@ trait BaseRouter extends VertxAccess {
         resp.setStatusMessage("OK")
         resp.putHeader("Content-type", "application/json")
         resp.end(js.encode())
+      case OkCirce(js) =>
+        resp.setStatusCode(200)
+        resp.setStatusMessage("OK")
+        resp.putHeader("Content-type", "application/json")
+        resp.end(js.noSpaces)
       case SendEmbeddedFile(path) =>
         try {
           resp.setStatusCode(200)

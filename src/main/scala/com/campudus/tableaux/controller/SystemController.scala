@@ -4,9 +4,12 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
+import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.JsonUtils
+import io.circe.generic.auto._
+import io.circe.syntax._
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -20,19 +23,22 @@ object SystemController {
       config: TableauxConfig,
       repository: SystemModel,
       tableauxModel: TableauxModel,
-      structureModel: StructureModel
+      structureModel: StructureModel,
+      serviceModel: ServiceModel
   ): SystemController = {
-    new SystemController(config, repository, tableauxModel, structureModel)
+    new SystemController(config, repository, tableauxModel, structureModel, serviceModel)
   }
 }
 
 case class SchemaVersion(databaseVersion: Int, specificationVersion: Int)
 
-class SystemController(override val config: TableauxConfig,
-                       override protected val repository: SystemModel,
-                       protected val tableauxModel: TableauxModel,
-                       protected val structureModel: StructureModel)
-    extends Controller[SystemModel] {
+class SystemController(
+    override val config: TableauxConfig,
+    override protected val repository: SystemModel,
+    protected val tableauxModel: TableauxModel,
+    protected val structureModel: StructureModel,
+    protected val serviceModel: ServiceModel
+) extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
     for {
@@ -218,5 +224,19 @@ class SystemController(override val config: TableauxConfig,
     CacheClient(this)
       .invalidateColumn(tableId, columnId)
       .map(_ => EmptyObject())
+  }
+
+  def createService(json: JsonObject): Future[io.circe.Json] = ???
+
+  def retrieveServices(): Future[io.circe.Json] = {
+    for {
+      serviceSeq <- serviceModel.retrieveAll().map(ServiceSeq)
+    } yield serviceSeq.asJson
+  }
+
+  def retrieveService(serviceId: ServiceId): Future[io.circe.Json] = {
+    for {
+      service <- serviceModel.retrieve(serviceId)
+    } yield service.asJson
   }
 }

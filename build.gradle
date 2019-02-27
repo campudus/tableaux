@@ -63,6 +63,10 @@ dependencies {
   compile "io.circe:circe-core_2.12:${circeVersion}"
   compile "io.circe:circe-parser_2.12:${circeVersion}"
   compile "io.circe:circe-generic_2.12:${circeVersion}"
+  compile "io.circe:circe-literal_2.12:${circeVersion}"
+  compile "io.circe:circe-generic-extras_2.12:${circeVersion}"
+  compile "io.circe:circe-shapes_2.12:${circeVersion}"
+  compile "io.circe:circe-testing_2.12:${circeVersion}"
 
   compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
