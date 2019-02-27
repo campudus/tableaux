@@ -12,7 +12,15 @@ object Service {
     Encoder
       .forProduct9("id", "type", "name", "ordering", "displayName", "description", "active", "createdAt", "updatedAt")(
         s =>
-          (s.id, s.serviceType, s.name, s.ordering, s.displayName, s.description, s.active, s.createdAt, s.updatedAt))
+          (s.id,
+           s.serviceType,
+           s.name,
+           s.ordering,
+           s.displayName.getJson.toString,
+           s.description.getJson.toString,
+           s.active,
+           s.createdAt,
+           s.updatedAt))
 
 }
 
@@ -21,8 +29,8 @@ case class Service(
     serviceType: String,
     name: String,
     ordering: Long,
-    displayName: Option[String],
-    description: Option[String],
+    displayName: MultiLanguageValue[String],
+    description: MultiLanguageValue[String],
     active: Boolean,
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime]

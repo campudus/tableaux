@@ -7,16 +7,17 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
-case class TableauxFile(uuid: UUID,
-                        folders: Seq[FolderId],
-                        title: MultiLanguageValue[String],
-                        description: MultiLanguageValue[String],
-                        internalName: MultiLanguageValue[String],
-                        externalName: MultiLanguageValue[String],
-                        mimeType: MultiLanguageValue[String],
-                        createdAt: Option[DateTime],
-                        updatedAt: Option[DateTime])
-    extends DomainObject {
+case class TableauxFile(
+    uuid: UUID,
+    folders: Seq[FolderId],
+    title: MultiLanguageValue[String],
+    description: MultiLanguageValue[String],
+    internalName: MultiLanguageValue[String],
+    externalName: MultiLanguageValue[String],
+    mimeType: MultiLanguageValue[String],
+    createdAt: Option[DateTime],
+    updatedAt: Option[DateTime]
+) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
     "uuid" -> uuid.toString,
@@ -34,7 +35,7 @@ case class TableauxFile(uuid: UUID,
   /**
     * @return None if multi-language and Some('de-DE') if single-language
     */
-  def isSingleLanguage(): Option[String] = {
+  def isSingleLanguage: Option[String] = {
     internalName.values.toList match {
       case (langtag, value) :: Nil => Some(langtag)
       case _ => None

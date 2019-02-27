@@ -4,6 +4,7 @@ import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
 import org.vertx.scala.core.json._
 
 import scala.collection.mutable
+import scala.util.Try
 
 object DomainObject extends DomainObject {
   override def getJson: JsonObject = Json.emptyObj()
@@ -144,6 +145,10 @@ object MultiLanguageValue {
           (langtag, columnsValueMap.toMap)
       })
       .toMap
+  }
+
+  def fromString[A](str: String): MultiLanguageValue[A] = {
+    MultiLanguageValue[A](Try(Json.fromObjectString(str)).toOption)
   }
 }
 

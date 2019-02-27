@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.database.domain.Service
+import com.campudus.tableaux.database.domain.{MultiLanguageValue, Service}
 import com.campudus.tableaux.database.model.ServiceModel.{Ordering, ServiceId}
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -67,11 +67,11 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
       arr.get[String](1), // type
       arr.get[String](2), // name
       arr.get[Ordering](3), // ordering
-      Option(arr.get[String](4)), // displayname
-      Option(arr.get[String](5)), // description
+      MultiLanguageValue.fromString(arr.get[String](4)), // displayname
+      MultiLanguageValue.fromString(arr.get[String](5)), // description
       arr.get[Boolean](6), // active
-//      arr.get[ServiceId](7), // config
-//      arr.get[ServiceId](8),// scope
+//      arr.get[String](7), // config
+//      arr.get[String](8), // scope
       convertStringToDateTime(arr.get[String](9)), // created_at
       convertStringToDateTime(arr.get[String](10)) // updated_at
     )

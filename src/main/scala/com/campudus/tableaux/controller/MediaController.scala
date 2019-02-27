@@ -41,7 +41,7 @@ class MediaController(override val config: TableauxConfig,
 
   import MediaController.ROOT_FOLDER
 
-  lazy val uploadsDirectory = config.uploadsDirectoryPath()
+  lazy val uploadsDirectory: Path = config.uploadsDirectoryPath()
 
   def retrieveFolder(id: FolderId, sortByLangtag: String): Future[ExtendedFolder] = {
     for {
@@ -332,7 +332,7 @@ class MediaController(override val config: TableauxConfig,
       _ <- fileModel.deleteById(mergeWith)
 
       mergedFile <- {
-        val mergeLangtag = toMerge.isSingleLanguage() match {
+        val mergeLangtag = toMerge.isSingleLanguage match {
           case Some(l) => l
           case None => throw new IllegalArgumentException("Can't merge a multi language file.")
         }
