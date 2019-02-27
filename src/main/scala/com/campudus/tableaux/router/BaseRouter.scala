@@ -19,8 +19,6 @@ import scala.io.Source
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-import io.circe.literal._
-
 trait BaseRouter extends VertxAccess {
 
   protected val TABLE_ID = """(?<tableId>[\d]+)"""
@@ -47,15 +45,11 @@ trait BaseRouter extends VertxAccess {
   /**
     * Base result JSON
     */
-  val baseResult = Json.obj("status" -> "ok")
-  val circeBaseResult = json"""{"status": "ok"}"""
+  val baseResult: JsonObject = Json.obj("status" -> "ok")
 
   type AsyncReplyFunction = (=> Future[DomainObject]) => AsyncReply
-  type AsyncCirceReplyFunction = (=> Future[io.circe.Json]) => AsyncReply
 
   def asyncGetReply: AsyncReplyFunction = asyncReply(GetReturn)(_)
-
-  def asyncCirceGetReply: AsyncCirceReplyFunction = asyncCirceReply(GetReturn)(_)
 
   def asyncEmptyReply: AsyncReplyFunction = asyncReply(EmptyReturn)(_)
 
@@ -83,30 +77,6 @@ trait BaseRouter extends VertxAccess {
     }
   }
 
-  private def asyncCirceReply(returnType: ReturnType)(replyFunction: => Future[io.circe.Json]): AsyncReply = {
-    AsyncReply {
-      val catchedReplyFunction = Try(replyFunction) match {
-        case Success(future) => future
-        case Failure(ex) => Future.failed(ex)
-      }
-
-      catchedReplyFunction
-        .map({ result =>
-          OkCirce(result.deepMerge(circeBaseResult))
-        })
-        .map({ reply =>
-          Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))
-        })
-        .recover({
-          case ex: InvalidNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
-          case ex: NoNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
-          case ex: CustomException => Error(ex.toRouterException)
-          case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
-          case NonFatal(ex) => Error(RouterException("unknown error", ex, "error.unknown", 500))
-        })
-    }
-  }
-
   def getJson(context: RoutingContext): JsonObject = {
 
     val buffer = context.getBody() match {
@@ -114,25 +84,24 @@ trait BaseRouter extends VertxAccess {
       case None => ""
     }
 
-    buffer.isEmpty match {
-      case true => throw NoJsonFoundException("No JSON found.")
+    if (buffer.isEmpty) {
+      throw NoJsonFoundException("No JSON found.")
+    }
 
-      case false =>
-        buffer match {
-          case "null" => Json.emptyObj()
+    buffer match {
+      case "null" => Json.emptyObj()
 
-          case _ =>
-            Try(Json.fromObjectString(buffer)) match {
-              case Success(r) => r
+      case _ =>
+        Try(Json.fromObjectString(buffer)) match {
+          case Success(r) => r
 
-              case Failure(ex: DecodeException) =>
-                logger.error(s"Couldn't parse requestBody. JSON is valid: [$buffer]")
-                throw InvalidJsonException(ex.getMessage, "invalid")
+          case Failure(ex: DecodeException) =>
+            logger.error(s"Couldn't parse requestBody. JSON is valid: [$buffer]")
+            throw InvalidJsonException(ex.getMessage, "invalid")
 
-              case Failure(ex) =>
-                logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$buffer]")
-                throw ex
-            }
+          case Failure(ex) =>
+            logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$buffer]")
+            throw ex
         }
     }
   }
@@ -228,11 +197,6 @@ trait BaseRouter extends VertxAccess {
         resp.setStatusMessage("OK")
         resp.putHeader("Content-type", "application/json")
         resp.end(js.encode())
-      case OkCirce(js) =>
-        resp.setStatusCode(200)
-        resp.setStatusMessage("OK")
-        resp.putHeader("Content-type", "application/json")
-        resp.end(js.noSpaces)
       case SendEmbeddedFile(path) =>
         try {
           resp.setStatusCode(200)

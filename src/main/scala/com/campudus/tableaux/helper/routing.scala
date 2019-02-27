@@ -13,8 +13,6 @@ case object NoBody extends SyncReply
 
 case class Ok(json: JsonObject) extends SyncReply
 
-case class OkCirce(json: io.circe.Json) extends SyncReply
-
 case class OkString(string: String, contentType: String = "application/json") extends SyncReply
 
 case class SendFile(file: String, absolute: Boolean = false) extends SyncReply

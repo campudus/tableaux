@@ -3,6 +3,7 @@ package com.campudus.tableaux.router
 import java.util.UUID
 
 import com.campudus.tableaux.controller.SystemController
+import com.campudus.tableaux.database.domain.DomainObjectWrapper
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler
@@ -190,8 +191,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   private def retrieveServices(context: RoutingContext): Unit = {
     sendReply(
       context,
-      asyncCirceGetReply {
-        controller.retrieveServices()
+      asyncGetReply {
+        controller.retrieveServices().map(DomainObjectWrapper)
       }
     )
   }
@@ -205,8 +206,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     } yield {
       sendReply(
         context,
-        asyncCirceGetReply {
-          controller.retrieveService(serviceId)
+        asyncGetReply {
+          controller.retrieveService(serviceId).map(DomainObjectWrapper)
         }
       )
     }
@@ -218,9 +219,9 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
   private def createService(context: RoutingContext): Unit = {
     sendReply(
       context,
-      asyncCirceGetReply {
+      asyncGetReply {
         val json = getJson(context)
-        controller.createService(json)
+        controller.createService(json).map(DomainObjectWrapper)
       }
     )
   }
