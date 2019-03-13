@@ -1,26 +1,26 @@
 package com.campudus.tableaux.database.domain
 
-import io.circe.Encoder
+import io.circe.{Encoder, Json}
 import org.joda.time.DateTime
 
 object Service {
 
   implicit val dateTimeEncoder: Encoder[DateTime] = Encoder.encodeString.contramap[DateTime](_.toString)
 
+  implicit val encoderEvent: Encoder[MultiLanguageValue[String]] = {
+    Encoder.encodeJson.contramap(m =>
+      m.values.foldLeft(Json.obj()) {
+        case (obj, (langtag, value)) =>
+          obj.deepMerge(Json.obj(langtag -> Json.fromString(value)))
+    })
+  }
+
   // without a serviceEncoder this error is thrown: "could not find implicit value for parameter encoder: io.circe.Encoder[com.campudus.tableaux.database.domain.Service]"
   implicit val encodeService: Encoder[Service] =
     Encoder
       .forProduct9("id", "type", "name", "ordering", "displayName", "description", "active", "createdAt", "updatedAt")(
         s =>
-          (s.id,
-           s.serviceType,
-           s.name,
-           s.ordering,
-           s.displayName.getJson.toString,
-           s.description.getJson.toString,
-           s.active,
-           s.createdAt,
-           s.updatedAt))
+          (s.id, s.serviceType, s.name, s.ordering, s.displayName, s.description, s.active, s.createdAt, s.updatedAt))
 
 }
 
