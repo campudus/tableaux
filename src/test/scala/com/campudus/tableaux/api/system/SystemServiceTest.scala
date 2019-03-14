@@ -106,25 +106,23 @@ class SystemServiceTest extends TableauxTestBase {
                         |    "de": "super",
                         |    "en": "cool"
                         |  },
-                        |  "active": true
+                        |  "active": true,
+                        |  "config": {
+                        |    "url": "https://any.customer.com",
+                        |    "header": {
+                        |      "API-Key": "1234"
+                        |    }
+                        |  },
+                        |  "scope": {
+                        |    "type": "table",
+                        |    "tables": {
+                        |      "includes": [
+                        |        { "name": ".*_models" },
+                        |        { "name": ".*_variants" }
+                        |      ]
+                        |    }
+                        |  }
                         |}""".stripMargin
-
-//                        TODO add config + scope to response
-//                        |  "config": {
-//                        |    "url": "https://any.customer.com",
-//                        |    "header": {
-//                        |      "API-Key": "1234"
-//                        |    }
-//                        |  },
-//                        |  "scope": {
-//                        |    "type": "table",
-//                        |    "tables": {
-//                        |      "includes": [
-//                        |        { "name": ".*_models" },
-//                        |        { "name": ".*_variants" }
-//                        |      ]
-//                        |    }
-//                        |  }
 
     for {
       service <- sendRequest("POST", "/system/services", serviceJson)

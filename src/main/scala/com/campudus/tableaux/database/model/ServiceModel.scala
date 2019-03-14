@@ -6,6 +6,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.Ordering
 import com.campudus.tableaux.helper.ResultChecker._
+import io.circe.parser.decode
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
@@ -118,6 +119,15 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
   }
 
   private def convertJsonArrayToService(arr: JsonArray): Service = {
+    val config = decode[io.circe.JsonObject](arr.get[String](7)) match {
+      case Right(json) => json
+      case Left(_) => io.circe.JsonObject.empty
+    }
+
+    val scope = decode[io.circe.JsonObject](arr.get[String](8)) match {
+      case Right(json) => json
+      case Left(_) => io.circe.JsonObject.empty
+    }
 
     Service(
       arr.get[ServiceId](0), // id
@@ -127,8 +137,8 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
       MultiLanguageValue.fromString(arr.get[String](4)), // displayname
       MultiLanguageValue.fromString(arr.get[String](5)), // description
       arr.get[Boolean](6), // active
-//      arr.get[String](7), // config
-//      arr.get[String](8), // scope
+      config, // config
+      scope, // scope
       convertStringToDateTime(arr.get[String](9)), // created_at
       convertStringToDateTime(arr.get[String](10)) // updated_at
     )
@@ -141,8 +151,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
       .selectSingleValue[Boolean](sql, Json.arr(name))
       .flatMap({
         case true => Future.successful(())
-        case false =>
-          Future.failed(new ShouldBeUniqueException(s"Name of service should be unique $name.", "service"))
+        case false => Future.failed(ShouldBeUniqueException(s"Name of service should be unique $name.", "service"))
       })
   }
 }

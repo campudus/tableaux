@@ -18,12 +18,33 @@ object Service {
   // without a serviceEncoder this error is thrown: "could not find implicit value for parameter encoder: io.circe.Encoder[com.campudus.tableaux.database.domain.Service]"
   implicit val encodeService: Encoder[Service] =
     Encoder
-      .forProduct9("id", "type", "name", "ordering", "displayName", "description", "active", "createdAt", "updatedAt")(
+      .forProduct11("id",
+                    "type",
+                    "name",
+                    "ordering",
+                    "displayName",
+                    "description",
+                    "active",
+                    "config",
+                    "scope",
+                    "createdAt",
+                    "updatedAt")(
         s =>
-          (s.id, s.serviceType, s.name, s.ordering, s.displayName, s.description, s.active, s.createdAt, s.updatedAt))
+          (s.id,
+           s.serviceType,
+           s.name,
+           s.ordering,
+           s.displayName,
+           s.description,
+           s.active,
+           s.config,
+           s.scope,
+           s.createdAt,
+           s.updatedAt))
 
 }
 
+// TODO move config and scope into own case classes
 case class Service(
     id: Long,
     serviceType: String,
@@ -32,6 +53,8 @@ case class Service(
     displayName: MultiLanguageValue[String],
     description: MultiLanguageValue[String],
     active: Boolean,
+    config: JsonObject,
+    scope: JsonObject,
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime]
 )
