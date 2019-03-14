@@ -236,8 +236,6 @@ class SystemController(
       config: Option[JsonObject],
       scope: Option[JsonObject]
   ): Future[io.circe.Json] = {
-    println("XXX: " + config)
-    println("XXX: " + scope)
 
     checkArguments(
       notNull(name, "name"),
@@ -266,5 +264,8 @@ class SystemController(
     } yield service.asJson
   }
 
-  def deleteService(serviceId: ServiceId): Future[io.circe.Json] = ???
+  def deleteService(serviceId: ServiceId): Future[io.circe.Json] =
+    for {
+      _ <- serviceModel.delete(serviceId)
+    } yield io.circe.JsonObject.empty.asJson
 }

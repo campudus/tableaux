@@ -13,7 +13,7 @@ import org.vertx.scala.core.json.Json
 class SystemServiceTest extends TableauxTestBase {
 
   @Test
-  def retrieve_notExistingServices_throwException(implicit c: TestContext): Unit =
+  def retrieve_notExistingServices_throwsException(implicit c: TestContext): Unit =
     exceptionTest("NOT FOUND") {
       sendRequest("GET", "/system/services/1337")
     }
@@ -130,6 +130,57 @@ class SystemServiceTest extends TableauxTestBase {
       service <- sendRequest("POST", "/system/services", serviceJson)
     } yield {
       assertEqualsJSON(serviceJson, service.toString, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def create_mandatoryFieldsProvided_returnsCreatedService(implicit c: TestContext): Unit = okTest {
+    val serviceJson = """{
+                        |  "name": "a new service",
+                        |  "type": "action"
+                        |}""".stripMargin
+    for {
+      service <- sendRequest("POST", "/system/services", serviceJson)
+    } yield {
+      assertEqualsJSON(serviceJson, service.toString, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def create_withoutName_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      sendRequest("POST", "/system/services", """{ "type": "action" }""")
+    }
+
+  @Test
+  def create_withoutType_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      sendRequest("POST", "/system/services", """{ "name": "test service" }""")
+    }
+
+  @Test
+  def delete_notExistingService_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("NOT FOUND") {
+      sendRequest("DELETE", "/system/services/1337")
+    }
+
+  @Test
+  def delete_existingService_returnsOk(implicit c: TestContext): Unit = okTest {
+    val serviceJson = """{
+                        |  "name": "a new service",
+                        |  "type": "action"
+                        |}""".stripMargin
+    for {
+      serviceId <- sendRequest("POST", "/system/services", serviceJson).map(_.getLong("id"))
+      servicesBeforeDeletion <- sendRequest("GET", "/system/services").map(_.getJsonArray("services"))
+
+      result <- sendRequest("DELETE", s"/system/services/$serviceId", serviceJson)
+
+      servicesAfterDeletion <- sendRequest("GET", "/system/services").map(_.getJsonArray("services"))
+    } yield {
+      assertEquals(1, servicesBeforeDeletion.size)
+      assertEqualsJSON("""{  "status": "ok" }""", result.toString)
+      assertEquals(0, servicesAfterDeletion.size)
     }
   }
 }

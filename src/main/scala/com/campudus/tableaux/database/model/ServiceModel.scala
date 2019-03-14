@@ -53,6 +53,15 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
     }
   }
 
+  def delete(id: ServiceId): Future[Unit] = {
+    val delete = s"DELETE FROM $table WHERE id = ?"
+
+    for {
+      result <- connection.query(delete, Json.arr(id))
+      _ <- Future(deleteNotNull(result))
+    } yield ()
+  }
+
   def create(
       name: String,
       serviceType: String,
