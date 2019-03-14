@@ -226,7 +226,33 @@ class SystemController(
       .map(_ => EmptyObject())
   }
 
-  def createService(json: JsonObject): Future[io.circe.Json] = ???
+  def createService(
+      name: String,
+      serviceType: String,
+      ordering: Option[Long],
+      displayName: MultiLanguageValue[String],
+      description: MultiLanguageValue[String],
+      active: Boolean,
+      config: Option[JsonObject],
+      scope: Option[JsonObject]
+  ): Future[io.circe.Json] = {
+    println("XXX: " + config)
+    println("XXX: " + scope)
+
+    checkArguments(
+      notNull(name, "name"),
+      notNull(serviceType, "type")
+    )
+
+    logger.info(s"createService $name $serviceType $ordering $displayName $description $active $config $scope")
+
+    for {
+      serviceId <- serviceModel.create(name, serviceType, ordering, displayName, description, active, config, scope)
+      service <- retrieveService(serviceId)
+    } yield service.asJson
+  }
+
+  def updateService(serviceId: ServiceId, json: JsonObject): Future[io.circe.Json] = ???
 
   def retrieveServices(): Future[io.circe.Json] = {
     for {
@@ -239,4 +265,6 @@ class SystemController(
       service <- serviceModel.retrieve(serviceId)
     } yield service.asJson
   }
+
+  def deleteService(serviceId: ServiceId): Future[io.circe.Json] = ???
 }

@@ -1,10 +1,12 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.database.domain.{MultiLanguageValue, Service}
-import com.campudus.tableaux.database.model.ServiceModel.{Ordering, ServiceId}
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
+import com.campudus.tableaux.ShouldBeUniqueException
+import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.ServiceModel.ServiceId
+import com.campudus.tableaux.database.model.TableauxModel.Ordering
 import com.campudus.tableaux.helper.ResultChecker._
-import org.vertx.scala.core.json.{Json, JsonArray}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 
@@ -51,6 +53,52 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
     }
   }
 
+  def create(
+      name: String,
+      serviceType: String,
+      ordering: Option[Long],
+      displayName: MultiLanguageValue[String],
+      description: MultiLanguageValue[String],
+      active: Boolean,
+      config: Option[JsonObject],
+      scope: Option[JsonObject]
+  ): Future[ServiceId] = {
+
+    val insert = s"""INSERT INTO $table (
+                    |  name,
+                    |  type,
+                    |  ordering,
+                    |  displayname,
+                    |  description,
+                    |  active,
+                    |  config,
+                    |  scope)
+                    |VALUES
+                    |  (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""".stripMargin
+
+    for {
+      _ <- checkUniqueName(name)
+
+      result <- connection.query(
+        insert,
+        Json
+          .arr(
+            name,
+            serviceType,
+            ordering.orNull,
+            displayName.getJson.toString,
+            description.getJson.toString,
+            active,
+            config.map(_.toString).orNull,
+            scope.map(_.toString).orNull
+          )
+      )
+
+      serviceId = insertNotNull(result).head.get[ServiceId](0)
+    } yield serviceId
+
+  }
+
   def retrieveAll(): Future[Seq[Service]] = {
     for {
       result <- connection.query(selectStatement(None))
@@ -75,5 +123,17 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
       convertStringToDateTime(arr.get[String](9)), // created_at
       convertStringToDateTime(arr.get[String](10)) // updated_at
     )
+  }
+
+  private def checkUniqueName(name: String): Future[Unit] = {
+
+    val sql = s"SELECT COUNT(*) = 0 FROM $table WHERE name = ?"
+    connection
+      .selectSingleValue[Boolean](sql, Json.arr(name))
+      .flatMap({
+        case true => Future.successful(())
+        case false =>
+          Future.failed(new ShouldBeUniqueException(s"Name of service should be unique $name.", "service"))
+      })
   }
 }

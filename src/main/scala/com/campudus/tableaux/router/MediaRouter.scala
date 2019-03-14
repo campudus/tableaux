@@ -10,7 +10,6 @@ import com.campudus.tableaux.helper.{AsyncReply, Header, SendFile}
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
-import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.{Future, Promise}
 
@@ -295,14 +294,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         }
       )
     }
-  }
-
-  private def getNullableObject(field: String)(implicit json: JsonObject): Option[JsonObject] = {
-    Option(json.getJsonObject(field))
-  }
-
-  private def getNullableLong(field: String)(implicit json: JsonObject): Option[Long] = {
-    Option(json.getLong(field)).map(_.toLong)
   }
 
   private def handleUpload(implicit context: RoutingContext,

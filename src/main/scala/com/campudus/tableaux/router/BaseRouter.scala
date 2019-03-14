@@ -106,6 +106,14 @@ trait BaseRouter extends VertxAccess {
     }
   }
 
+  protected def getNullableObject(field: String)(implicit json: JsonObject): Option[JsonObject] = {
+    Option(json.getJsonObject(field))
+  }
+
+  protected def getNullableLong(field: String)(implicit json: JsonObject): Option[Long] = {
+    Option(json.getLong(field)).map(_.toLong)
+  }
+
   def getLongParam(name: String, context: RoutingContext): Option[Long] = {
     context.request().getParam(name).map(_.toLong)
   }

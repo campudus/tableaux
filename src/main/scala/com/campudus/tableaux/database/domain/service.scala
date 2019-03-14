@@ -1,13 +1,13 @@
 package com.campudus.tableaux.database.domain
 
-import io.circe.{Encoder, Json}
+import io.circe._
 import org.joda.time.DateTime
 
 object Service {
 
   implicit val dateTimeEncoder: Encoder[DateTime] = Encoder.encodeString.contramap[DateTime](_.toString)
 
-  implicit val encoderEvent: Encoder[MultiLanguageValue[String]] = {
+  implicit val encodeMultiLanguageValue: Encoder[MultiLanguageValue[String]] = {
     Encoder.encodeJson.contramap(m =>
       m.values.foldLeft(Json.obj()) {
         case (obj, (langtag, value)) =>

@@ -91,4 +91,45 @@ class SystemServiceTest extends TableauxTestBase {
       assertEqualsJSON(allServiceJson, allServices.toString, JSONCompareMode.LENIENT)
     }
   }
+
+  @Test
+  def create_allPossibleFieldsProvided_returnsCreatedService(implicit c: TestContext): Unit = okTest {
+    val serviceJson = """{
+                        |  "name": "a new service",
+                        |  "type": "action",
+                        |  "ordering": 42,
+                        |  "displayName": {
+                        |    "de": "Mein erster Service",
+                        |    "en": "My first service"
+                        |  },
+                        |  "description": {
+                        |    "de": "super",
+                        |    "en": "cool"
+                        |  },
+                        |  "active": true
+                        |}""".stripMargin
+
+//                        TODO add config + scope to response
+//                        |  "config": {
+//                        |    "url": "https://any.customer.com",
+//                        |    "header": {
+//                        |      "API-Key": "1234"
+//                        |    }
+//                        |  },
+//                        |  "scope": {
+//                        |    "type": "table",
+//                        |    "tables": {
+//                        |      "includes": [
+//                        |        { "name": ".*_models" },
+//                        |        { "name": ".*_variants" }
+//                        |      ]
+//                        |    }
+//                        |  }
+
+    for {
+      service <- sendRequest("POST", "/system/services", serviceJson)
+    } yield {
+      assertEqualsJSON(serviceJson, service.toString, JSONCompareMode.LENIENT)
+    }
+  }
 }
