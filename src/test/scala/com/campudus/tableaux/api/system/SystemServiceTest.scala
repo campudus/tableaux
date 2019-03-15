@@ -157,6 +157,12 @@ class SystemServiceTest extends TableauxTestBase {
     }
 
   @Test
+  def create_invalidServiceType_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      sendRequest("POST", "/system/services", """{ "type": "invalid_action", "name": "test service" }""")
+    }
+
+  @Test
   def delete_notExistingService_throwsException(implicit c: TestContext): Unit =
     exceptionTest("NOT FOUND") {
       sendRequest("DELETE", "/system/services/1337")

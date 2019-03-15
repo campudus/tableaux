@@ -3,7 +3,7 @@ package com.campudus.tableaux.router
 import java.util.UUID
 
 import com.campudus.tableaux.controller.SystemController
-import com.campudus.tableaux.database.domain.{DomainObjectWrapper, MultiLanguageValue}
+import com.campudus.tableaux.database.domain.{DomainObjectWrapper, MultiLanguageValue, ServiceType}
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler
@@ -230,7 +230,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
 
         // mandatory fields
         val name = json.getString("name")
-        val serviceType = json.getString("type")
+        val serviceType = ServiceType(Option(json.getString("type")))
 
         // optional fields
         val ordering = Try(json.getInteger("ordering").longValue()).toOption

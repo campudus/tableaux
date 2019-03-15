@@ -228,7 +228,7 @@ class SystemController(
 
   def createService(
       name: String,
-      serviceType: String,
+      serviceType: ServiceType,
       ordering: Option[Long],
       displayName: MultiLanguageValue[String],
       description: MultiLanguageValue[String],

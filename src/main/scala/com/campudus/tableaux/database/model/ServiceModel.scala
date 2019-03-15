@@ -65,7 +65,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
 
   def create(
       name: String,
-      serviceType: String,
+      serviceType: ServiceType,
       ordering: Option[Long],
       displayName: MultiLanguageValue[String],
       description: MultiLanguageValue[String],
@@ -94,7 +94,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
         Json
           .arr(
             name,
-            serviceType,
+            serviceType.toString,
             ordering.orNull,
             displayName.getJson.toString,
             description.getJson.toString,
@@ -131,7 +131,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
 
     Service(
       arr.get[ServiceId](0), // id
-      arr.get[String](1), // type
+      ServiceType(Option(arr.get[String](1))), // type
       arr.get[String](2), // name
       arr.get[Ordering](3), // ordering
       MultiLanguageValue.fromString(arr.get[String](4)), // displayname

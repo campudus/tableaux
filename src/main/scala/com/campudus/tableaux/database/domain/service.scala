@@ -31,7 +31,7 @@ object Service {
                     "updatedAt")(
         s =>
           (s.id,
-           s.serviceType,
+           s.serviceType.toString,
            s.name,
            s.ordering,
            s.displayName,
@@ -47,7 +47,7 @@ object Service {
 // TODO move config and scope into own case classes
 case class Service(
     id: Long,
-    serviceType: String,
+    serviceType: ServiceType,
     name: String,
     ordering: Long,
     displayName: MultiLanguageValue[String],
@@ -73,13 +73,19 @@ object ServiceType {
       case Some(ACTION) => ServiceTypeAction
       case Some(FILTER) => ServiceTypeFilter
       case Some(LISTENER) => ServiceTypeListener
-      case _ => throw new IllegalArgumentException("Invalid argument for ServiceType.apply")
+      case _ => throw new IllegalArgumentException("Invalid argument for ServiceType")
     }
   }
 }
 
-case object ServiceTypeAction extends ServiceType
+case object ServiceTypeAction extends ServiceType {
+  override def toString: String = ServiceType.ACTION
+}
 
-case object ServiceTypeFilter extends ServiceType
+case object ServiceTypeFilter extends ServiceType {
+  override def toString: String = ServiceType.FILTER
+}
 
-case object ServiceTypeListener extends ServiceType
+case object ServiceTypeListener extends ServiceType {
+  override def toString: String = ServiceType.LISTENER
+}
