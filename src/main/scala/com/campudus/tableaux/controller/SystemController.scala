@@ -253,18 +253,22 @@ class SystemController(
   def updateService(serviceId: ServiceId, json: JsonObject): Future[io.circe.Json] = ???
 
   def retrieveServices(): Future[io.circe.Json] = {
+    logger.info(s"retrieveServices")
     for {
       serviceSeq <- serviceModel.retrieveAll().map(ServiceSeq)
     } yield serviceSeq.asJson
   }
 
   def retrieveService(serviceId: ServiceId): Future[io.circe.Json] = {
+    logger.info(s"retrieveService $serviceId")
     for {
       service <- serviceModel.retrieve(serviceId)
     } yield service.asJson
   }
 
-  def deleteService(serviceId: ServiceId): Future[io.circe.Json] =
+  def deleteService(serviceId: ServiceId): Future[io.circe.Json] = {
+    logger.info(s"deleteService $serviceId")
+
     for {
       _ <- serviceModel.delete(serviceId)
     } yield io.circe.JsonObject.empty.asJson
