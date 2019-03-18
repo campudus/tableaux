@@ -1,7 +1,7 @@
 CREATE TABLE system_services (
   id          BIGSERIAL,
   type        VARCHAR(50) NOT NULL,
-  name        VARCHAR(255) NOT NULL,
+  name        VARCHAR(255) NOT NULL UNIQUE,
   ordering    BIGINT,
   displayname JSON,
   description JSON,
