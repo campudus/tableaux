@@ -145,6 +145,20 @@ class SystemServiceTest extends TableauxTestBase {
   }
 
   @Test
+  def create_serviceWithSameNameTwice_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unique.service") {
+      val firstServiceInit = """{
+                               |  "name": "first service",
+                               |  "type": "action"
+                               |}""".stripMargin
+
+      for {
+        _ <- sendRequest("POST", "/system/services", firstServiceInit)
+        _ <- sendRequest("POST", "/system/services", firstServiceInit)
+      } yield ()
+    }
+
+  @Test
   def create_withoutName_throwsException(implicit c: TestContext): Unit =
     exceptionTest("error.arguments") {
       sendRequest("POST", "/system/services", """{ "type": "action" }""")
@@ -187,4 +201,51 @@ class SystemServiceTest extends TableauxTestBase {
       assertEquals(0, servicesAfterDeletion.size)
     }
   }
+
+  @Test
+  def update_existingService_returnsUpdatedService(implicit c: TestContext): Unit = okTest {
+    val simpleServiceInit = """{
+                              |  "name": "a new service",
+                              |  "type": "action"
+                              |}""".stripMargin
+
+    val expectedService = """{
+                            |  "name": "changed service",
+                            |  "type": "action"
+                            |}""".stripMargin
+
+    for {
+      serviceId <- sendRequest("POST", "/system/services", simpleServiceInit).map(_.getLong("id"))
+
+      updatedService <- sendRequest("PATCH", s"/system/services/$serviceId", """{ "name": "changed service" }""")
+
+    } yield {
+      assertEqualsJSON(expectedService, updatedService.toString, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def update_otherServiceWithThisNameAlreadyExisting_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unique.service") {
+      val firstServiceInit = """{
+                               |  "name": "first service",
+                               |  "type": "action"
+                               |}""".stripMargin
+
+      val secondServiceInit = """{
+                                |  "name": "a new service",
+                                |  "type": "action"
+                                |}""".stripMargin
+
+      for {
+        _ <- sendRequest("POST", "/system/services", firstServiceInit)
+        secondServiceId <- sendRequest("POST", "/system/services", secondServiceInit).map(_.getLong("id"))
+
+        _ <- sendRequest("PATCH", s"/system/services/$secondServiceId", """{ "name": "first service" }""")
+
+      } yield ()
+    }
+
+  // TODO at leas one value test bei update
+
 }

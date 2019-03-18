@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model
 
+import cats.instances.{map, ordering}
 import com.campudus.tableaux.ShouldBeUniqueException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
@@ -22,6 +23,57 @@ object ServiceModel {
 
 class ServiceModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
   val table: String = "system_services"
+
+  def update(
+      serviceId: ServiceId,
+      name: Option[String],
+      serviceType: Option[ServiceType],
+      ordering: Option[Ordering],
+      displayName: Option[MultiLanguageValue[String]],
+      description: Option[MultiLanguageValue[String]],
+      active: Option[Boolean],
+      config: Option[JsonObject],
+      scope: Option[JsonObject]
+  ): Future[Unit] = {
+
+    val updateParamOpts = Map(
+      "name" -> name,
+      "type" -> serviceType,
+      "ordering" -> ordering,
+      "displayName" -> displayName,
+      "description" -> description,
+      "active" -> active,
+      "config" -> config,
+      "scope" -> scope
+    )
+
+    val paramsToUpdate = updateParamOpts
+      .filter({ case (_, v) => v.isDefined })
+      .map({ case (k, v) => (k, v.orNull) })
+
+    val parameterUpdateString = paramsToUpdate.keys.map(column => s"$column = ?").mkString(", ")
+    val update = s"UPDATE $table SET $parameterUpdateString, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+
+    println("XXX: " + update)
+
+    val values = paramsToUpdate.values
+      .map({
+        case m: MultiLanguageValue[_] => m.getJson.toString
+        case a => a.toString
+      })
+      .toSeq
+
+    val binds = Json.arr(values: _*).add(serviceId.toString)
+
+    for {
+      _ <- name match {
+        case Some(n) => checkUniqueName(n)
+        case _ => Future.successful(())
+      }
+
+      _ <- connection.query(update, binds)
+    } yield ()
+  }
 
   private def selectStatement(conditions: Option[String]): String = {
     val where = if (conditions.isDefined) {

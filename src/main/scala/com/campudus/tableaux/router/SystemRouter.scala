@@ -1,5 +1,6 @@
 package com.campudus.tableaux.router
 
+import java.lang
 import java.util.UUID
 
 import com.campudus.tableaux.controller.SystemController
@@ -65,7 +66,10 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.post("/settings/:settings").handler(updateSettings)
 
     // init body handler for settings routes
-    router.post("/services/*").handler(BodyHandler.create())
+    val bodyHandler = BodyHandler.create()
+    router.post("/services").handler(bodyHandler)
+    router.patch("/services/*").handler(bodyHandler)
+
     router.post("/services").handler(createService)
     router.patchWithRegex(s"""/services/$SERVICE_ID""").handler(updateService)
 
@@ -258,7 +262,38 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         context,
         asyncGetReply {
           val json = getJson(context)
-          controller.updateService(serviceId, json).map(DomainObjectWrapper)
+
+          // TODO Use map instead of option match
+
+          // optional fields
+          val name = Option(json.getString("name"))
+          val serviceType = Option(json.getString("type")) match {
+            case Some(value) => Some(ServiceType(Option(value)))
+            case _ => None
+          }
+          val ordering = Try(json.getInteger("ordering").longValue()).toOption
+
+          val displayName = getNullableObject("displayName")(json) match {
+            case Some(value) => Some(MultiLanguageValue[String](value))
+            case _ => None
+          }
+
+          val description = getNullableObject("description")(json) match {
+            case Some(value) => Some(MultiLanguageValue[String](value))
+            case _ => None
+          }
+
+          val active = Option(json.getBoolean("active")) match {
+            case Some(value) => Try[Boolean](value).toOption
+            case _ => None
+          }
+
+          val config = getNullableObject("config")(json)
+          val scope = getNullableObject("scope")(json)
+
+          controller
+            .updateService(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
+            .map(DomainObjectWrapper)
         }
       )
     }

@@ -1,5 +1,6 @@
 package com.campudus.tableaux.controller
 
+import cats.instances.ordering
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheClient
@@ -250,7 +251,25 @@ class SystemController(
     } yield service.asJson
   }
 
-  def updateService(serviceId: ServiceId, json: JsonObject): Future[io.circe.Json] = ???
+  def updateService(
+      serviceId: ServiceId,
+      name: Option[String],
+      serviceType: Option[ServiceType],
+      ordering: Option[Long],
+      displayName: Option[MultiLanguageValue[String]],
+      description: Option[MultiLanguageValue[String]],
+      active: Option[Boolean],
+      config: Option[JsonObject],
+      scope: Option[JsonObject]
+  ): Future[io.circe.Json] = {
+    logger.info(
+      s"updateService $serviceId $name $serviceType $ordering $displayName $description $active $config $scope")
+
+    for {
+      _ <- serviceModel.update(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
+      service <- retrieveService(serviceId)
+    } yield service.asJson
+  }
 
   def retrieveServices(): Future[io.circe.Json] = {
     logger.info(s"retrieveServices")
@@ -272,4 +291,5 @@ class SystemController(
     for {
       _ <- serviceModel.delete(serviceId)
     } yield io.circe.JsonObject.empty.asJson
+  }
 }
