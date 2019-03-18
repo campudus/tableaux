@@ -50,23 +50,25 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
       .filter({ case (_, v) => v.isDefined })
       .map({ case (k, v) => (k, v.orNull) })
 
-    val parameterUpdateString = paramsToUpdate.keys.toIndexedSeq.map(column => s"$column = ?").mkString(", ")
-    val update = s"UPDATE $table SET $parameterUpdateString, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+    val columnString2valueString: Map[String, String] = paramsToUpdate.map({
+      case (columnName, value) =>
+        val columnString = s"$columnName = ?"
 
-    val values = paramsToUpdate.values.toIndexedSeq
-      .map({
-        case m: MultiLanguageValue[_] => m.getJson.toString
-        case a => a.toString
-      })
+        val valueString = value match {
+          case m: MultiLanguageValue[_] => m.getJson.toString
+          case a => a.toString
+        }
 
-    val binds = Json.arr(values: _*).add(serviceId.toString)
+        columnString -> valueString
+    })
+
+    val columnsString = columnString2valueString.keys.mkString(", ")
+    val update = s"UPDATE $table SET $columnsString, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+
+    val binds = Json.arr(columnString2valueString.values.toSeq: _*).add(serviceId.toString)
 
     for {
-      _ <- name match {
-        case Some(n) => checkUniqueName(n)
-        case _ => Future.successful(())
-      }
-
+      _ <- name.map(checkUniqueName).getOrElse(Future.successful(()))
       _ <- connection.query(update, binds)
     } yield ()
   }

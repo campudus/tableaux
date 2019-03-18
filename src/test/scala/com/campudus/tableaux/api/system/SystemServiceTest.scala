@@ -1,7 +1,5 @@
 package com.campudus.tableaux.api.system
 
-import java.lang
-
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner

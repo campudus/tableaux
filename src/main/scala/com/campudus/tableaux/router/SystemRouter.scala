@@ -263,31 +263,13 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         asyncGetReply {
           val json = getJson(context)
 
-          // TODO Use map instead of option match
-
           // optional fields
           val name = Option(json.getString("name"))
-          val serviceType = Option(json.getString("type")) match {
-            case Some(value) => Some(ServiceType(Option(value)))
-            case _ => None
-          }
+          val serviceType = Option(json.getString("type")).map(t => ServiceType(Option(t)))
           val ordering = Try(json.getInteger("ordering").longValue()).toOption
-
-          val displayName = getNullableObject("displayName")(json) match {
-            case Some(value) => Some(MultiLanguageValue[String](value))
-            case _ => None
-          }
-
-          val description = getNullableObject("description")(json) match {
-            case Some(value) => Some(MultiLanguageValue[String](value))
-            case _ => None
-          }
-
-          val active = Option(json.getBoolean("active")) match {
-            case Some(value) => Try[Boolean](value).toOption
-            case _ => None
-          }
-
+          val displayName = getNullableObject("displayName")(json).map(MultiLanguageValue[String])
+          val description = getNullableObject("description")(json).map(MultiLanguageValue[String])
+          val active = Option(json.getBoolean("active")).flatMap(Try[Boolean](_).toOption)
           val config = getNullableObject("config")(json)
           val scope = getNullableObject("scope")(json)
 
