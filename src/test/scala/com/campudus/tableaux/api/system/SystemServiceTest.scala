@@ -1,16 +1,31 @@
 package com.campudus.tableaux.api.system
 
+import java.lang
+
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.joda.time.DateTime
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.Json
 
+import scala.concurrent.Future
+
 @RunWith(classOf[VertxUnitRunner])
 class SystemServiceTest extends TableauxTestBase {
+
+  val simpleDefaultService: String = """{
+                                       |  "name": "first service",
+                                       |  "type": "action"
+                                       |}""".stripMargin
+
+  def createDefaultService: Future[Long] =
+    for {
+      serviceId <- sendRequest("POST", "/system/services", simpleDefaultService).map(_.getLong("id"))
+    } yield serviceId
 
   @Test
   def retrieve_notExistingServices_throwsException(implicit c: TestContext): Unit =
@@ -147,14 +162,9 @@ class SystemServiceTest extends TableauxTestBase {
   @Test
   def create_serviceWithSameNameTwice_throwsException(implicit c: TestContext): Unit =
     exceptionTest("error.request.unique.service") {
-      val firstServiceInit = """{
-                               |  "name": "first service",
-                               |  "type": "action"
-                               |}""".stripMargin
-
       for {
-        _ <- sendRequest("POST", "/system/services", firstServiceInit)
-        _ <- sendRequest("POST", "/system/services", firstServiceInit)
+        _ <- sendRequest("POST", "/system/services", simpleDefaultService)
+        _ <- sendRequest("POST", "/system/services", simpleDefaultService)
       } yield ()
     }
 
@@ -188,8 +198,9 @@ class SystemServiceTest extends TableauxTestBase {
                         |  "name": "a new service",
                         |  "type": "action"
                         |}""".stripMargin
+
     for {
-      serviceId <- sendRequest("POST", "/system/services", serviceJson).map(_.getLong("id"))
+      serviceId <- createDefaultService
       servicesBeforeDeletion <- sendRequest("GET", "/system/services").map(_.getJsonArray("services"))
 
       result <- sendRequest("DELETE", s"/system/services/$serviceId", serviceJson)
@@ -227,18 +238,13 @@ class SystemServiceTest extends TableauxTestBase {
   @Test
   def update_otherServiceWithThisNameAlreadyExisting_throwsException(implicit c: TestContext): Unit =
     exceptionTest("error.request.unique.service") {
-      val firstServiceInit = """{
-                               |  "name": "first service",
-                               |  "type": "action"
-                               |}""".stripMargin
-
       val secondServiceInit = """{
                                 |  "name": "a new service",
                                 |  "type": "action"
                                 |}""".stripMargin
 
       for {
-        _ <- sendRequest("POST", "/system/services", firstServiceInit)
+        _ <- sendRequest("POST", "/system/services", simpleDefaultService)
         secondServiceId <- sendRequest("POST", "/system/services", secondServiceInit).map(_.getLong("id"))
 
         _ <- sendRequest("PATCH", s"/system/services/$secondServiceId", """{ "name": "first service" }""")
@@ -246,6 +252,70 @@ class SystemServiceTest extends TableauxTestBase {
       } yield ()
     }
 
-  // TODO at leas one value test bei update
+  @Test
+  def update_noJsonMatching_atLeastOneValueMustBeUpdated_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      val serviceUpdate = """{ "foo": "bar" }"""
+
+      for {
+        serviceId <- createDefaultService
+        _ <- sendRequest("PATCH", s"/system/services/$serviceId", serviceUpdate)
+      } yield ()
+    }
+
+  @Test
+  def update_allPossibleFieldsProvided_returnsUpdatedService(implicit c: TestContext): Unit = okTest {
+    val serviceJson = """{
+                        |  "name": "a changed service",
+                        |  "type": "filter",
+                        |  "ordering": 42,
+                        |  "displayName": {
+                        |    "de": "Mein erster geänderter Service",
+                        |    "en": "My first changed service"
+                        |  },
+                        |  "description": {
+                        |    "de": "super",
+                        |    "en": "cool"
+                        |  },
+                        |  "active": true,
+                        |  "config": {
+                        |    "url": "https://any.customer.com",
+                        |    "header": {
+                        |      "API-Key": "1234"
+                        |    }
+                        |  },
+                        |  "scope": {
+                        |    "type": "table",
+                        |    "tables": {
+                        |      "includes": [
+                        |        { "name": ".*_models" },
+                        |        { "name": ".*_variants" }
+                        |      ]
+                        |    }
+                        |  }
+                        |}""".stripMargin
+
+    for {
+      serviceId <- createDefaultService
+      result <- sendRequest("PATCH", s"/system/services/$serviceId", serviceJson)
+    } yield {
+      assertEqualsJSON(serviceJson, result.toString, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def update_anyParameter_updatedAtIsUpdated(implicit c: TestContext): Unit = okTest {
+    val serviceJson = """{ "name": "a changed service" }"""
+
+    for {
+      serviceId <- createDefaultService
+      serviceBeforeUpdate <- sendRequest("GET", s"/system/services/$serviceId").map(_.getString("updatedAt"))
+      _ <- sendRequest("PATCH", s"/system/services/$serviceId", serviceJson)
+      serviceAfterUpdate <- sendRequest("GET", s"/system/services/$serviceId").map(_.getString("updatedAt"))
+    } yield {
+      assertEquals(None, Option(serviceBeforeUpdate).map(DateTime.parse))
+      assert(Option(serviceAfterUpdate).map(DateTime.parse).isDefined)
+    }
+  }
 
 }

@@ -262,6 +262,15 @@ class SystemController(
       config: Option[JsonObject],
       scope: Option[JsonObject]
   ): Future[io.circe.Json] = {
+
+    checkArguments(
+      greaterZero(serviceId),
+      isDefined(
+        Seq(name, serviceType, ordering, displayName, description, active, config, scope),
+        "name, type, ordering, displayName, description, active, config, scope"
+      )
+    )
+
     logger.info(
       s"updateService $serviceId $name $serviceType $ordering $displayName $description $active $config $scope")
 

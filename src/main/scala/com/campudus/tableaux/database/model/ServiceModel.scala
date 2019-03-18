@@ -1,6 +1,5 @@
 package com.campudus.tableaux.database.model
 
-import cats.instances.{map, ordering}
 import com.campudus.tableaux.ShouldBeUniqueException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
@@ -51,17 +50,14 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
       .filter({ case (_, v) => v.isDefined })
       .map({ case (k, v) => (k, v.orNull) })
 
-    val parameterUpdateString = paramsToUpdate.keys.map(column => s"$column = ?").mkString(", ")
+    val parameterUpdateString = paramsToUpdate.keys.toIndexedSeq.map(column => s"$column = ?").mkString(", ")
     val update = s"UPDATE $table SET $parameterUpdateString, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
 
-    println("XXX: " + update)
-
-    val values = paramsToUpdate.values
+    val values = paramsToUpdate.values.toIndexedSeq
       .map({
         case m: MultiLanguageValue[_] => m.getJson.toString
         case a => a.toString
       })
-      .toSeq
 
     val binds = Json.arr(values: _*).add(serviceId.toString)
 
