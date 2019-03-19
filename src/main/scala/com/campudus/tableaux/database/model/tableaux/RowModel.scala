@@ -548,7 +548,6 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
          |WHERE
          |  user_table_annotations_$tableId.row_id = subquery.row_id AND
          |  user_table_annotations_$tableId.column_id = subquery.column_id AND
-         |  user_table_annotations_$tableId.type = subquery.type AND
          |  user_table_annotations_$tableId.value = subquery.value AND
          |  user_table_annotations_$tableId.type = 'flag'
          |RETURNING
