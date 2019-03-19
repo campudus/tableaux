@@ -411,15 +411,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       value: String
   ): Future[RowId] = {
     logger.info(s"createAddRowAnnotationHistory $tableId $rowId $getUserName")
-    val json = Json.obj("value" -> value)
-    insertHistory(tableId,
-                  rowId,
-                  None,
-                  AnnotationAddedEvent,
-                  HistoryTypeRowFlag,
-                  Some(value),
-                  Some(LanguageType.NEUTRAL),
-                  Some(json.toString))
+    addOrRemoveAnnotationHistory(tableId, rowId, AnnotationAddedEvent, value)
   }
 
   private def removeRowAnnotationHistory(
@@ -428,11 +420,20 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       value: String
   ): Future[RowId] = {
     logger.info(s"createRemoveRowAnnotationHistory $tableId $rowId $getUserName")
+    addOrRemoveAnnotationHistory(tableId, rowId, AnnotationRemovedEvent, value)
+  }
+
+  private def addOrRemoveAnnotationHistory(
+      tableId: TableId,
+      rowId: RowId,
+      eventType: HistoryEventType,
+      value: String
+  ): Future[RowId] = {
     val json = Json.obj("value" -> value)
     insertHistory(tableId,
                   rowId,
                   None,
-                  AnnotationRemovedEvent,
+                  eventType,
                   HistoryTypeRowFlag,
                   Some(value),
                   Some(LanguageType.NEUTRAL),
