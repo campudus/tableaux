@@ -15,21 +15,17 @@ import scala.concurrent.Future
 @RunWith(classOf[VertxUnitRunner])
 class SystemServiceTest extends TableauxTestBase {
 
-  val simpleDefaultService: String = """{
-                                       |  "name": "first service",
-                                       |  "type": "action"
-                                       |}""".stripMargin
+  private val simpleDefaultService: String = """{
+                                               |  "name": "first service",
+                                               |  "type": "action"
+                                               |}""".stripMargin
 
-  def createDefaultService: Future[Long] =
+  private def createDefaultService: Future[Long] =
     for {
       serviceId <- sendRequest("POST", "/system/services", simpleDefaultService).map(_.getLong("id"))
     } yield serviceId
 
-  @Test
-  def retrieve_notExistingServices_throwsException(implicit c: TestContext): Unit =
-    exceptionTest("NOT FOUND") {
-      sendRequest("GET", "/system/services/1337")
-    }
+  // GET /system/services
 
   @Test
   def retrieveAll_emptyServices_returnsEmptyArray(implicit c: TestContext): Unit = okTest {
@@ -38,35 +34,6 @@ class SystemServiceTest extends TableauxTestBase {
       emptyServices <- sendRequest("GET", "/system/services")
     } yield {
       assertEquals(Json.emptyArr(), emptyServices.getJsonArray("services"))
-    }
-  }
-
-  @Test
-  def retrieve_insertedOneService_returnsService(implicit c: TestContext): Unit = okTest {
-    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-
-    val serviceJson = """
-                        |{
-                        |  "id": 1,
-                        |  "type": "action",
-                        |  "name": "service1",
-                        |  "ordering": 1,
-                        |  "displayName": {},
-                        |  "description": { "en": "english", "de": "Deutsch" },
-                        |  "active": true,
-                        |  "updatedAt": null
-                        |}""".stripMargin
-
-    for {
-      _ <- sqlConnection.query("""
-                                 |INSERT INTO system_services
-                                 |  ("type", "name", "ordering", "description", "active")
-                                 |VALUES
-                                 |  ('action', 'service1', 1, E'{"de": "Deutsch", "en": "english"}', TRUE)""".stripMargin)
-
-      service1 <- sendRequest("GET", "/system/services/1")
-    } yield {
-      assertEqualsJSON(serviceJson, service1.toString, JSONCompareMode.LENIENT)
     }
   }
 
@@ -104,6 +71,45 @@ class SystemServiceTest extends TableauxTestBase {
       assertEqualsJSON(allServiceJson, allServices.toString, JSONCompareMode.LENIENT)
     }
   }
+
+  // GET /system/services/<serviceId>
+
+  @Test
+  def retrieve_notExistingServices_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("NOT FOUND") {
+      sendRequest("GET", "/system/services/1337")
+    }
+
+  @Test
+  def retrieve_insertedOneService_returnsService(implicit c: TestContext): Unit = okTest {
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+
+    val serviceJson = """
+                        |{
+                        |  "id": 1,
+                        |  "type": "action",
+                        |  "name": "service1",
+                        |  "ordering": 1,
+                        |  "displayName": {},
+                        |  "description": { "en": "english", "de": "Deutsch" },
+                        |  "active": true,
+                        |  "updatedAt": null
+                        |}""".stripMargin
+
+    for {
+      _ <- sqlConnection.query("""
+                                 |INSERT INTO system_services
+                                 |  ("type", "name", "ordering", "description", "active")
+                                 |VALUES
+                                 |  ('action', 'service1', 1, E'{"de": "Deutsch", "en": "english"}', TRUE)""".stripMargin)
+
+      service1 <- sendRequest("GET", "/system/services/1")
+    } yield {
+      assertEqualsJSON(serviceJson, service1.toString, JSONCompareMode.LENIENT)
+    }
+  }
+
+  // POST /system/services
 
   @Test
   def create_allPossibleFieldsProvided_returnsCreatedService(implicit c: TestContext): Unit = okTest {
@@ -184,6 +190,8 @@ class SystemServiceTest extends TableauxTestBase {
       sendRequest("POST", "/system/services", """{ "type": "invalid_action", "name": "test service" }""")
     }
 
+  // DELETE /system/services/<serviceId>
+
   @Test
   def delete_notExistingService_throwsException(implicit c: TestContext): Unit =
     exceptionTest("NOT FOUND") {
@@ -210,6 +218,8 @@ class SystemServiceTest extends TableauxTestBase {
       assertEquals(0, servicesAfterDeletion.size)
     }
   }
+
+  // PATCH /system/services/<serviceId>
 
   @Test
   def update_existingService_returnsUpdatedService(implicit c: TestContext): Unit = okTest {
