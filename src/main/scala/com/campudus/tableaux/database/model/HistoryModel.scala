@@ -114,37 +114,22 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       langtagOpt: Option[String],
       typeOpt: Option[String]
   ): (String, Seq[Any]) = {
+    val whereColumnId: Option[(String, ColumnId)] = columnIdOpt.map((s" AND (column_id = ? OR column_id IS NULL)", _))
+    val whereRowId: Option[(String, RowId)] = rowIdOpt.map((s" AND row_id = ?", _))
 
-    val whereColumnId: Option[(String, ColumnId)] = columnIdOpt match {
-      case Some(columnId) => Some(s" AND (column_id = ? OR column_id IS NULL)", columnId)
-      case None => None
-    }
-
-    val whereRowId: Option[(String, RowId)] = rowIdOpt match {
-      case Some(rowId) => Some(s" AND row_id = ?", rowId)
-      case None => None
-    }
-
-    val whereLangtag: Option[(String, String)] = langtagOpt match {
-      //      case Some(langtag) => Some(s" AND (value -> 'value' -> ?)::json IS NOT NULL", langtag)
-      case Some(langtag) =>
-        Some(
-          s"""
-             |AND (
-             |  language_type != 'language' OR
-             |  language_type IS NULL OR
-             |  (language_type = 'language' AND (value -> 'value' -> ?)::json IS NOT NULL)
-             |)
+    val whereLangtag: Option[(String, String)] = langtagOpt.map(
+      (
+        s"""
+           |AND (
+           |  language_type != 'language' OR
+           |  language_type IS NULL OR
+           |  (language_type = 'language' AND (value -> 'value' -> ?)::json IS NOT NULL)
+           |)
          """.stripMargin,
-          langtag
-        )
-      case None => None
-    }
+        _
+      ))
 
-    val whereType: Option[(String, String)] = typeOpt match {
-      case Some(historyType) => Some(s" AND history_type = ?", historyType)
-      case None => None
-    }
+    val whereType: Option[(String, String)] = typeOpt.map((s" AND history_type = ?", _))
 
     val opts: List[Option[(String, Any)]] = List(whereColumnId, whereRowId, whereLangtag, whereType)
 
@@ -273,10 +258,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def getLangTags(table: Table): Future[Seq[String]] = {
-    table.langtags match {
-      case Some(langtags) => Future.successful(langtags)
-      case None => tableModel.retrieveGlobalLangtags()
-    }
+    table.langtags.map(Future.successful).getOrElse(tableModel.retrieveGlobalLangtags())
   }
 
   private def retrieveForeignIdentifierCells(column: LinkColumn, linkIds: Seq[RowId]): Future[Seq[Cell[Any]]] = {
@@ -499,10 +481,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     // for clearing of multi language cells create init values for all langtags
     val langtagColumns = for {
       column <- multis
-      langtag = table.langtags match {
-        case Some(value) => value
-        case _ => Seq.empty[String]
-      }
+      langtag = table.langtags.getOrElse(Seq.empty[String])
     } yield (langtag, column)
 
     for {
@@ -620,10 +599,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       langtagOpt: Option[String]
   ): Future[Boolean] = {
 
-    val whereLanguage = langtagOpt match {
-      case Some(langtag) => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL"
-      case _ => ""
-    }
+    val whereLanguage =
+      langtagOpt.map(langtag => s" AND (value -> 'value' -> '$langtag')::json IS NOT NULL").getOrElse("")
 
     connection.selectSingleValue[Boolean](
       s"SELECT COUNT(*) > 0 FROM user_table_history_$tableId WHERE column_id = ? AND row_id = ? $whereLanguage",
@@ -692,11 +669,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       langtagOpt: Option[String] = None
   ): Future[Seq[RowId]] = {
     val languageType = if (annotation.langtags.isEmpty) LanguageNeutral else MultiLanguage
-
-    val annotationsToBeRemoved = langtagOpt match {
-      case Some(langtag) => Seq(langtag)
-      case None => annotation.langtags
-    }
+    val annotationsToBeRemoved = langtagOpt.map(Seq(_)).getOrElse(annotation.langtags)
 
     logger.info(
       s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} $getUserName")
@@ -804,10 +777,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
     val multisWithEmptyValues = for {
       column <- multis
-      langtag <- table.langtags match {
-        case Some(value) => value
-        case _ => Seq.empty[String]
-      }
+      langtag <- table.langtags.getOrElse(Seq.empty[String])
     } yield (column, Map(langtag -> None))
 
     for {
