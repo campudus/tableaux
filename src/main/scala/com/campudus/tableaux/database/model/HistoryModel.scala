@@ -178,7 +178,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
         }
       })
 
-    val languageType = Try(preparedData.head._1).getOrElse(LanguageNeutral)
+    val languageType = preparedData.headOption
+      .map({ case (lt, _, _) => lt })
+      .getOrElse(LanguageNeutral)
 
     val cellValues = preparedData.map({
       case (_, rowIds, values) => (rowIds, values)

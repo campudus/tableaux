@@ -473,9 +473,7 @@ class TableauxModel(
   }
 
   def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
-
-    def invalidateColumn: (TableId, ColumnId) => Future[_] =
-      CacheClient(this.connection).invalidateColumn
+    def invalidateColumn: (TableId, ColumnId) => Future[_] = CacheClient(this.connection).invalidateColumn
 
     for {
       // invalidate the cell itself
@@ -495,9 +493,7 @@ class TableauxModel(
       }
 
       dependentGroupColumns <- retrieveDependentGroupColumns(column)
-
       dependentLinkColumns <- retrieveDependencies(column.table)
-
       dependentColumns = dependentGroupColumns ++ dependentLinkColumns
 
       _ <- Future.sequence(dependentColumns.map({
@@ -505,16 +501,14 @@ class TableauxModel(
         // ... but this would require us to retrieve them which is definitely more expensive
 
         case DependentColumnInformation(tableId, columnId, _, true, groupColumnIds) =>
-          // Only invalidate cache if depending link column is an identifier column
-          // ... because only identifier link columns
+          // Only invalidate cache if depending link column is an identifier column because only identifier link columns
 
           // Invalidate depending link column...
           val invalidateLinkColumn = invalidateColumn(tableId, columnId)
           // Invalidate the table's concat column - to be sure...
           val invalidateConcatColumn = invalidateColumn(tableId, 0)
           // Invalidate all depending group columns
-          val invalidateGroupColumns =
-            Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
+          val invalidateGroupColumns = Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
 
           invalidateLinkColumn.zip(invalidateConcatColumn).zip(invalidateGroupColumns)
 
@@ -523,8 +517,7 @@ class TableauxModel(
           // ... group columns which dependent on link column
 
           // Invalidate all depending group columns
-          val invalidateGroupColumns =
-            Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
+          val invalidateGroupColumns = Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
 
           invalidateGroupColumns
       }))
