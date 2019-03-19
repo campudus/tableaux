@@ -92,7 +92,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
        |  scope,
        |  created_at,
        |  updated_at
-       |FROM $table $where ORDER BY name""".stripMargin
+       |FROM $table $where ORDER BY ordering""".stripMargin
   }
 
   def retrieve(id: ServiceId): Future[Service] = {
