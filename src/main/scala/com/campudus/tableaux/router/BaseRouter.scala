@@ -21,15 +21,11 @@ import scala.util.{Failure, Success, Try}
 
 trait BaseRouter extends VertxAccess {
 
-  protected val TABLE_ID = """(?<tableId>[\d]+)"""
-  protected val COLUMN_ID = """(?<columnId>[\d]+)"""
-  protected val ROW_ID = """(?<rowId>[\d]+)"""
-  protected val LINK_ID = """(?<linkId>[\d]+)"""
-  protected val GROUP_ID = """(?<groupId>[\d]+)"""
-
-  val config: TableauxConfig
-
-  override val vertx: Vertx = config.vertx
+  protected val tableId = """(?<tableId>[\d]+)"""
+  protected val columnId = """(?<columnId>[\d]+)"""
+  protected val rowId = """(?<rowId>[\d]+)"""
+  protected val linkId = """(?<linkId>[\d]+)"""
+  protected val groupId = """(?<groupId>[\d]+)"""
 
   /**
     * Regex for a UUID Version 4
@@ -41,6 +37,10 @@ trait BaseRouter extends VertxAccess {
     * Regex for a Language tag e.g. de, en, de_DE, de-DE, or en_GB
     */
   protected val langtagRegex: String = """(?<langtag>[a-z]{2,3}|[a-z]{2,3}[-_][A-Z]{2,3})"""
+
+  val config: TableauxConfig
+
+  override val vertx: Vertx = config.vertx
 
   /**
     * Base result JSON
@@ -79,31 +79,27 @@ trait BaseRouter extends VertxAccess {
 
   def getJson(context: RoutingContext): JsonObject = {
 
-    val buffer = context.getBody() match {
-      case Some(b) => b.toString()
-      case None => ""
-    }
+    val buffer = context.getBody().map(_.toString()).getOrElse("")
 
-    buffer.isEmpty match {
-      case true => throw NoJsonFoundException("No JSON found.")
+    if (buffer.isEmpty) {
+      throw NoJsonFoundException("No JSON found.")
+    } else {
+      buffer match {
+        case "null" => Json.emptyObj()
 
-      case false =>
-        buffer match {
-          case "null" => Json.emptyObj()
+        case _ =>
+          Try(Json.fromObjectString(buffer)) match {
+            case Success(r) => r
 
-          case _ =>
-            Try(Json.fromObjectString(buffer)) match {
-              case Success(r) => r
+            case Failure(ex: DecodeException) =>
+              logger.error(s"Couldn't parse requestBody. JSON is valid: [$buffer]")
+              throw InvalidJsonException(ex.getMessage, "invalid")
 
-              case Failure(ex: DecodeException) =>
-                logger.error(s"Couldn't parse requestBody. JSON is valid: [$buffer]")
-                throw InvalidJsonException(ex.getMessage, "invalid")
-
-              case Failure(ex) =>
-                logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$buffer]")
-                throw ex
-            }
-        }
+            case Failure(ex) =>
+              logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$buffer]")
+              throw ex
+          }
+      }
     }
   }
 
@@ -212,7 +208,7 @@ trait BaseRouter extends VertxAccess {
           resp.setStatusMessage("OK")
 
           val extension = if (path.contains(".")) {
-            path.split("\\.").toList.last.toLowerCase()
+            path.split("\\.").toList.lastOption.map(_.toLowerCase)
           } else {
             "other"
           }

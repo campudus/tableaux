@@ -22,45 +22,44 @@ object TableauxRouter {
 
 class TableauxRouter(override val config: TableauxConfig, val controller: TableauxController) extends BaseRouter {
 
-  private val AttachmentOfCell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/attachment/$uuidRegex"""
-  private val LinkOfCell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/link/$LINK_ID"""
-  private val LinkOrderOfCell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/link/$LINK_ID/order"""
+  private val AttachmentOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/attachment/$uuidRegex"
+  private val LinkOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId"
+  private val LinkOrderOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId/order"
 
-  private val ColumnsValues: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/values"""
-  private val ColumnsValuesWithLangtag: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/values/$langtagRegex"""
+  private val ColumnsValues: String = s"/tables/$tableId/columns/$columnId/values"
+  private val ColumnsValuesWithLangtag: String = s"/tables/$tableId/columns/$columnId/values/$langtagRegex"
 
-  private val Cell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID"""
-  private val CellAnnotations: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/annotations"""
-  private val CellAnnotation: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/annotations/$uuidRegex"""
+  private val Cell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId"
+  private val CellAnnotations: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations"
+  private val CellAnnotation: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuidRegex"
   private val CellAnnotationLangtag: String =
-    s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/annotations/$uuidRegex/$langtagRegex"""
+    s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuidRegex/$langtagRegex"
 
-  private val Row: String = s"""/tables/$TABLE_ID/rows/$ROW_ID"""
-  private val RowDuplicate: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/duplicate"""
-  private val RowDependent: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/dependent"""
-  private val RowAnnotations: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/annotations"""
-  private val Rows: String = s"""/tables/$TABLE_ID/rows"""
-  private val RowsAnnotations: String = s"""/tables/$TABLE_ID/rows/annotations"""
-  private val RowsOfColumn: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows"""
-  private val RowsOfFirstColumn: String = s"""/tables/$TABLE_ID/columns/first/rows"""
-  private val RowsOfLinkCell: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/foreignRows"""
+  private val Row: String = s"/tables/$tableId/rows/$rowId"
+  private val RowDuplicate: String = s"/tables/$tableId/rows/$rowId/duplicate"
+  private val RowDependent: String = s"/tables/$tableId/rows/$rowId/dependent"
+  private val RowAnnotations: String = s"/tables/$tableId/rows/$rowId/annotations"
+  private val Rows: String = s"/tables/$tableId/rows"
+  private val RowsAnnotations: String = s"/tables/$tableId/rows/annotations"
+  private val RowsOfColumn: String = s"/tables/$tableId/columns/$columnId/rows"
+  private val RowsOfFirstColumn: String = s"/tables/$tableId/columns/first/rows"
+  private val RowsOfLinkCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/foreignRows"
 
-  private val CompleteTable: String = s"""/completetable"""
-  private val CompleteTableId: String = s"""/completetable/$TABLE_ID"""
+  private val CompleteTable: String = s"/completetable"
+  private val CompleteTableId: String = s"/completetable/$tableId"
 
-  private val AnnotationsTable: String = s"""/tables/$TABLE_ID/annotations"""
+  private val AnnotationsTable: String = s"/tables/$tableId/annotations"
 
-  private val AnnotationCount: String = s"""/tables/annotationCount"""
+  private val AnnotationCount: String = s"/tables/annotationCount"
 
-  private val TranslationStatus: String = s"""/tables/translationStatus"""
+  private val TranslationStatus: String = s"/tables/translationStatus"
 
-  private val CellHistory: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/history"""
-  private val CellHistoryWithLangtag: String =
-    s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/history/$langtagRegex"""
-  private val RowHistory: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/history"""
-  private val RowHistoryWithLangtag: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/history/$langtagRegex"""
-  private val TableHistory: String = s"""/tables/$TABLE_ID/history"""
-  private val TableHistoryWithLangtag: String = s"""/tables/$TABLE_ID/history/$langtagRegex"""
+  private val CellHistory: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/history"
+  private val CellHistoryWithLangtag: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/history/$langtagRegex"
+  private val RowHistory: String = s"/tables/$tableId/rows/$rowId/history"
+  private val RowHistoryWithLangtag: String = s"/tables/$tableId/rows/$rowId/history/$langtagRegex"
+  private val TableHistory: String = s"/tables/$tableId/history"
+  private val TableHistoryWithLangtag: String = s"/tables/$tableId/history/$langtagRegex"
 
   def route: Router = {
     val router = Router.router(vertx)

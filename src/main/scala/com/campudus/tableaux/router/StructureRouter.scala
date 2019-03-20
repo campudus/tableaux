@@ -18,14 +18,14 @@ object StructureRouter {
 
 class StructureRouter(override val config: TableauxConfig, val controller: StructureController) extends BaseRouter {
 
-  private val Column: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID"""
-  private val Columns: String = s"""/tables/$TABLE_ID/columns"""
+  private val Column: String = s"/tables/$tableId/columns/$columnId"
+  private val Columns: String = s"/tables/$tableId/columns"
 
-  private val Table: String = s"""/tables/$TABLE_ID"""
+  private val Table: String = s"/tables/$tableId"
   private val Tables: String = "/tables"
-  private val TableOrder: String = s"""/tables/$TABLE_ID/order"""
+  private val TableOrder: String = s"/tables/$tableId/order"
 
-  private val Group: String = s"""/groups/$GROUP_ID"""
+  private val Group: String = s"/groups/$groupId"
   private val Groups: String = "/groups"
 
   def route: Router = {

@@ -33,9 +33,9 @@ object MediaRouter {
 
 class MediaRouter(override val config: TableauxConfig, val controller: MediaController) extends BaseRouter {
 
-  protected val FOLDER_ID = """(?<folderId>[\d]+)"""
+  protected val folderId = """(?<folderId>[\d]+)"""
 
-  val Folder: String = s"""/folders/$FOLDER_ID"""
+  val Folder: String = s"/folders/$folderId"
   val Folders: String = s"/folders"
 
   val FilesLang: String = s"/files/$langtagRegex"
