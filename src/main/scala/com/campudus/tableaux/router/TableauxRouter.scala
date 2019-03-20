@@ -54,6 +54,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   private val TranslationStatus: String = s"""/tables/translationStatus"""
 
+  private val CellHistory: String = s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/history"""
+  private val CellHistoryWithLangtag: String =
+    s"""/tables/$TABLE_ID/columns/$COLUMN_ID/rows/$ROW_ID/history/$langtagRegex"""
+  private val RowHistory: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/history"""
+  private val RowHistoryWithLangtag: String = s"""/tables/$TABLE_ID/rows/$ROW_ID/history/$langtagRegex"""
+  private val TableHistory: String = s"""/tables/$TABLE_ID/history"""
+  private val TableHistoryWithLangtag: String = s"""/tables/$TABLE_ID/history/$langtagRegex"""
+
   def route: Router = {
     val router = Router.router(vertx)
 
@@ -71,6 +79,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.getWithRegex(TranslationStatus).handler(retrieveTranslationStatus)
     router.getWithRegex(ColumnsValues).handler(retrieveUniqueColumnValues)
     router.getWithRegex(ColumnsValuesWithLangtag).handler(retrieveUniqueColumnValuesWithLangtag)
+
+    router.getWithRegex(CellHistory).handler(retrieveCellHistory)
+    router.getWithRegex(CellHistoryWithLangtag).handler(retrieveCellHistoryWithLangtag)
+    router.getWithRegex(RowHistory).handler(retrieveRowHistory)
+    router.getWithRegex(RowHistoryWithLangtag).handler(retrieveRowHistoryWithLangtag)
+    router.getWithRegex(TableHistory).handler(retrieveTableHistory)
+    router.getWithRegex(TableHistoryWithLangtag).handler(retrieveTableHistoryWithLangtag)
 
     // DELETE
     router.deleteWithRegex(CellAnnotation).handler(deleteCellAnnotation)
@@ -334,6 +349,117 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
+    * Retrieve Cell History
+    */
+  private def retrieveCellHistory(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      rowId <- getRowId(context)
+      typeOpt = getStringParam("historyType", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveCellHistory(tableId, columnId, rowId, None, typeOpt)
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve Cell History with langtag
+    */
+  private def retrieveCellHistoryWithLangtag(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      rowId <- getRowId(context)
+      langtag <- getLangtag(context)
+      typeOpt = getStringParam("historyType", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, Some(langtag), typeOpt)
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve Row History
+    */
+  private def retrieveRowHistory(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+      typeOpt = getStringParam("historyType", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveRowHistory(tableId.toLong, rowId.toLong, None, typeOpt)
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve Row History with langtag
+    */
+  private def retrieveRowHistoryWithLangtag(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+      langtag <- getLangtag(context)
+      typeOpt = getStringParam("historyType", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveRowHistory(tableId.toLong, rowId.toLong, Some(langtag), typeOpt)
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve Table History
+    */
+  private def retrieveTableHistory(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      typeOpt = getStringParam("historyType", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveTableHistory(tableId.toLong, None, typeOpt)
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve Table History with langtag
+    */
+  private def retrieveTableHistoryWithLangtag(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      langtag <- getLangtag(context)
+      typeOpt = getStringParam("historyType", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveTableHistory(tableId.toLong, Some(langtag), typeOpt)
+        }
+      )
+    }
+  }
+
+  /**
     * Create table with columns and rows
     */
   private def createCompleteTable(context: RoutingContext): Unit = {
@@ -412,7 +538,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           val finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
             .map(_.booleanValue())
           for {
-//            json <- getJson(context)
             updated <- controller.updateRowAnnotations(tableId, rowId, finalFlagOpt)
           } yield updated
         }
@@ -434,7 +559,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           val finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
             .map(_.booleanValue())
           for {
-//            json <- getJson(context)
             updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt)
           } yield updated
         }
@@ -460,7 +584,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           val flagType = checked(hasString("type", json).map(CellAnnotationType(_)))
           val value = json.getString("value")
           for {
-//            json <- getJson(context)
             cellAnnotation <- controller.addCellAnnotation(tableId, columnId, rowId, langtags, flagType, value)
           } yield cellAnnotation
         }
@@ -482,7 +605,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val json = getJson(context)
           for {
-//            json <- getJson(context)
             updated <- controller.updateCellValue(tableId, columnId, rowId, json.getValue("value"))
           } yield updated
         }
@@ -504,7 +626,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val json = getJson(context)
           for {
-//            json <- getJson(context)
             updated <- if (json.containsKey("value")) {
               controller.replaceCellValue(tableId, columnId, rowId, json.getValue("value"))
             } else {
@@ -531,7 +652,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val json = getJson(context)
           for {
-//            json <- getJson(context)
             updated <- controller.updateCellLinkOrder(tableId, columnId, rowId, linkId, toLocationType(json))
           } yield updated
         }
