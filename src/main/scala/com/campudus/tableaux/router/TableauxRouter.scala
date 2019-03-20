@@ -4,6 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
+import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler
@@ -22,77 +23,76 @@ object TableauxRouter {
 
 class TableauxRouter(override val config: TableauxConfig, val controller: TableauxController) extends BaseRouter {
 
-  private val AttachmentOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/attachment/$uuidRegex"
-  private val LinkOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId"
-  private val LinkOrderOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId/order"
+  private val attachmentOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/attachment/$uuidRegex"
+  private val linkOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId"
+  private val linkOrderOfCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/link/$linkId/order"
 
-  private val ColumnsValues: String = s"/tables/$tableId/columns/$columnId/values"
-  private val ColumnsValuesWithLangtag: String = s"/tables/$tableId/columns/$columnId/values/$langtagRegex"
+  private val columnsValues: String = s"/tables/$tableId/columns/$columnId/values"
+  private val columnsValuesWithLangtag: String = s"/tables/$tableId/columns/$columnId/values/$langtagRegex"
 
-  private val Cell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId"
-  private val CellAnnotations: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations"
-  private val CellAnnotation: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuidRegex"
-  private val CellAnnotationLangtag: String =
+  private val cell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId"
+  private val cellAnnotations: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations"
+  private val cellAnnotation: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuidRegex"
+  private val cellAnnotationLangtag: String =
     s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuidRegex/$langtagRegex"
 
-  private val Row: String = s"/tables/$tableId/rows/$rowId"
-  private val RowDuplicate: String = s"/tables/$tableId/rows/$rowId/duplicate"
-  private val RowDependent: String = s"/tables/$tableId/rows/$rowId/dependent"
-  private val RowAnnotations: String = s"/tables/$tableId/rows/$rowId/annotations"
-  private val Rows: String = s"/tables/$tableId/rows"
-  private val RowsAnnotations: String = s"/tables/$tableId/rows/annotations"
-  private val RowsOfColumn: String = s"/tables/$tableId/columns/$columnId/rows"
-  private val RowsOfFirstColumn: String = s"/tables/$tableId/columns/first/rows"
-  private val RowsOfLinkCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/foreignRows"
+  private val row: String = s"/tables/$tableId/rows/$rowId"
+  private val rowDuplicate: String = s"/tables/$tableId/rows/$rowId/duplicate"
+  private val rowDependent: String = s"/tables/$tableId/rows/$rowId/dependent"
+  private val rowAnnotations: String = s"/tables/$tableId/rows/$rowId/annotations"
+  private val rows: String = s"/tables/$tableId/rows"
+  private val rowsAnnotations: String = s"/tables/$tableId/rows/annotations"
+  private val rowsOfColumn: String = s"/tables/$tableId/columns/$columnId/rows"
+  private val rowsOfFirstColumn: String = s"/tables/$tableId/columns/first/rows"
+  private val rowsOfLinkCell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/foreignRows"
 
-  private val CompleteTable: String = s"/completetable"
-  private val CompleteTableId: String = s"/completetable/$tableId"
+  private val completeTable: String = s"/completetable"
+  private val completeTableId: String = s"/completetable/$tableId"
 
-  private val AnnotationsTable: String = s"/tables/$tableId/annotations"
+  private val annotationsTable: String = s"/tables/$tableId/annotations"
+  private val annotationCount: String = s"/tables/annotationCount"
 
-  private val AnnotationCount: String = s"/tables/annotationCount"
+  private val translationStatus: String = s"/tables/translationStatus"
 
-  private val TranslationStatus: String = s"/tables/translationStatus"
-
-  private val CellHistory: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/history"
-  private val CellHistoryWithLangtag: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/history/$langtagRegex"
-  private val RowHistory: String = s"/tables/$tableId/rows/$rowId/history"
-  private val RowHistoryWithLangtag: String = s"/tables/$tableId/rows/$rowId/history/$langtagRegex"
-  private val TableHistory: String = s"/tables/$tableId/history"
-  private val TableHistoryWithLangtag: String = s"/tables/$tableId/history/$langtagRegex"
+  private val cellHistory: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/history"
+  private val cellHistoryWithLangtag: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/history/$langtagRegex"
+  private val rowHistory: String = s"/tables/$tableId/rows/$rowId/history"
+  private val rowHistoryWithLangtag: String = s"/tables/$tableId/rows/$rowId/history/$langtagRegex"
+  private val tableHistory: String = s"/tables/$tableId/history"
+  private val tableHistoryWithLangtag: String = s"/tables/$tableId/history/$langtagRegex"
 
   def route: Router = {
     val router = Router.router(vertx)
 
     // RETRIEVE
-    router.getWithRegex(Rows).handler(retrieveRows)
-    router.getWithRegex(RowsOfLinkCell).handler(retrieveRowsOfLinkCell)
-    router.getWithRegex(RowsOfColumn).handler(retrieveRowsOfColumn)
-    router.getWithRegex(RowsOfFirstColumn).handler(retrieveRowsOfFirstColumn)
-    router.getWithRegex(Row).handler(retrieveRow)
-    router.getWithRegex(RowDependent).handler(retrieveDependentRows)
-    router.getWithRegex(Cell).handler(retrieveCell)
-    router.getWithRegex(CompleteTableId).handler(retrieveCompleteTable)
-    router.getWithRegex(AnnotationsTable).handler(retrieveAnnotations)
-    router.getWithRegex(AnnotationCount).handler(retrieveAnnotationCount)
-    router.getWithRegex(TranslationStatus).handler(retrieveTranslationStatus)
-    router.getWithRegex(ColumnsValues).handler(retrieveUniqueColumnValues)
-    router.getWithRegex(ColumnsValuesWithLangtag).handler(retrieveUniqueColumnValuesWithLangtag)
+    router.getWithRegex(rows).handler(retrieveRows)
+    router.getWithRegex(rowsOfLinkCell).handler(retrieveRowsOfLinkCell)
+    router.getWithRegex(rowsOfColumn).handler(retrieveRowsOfColumn)
+    router.getWithRegex(rowsOfFirstColumn).handler(retrieveRowsOfFirstColumn)
+    router.getWithRegex(row).handler(retrieveRow)
+    router.getWithRegex(rowDependent).handler(retrieveDependentRows)
+    router.getWithRegex(cell).handler(retrieveCell)
+    router.getWithRegex(completeTableId).handler(retrieveCompleteTable)
+    router.getWithRegex(annotationsTable).handler(retrieveAnnotations)
+    router.getWithRegex(annotationCount).handler(retrieveAnnotationCount)
+    router.getWithRegex(translationStatus).handler(retrieveTranslationStatus)
+    router.getWithRegex(columnsValues).handler(retrieveUniqueColumnValues)
+    router.getWithRegex(columnsValuesWithLangtag).handler(retrieveUniqueColumnValuesWithLangtag)
 
-    router.getWithRegex(CellHistory).handler(retrieveCellHistory)
-    router.getWithRegex(CellHistoryWithLangtag).handler(retrieveCellHistoryWithLangtag)
-    router.getWithRegex(RowHistory).handler(retrieveRowHistory)
-    router.getWithRegex(RowHistoryWithLangtag).handler(retrieveRowHistoryWithLangtag)
-    router.getWithRegex(TableHistory).handler(retrieveTableHistory)
-    router.getWithRegex(TableHistoryWithLangtag).handler(retrieveTableHistoryWithLangtag)
+    router.getWithRegex(cellHistory).handler(retrieveCellHistory)
+    router.getWithRegex(cellHistoryWithLangtag).handler(retrieveCellHistoryWithLangtag)
+    router.getWithRegex(rowHistory).handler(retrieveRowHistory)
+    router.getWithRegex(rowHistoryWithLangtag).handler(retrieveRowHistoryWithLangtag)
+    router.getWithRegex(tableHistory).handler(retrieveTableHistory)
+    router.getWithRegex(tableHistoryWithLangtag).handler(retrieveTableHistoryWithLangtag)
 
     // DELETE
-    router.deleteWithRegex(CellAnnotation).handler(deleteCellAnnotation)
-    router.deleteWithRegex(CellAnnotationLangtag).handler(deleteCellAnnotationLangtag)
-    router.deleteWithRegex(Row).handler(deleteRow)
-    router.deleteWithRegex(Cell).handler(clearCell)
-    router.deleteWithRegex(AttachmentOfCell).handler(deleteAttachmentOfCell)
-    router.deleteWithRegex(LinkOfCell).handler(deleteLinkOfCell)
+    router.deleteWithRegex(cellAnnotation).handler(deleteCellAnnotation)
+    router.deleteWithRegex(cellAnnotationLangtag).handler(deleteCellAnnotationLangtag)
+    router.deleteWithRegex(row).handler(deleteRow)
+    router.deleteWithRegex(cell).handler(clearCell)
+    router.deleteWithRegex(attachmentOfCell).handler(deleteAttachmentOfCell)
+    router.deleteWithRegex(linkOfCell).handler(deleteLinkOfCell)
 
     val bodyHandler = BodyHandler.create()
     router.post("/tables/*").handler(bodyHandler)
@@ -101,25 +101,25 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.post("/completetable").handler(bodyHandler)
 
     // CREATE
-    router.postWithRegex(CompleteTable).handler(createCompleteTable)
-    router.postWithRegex(Rows).handler(createRow)
-    router.postWithRegex(RowDuplicate).handler(duplicateRow)
-    router.postWithRegex(CellAnnotations).handler(createCellAnnotation)
+    router.postWithRegex(completeTable).handler(createCompleteTable)
+    router.postWithRegex(rows).handler(createRow)
+    router.postWithRegex(rowDuplicate).handler(duplicateRow)
+    router.postWithRegex(cellAnnotations).handler(createCellAnnotation)
 
     // UPDATE
-    router.patchWithRegex(RowAnnotations).handler(updateRowAnnotations)
-    router.patchWithRegex(RowsAnnotations).handler(updateRowsAnnotations)
+    router.patchWithRegex(rowAnnotations).handler(updateRowAnnotations)
+    router.patchWithRegex(rowsAnnotations).handler(updateRowsAnnotations)
 
-    router.patchWithRegex(Cell).handler(updateCell)
-    router.postWithRegex(Cell).handler(updateCell)
-    router.putWithRegex(Cell).handler(replaceCell)
-    router.putWithRegex(LinkOrderOfCell).handler(changeLinkOrder)
+    router.patchWithRegex(cell).handler(updateCell)
+    router.postWithRegex(cell).handler(updateCell)
+    router.putWithRegex(cell).handler(replaceCell)
+    router.putWithRegex(linkOrderOfCell).handler(changeLinkOrder)
 
     router
   }
 
   /**
-    * Get Rows
+    * Get rows
     */
   private def retrieveRows(context: RoutingContext): Unit = {
     for {
@@ -205,7 +205,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Get Row
+    * Get row
     */
   private def retrieveRow(context: RoutingContext): Unit = {
     for {
@@ -387,7 +387,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Retrieve Row History
+    * Retrieve row History
     */
   private def retrieveRowHistory(context: RoutingContext): Unit = {
     for {
@@ -405,7 +405,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Retrieve Row History with langtag
+    * Retrieve row History with langtag
     */
   private def retrieveRowHistoryWithLangtag(context: RoutingContext): Unit = {
     for {
@@ -478,26 +478,30 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Create Row
+    * Create row
     */
   private def createRow(context: RoutingContext): Unit = {
+
+    def getOptionalValues = {
+      val json = getJson(context)
+      if (json.containsKey("columns") && json.containsKey("rows")) {
+        Some(toColumnValueSeq(json))
+      } else {
+        None
+      }
+    }
+
     for {
       tableId <- getTableId(context)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          val optionalValues = Try({
-            val json = getJson(context)
-            if (json.containsKey("columns") && json.containsKey("rows")) {
-              Some(toColumnValueSeq(json))
-            } else {
-              None
-            }
-          }).recover({
+          val optionalValues = Try(getOptionalValues)
+            .recover({
               case _: NoJsonFoundException => None
             })
-            .get
+            .getOrElse(None)
 
           controller.createRow(tableId, optionalValues)
         }
@@ -506,7 +510,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Duplicate Row
+    * Duplicate row
     */
   private def duplicateRow(context: RoutingContext): Unit = {
     for {
@@ -523,7 +527,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Update Row Annotations
+    * Update row Annotations
     */
   private def updateRowAnnotations(context: RoutingContext): Unit = {
     for {
@@ -545,7 +549,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Update all Row Annotations of a table
+    * Update all row Annotations of a table
     */
   private def updateRowsAnnotations(context: RoutingContext): Unit = {
     for {
@@ -698,7 +702,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Delete Row
+    * Delete row
     */
   private def deleteRow(context: RoutingContext): Unit = {
     for {

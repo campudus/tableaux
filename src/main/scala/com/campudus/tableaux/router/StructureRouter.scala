@@ -18,29 +18,29 @@ object StructureRouter {
 
 class StructureRouter(override val config: TableauxConfig, val controller: StructureController) extends BaseRouter {
 
-  private val Column: String = s"/tables/$tableId/columns/$columnId"
-  private val Columns: String = s"/tables/$tableId/columns"
+  private val column: String = s"/tables/$tableId/columns/$columnId"
+  private val columns: String = s"/tables/$tableId/columns"
 
-  private val Table: String = s"/tables/$tableId"
-  private val Tables: String = "/tables"
-  private val TableOrder: String = s"/tables/$tableId/order"
+  private val table: String = s"/tables/$tableId"
+  private val tables: String = "/tables"
+  private val tableOrder: String = s"/tables/$tableId/order"
 
-  private val Group: String = s"/groups/$groupId"
-  private val Groups: String = "/groups"
+  private val group: String = s"/groups/$groupId"
+  private val groups: String = "/groups"
 
   def route: Router = {
     val router = Router.router(vertx)
 
     // RETRIEVE
-    router.get(Tables).handler(retrieveTables)
-    router.getWithRegex(Table).handler(retrieveTable)
-    router.getWithRegex(Columns).handler(retrieveColumns)
-    router.getWithRegex(Column).handler(retrieveColumn)
+    router.get(tables).handler(retrieveTables)
+    router.getWithRegex(table).handler(retrieveTable)
+    router.getWithRegex(columns).handler(retrieveColumns)
+    router.getWithRegex(column).handler(retrieveColumn)
 
     // DELETE
-    router.deleteWithRegex(Group).handler(deleteGroup)
-    router.deleteWithRegex(Table).handler(deleteTable)
-    router.deleteWithRegex(Column).handler(deleteColumn)
+    router.deleteWithRegex(group).handler(deleteGroup)
+    router.deleteWithRegex(table).handler(deleteTable)
+    router.deleteWithRegex(column).handler(deleteColumn)
 
     // all following routes may require Json in the request body
     val bodyHandler = BodyHandler.create()
@@ -50,22 +50,22 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     router.patch("/groups/*").handler(bodyHandler)
 
     // CREATE
-    router.post(Tables).handler(createTable)
-    router.postWithRegex(Columns).handler(createColumn)
-    router.post(Groups).handler(createGroup)
+    router.post(tables).handler(createTable)
+    router.postWithRegex(columns).handler(createColumn)
+    router.post(groups).handler(createGroup)
 
     // UPDATE
-    router.postWithRegex(Table).handler(updateTable)
-    router.patchWithRegex(Table).handler(updateTable)
+    router.postWithRegex(table).handler(updateTable)
+    router.patchWithRegex(table).handler(updateTable)
 
-    router.postWithRegex(TableOrder).handler(updateTableOrdering)
-    router.patchWithRegex(TableOrder).handler(updateTableOrdering)
+    router.postWithRegex(tableOrder).handler(updateTableOrdering)
+    router.patchWithRegex(tableOrder).handler(updateTableOrdering)
 
-    router.postWithRegex(Column).handler(updateColumn)
-    router.patchWithRegex(Column).handler(updateColumn)
+    router.postWithRegex(column).handler(updateColumn)
+    router.patchWithRegex(column).handler(updateColumn)
 
-    router.postWithRegex(Group).handler(updateGroup)
-    router.patchWithRegex(Group).handler(updateGroup)
+    router.postWithRegex(group).handler(updateGroup)
+    router.patchWithRegex(group).handler(updateGroup)
 
     router
   }

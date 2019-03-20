@@ -35,47 +35,44 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
   protected val folderId = """(?<folderId>[\d]+)"""
 
-  val Folder: String = s"/folders/$folderId"
-  val Folders: String = s"/folders"
+  private val folder: String = s"/folders/$folderId"
+  private val folders: String = s"/folders"
 
-  val FilesLang: String = s"/files/$langtagRegex"
-
-  val Files: String = s"/files"
-  val File: String = s"/files/$uuidRegex"
-  val FileMerge: String = s"/files/$uuidRegex/merge"
-  val FileLang: String = s"/files/$uuidRegex/$langtagRegex"
-  val FileLangStatic: String = s"/files/$uuidRegex/$langtagRegex/.*"
+  private val file: String = s"/files/$uuidRegex"
+  private val fileMerge: String = s"/files/$uuidRegex/merge"
+  private val fileLang: String = s"/files/$uuidRegex/$langtagRegex"
+  private val fileLangStatic: String = s"/files/$uuidRegex/$langtagRegex/.*"
 
   def route: Router = {
     val router = Router.router(vertx)
 
     // RETRIEVE
-    router.get(Folders).handler(retrieveRootFolder)
-    router.getWithRegex(Folder).handler(retrieveFolder)
-    router.getWithRegex(File).handler(retrieveFile)
-    router.getWithRegex(FileLangStatic).handler(serveFile)
+    router.get(folders).handler(retrieveRootFolder)
+    router.getWithRegex(folder).handler(retrieveFolder)
+    router.getWithRegex(file).handler(retrieveFile)
+    router.getWithRegex(fileLangStatic).handler(serveFile)
 
-    router.deleteWithRegex(Folder).handler(deleteFolder)
-    router.deleteWithRegex(File).handler(deleteFile)
-    router.deleteWithRegex(FileLang).handler(deleteFileLang)
+    router.deleteWithRegex(folder).handler(deleteFolder)
+    router.deleteWithRegex(file).handler(deleteFile)
+    router.deleteWithRegex(fileLang).handler(deleteFileLang)
 
     // route for file uploading doesn't need a handler yet
     // TODO change to BodyHandler uploading
     // router.put("/files/*").handler(BodyHandler.create().setUploadsDirectory(uploadsDirectory.path))
     // all following routes may require Json in the request body
     val bodyHandler = BodyHandler.create()
-    router.putWithRegex(File).handler(bodyHandler)
+    router.putWithRegex(file).handler(bodyHandler)
     router.post("/files/*").handler(bodyHandler)
     router.put("/folders/*").handler(bodyHandler)
     router.post("/folders/*").handler(bodyHandler)
 
-    router.putWithRegex(FileLang).handler(uploadFile)
+    router.putWithRegex(fileLang).handler(uploadFile)
 
-    router.post(Folders).handler(createFolder)
-    router.putWithRegex(Folder).handler(updateFolder)
-    router.post(Files).handler(createFile)
-    router.postWithRegex(FileMerge).handler(mergeFile)
-    router.putWithRegex(File).handler(updateFile)
+    router.post(folders).handler(createFolder)
+    router.putWithRegex(folder).handler(updateFolder)
+    router.post("/files").handler(createFile)
+    router.postWithRegex(fileMerge).handler(mergeFile)
+    router.putWithRegex(file).handler(updateFile)
 
     router
   }
