@@ -18,22 +18,18 @@ object DocumentationRouter {
 
 class DocumentationRouter(override val config: TableauxConfig) extends BaseRouter {
 
-  val swaggerUiVersion = "3.17.6"
-
-  val Index: String = "/index.html"
-  val Swagger: String = "/swagger.json"
-
-  val File: String = s"""/(?<file>[A-Za-z0-9-_\\.]{1,60}){1}"""
-  val FileWithDirectory: String = s"""/(?<directory>[A-Za-z0-9-_\\.]{1,60}){1}/(?<file>[A-Za-z0-9-_\\.]{1,60}){1}"""
+  private val swaggerUiVersion = "3.17.6"
 
   def route: Router = {
     val router = Router.router(vertx)
 
-    router.get(Index).handler(index)
+    router.get("/index.html").handler(index)
     router.get("/").handler(indexRedirect)
-    router.get(Swagger).handler(getSwagger)
-    router.getWithRegex(File).handler(getFile)
-    router.getWithRegex(FileWithDirectory).handler(getFileWithDirectory)
+    router.get("/swagger.json").handler(retrieveSwagger)
+    router.getWithRegex(s"""/(?<file>[A-Za-z0-9-_\\.]{1,60}){1}""").handler(retrieveFile)
+    router
+      .getWithRegex(s"""/(?<directory>[A-Za-z0-9-_\\.]{1,60}){1}/(?<file>[A-Za-z0-9-_\\.]{1,60}){1}""")
+      .handler(retrieveFileWithDirectory)
 
     router
   }
@@ -68,7 +64,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
     sendReply(context, StatusCode(301, Header("Location", s"/$path", NoBody)))
   }
 
-  private def getSwagger(context: RoutingContext): Unit = {
+  private def retrieveSwagger(context: RoutingContext): Unit = {
     val (scheme, host, basePath) = parseAbsoluteURI(context.request())
 
     val is = getClass.getResourceAsStream(s"/swagger.json")
@@ -82,12 +78,12 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
     sendReply(context, OkString(json, "application/javascript; charset=UTF-8"))
   }
 
-  private def getFile(context: RoutingContext): Unit = {
+  private def retrieveFile(context: RoutingContext): Unit = {
     for {
       file <- getStringParam("file", context)
     } yield sendReply(context, SendEmbeddedFile(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/$file"))
   }
-  private def getFileWithDirectory(context: RoutingContext): Unit = {
+  private def retrieveFileWithDirectory(context: RoutingContext): Unit = {
     for {
       directory <- getStringParam("directory", context)
       file <- getStringParam("file", context)
