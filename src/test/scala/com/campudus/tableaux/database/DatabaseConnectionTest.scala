@@ -37,6 +37,7 @@ class DatabaseConnectionTest extends VertxAccess with TestConfig with TestAssert
 
   @Test
   def testStatementAfterTimedOutStatement(implicit context: TestContext): Unit = {
+
     val config = fileConfig.getJsonObject("database", Json.obj())
 
     config.put("queryTimeout", 5000L)
@@ -52,7 +53,7 @@ class DatabaseConnectionTest extends VertxAccess with TestConfig with TestAssert
           databaseConnection
             .query("SELECT ?::int, pg_sleep(11)", Json.arr(index))
             .recover({
-              case _ => "timeout"
+              case _ => Json.obj("error" -> "timeout")
             })
         }))
 

@@ -408,7 +408,7 @@ class GroupColumnTest extends TableauxTestBase {
                          |  "formatPattern": "The value '{{1}}' with fancy format"
                          |}""".stripMargin
 
-        assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, groupColumn.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -436,7 +436,7 @@ class GroupColumnTest extends TableauxTestBase {
                          |  ]
                          |}""".stripMargin
 
-        assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, groupColumn.toString, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -468,7 +468,7 @@ class GroupColumnTest extends TableauxTestBase {
                          |  "formatPattern": "{{1}} × {{2}} × {{3}} mm (B × H × T)"
                          |}""".stripMargin
 
-        assertEqualsJSON(expected, groupColumn.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, groupColumn.toString, JSONCompareMode.LENIENT)
       }
     }
   }

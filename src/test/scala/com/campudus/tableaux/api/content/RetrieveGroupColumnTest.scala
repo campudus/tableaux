@@ -50,26 +50,26 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
           "values" ->
             Json.arr(
               Json.obj(
-                "de_DE" -> s"Hallo, $tableName Welt!",
-                "en_US" -> s"Hello, $tableName World!"
+                "de-DE" -> s"Hallo, $tableName Welt!",
+                "en-GB" -> s"Hello, $tableName World!"
               ),
-              Json.obj("de_DE" -> true),
-              Json.obj("de_DE" -> 3.1415926),
-              Json.obj("en_US" -> s"Hello, $tableName Col 1 Row 1!"),
-              Json.obj("en_US" -> s"Hello, $tableName Col 2 Row 1!"),
-              Json.obj("de_DE" -> "2015-01-01"),
-              Json.obj("de_DE" -> "2015-01-01T13:37:47.110Z"),
+              Json.obj("de-DE" -> true),
+              Json.obj("de-DE" -> 3.1415926),
+              Json.obj("en-GB" -> s"Hello, $tableName Col 1 Row 1!"),
+              Json.obj("en-GB" -> s"Hello, $tableName Col 2 Row 1!"),
+              Json.obj("de-DE" -> "2015-01-01"),
+              Json.obj("de-DE" -> "2015-01-01T13:37:47.110Z"),
               Json.arr(
                 Json.obj(
-                  "de_DE" -> s"Hallo, $tableName Welt!",
-                  "en_US" -> s"Hello, $tableName World!"
+                  "de-DE" -> s"Hallo, $tableName Welt!",
+                  "en-GB" -> s"Hello, $tableName World!"
                 ),
-                Json.obj("de_DE" -> true),
-                Json.obj("de_DE" -> 3.1415926),
-                Json.obj("en_US" -> s"Hello, $tableName Col 1 Row 1!"),
-                Json.obj("en_US" -> s"Hello, $tableName Col 2 Row 1!"),
-                Json.obj("de_DE" -> "2015-01-01"),
-                Json.obj("de_DE" -> "2015-01-01T13:37:47.110Z")
+                Json.obj("de-DE" -> true),
+                Json.obj("de-DE" -> 3.1415926),
+                Json.obj("en-GB" -> s"Hello, $tableName Col 1 Row 1!"),
+                Json.obj("en-GB" -> s"Hello, $tableName Col 2 Row 1!"),
+                Json.obj("de-DE" -> "2015-01-01"),
+                Json.obj("de-DE" -> "2015-01-01T13:37:47.110Z")
               )
             )
         ),
@@ -77,26 +77,26 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
           "values" ->
             Json.arr(
               Json.obj(
-                "de_DE" -> s"Hallo, $tableName Welt2!",
-                "en_US" -> s"Hello, $tableName World2!"
+                "de-DE" -> s"Hallo, $tableName Welt2!",
+                "en-GB" -> s"Hello, $tableName World2!"
               ),
-              Json.obj("de_DE" -> false),
-              Json.obj("de_DE" -> 2.1415926),
-              Json.obj("en_US" -> s"Hello, $tableName Col 1 Row 2!"),
-              Json.obj("en_US" -> s"Hello, $tableName Col 2 Row 2!"),
-              Json.obj("de_DE" -> "2015-01-02"),
-              Json.obj("de_DE" -> "2015-01-02T13:37:47.110Z"),
+              Json.obj("de-DE" -> false),
+              Json.obj("de-DE" -> 2.1415926),
+              Json.obj("en-GB" -> s"Hello, $tableName Col 1 Row 2!"),
+              Json.obj("en-GB" -> s"Hello, $tableName Col 2 Row 2!"),
+              Json.obj("de-DE" -> "2015-01-02"),
+              Json.obj("de-DE" -> "2015-01-02T13:37:47.110Z"),
               Json.arr(
                 Json.obj(
-                  "de_DE" -> s"Hallo, $tableName Welt2!",
-                  "en_US" -> s"Hello, $tableName World2!"
+                  "de-DE" -> s"Hallo, $tableName Welt2!",
+                  "en-GB" -> s"Hello, $tableName World2!"
                 ),
-                Json.obj("de_DE" -> false),
-                Json.obj("de_DE" -> 2.1415926),
-                Json.obj("en_US" -> s"Hello, $tableName Col 1 Row 2!"),
-                Json.obj("en_US" -> s"Hello, $tableName Col 2 Row 2!"),
-                Json.obj("de_DE" -> "2015-01-02"),
-                Json.obj("de_DE" -> "2015-01-02T13:37:47.110Z")
+                Json.obj("de-DE" -> false),
+                Json.obj("de-DE" -> 2.1415926),
+                Json.obj("en-GB" -> s"Hello, $tableName Col 1 Row 2!"),
+                Json.obj("en-GB" -> s"Hello, $tableName Col 2 Row 2!"),
+                Json.obj("de-DE" -> "2015-01-02"),
+                Json.obj("de-DE" -> "2015-01-02T13:37:47.110Z")
               )
             )
         )

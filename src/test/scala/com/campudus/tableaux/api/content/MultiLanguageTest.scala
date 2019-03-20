@@ -49,20 +49,19 @@ class MultiLanguageTest extends TableauxTestBase {
     okTest {
       val cellValue = Json.obj(
         "value" -> Json.obj(
-          "de_DE" -> "Hallo, Welt!",
-          "en_US" -> "Hello, World!"
+          "de-DE" -> "Hallo, Welt!",
+          "en-GB" -> "Hello, World!"
         )
       )
 
       val exceptedJson = Json.fromObjectString("""
-{
-  "status" : "ok",
-  "value" : {
-    "de_DE" : "Hallo, Welt!",
-    "en_US" : "Hello, World!"
-  }
-}
-      """.stripMargin)
+                                                 |{
+                                                 |  "status" : "ok",
+                                                 |  "value" : {
+                                                 |    "de-DE" : "Hallo, Welt!",
+                                                 |    "en-GB" : "Hello, World!"
+                                                 |  }
+                                                 |}""".stripMargin)
 
       for {
         (tableId, columnIds) <- createTableWithMultilanguageColumns("Multilanguage Table")
@@ -108,7 +107,7 @@ class MultiLanguageTest extends TableauxTestBase {
   def updateSingleTranslation(implicit c: TestContext): Unit = okTest {
     val tableName = "multi-table"
     val patchedString = s"Guten Tag, $tableName"
-    val patchSingleTranslation = Json.obj("value" -> Json.obj("de_DE" -> patchedString))
+    val patchSingleTranslation = Json.obj("value" -> Json.obj("de-DE" -> patchedString))
 
     for {
       (tableId1, columnIds, rowIds) <- createFullTableWithMultilanguageColumns(tableName)
@@ -122,8 +121,8 @@ class MultiLanguageTest extends TableauxTestBase {
       val expected = Json.obj(
         "status" -> "ok",
         "value" -> Json.obj(
-          "de_DE" -> patchedString,
-          "en_US" -> s"Hello, $tableName World!"
+          "de-DE" -> patchedString,
+          "en-GB" -> s"Hello, $tableName World!"
         )
       )
 
@@ -141,14 +140,14 @@ class MultiLanguageTest extends TableauxTestBase {
           Json.obj(
             "values" -> Json.arr(
               Json.obj(
-                "de_DE" -> "Hallo, Welt!",
-                "en_US" -> "Hello, World!"
+                "de-DE" -> "Hallo, Welt!",
+                "en-GB" -> "Hello, World!"
               ))))
       )
 
       val removeEn: JsonObject = Json.obj(
         "value" -> Json.obj(
-          "en_US" -> null
+          "en-GB" -> null
         ))
 
       for {
@@ -162,10 +161,10 @@ class MultiLanguageTest extends TableauxTestBase {
         cellAfterRemoveEn <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
         assertEquals(
-          Json.obj("status" -> "ok", "value" -> Json.obj("de_DE" -> "Hallo, Welt!", "en_US" -> "Hello, World!")),
+          Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!", "en-GB" -> "Hello, World!")),
           cellAfterCreation)
 
-        assertEquals(Json.obj("status" -> "ok", "value" -> Json.obj("de_DE" -> "Hallo, Welt!")), cellAfterRemoveEn)
+        assertEquals(Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!")), cellAfterRemoveEn)
       }
     }
   }
@@ -180,8 +179,8 @@ class MultiLanguageTest extends TableauxTestBase {
           Json.obj(
             "values" -> Json.arr(
               Json.obj(
-                "de_DE" -> "Hallo, Welt!",
-                "en_US" -> "Hello, World!"
+                "de-DE" -> "Hallo, Welt!",
+                "en-GB" -> "Hello, World!"
               ))))
       )
 
@@ -201,7 +200,7 @@ class MultiLanguageTest extends TableauxTestBase {
         cellAfterEmptyPut <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
         assertEquals(
-          Json.obj("status" -> "ok", "value" -> Json.obj("de_DE" -> "Hallo, Welt!", "en_US" -> "Hello, World!")),
+          Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!", "en-GB" -> "Hello, World!")),
           cellAfterCreation
         )
 
@@ -225,28 +224,27 @@ class MultiLanguageTest extends TableauxTestBase {
             "values" ->
               Json.arr(
                 Json.obj(
-                  "de_DE" -> "Hallo, Welt!",
-                  "en_US" -> "Hello, World!"
+                  "de-DE" -> "Hallo, Welt!",
+                  "en-GB" -> "Hello, World!"
                 )
               ))
         )
       )
 
       def exceptedJson(rowId: RowId) = Json.fromObjectString(s"""
-{
- "status" : "ok",
- "id" : $rowId,
- "values" : [
-  {"de_DE" : "Hallo, Welt!", "en_US" : "Hello, World!"},
-  {"de_DE" : false, "en_US" : false},
-  {},
-  {},
-  {},
-  {},
-  {}
- ]
-}
-      """.stripMargin)
+                                                                |{
+                                                                | "status" : "ok",
+                                                                | "id" : $rowId,
+                                                                | "values" : [
+                                                                |  {"de-DE" : "Hallo, Welt!", "en-GB" : "Hello, World!"},
+                                                                |  {"de-DE" : false, "en-GB" : false},
+                                                                |  {},
+                                                                |  {},
+                                                                |  {},
+                                                                |  {},
+                                                                |  {}
+                                                                | ]
+                                                                |}""".stripMargin)
 
       for {
         (tableId, columnId) <- createTableWithMultilanguageColumns("Multilanguage Table")
@@ -282,8 +280,8 @@ class MultiLanguageTest extends TableauxTestBase {
             "values" ->
               Json.arr(
                 Json.obj(
-                  "de_DE" -> "Hallo, Welt!",
-                  "en_US" -> "Hello, World!"
+                  "de-DE" -> "Hallo, Welt!",
+                  "en-GB" -> "Hello, World!"
                 )
               ))
         )
@@ -291,49 +289,48 @@ class MultiLanguageTest extends TableauxTestBase {
 
       val cellTextValue = Json.obj(
         "value" -> Json.obj(
-          "en_US" -> "Hello, Cell!"
+          "en-GB" -> "Hello, Cell!"
         )
       )
 
       val cellBooleanValue = Json.obj(
         "value" -> Json.obj(
-          "de_DE" -> true
+          "de-DE" -> true
         )
       )
 
       val cellNumericValue = Json.obj(
         "value" -> Json.obj(
-          "de_DE" -> 3.1415926
+          "de-DE" -> 3.1415926
         )
       )
 
       val cellDateValue = Json.obj(
         "value" -> Json.obj(
-          "de_DE" -> "2015-01-01"
+          "de-DE" -> "2015-01-01"
         )
       )
 
       val cellDateTimeValue = Json.obj(
         "value" -> Json.obj(
-          "de_DE" -> "2015-01-01T14:37:47.110+01"
+          "de-DE" -> "2015-01-01T14:37:47.110+01"
         )
       )
 
       val exceptedJson = Json.fromObjectString("""
-{
-  "status" : "ok",
-  "id" : 1,
-  "values" : [
-   { "de_DE" : "Hallo, Welt!", "en_US" : "Hello, Cell!" },
-   { "de_DE" : true, "en_US" : false },
-   { "de_DE" : 3.1415926 },
-   { "en_US" : "Hello, Cell!" },
-   { "en_US" : "Hello, Cell!" },
-   { "de_DE" : "2015-01-01" },
-   { "de_DE" : "2015-01-01T13:37:47.110Z" }
-  ]
-}
-      """.stripMargin)
+                                                 |{
+                                                 |  "status" : "ok",
+                                                 |  "id" : 1,
+                                                 |  "values" : [
+                                                 |   { "de-DE" : "Hallo, Welt!", "en-GB" : "Hello, Cell!" },
+                                                 |   { "de-DE" : true, "en-GB" : false },
+                                                 |   { "de-DE" : 3.1415926 },
+                                                 |   { "en-GB" : "Hello, Cell!" },
+                                                 |   { "en-GB" : "Hello, Cell!" },
+                                                 |   { "de-DE" : "2015-01-01" },
+                                                 |   { "de-DE" : "2015-01-01T13:37:47.110Z" }
+                                                 |  ]
+                                                 |}""".stripMargin)
 
       for {
         (tableId, _) <- createTableWithMultilanguageColumns("Multilanguage Table")

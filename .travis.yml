@@ -22,7 +22,7 @@ install: /bin/true
 before_script:
 - psql -c 'SHOW SERVER_VERSION;' -U postgres
 - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
-- ./gradlew spotlessCheck testScoverageClasses --info --stacktrace
+- ./gradlew spotlessCheck scoverageClasses --info --stacktrace
 script:
 - export GRADLE_OPTS="-Xmx500m"
 - export JAVA_OPTS="-Xmx500m"

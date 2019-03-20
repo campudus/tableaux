@@ -7,20 +7,20 @@ plugins {
   id 'scala'
   id 'application'
 
-  id 'org.scoverage' version '2.3.0'
+  id 'org.scoverage' version '2.5.0'
   id 'com.github.kt3k.coveralls' version '2.8.2'
 
-  id 'com.github.johnrengelman.shadow' version '2.0.4'
-  id 'org.ajoberstar.grgit' version '2.3.0'
+  id 'com.github.johnrengelman.shadow' version '4.0.2'
+  id 'org.ajoberstar.grgit' version '3.0.0'
 
-  id 'com.diffplug.gradle.spotless' version '3.14.0'
+  id 'com.diffplug.gradle.spotless' version '3.15.0'
 }
 
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-def vertxVersion = '3.5.3'
-def scalaVersion = '2.12.6'
+def vertxVersion = '3.5.4'  // 3.6.0 is out
+def scalaVersion = '2.12.7' // 2.12.8 is out
 
 sourceCompatibility = '1.8'
 
@@ -97,9 +97,9 @@ run {
   }
 
   args = [
-      "run",
-      mainVerticle,
-      "-conf", configFile
+          "run",
+          mainVerticle,
+          "-conf", configFile
   ]
 
   environment ENV: "development"
@@ -110,13 +110,21 @@ task runRedeploy(type: JavaExec) {
 
   main = mainClassName
 
+  def configFile = "conf.json"
+
+  if (project.hasProperty("conf")) {
+    configFile = conf
+  } else {
+    println("Using default config file 'conf.json'")
+  }
+
   args = [
-      "run",
-      mainVerticle,
-      "-conf", "conf.json",
-      "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
-      "--launcher-class=${mainClassName}",
-      "--on-redeploy=./gradlew classes"
+          "run",
+          mainVerticle,
+          "-conf", configFile,
+          "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
+          "--launcher-class=${mainClassName}",
+          "--on-redeploy=./gradlew classes"
   ]
 
   environment ENV: "development"
@@ -153,9 +161,9 @@ checkScoverage {
 
 scoverage {
   excludedPackages = [
-      'io.vertx.scala.*',
-      'org.vertx.scala.*',
-      'com.github.mauricio.async.db.*'
+          'io.vertx.scala.*',
+          'org.vertx.scala.*',
+          'com.github.mauricio.async.db.*'
   ]
 }
 
@@ -232,6 +240,6 @@ spotless {
  * Gradle wrapper
  */
 wrapper {
-  gradleVersion = '4.9'
+  gradleVersion = '5.0'
   distributionType = Wrapper.DistributionType.BIN
 }

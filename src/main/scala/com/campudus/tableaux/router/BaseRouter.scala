@@ -108,4 +108,12 @@ trait BaseRouter extends Router with VertxAccess with LazyLogging {
   def getStringParam(name: String, context: RoutingContext): Option[String] = {
     context.request().getParam(name)
   }
+
+  def getStringParams(name: String, context: RoutingContext): Seq[String] = {
+    context.request().params().getAll(name)
+  }
+
+  def getStringCookie(name: String, context: RoutingContext): Option[String] = {
+    context.getCookie(name).map(_.getValue())
+  }
 }

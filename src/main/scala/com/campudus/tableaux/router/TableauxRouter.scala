@@ -6,8 +6,8 @@ import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
-import org.vertx.scala.core.json.JsonArray
 import io.vertx.scala.ext.web.RoutingContext
+import org.vertx.scala.core.json.JsonArray
 import org.vertx.scala.router.routing._
 
 import scala.concurrent.Future
@@ -53,6 +53,13 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val AnnotationCount: Regex = "/tables/annotationCount".r
 
   private val TranslationStatus: Regex = "/tables/translationStatus".r
+
+  private val CellHistory: Regex = "/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/history".r
+  private val CellHistoryWithLangtag: Regex = s"/tables/(\\d+)/columns/(\\d+)/rows/(\\d+)/history/($langtagRegex)".r
+  private val RowHistory: Regex = "/tables/(\\d+)/rows/(\\d+)/history".r
+  private val RowHistoryWithLangtag: Regex = s"/tables/(\\d+)/rows/(\\d+)/history/($langtagRegex)".r
+  private val TableHistory: Regex = "/tables/(\\d+)/history".r
+  private val TableHistoryWithLangtag: Regex = s"/tables/(\\d+)/history/($langtagRegex)".r
 
   override def routes(implicit context: RoutingContext): Routing = {
 
@@ -178,6 +185,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
     /**
       * Duplicate Row
+      * currently not used by frontend because of cardinality constraints
+      * TODO validation should be checked by backend
       */
     case Post(RowDuplicate(tableId, rowId)) =>
       asyncGetReply {
@@ -366,6 +375,60 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     case Get(ColumnsValuesWithLangtag(tableId, columnId, langtag)) =>
       asyncGetReply {
         controller.retrieveColumnValues(tableId.toLong, columnId.toLong, Some(langtag))
+      }
+
+    /**
+      * Retrieve Cell History
+      */
+    case Get(CellHistory(tableId, columnId, rowId)) =>
+      asyncGetReply {
+        val typeOpt = getStringParam("historyType", context)
+        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, None, typeOpt)
+      }
+
+    /**
+      * Retrieve Cell History with langtag
+      */
+    case Get(CellHistoryWithLangtag(tableId, columnId, rowId, langtag)) =>
+      asyncGetReply {
+        val typeOpt = getStringParam("historyType", context)
+        controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, Some(langtag), typeOpt)
+      }
+
+    /**
+      * Retrieve Row History
+      */
+    case Get(RowHistory(tableId, rowId)) =>
+      asyncGetReply {
+        val typeOpt = getStringParam("historyType", context)
+        controller.retrieveRowHistory(tableId.toLong, rowId.toLong, None, typeOpt)
+      }
+
+    /**
+      * Retrieve Row History with langtag
+      */
+    case Get(RowHistoryWithLangtag(tableId, rowId, langtag)) =>
+      asyncGetReply {
+        val typeOpt = getStringParam("historyType", context)
+        controller.retrieveRowHistory(tableId.toLong, rowId.toLong, Some(langtag), typeOpt)
+      }
+
+    /**
+      * Retrieve Table History
+      */
+    case Get(TableHistory(tableId)) =>
+      asyncGetReply {
+        val typeOpt = getStringParam("historyType", context)
+        controller.retrieveTableHistory(tableId.toLong, None, typeOpt)
+      }
+
+    /**
+      * Retrieve Table History with langtag
+      */
+    case Get(TableHistoryWithLangtag(tableId, langtag)) =>
+      asyncGetReply {
+        val typeOpt = getStringParam("historyType", context)
+        controller.retrieveTableHistory(tableId.toLong, Some(langtag), typeOpt)
       }
   }
 }

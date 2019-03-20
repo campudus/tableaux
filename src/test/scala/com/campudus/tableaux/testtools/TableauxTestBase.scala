@@ -9,24 +9,24 @@ import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod
-import io.vertx.scala.core.http._
-import org.vertx.scala.core.json.JsonObject
-import io.vertx.scala.core.streams.Pump
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
+import io.vertx.scala.core.http._
+import io.vertx.scala.core.streams.Pump
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
+import io.vertx.scala.ext.web.Cookie
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
-import org.vertx.scala.core.json._
+import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
+import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
-import org.skyscreamer.jsonassert.{JSONCompare, JSONCompareMode}
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable {
 
@@ -58,42 +58,12 @@ trait TestAssertionHelper {
     c
   }
 
-  // Asserts for JsonArrays
-  def assertEqualsJSON(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
+  def assertJSONEquals(expected: JsonObject, actual: JsonObject, compareMode: JSONCompareMode) {
+    JSONAssert.assertEquals(expected.toString, actual.toString, compareMode)
   }
 
-  def assertEqualsJSON(expected: JsonArray, actual: JsonArray, compareMode: JSONCompareMode)(
-      implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
-  }
-
-  // Asserts for JsonObject
-  def assertEqualsJSON(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
-  }
-
-  def assertEqualsJSON(expected: JsonObject, actual: JsonObject, compareMode: JSONCompareMode)(
-      implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
-  }
-
-  // Asserts for Json as String
-  def assertEqualsJSON(expected: String, actual: String)(implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, JSONCompareMode.STRICT)
-  }
-
-  def assertEqualsJSON(expected: String, actual: String, compareMode: JSONCompareMode)(
-      implicit c: TestContext): TestContext = {
-    assertEqualsJSONString(expected.toString, actual.toString, compareMode)
-  }
-
-  private def assertEqualsJSONString(
-      expected: String,
-      actual: String,
-      compareMode: JSONCompareMode = JSONCompareMode.STRICT)(implicit c: TestContext): TestContext = {
-    val assertion = JSONCompare.compareJSON(expected, actual, compareMode)
-    c.assertTrue(assertion.passed(), assertion.getMessage)
+  def assertJSONEquals(expected: String, actual: String, compareMode: JSONCompareMode = JSONCompareMode.LENIENT) {
+    JSONAssert.assertEquals(expected, actual, compareMode)
   }
 
   def assertContainsDeep(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext =
@@ -290,37 +260,79 @@ trait TableauxTestBase
 
   def sendRequest(method: String, path: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).end()
+    httpJsonRequest(method, path, p, None).end()
+    p.future
+  }
+
+  def sendRequest(method: String, path: String, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p, cookieOpt).end()
     p.future
   }
 
   def sendRequest(method: String, path: String, jsonObj: JsonObject): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).end(jsonObj.encode())
+    httpJsonRequest(method, path, p, None).end(jsonObj.encode())
+    p.future
+  }
+
+  def sendRequest(method: String, path: String, jsonObj: JsonObject, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p, cookieOpt).end(jsonObj.encode())
     p.future
   }
 
   def sendRequest(method: String, path: String, body: String): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).end(body)
+    httpJsonRequest(method, path, p, None).end(body)
+    p.future
+  }
+
+  def sendRequest(method: String, path: String, body: String, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p, cookieOpt).end(body)
     p.future
   }
 
   def sendRequest(method: String, path: String, domainObject: DomainObject): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p).end(domainObject.getJson.encode())
+    httpJsonRequest(method, path, p, None).end(domainObject.getJson.encode())
+    p.future
+  }
+
+  def sendRequest(method: String,
+                  path: String,
+                  domainObject: DomainObject,
+                  cookieOpt: Option[Cookie]): Future[JsonObject] = {
+    val p = Promise[JsonObject]()
+    httpJsonRequest(method, path, p, cookieOpt).end(domainObject.getJson.encode())
     p.future
   }
 
   def sendStringRequest(method: String, path: String): Future[String] = {
     val p = Promise[String]()
-    httpStringRequest(method, path, p).end()
+    httpStringRequest(method, path, p, None).end()
+    p.future
+  }
+
+  def sendStringRequest(method: String, path: String, cookieOpt: Option[Cookie]): Future[String] = {
+    val p = Promise[String]()
+    httpStringRequest(method, path, p, cookieOpt).end()
     p.future
   }
 
   def sendStringRequest(method: String, path: String, jsonObj: JsonObject): Future[String] = {
     val p = Promise[String]()
-    httpStringRequest(method, path, p).end(jsonObj.encode())
+    httpStringRequest(method, path, p, None).end(jsonObj.encode())
+    p.future
+  }
+
+  def sendStringRequest(method: String,
+                        path: String,
+                        jsonObj: JsonObject,
+                        cookieOpt: Option[Cookie]): Future[String] = {
+    val p = Promise[String]()
+    httpStringRequest(method, path, p, cookieOpt).end(jsonObj.encode())
     p.future
   }
 
@@ -372,19 +384,26 @@ trait TableauxTestBase
       p.failure(x)
   }
 
-  private def httpStringRequest(method: String, path: String, p: Promise[String]): HttpClientRequest = {
-    httpRequest(method, path, createStringResponseHandler(p), createExceptionHandler[String](p))
+  private def httpStringRequest(method: String,
+                                path: String,
+                                p: Promise[String],
+                                cookieOpt: Option[Cookie]): HttpClientRequest = {
+    httpRequest(method, path, createStringResponseHandler(p), createExceptionHandler[String](p), cookieOpt)
   }
 
-  private def httpJsonRequest(method: String, path: String, p: Promise[JsonObject]): HttpClientRequest = {
-    httpRequest(method, path, createJsonResponseHandler(p), createExceptionHandler[JsonObject](p))
+  private def httpJsonRequest(method: String,
+                              path: String,
+                              p: Promise[JsonObject],
+                              cookieOpt: Option[Cookie]): HttpClientRequest = {
+    httpRequest(method, path, createJsonResponseHandler(p), createExceptionHandler[JsonObject](p), cookieOpt)
   }
 
   def httpRequest(
       method: String,
       path: String,
       responseHandler: (HttpClient, HttpClientResponse) => Unit,
-      exceptionHandler: (HttpClient, Throwable) => Unit
+      exceptionHandler: (HttpClient, Throwable) => Unit,
+      cookieOpt: Option[Cookie]
   ): HttpClientRequest = {
     val _method = HttpMethod.valueOf(method.toUpperCase)
 
@@ -395,6 +414,7 @@ trait TableauxTestBase
 
     client
       .request(_method, port, host, path)
+      .putHeader("cookie", cookieOpt.map(_.encode()).getOrElse(""))
       .handler(responseHandler(client, _: HttpClientResponse))
       .exceptionHandler(exceptionHandler(client, _: Throwable))
   }
@@ -449,7 +469,7 @@ trait TableauxTestBase
         })
       }
 
-      requestHandler(httpJsonRequest(method, url, p))
+      requestHandler(httpJsonRequest(method, url, p, None))
     })
   }
 
@@ -531,7 +551,7 @@ trait TableauxTestBase
     def valuesRow(columnIds: Seq[Long]) = {
       Json.obj(
         "columns" -> Json.arr(
-          Json.obj("id" -> columnIds.head),
+          Json.obj("id" -> columnIds.head, "identifier" -> true),
           Json.obj("id" -> columnIds(1)),
           Json.obj("id" -> columnIds(2)),
           Json.obj("id" -> columnIds(3)),
@@ -544,29 +564,29 @@ trait TableauxTestBase
             "values" ->
               Json.arr(
                 Json.obj(
-                  "de_DE" -> s"Hallo, $tableName Welt!",
-                  "en_US" -> s"Hello, $tableName World!"
+                  "de-DE" -> s"Hallo, $tableName Welt!",
+                  "en-GB" -> s"Hello, $tableName World!"
                 ),
-                Json.obj("de_DE" -> true),
-                Json.obj("de_DE" -> 3.1415926),
-                Json.obj("en_US" -> s"Hello, $tableName Col 1 Row 1!"),
-                Json.obj("en_US" -> s"Hello, $tableName Col 2 Row 1!"),
-                Json.obj("de_DE" -> "2015-01-01"),
-                Json.obj("de_DE" -> "2015-01-01T14:37:47.110+01")
+                Json.obj("de-DE" -> true),
+                Json.obj("de-DE" -> 3.1415926),
+                Json.obj("en-GB" -> s"Hello, $tableName Col 1 Row 1!"),
+                Json.obj("en-GB" -> s"Hello, $tableName Col 2 Row 1!"),
+                Json.obj("de-DE" -> "2015-01-01"),
+                Json.obj("de-DE" -> "2015-01-01T14:37:47.110+01")
               )),
           Json.obj(
             "values" ->
               Json.arr(
                 Json.obj(
-                  "de_DE" -> s"Hallo, $tableName Welt2!",
-                  "en_US" -> s"Hello, $tableName World2!"
+                  "de-DE" -> s"Hallo, $tableName Welt2!",
+                  "en-GB" -> s"Hello, $tableName World2!"
                 ),
-                Json.obj("de_DE" -> false),
-                Json.obj("de_DE" -> 2.1415926),
-                Json.obj("en_US" -> s"Hello, $tableName Col 1 Row 2!"),
-                Json.obj("en_US" -> s"Hello, $tableName Col 2 Row 2!"),
-                Json.obj("de_DE" -> "2015-01-02"),
-                Json.obj("de_DE" -> "2015-01-02T14:37:47.110+01")
+                Json.obj("de-DE" -> false),
+                Json.obj("de-DE" -> 2.1415926),
+                Json.obj("en-GB" -> s"Hello, $tableName Col 1 Row 2!"),
+                Json.obj("en-GB" -> s"Hello, $tableName Col 2 Row 2!"),
+                Json.obj("de-DE" -> "2015-01-02"),
+                Json.obj("de-DE" -> "2015-01-02T14:37:47.110+01")
               ))
         )
       )
@@ -590,7 +610,7 @@ trait TableauxTestBase
                              s"/tables/$tableId/columns",
                              Json.obj(
                                "columns" -> Json.arr(
-                                 Json.obj("kind" -> "text", "name" -> columnName, "multilanguage" -> true)
+                                 Json.obj("kind" -> "text", "name" -> columnName, "languageType" -> "language")
                                )))
       columnId = columns.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
     } yield {
@@ -602,13 +622,13 @@ trait TableauxTestBase
     val createMultilanguageColumn = Json.obj(
       "columns" ->
         Json.arr(
-          Json.obj("kind" -> "text", "name" -> "Test Column 1", "multilanguage" -> true, "identifier" -> true),
-          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "multilanguage" -> true),
-          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "multilanguage" -> true),
-          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "multilanguage" -> true),
-          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "multilanguage" -> true),
-          Json.obj("kind" -> "date", "name" -> "Test Column 6", "multilanguage" -> true),
-          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "multilanguage" -> true)
+          Json.obj("kind" -> "text", "name" -> "Test Column 1", "languageType" -> "language", "identifier" -> true),
+          Json.obj("kind" -> "boolean", "name" -> "Test Column 2", "languageType" -> "language"),
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 3", "languageType" -> "language"),
+          Json.obj("kind" -> "richtext", "name" -> "Test Column 4", "languageType" -> "language"),
+          Json.obj("kind" -> "shorttext", "name" -> "Test Column 5", "languageType" -> "language"),
+          Json.obj("kind" -> "date", "name" -> "Test Column 6", "languageType" -> "language"),
+          Json.obj("kind" -> "datetime", "name" -> "Test Column 7", "languageType" -> "language")
         )
     )
     for {
@@ -626,14 +646,14 @@ trait TableauxTestBase
   ): Future[(TableId, Seq[ColumnId], ColumnId)] = {
     val createColumns = Json.obj(
       "columns" -> Json.arr(
-        Json.obj("kind" -> "text", "name" -> "column 1 (text)"),
-        Json.obj("kind" -> "text", "name" -> "column 2 (text multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "text", "name" -> "column 1 (text)", "identifier" -> true),
+        Json.obj("kind" -> "text", "name" -> "column 2 (text multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "numeric", "name" -> "column 3 (numeric)"),
-        Json.obj("kind" -> "numeric", "name" -> "column 4 (numeric multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "numeric", "name" -> "column 4 (numeric multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "richtext", "name" -> "column 5 (richtext)"),
-        Json.obj("kind" -> "richtext", "name" -> "column 6 (richtext multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "richtext", "name" -> "column 6 (richtext multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "date", "name" -> "column 7 (date)"),
-        Json.obj("kind" -> "date", "name" -> "column 8 (date multilanguage)", "multilanguage" -> true),
+        Json.obj("kind" -> "date", "name" -> "column 8 (date multilanguage)", "languageType" -> "language"),
         Json.obj("kind" -> "attachment", "name" -> "column 9 (attachment)")
       )
     )
