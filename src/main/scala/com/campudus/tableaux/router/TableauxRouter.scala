@@ -501,9 +501,10 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
             .recover({
               case _: NoJsonFoundException => None
             })
-            .getOrElse(None)
+            .get
 
-          controller.createRow(tableId, optionalValues)
+          controller
+            .createRow(tableId, optionalValues)
         }
       )
     }
