@@ -247,7 +247,7 @@ trait BaseRouter extends VertxAccess {
             resp.end(file)
           }
         } catch {
-          case ex: Throwable =>
+          case NonFatal(ex) =>
             endResponse(
               resp,
               Error(RouterException("send embedded file exception", ex, "errors.routing.sendEmbeddedFile", 500)))
@@ -269,18 +269,12 @@ trait BaseRouter extends VertxAccess {
         logger.warn(s"Error 404: $message", cause)
         resp.setStatusCode(404)
         resp.setStatusMessage("NOT FOUND")
-        message match {
-          case null => resp.end()
-          case msg => resp.end(msg)
-        }
+        Option(message).fold(resp.end())(resp.end)
       case Error(RouterException(message, cause, id, statusCode)) =>
         logger.warn(s"Error $statusCode: $message", cause)
         resp.setStatusCode(statusCode)
         resp.setStatusMessage(id)
-        message match {
-          case null => resp.end()
-          case msg => resp.end(msg)
-        }
+        Option(message).fold(resp.end())(resp.end)
     }
   }
 
