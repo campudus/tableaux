@@ -1,7 +1,8 @@
 package com.campudus.tableaux.router
 
-import java.io.FileNotFoundException
+import java.io.{File, FileNotFoundException}
 import java.net.URLEncoder
+import java.nio.file.Paths
 
 import com.campudus.tableaux._
 import com.campudus.tableaux.database.domain._
@@ -72,7 +73,7 @@ trait BaseRouter extends VertxAccess {
           case ex: NoNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
           case ex: CustomException => Error(ex.toRouterException)
           case ex: IllegalArgumentException => Error(RouterException(ex.getMessage, ex, "error.arguments", 422))
-          case NonFatal(ex) => Error(RouterException("unknown error", ex, "error.unknown", 500))
+          case NonFatal(ex) => Error(RouterException("Unknown error", ex, "error.unknown", 500))
         })
     }
   }
@@ -92,11 +93,11 @@ trait BaseRouter extends VertxAccess {
             case Success(r) => r
 
             case Failure(ex: DecodeException) =>
-              logger.error(s"Couldn't parse requestBody. JSON is valid: [$buffer]")
+              logger.error(s"Couldn't parse requestBody. JSON is invalid: [$buffer]")
               throw InvalidJsonException(ex.getMessage, "invalid")
 
             case Failure(ex) =>
-              logger.error(s"Couldn't parse requestBody. Excepted JSON but got: [$buffer]")
+              logger.error(s"Couldn't parse requestBody. Expected JSON but got: [$buffer]")
               throw ex
           }
       }
@@ -156,7 +157,7 @@ trait BaseRouter extends VertxAccess {
   /** File to send if the given file in SendFile was not found. */
   protected def notFoundFile: String = "404.html"
 
-  private def fileExists(file: String): Future[String] = {
+  private def checkExistence(file: String): Future[String] = {
     vertx
       .fileSystem()
       .existsFuture(file)
@@ -167,8 +168,9 @@ trait BaseRouter extends VertxAccess {
   }
 
   private def addIndexToDirName(path: String): String = {
-    if (path.endsWith("/")) path + "index.html"
-    else {
+    if (path.endsWith("/")) {
+      path + "index.html"
+    } else {
       path + "/index.html"
     }
   }
@@ -179,7 +181,7 @@ trait BaseRouter extends VertxAccess {
       .lpropsFuture(path)
       .flatMap({ fp =>
         if (fp.isDirectory) {
-          fileExists(addIndexToDirName(path))
+          checkExistence(addIndexToDirName(path))
         } else {
           Future.successful(path)
         }
@@ -207,64 +209,63 @@ trait BaseRouter extends VertxAccess {
           resp.setStatusCode(200)
           resp.setStatusMessage("OK")
 
-          val extension = if (path.contains(".")) {
-            path.split("\\.").toList.lastOption.map(_.toLowerCase)
+          val extension: String = if (path.contains(".")) {
+            path.split("\\.").toList.lastOption.map(_.toLowerCase).toString
           } else {
             "other"
           }
 
-          val byteResponse = extension match {
-            case "html" =>
-              resp.putHeader("Content-type", "text/html; charset=UTF-8")
-              false
-            case "js" =>
-              resp.putHeader("Content-type", "application/javascript; charset=UTF-8")
-              false
-            case "json" =>
-              resp.putHeader("Content-type", "application/json; charset=UTF-8")
-              false
-            case "css" =>
-              resp.putHeader("Content-type", "text/css; charset= UTF-8")
-              false
-            case "png" =>
-              resp.putHeader("Content-type", "image/png")
-              true
-            case "gif" =>
-              resp.putHeader("Content-type", "image/gif")
-              true
-            case _ | "txt" =>
-              resp.putHeader("Content-type", "text/plain; charset= UTF-8")
-              false
+          def switchContentType(ext: String): (String, Boolean) = {
+            ext match {
+              case "html" => ("text/html; charset=UTF-8", false)
+              case "js" => ("application/javascript; charset=UTF-8", false)
+              case "json" => ("application/json; charset=UTF-8", false)
+              case "css" => ("text/css; charset= UTF-8", false)
+              case "png" => ("image/png", true)
+              case "gif" => ("image/gif", true)
+              case _ | "txt" => ("text/plain; charset= UTF-8", false)
+            }
           }
 
-          val is = getClass.getResourceAsStream(path)
+          val (contentType, byteResponse) = switchContentType(extension)
+
+          resp.putHeader("Content-type", contentType)
+
+          val inputStream = getClass.getResourceAsStream(path)
 
           if (byteResponse) {
-            val bytes = Stream.continually(is.read).takeWhile(_ != -1).map(_.toByte).toArray
+            val bytes = Stream.continually(inputStream.read).takeWhile(_ != -1).map(_.toByte).toArray
             resp.end(Buffer.buffer(bytes))
           } else {
-            val file = Source.fromInputStream(is, "UTF-8").mkString
+            val file = Source.fromInputStream(inputStream, "UTF-8").mkString
             resp.end(file)
           }
         } catch {
           case NonFatal(ex) =>
-            endResponse(
-              resp,
-              Error(RouterException("send embedded file exception", ex, "errors.routing.sendEmbeddedFile", 500)))
+            endResponse(resp,
+                        Error(RouterException("Send embedded file exception", ex, "errors.routing.sendEmbeddedFile")))
         }
-      case SendFile(path, absolute) =>
-        (for {
-          exists <- fileExists(if (absolute) path else s"$workingDirectory/$path")
-          file <- directoryToIndexFile(exists)
+      case SendFile(path, absolute) => {
+        val filePath = if (absolute) {
+          path
+        } else {
+          new File(workingDirectory, path).toString
+        }
+
+        for {
+          _ <- checkExistence(filePath)
+          file <- directoryToIndexFile(filePath)
         } yield {
           logger.info(s"Serving file $file after receiving request for: $path")
           resp.sendFile(file)
-        }) recover {
-          case ex: FileNotFoundException =>
-            endResponse(resp, Error(RouterException("File not found", ex, "errors.routing.fileNotFound", 404)))
-          case ex =>
-            endResponse(resp, Error(RouterException("send file exception", ex, "errors.routing.sendFile", 500)))
+
         }
+      } recover {
+        case ex: FileNotFoundException =>
+          endResponse(resp, Error(RouterException("File not found", ex, "errors.routing.fileNotFound", 404)))
+        case ex =>
+          endResponse(resp, Error(RouterException("Send file exception", ex, "errors.routing.sendFile")))
+      }
       case Error(RouterException(message, cause, id, 404)) =>
         logger.warn(s"Error 404: $message", cause)
         resp.setStatusCode(404)
