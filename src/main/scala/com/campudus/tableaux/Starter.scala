@@ -3,17 +3,15 @@ package com.campudus.tableaux
 import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
-import com.campudus.tableaux.router.RouterRegistry
+import com.campudus.tableaux.router._
 import com.typesafe.scalalogging.LazyLogging
-import io.vertx.scala.core.http.HttpServer
-import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import io.vertx.scala.ext.web.{Cookie, Router, RoutingContext}
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.ext.web.handler.CookieHandler
+import io.vertx.scala.core.http.HttpServer
+import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 object Starter {
@@ -79,23 +77,19 @@ class Starter extends ScalaVerticle with LazyLogging {
     FileUtils(vertxAccessContainer()).mkdirs(config.uploadsDirectoryPath())
   }
 
-  private def deployHttpServer(port: Int,
-                               host: String,
-                               tableauxConfig: TableauxConfig,
-                               connection: SQLConnection): Future[HttpServer] = {
+  private def deployHttpServer(
+      port: Int,
+      host: String,
+      tableauxConfig: TableauxConfig,
+      connection: SQLConnection
+  ): Future[HttpServer] = {
     val dbConnection = DatabaseConnection(vertxAccessContainer(), connection)
-    val routerRegistry = RouterRegistry(tableauxConfig, dbConnection)
 
-    val router = Router.router(vertx)
-
-    // This cookie handler will be called for all routes
-    router.route().handler(CookieHandler.create())
-
-    router.route().handler(routerRegistry.apply)
+    val mainRouter = RouterRegistry.init(tableauxConfig, dbConnection)
 
     vertx
       .createHttpServer()
-      .requestHandler(request => router.accept(request))
+      .requestHandler(mainRouter.accept)
       .listenFuture(port, host)
   }
 

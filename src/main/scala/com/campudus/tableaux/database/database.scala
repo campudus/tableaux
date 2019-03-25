@@ -4,6 +4,7 @@ import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
+import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
 import io.vertx.scala.{DatabaseAction, SQLConnection}
 import io.vertx.scala.core.Vertx
@@ -15,7 +16,7 @@ import scala.concurrent.Future
 trait DatabaseQuery extends JsonCompatible with LazyLogging {
   protected[this] val connection: DatabaseConnection
 
-  implicit val executionContext = connection.executionContext
+  implicit val executionContext: VertxExecutionContext = connection.executionContext
 
   protected[this] def checkUpdateResults(seq: JsonObject*): Unit = {
     seq.map(json => if (json.containsKey("message")) updateNotNull(json))
@@ -51,9 +52,7 @@ object DatabaseConnection {
   }
 }
 
-class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnection)
-    extends VertxAccess
-    with LazyLogging {
+class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnection) extends VertxAccess {
 
   import DatabaseConnection._
 

@@ -5,17 +5,16 @@ import java.util.UUID
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
-import io.vertx.scala.ext.web.RoutingContext
-import org.vertx.scala.router.routing.{Get, Post}
+import io.vertx.scala.ext.web.handler.BodyHandler
+import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.concurrent.Future
-import scala.util.matching.Regex
 
 object SystemRouter {
   private var nonce: Option[String] = None
   private var devMode: Boolean = sys.env.get("ENV").isDefined && sys.env("ENV") == "development"
 
-  def apply(config: TableauxConfig, controllerCurry: (TableauxConfig) => SystemController): SystemRouter = {
+  def apply(config: TableauxConfig, controllerCurry: TableauxConfig => SystemController): SystemRouter = {
     new SystemRouter(config, controllerCurry(config))
   }
 
@@ -39,89 +38,133 @@ object SystemRouter {
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
-  private val CacheColumnInvalidate: Regex = "/system/cache/invalidate/tables/(\\d+)/columns/(\\d+)".r
-  private val Settings: Regex = "/system/settings/(\\w+)".r
+  def route: Router = {
+    val router = Router.router(vertx)
 
-  override def routes(implicit context: RoutingContext): Routing = {
+    router.get("/versions").handler(retrieveVersions)
+    router.get("/settings/:settings").handler(retrieveSettings)
 
-    /**
-      * Resets the database (needs nonce)
-      */
-    case Post("/system/reset") =>
-      asyncGetReply {
-        for {
-          _ <- Future(checkNonce)
-          result <- controller.resetDB()
-        } yield result
-      }
+    router.post("/reset").handler(reset)
+    router.post("/resetDemo").handler(resetDemo)
+    router.post("/update").handler(update)
+    router.post("/cache/invalidate").handler(invalidateCache)
 
-    /**
-      * Create the demo tables (needs nonce)
-      */
-    case Post("/system/resetDemo") =>
-      asyncGetReply {
-        for {
-          _ <- Future(checkNonce)
-          result <- controller.createDemoTables()
-        } yield result
-      }
+    router.postWithRegex(s"/cache/invalidate/tables/$tableId/columns/$columnId").handler(invalidateColumnCache)
 
-    /**
-      * Get the current version
-      */
-    case Get("/system/versions") =>
-      asyncGetReply {
-        controller.retrieveVersions()
-      }
+    // init body handler for settings routes
+    router.post("/settings/*").handler(BodyHandler.create())
 
-    /**
-      * Update the database (needs POST and nonce)
-      */
-    case Post("/system/update") =>
-      asyncGetReply {
-        for {
-          _ <- Future(checkNonce)
-          result <- controller.updateDB()
-        } yield result
-      }
+    router.post("/settings/:settings").handler(updateSettings)
 
-    /**
-      * Invalidate all caches
-      */
-    case Post("/system/cache/invalidate") =>
-      asyncGetReply {
-        controller.invalidateCache()
-      }
+    router
+  }
 
-    /**
-      * Invalidate column cache
-      */
-    case Post(CacheColumnInvalidate(tableId, columnId)) =>
-      asyncGetReply {
-        controller.invalidateCache(tableId.toLong, tableId.toLong)
-      }
+  /**
+    * Get the current version
+    */
+  private def retrieveVersions(context: RoutingContext): Unit = {
+    sendReply(context, asyncGetReply {
+      controller.retrieveVersions()
+    })
+  }
 
-    /**
-      * Retrieves system settings
-      */
-    case Get(Settings(key)) =>
-      asyncGetReply {
-        key match {
-          case SystemController.SETTING_LANGTAGS =>
-            controller.retrieveLangtags()
-          case SystemController.SETTING_SENTRY_URL =>
-            controller.retrieveSentryUrl()
-          case _ =>
-            Future.failed(InvalidRequestException(s"No system setting for key $key"))
+  /**
+    * Resets the database (needs nonce)
+    */
+  private def reset(context: RoutingContext): Unit = {
+    sendReply(context, asyncGetReply {
+      for {
+        _ <- Future.successful(checkNonce(context))
+        result <- controller.resetDB()
+      } yield result
+    })
+  }
+
+  /**
+    * Create the demo tables (needs nonce)
+    */
+  private def resetDemo(context: RoutingContext): Unit = {
+    sendReply(context, asyncGetReply {
+      for {
+        _ <- Future.successful(checkNonce(context))
+        result <- controller.createDemoTables()
+      } yield result
+    })
+  }
+
+  /**
+    * Update the database (needs POST and nonce)
+    */
+  private def update(context: RoutingContext): Unit = {
+    sendReply(context, asyncGetReply {
+      for {
+        _ <- Future.successful(checkNonce(context))
+        result <- controller.updateDB()
+      } yield result
+    })
+  }
+
+  /**
+    * Invalidate all caches
+    */
+  private def invalidateCache(context: RoutingContext): Unit = {
+    sendReply(context, asyncGetReply {
+      controller.invalidateCache()
+    })
+  }
+
+  /**
+    * Invalidate column cache
+    */
+  private def invalidateColumnCache(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.invalidateCache(tableId, columnId)
         }
-      }
+      )
+    }
+  }
 
-    /**
-      * Update system settings
-      */
-    case Post(Settings(key)) =>
-      asyncGetReply {
-        getJson(context).flatMap(json => {
+  /**
+    * Retrieve system settings
+    */
+  private def retrieveSettings(context: RoutingContext): Unit = {
+    for {
+      key <- getStringParam("settings", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          key match {
+            case SystemController.SETTING_LANGTAGS =>
+              controller.retrieveLangtags()
+            case SystemController.SETTING_SENTRY_URL =>
+              controller.retrieveSentryUrl()
+            case _ =>
+              Future.failed(InvalidRequestException(s"No system setting for key $key"))
+          }
+        }
+      )
+    }
+  }
+
+  /**
+    * Update system settings
+    */
+  private def updateSettings(context: RoutingContext): Unit = {
+    for {
+      key <- getStringParam("settings", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+
           key match {
             case SystemController.SETTING_LANGTAGS =>
               controller.updateLangtags(asCastedList[String](json.getJsonArray("value")).get)
@@ -130,8 +173,9 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
             case _ =>
               Future.failed(InvalidRequestException(s"No system setting for key $key"))
           }
-        })
-      }
+        }
+      )
+    }
   }
 
   private def checkNonce(implicit context: RoutingContext): Unit = {
