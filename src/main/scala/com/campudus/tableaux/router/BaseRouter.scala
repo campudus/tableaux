@@ -210,7 +210,7 @@ trait BaseRouter extends VertxAccess {
           resp.setStatusMessage("OK")
 
           val extension: String = if (path.contains(".")) {
-            path.split("\\.").toList.lastOption.map(_.toLowerCase).toString
+            path.split("\\.").toList.lastOption.map(_.toLowerCase).getOrElse("")
           } else {
             "other"
           }
