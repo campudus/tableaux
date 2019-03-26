@@ -1,48 +1,7 @@
 package com.campudus.tableaux.database.domain
 
-import io.circe._
 import org.joda.time.DateTime
-
-object Service {
-
-  implicit val dateTimeEncoder: Encoder[DateTime] = Encoder.encodeString.contramap[DateTime](_.toString)
-
-  implicit val encodeMultiLanguageValue: Encoder[MultiLanguageValue[String]] = {
-    Encoder.encodeJson.contramap(m =>
-      m.values.foldLeft(Json.obj()) {
-        case (obj, (langtag, value)) =>
-          obj.deepMerge(Json.obj(langtag -> Json.fromString(value)))
-    })
-  }
-
-  // without a serviceEncoder this error is thrown: "could not find implicit value for parameter encoder: io.circe.Encoder[com.campudus.tableaux.database.domain.Service]"
-  implicit val encodeService: Encoder[Service] =
-    Encoder
-      .forProduct11("id",
-                    "type",
-                    "name",
-                    "ordering",
-                    "displayName",
-                    "description",
-                    "active",
-                    "config",
-                    "scope",
-                    "createdAt",
-                    "updatedAt")(
-        s =>
-          (s.id,
-           s.serviceType.toString,
-           s.name,
-           s.ordering,
-           s.displayName,
-           s.description,
-           s.active,
-           s.config,
-           s.scope,
-           s.createdAt,
-           s.updatedAt))
-
-}
+import org.vertx.scala.core.json._
 
 // TODO move config and scope into own case classes
 case class Service(
@@ -57,9 +16,31 @@ case class Service(
     scope: JsonObject,
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime]
-)
+) extends DomainObject {
 
-case class ServiceSeq(services: Seq[Service])
+  override def getJson: JsonObject = {
+    Json.obj(
+      "id" -> id,
+      "type" -> serviceType.toString,
+      "name" -> name,
+      "ordering" -> ordering,
+      "displayName" -> displayName.getJson,
+      "description" -> description.getJson,
+      "active" -> active,
+      "config" -> config,
+      "scope" -> scope,
+      "createdAt" -> optionToString(createdAt),
+      "updatedAt" -> optionToString(updatedAt)
+    )
+  }
+}
+
+case class ServiceSeq(services: Seq[Service]) extends DomainObject {
+
+  override def getJson: JsonObject = {
+    Json.obj("services" -> services.map(_.getJson))
+  }
+}
 
 trait ServiceType
 

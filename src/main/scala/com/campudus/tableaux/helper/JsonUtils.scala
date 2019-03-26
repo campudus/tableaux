@@ -6,9 +6,9 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import com.typesafe.scalalogging.LazyLogging
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 object JsonUtils extends LazyLogging {
 
@@ -294,5 +294,18 @@ object JsonUtils extends LazyLogging {
 
       LocationType(location, relativeTo)
     }).get
+  }
+
+  def parseJson(jsonStringOpt: String): JsonObject = {
+    Option(jsonStringOpt) match {
+      case Some(jsonString) =>
+        Try(Json.fromObjectString(jsonString)) match {
+          case Success(json) => json
+          case Failure(_) =>
+            logger.error(s"Couldn't parse json. Excepted JSON but got: $jsonString")
+            Json.emptyObj()
+        }
+      case None => Json.emptyObj()
+    }
   }
 }

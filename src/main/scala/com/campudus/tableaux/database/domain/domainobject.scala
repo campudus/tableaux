@@ -81,12 +81,6 @@ case class PlainDomainObject(json: JsonObject) extends DomainObject {
   override def getJson: JsonObject = json
 }
 
-// FIXME TODO Get rid of this ugly wrapper
-// Just a wrapper so we can reuse the asyncReply methods with fix DomainObject implementation
-case class DomainObjectWrapper(json: io.circe.Json) extends DomainObject {
-  override def getJson: JsonObject = PlainDomainObject(Json.fromObjectString(json.noSpaces)).getJson
-}
-
 object MultiLanguageValue {
 
   def apply[A](values: Option[JsonObject]): MultiLanguageValue[A] = {

@@ -23,7 +23,6 @@ project.version = '0.1.0'
 
 def vertxVersion = '3.6.3'
 def scalaVersion = '2.12.8'
-def circeVersion = '0.11.1'
 
 sourceCompatibility = '1.8'
 
@@ -59,14 +58,6 @@ dependencies {
   compile 'com.github.cb372:scalacache-guava_2.12:0.10.0'
 
   compile 'org.webjars:swagger-ui:3.17.6'
-
-  compile "io.circe:circe-core_2.12:${circeVersion}"
-  compile "io.circe:circe-parser_2.12:${circeVersion}"
-  compile "io.circe:circe-generic_2.12:${circeVersion}"
-  compile "io.circe:circe-literal_2.12:${circeVersion}"
-  compile "io.circe:circe-generic-extras_2.12:${circeVersion}"
-  compile "io.circe:circe-shapes_2.12:${circeVersion}"
-  compile "io.circe:circe-testing_2.12:${circeVersion}"
 
   compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 

@@ -1,6 +1,5 @@
 package com.campudus.tableaux.controller
 
-import cats.instances.ordering
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import com.campudus.tableaux.cache.CacheClient
@@ -9,8 +8,6 @@ import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.JsonUtils
-import io.circe.generic.auto._
-import io.circe.syntax._
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -236,7 +233,7 @@ class SystemController(
       active: Boolean,
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  ): Future[io.circe.Json] = {
+  ): Future[DomainObject] = {
 
     checkArguments(
       notNull(name, "name"),
@@ -248,7 +245,7 @@ class SystemController(
     for {
       serviceId <- serviceModel.create(name, serviceType, ordering, displayName, description, active, config, scope)
       service <- retrieveService(serviceId)
-    } yield service.asJson
+    } yield service
   }
 
   def updateService(
@@ -261,7 +258,7 @@ class SystemController(
       active: Option[Boolean],
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  ): Future[io.circe.Json] = {
+  ): Future[DomainObject] = {
 
     checkArguments(
       greaterZero(serviceId),
@@ -277,28 +274,28 @@ class SystemController(
     for {
       _ <- serviceModel.update(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
       service <- retrieveService(serviceId)
-    } yield service.asJson
+    } yield service
   }
 
-  def retrieveServices(): Future[io.circe.Json] = {
+  def retrieveServices(): Future[DomainObject] = {
     logger.info(s"retrieveServices")
     for {
       serviceSeq <- serviceModel.retrieveAll().map(ServiceSeq)
-    } yield serviceSeq.asJson
+    } yield serviceSeq
   }
 
-  def retrieveService(serviceId: ServiceId): Future[io.circe.Json] = {
+  def retrieveService(serviceId: ServiceId): Future[DomainObject] = {
     logger.info(s"retrieveService $serviceId")
     for {
       service <- serviceModel.retrieve(serviceId)
-    } yield service.asJson
+    } yield service
   }
 
-  def deleteService(serviceId: ServiceId): Future[io.circe.Json] = {
+  def deleteService(serviceId: ServiceId): Future[DomainObject] = {
     logger.info(s"deleteService $serviceId")
 
     for {
       _ <- serviceModel.delete(serviceId)
-    } yield io.circe.JsonObject.empty.asJson
+    } yield EmptyObject()
   }
 }

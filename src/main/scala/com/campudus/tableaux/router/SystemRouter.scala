@@ -1,10 +1,9 @@
 package com.campudus.tableaux.router
 
-import java.lang
 import java.util.UUID
 
 import com.campudus.tableaux.controller.SystemController
-import com.campudus.tableaux.database.domain.{DomainObjectWrapper, MultiLanguageValue, ServiceType}
+import com.campudus.tableaux.database.domain.{MultiLanguageValue, ServiceType}
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler
@@ -202,7 +201,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     sendReply(
       context,
       asyncGetReply {
-        controller.retrieveServices().map(DomainObjectWrapper)
+        controller.retrieveServices()
       }
     )
   }
@@ -217,7 +216,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveService(serviceId).map(DomainObjectWrapper)
+          controller.retrieveService(serviceId)
         }
       )
     }
@@ -244,9 +243,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         val config = getNullableObject("config")(json)
         val scope = getNullableObject("scope")(json)
 
-        controller
-          .createService(name, serviceType, ordering, displayName, description, active, config, scope)
-          .map(DomainObjectWrapper)
+        controller.createService(name, serviceType, ordering, displayName, description, active, config, scope)
       }
     )
   }
@@ -275,7 +272,6 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
 
           controller
             .updateService(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
-            .map(DomainObjectWrapper)
         }
       )
     }
@@ -291,7 +287,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       sendReply(
         context,
         asyncGetReply {
-          controller.deleteService(serviceId).map(DomainObjectWrapper)
+          controller.deleteService(serviceId)
         }
       )
     }

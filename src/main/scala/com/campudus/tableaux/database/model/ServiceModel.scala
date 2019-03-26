@@ -5,8 +5,8 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.Ordering
+import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
-import io.circe.parser.decode
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
@@ -169,15 +169,8 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
   }
 
   private def convertJsonArrayToService(arr: JsonArray): Service = {
-    val config = decode[io.circe.JsonObject](arr.get[String](7)) match {
-      case Right(json) => json
-      case Left(_) => io.circe.JsonObject.empty
-    }
-
-    val scope = decode[io.circe.JsonObject](arr.get[String](8)) match {
-      case Right(json) => json
-      case Left(_) => io.circe.JsonObject.empty
-    }
+    val config = JsonUtils.parseJson(arr.get[String](7))
+    val scope = JsonUtils.parseJson(arr.get[String](8))
 
     Service(
       arr.get[ServiceId](0), // id
