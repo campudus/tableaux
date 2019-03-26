@@ -58,7 +58,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.post("/update").handler(update)
     router.post("/cache/invalidate").handler(invalidateCache)
 
-    router.postWithRegex(s"""/cache/invalidate/tables/$TABLE_ID/columns/$COLUMN_ID""").handler(invalidateColumnCache)
+    router.postWithRegex(s"/cache/invalidate/tables/$tableId/columns/$columnId").handler(invalidateColumnCache)
 
     // init body handler for settings routes
     router.post("/settings/*").handler(BodyHandler.create())

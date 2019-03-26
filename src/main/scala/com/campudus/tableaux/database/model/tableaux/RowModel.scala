@@ -150,10 +150,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         // we only care about links because of delete cascade handling
         // for simple, multis, and attachments do same as in clearRow()
         for {
-          _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.unzip._1.map((_, None)))
-          _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis.unzip._1)
+          _ <- if (simple.isEmpty) Future.successful(())
+          else updateSimple(table, rowId, simple.map({ case (c, _) => (c, None) }))
+          _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis.map(_._1))
           _ <- if (links.isEmpty) Future.successful(()) else clearLinksWithValues(table, rowId, links, deleteRowFn)
-          _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments.unzip._1)
+          _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments.map(_._1))
         } yield ()
     }
   }
@@ -238,7 +239,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       })
   }
 
-  private def retrieveLinkedRows(
+  def retrieveLinkedRows(
       table: Table,
       rowId: RowId,
       column: LinkColumn
@@ -547,8 +548,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
          |WHERE
          |  user_table_annotations_$tableId.row_id = subquery.row_id AND
          |  user_table_annotations_$tableId.column_id = subquery.column_id AND
-         |  user_table_annotations_$tableId.type = subquery.type AND
-         |  user_table_annotations_$tableId.value = subquery.value
+         |  user_table_annotations_$tableId.value = subquery.value AND
+         |  user_table_annotations_$tableId.type = 'flag'
          |RETURNING
          |  user_table_annotations_$tableId.uuid,
          |  array_to_json(user_table_annotations_$tableId.langtags),
@@ -902,6 +903,19 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
       val rawRow = mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
       (rawRow.rowLevelAnnotations, rawRow.cellLevelAnnotations)
     }
+  }
+
+  def retrieveAnnotation(
+      tableId: TableId,
+      rowId: RowId,
+      column: ColumnType[_],
+      uuid: UUID
+  ): Future[Option[CellLevelAnnotation]] = {
+    for {
+      (_, cellLevelAnnotations) <- retrieveAnnotations(tableId, rowId, Seq(column))
+      annotations = cellLevelAnnotations.annotations.get(column.id).getOrElse(Seq.empty[CellLevelAnnotation])
+    } yield annotations.find(_.uuid == uuid)
+
   }
 
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {

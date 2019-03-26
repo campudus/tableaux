@@ -7,12 +7,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{
-  ForbiddenException,
-  InvalidRequestException,
-  ShouldBeUniqueException,
-  WrongColumnKindException
-}
+import com.campudus.tableaux._
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -28,7 +23,8 @@ object TableauxModel {
 
   type Ordering = Long
 
-  def apply(connection: DatabaseConnection, structureModel: StructureModel): TableauxModel = {
+  def apply(connection: DatabaseConnection, structureModel: StructureModel)(
+      implicit requestContext: RequestContext): TableauxModel = {
     new TableauxModel(connection, structureModel)
   }
 }
@@ -85,7 +81,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 class TableauxModel(
     override protected[this] val connection: DatabaseConnection,
     override protected[this] val structureModel: StructureModel
-) extends DatabaseQuery
+)(implicit requestContext: RequestContext)
+    extends DatabaseQuery
     with StructureDelegateModel {
 
   import TableauxModel._
@@ -95,6 +92,32 @@ class TableauxModel(
   val updateRowModel = new UpdateRowModel(connection)
 
   val attachmentModel = AttachmentModel(connection)
+  val retrieveHistoryModel = RetrieveHistoryModel(connection)
+  val createHistoryModel = CreateHistoryModel(this, connection)
+
+  def retrieveBacklink(column: LinkColumn): Future[Option[LinkColumn]] = {
+    val select =
+      s"""
+         |SELECT
+         |  columns_back.column_id
+         |FROM
+         |  system_columns c
+         |JOIN system_link_table l ON (l.link_id = c.link_id)
+         |JOIN system_columns columns_back ON (c.link_id = columns_back.link_id AND columns_back.table_id != ?)
+         |WHERE c.table_id = ? AND c.column_id = ?""".stripMargin
+
+    for {
+      foreignColumnIdOpt <- connection
+        .query(select, Json.arr(column.table.id, column.table.id, column.id))
+        .map(json => resultObjectToJsonArray(json).headOption.map(row => row.get[ColumnId](0)))
+
+      backlinkColumnOpt <- foreignColumnIdOpt match {
+        case Some(columnId) =>
+          structureModel.columnStruc.retrieve(column.to.table, columnId).map(res => Some(res.asInstanceOf[LinkColumn]))
+        case None => Future.successful(None)
+      }
+    } yield backlinkColumnOpt
+  }
 
   def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
 
@@ -182,6 +205,7 @@ class TableauxModel(
   def createRow(table: Table): Future[Row] = {
     for {
       rowId <- createRowModel.createRow(table, Seq.empty)
+      _ <- createHistoryModel.createRow(table, rowId)
       row <- retrieveRow(table, rowId)
     } yield row
   }
@@ -215,6 +239,9 @@ class TableauxModel(
             }
 
             rowId <- createRowModel.createRow(table, columnValuePairs)
+            _ <- createHistoryModel.createRow(table, rowId)
+            _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
+
             newRow <- retrieveRow(table, columns, rowId)
           } yield {
             rows ++ Seq(newRow)
@@ -240,17 +267,28 @@ class TableauxModel(
         annotationType,
         value
       )
+      _ <- createHistoryModel.addCellAnnotation(column, rowId, uuid, langtags, annotationType, value)
     } yield CellLevelAnnotation(uuid, annotationType, mergedLangtags, value, createdAt)
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[Unit] = {
     for {
+      annotationOpt <- retrieveRowModel.retrieveAnnotation(column.table.id, rowId, column, uuid)
+      _ <- annotationOpt match {
+        case Some(annotation) => createHistoryModel.removeCellAnnotation(column, rowId, uuid, annotation)
+        case None => Future.successful(())
+      }
       _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid)
     } yield ()
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String): Future[Unit] = {
     for {
+      annotationOpt <- retrieveRowModel.retrieveAnnotation(column.table.id, rowId, column, uuid)
+      _ <- annotationOpt match {
+        case Some(annotation) => createHistoryModel.removeCellAnnotation(column, rowId, uuid, annotation, Some(langtag))
+        case None => Future.successful(())
+      }
       _ <- updateRowModel.deleteCellAnnotation(column, rowId, uuid, langtag)
     } yield ()
   }
@@ -258,6 +296,7 @@ class TableauxModel(
   def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean]): Future[Row] = {
     for {
       _ <- updateRowModel.updateRowAnnotations(table.id, rowId, finalFlag)
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, Seq(rowId), finalFlag)
       row <- retrieveRow(table, rowId)
     } yield row
   }
@@ -265,6 +304,8 @@ class TableauxModel(
   def updateRowsAnnotations(table: Table, finalFlag: Option[Boolean]): Future[Unit] = {
     for {
       _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
+      rowIds <- retrieveRows(table, Pagination(None, None)).map(_.rows.map(_.id))
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, finalFlag)
     } yield ()
   }
 
@@ -298,11 +339,16 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
 
       _ <- column match {
-        case linkColumn: LinkColumn => updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
+        case linkColumn: LinkColumn => {
+          for {
+            _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, Seq(toId))))
+            _ <- updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
+            _ <- invalidateCellAndDependentColumns(column, rowId)
+            _ <- createHistoryModel.deleteLink(table, linkColumn, rowId, toId)
+          } yield Future.successful(())
+        }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
-
-      _ <- invalidateCellAndDependentColumns(column, rowId)
 
       updatedCell <- retrieveCell(column, rowId)
     } yield updatedCell
@@ -319,11 +365,16 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
 
       _ <- column match {
-        case linkColumn: LinkColumn => updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
+        case linkColumn: LinkColumn => {
+          for {
+            _ <- createHistoryModel.createCellsInit(table, rowId, Seq((linkColumn, Seq(rowId))))
+            _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
+            _ <- invalidateCellAndDependentColumns(column, rowId)
+            _ <- createHistoryModel.updateLinkOrder(table, linkColumn, rowId)
+          } yield Future.successful(())
+        }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
-
-      _ <- invalidateCellAndDependentColumns(column, rowId)
 
       updatedCell <- retrieveCell(column, rowId)
     } yield updatedCell
@@ -352,15 +403,20 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
+      _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
+
       _ <- if (replace) {
-        updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
+        for {
+          _ <- createHistoryModel.clearBackLinksWhichWillBeDeleted(table, rowId, Seq((column, value)))
+          _ <- updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
+        } yield ()
       } else {
         Future.successful(())
       }
 
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
-
       _ <- invalidateCellAndDependentColumns(column, rowId)
+      _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
 
       changedCell <- retrieveCell(column, rowId)
     } yield changedCell
@@ -378,8 +434,9 @@ class TableauxModel(
 
       column <- retrieveColumn(table, columnId)
 
+      _ <- createHistoryModel.createClearCellInit(table, rowId, Seq(column))
+      _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
-
       _ <- invalidateCellAndDependentColumns(column, rowId)
 
       clearedCell <- retrieveCell(column, rowId)
@@ -415,10 +472,8 @@ class TableauxModel(
     }
   }
 
-  private def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
-
-    def invalidateColumn: (TableId, ColumnId) => Future[_] =
-      CacheClient(this.connection).invalidateColumn
+  def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
+    def invalidateColumn: (TableId, ColumnId) => Future[_] = CacheClient(this.connection).invalidateColumn
 
     for {
       // invalidate the cell itself
@@ -438,9 +493,7 @@ class TableauxModel(
       }
 
       dependentGroupColumns <- retrieveDependentGroupColumns(column)
-
       dependentLinkColumns <- retrieveDependencies(column.table)
-
       dependentColumns = dependentGroupColumns ++ dependentLinkColumns
 
       _ <- Future.sequence(dependentColumns.map({
@@ -448,16 +501,14 @@ class TableauxModel(
         // ... but this would require us to retrieve them which is definitely more expensive
 
         case DependentColumnInformation(tableId, columnId, _, true, groupColumnIds) =>
-          // Only invalidate cache if depending link column is an identifier column
-          // ... because only identifier link columns
+          // Only invalidate cache if depending link column is an identifier column because only identifier link columns
 
           // Invalidate depending link column...
           val invalidateLinkColumn = invalidateColumn(tableId, columnId)
           // Invalidate the table's concat column - to be sure...
           val invalidateConcatColumn = invalidateColumn(tableId, 0)
           // Invalidate all depending group columns
-          val invalidateGroupColumns =
-            Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
+          val invalidateGroupColumns = Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
 
           invalidateLinkColumn.zip(invalidateConcatColumn).zip(invalidateGroupColumns)
 
@@ -466,8 +517,7 @@ class TableauxModel(
           // ... group columns which dependent on link column
 
           // Invalidate all depending group columns
-          val invalidateGroupColumns =
-            Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
+          val invalidateGroupColumns = Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
 
           invalidateGroupColumns
       }))
@@ -636,6 +686,9 @@ class TableauxModel(
               .flatMap(_ => Future.failed(ex))
         })
 
+      _ <- createHistoryModel.createRow(table, duplicatedRowId)
+      _ <- createHistoryModel.createCells(table, rowId, columns.zip(rowValues))
+
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
     } yield duplicatedRow
@@ -647,7 +700,7 @@ class TableauxModel(
       * Fetches ConcatColumn values for
       * linked rows
       */
-    def fetchConcatValuesForLinkedRows(concatnateColumn: ConcatenateColumn,
+    def fetchConcatValuesForLinkedRows(concatenateColumn: ConcatenateColumn,
                                        linkedRows: JsonArray): Future[List[JsonObject]] = {
       import scala.collection.JavaConverters._
 
@@ -661,7 +714,7 @@ class TableauxModel(
 
           for {
             list <- futureList
-            cell <- retrieveCell(concatnateColumn, rowId)
+            cell <- retrieveCell(concatenateColumn, rowId)
           } yield list ++ List(Json.obj("id" -> rowId, "value" -> DomainObject.compatibilityGet(cell.value)))
       }
     }
@@ -727,5 +780,43 @@ class TableauxModel(
 
   def retrieveTotalSize(table: Table): Future[Long] = {
     retrieveRowModel.size(table.id)
+  }
+
+  def retrieveCellHistory(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      langtagOpt: Option[String],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+      _ <- checkColumnTypeForLangtag(column, langtagOpt)
+      cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt)
+    } yield cellHistorySeq
+  }
+
+  def retrieveRowHistory(
+      table: Table,
+      rowId: RowId,
+      langtagOpt: Option[String],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
+  }
+
+  def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String]): Future[SeqHistory] = {
+    retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt)
+  }
+
+  private def checkColumnTypeForLangtag[A](column: ColumnType[_], langtagOpt: Option[String]): Future[Unit] = {
+    (column.languageType, langtagOpt) match {
+      case (LanguageNeutral, Some(_)) =>
+        Future.failed(
+          InvalidRequestException(
+            "History values filtered by langtags can only be retrieved from multi-language columns"))
+      case (_, _) => Future.successful(())
+
+    }
   }
 }

@@ -1,16 +1,23 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
-import io.vertx.scala.ext.web.Router
+import com.campudus.tableaux.{RequestContext, TableauxConfig}
+import io.vertx.scala.ext.web.handler.CookieHandler
+import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 object RouterRegistry {
 
   def init(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection): Router = {
 
     val mainRouter: Router = Router.router(tableauxConfig.vertx)
+
+    implicit val requestContext: RequestContext = RequestContext()
+
+    // This cookie handler will be called for all routes
+    mainRouter.route().handler(CookieHandler.create())
+    mainRouter.route().handler(retrieveCookies)
 
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
@@ -39,5 +46,13 @@ object RouterRegistry {
     mainRouter.route().handler(systemRouter.noRouteMatched)
 
     mainRouter
+  }
+
+  /**
+    * Extract cookies from request and forward the request to routing again
+    */
+  private def retrieveCookies(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
+    requestContext.cookies = context.cookies().toSet
+    context.next()
   }
 }

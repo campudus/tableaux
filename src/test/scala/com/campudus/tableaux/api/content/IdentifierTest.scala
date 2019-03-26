@@ -140,8 +140,8 @@ class IdentifierTest extends TableauxTestBase {
                Identifier(Multilanguage(TextCol("multitext13"))),
                NumericCol("num14")),
           List(
-            List("table1col1row1", 121, Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
-            List("table1col1row2", 122, Json.obj("de_DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
+            List("table1col1row1", 121, Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
+            List("table1col1row2", 122, Json.obj("de-DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
           )
         )
         (tableId2, columnIds2, rowIds2) <- createSimpleTableWithValues(
@@ -151,8 +151,8 @@ class IdentifierTest extends TableauxTestBase {
                Identifier(Multilanguage(TextCol("multitext23"))),
                NumericCol("num24")),
           List(
-            List("table2col1row1", 221, Json.obj("de_DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"), 241),
-            List("table2col1row2", 222, Json.obj("de_DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"), 242)
+            List("table2col1row1", 221, Json.obj("de-DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"), 241),
+            List("table2col1row2", 222, Json.obj("de-DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"), 242)
           )
         )
         (tableId3, columnIds3, rowIds3) <- createSimpleTableWithValues(
@@ -162,8 +162,8 @@ class IdentifierTest extends TableauxTestBase {
                Identifier(Multilanguage(TextCol("multitext33"))),
                NumericCol("num34")),
           List(
-            List("table3col1row1", 321, Json.obj("de_DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"), 341),
-            List("table3col1row2", 322, Json.obj("de_DE" -> "table3col3row2-de", "en_GB" -> "table3col3row2-gb"), 342)
+            List("table3col1row1", 321, Json.obj("de-DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"), 341),
+            List("table3col1row2", 322, Json.obj("de-DE" -> "table3col3row2-de", "en_GB" -> "table3col3row2-gb"), 342)
           )
         )
         (tableId4, columnIds4, rowIds4) <- createSimpleTableWithValues(
@@ -173,8 +173,8 @@ class IdentifierTest extends TableauxTestBase {
                Identifier(Multilanguage(TextCol("multitext43"))),
                NumericCol("num44")),
           List(
-            List("table4col1row1", 421, Json.obj("de_DE" -> "table4col3row1-de", "en_GB" -> "table4col3row1-gb"), 441),
-            List("table4col1row2", 422, Json.obj("de_DE" -> "table4col3row2-de", "en_GB" -> "table4col3row2-gb"), 442)
+            List("table4col1row1", 421, Json.obj("de-DE" -> "table4col3row1-de", "en_GB" -> "table4col3row1-gb"), 441),
+            List("table4col1row2", 422, Json.obj("de-DE" -> "table4col3row2-de", "en_GB" -> "table4col3row2-gb"), 442)
           )
         )
 
@@ -290,25 +290,25 @@ class IdentifierTest extends TableauxTestBase {
                 "id" -> rowIds3.head,
                 "value" -> Json.arr(
                   321,
-                  Json.obj("de_DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"),
+                  Json.obj("de-DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"),
                   // links into table 2 row 1 and row 2
                   Json.arr(
                     Json.obj(
                       "id" -> rowIds2.head,
                       "value" -> Json.arr(
                         221,
-                        Json.obj("de_DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"),
+                        Json.obj("de-DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"),
                         // links into table 1 row 1 and row 2
                         Json.arr(
                           Json.obj("id" -> rowIds1.head,
                                    "value" -> Json.arr(
                                      121,
-                                     Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
+                                     Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
                                    )),
                           Json.obj("id" -> rowIds1(1),
                                    "value" -> Json.arr(
                                      122,
-                                     Json.obj("de_DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb")
+                                     Json.obj("de-DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb")
                                    ))
                         )
                       )
@@ -317,13 +317,13 @@ class IdentifierTest extends TableauxTestBase {
                       "id" -> rowIds2(1),
                       "value" -> Json.arr(
                         222,
-                        Json.obj("de_DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"),
+                        Json.obj("de-DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"),
                         // links into table 1 row 1
                         Json.arr(
                           Json.obj("id" -> rowIds1.head,
                                    "value" -> Json.arr(
                                      121,
-                                     Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
+                                     Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
                                    ))
                         )
                       )
@@ -355,8 +355,8 @@ class IdentifierTest extends TableauxTestBase {
                Identifier(Multilanguage(TextCol("multitext13"))),
                NumericCol("num14")),
           List(
-            List("table1col1row1", 121, Json.obj("de_DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
-            List("table1col1row2", 122, Json.obj("de_DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
+            List("table1col1row1", 121, Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
+            List("table1col1row2", 122, Json.obj("de-DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
           )
         )
         (tableId2, columnIds2, rowIds2) <- createSimpleTableWithValues(
@@ -366,8 +366,8 @@ class IdentifierTest extends TableauxTestBase {
                Identifier(Multilanguage(TextCol("multitext23"))),
                NumericCol("num24")),
           List(
-            List("table2col1row1", 221, Json.obj("de_DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"), 241),
-            List("table2col1row2", 222, Json.obj("de_DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"), 242)
+            List("table2col1row1", 221, Json.obj("de-DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"), 241),
+            List("table2col1row2", 222, Json.obj("de-DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"), 242)
           )
         )
         (tableId3, columnIds3, rowIds3) <- createSimpleTableWithValues(
@@ -377,8 +377,8 @@ class IdentifierTest extends TableauxTestBase {
                Identifier(Multilanguage(TextCol("multitext33"))),
                NumericCol("num34")),
           List(
-            List("table3col1row1", 321, Json.obj("de_DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"), 341),
-            List("table3col1row2", 322, Json.obj("de_DE" -> "table3col3row2-de", "en_GB" -> "table3col3row2-gb"), 342)
+            List("table3col1row1", 321, Json.obj("de-DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"), 341),
+            List("table3col1row2", 322, Json.obj("de-DE" -> "table3col3row2-de", "en_GB" -> "table3col3row2-gb"), 342)
           )
         )
 

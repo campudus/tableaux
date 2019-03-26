@@ -441,6 +441,10 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
           .map(_.getJsonObject(0))
           .map(_.getLong("id"))
 
+        _ <- sendRequest("PUT",
+                         s"/tables/1/columns/$linkColumnId/rows/1",
+                         Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2))))
+
         // delete link from link cell with delete cascade
         _ <- sendRequest("DELETE", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId/link/1")
 

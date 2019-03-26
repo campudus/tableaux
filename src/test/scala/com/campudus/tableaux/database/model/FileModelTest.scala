@@ -46,9 +46,9 @@ class FileModelTest extends TableauxTestBase {
       val model = createFileModel()
 
       for {
-        insertedFile <- model.add(MultiLanguageValue("de_DE" -> "Test 1"),
+        insertedFile <- model.add(MultiLanguageValue("de-DE" -> "Test 1"),
                                   MultiLanguageValue.empty(),
-                                  MultiLanguageValue("de_DE" -> "external1.pdf"),
+                                  MultiLanguageValue("de-DE" -> "external1.pdf"),
                                   None)
 
         sizeAfterAdd <- model.size()
@@ -57,10 +57,10 @@ class FileModelTest extends TableauxTestBase {
 
         updatedFile <- model.update(
           insertedFile.uuid,
-          title = MultiLanguageValue("de_DE" -> "Changed 1"),
-          description = MultiLanguageValue("de_DE" -> "Changed 1"),
+          title = MultiLanguageValue("de-DE" -> "Changed 1"),
+          description = MultiLanguageValue("de-DE" -> "Changed 1"),
           internalName = insertedFile.internalName,
-          externalName = MultiLanguageValue("de_DE" -> "external1.pdf"),
+          externalName = MultiLanguageValue("de-DE" -> "external1.pdf"),
           folder = None,
           mimeType = insertedFile.mimeType
         )
@@ -102,17 +102,17 @@ class FileModelTest extends TableauxTestBase {
       val controller = createMediaController()
 
       for {
-        insertedFile <- controller.addFile(MultiLanguageValue("de_DE" -> "Test 1"),
+        insertedFile <- controller.addFile(MultiLanguageValue("de-DE" -> "Test 1"),
                                            MultiLanguageValue.empty(),
-                                           MultiLanguageValue("de_DE" -> "external1.pdf"),
+                                           MultiLanguageValue("de-DE" -> "external1.pdf"),
                                            None)
 
         _ <- controller.changeFile(
           insertedFile.uuid,
-          title = MultiLanguageValue("de_DE" -> "Changed 1"),
-          description = MultiLanguageValue("de_DE" -> "Changed 1"),
-          internalName = MultiLanguageValue("de_DE" -> "invalid.png"),
-          externalName = MultiLanguageValue("de_DE" -> "external1.pdf"),
+          title = MultiLanguageValue("de-DE" -> "Changed 1"),
+          description = MultiLanguageValue("de-DE" -> "Changed 1"),
+          internalName = MultiLanguageValue("de-DE" -> "invalid.png"),
+          externalName = MultiLanguageValue("de-DE" -> "external1.pdf"),
           folder = None,
           mimeType = insertedFile.mimeType
         )

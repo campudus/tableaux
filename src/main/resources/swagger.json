@@ -955,6 +955,96 @@
         }
       }
     },
+    "/tables/{tableId}/history/{languageTag}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/languageTagOpt"
+        },
+        {
+          "$ref": "#/parameters/historyType"
+        }
+      ],
+      "get": {
+        "summary": "Retrieves the history entries of a cell",
+        "description": "Returns the history values of a specified cell.",
+        "tags": ["content"],
+        "operationId": "retrieve-history-cell",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/history-cell"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/history/{languageTag}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/languageTagOpt"
+        },
+        {
+          "$ref": "#/parameters/historyType"
+        }
+      ],
+      "get": {
+        "summary": "Retrieves the history entries of a cell",
+        "description": "Returns the history values of a specified cell.",
+        "tags": ["content"],
+        "operationId": "retrieve-history-cell",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/history-cell"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/history/{languageTag}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/languageTagOpt"
+        },
+        {
+          "$ref": "#/parameters/historyType"
+        }
+      ],
+      "get": {
+        "summary": "Retrieves the history entries of a cell",
+        "description": "Returns the history values of a specified cell.",
+        "tags": ["content"],
+        "operationId": "retrieve-history-cell",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/history-cell"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
 
     "/tables/{tableId}/rows": {
       "parameters": [
@@ -1673,6 +1763,88 @@
         }
       },
       "required": ["value"]
+    },
+    "Response:HistoryRows": {
+      "description": "All history entries that belongs to the request (filtered based on cell, row or table).",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "rows": {
+          "description": "An array with all history entries based on the request filter",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HistoryRow"
+          }
+        }
+      },
+      "required": ["rows"]
+    },
+    "HistoryRow": {
+      "description": "Cell history.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "required": ["revision", "event", "historyType", "author", "timestamp"],
+      "properties": {
+        "author": {
+          "description": "Name of the user who has triggered a change",
+          "type": "string",
+          "example": "Bob"
+        },
+        "columnId": {
+          "description": "The id of the column",
+          "type": "integer",
+          "example": 1
+        },
+        "event": {
+          "description": "The event of the change",
+          "type": "string",
+          "enum": ["cell_changed", "row_created", "annotation_added", "annotation_removed"]
+        },
+        "historyType": {
+          "description": "The type of the history entry",
+          "type": "string",
+          "enum": ["row", "cell", "comment", "cell_flag", "row_flag"]
+        },
+        "languageType": {
+          "description": "Name of the user who has triggered a change",
+          "type": "string",
+          "enum": ["neutral", "language", "country"]
+        },
+        "revision": {
+          "description": "Identifier sequence of a history entry",
+          "type": "integer"
+        },
+        "rowId": {
+          "description": "The id of the row, could be empty, e.g. for row history entries",
+          "type": "integer",
+          "example": 1
+        },
+        "timestamp": {
+          "description": "Timestamp of the change",
+          "type": "string",
+          "example": "2019-01-14T16:02:37.129+01:00"
+        },
+        "value": {
+          "description": "The value of a change",
+          "type": "any",
+          "example": {
+            "de-DE": "a german value changed"
+          }
+        },
+        "valueType": {
+          "description": "The type of the value. For cell changes this is the column type. In case of annotations it's the type of the flag or of the comment",
+          "type": "string",
+          "enum": ["text", "richtext", "shorttext", "numeric", "link", "attachment", "boolean", "date", "datetime", "concat", "currency", "group"]
+        }
+      }
     },
     "Response:CellAnnotation": {
       "description": "TODO The annotation of a cell.",
@@ -2947,6 +3119,17 @@
         "$ref": "#/definitions/LanguageTag"
       }
     },
+    "languageTagOpt": {
+      "name": "languageTag",
+      "description": "A language tag in RFC 5646 format.",
+      "in": "path",
+      "required": false,
+      "type": "string",
+      "default": "",
+      "items": {
+        "$ref": "#/definitions/LanguageTag"
+      }
+    },
     "langtags": {
       "name": "langtags",
       "description": "An array of language tags in RFC 5646 format.",
@@ -2998,6 +3181,14 @@
       "in": "query",
       "type": "string",
       "format": "uuid",
+      "required": false
+    },
+    "historyType": {
+      "name": "historyType",
+      "description": "The type of the history to filter for.",
+      "in": "query",
+      "type": "string",
+      "format": "string",
       "required": false
     }
   },
@@ -3057,6 +3248,12 @@
     },
     "database-exception": {
       "description": "Server got a PostgreSQL error while running a statement"
+    },
+    "history-cell": {
+      "description": "The complete history of changes.",
+      "schema": {
+        "$ref": "#/definitions/Response:HistoryRows"
+      }
     }
   }
 }

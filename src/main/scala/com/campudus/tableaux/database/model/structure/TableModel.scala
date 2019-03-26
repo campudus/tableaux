@@ -23,7 +23,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
       tableType: TableType,
-      tableGroupId: Option[TableGroupId]
+      tableGroupIdOpt: Option[TableGroupId]
   ): Future[Table] = {
     connection.transactional { t =>
       {
@@ -47,7 +47,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
                      hidden,
                      langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull,
                      tableType.NAME,
-                     tableGroupId.orNull)
+                     tableGroupIdOpt.orNull)
             )
           id = insertNotNull(result).head.get[TableId](0)
 
@@ -55,11 +55,12 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
             s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, PRIMARY KEY (id))")
           t <- createLanguageTable(t, id)
           t <- createCellAnnotationsTable(t, id)
+          t <- createHistoryTable(t, id)
           (t, _) <- t.query(s"CREATE SEQUENCE system_columns_column_id_table_$id")
 
           (t, _) <- createTableDisplayInfos(t, TableDisplayInfos(id, displayInfos))
 
-          tableGroup <- tableGroupId match {
+          tableGroup <- tableGroupIdOpt match {
             case Some(tableGroupId) =>
               tableGroupModel
                 .retrieve(tableGroupId)
@@ -132,8 +133,27 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
     } yield t
   }
 
-  private def retrieveGlobalLangtags(): Future[Seq[String]] = {
+  private def createHistoryTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+    for {
+      (t, _) <- t.query(s"""
+                           | CREATE TABLE user_table_history_$id (
+                           |   revision BIGSERIAL,
+                           |   row_id BIGINT NOT NULL,
+                           |   column_id BIGINT,
+                           |   event VARCHAR(255) NOT NULL DEFAULT 'cell_changed',
+                           |   history_type VARCHAR(255),
+                           |   value_type VARCHAR(255),
+                           |   language_type VARCHAR(255) DEFAULT 'neutral',
+                           |   author VARCHAR(255),
+                           |   timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+                           |   value JSON NULL,
+                           |   PRIMARY KEY (revision)
+                           | )
+           """.stripMargin)
+    } yield t
+  }
 
+  def retrieveGlobalLangtags(): Future[Seq[String]] = {
     systemModel
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(valueOpt =>
@@ -251,6 +271,7 @@ class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_annotations_$tableId")
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_lang_$tableId")
       (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_$tableId")
+      (t, _) <- t.query(s"DROP TABLE IF EXISTS user_table_history_$tableId")
 
       (t, result) <- t.query("DELETE FROM system_table WHERE table_id = ?", Json.arr(tableId))
 

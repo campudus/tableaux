@@ -203,8 +203,8 @@ class CreateRowTest extends TableauxTestBase {
       val fileName = "Scr$en Shot.pdf"
       val filePath = s"/com/campudus/tableaux/uploads/$fileName"
       val mimeType = "application/pdf"
-      val de = "de_DE"
-      val en = "en_US"
+      val de = "de-DE"
+      val en = "en-GB"
 
       val putOne = Json.obj(
         "title" -> Json.obj(de -> "Ein schöner deutscher Titel."),

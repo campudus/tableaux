@@ -68,7 +68,7 @@ class SystemServiceTest extends TableauxTestBase {
       allServices <- sendRequest("GET", "/system/services").map(_.getJsonArray("services"))
     } yield {
       assertEquals(3, allServices.size())
-      assertEqualsJSON(allServiceJson, allServices.toString, JSONCompareMode.LENIENT)
+      assertJSONEquals(allServiceJson, allServices.toString, JSONCompareMode.LENIENT)
     }
   }
 
@@ -105,7 +105,7 @@ class SystemServiceTest extends TableauxTestBase {
 
       service1 <- sendRequest("GET", "/system/services/1")
     } yield {
-      assertEqualsJSON(serviceJson, service1.toString, JSONCompareMode.LENIENT)
+      assertJSONEquals(serviceJson, service1.toString, JSONCompareMode.LENIENT)
     }
   }
 
@@ -146,7 +146,7 @@ class SystemServiceTest extends TableauxTestBase {
     for {
       service <- sendRequest("POST", "/system/services", serviceJson)
     } yield {
-      assertEqualsJSON(serviceJson, service.toString, JSONCompareMode.LENIENT)
+      assertJSONEquals(serviceJson, service.toString, JSONCompareMode.LENIENT)
     }
   }
 
@@ -159,7 +159,7 @@ class SystemServiceTest extends TableauxTestBase {
     for {
       service <- sendRequest("POST", "/system/services", serviceJson)
     } yield {
-      assertEqualsJSON(serviceJson, service.toString, JSONCompareMode.LENIENT)
+      assertJSONEquals(serviceJson, service.toString, JSONCompareMode.LENIENT)
     }
   }
 
@@ -214,7 +214,7 @@ class SystemServiceTest extends TableauxTestBase {
       servicesAfterDeletion <- sendRequest("GET", "/system/services").map(_.getJsonArray("services"))
     } yield {
       assertEquals(1, servicesBeforeDeletion.size)
-      assertEqualsJSON("""{  "status": "ok" }""", result.toString)
+      assertJSONEquals("""{  "status": "ok" }""", result.toString)
       assertEquals(0, servicesAfterDeletion.size)
     }
   }
@@ -239,7 +239,7 @@ class SystemServiceTest extends TableauxTestBase {
       updatedService <- sendRequest("PATCH", s"/system/services/$serviceId", """{ "name": "changed service" }""")
 
     } yield {
-      assertEqualsJSON(expectedService, updatedService.toString, JSONCompareMode.LENIENT)
+      assertJSONEquals(expectedService, updatedService.toString, JSONCompareMode.LENIENT)
     }
   }
 
@@ -307,7 +307,7 @@ class SystemServiceTest extends TableauxTestBase {
       serviceId <- createDefaultService
       result <- sendRequest("PATCH", s"/system/services/$serviceId", serviceJson)
     } yield {
-      assertEqualsJSON(serviceJson, result.toString, JSONCompareMode.LENIENT)
+      assertJSONEquals(serviceJson, result.toString, JSONCompareMode.LENIENT)
     }
   }
 

@@ -3,7 +3,7 @@ package com.campudus.tableaux.controller
 import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
+import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException, RequestContext}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
@@ -16,12 +16,14 @@ import scala.concurrent.Future
 
 object TableauxController {
 
-  def apply(config: TableauxConfig, repository: TableauxModel): TableauxController = {
+  def apply(config: TableauxConfig, repository: TableauxModel)(
+      implicit requestContext: RequestContext): TableauxController = {
     new TableauxController(config, repository)
   }
 }
 
-class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel)
+class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel)(
+    implicit requestContext: RequestContext)
     extends Controller[TableauxModel] {
 
   def addCellAnnotation(
@@ -395,8 +397,13 @@ class TableauxController(override val config: TableauxConfig, override protected
 
     //TODO introduce a Cell identifier with tableId, columnId and rowId
     for {
+      table <- repository.retrieveTable(tableId)
+      column <- repository.retrieveColumn(table, columnId)
+
+      _ <- repository.createHistoryModel.createCellsInit(table, rowId, Seq((column, uuid)))
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
       _ <- CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
+      _ <- repository.createHistoryModel.createCells(table, rowId, Seq((column, uuid)))
     } yield EmptyObject()
   }
 
@@ -431,5 +438,50 @@ class TableauxController(override val config: TableauxConfig, override protected
       table <- repository.retrieveTable(tableId)
       values <- repository.retrieveColumnValues(table, columnId, langtagOpt)
     } yield PlainDomainObject(Json.obj("values" -> values))
+  }
+
+  def retrieveCellHistory(
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      langtagOpt: Option[Langtag],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
+    logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt $typeOpt")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      cell <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, typeOpt)
+    } yield cell
+  }
+
+  def retrieveRowHistory(
+      tableId: TableId,
+      rowId: RowId,
+      langtagOpt: Option[Langtag],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"retrieveTableHistory $tableId $rowId $langtagOpt $typeOpt")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      cell <- repository.retrieveRowHistory(table, rowId, langtagOpt, typeOpt)
+    } yield cell
+  }
+
+  def retrieveTableHistory(
+      tableId: TableId,
+      langtagOpt: Option[Langtag],
+      typeOpt: Option[String]
+  ): Future[SeqHistory] = {
+    checkArguments(greaterZero(tableId))
+    logger.info(s"retrieveTableHistory $tableId $typeOpt")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      cell <- repository.retrieveTableHistory(table, langtagOpt, typeOpt)
+    } yield cell
   }
 }
