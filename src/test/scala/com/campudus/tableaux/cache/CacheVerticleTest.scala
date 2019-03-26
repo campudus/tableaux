@@ -2,11 +2,10 @@ package com.campudus.tableaux.cache
 
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestCustomException}
-import com.typesafe.scalalogging.LazyLogging
-import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.junit.runner.RunWith
 import org.junit.{After, Before, Test}
 import org.vertx.scala.core.json.{Json, JsonObject}

@@ -4,11 +4,10 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestConfig}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.Vertx
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
 import scala.reflect.io.Path

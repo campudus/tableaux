@@ -1,7 +1,7 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.{RequestContext, TableauxConfig}
+import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId

@@ -2,12 +2,12 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
+import com.campudus.tableaux._
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux._
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future

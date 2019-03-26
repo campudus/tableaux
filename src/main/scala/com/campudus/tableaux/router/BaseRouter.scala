@@ -1,9 +1,7 @@
 package com.campudus.tableaux.router
 
-import java.io.{File}
+import java.io.{File, FileNotFoundException}
 import java.net.URLEncoder
-
-import java.io.FileNotFoundException
 
 import com.campudus.tableaux._
 import com.campudus.tableaux.database.domain._

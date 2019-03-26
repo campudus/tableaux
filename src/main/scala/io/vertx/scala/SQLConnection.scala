@@ -2,14 +2,13 @@ package io.vertx.scala
 
 import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.helper.VertxAccess
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
-import io.vertx.scala.ext.asyncsql.PostgreSQLClient
-import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
 import io.vertx.scala.SQLConnection.JSQLConnection
 import io.vertx.scala.core.Vertx
+import io.vertx.scala.ext.asyncsql.PostgreSQLClient
+import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
+import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
-import scala.concurrent.{ExecutionContext, Future}
-import io.vertx.lang.scala.ScalaVerticle
+import scala.concurrent.Future
 
 sealed trait DatabaseAction extends VertxAccess {
 

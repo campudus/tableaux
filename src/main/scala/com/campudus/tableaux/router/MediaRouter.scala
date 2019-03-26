@@ -10,7 +10,6 @@ import com.campudus.tableaux.helper.{AsyncReply, Header, SendFile}
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
-import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.{Future, Promise}
 

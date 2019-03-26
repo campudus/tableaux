@@ -1,7 +1,5 @@
 package com.campudus.tableaux.api.content
 
-import java.util
-
 import com.campudus.tableaux.testtools.RequestCreation.{Identifier, TextCol}
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import io.vertx.ext.unit.TestContext

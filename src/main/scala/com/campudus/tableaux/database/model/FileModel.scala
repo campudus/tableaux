@@ -10,7 +10,6 @@ import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
-import scala.util.Try
 
 object FileModel {
 
