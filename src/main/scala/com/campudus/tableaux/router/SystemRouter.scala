@@ -40,7 +40,7 @@ object SystemRouter {
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
-  val SERVICE_ID = """(?<serviceId>[\d]+)"""
+  private val serviceId = """(?<serviceId>[\d]+)"""
 
   def route: Router = {
     val router = Router.router(vertx)
@@ -48,9 +48,9 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.get("/versions").handler(retrieveVersions)
     router.get("/settings/:settings").handler(retrieveSettings)
     router.get("/services").handler(retrieveServices)
-    router.getWithRegex(s"""/services/$SERVICE_ID""").handler(retrieveService)
+    router.getWithRegex(s"""/services/$serviceId""").handler(retrieveService)
 
-    router.deleteWithRegex(s"""/services/$SERVICE_ID""").handler(deleteService)
+    router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
 
     router.post("/reset").handler(reset)
     router.post("/resetDemo").handler(resetDemo)
@@ -70,7 +70,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.patch("/services/*").handler(bodyHandler)
 
     router.post("/services").handler(createService)
-    router.patchWithRegex(s"""/services/$SERVICE_ID""").handler(updateService)
+    router.patchWithRegex(s"""/services/$serviceId""").handler(updateService)
 
     router
   }

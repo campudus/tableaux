@@ -73,12 +73,9 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
     } yield ()
   }
 
-  private def selectStatement(conditions: Option[String]): String = {
-    val where = if (conditions.isDefined) {
-      s"WHERE ${conditions.get}"
-    } else {
-      ""
-    }
+  private def selectStatement(condition: Option[String]): String = {
+
+    val where = condition.map(cond => s"WHERE $cond").getOrElse("")
 
     s"""SELECT
        |  id,
