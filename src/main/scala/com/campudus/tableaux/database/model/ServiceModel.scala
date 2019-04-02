@@ -48,7 +48,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
 
     val paramsToUpdate = updateParamOpts
       .filter({ case (_, v) => v.isDefined })
-      .map({ case (k, v) => (k, v.orNull) })
+      .map({ case (k, v) => (k, v.get) })
 
     val columnString2valueString: Map[String, String] = paramsToUpdate.map({
       case (columnName, value) =>
@@ -89,7 +89,8 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection) 
        |  scope,
        |  created_at,
        |  updated_at
-       |FROM $table $where ORDER BY ordering""".stripMargin
+       |FROM $table $where
+       |ORDER BY ordering""".stripMargin
   }
 
   def retrieve(id: ServiceId): Future[Service] = {

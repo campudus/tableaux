@@ -446,7 +446,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "The services and its metadata",
+            "description": "The services and their metadata",
             "schema": {
               "$ref": "#/definitions/Response: Services"
             }
@@ -515,7 +515,7 @@
       },
       "patch": {
         "summary": "Change service",
-        "description": "Changes the service and returns the currents metadata of it.",
+        "description": "Changes the service and returns its current metadata.",
         "tags": ["system"],
         "operationId": "change-service",
         "parameters": [
