@@ -433,6 +433,128 @@
         }
       }
     },
+    "/system/services": {
+      "get": {
+        "summary": "Get all services",
+        "description": "Returns an array containing all available services with their metadata.",
+        "tags": ["system"],
+        "operationId": "get-all-services",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The services and their metadata",
+            "schema": {
+              "$ref": "#/definitions/Response: Services"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new service",
+        "description": "Creates the service.",
+        "tags": ["system"],
+        "operationId": "create-new-service",
+        "parameters": [
+          {
+            "name": "service",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Request: Create service"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The new created service",
+            "schema": {
+              "$ref": "#/definitions/Shared Response: Service"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
+    },
+    "/system/services/{serviceId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/serviceId"
+        }
+      ],
+      "get": {
+        "summary": "Get service",
+        "description": "Returns the metadata of a service.",
+        "tags": ["system"],
+        "operationId": "get-service",
+        "responses": {
+          "200": {
+            "description": "Metadata of the service",
+            "schema": {
+              "$ref": "#/definitions/Shared Response: Service"
+            }
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Change service",
+        "description": "Changes the service and returns its current metadata.",
+        "tags": ["system"],
+        "operationId": "change-service",
+        "parameters": [
+          {
+            "name": "service",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Request: Create service"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata of the service",
+            "schema": {
+              "$ref": "#/definitions/Shared Response: Service"
+            }
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a service",
+        "description": "Drops the complete service and deletes its definition.",
+        "tags": ["system"],
+        "operationId": "delete-service",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/completetable": {
       "post": {
         "summary": "Create a complete table with columns and rows",
@@ -1606,6 +1728,23 @@
       },
       "required": ["tables"]
     },
+    "Response: Services": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Shared Response: Service"
+          }
+        }
+      },
+      "required": ["services"]
+    },
     "Response:Cell": {
       "description": "The cell value.",
       "type": "object",
@@ -2035,6 +2174,68 @@
         "hidden": false
       }
     },
+    "Request: Create service": {
+      "type": "object",
+      "required": [
+        "name",
+        "action"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "my first service"
+        },
+        "action": {
+          "$ref": "#/definitions/Enum: Service type"
+        },
+        "displayName": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "description": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "ordering": {
+          "description": "A value to put the service in the correct order in the service list.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "config": {
+          "description": "An object that represents the configuration of a service.",
+          "type": "object"
+        },
+        "scope": {
+          "description": "An object that represents the scope of a service.",
+          "type": "object"
+        }
+      },
+      "description": "Creates a new service.",
+      "example": {
+        "type": "action",
+        "name": "my first service",
+        "ordering": 42,
+        "active": true,
+        "description": {
+          "de": "Beschreibung",
+          "en": "description"
+        },
+        "displayName": {
+          "de": "Vorschau Dashboard",
+          "en": "Preview Dashboard"
+        },
+        "config": {
+          "url": "https://any.customer.com/endpoint",
+          "header": {
+            "API-Key": "1234n"
+          }
+        },
+        "scope": {
+          "type": "global"
+        }
+      }
+    },
     "Response: Complete table": {
       "type": "object",
       "required": [
@@ -2391,6 +2592,91 @@
         "values": ["Baden-Württemberg", 35751]
       }
     },
+    "Shared Response: Service": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "example": "ok"
+        },
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "example": 1,
+          "description": "Id of service"
+        },
+        "name": {
+          "type": "string",
+          "example": "my first service"
+        },
+        "action": {
+          "$ref": "#/definitions/Enum: Service type"
+        },
+        "displayName": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "description": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "ordering": {
+          "description": "A value to put the service in the correct order in the service list.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "config": {
+          "description": "An object that represents the configuration of a service.",
+          "type": "object"
+        },
+        "scope": {
+          "description": "An object that represents the scope of a service.",
+          "type": "object"
+        },
+        "createdAt": {
+          "type": "string",
+          "example": "2016-01-13T11:22:07.044+01:00"
+        },
+        "updatedAt": {
+          "type": "string",
+          "example": "2016-01-13T11:22:07.044+01:00"
+        }
+      },
+      "description": "Service with its data",
+      "example": {
+        "status": "ok",
+        "id": 1,
+        "type": "action",
+        "name": "my first service",
+        "ordering": 42,
+        "active": true,
+        "description": {
+          "de": "Beschreibung",
+          "en": "description"
+        },
+        "displayName": {
+          "de": "Vorschau Dashboard",
+          "en": "Preview Dashboard"
+        },
+        "config": {
+          "url": "https://any.customer.com/endpoint",
+          "header": {
+            "API-Key": "1234n"
+          }
+        },
+        "scope": {
+          "type": "global"
+        },
+        "createdAt": "2019-03-18T18:09:22.551+01:00",
+        "updatedAt": "2019-03-18T18:09:22.573+01:00"
+      }
+    },
     "Shared Request: Row": {
       "type": "object",
       "required": [
@@ -2639,6 +2925,15 @@
         "group"
       ]
     },
+    "Enum: Service type": {
+      "type": "string",
+      "description": "Different types of services",
+      "enum": [
+        "action",
+        "filter",
+        "listener"
+      ]
+    },
     "Response: Subfolder": {
       "type": "object",
       "required": [
@@ -2767,6 +3062,14 @@
     "tableId": {
       "name": "tableId",
       "description": "The id of the table to select.",
+      "in": "path",
+      "required": true,
+      "type": "integer",
+      "format": "int64"
+    },
+    "serviceId": {
+      "name": "serviceId",
+      "description": "The id of the service to select.",
       "in": "path",
       "required": true,
       "type": "integer",

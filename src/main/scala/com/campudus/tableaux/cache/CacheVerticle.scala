@@ -5,17 +5,16 @@ import java.util.concurrent.TimeUnit
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.google.common.cache.CacheBuilder
 import com.typesafe.scalalogging.LazyLogging
-import io.vertx.core.{AsyncResult, Handler}
-import io.vertx.scala.core.eventbus.{Message, MessageConsumer}
-import io.vertx.lang.scala.{HandlerOps, ScalaVerticle}
+import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.json.{Json, JsonObject}
-
-import scala.collection.mutable
-import scala.concurrent.{Future, Promise}
-import scala.language.implicitConversions
 import scalacache._
 import scalacache.guava._
 import scalacache.serialization.InMemoryRepr
+
+import scala.collection.mutable
+import scala.concurrent.Future
+import scala.language.implicitConversions
 
 object CacheVerticle {
 

@@ -2,7 +2,6 @@ package com.campudus.tableaux.router
 
 import java.io.{File, FileNotFoundException}
 import java.net.URLEncoder
-import java.nio.file.Paths
 
 import com.campudus.tableaux._
 import com.campudus.tableaux.database.domain._
@@ -46,7 +45,7 @@ trait BaseRouter extends VertxAccess {
   /**
     * Base result JSON
     */
-  val baseResult = Json.obj("status" -> "ok")
+  val baseResult: JsonObject = Json.obj("status" -> "ok")
 
   type AsyncReplyFunction = (=> Future[DomainObject]) => AsyncReply
 
@@ -84,24 +83,32 @@ trait BaseRouter extends VertxAccess {
 
     if (buffer.isEmpty) {
       throw NoJsonFoundException("No JSON found.")
-    } else {
-      buffer match {
-        case "null" => Json.emptyObj()
-
-        case _ =>
-          Try(Json.fromObjectString(buffer)) match {
-            case Success(r) => r
-
-            case Failure(ex: DecodeException) =>
-              logger.error(s"Couldn't parse requestBody. JSON is invalid: [$buffer]")
-              throw InvalidJsonException(ex.getMessage, "invalid")
-
-            case Failure(ex) =>
-              logger.error(s"Couldn't parse requestBody. Expected JSON but got: [$buffer]")
-              throw ex
-          }
-      }
     }
+
+    buffer match {
+      case "null" => Json.emptyObj()
+
+      case _ =>
+        Try(Json.fromObjectString(buffer)) match {
+          case Success(r) => r
+
+          case Failure(ex: DecodeException) =>
+            logger.error(s"Couldn't parse requestBody. JSON is invalid: [$buffer]")
+            throw InvalidJsonException(ex.getMessage, "invalid")
+
+          case Failure(ex) =>
+            logger.error(s"Couldn't parse requestBody. Expected JSON but got: [$buffer]")
+            throw ex
+        }
+    }
+  }
+
+  protected def getNullableObject(field: String)(implicit json: JsonObject): Option[JsonObject] = {
+    Option(json.getJsonObject(field))
+  }
+
+  protected def getNullableLong(field: String)(implicit json: JsonObject): Option[Long] = {
+    Option(json.getLong(field)).map(_.toLong)
   }
 
   def getLongParam(name: String, context: RoutingContext): Option[Long] = {

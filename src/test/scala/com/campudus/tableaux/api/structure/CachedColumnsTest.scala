@@ -1,12 +1,11 @@
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.TableauxTestBase
-import org.vertx.scala.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
 

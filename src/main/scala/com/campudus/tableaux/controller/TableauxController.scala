@@ -3,13 +3,13 @@ package com.campudus.tableaux.controller
 import java.util.UUID
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException, RequestContext}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
-import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
+import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
+import com.campudus.tableaux.{RequestContext, TableauxConfig, UnprocessableEntityException}
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future

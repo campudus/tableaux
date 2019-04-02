@@ -2,10 +2,9 @@ package com.campudus.tableaux.helper
 
 import java.nio.file.FileAlreadyExistsException
 
-import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.Vertx
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.reflect.io.Path
 
 object FileUtils {

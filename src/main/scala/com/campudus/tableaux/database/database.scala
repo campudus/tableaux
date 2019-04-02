@@ -5,9 +5,9 @@ import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext
+import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
 import io.vertx.scala.{DatabaseAction, SQLConnection}
-import io.vertx.scala.core.Vertx
 import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonCompatible, JsonObject}
 

@@ -1,6 +1,4 @@
 package com.campudus.tableaux
-import java.util.concurrent.atomic.AtomicReference
-
 import io.vertx.scala.ext.web.Cookie
 
 object RequestContext {

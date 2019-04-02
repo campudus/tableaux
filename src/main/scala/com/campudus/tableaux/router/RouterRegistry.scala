@@ -25,8 +25,10 @@ object RouterRegistry {
     val folderModel = FolderModel(dbConnection)
     val fileModel = FileModel(dbConnection)
     val attachmentModel = AttachmentModel(dbConnection, fileModel)
+    val serviceModel = ServiceModel(dbConnection)
 
-    val systemRouter = SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel))
+    val systemRouter =
+      SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel, serviceModel))
     val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel))
     val mediaRouter = MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel))
     val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel))

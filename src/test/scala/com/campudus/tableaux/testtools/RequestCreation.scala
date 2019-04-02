@@ -2,8 +2,7 @@ package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.database.domain.{Constraint, DefaultConstraint, DomainObject}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 object RequestCreation {
 

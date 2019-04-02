@@ -4,7 +4,6 @@ import java.util.UUID
 
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
-import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler

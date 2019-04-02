@@ -7,13 +7,13 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
-import com.campudus.tableaux.helper.IdentifierFlattener
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
@@ -49,19 +49,6 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
 
   private def mapToHistory(row: JsonArray): History = {
 
-    def parseJson(jsonStringOpt: String): JsonObject = {
-      Option(jsonStringOpt) match {
-        case Some(jsonString) =>
-          Try(Json.fromObjectString(jsonString)) match {
-            case Success(json) => json
-            case Failure(_) =>
-              logger.error(s"Couldn't parse json. Excepted JSON but got: $jsonString")
-              Json.emptyObj()
-          }
-        case None => Json.emptyObj()
-      }
-    }
-
     History(
       row.getLong(0),
       row.getLong(1),
@@ -72,7 +59,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       LanguageType(Option(row.getString(6))),
       row.getString(7),
       convertStringToDateTime(row.getString(8)),
-      parseJson(row.getString(9))
+      JsonUtils.parseJson(row.getString(9))
     )
   }
 

@@ -3,12 +3,14 @@ package com.campudus.tableaux.router
 import java.util.UUID
 
 import com.campudus.tableaux.controller.SystemController
+import com.campudus.tableaux.database.domain.{MultiLanguageValue, ServiceType}
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.concurrent.Future
+import scala.util.Try
 
 object SystemRouter {
   private var nonce: Option[String] = None
@@ -38,11 +40,17 @@ object SystemRouter {
 
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
+  private val serviceId = """(?<serviceId>[\d]+)"""
+
   def route: Router = {
     val router = Router.router(vertx)
 
     router.get("/versions").handler(retrieveVersions)
     router.get("/settings/:settings").handler(retrieveSettings)
+    router.get("/services").handler(retrieveServices)
+    router.getWithRegex(s"""/services/$serviceId""").handler(retrieveService)
+
+    router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
 
     router.post("/reset").handler(reset)
     router.post("/resetDemo").handler(resetDemo)
@@ -55,6 +63,14 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.post("/settings/*").handler(BodyHandler.create())
 
     router.post("/settings/:settings").handler(updateSettings)
+
+    // init body handler for settings routes
+    val bodyHandler = BodyHandler.create()
+    router.post("/services").handler(bodyHandler)
+    router.patch("/services/*").handler(bodyHandler)
+
+    router.post("/services").handler(createService)
+    router.patchWithRegex(s"""/services/$serviceId""").handler(updateService)
 
     router
   }
@@ -176,6 +192,109 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         }
       )
     }
+  }
+
+  /**
+    * Retrieve all services
+    */
+  private def retrieveServices(context: RoutingContext): Unit = {
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveServices()
+      }
+    )
+  }
+
+  /**
+    * Retrieve single service
+    */
+  private def retrieveService(context: RoutingContext): Unit = {
+    for {
+      serviceId <- getServiceId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveService(serviceId)
+        }
+      )
+    }
+  }
+
+  /**
+    * Create a new service
+    */
+  private def createService(context: RoutingContext): Unit = {
+    sendReply(
+      context,
+      asyncGetReply {
+        val json = getJson(context)
+
+        // mandatory fields
+        val name = json.getString("name")
+        val serviceType = ServiceType(Option(json.getString("type")))
+
+        // optional fields
+        val ordering = Try(json.getInteger("ordering").longValue()).toOption
+        val displayName = MultiLanguageValue[String](getNullableObject("displayName")(json))
+        val description = MultiLanguageValue[String](getNullableObject("description")(json))
+        val active = Try[Boolean](json.getBoolean("active")).getOrElse(false)
+        val config = getNullableObject("config")(json)
+        val scope = getNullableObject("scope")(json)
+
+        controller.createService(name, serviceType, ordering, displayName, description, active, config, scope)
+      }
+    )
+  }
+
+  /**
+    * Update a service
+    */
+  private def updateService(context: RoutingContext): Unit = {
+    for {
+      serviceId <- getServiceId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+
+          // optional fields
+          val name = Option(json.getString("name"))
+          val serviceType = Option(json.getString("type")).map(t => ServiceType(Option(t)))
+          val ordering = Try(json.getInteger("ordering").longValue()).toOption
+          val displayName = getNullableObject("displayName")(json).map(MultiLanguageValue[String])
+          val description = getNullableObject("description")(json).map(MultiLanguageValue[String])
+          val active = Option(json.getBoolean("active")).flatMap(Try[Boolean](_).toOption)
+          val config = getNullableObject("config")(json)
+          val scope = getNullableObject("scope")(json)
+
+          controller
+            .updateService(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
+        }
+      )
+    }
+  }
+
+  /**
+    * Delete a service
+    */
+  private def deleteService(context: RoutingContext): Unit = {
+    for {
+      serviceId <- getServiceId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.deleteService(serviceId)
+        }
+      )
+    }
+  }
+
+  private def getServiceId(context: RoutingContext): Option[Long] = {
+    getLongParam("serviceId", context)
   }
 
   private def checkNonce(implicit context: RoutingContext): Unit = {

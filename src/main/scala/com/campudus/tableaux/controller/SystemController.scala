@@ -1,11 +1,12 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.{RequestContext, TableauxConfig}
+import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import com.campudus.tableaux.database.model.{StructureModel, SystemModel, TableauxModel}
+import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.JsonUtils
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -20,19 +21,22 @@ object SystemController {
       config: TableauxConfig,
       repository: SystemModel,
       tableauxModel: TableauxModel,
-      structureModel: StructureModel
-  )(implicit requestContext: RequestContext): SystemController = {
-    new SystemController(config, repository, tableauxModel, structureModel)
+      structureModel: StructureModel,
+      serviceModel: ServiceModel
+  ): SystemController = {
+    new SystemController(config, repository, tableauxModel, structureModel, serviceModel)
   }
 }
 
 case class SchemaVersion(databaseVersion: Int, specificationVersion: Int)
 
-class SystemController(override val config: TableauxConfig,
-                       override protected val repository: SystemModel,
-                       protected val tableauxModel: TableauxModel,
-                       protected val structureModel: StructureModel)(implicit requestContext: RequestContext)
-    extends Controller[SystemModel] {
+class SystemController(
+    override val config: TableauxConfig,
+    override protected val repository: SystemModel,
+    protected val tableauxModel: TableauxModel,
+    protected val structureModel: StructureModel,
+    protected val serviceModel: ServiceModel
+) extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
     for {
@@ -218,5 +222,80 @@ class SystemController(override val config: TableauxConfig,
     CacheClient(this)
       .invalidateColumn(tableId, columnId)
       .map(_ => EmptyObject())
+  }
+
+  def createService(
+      name: String,
+      serviceType: ServiceType,
+      ordering: Option[Long],
+      displayName: MultiLanguageValue[String],
+      description: MultiLanguageValue[String],
+      active: Boolean,
+      config: Option[JsonObject],
+      scope: Option[JsonObject]
+  ): Future[DomainObject] = {
+
+    checkArguments(
+      notNull(name, "name"),
+      notNull(serviceType, "type")
+    )
+
+    logger.info(s"createService $name $serviceType $ordering $displayName $description $active $config $scope")
+
+    for {
+      serviceId <- serviceModel.create(name, serviceType, ordering, displayName, description, active, config, scope)
+      service <- retrieveService(serviceId)
+    } yield service
+  }
+
+  def updateService(
+      serviceId: ServiceId,
+      name: Option[String],
+      serviceType: Option[ServiceType],
+      ordering: Option[Long],
+      displayName: Option[MultiLanguageValue[String]],
+      description: Option[MultiLanguageValue[String]],
+      active: Option[Boolean],
+      config: Option[JsonObject],
+      scope: Option[JsonObject]
+  ): Future[DomainObject] = {
+
+    checkArguments(
+      greaterZero(serviceId),
+      isDefined(
+        Seq(name, serviceType, ordering, displayName, description, active, config, scope),
+        "name, type, ordering, displayName, description, active, config, scope"
+      )
+    )
+
+    logger.info(
+      s"updateService $serviceId $name $serviceType $ordering $displayName $description $active $config $scope")
+
+    for {
+      _ <- serviceModel.update(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
+      service <- retrieveService(serviceId)
+    } yield service
+  }
+
+  def retrieveServices(): Future[DomainObject] = {
+    logger.info(s"retrieveServices")
+    for {
+      serviceSeq <- serviceModel.retrieveAll().map(ServiceSeq)
+    } yield serviceSeq
+  }
+
+  def retrieveService(serviceId: ServiceId): Future[DomainObject] = {
+    logger.info(s"retrieveService $serviceId")
+    for {
+      service <- serviceModel.retrieve(serviceId)
+    } yield service
+  }
+
+  def deleteService(serviceId: ServiceId): Future[DomainObject] = {
+    logger.info(s"deleteService $serviceId")
+
+    for {
+      _ <- serviceModel.delete(serviceId)
+    } yield EmptyObject()
   }
 }

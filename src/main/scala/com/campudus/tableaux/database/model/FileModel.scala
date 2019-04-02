@@ -10,7 +10,6 @@ import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
-import scala.util.Try
 
 object FileModel {
 
@@ -204,18 +203,14 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     TableauxFile(
       UUID.fromString(row.get[String](0)), //uuid
       folders, // folders
-      convertStringToMultiLanguage(row.get[String](5)), //title
-      convertStringToMultiLanguage(row.get[String](6)), //description
-      convertStringToMultiLanguage(row.get[String](7)), //internal_name
-      convertStringToMultiLanguage(row.get[String](8)), //external_name
-      convertStringToMultiLanguage(row.get[String](9)), //mime_type
+      MultiLanguageValue.fromString(row.get[String](5)), //title
+      MultiLanguageValue.fromString(row.get[String](6)), //description
+      MultiLanguageValue.fromString(row.get[String](7)), //internal_name
+      MultiLanguageValue.fromString(row.get[String](8)), //external_name
+      MultiLanguageValue.fromString(row.get[String](9)), //mime_type
       convertStringToDateTime(row.get[String](3)), //created_at
       convertStringToDateTime(row.get[String](4)) //updated_at
     )
-  }
-
-  def convertStringToMultiLanguage[A](str: String): MultiLanguageValue[A] = {
-    MultiLanguageValue[A](Try(Json.fromObjectString(str)).toOption)
   }
 
   def update(uuid: UUID,
