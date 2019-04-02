@@ -43,11 +43,13 @@ dependencies {
   compile "io.vertx:vertx-core:${vertxVersion}"
   compile "io.vertx:vertx-web:${vertxVersion}"
   compile "io.vertx:vertx-mysql-postgresql-client:${vertxVersion}"
+  compile "io.vertx:vertx-auth-oauth2:${vertxVersion}"
 
   // add Vert.x Scala
   compile "io.vertx:vertx-lang-scala_2.12:${vertxVersion}"
   compile "io.vertx:vertx-web-scala_2.12:${vertxVersion}"
   compile "io.vertx:vertx-mysql-postgresql-client-scala_2.12:${vertxVersion}"
+  compile "io.vertx:vertx-auth-oauth2-scala_2.12:${vertxVersion}"
 
   compile 'joda-time:joda-time:2.10.1'
   compile 'com.typesafe.scala-logging:scala-logging_2.12:3.9.2'
