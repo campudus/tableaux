@@ -4,10 +4,13 @@ import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
+import io.vertx.scala.ext.auth.User
+import io.vertx.scala.ext.auth.oauth2.KeycloakHelper
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
+import scala.util.{Failure, Success}
 
 object StructureRouter {
 
@@ -77,6 +80,26 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def retrieveTable(context: RoutingContext): Unit = {
+
+    val user: Option[User] = context.user()
+
+    user.get.isAuthorizedFuture("printers:printer1234").onComplete {
+      case Success(result) => {
+
+        var hasAuthority = result
+
+        if (hasAuthority) {
+          println("User has the authority")
+        } else {
+          println("User does not have the authority")
+        }
+
+      }
+      case Failure(cause) => {
+        println(s"$cause")
+      }
+    }
+
     for {
       tableId <- getTableId(context)
     } yield {
