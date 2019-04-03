@@ -5,10 +5,8 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
 import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import io.vertx.ext.auth.oauth2.OAuth2FlowType
-import io.vertx.lang.scala.json.JsonObject
-import io.vertx.scala.ext.auth.oauth2.OAuth2Auth
 import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
-import io.vertx.scala.ext.web.handler.{CookieHandler, OAuth2AuthHandler}
+import io.vertx.scala.ext.web.handler.{CookieHandler, OAuth2AuthHandler, UserSessionHandler}
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import org.vertx.scala.core.json.Json
 
@@ -18,46 +16,44 @@ object RouterRegistry {
 
   def init(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection): Router = {
 
-    val mainRouter: Router = Router.router(tableauxConfig.vertx)
+    val vertx = tableauxConfig.vertx
+
+    val mainRouter: Router = Router.router(vertx)
 
     implicit val requestContext: RequestContext = RequestContext()
 
-    // you would get this config from the keycloak admin console
-    var keycloakJson = Json.fromObjectString(
+//    // you would get this config from the keycloak admin console
+    val keycloakJson = Json.fromObjectString(
       """
         |{
         |  "realm": "master",
+        |  "realm-public-key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuOl1gQ0wcRTu9p/bysfzE57sKZt9LanodDih+sYVwB2eN7P6l+kZc+jALulKLNd8xmcCtUVNoE+wr10q+i99/RyJ7A2xDTCFtPuGL1wK2B2vQ/7r9n//7FRnf1CrVTg1QQPPFS5BypbojD7bJYWEvrVHo8WMHp9f/66M/cUQpSEIsnl0H7a8Lhv4snmXTbyJ0OJ2o5nKQhOrcguMtpTfnqMgSOd14UVKt8281sk0RkJFste4wzk8kujf6+AtOKlsQHCgG0nv/gBRmJr7aZscUOqUXsb4MDiBQ2AZyyciSKRFtXLdgELjQPmEc7mG3HIcuH73agen6yl5NgSdeJ7joQIDAQAB",
         |  "auth-server-url": "http://localhost:9999/auth",
         |  "ssl-required": "external",
         |  "resource": "grud",
         |  "credentials": {
-        |    "secret": "bb497817-294e-4abd-b34c-307ea6c36a64"
+        |    "secret": "e8b2f1ab-ea56-4276-864d-16180a2f03b9"
         |  },
-        |  "confidential-port": 0
+        |  "confidential-port": 0,
+        |  "public-client": true,
+        |  "bearer-only": true,
+        |  "always-refresh-token": false
         |}
       """.stripMargin
     )
 
     // Initialize the OAuth2 Library
-//    var oauth2 = KeycloakAuth.create(tableauxConfig.vertx, OAuth2FlowType.PASSWORD, keycloakJson)
+    var oauth2 = KeycloakAuth.create(vertx, OAuth2FlowType.AUTH_CODE, keycloakJson)
 
-//    // first get a token (authenticate)
-//    oauth2
-//      .authenticateFuture(new io.vertx.core.json.JsonObject().put("username", "user").put("password", "secret"))
-//      .onComplete {
-//        case Success(result) => {}
-//        case Failure(cause) => {
-//          println(s"$cause")
-//        }
-//      }
+    // We need a user session handler too to make sure
+    // the user is stored in the session between requests
+    mainRouter.route().handler(UserSessionHandler.create(oauth2))
 
-    val oauth2 = OAuth2AuthHandler.create(
-      OAuth2Auth.createKeycloak(tableauxConfig.vertx, OAuth2FlowType.AUTH_CODE, keycloakJson),
-      "http://localhost:8080/docs")
+    val oauth2Handler = OAuth2AuthHandler.create(oauth2)
+//    oauth2Handler.setupCallback(mainRouter.route())
+    oauth2Handler.setupCallback(mainRouter.get("/callback"))
 
-    oauth2.setupCallback(mainRouter.get("/docs"))
-
-    mainRouter.route().handler(oauth2)
+    mainRouter.route().handler(oauth2Handler)
 
     // This cookie handler will be called for all routes
     mainRouter.route().handler(CookieHandler.create())
