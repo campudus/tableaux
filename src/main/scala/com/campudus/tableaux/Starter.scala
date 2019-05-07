@@ -9,6 +9,9 @@ import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.http.HttpServer
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
+import io.vertx.scala.ext.auth.oauth2.OAuth2Auth
+import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
+import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -46,10 +49,12 @@ class Starter extends ScalaVerticle with LazyLogging {
       val port = getIntDefault(config, "port", Starter.DEFAULT_PORT)
       val workingDirectory = getStringDefault(config, "workingDirectory", Starter.DEFAULT_WORKING_DIRECTORY)
       val uploadsDirectory = getStringDefault(config, "uploadsDirectory", Starter.DEFAULT_UPLOADS_DIRECTORY)
+      val keycloakConfig = config.getJsonObject("keycloak", Json.obj())
 
       val tableauxConfig = new TableauxConfig(
         vertx = this.vertx,
         databaseConfig = databaseConfig,
+        keycloakConfig = keycloakConfig,
         workingDirectory = workingDirectory,
         uploadsDirectory = uploadsDirectory
       )
