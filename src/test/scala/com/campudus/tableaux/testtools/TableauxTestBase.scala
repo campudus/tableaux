@@ -158,6 +158,8 @@ trait TableauxTestBase
 
   override var databaseConfig: JsonObject = _
 
+  override var authConfig: JsonObject = _
+
   override var host: String = _
 
   override var port: Int = _
@@ -178,15 +180,17 @@ trait TableauxTestBase
       .put("port", getFreePort)
 
     databaseConfig = config.getJsonObject("database", Json.obj())
+    authConfig = config.getJsonObject("auth", Json.obj())
 
     host = config.getString("host")
     port = config.getInteger("port").intValue()
 
     tableauxConfig = new TableauxConfig(
       vertx,
+      authConfig,
       databaseConfig,
       config.getString("workingDirectory"),
-      config.getString("uploadsDirectory")
+      config.getString("uploadsDirectory"),
     )
 
     val async = context.async()
