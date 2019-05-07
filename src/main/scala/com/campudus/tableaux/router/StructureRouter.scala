@@ -4,8 +4,10 @@ import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
+import io.vertx.core.json.JsonObject
 import io.vertx.scala.ext.auth.User
-import io.vertx.scala.ext.auth.oauth2.KeycloakHelper
+import io.vertx.scala.ext.auth.jwt.{JWTAuth, JWTAuthOptions}
+import io.vertx.scala.ext.auth.oauth2.{AccessToken, KeycloakHelper, OAuth2Auth}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
@@ -14,12 +16,15 @@ import scala.util.{Failure, Success}
 
 object StructureRouter {
 
-  def apply(config: TableauxConfig, controllerCurry: TableauxConfig => StructureController): StructureRouter = {
-    new StructureRouter(config, controllerCurry(config))
+  def apply(config: TableauxConfig,
+            controllerCurry: TableauxConfig => StructureController,
+            oauth2: OAuth2Auth): StructureRouter = {
+    new StructureRouter(config, controllerCurry(config), oauth2)
   }
 }
 
-class StructureRouter(override val config: TableauxConfig, val controller: StructureController) extends BaseRouter {
+class StructureRouter(override val config: TableauxConfig, val controller: StructureController, val oauth2: OAuth2Auth)
+    extends BaseRouter {
 
   private val column: String = s"/tables/$tableId/columns/$columnId"
   private val columns: String = s"/tables/$tableId/columns"
@@ -81,18 +86,106 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
   private def retrieveTable(context: RoutingContext): Unit = {
 
+    val accessTokenString: String = KeycloakHelper.rawAccessToken(context.user().get.principal)
+    val token: JsonObject = KeycloakHelper.parseToken(accessTokenString)
+
+//    val tt: AccessToken = context.user().get.principal().asInstanceOf[AccessToken]
+//    println("XXX: " + tt.expired())
+
+//    var config = new io.vertx.core.json.JsonObject()
+//      .put("public-key", "BASE64-ENCODED-PUBLIC_KEY")
+//      .put("permissionsClaimKey", "realm_access/roles")
+
+//    var provider: JWTAuth = JWTAuth.create(vertx, JWTAuthOptions.fromJson(config))
+
+//    provider.authenticateFuture(token).onComplete {
+//      case Success(rrr) => {
+//
+//        val hasAuthority: User = rrr
+//        println("success")
+//
+//      }
+//      case Failure(cause) => {
+//        println("failed")
+//        println(s"$cause")
+//      }
+//    }
+
+//    oauth2
+//      .loadJWKFuture()
+//      .onComplete(res => {
+//        if (res.isSuccess) {
+//          println("XXX: loadJWK success")
+//          val jwk = res.get
+//          println("XXX: " + jwk.toString)
+//        } else {
+//          println("XXX: loadJWK failed!")
+//        }
+//      })
+
+    oauth2.decodeTokenFuture(accessTokenString).onComplete {
+      case Success(u: AccessToken) => {
+        println("decode success: " + u)
+
+        println("expired: " + u.expired())
+        println("tokenType: " + u.tokenType())
+
+        println("accessToken: " + u.accessToken().toString)
+        println("tokenType: " + u)
+
+      }
+      case Failure(cause) => {
+        println("failed: " + cause)
+        println("decode failed: " + cause.getMessage)
+      }
+    }
+
+//    oauth2
+//      .authenticateFuture(token)
+//      .onComplete {
+//        case Success(u) => {
+//          println("authentication success: " + u)
+//        }
+//        case Failure(cause) => {
+//          println("failed: " + cause)
+//          println("authentication failed: " + cause.getMessage)
+//        }
+//      }
+
+//    oauth2
+//      .introspectTokenFuture(accessTokenString)
+//      .onComplete {
+//        case Success(at) => {
+//          println("success: " + at)
+//        }
+//        case Failure(cause) => {
+//          println("failed: " + cause)
+//          println("XXX: token validation failed: " + cause.getMessage)
+//        }
+//      }
+//      .onComplete(res => {
+//        if (res.isSuccess) {
+//          println("XXX: " + "token is valid!")
+//          val accessTokenString = res.get
+//        } else {
+//          println("XXX: token validation failed: " + res.failed)
+//        }
+//      })
+
+    println("XXX: " + token.getString("preferred_username"))
+
     val user: Option[User] = context.user()
 
-    user.get.isAuthorizedFuture("printers:printer1234").onComplete {
+    user.get.isAuthorizedFuture("view-tables").onComplete {
       case Success(result) => {
 
-        var hasAuthority = result
+        val hasAuthority = result
 
-        if (hasAuthority) {
-          println("User has the authority")
-        } else {
-          println("User does not have the authority")
-        }
+//        if (hasAuthority) {
+//          println("User has the authority")
+//        } else {
+//          println("User does not have the authority")
+//        }
 
       }
       case Failure(cause) => {
