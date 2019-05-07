@@ -12,7 +12,8 @@
     "password" : "secret",
     "database" : "tableaux"
   },
-  "keycloak": {
+
+  "auth": {
     "realm": "keycloak-realm",
     "bearer-only": true,
     "auth-server-url": "http://localhost:9999/auth",

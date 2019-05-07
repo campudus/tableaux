@@ -5,10 +5,10 @@ import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableT
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
 import io.vertx.core.json.JsonObject
-import io.vertx.scala.ext.auth.User
+import io.vertx.scala.ext.auth.{AuthProvider, User}
 import io.vertx.scala.ext.auth.jwt.{JWTAuth, JWTAuthOptions}
 import io.vertx.scala.ext.auth.oauth2.{AccessToken, KeycloakHelper, OAuth2Auth}
-import io.vertx.scala.ext.web.handler.BodyHandler
+import io.vertx.scala.ext.web.handler.{AuthHandler, BodyHandler}
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
@@ -16,15 +16,12 @@ import scala.util.{Failure, Success}
 
 object StructureRouter {
 
-  def apply(config: TableauxConfig,
-            controllerCurry: TableauxConfig => StructureController,
-            oauth2: OAuth2Auth): StructureRouter = {
-    new StructureRouter(config, controllerCurry(config), oauth2)
+  def apply(config: TableauxConfig, controllerCurry: TableauxConfig => StructureController): StructureRouter = {
+    new StructureRouter(config, controllerCurry(config))
   }
 }
 
-class StructureRouter(override val config: TableauxConfig, val controller: StructureController, val oauth2: OAuth2Auth)
-    extends BaseRouter {
+class StructureRouter(override val config: TableauxConfig, val controller: StructureController) extends BaseRouter {
 
   private val column: String = s"/tables/$tableId/columns/$columnId"
   private val columns: String = s"/tables/$tableId/columns"
@@ -123,22 +120,22 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 //        }
 //      })
 
-    oauth2.decodeTokenFuture(accessTokenString).onComplete {
-      case Success(u: AccessToken) => {
-        println("decode success: " + u)
-
-        println("expired: " + u.expired())
-        println("tokenType: " + u.tokenType())
-
-        println("accessToken: " + u.accessToken().toString)
-        println("tokenType: " + u)
-
-      }
-      case Failure(cause) => {
-        println("failed: " + cause)
-        println("decode failed: " + cause.getMessage)
-      }
-    }
+//    oauth2.decodeTokenFuture(accessTokenString).onComplete {
+//      case Success(u: AccessToken) => {
+//        println("decode success: " + u)
+//
+//        println("expired: " + u.expired())
+//        println("tokenType: " + u.tokenType())
+//
+//        println("accessToken: " + u.accessToken().toString)
+//        println("tokenType: " + u)
+//
+//      }
+//      case Failure(cause) => {
+//        println("failed: " + cause)
+//        println("decode failed: " + cause.getMessage)
+//      }
+//    }
 
 //    oauth2
 //      .authenticateFuture(token)
