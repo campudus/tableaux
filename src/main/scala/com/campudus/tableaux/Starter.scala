@@ -49,12 +49,12 @@ class Starter extends ScalaVerticle with LazyLogging {
       val port = getIntDefault(config, "port", Starter.DEFAULT_PORT)
       val workingDirectory = getStringDefault(config, "workingDirectory", Starter.DEFAULT_WORKING_DIRECTORY)
       val uploadsDirectory = getStringDefault(config, "uploadsDirectory", Starter.DEFAULT_UPLOADS_DIRECTORY)
-      val keycloakConfig = config.getJsonObject("keycloak", Json.obj())
+      val authConfig = config.getJsonObject("auth", Json.obj())
 
       val tableauxConfig = new TableauxConfig(
         vertx = this.vertx,
         databaseConfig = databaseConfig,
-        keycloakConfig = keycloakConfig,
+        authConfig = authConfig,
         workingDirectory = workingDirectory,
         uploadsDirectory = uploadsDirectory
       )

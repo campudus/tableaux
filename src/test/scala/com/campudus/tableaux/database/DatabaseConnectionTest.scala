@@ -102,5 +102,6 @@ class DatabaseConnectionTest extends VertxAccess with TestConfig with TestAssert
   override var host: String = _
   override var port: Int = _
   override var databaseConfig: JsonObject = _
+  override var authConfig: JsonObject = _
   override var tableauxConfig: TableauxConfig = _
 }

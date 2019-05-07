@@ -23,6 +23,8 @@ trait TestConfig {
 
   var databaseConfig: JsonObject
 
+  var authConfig: JsonObject
+
   var tableauxConfig: TableauxConfig
 
   private def readTextFile(filePath: String): String = Source.fromFile(filePath).getLines().mkString

@@ -3,16 +3,20 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
+import com.campudus.tableaux.router.auth.TableauxAuthHandler
 import com.campudus.tableaux.{RequestContext, TableauxConfig}
+import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext
-import io.vertx.scala.ext.auth.User
+import io.vertx.scala.ext.auth.PubSecKeyOptions
+import io.vertx.scala.ext.auth.jwt.{JWTAuth, JWTAuthOptions}
 import io.vertx.scala.ext.auth.oauth2.OAuth2Auth
 import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
-import io.vertx.scala.ext.web.handler.{CookieHandler, OAuth2AuthHandler}
+import io.vertx.scala.ext.web.handler.{CookieHandler, JWTAuthHandler}
 import io.vertx.scala.ext.web.{Router, RoutingContext}
-import org.vertx.scala.core.json.Json
 
-object RouterRegistry {
+import scala.collection.mutable
+
+object RouterRegistry extends LazyLogging {
 
   def init(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection)(
       implicit ec: VertxExecutionContext): Router = {
@@ -27,23 +31,42 @@ object RouterRegistry {
     mainRouter.route().handler(CookieHandler.create())
     mainRouter.route().handler(retrieveCookies)
 
-    val oauth2: OAuth2Auth = KeycloakAuth.create(vertx, tableauxConfig.keycloakConfig)
+    if (!tableauxConfig.authConfig.isEmpty) {
 
-    oauth2
-      .loadJWKFuture()
-      .onComplete(res => {
-        if (res.isSuccess) {
-          println("XXX: loadJWK success")
-          val jwk = res.get
-          println("XXX: " + jwk)
-        } else {
-          println("XXX: loadJWK failed!")
-        }
-      })
+      val pubKey = tableauxConfig.authConfig.getString("realm-public-key")
 
-    val oauth2Handler = OAuth2AuthHandler.create(oauth2)
+      val config = JWTAuthOptions()
+        .setPubSecKeys(
+          mutable.Buffer(
+            PubSecKeyOptions()
+              .setAlgorithm("RS256")
+//              .setPublicKey(
+//                "MIGeMA0GCSqGSIb3DQEBAQUAA4GMADCBiAKBgHj2X+CsJG6CXrb7lMmav6e1x6YgEoRYlbxP3GZzfpuvE3DfVP1ZHYGd9OgrlyBIuoCj8Jd28PWar0X9809dS/SpzJVUfobLLQD99Eq4Eu8BxxZYvLwWfGe3kdCRBx5MWPmtvSAI7kDzQei7k2v3BQsK52Oez1alyh7pFifQgR5HAgMBAAE=")))
+              .setPublicKey(pubKey)))
 
-    mainRouter.route().handler(oauth2Handler)
+//      val jwtAuthProvider = JWTAuth.create(vertx, JWTAuthOptions.fromJson(tableauxConfig.authConfig))
+      val jwtAuthProvider = JWTAuth.create(vertx, config)
+      val jwtAuthHandler = JWTAuthHandler.create(jwtAuthProvider)
+
+      val authProvider: OAuth2Auth = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
+      val authHandler = TableauxAuthHandler(vertx, authProvider, tableauxConfig)
+      mainRouter.route().handler(jwtAuthHandler)
+
+      mainRouter.route().handler(authHandler)
+
+//        mainRouter.route().handler(new TableauxAuthHandler2(vertx, authProvider, tableauxConfig))
+//        mainRouter.route().handler(new FooHandler(vertx, authProvider, tableauxConfig))
+//        mainRouter.route().handler(authHandler.handleExtStuff)
+    } else {
+      logger.warn(
+        "Started WITHOUT access token verification. The API is completely publicly available and NOT secured! This is for development and/or testing purposes ONLY.")
+    }
+
+//    var authProvider = JWTAuth.create(vertx, config)
+//
+//    val jwtAuthHandler = JWTAuthHandler.create(authProvider)
+//
+//    mainRouter.route().handler(jwtAuthHandler)
 
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
@@ -57,7 +80,7 @@ object RouterRegistry {
       SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel, serviceModel))
     val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel))
     val mediaRouter = MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel))
-    val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel), oauth2)
+    val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel))
     val documentationRouter = DocumentationRouter(tableauxConfig)
 
     mainRouter.mountSubRouter("/system", systemRouter.route)
@@ -77,62 +100,35 @@ object RouterRegistry {
   /**
     * Extract cookies from request and forward the request to routing again
     */
-  private def myHandler(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
-    requestContext.cookies = context.cookies().toSet
-    context.next()
-  }
-
-  /**
-    * Extract cookies from request and forward the request to routing again
-    */
   private def retrieveCookies(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
     requestContext.cookies = context.cookies().toSet
     context.next()
   }
 
-  private def logout(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
-    println("XXX: LOGGING OUT!!!")
-
-    val userOpt: Option[User] = context.user
-
-    userOpt.foreach({
-      println("XXX: clearCache()")
-      _.clearCache()
-    })
-
-    if (userOpt.isDefined) {
-//      val user1: AccessToken = userOpt.get.asInstanceOf[AccessToken]
-      val user1: User = userOpt.get
-
-//      println("XXX: " + user1.tokenType())
-      println("XXX: " + user1.principal())
-      user1.clearCache()
-
-//      user1.logout(res => {
-//        if (res.succeeded()) {
-//          println("XXX2: LOGGED OUT!!!")
+//  private def authHandler(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
+//    val user = context.user
+//
+//    user.foreach({
+//      case at: AccessToken => {
+//        if (at.accessToken == null) {
+//          context.fail(401)
+//          return
 //        } else {
-//          println("XXX3: CAN NOT LOG OUT!!!")
+//          println("success babe")
 //        }
-//      })
-
-//      for {
-//        _ <- user1.logoutFuture()
-//      } yield ()
-
-//      context.session().foreach(_.destroy())
-//      context.session().foreach(_.setAccessed())
-//
-//      context.cookies().clear()
-//
-//      context.user().map(_.clearCache())
-//      context.user().map(_.principal().clear())
-
-      println("XXX2: LOGGED OUT!!!")
-
-    }
-//    context.reroute("/")
-    context.response.putHeader("location", "/").setStatusCode(302).end
-  }
+//      }
+//      case _ => context.fail(401)
+//    })
+////
+////    if (user.isInstanceOf[AccessToken]) {
+////      val token = user.asInstanceOf[Nothing]
+////      if (token.accessToken == null) {
+////        rc.fail(401)
+////        return
+////      }
+////      else rc.setUser(syncUser(token.accessToken))
+////    }
+////    })
+//  }
 
 }
