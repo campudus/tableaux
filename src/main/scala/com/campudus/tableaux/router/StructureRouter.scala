@@ -4,15 +4,10 @@ import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
-import io.vertx.core.json.JsonObject
-import io.vertx.scala.ext.auth.{AuthProvider, User}
-import io.vertx.scala.ext.auth.jwt.{JWTAuth, JWTAuthOptions}
-import io.vertx.scala.ext.auth.oauth2.{AccessToken, KeycloakHelper, OAuth2Auth}
-import io.vertx.scala.ext.web.handler.{AuthHandler, BodyHandler}
+import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success}
 
 object StructureRouter {
 
@@ -83,8 +78,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 
   private def retrieveTable(context: RoutingContext): Unit = {
 
-    val accessTokenString: String = KeycloakHelper.rawAccessToken(context.user().get.principal)
-    val token: JsonObject = KeycloakHelper.parseToken(accessTokenString)
+//    val accessTokenString: String = KeycloakHelper.rawAccessToken(context.user().get.principal)
+//    val token: JsonObject = KeycloakHelper.parseToken(accessTokenString)
 
 //    val tt: AccessToken = context.user().get.principal().asInstanceOf[AccessToken]
 //    println("XXX: " + tt.expired())
@@ -169,26 +164,26 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
 //        }
 //      })
 
-    println("XXX: " + token.getString("preferred_username"))
+//    println("XXX: " + token.getString("preferred_username"))
 
-    val user: Option[User] = context.user()
-
-    user.get.isAuthorizedFuture("view-tables").onComplete {
-      case Success(result) => {
-
-        val hasAuthority = result
-
-//        if (hasAuthority) {
-//          println("User has the authority")
-//        } else {
-//          println("User does not have the authority")
-//        }
-
-      }
-      case Failure(cause) => {
-        println(s"$cause")
-      }
-    }
+//    val user: Option[User] = context.user()
+//
+//    user.get.isAuthorizedFuture("view-tables").onComplete {
+//      case Success(result) => {
+//
+//        val hasAuthority = result
+//
+////        if (hasAuthority) {
+////          println("User has the authority")
+////        } else {
+////          println("User does not have the authority")
+////        }
+//
+//      }
+//      case Failure(cause) => {
+//        println(s"$cause")
+//      }
+//    }
 
     for {
       tableId <- getTableId(context)

@@ -18,7 +18,6 @@ import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
 import io.vertx.scala.core.http._
 import io.vertx.scala.core.streams.Pump
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import io.vertx.scala.ext.web.Cookie
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
@@ -166,6 +165,14 @@ trait TableauxTestBase
 
   override var tableauxConfig: TableauxConfig = _
 
+  val wildcardAccessToken = "" +
+    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjYW1wdWR1cy10ZXN0Iiwic3ViIjoidGVzdEBjYW1wdWR1cy5jb20iLCJhdWQiOiJnc" +
+    "nVkLWJhY2tlbmQiLCJuYmYiOjAsImlhdCI6MTU1NzMyODIwNywiZXhwIjoyMjIyMjIyMjIyLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJ1bml0LXRlc3R" +
+    "lciIsImFjciI6IjEiLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZGV2ZWxvcGVyIiwidmlldy10YWJsZXMiLCJkZWxldGUtbWVkaWEiLCJ2aWV3L" +
+    "WNlbGxzIl19LCJzY29wZSI6ImVtYWlsIHByb2ZpbGUiLCJuYW1lIjoiVGVzdCBUZXN0IiwicHJlZmVycmVkX3VzZXJuYW1lIjoiVGVzdCIsImdpdmV" +
+    "uX25hbWUiOiJUZXN0IiwiZmFtaWx5X25hbWUiOiJUZXN0In0.YrJ4ikXxjRBITp9B98lc-ygr7Xlc52PKSCnSU1G3YWOxec9DJH0ybkGdwSYqVLejQ" +
+    "5PC12CVlh19IAEHON2lXTPmMAMOoOlG5dcvTs6MSYnYwoJnTE91MJ0yUJHRcmSkC6npbYnsYjwzk_UKgXcmKYW6UMrsIcU1bEImXWNoLtU"
+
   @Before
   def before(context: TestContext): Unit = {
     vertx = Vertx.vertx()
@@ -268,9 +275,9 @@ trait TableauxTestBase
     p.future
   }
 
-  def sendRequest(method: String, path: String, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+  def sendRequest(method: String, path: String, tokenOpt: Option[String]): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, cookieOpt).end()
+    httpJsonRequest(method, path, p, tokenOpt).end()
     p.future
   }
 
@@ -280,9 +287,9 @@ trait TableauxTestBase
     p.future
   }
 
-  def sendRequest(method: String, path: String, jsonObj: JsonObject, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+  def sendRequest(method: String, path: String, jsonObj: JsonObject, tokenOpt: Option[String]): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, cookieOpt).end(jsonObj.encode())
+    httpJsonRequest(method, path, p, tokenOpt).end(jsonObj.encode())
     p.future
   }
 
@@ -292,9 +299,9 @@ trait TableauxTestBase
     p.future
   }
 
-  def sendRequest(method: String, path: String, body: String, cookieOpt: Option[Cookie]): Future[JsonObject] = {
+  def sendRequest(method: String, path: String, body: String, tokenOpt: Option[String]): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, cookieOpt).end(body)
+    httpJsonRequest(method, path, p, tokenOpt).end(body)
     p.future
   }
 
@@ -307,9 +314,9 @@ trait TableauxTestBase
   def sendRequest(method: String,
                   path: String,
                   domainObject: DomainObject,
-                  cookieOpt: Option[Cookie]): Future[JsonObject] = {
+                  tokenOpt: Option[String]): Future[JsonObject] = {
     val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, cookieOpt).end(domainObject.getJson.encode())
+    httpJsonRequest(method, path, p, tokenOpt).end(domainObject.getJson.encode())
     p.future
   }
 
@@ -319,9 +326,9 @@ trait TableauxTestBase
     p.future
   }
 
-  def sendStringRequest(method: String, path: String, cookieOpt: Option[Cookie]): Future[String] = {
+  def sendStringRequest(method: String, path: String, tokenOpt: Option[String]): Future[String] = {
     val p = Promise[String]()
-    httpStringRequest(method, path, p, cookieOpt).end()
+    httpStringRequest(method, path, p, tokenOpt).end()
     p.future
   }
 
@@ -331,12 +338,9 @@ trait TableauxTestBase
     p.future
   }
 
-  def sendStringRequest(method: String,
-                        path: String,
-                        jsonObj: JsonObject,
-                        cookieOpt: Option[Cookie]): Future[String] = {
+  def sendStringRequest(method: String, path: String, jsonObj: JsonObject, tokenOpt: Option[String]): Future[String] = {
     val p = Promise[String]()
-    httpStringRequest(method, path, p, cookieOpt).end(jsonObj.encode())
+    httpStringRequest(method, path, p, tokenOpt).end(jsonObj.encode())
     p.future
   }
 
@@ -390,15 +394,15 @@ trait TableauxTestBase
   private def httpStringRequest(method: String,
                                 path: String,
                                 p: Promise[String],
-                                cookieOpt: Option[Cookie]): HttpClientRequest = {
-    httpRequest(method, path, createStringResponseHandler(p), createExceptionHandler[String](p), cookieOpt)
+                                tokenOpt: Option[String]): HttpClientRequest = {
+    httpRequest(method, path, createStringResponseHandler(p), createExceptionHandler[String](p), tokenOpt)
   }
 
   private def httpJsonRequest(method: String,
                               path: String,
                               p: Promise[JsonObject],
-                              cookieOpt: Option[Cookie]): HttpClientRequest = {
-    httpRequest(method, path, createJsonResponseHandler(p), createExceptionHandler[JsonObject](p), cookieOpt)
+                              tokenOpt: Option[String]): HttpClientRequest = {
+    httpRequest(method, path, createJsonResponseHandler(p), createExceptionHandler[JsonObject](p), tokenOpt)
   }
 
   def httpRequest(
@@ -406,7 +410,7 @@ trait TableauxTestBase
       path: String,
       responseHandler: (HttpClient, HttpClientResponse) => Unit,
       exceptionHandler: (HttpClient, Throwable) => Unit,
-      cookieOpt: Option[Cookie]
+      tokenOpt: Option[String]
   ): HttpClientRequest = {
     val _method = HttpMethod.valueOf(method.toUpperCase)
 
@@ -415,9 +419,11 @@ trait TableauxTestBase
 
     val client = vertx.createHttpClient(options)
 
+    val token = tokenOpt.getOrElse(wildcardAccessToken)
+
     client
       .request(_method, port, host, path)
-      .putHeader("cookie", cookieOpt.map(_.encode()).getOrElse(""))
+      .putHeader("Authorization", s"Bearer $token")
       .handler(responseHandler(client, _: HttpClientResponse))
       .exceptionHandler(exceptionHandler(client, _: Throwable))
   }

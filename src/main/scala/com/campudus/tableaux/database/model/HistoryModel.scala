@@ -140,7 +140,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   val attachmentModel = AttachmentModel(connection)
 
   private def getUserName: String = {
-    requestContext.getCookieValue("userName")
+    requestContext.getPrincipleString("preferred_username", "dev")
   }
 
   private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId): Future[Seq[RowId]] = {
