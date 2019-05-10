@@ -1,5 +1,6 @@
 package com.campudus.tableaux
-import io.vertx.scala.ext.web.Cookie
+
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 object RequestContext {
   def apply(): RequestContext = new RequestContext()
@@ -7,10 +8,10 @@ object RequestContext {
 
 class RequestContext() {
 
-  // field has to be mutable and is only set from RouterRegistry::routes
-  var cookies: Set[Cookie] = Set.empty[Cookie] // scalastyle:ignore
+  // field has to be mutable and is only set from TableauxAuthHandler::handle
+  var principal: JsonObject = Json.emptyObj() // scalastyle:ignore
 
-  def getCookieValue(name: String, defaultValue: String = "dev"): String = {
-    cookies.find(_.getName() == name).map(_.getValue()).getOrElse(defaultValue)
+  def getPrincipleString(name: String, defaultValue: String): String = {
+    principal.getString(name, defaultValue)
   }
 }

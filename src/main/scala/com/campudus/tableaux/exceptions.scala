@@ -109,3 +109,8 @@ case class ForbiddenException(override val message: String, subId: String) exten
   override val id: String = s"error.request.forbidden.$subId"
   override val statusCode: Int = 403
 }
+
+case class AuthenticationException(override val message: String) extends CustomException {
+  override val id: String = s"error.request.unauthorized"
+  override val statusCode: Int = 401
+}

@@ -1,63 +1,79 @@
 package com.campudus.tableaux.router.auth
 
-import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper.VertxAccess
-import io.vertx.core.json.JsonObject
-import io.vertx.core.{AsyncResult, Handler}
+import com.campudus.tableaux.{AuthenticationException, RequestContext, TableauxConfig}
+import io.vertx.core.Handler
+import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.scala.core.Vertx
-import io.vertx.scala.ext.auth.oauth2.KeycloakHelper
-import io.vertx.scala.ext.auth.{AuthProvider, User}
+import io.vertx.scala.ext.auth.User
+import io.vertx.scala.ext.auth.jwt.JWTAuth
 import io.vertx.scala.ext.web.RoutingContext
-import io.vertx.scala.ext.web.handler.AuthHandler
+import io.vertx.scala.ext.web.handler.JWTAuthHandler
 
-import scala.collection.mutable
-import scala.concurrent.Future
-import scala.util.{Failure, Success}
-
-class TableauxAuthHandler(override val vertx: Vertx, authProvider: AuthProvider, tableauxConfig: TableauxConfig)
-    extends AuthHandler
+class TableauxAuthHandler(
+    override val vertx: Vertx,
+    authHandler: JWTAuthHandler,
+    authProvider: JWTAuth,
+    tableauxConfig: TableauxConfig
+)(implicit requestContext: RequestContext)
+    extends Handler[RoutingContext]
     with VertxAccess {
 
-  var jwkIsLoaded = false
+//  var jwkIsLoaded = false
 
-//  override def handle(context: RoutingContext): Unit = {
-//    for {
-//      _ <- loadJwkIfNecessary
-//      _ <- Future.successful(oauth2Handler.handle(context))
-//    } yield ()
-//  }
+//  val oauth2Provider: OAuth2Auth = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
+//  val oauth2Handler = OAuth2AuthHandler.create(authProvider)
 
-//  private def loadJwkIfNecessary: Future[Unit] = {
+  /**
+    * Validates Access Token's "aud" and "iss" claims (https://tools.ietf.org/html/rfc7519).
+    * If successful it stores the principal in requestContext for authorization.
+    * If not context fails with statusCode 401.
+    */
+  override def handle(context: RoutingContext): Unit = {
+    val user: Option[User] = context.user()
+
+    val principal = user match {
+      case Some(u) => u.principal()
+      case _ => {
+        val exception = AuthenticationException("No user in context")
+        logger.error(exception.getMessage)
+        context.fail(exception.statusCode, exception)
+        throw exception
+      }
+    }
+
+    checkAudience(context, principal)
+    checkIssuer(context, principal)
+
+    requestContext.principal = principal
+
+    //    val aud = principal.getString("aud")
 //
-//    if (jwkIsLoaded) {
-//      return Future.successful(())
+//    val principal = user match {
+//      case Some(u) => u.principal()
+//      case _ => {
+//        val exception = AuthenticationException("No user in context")
+//        logger.error(exception.getMessage)
+//        context.fail(exception.statusCode, exception)
+//        throw exception
+//      }
 //    }
 //
-//    if (tableauxConfig.authConfig.containsKey("realm-public-key")) {
-//      logger.info(s"JWK not loaded because public key is defined in keycloak config")
-//      jwkIsLoaded = true
-//      return Future.successful(())
-//    }
-//
-//    val jwkFuture = authProvider.loadJWKFuture()
-//
-//    jwkFuture.onComplete({
-//      case Success(_) =>
-//        jwkIsLoaded = true
-//        logger.info(s"JWK loading successfully")
-//      case Failure(e) =>
-//        logger.error("JWK loading failed", e)
-//    })
-//
-//    jwkFuture
-//  }
 
-//  def handleExtStuff(context: RoutingContext): Unit = {
-//
+//    val user: User = context.user().get
+//    requestContext.principal = principal
+//    val token: JsonObject = user.principal()
+
 //    val accessTokenString: String = KeycloakHelper.rawAccessToken(context.user().get.principal)
 //    val token: JsonObject = KeycloakHelper.parseToken(accessTokenString)
 //
-//    oauth2Provider.decodeTokenFuture(accessTokenString).onComplete {
+
+//    val jjj = new io.vertx.core.json.JsonObject()
+//      .put("jwt", "asffasdff")
+//      .put("options",
+//        new io.vertx.core.json.JsonObject().put("audience", new io.vertx.core.json.JsonArray().add("paulo@server.com")))
+
+//    authprovider.authenticateFuture(jjj).onComplete {
 //      case Success(u: AccessToken) => {
 //        println("decode success: " + u)
 //
@@ -67,20 +83,6 @@ class TableauxAuthHandler(override val vertx: Vertx, authProvider: AuthProvider,
 //        println("accessToken: " + u.accessToken().toString)
 //        println("tokenType: " + u)
 //
-//        val uif = u.userInfoFuture()
-//
-//        uif.onComplete {
-//          case Success(at) => {
-//            println("userInfoFuture success: " + at)
-//          }
-//          case Failure(cause) => {
-//            println("userInfoFuture failed: " + cause)
-//            println("XXX: token validation failed: " + cause.getMessage)
-//          }
-//        }
-//
-//        println("XXX: " + u.accessToken().encodePrettily())
-//        println("XXX: " + u.accessToken().getString("iss"))
 //      }
 //      case Failure(cause) => {
 //        println("failed: " + cause)
@@ -88,118 +90,83 @@ class TableauxAuthHandler(override val vertx: Vertx, authProvider: AuthProvider,
 //      }
 //    }
 
-  //    val tt: AccessToken = context.user().get.principal().asInstanceOf[AccessToken]
-  //    println("XXX: " + tt.expired())
+//    for {
+//      at <- authProvider.decodeTokenFuture(accessTokenString)
+//    } yield println("XXXXXX: " + at.tokenType())
 
-  //    oauth2
-  //      .authenticateFuture(token)
-  //      .onComplete {
-  //        case Success(u) => {
-  //          println("authentication success: " + u)
-  //        }
-  //        case Failure(cause) => {
-  //          println("failed: " + cause)
-  //          println("authentication failed: " + cause.getMessage)
-  //        }
-  //      }
+    //    val tt: AccessToken = context.user().get.principal().asInstanceOf[AccessToken]
+    //    println("XXX: " + tt.expired())
 
-  //    oauth2
-  //      .introspectTokenFuture(accessTokenString)
-  //      .onComplete {
-  //        case Success(at) => {
-  //          println("success: " + at)
-  //        }
-  //        case Failure(cause) => {
-  //          println("failed: " + cause)
-  //          println("XXX: token validation failed: " + cause.getMessage)
-  //        }
-  //      }
-  //      .onComplete(res => {
-  //        if (res.isSuccess) {
-  //          println("XXX: " + "token is valid!")
-  //          val accessTokenString = res.get
-  //        } else {
-  //          println("XXX: token validation failed: " + res.failed)
-  //        }
-  //      })
+    //    oauth2
+    //      .authenticateFuture(token)
+    //      .onComplete {
+    //        case Success(u) => {
+    //          println("authentication success: " + u)
+    //        }
+    //        case Failure(cause) => {
+    //          println("failed: " + cause)
+    //          println("authentication failed: " + cause.getMessage)
+    //        }
+    //      }
 
 //    println("XXX: " + token.getString("preferred_username"))
-//
-//    println("yes babe")
-//    context.next()
-//  }
-
-//  override def handle(context: web.RoutingContext): Unit = {
-//
-//    val accessTokenString: String = KeycloakHelper.rawAccessToken(context.user().principal())
-//    val token: JsonObject = KeycloakHelper.parseToken(accessTokenString)
-//
-//    for {
-//      _ <- loadJwkIfNecessary
-//      _ <- oauth2Provider.authenticateFuture(token)
-//    } yield ()
-//  }
-
-  //  override def handle(context: RoutingContext): Unit = {
-//    val accessTokenString: String = KeycloakHelper.rawAccessToken(context.user().principal())
-//    val token: JsonObject = KeycloakHelper.parseToken(accessTokenString)
-//
-//    for {
-//      _ <- loadJwkIfNecessary
-//      _ <- oauth2Provider.authenticateFuture(token)
-//    } yield ()
-//  }
-
-  override def handle(context: RoutingContext): Unit = {
-
-    println("XXX: " + context.user())
-
-    val accessTokenString: String = KeycloakHelper.rawAccessToken(context.user().get.principal())
-    val token: JsonObject = KeycloakHelper.parseToken(accessTokenString)
-
-    println("XXX: " + token)
-
-//    authProvider
-//      .authenticateFuture(token)
-//      .onComplete({
-//        case Success(at) => {
-//          println("success: " + at)
-//        }
-//        case Failure(cause) => {
-//          println("failed: " + cause)
-//          println("XXX: token validation failed: " + cause.getMessage)
-//        }
-//      })
-
-    for {
-//      _ <- loadJwkIfNecessary
-      user <- authProvider.authenticateFuture(token)
-    } yield
-      (
-        println("XXX: " + user.toString)
-      )
+    println("XXX: Token Validation OK")
+    context.next()
   }
 
-  override def addAuthority(authority: String): AuthHandler = ???
+  private def checkAudience(context: RoutingContext, principal: JsonObject) = {
+    import scala.collection.JavaConverters._
 
-  override def asJava: AnyRef = this.asInstanceOf[TableauxAuthHandler]
+    val audiences: Seq[String] = principal.getValue("aud") match {
+      case s: String => List(s)
+      case o: JsonArray => o.asScala.map({ case item: String => item }).toList
+    }
 
-  override def addAuthorities(authorities: mutable.Set[String]): AuthHandler = ???
-
-  override def parseCredentials(context: RoutingContext, handler: Handler[AsyncResult[JsonObject]]): Unit = ???
-
-  override def authorize(user: User, handler: Handler[AsyncResult[Unit]]): Unit = ???
-
-  override def parseCredentialsFuture(context: RoutingContext): Future[JsonObject] = ???
-
-  override def authorizeFuture(user: User): Future[Unit] = ???
-}
-
-object TableauxAuthHandler {
-
-  def apply(vertx: Vertx, authProvider: AuthProvider, config: TableauxConfig): TableauxAuthHandler = {
-    val tah = new TableauxAuthHandler(vertx, authProvider: AuthProvider, config)
-//    tah.loadJwkIfNecessary
-    tah
+    if (!audiences.contains(getAudience)) {
+      val exception = AuthenticationException(s"Audience '$getAudience' must be one of $audiences")
+      logger.error(exception.getMessage)
+      context.fail(exception.statusCode, exception)
+      throw exception
+    }
   }
+
+  private def checkIssuer(context: RoutingContext, principal: JsonObject) = {
+    val issuer: String = principal.getString("iss", "_invalid_")
+
+    if (issuer != getIssuer) {
+      val exception = AuthenticationException(s"Issuer '$issuer' doesn't match to '$getIssuer'")
+      logger.error(exception.getMessage)
+      context.fail(exception.statusCode, exception)
+      throw exception
+    }
+  }
+
+  //  private def loadJwkIfNecessary: Future[Unit] = {
+  //    if (jwkIsLoaded) {
+  //      return Future.successful(())
+  //    }
+  //
+  //    val jwkFuture = authProvider.loadJWKFuture()
+  //
+  //    jwkFuture.onComplete({
+  //      case Success(_) =>
+  //        jwkIsLoaded = true
+  //        logger.info(s"JWK loading successfully")
+  //      case Failure(e) =>
+  //        logger.error("JWK loading failed", e)
+  //    })
+  //
+  //    jwkFuture
+  //  }
+  def getAudience = tableauxConfig.authConfig.getString("audience")
+  def getIssuer = tableauxConfig.authConfig.getString("issuer")
 }
+
+//object TableauxAuthHandler {
+//
+//  def apply(vertx: Vertx, authProvider: JWTAuth): TableauxAuthHandler = {
+//    val tah = new TableauxAuthHandler(vertx, authProvider)
+////    tah.loadJwkIfNecessary
+//    tah
+//  }
+//}

@@ -520,17 +520,15 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
   @Test
   def changeSimpleValue_withUserNameInCookie(implicit c: TestContext): Unit = {
     okTest {
-      val cookie = Cookie.cookie("userName", "Alice")
-
-      val expectedRowCreated = """{ "event": "row_created", "author": "Alice" }"""
-      val expectedCellChanged = """{ "event": "cell_changed", "author": "Alice" }"""
+      val expectedRowCreated = """{ "event": "row_created", "author": "Test" }"""
+      val expectedCellChanged = """{ "event": "cell_changed", "author": "Test" }"""
 
       val newValue = Json.obj("value" -> "my first change")
 
       for {
         _ <- createEmptyDefaultTable()
-        _ <- sendRequest("POST", "/tables/1/rows", Some(cookie))
-        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue, Some(cookie))
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue)
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history").map(toRowsArray)
         rowCreated = rows.get[JsonObject](0)
         cellChanged = rows.get[JsonObject](1)
