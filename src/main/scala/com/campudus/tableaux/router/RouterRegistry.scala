@@ -7,14 +7,9 @@ import com.campudus.tableaux.router.auth.TableauxAuthHandler
 import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext
-import io.vertx.scala.ext.auth.PubSecKeyOptions
 import io.vertx.scala.ext.auth.jwt.{JWTAuth, JWTAuthOptions}
-import io.vertx.scala.ext.auth.oauth2.OAuth2Auth
-import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
-import io.vertx.scala.ext.web.handler.{CookieHandler, JWTAuthHandler}
-import io.vertx.scala.ext.web.{Router, RoutingContext}
-
-import scala.collection.mutable
+import io.vertx.scala.ext.web.Router
+import io.vertx.scala.ext.web.handler.JWTAuthHandler
 
 object RouterRegistry extends LazyLogging {
 
@@ -27,46 +22,21 @@ object RouterRegistry extends LazyLogging {
 
     implicit val requestContext: RequestContext = RequestContext()
 
-    // This cookie handler will be called for all routes
-    mainRouter.route().handler(CookieHandler.create())
-    mainRouter.route().handler(retrieveCookies)
-
     if (!tableauxConfig.authConfig.isEmpty) {
+      val jwtOptions = JWTAuthOptions.fromJson(tableauxConfig.authConfig)
 
-      val pubKey = tableauxConfig.authConfig.getString("realm-public-key")
+      val jwtAuthProvider: JWTAuth = JWTAuth.create(vertx, jwtOptions)
+      val jwtAuthHandler: JWTAuthHandler = JWTAuthHandler.create(jwtAuthProvider)
 
-      val config = JWTAuthOptions()
-        .setPubSecKeys(
-          mutable.Buffer(
-            PubSecKeyOptions()
-              .setAlgorithm("RS256")
-//              .setPublicKey(
-//                "MIGeMA0GCSqGSIb3DQEBAQUAA4GMADCBiAKBgHj2X+CsJG6CXrb7lMmav6e1x6YgEoRYlbxP3GZzfpuvE3DfVP1ZHYGd9OgrlyBIuoCj8Jd28PWar0X9809dS/SpzJVUfobLLQD99Eq4Eu8BxxZYvLwWfGe3kdCRBx5MWPmtvSAI7kDzQei7k2v3BQsK52Oez1alyh7pFifQgR5HAgMBAAE=")))
-              .setPublicKey(pubKey)))
-
-//      val jwtAuthProvider = JWTAuth.create(vertx, JWTAuthOptions.fromJson(tableauxConfig.authConfig))
-      val jwtAuthProvider = JWTAuth.create(vertx, config)
-      val jwtAuthHandler = JWTAuthHandler.create(jwtAuthProvider)
-
-      val authProvider: OAuth2Auth = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
-      val authHandler = TableauxAuthHandler(vertx, authProvider, tableauxConfig)
       mainRouter.route().handler(jwtAuthHandler)
 
-      mainRouter.route().handler(authHandler)
+      val authHandler = new TableauxAuthHandler(vertx, jwtAuthHandler, jwtAuthProvider, tableauxConfig)
 
-//        mainRouter.route().handler(new TableauxAuthHandler2(vertx, authProvider, tableauxConfig))
-//        mainRouter.route().handler(new FooHandler(vertx, authProvider, tableauxConfig))
-//        mainRouter.route().handler(authHandler.handleExtStuff)
+      mainRouter.route().handler(authHandler)
     } else {
       logger.warn(
         "Started WITHOUT access token verification. The API is completely publicly available and NOT secured! This is for development and/or testing purposes ONLY.")
     }
-
-//    var authProvider = JWTAuth.create(vertx, config)
-//
-//    val jwtAuthHandler = JWTAuthHandler.create(authProvider)
-//
-//    mainRouter.route().handler(jwtAuthHandler)
 
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
@@ -94,41 +64,8 @@ object RouterRegistry extends LazyLogging {
 
     mainRouter.route().handler(systemRouter.noRouteMatched)
 
+    mainRouter.route().handler(systemRouter.noRouteMatched)
+
     mainRouter
   }
-
-  /**
-    * Extract cookies from request and forward the request to routing again
-    */
-  private def retrieveCookies(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
-    requestContext.cookies = context.cookies().toSet
-    context.next()
-  }
-
-//  private def authHandler(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
-//    val user = context.user
-//
-//    user.foreach({
-//      case at: AccessToken => {
-//        if (at.accessToken == null) {
-//          context.fail(401)
-//          return
-//        } else {
-//          println("success babe")
-//        }
-//      }
-//      case _ => context.fail(401)
-//    })
-////
-////    if (user.isInstanceOf[AccessToken]) {
-////      val token = user.asInstanceOf[Nothing]
-////      if (token.accessToken == null) {
-////        rc.fail(401)
-////        return
-////      }
-////      else rc.setUser(syncUser(token.accessToken))
-////    }
-////    })
-//  }
-
 }
