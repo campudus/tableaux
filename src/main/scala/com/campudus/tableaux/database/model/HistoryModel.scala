@@ -5,7 +5,7 @@ import java.util.UUID
 import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, LinkId, RowId, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
@@ -236,7 +236,27 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  def updateLinkOrder(table: Table, linkColumn: LinkColumn, rowId: RowId): Future[Unit] = {
+  /**
+    * Writes a new history entry on base of the current linked rows
+    * for a {@code table}, a {@code linkColumn} and ({@code rowIds}).
+    *
+    * Make sure the links have changed before and the cache is invalidated.
+    *
+    * @param table
+    * @param linkColumn
+    * @param rowIds
+    */
+  def updateLinks(table: Table, linkColumn: LinkColumn, rowIds: Seq[RowId]): Future[Seq[Unit]] = {
+    Future.sequence(
+      rowIds.map(
+        rowId =>
+          for {
+            _ <- updateLinks(table, linkColumn, rowId)
+          } yield ()
+      ))
+  }
+
+  private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId): Future[Unit] = {
     for {
       linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
       identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)
@@ -622,6 +642,15 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }
   }
 
+  /**
+    * Writes empty back link history for the linked rows that gonna be deleted.
+    * The difference of the existing linked foreign row IDs and the linked foreign row IDs after the change
+    * are gonna be cleared.
+    *
+    * @param table table in which links gonna be changed
+    * @param rowId rows in which links gonna be changed
+    * @param values Seq of columns an the new linked foreign row IDs
+    */
   def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[_] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -842,7 +871,13 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     } yield ()
   }
 
-  private def createClearBackLinks(table: Table, foreignIds: Seq[RowId]): Future[Unit] = {
+  /**
+    * Writes empty back link histories for all dependent columns that have backlinks to the original table
+    *
+    * @param table
+    * @param foreignIds
+    */
+  def createClearBackLinks(table: Table, foreignIds: Seq[RowId]): Future[Unit] = {
     for {
       dependentColumns <- tableauxModel.retrieveDependencies(table)
       _ <- Future.sequence(dependentColumns.map({

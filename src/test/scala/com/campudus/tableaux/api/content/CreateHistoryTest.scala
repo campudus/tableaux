@@ -2841,4 +2841,69 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
       }
     }
   }
+
+  @Test
+  def deleteLink_twoLinksExisting_deleteLinkedRow(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("DELETE", s"/tables/2/rows/3")
+        linkRow1 <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+      } yield {
+        assertEquals(2, linkRow1.size())
+        val initLink = """[{"id":3,"value":"table2RowId1"},{"id":4,"value":"table2RowId2"}]"""
+        JSONAssert.assertEquals(initLink, getLinksValue(linkRow1, 0).toString, JSONCompareMode.STRICT)
+
+        val linkAfterDeletion = """[{"id":4,"value":"table2RowId2"}]"""
+        JSONAssert.assertEquals(linkAfterDeletion, getLinksValue(linkRow1, 1).toString, JSONCompareMode.STRICT)
+      }
+    }
+  }
+
+  @Test
+  def deleteLink_twoLinksExistingInTwoRows_deleteLinkedRow(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        _ <- setupTwoTablesWithEmptyLinks()
+
+        _ <- dbConnection.query("""INSERT INTO link_table_1
+                                  |  (id_1, id_2)
+                                  |VALUES
+                                  |  (1, 3),
+                                  |  (1, 4),
+                                  |  (2, 3),
+                                  |  (2, 4)
+                                  |  """.stripMargin)
+
+        _ <- sendRequest("DELETE", s"/tables/2/rows/3")
+        linkRow1 <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+        linkRow2 <- sendRequest("GET", "/tables/1/columns/3/rows/2/history?historyType=cell").map(toRowsArray)
+      } yield {
+        assertEquals(2, linkRow1.size())
+        assertEquals(2, linkRow2.size())
+        val initLink = """[{"id":3,"value":"table2RowId1"},{"id":4,"value":"table2RowId2"}]"""
+        JSONAssert.assertEquals(initLink, getLinksValue(linkRow1, 0).toString, JSONCompareMode.STRICT)
+        JSONAssert.assertEquals(initLink, getLinksValue(linkRow2, 0).toString, JSONCompareMode.STRICT)
+
+        val linkAfterDeletion = """[{"id":4,"value":"table2RowId2"}]"""
+        JSONAssert.assertEquals(linkAfterDeletion, getLinksValue(linkRow1, 1).toString, JSONCompareMode.STRICT)
+        JSONAssert.assertEquals(linkAfterDeletion, getLinksValue(linkRow2, 1).toString, JSONCompareMode.STRICT)
+      }
+    }
+  }
+
 }
