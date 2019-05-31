@@ -119,11 +119,11 @@ class TableauxModel(
     } yield backlinkColumnOpt
   }
 
-  def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
+  private def selectDependentRows(linkId: LinkId, linkDirection: LinkDirection) = {
+    s"SELECT ${linkDirection.toSql} FROM link_table_$linkId WHERE ${linkDirection.fromSql} = ?"
+  }
 
-    def selectDependentRows(linkId: LinkId, linkDirection: LinkDirection) = {
-      s"SELECT ${linkDirection.toSql} FROM link_table_$linkId WHERE ${linkDirection.fromSql} = ?"
-    }
+  def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
 
     for {
       links <- retrieveDependentLinks(table)
@@ -181,13 +181,59 @@ class TableauxModel(
     }
   }
 
+  /**
+    * Retrieves all dependent cells information for a given {@code table} and {@code rowId}.
+    *
+    * @param table
+    * @param rowId
+    * @return
+    */
+  def retrieveDependentCells(table: Table, rowId: RowId): Future[Seq[(Table, LinkColumn, Seq[RowId])]] = {
+    for {
+      links <- retrieveDependentLinks(table)
+
+      result <- Future.sequence(
+        links.map({
+          case (linkId, linkDirection) =>
+            connection
+              .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
+              .map(result => resultObjectToJsonArray(result).map(_.getLong(0).longValue()))
+              .map(dependentRows => (linkDirection.to, dependentRows))
+              .flatMap({
+                case (dependentTableId, dependentRows) =>
+                  for {
+                    dependentTable <- retrieveTable(dependentTableId)
+
+                    // retrieve the dependent column which must be exactly one
+                    linkedColumn <- retrieveColumns(dependentTable).map(_.collect({
+                      case c: LinkColumn if c.linkId == linkId => c
+                    }).head)
+
+                  } yield (dependentTable, linkedColumn, dependentRows)
+              })
+        })
+      )
+    } yield result
+  }
+
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
     for {
-      specialColumns <- retrieveColumns(table).map(_.filter({
+      columns <- retrieveColumns(table)
+
+      specialColumns = columns.filter({
         case _: AttachmentColumn => true
         case c: LinkColumn if c.linkDirection.constraint.deleteCascade => true
         case _ => false
-      }))
+      })
+
+      // enrich with dummy value, is necessary for validity checks but thrown away afterward
+      columnValueLinks = columns
+        .collect({ case c: LinkColumn => c })
+        .map(col => (col, 0))
+
+      _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
+
+      linkList <- retrieveDependentCells(table, rowId)
 
       // Clear special cells before delete.
       // For example AttachmentColumns will
@@ -199,6 +245,17 @@ class TableauxModel(
 
       // invalidate row
       _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
+
+      _ <- Future.sequence(
+        linkList.map({
+          case (dependentTable, dependentLinkColumn, dependentRows) =>
+            for {
+              _ <- invalidateCellAndDependentColumns(dependentLinkColumn, dependentRows)
+              _ <- createHistoryModel.updateLinks(dependentTable, dependentLinkColumn, dependentRows)
+            } yield ()
+        })
+      )
+
     } yield EmptyObject()
   }
 
@@ -370,7 +427,7 @@ class TableauxModel(
             _ <- createHistoryModel.createCellsInit(table, rowId, Seq((linkColumn, Seq(rowId))))
             _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
             _ <- invalidateCellAndDependentColumns(column, rowId)
-            _ <- createHistoryModel.updateLinkOrder(table, linkColumn, rowId)
+            _ <- createHistoryModel.updateLinks(table, linkColumn, Seq(rowId))
           } yield Future.successful(())
         }
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
@@ -470,6 +527,15 @@ class TableauxModel(
       }
       case _ => Future.failed(InvalidRequestException("Key must not be empty and a string in settings table"))
     }
+  }
+
+  def invalidateCellAndDependentColumns(column: ColumnType[_], rowIds: Seq[RowId]): Future[Seq[Unit]] = {
+    Future.sequence(
+      rowIds.map(rowId =>
+        for {
+          _ <- invalidateCellAndDependentColumns(column, rowId)
+        } yield ())
+    )
   }
 
   def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
