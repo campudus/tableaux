@@ -237,10 +237,14 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   /**
-    * Writes a new history entry on base of the current linked rows
-    * for a {@code table}, a {@code linkColumn} and ({@code rowIds}).
+    * Writes a new history entry on base of the current linked rows for a {@code table},
+    * a {@code linkColumn} and ({@code rowIds}).
     *
-    * Make sure the links have changed before and the cache is invalidated.
+    * Since we want to update the links after deleting dependent rows, we need to check if the rows have not already
+    * been deleted by the delete cascade function. For example this happens for back links with "delete cascade" in
+    * only one direction.
+    *
+    * Also make sure the links have changed before and the cache is invalidated.
     *
     * @param table
     * @param linkColumn
@@ -251,12 +255,18 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       rowIds.map(
         rowId =>
           for {
-            _ <- updateLinks(table, linkColumn, rowId)
+            rowExists <- tableauxModel.retrieveRowModel.rowExists(table.id, rowId)
+
+            _ <- if (rowExists) {
+              updateLinks(table, linkColumn, rowId, rowExists)
+            } else {
+              Future.successful(())
+            }
           } yield ()
       ))
   }
 
-  private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId): Future[Unit] = {
+  private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId, rowExists: Boolean): Future[Unit] = {
     for {
       linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
       identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)

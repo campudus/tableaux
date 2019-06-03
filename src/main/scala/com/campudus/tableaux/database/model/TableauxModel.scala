@@ -228,7 +228,7 @@ class TableauxModel(
 
       // enrich with dummy value, is necessary for validity checks but thrown away afterward
       columnValueLinks = columns
-        .collect({ case c: LinkColumn => c })
+        .collect({ case c: LinkColumn if !c.linkDirection.constraint.deleteCascade => c })
         .map(col => (col, 0))
 
       _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)

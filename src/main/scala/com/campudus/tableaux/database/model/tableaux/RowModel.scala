@@ -716,6 +716,10 @@ class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery
 
   import ModelHelper._
 
+  def rowExists(tableId: TableId, rowId: RowId)(implicit ec: ExecutionContext): Future[Boolean] = {
+    connection.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+  }
+
   def retrieveColumnValues(column: ShortTextColumn, langtagOpt: Option[Langtag]): Future[Seq[String]] = {
     val tableId = column.table.id
 
