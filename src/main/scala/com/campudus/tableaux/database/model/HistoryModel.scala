@@ -653,12 +653,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   /**
-    * Writes empty back link history for the linked rows that gonna be deleted.
+    * Writes empty back link history for the linked rows that are going to be deleted.
     * The difference of the existing linked foreign row IDs and the linked foreign row IDs after the change
-    * are gonna be cleared.
+    * are going to be cleared.
     *
-    * @param table table in which links gonna be changed
-    * @param rowId rows in which links gonna be changed
+    * @param table table in which links are changed
+    * @param rowId rows in which links changed
     * @param values Seq of columns an the new linked foreign row IDs
     */
   def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[_] = {
