@@ -39,7 +39,7 @@ class TableauxKeycloakAuthHandler(
 
     requestContext.principal = principal
 
-    println("XXX: Token Validation OK")
+    logger.debug("Token Validation OK")
     context.next()
   }
 
@@ -70,6 +70,6 @@ class TableauxKeycloakAuthHandler(
     }
   }
 
-  def getAudience = tableauxConfig.authConfig.getString("audience")
+  def getAudience = tableauxConfig.authConfig.getString("resource")
   def getIssuer = tableauxConfig.authConfig.getString("issuer")
 }
