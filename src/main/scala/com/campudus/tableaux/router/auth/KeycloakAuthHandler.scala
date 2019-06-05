@@ -6,9 +6,10 @@ import io.vertx.core.Handler
 import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.auth.User
+import io.vertx.scala.ext.auth.oauth2.KeycloakHelper
 import io.vertx.scala.ext.web.RoutingContext
 
-class TableauxJwtAuthHandler(
+class KeycloakAuthHandler(
     override val vertx: Vertx,
     tableauxConfig: TableauxConfig
 )(implicit requestContext: RequestContext)
@@ -24,13 +25,12 @@ class TableauxJwtAuthHandler(
     val user: Option[User] = context.user()
 
     val principal = user match {
-      case Some(u) => u.principal()
-      case _ => {
+      case Some(u) => KeycloakHelper.accessToken(u.principal())
+      case _ =>
         val exception = AuthenticationException("No user in context")
         logger.error(exception.getMessage)
         context.fail(exception.statusCode, exception)
         throw exception
-      }
     }
 
     checkAudience(context, principal)
@@ -42,12 +42,12 @@ class TableauxJwtAuthHandler(
     context.next()
   }
 
-  private def checkAudience(context: RoutingContext, principal: JsonObject) = {
+  private def checkAudience(context: RoutingContext, principal: JsonObject): Unit = {
     import scala.collection.JavaConverters._
 
     val audiences: Seq[String] = principal.getValue("aud") match {
-      case s: String => List(s)
-      case o: JsonArray => o.asScala.map({ case item: String => item }).toList
+      case s: String => Seq(s)
+      case o: JsonArray => o.asScala.map({ case item: String => item }).toSeq
     }
 
     if (!audiences.contains(getAudience)) {
@@ -58,7 +58,7 @@ class TableauxJwtAuthHandler(
     }
   }
 
-  private def checkIssuer(context: RoutingContext, principal: JsonObject) = {
+  private def checkIssuer(context: RoutingContext, principal: JsonObject): Unit = {
     val issuer: String = principal.getString("iss", "_invalid_")
 
     if (issuer != getIssuer) {
@@ -69,6 +69,6 @@ class TableauxJwtAuthHandler(
     }
   }
 
-  def getAudience = tableauxConfig.authConfig.getString("resource")
-  def getIssuer = tableauxConfig.authConfig.getString("issuer")
+  def getAudience: String = tableauxConfig.authConfig.getString("resource")
+  def getIssuer: String = tableauxConfig.authConfig.getString("issuer")
 }

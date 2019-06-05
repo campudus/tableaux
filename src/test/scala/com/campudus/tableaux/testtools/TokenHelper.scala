@@ -62,11 +62,11 @@ class TokenHelper(vertxAccess: VertxAccess) extends VertxAccess {
 
   val provider = JWTAuth.create(vertx, options)
 
-  def generateToken(claims: JsonObject): String = {
+  def generateToken(claims: JsonObject, jwtOptionsOpt: Option[JWTOptions] = None): String = {
     val opt = JWTOptions()
       .setAlgorithm("RS256") // for Tests always use asynchronous RS256 algorithm
       .setNoTimestamp(true) // deactivated for testing purposes
 
-    provider.generateToken(claims, opt)
+    provider.generateToken(claims, jwtOptionsOpt.getOrElse(opt))
   }
 }
