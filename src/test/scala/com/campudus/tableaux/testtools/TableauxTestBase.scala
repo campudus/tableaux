@@ -192,7 +192,7 @@ trait TableauxTestBase
       authConfig,
       databaseConfig,
       config.getString("workingDirectory"),
-      config.getString("uploadsDirectory"),
+      config.getString("uploadsDirectory")
     )
 
     val async = context.async()

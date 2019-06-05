@@ -22,6 +22,5 @@ class TokenHelperTest extends TableauxTestBase {
       "VJ3Pw5DIkZu5Pd-E1S2uYGvLiyC2JGHwnI4Lss2kfcX_X3mPRZgKBCUTcj_1mF6Lj8TuylGSIBDZvtex3WQcySiV7FyVEGS" +
       "aPB4Ian974rWLdrnHf3X2t81W6Gyog"
     Assert.assertEquals(encodedToken, th.generateToken(claims))
-
   }
 }
