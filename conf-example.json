@@ -21,6 +21,7 @@
     "resource": "grud-backend",
     "verify-token-audience": true,
     "use-resource-role-mappings": true,
-    "confidential-port": 0
+    "confidential-port": 0,
+    "issuer": "test"
   }
 }

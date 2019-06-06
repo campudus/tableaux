@@ -9,6 +9,8 @@ import io.vertx.scala.ext.auth.User
 import io.vertx.scala.ext.auth.oauth2.KeycloakHelper
 import io.vertx.scala.ext.web.RoutingContext
 
+import scala.collection.JavaConverters._
+
 class KeycloakAuthHandler(
     override val vertx: Vertx,
     tableauxConfig: TableauxConfig
@@ -43,8 +45,6 @@ class KeycloakAuthHandler(
   }
 
   private def checkAudience(context: RoutingContext, principal: JsonObject): Unit = {
-    import scala.collection.JavaConverters._
-
     val audiences: Seq[String] = principal.getValue("aud") match {
       case s: String => Seq(s)
       case o: JsonArray => o.asScala.map({ case item: String => item }).toSeq
