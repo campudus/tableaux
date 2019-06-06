@@ -62,8 +62,6 @@ object RouterRegistry extends LazyLogging {
 
     mainRouter.route().handler(systemRouter.noRouteMatched)
 
-    mainRouter.route().handler(systemRouter.noRouteMatched)
-
     mainRouter
   }
 }
