@@ -1,0 +1,341 @@
+{
+  "view-tables": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*",
+          "hidden": "false"
+        }
+      }
+    }
+  ],
+  "viewHidden-tables": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*",
+          "hidden": "true"
+        }
+      }
+    }
+  ],
+  "editDisplayProperty-tables": [
+    {
+      "type": "grant",
+      "action": ["editDisplayProperty"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "editStructureProperty-tables": [
+    {
+      "type": "grant",
+      "action": ["editStructureProperty"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "createRow-tables": [
+    {
+      "type": "grant",
+      "action": ["createRow"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "deleteRow-tables": [
+    {
+      "type": "grant",
+      "action": ["deleteRow"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "create-tables": [
+    {
+      "type": "grant",
+      "action": ["create"],
+      "scope": "table"
+    }
+  ],
+  "delete-tables": [
+    {
+      "type": "grant",
+      "action": ["delete"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "editCellAnnotation-tables": [
+    {
+      "type": "grant",
+      "action": ["editCellAnnotation"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "editRowAnnotation-tables": [
+    {
+      "type": "grant",
+      "action": ["editRowAnnotation"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "view-columns": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "column",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "editDisplayProperty-columns": [
+    {
+      "type": "grant",
+      "action": ["editDisplayProperty"],
+      "scope": "column",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "create-columns": [
+    {
+      "type": "grant",
+      "action": ["create"],
+      "scope": "column",
+      "condition": {
+        "table": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "editStructureProperty-columns": [
+    {
+      "type": "grant",
+      "action": ["editStructureProperty"],
+      "scope": "column",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "delete-columns": [
+    {
+      "type": "grant",
+      "action": ["delete"],
+      "scope": "column",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "view-cells": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "cell",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*"
+        }
+      }
+    }
+  ],
+  "edit-singleLanguage-cells": [
+    {
+      "type": "grant",
+      "action": ["edit"],
+      "scope": "cell",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*",
+          "multilanguage": "false"
+        }
+      }
+    }
+  ],
+  "edit-multiLanguage-DE-cells": [
+    {
+      "type": "grant",
+      "action": ["edit"],
+      "scope": "cell",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*",
+          "multilanguage": "true",
+          "languageType": "language"
+        },
+        "langtag": "de"
+      }
+    }
+  ],
+  "edit-multiLanguage-EN-cells": [
+    {
+      "type": "grant",
+      "action": ["edit"],
+      "scope": "cell",
+      "condition": {
+        "table": {
+          "id": ".*",
+          "group.id": "34"
+        },
+        "column": {
+          "id": ".*",
+          "multilanguage": "true",
+          "languageType": "language"
+        },
+        "langtag": "en"
+      }
+    }
+  ],
+  "edit-multiLanguage-ES-cells": [
+    {
+      "type": "grant",
+      "action": ["edit"],
+      "scope": "cell",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*",
+          "multilanguage": "true",
+          "languageType": "language"
+        },
+        "langtag": "es"
+      }
+    }
+  ],
+  "edit-multiLanguage-FR-cells": [
+    {
+      "type": "grant",
+      "action": ["edit"],
+      "scope": "cell",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*",
+          "multilanguage": "true",
+          "languageType": "language"
+        },
+        "langtag": "fr"
+      }
+    }
+  ],
+  "edit-multiLanguage-ALL-cells": [
+    {
+      "type": "grant",
+      "action": ["edit"],
+      "scope": "cell",
+      "condition": {
+        "table": {
+          "id": ".*"
+        },
+        "column": {
+          "id": ".*",
+          "multilanguage": "true",
+          "languageType": "language"
+        },
+        "langtag": "de|en|fr|es|nl|pl"
+      }
+    }
+  ],
+  "editSettingTableKeys": [
+    {
+      "type": "grant",
+      "action": ["editSettingTableKey"],
+      "scope": "cell"
+    }
+  ],
+  "create-media": [
+    {
+      "type": "grant",
+      "action": ["create"],
+      "scope": "media"
+    }
+  ],
+  "edit-media": [
+    {
+      "type": "grant",
+      "action": ["edit"],
+      "scope": "media"
+    }
+  ],
+  "delete-media": [
+    {
+      "type": "grant",
+      "action": ["delete"],
+      "scope": "media"
+    }
+  ]
+}
