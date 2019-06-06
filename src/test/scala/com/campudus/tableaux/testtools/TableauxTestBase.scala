@@ -4,6 +4,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
@@ -184,6 +185,9 @@ trait TableauxTestBase
     databaseConfig = config.getJsonObject("database", Json.obj())
     authConfig = config.getJsonObject("auth", Json.obj())
 
+    val rolePermissionPath = config.getString("rolePermissionPath")
+    val role2Permissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionPath)
+
     host = config.getString("host")
     port = config.getInteger("port").intValue()
 
@@ -192,7 +196,8 @@ trait TableauxTestBase
       authConfig,
       databaseConfig,
       config.getString("workingDirectory"),
-      config.getString("uploadsDirectory")
+      config.getString("uploadsDirectory"),
+      role2Permissions
     )
 
     val async = context.async()

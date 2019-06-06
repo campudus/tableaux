@@ -3,6 +3,7 @@
 
   "uploadsDirectory" : "uploads/",
   "workingDirectory" : "./",
+  "rolePermissionPath": "./role-permission.json",
 
   "database" : {
     "host" : "localhost",

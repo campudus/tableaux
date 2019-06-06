@@ -15,6 +15,7 @@ import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
+import scala.io.Source
 import scala.util.{Failure, Success}
 
 object Starter {
@@ -23,6 +24,7 @@ object Starter {
 
   val DEFAULT_WORKING_DIRECTORY = "./"
   val DEFAULT_UPLOADS_DIRECTORY = "uploads/"
+  val DEFAULT_ROLE_PERMISSION_PATH = "./role-permission.json"
 }
 
 class Starter extends ScalaVerticle with LazyLogging {
@@ -50,13 +52,19 @@ class Starter extends ScalaVerticle with LazyLogging {
       val workingDirectory = getStringDefault(config, "workingDirectory", Starter.DEFAULT_WORKING_DIRECTORY)
       val uploadsDirectory = getStringDefault(config, "uploadsDirectory", Starter.DEFAULT_UPLOADS_DIRECTORY)
       val authConfig = config.getJsonObject("auth", Json.obj())
+      val rolePermissionPath = getStringDefault(config, "rolePermissionPath", Starter.DEFAULT_ROLE_PERMISSION_PATH)
+
+      val role2Permissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionPath)
+
+      println("XXX: " + role2Permissions)
 
       val tableauxConfig = new TableauxConfig(
         vertx = this.vertx,
         databaseConfig = databaseConfig,
         authConfig = authConfig,
         workingDirectory = workingDirectory,
-        uploadsDirectory = uploadsDirectory
+        uploadsDirectory = uploadsDirectory,
+        role2Permissions = role2Permissions
       )
 
       connection = SQLConnection(vertxAccessContainer(), databaseConfig)

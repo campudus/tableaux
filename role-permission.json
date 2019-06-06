@@ -1,0 +1,15 @@
+{
+  "view-tables": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*",
+          "hidden": "false"
+        }
+      }
+    }
+  ]
+}
