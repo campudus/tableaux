@@ -8,6 +8,7 @@ import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkAr
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 object JsonUtils extends LazyLogging {
@@ -16,8 +17,6 @@ object JsonUtils extends LazyLogging {
     Option(array)
       .map({ array =>
         {
-          import scala.collection.JavaConverters._
-
           val arrayAsList = array.asScala.toList
 
           sequence(arrayAsList.map(tryCast[A]))
@@ -30,7 +29,6 @@ object JsonUtils extends LazyLogging {
     Option(array)
       .map({ array =>
         {
-          import scala.collection.JavaConverters._
 
           val arrayAsList = array.asScala.toList.zipWithIndex
 
@@ -148,7 +146,6 @@ object JsonUtils extends LazyLogging {
 
               case GroupType =>
                 // group specific fields
-                import scala.collection.JavaConverters._
 
                 val groups = checked(hasArray("groups", json)).asScala
                   .map(_.asInstanceOf[Int])
@@ -174,7 +171,6 @@ object JsonUtils extends LazyLogging {
         case LanguageType.LANGUAGE => MultiLanguage
         case LanguageType.COUNTRY =>
           if (json.containsKey("countryCodes")) {
-            import scala.collection.JavaConverters._
 
             val countryCodeSeq = checkAllValuesOfArray[String](json.getJsonArray("countryCodes"),
                                                                d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
@@ -247,7 +243,6 @@ object JsonUtils extends LazyLogging {
                                           Option[Boolean],
                                           Option[Seq[DisplayInfo]],
                                           Option[Seq[String]]) = {
-    import scala.collection.JavaConverters._
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
@@ -308,4 +303,16 @@ object JsonUtils extends LazyLogging {
       case None => Json.emptyObj()
     }
   }
+
+  /**
+    * Helper to cast a Json Array to a scala Seq of class A
+    *
+    * @param jsonArray
+    * @tparam A
+    * @return Seq[A]
+    */
+  def asSeqOf[A](jsonArray: JsonArray): Seq[A] = {
+    jsonArray.asScala.map(_.asInstanceOf[A]).toSeq
+  }
+
 }
