@@ -146,4 +146,30 @@ class permissionTest {
       RoleModel(json)
     }
   }
+
+  @Test
+  def getPermissionsFor_twoRolesWithOneValidPermissionEach_returnsTwoPermissions(): Unit = {
+
+    val json: JsonObject = Json.fromObjectString("""
+                                                   |{
+                                                   |  "view-tables": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ],
+                                                   |  "view-media": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "media"
+                                                   |    }
+                                                   |  ]
+                                                   |}""".stripMargin)
+
+    val roleModel: RoleModel = RoleModel(json)
+    val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-tables", "view-media"))
+    Assert.assertEquals(2, permissions.size)
+  }
 }
