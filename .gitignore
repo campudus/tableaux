@@ -11,7 +11,8 @@ classes/
 bin/
 out/
 **.DS_Store
-role-permissions.json
+role-*.json
+!role-permission-example.json
 
 # Gradle
 .gradle/
