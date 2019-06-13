@@ -185,8 +185,8 @@ trait TableauxTestBase
     databaseConfig = config.getJsonObject("database", Json.obj())
     authConfig = config.getJsonObject("auth", Json.obj())
 
-    val rolePermissionPath = config.getString("rolePermissionPath")
-    val role2Permissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionPath)
+    val rolePermissionsPath = config.getString("rolePermissionsPath")
+    val rolePermissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionsPath)
 
     host = config.getString("host")
     port = config.getInteger("port").intValue()
@@ -197,7 +197,7 @@ trait TableauxTestBase
       databaseConfig,
       config.getString("workingDirectory"),
       config.getString("uploadsDirectory"),
-      role2Permissions
+      rolePermissions
     )
 
     val async = context.async()

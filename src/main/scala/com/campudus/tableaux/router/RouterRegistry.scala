@@ -3,7 +3,7 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
-import com.campudus.tableaux.router.auth.KeycloakAuthHandler
+import com.campudus.tableaux.router.auth.{KeycloakAuthHandler, RoleModel}
 import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext
@@ -17,6 +17,8 @@ object RouterRegistry extends LazyLogging {
       implicit ec: VertxExecutionContext): Router = {
 
     val vertx = tableauxConfig.vertx
+
+    val roleModel = RoleModel(tableauxConfig.rolePermissions)
 
     val mainRouter: Router = Router.router(vertx)
 
@@ -48,7 +50,7 @@ object RouterRegistry extends LazyLogging {
       SystemRouter(tableauxConfig, SystemController(_, systemModel, tableauxModel, structureModel, serviceModel))
     val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel))
     val mediaRouter = MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel))
-    val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel))
+    val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel, roleModel))
     val documentationRouter = DocumentationRouter(tableauxConfig)
 
     mainRouter.mountSubRouter("/system", systemRouter.route)
