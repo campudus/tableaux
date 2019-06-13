@@ -14,6 +14,8 @@ object RoleModel {
 
 case class RoleModel(jsonObject: JsonObject) {
 
+  def isAuthorized(): Boolean = { true }
+
   val role2permissions: Map[String, Seq[Permission]] =
     jsonObject
       .fieldNames()
@@ -33,8 +35,20 @@ case class RoleModel(jsonObject: JsonObject) {
       })
       .mkString("\n")
 
-  def getPermissionsFor(roleName: String): Seq[Permission] = role2permissions.getOrElse(roleName, Seq.empty[Permission])
+  def getPermissionsFor(roleName: String): Seq[Permission] = getPermissionsForRoles(Seq(roleName))
 
+  def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
+    role2permissions.filter({ case (k, _) => roleNames.contains(k) }).values.flatten.toSeq
+
+  def filterForScope(roleNames: String): Seq[Permission] = ???
+
+  def filterForAction(roleNames: String): Seq[Permission] = ???
+
+  def println(): Unit =
+    role2permissions
+      .foreach({
+        case (key, permission) => Console.println(s"XXX: $key => ${permission.toString}")
+      })
 }
 
 object Permission {

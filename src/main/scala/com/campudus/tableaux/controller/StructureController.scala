@@ -4,20 +4,38 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.StructureModel
+import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.{ForbiddenException, TableauxConfig}
+import com.campudus.tableaux.router.auth.RoleModel
+import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
 
 import scala.concurrent.Future
+//
+//object TableauxController {
+//
+//  def apply(config: TableauxConfig, repository: TableauxModel)(
+//    implicit requestContext: RequestContext): TableauxController = {
+//    new TableauxController(config, repository)
+//  }
+//}
+//
+//class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel)(
+//  implicit requestContext: RequestContext)
+//  extends Controller[TableauxModel] {
 
 object StructureController {
 
-  def apply(config: TableauxConfig, repository: StructureModel): StructureController = {
-    new StructureController(config, repository)
+  def apply(config: TableauxConfig, repository: StructureModel, roleModel: RoleModel)(
+      implicit requestContext: RequestContext): StructureController = {
+    new StructureController(config, repository, roleModel)
   }
 }
 
-class StructureController(override val config: TableauxConfig, override protected val repository: StructureModel)
+class StructureController(
+    override val config: TableauxConfig,
+    override protected val repository: StructureModel,
+    roleModel: RoleModel
+)(implicit requestContext: RequestContext)
     extends Controller[StructureModel] {
 
   val tableStruc = repository.tableStruc
@@ -166,6 +184,13 @@ class StructureController(override val config: TableauxConfig, override protecte
   def deleteTable(tableId: TableId): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"deleteTable $tableId")
+
+    println(s"XXX: ----------")
+    roleModel.println
+
+//    roleModel.isAuthorized
+
+    println(s"XXX: ${requestContext.getUserRoles}")
 
     for {
       table <- tableStruc.retrieve(tableId)
