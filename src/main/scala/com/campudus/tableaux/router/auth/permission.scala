@@ -154,9 +154,32 @@ case class ConditionContainer(conditionTable: ConditionOption,
                               conditionLangtag: ConditionOption) {}
 
 sealed trait ConditionOption
-case class ConditionTable(jsonObject: JsonObject) extends ConditionOption {}
 
-case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption {}
-case class ConditionLangtag(langtagRegex: String) extends ConditionOption {}
+case class ConditionTable(jsonObject: JsonObject) extends ConditionOption {
+  // TODO implement regex validation for all possible fields
+  //  - id
+  //  - name
+  //  - hidden
+  //  - langtags
+  //  - displayInfos
+  //  - tableType
+  //  - tableGroup
+}
+
+case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption {
+  // TODO implement regex validation for all possible fields
+  //  - description
+  //  - displayName
+  //  - id
+  //  - identifier
+  //  - kind
+  //  - multilanguage
+  //  - name
+  //  - ordering
+}
+case class ConditionLangtag(langtagRegex: String) extends ConditionOption {
+  // TODO implement regex validation
+
+}
 
 case object NoneCondition extends ConditionOption
