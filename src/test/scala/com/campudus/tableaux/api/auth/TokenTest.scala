@@ -13,7 +13,7 @@ class TokenTest extends TableauxTestBase {
   @Test
   def testAuthorization_tokenSignedWithDifferentKey_unauthorized(implicit c: TestContext): Unit = {
     exceptionTest("Unauthorized") {
-      val token = "" +
+      val token: String = "" +
         "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjYW1wdWR1cy10ZXN0Iiwic3ViIjoidGVzdEBjYW1wdWR1cy5jb20iLCJhdWQiOiJnc" +
         "nVkLWJhY2tlbmQiLCJuYmYiOjAsImlhdCI6MTU1NzMyODIwNywiZXhwIjoyMjIyMjIyMjIyLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJ1bml0LXRlc3R" +
         "lciIsImFjciI6IjEiLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZGV2ZWxvcGVyIiwidmlldy10YWJsZXMiLCJkZWxldGUtbWVkaWEiLCJ2aWV3L" +
@@ -30,9 +30,9 @@ class TokenTest extends TableauxTestBase {
   @Test
   def testAuthorization_invalidAudience_unauthorized(implicit c: TestContext): Unit = {
     exceptionTest("Unauthorized") {
-      val tokenHelper = TokenHelper(this.vertxAccess())
+      val tokenHelper: TokenHelper = TokenHelper(this.vertxAccess())
 
-      val token = tokenHelper.generateToken(Json.obj("aud" -> "__invalid__"))
+      val token: String = tokenHelper.generateToken(Json.obj("aud" -> "__invalid__"))
 
       for {
         _ <- sendRequest("GET", "/system/versions", Some(token))
@@ -43,9 +43,9 @@ class TokenTest extends TableauxTestBase {
   @Test
   def testAuthorization_invalidIssuer_unauthorized(implicit c: TestContext): Unit = {
     exceptionTest("Unauthorized") {
-      val tokenHelper = TokenHelper(this.vertxAccess())
+      val tokenHelper: TokenHelper = TokenHelper(this.vertxAccess())
 
-      val token = tokenHelper.generateToken(Json.obj("aud" -> "grud-backend", "iss" -> "__invalid__"))
+      val token: String = tokenHelper.generateToken(Json.obj("aud" -> "grud-backend", "iss" -> "__invalid__"))
 
       for {
         _ <- sendRequest("GET", "/system/versions", Some(token))
@@ -56,12 +56,12 @@ class TokenTest extends TableauxTestBase {
   @Test
   def testAuthorization_expirationTimeLiesInThePast_unauthorized(implicit c: TestContext): Unit = {
     exceptionTest("Unauthorized") {
-      val tokenHelper = TokenHelper(this.vertxAccess())
+      val tokenHelper: TokenHelper = TokenHelper(this.vertxAccess())
 
       import java.time.Instant
       val timestampOneMinuteAgo: Long = Instant.now.getEpochSecond - 60
 
-      val token =
+      val token: String =
         tokenHelper.generateToken(
           Json.obj("aud" -> "grud-backend", "iss" -> "campudus-test", "exp" -> timestampOneMinuteAgo))
 
@@ -74,9 +74,9 @@ class TokenTest extends TableauxTestBase {
   @Test
   def testAuthorization__correctSignedToken_validAudience_validIssuer__ok(implicit c: TestContext): Unit = {
     okTest {
-      val tokenHelper = TokenHelper(this.vertxAccess())
+      val tokenHelper: TokenHelper = TokenHelper(this.vertxAccess())
 
-      val token = tokenHelper.generateToken(Json.obj("aud" -> "grud-backend", "iss" -> "campudus-test"))
+      val token: String = tokenHelper.generateToken(Json.obj("aud" -> "grud-backend", "iss" -> "campudus-test"))
 
       for {
         _ <- sendRequest("GET", "/system/versions", Some(token))
