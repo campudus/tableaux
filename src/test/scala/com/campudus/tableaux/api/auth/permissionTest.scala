@@ -1,6 +1,6 @@
 package com.campudus.tableaux.api.auth
 
-import com.campudus.tableaux.router.auth.{Permission, RoleModel}
+import com.campudus.tableaux.router.auth.{Deny, Grant, Permission, RoleModel, ScopeTable, View}
 import org.junit.{Assert, Test}
 import org.scalatest.Assertions._
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -28,7 +28,7 @@ class permissionTest {
                                                    |}""".stripMargin)
 
     val roleModel: RoleModel = RoleModel(json)
-    val permissions: Seq[Permission] = roleModel.getPermissionsFor("view-tables")
+    val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-tables"))
     Assert.assertEquals(1, permissions.size)
   }
 
@@ -63,7 +63,7 @@ class permissionTest {
                                                    |}""".stripMargin)
 
     val roleModel: RoleModel = RoleModel(json)
-    val permissions: Seq[Permission] = roleModel.getPermissionsFor("view-tables")
+    val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-tables"))
     Assert.assertEquals(2, permissions.size)
   }
 
@@ -82,7 +82,7 @@ class permissionTest {
                                                    |}""".stripMargin)
     val roleModel: RoleModel = RoleModel(json)
 
-    val permissions: Seq[Permission] = roleModel.getPermissionsFor("view-media")
+    val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-media"))
     Assert.assertEquals(1, permissions.size)
   }
 
@@ -171,5 +171,137 @@ class permissionTest {
     val roleModel: RoleModel = RoleModel(json)
     val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-tables", "view-media"))
     Assert.assertEquals(2, permissions.size)
+  }
+
+  @Test
+  def filterPermissions_threeRolesActionAndScopeAreMatching_returnsTwoPermissions(): Unit = {
+
+    val json: JsonObject = Json.fromObjectString("""
+                                                   |{
+                                                   |  "view-tables1": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ],
+                                                   |  "view-tables2": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ],
+                                                   |  "view-tables3": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ]
+                                                   |}""".stripMargin)
+
+    val roleModel: RoleModel = RoleModel(json)
+    val permissions: Seq[Permission] =
+      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, View, ScopeTable)
+    Assert.assertEquals(2, permissions.size)
+  }
+
+  @Test
+  def filterPermissions_threeRolesActionNotMatching_returnsOnePermission(): Unit = {
+
+    val json: JsonObject = Json.fromObjectString("""
+                                                   |{
+                                                   |  "view-tables1": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ],
+                                                   |  "view-tables2": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["edit"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ],
+                                                   |  "view-tables3": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ]
+                                                   |}""".stripMargin)
+
+    val roleModel: RoleModel = RoleModel(json)
+    val permissions: Seq[Permission] =
+      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, View, ScopeTable)
+    Assert.assertEquals(1, permissions.size)
+  }
+
+  @Test
+  def filterPermissions_threeRolesScopeNotMatching_returnsOnePermission(): Unit = {
+
+    val json: JsonObject = Json.fromObjectString("""
+                                                   |{
+                                                   |  "view-tables1": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ],
+                                                   |  "view-tables2": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "media"
+                                                   |    }
+                                                   |  ],
+                                                   |  "view-tables3": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ]
+                                                   |}""".stripMargin)
+
+    val roleModel: RoleModel = RoleModel(json)
+    val permissions: Seq[Permission] =
+      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, View, ScopeTable)
+    Assert.assertEquals(1, permissions.size)
+  }
+
+  @Test
+  def filterPermissions_threePermissionsOneWithTypeDeny_returnsOnePermission(): Unit = {
+
+    val json: JsonObject = Json.fromObjectString("""
+                                                   |{
+                                                   |  "view-tables1": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    },
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    },
+                                                   |    {
+                                                   |      "type": "deny",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ]
+                                                   |}""".stripMargin)
+
+    val roleModel: RoleModel = RoleModel(json)
+    val permissions: Seq[Permission] =
+      roleModel.filterPermissions(Seq("view-tables1"), Deny, View, ScopeTable)
+    Assert.assertEquals(1, permissions.size)
   }
 }
