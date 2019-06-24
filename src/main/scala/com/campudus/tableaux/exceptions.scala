@@ -3,6 +3,7 @@ package com.campudus.tableaux
 import com.campudus.tableaux.database.domain.ColumnType
 import com.campudus.tableaux.database.model.TableauxModel.{RowId, TableId}
 import com.campudus.tableaux.router.RouterException
+import com.campudus.tableaux.router.auth.{Action, Scope}
 
 sealed trait CustomException extends Throwable {
   val message: String
@@ -111,6 +112,12 @@ case class ForbiddenException(override val message: String, subId: String) exten
 }
 
 case class AuthenticationException(override val message: String) extends CustomException {
-  override val id: String = s"error.request.unauthorized"
+  override val id: String = s"error.request.unauthenticated"
   override val statusCode: Int = 401
+}
+
+case class UnauthorizedException(action: Action, scope: Scope) extends CustomException {
+  override val id: String = s"error.request.unauthorized"
+  override val statusCode: Int = 403
+  override val message: String = s"Action $action on scope $scope is not allowed."
 }

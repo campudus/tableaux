@@ -231,7 +231,10 @@ trait TableauxTestBase
     val tokenHelper = TokenHelper(this.vertxAccess())
 
     wildcardAccessToken = tokenHelper.generateToken(
-      Json.obj("aud" -> "grud-backend", "iss" -> "campudus-test", "preferred_username" -> "Test"))
+      Json.obj("aud" -> "grud-backend",
+               "iss" -> "campudus-test",
+               "preferred_username" -> "Test",
+               "realm_access" -> Json.obj("roles" -> Json.arr("dev"))))
   }
 
   @After
