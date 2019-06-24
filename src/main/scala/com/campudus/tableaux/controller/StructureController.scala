@@ -3,10 +3,17 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.domain.{
+  AttachmentColumn,
+  CreateAttachmentColumn,
+  EmptyObject,
+  LinkColumn,
+  NameOnly
+}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.router.auth.RoleModel
+import com.campudus.tableaux.router.auth.{Delete, RoleModel, ScopeTable}
 import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
 
 import scala.concurrent.Future
@@ -186,14 +193,13 @@ class StructureController(
     logger.info(s"deleteTable $tableId")
 
     println(s"XXX: ----------")
-    roleModel.println
-
-//    roleModel.isAuthorized
-
-    println(s"XXX: ${requestContext.getUserRoles}")
+//    roleModel.println
+//
+//    println(s"XXX: ${requestContext.getUserRoles}")
 
     for {
       table <- tableStruc.retrieve(tableId)
+      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Delete, ScopeTable, Some(table))
       columns <- columnStruc.retrieveAll(table)
 
       // only delete special column before deleting table;

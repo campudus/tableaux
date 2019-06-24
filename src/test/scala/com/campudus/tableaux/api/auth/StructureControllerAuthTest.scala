@@ -20,7 +20,7 @@ import scala.concurrent.Future
 @RunWith(classOf[VertxUnitRunner])
 class StructureControllerAuthTest extends TableauxTestBase {
 
-  implicit val requestContext = RequestContext()
+  implicit val requestContext: RequestContext = RequestContext()
 
   def createStructureController(roleModel: RoleModel = RoleModel(Json.emptyObj())): StructureController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
@@ -30,15 +30,14 @@ class StructureControllerAuthTest extends TableauxTestBase {
     StructureController(tableauxConfig, model, roleModel)
   }
 
-  def setPrincipal(roles: String*) = {
+  def setRequestRoles(roles: String*) = {
     requestContext.principal = Json.obj("realm_access" -> Json.obj("roles" -> roles))
-
   }
 
   @Test
   def deleteTable_authorized_ok(implicit c: TestContext): Unit = okTest {
 
-    setPrincipal("delete-tables")
+    setRequestRoles("delete-tables")
 
     val roleModel = RoleModel(Json.fromObjectString(s"""
                                                        |{
@@ -69,9 +68,9 @@ class StructureControllerAuthTest extends TableauxTestBase {
 
   @Test
   def deleteTable_notAuthorized_throwsException(implicit c: TestContext): Unit =
-    exceptionTest("asdf") {
+    exceptionTest("error.request.unauthorized") {
 
-      setPrincipal("")
+      setRequestRoles("")
 
       val roleModel = RoleModel(Json.fromObjectString(s"""
                                                          |{
