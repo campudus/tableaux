@@ -28,10 +28,6 @@ case class RoleModel(jsonObject: JsonObject) {
     *
     *    3. if at least one meets the conditions check also the deny types
     *
-    *
-    * @param requestRoles
-    * @param action
-    * @param scope
     * @return
     */
   def checkAuthorization(
@@ -40,11 +36,6 @@ case class RoleModel(jsonObject: JsonObject) {
       scope: Scope,
       tableOpt: Option[Table]
   ): Future[Unit] = {
-
-    // TODO ist eine wildcard role 'dev' sinnvoll? Zumindest vorläufig funktionieren damit die Tests wieder
-    if (requestRoles.contains("dev")) {
-      return Future.successful(())
-    }
 
     val grantPermissions: Seq[Permission] = filterPermissions(requestRoles, Grant, action, scope)
 
@@ -56,7 +47,8 @@ case class RoleModel(jsonObject: JsonObject) {
       return Future.failed(UnauthorizedException(action, scope))
     }
 
-    // simples test working TODO test with mixed grant and deny types
+    // simples test working
+    // TODO test with mixed grant and deny types
 
     if (isAllowed) {
       val denyPermissions: Seq[Permission] = filterPermissions(requestRoles, Deny, action, scope)
@@ -89,16 +81,13 @@ case class RoleModel(jsonObject: JsonObject) {
       })
       .mkString("\n")
 
-  // TODO evtl. brauchen wir des gar nimmer
+  // TODO possibly obsolete
   def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
     role2permissions.filter({ case (k, _) => roleNames.contains(k) }).values.flatten.toSeq
 
   /**
     * Filters permissions for role name, permissionType, action and scope
-    * @param roleNames
-    * @param permissionType
-    * @param action
-    * @param scope
+    *
     * @return a subset of permissions
     */
   def filterPermissions(roleNames: Seq[String],
@@ -267,14 +256,13 @@ abstract class ConditionOption(jsonObject: JsonObject) {
     jsonObject.asMap.toMap.asInstanceOf[Map[String, String]]
   }
 
+  // TODO remove ugly method overloading, but how?
   def isMatching(table: Table) = false
   def isMatching(column: ColumnType[_]) = false
   def isMatching(langtag: String) = false
 }
 
 case class ConditionTable(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
-
-  //  override val conditionMap: Map[String, String] = toMap(jsonObject)
 
   override def isMatching(table: Table): Boolean = {
     conditionMap.forall({
@@ -295,8 +283,6 @@ case class ConditionTable(jsonObject: JsonObject) extends ConditionOption(jsonOb
 
 case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-//  override val conditionMap: Map[String, AnyRef] = toMap(jsonObject)
-
   // TODO implement regex validation for all possible fields
   //  - description
   //  - displayName
@@ -309,14 +295,10 @@ case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonO
 }
 case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-//  override val conditionMap: Map[String, AnyRef] = toMap(jsonObject)
-
   // TODO implement regex validation
 }
 
 case object NoneCondition extends ConditionOption(Json.emptyObj()) {
-//  override val conditionMap: Map[String, AnyRef] = Map.empty
-
   override def isMatching(table: Table) = true
   override def isMatching(column: ColumnType[_]) = true
   override def isMatching(langtag: String) = true

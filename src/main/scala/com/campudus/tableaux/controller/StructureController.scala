@@ -8,27 +8,15 @@ import com.campudus.tableaux.database.domain.{
   CreateAttachmentColumn,
   EmptyObject,
   LinkColumn,
-  NameOnly
+  NameOnly,
+  _
 }
-import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
+import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.{Delete, RoleModel, ScopeTable}
 import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
 
 import scala.concurrent.Future
-//
-//object TableauxController {
-//
-//  def apply(config: TableauxConfig, repository: TableauxModel)(
-//    implicit requestContext: RequestContext): TableauxController = {
-//    new TableauxController(config, repository)
-//  }
-//}
-//
-//class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel)(
-//  implicit requestContext: RequestContext)
-//  extends Controller[TableauxModel] {
 
 object StructureController {
 

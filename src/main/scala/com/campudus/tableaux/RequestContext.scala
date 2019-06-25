@@ -18,7 +18,7 @@ class RequestContext() {
   }
 
   def getUserRoles: Seq[String] = {
-    println(s"XXXXXX principal: $principal")
+    // println(s"XXXXXX principal: $principal")
     val roles: JsonArray =
       principal
         .getJsonObject("realm_access", Json.emptyObj())
