@@ -2,20 +2,6 @@
 import java.nio.file.Paths
 import java.text.SimpleDateFormat
 
-// try out bloop plugin for faster compilation
-// https://www.scala-lang.org/blog/2017/11/03/zinc-blog-1.0.html
-buildscript {
-  repositories {
-    maven {
-      url 'https://dl.bintray.com/scalacenter/releases/'
-    }
-  }
-
-  dependencies {
-    classpath 'ch.epfl.scala:gradle-bloop_2.11:1.3.2'
-  }
-}
-
 plugins {
   id 'java'
   id 'scala'
@@ -31,8 +17,6 @@ plugins {
 
   id 'com.diffplug.gradle.spotless' version '3.20.0'
 }
-
-apply plugin: 'bloop'
 
 project.group = 'com.campudus'
 project.version = '0.1.0'
