@@ -5,7 +5,7 @@ import com.campudus.tableaux.router.auth._
 import org.junit.{Assert, Test}
 import org.vertx.scala.core.json.Json
 
-class conditionTest {
+class PermissionTest {
 
   val defaultPermissionJson = Json.fromObjectString(
     """

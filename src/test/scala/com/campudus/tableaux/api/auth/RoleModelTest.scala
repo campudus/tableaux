@@ -5,7 +5,7 @@ import org.junit.{Assert, Test}
 import org.scalatest.Assertions._
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-class permissionTest {
+class RoleModelTest {
 
   @Test
   def parse_validRolePermissions_onePermissionParsed(): Unit = {

@@ -1,16 +1,13 @@
 package com.campudus.tableaux.helper
 
-import java.io.FileInputStream
 import java.nio.file.FileAlreadyExistsException
 
 import io.vertx.scala.core.Vertx
-import org.vertx.scala.core.json.JsonObject
+import org.vertx.scala.core.json.{Json, JsonObject}
 
-import scala.concurrent.{Future, Promise}
-import scala.reflect.io.Path
-import org.vertx.scala.core.json.Json
-
+import scala.concurrent.Future
 import scala.io.Source
+import scala.reflect.io.Path
 
 object FileUtils {
 
@@ -20,6 +17,8 @@ object FileUtils {
 }
 
 class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
+
+  val commentsRegex: String = "(?:/\\*(?:[^*]|(?:\\*+[^*/]))*\\*+/)|(?://.*)"
 
   override val vertx: Vertx = vertxAccess.vertx
 
@@ -37,7 +36,7 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
 
   private def withFile[A](filename: String)(func: Iterator[String] => A): A = {
     val source = Source.fromFile(filename)
-    val lines = source.getLines()
+    val lines = source.getLines
     try {
       func(lines)
     } finally {
@@ -46,7 +45,7 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
   }
 
   def readJsonFile(filename: String): JsonObject = {
-    val rawJsonString = withFile(filename)(_.mkString)
+    val rawJsonString = withFile(filename)(_.mkString("\n").replaceAll(commentsRegex, ""))
     Json.fromObjectString(rawJsonString)
   }
 

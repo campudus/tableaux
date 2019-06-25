@@ -1,0 +1,40 @@
+{
+  "view-tables": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "table",
+      "condition": {
+        "table": {
+          "id": ".*",
+          "hidden": "false"
+        }
+      }
+    }
+  ],
+  "delete-tables": [
+    {
+      "type": "grant",
+      "action": ["delete"],
+      "scope": "table"
+    }
+  ],
+  // Developer test role to be able to pass all integration tests
+  "dev": [
+    {
+      "type": "grant",
+      "action": ["create", "view", "edit", "delete", "editDisplayProperty", "createRow", "deleteRow", "editStructureProperty", "editCellAnnotation", "editRowAnnotation", "viewCellValue", "editCellValue"],
+      "scope": "table"
+    },
+    {
+      "type": "grant",
+      "action": ["create", "view", "edit", "delete"],
+      "scope": "media"
+    },
+    {
+      "type": "grant",
+      "action": ["create", "view", "edit", "delete"],
+      "scope": "cell"
+    }
+  ]
+}

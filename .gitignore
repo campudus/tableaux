@@ -13,6 +13,7 @@ out/
 **.DS_Store
 role-*.json
 !role-permissions-example.json
+!role-permissions-test.json
 
 # Gradle
 .gradle/
