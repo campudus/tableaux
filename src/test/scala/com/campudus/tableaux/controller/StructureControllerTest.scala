@@ -1,6 +1,5 @@
 package com.campudus.tableaux.controller
 
-import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database.domain.{CreateSimpleColumn, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
@@ -16,8 +15,6 @@ import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class StructureControllerTest extends TableauxTestBase {
-
-  implicit val requestContext = RequestContext()
 
   def createStructureController(): StructureController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)

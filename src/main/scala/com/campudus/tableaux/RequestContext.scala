@@ -13,6 +13,9 @@ class RequestContext() {
   // field has to be mutable and is only set from TableauxAuthHandler::handle
   var principal: JsonObject = Json.emptyObj() // scalastyle:ignore
 
+  // for testing purposes, unit tests must reset the principal in setUp method
+  def resetPrincipal = principal = Json.emptyObj()
+
   def getPrincipleString(name: String, defaultValue: String): String = {
     principal.getString(name, defaultValue)
   }

@@ -3,6 +3,7 @@ package com.campudus.tableaux.database.model
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.MultiLanguageValue
+import com.campudus.tableaux.router.auth.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -35,9 +36,9 @@ class FileModelTest extends TableauxTestBase {
   }
 
   private def createMediaController(): MediaController = {
-    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val roleModel = RoleModel(tableauxConfig.rolePermissions)
 
-    MediaController(tableauxConfig, createFolderModel(), createFileModel(), createAttachmentModel())
+    MediaController(tableauxConfig, createFolderModel(), createFileModel(), createAttachmentModel(), roleModel)
   }
 
   @Test

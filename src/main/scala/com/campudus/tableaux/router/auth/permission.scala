@@ -13,6 +13,10 @@ object RoleModel {
   def apply(jsonObject: JsonObject): RoleModel = {
     new RoleModel(jsonObject)
   }
+
+  def apply(jsonObjectString: String): RoleModel = {
+    new RoleModel(Json.fromObjectString(jsonObjectString))
+  }
 }
 
 case class RoleModel(jsonObject: JsonObject) {
@@ -34,14 +38,15 @@ case class RoleModel(jsonObject: JsonObject) {
       requestRoles: Seq[String],
       action: Action,
       scope: Scope,
-      tableOpt: Option[Table]
+      subjects: ComparisonObjects = ComparisonObjects()
   ): Future[Unit] = {
+
+//    Console.println(s"XXX: $requestRoles")
+//    this.println()
 
     val grantPermissions: Seq[Permission] = filterPermissions(requestRoles, Grant, action, scope)
 
-    val isAllowed: Boolean = grantPermissions.exists(_.isMatching(tableOpt))
-
-//    Console.println(s"XXX $isAllowed")
+    val isAllowed: Boolean = grantPermissions.exists(_.isMatching(subjects))
 
     if (!isAllowed) {
       return Future.failed(UnauthorizedException(action, scope))
@@ -52,7 +57,7 @@ case class RoleModel(jsonObject: JsonObject) {
 
     if (isAllowed) {
       val denyPermissions: Seq[Permission] = filterPermissions(requestRoles, Deny, action, scope)
-      val isDenied: Boolean = denyPermissions.exists(_.isMatching(tableOpt))
+      val isDenied: Boolean = denyPermissions.exists(_.isMatching(subjects))
 
       if (isDenied) {
         return Future.failed(UnauthorizedException(action, scope))
@@ -83,7 +88,7 @@ case class RoleModel(jsonObject: JsonObject) {
 
   // TODO possibly obsolete
   def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
-    role2permissions.filter({ case (k, _) => roleNames.contains(k) }).values.flatten.toSeq
+    role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
 
   /**
     * Filters permissions for role name, permissionType, action and scope
@@ -96,7 +101,7 @@ case class RoleModel(jsonObject: JsonObject) {
                         scope: Scope): Seq[Permission] = {
 
     val permissions: Seq[Permission] =
-      role2permissions.filter({ case (k, _) => roleNames.contains(k) }).values.flatten.toSeq
+      role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
 
     permissions
       .filter(_.permissionType == permissionType)
@@ -124,6 +129,33 @@ object Permission {
   }
 }
 
+object ComparisonObjects {
+
+  def apply(): ComparisonObjects = {
+    new ComparisonObjects(None, None)
+  }
+
+  def apply(table: Table): ComparisonObjects = {
+    new ComparisonObjects(tableOpt = Some(table), None)
+  }
+
+  def apply(table: Table, column: ColumnType[_]): ComparisonObjects = {
+    new ComparisonObjects(tableOpt = Some(table), columnOpt = Some(column))
+  }
+}
+
+/**
+  * Container for optional comparison objects. For example ScopeMedia doesn't need
+  * any comparison object, while ScopeCell can have a Table, a Column and a Langtag.
+  */
+case class ComparisonObjects(
+    tableOpt: Option[Table],
+    columnOpt: Option[ColumnType[_]]
+//    langtag
+//    cell
+//    row
+)
+
 case class Permission(
     permissionType: PermissionType,
     actions: Seq[Action],
@@ -131,21 +163,23 @@ case class Permission(
     condition: ConditionContainer
 ) {
 
-  def isMatching(
-      tableOpt: Option[Table] = None,
-      columnOpt: Option[ColumnType[_]] = None
-//    langtagOpt: Option[Table] = None
-  ): Boolean = {
+  def isMatching(subjects: ComparisonObjects): Boolean = {
 
     // TODO log which permission/role granted access
-
-    val isTableMatching = tableOpt match {
-      case Some(table) => condition.conditionTable.isMatching(table)
-      case None => false
-
+    permissionType match {
+      // TODO split up method when implementing DENY
+      case Grant => {
+        scope match {
+          case ScopeMedia => true
+          case ScopeTable => condition.conditionTable.isMatching(subjects)
+        }
+      }
+      case Deny => {
+        // TODO
+        println(s"XXX: NOT IMPLEMENTED!!!")
+        false
+      }
     }
-
-    isTableMatching
   }
 }
 
@@ -236,12 +270,16 @@ object ConditionContainer {
 
     val jsonObject: JsonObject = Option(jsonObjectOrNull).getOrElse(Json.emptyObj())
 
-    val ct: ConditionOption = Option(jsonObject.getJsonObject("table")).map(ConditionTable).getOrElse(NoneCondition)
-    val cc: ConditionOption = Option(jsonObject.getJsonObject("column")).map(ConditionColumn).getOrElse(NoneCondition)
-    val cl: ConditionOption =
+    val conditionTable: ConditionOption =
+      Option(jsonObject.getJsonObject("table")).map(ConditionTable).getOrElse(NoneCondition)
+
+    val conditionColumn: ConditionOption =
+      Option(jsonObject.getJsonObject("column")).map(ConditionColumn).getOrElse(NoneCondition)
+
+    val conditionLangtag: ConditionOption =
       Option(Json.obj("langtag" -> jsonObject.getString("langtag"))).map(ConditionLangtag).getOrElse(NoneCondition)
 
-    new ConditionContainer(ct, cc, cl)
+    new ConditionContainer(conditionTable, conditionColumn, conditionLangtag)
   }
 }
 
@@ -256,28 +294,27 @@ abstract class ConditionOption(jsonObject: JsonObject) {
     jsonObject.asMap.toMap.asInstanceOf[Map[String, String]]
   }
 
-  // TODO remove ugly method overloading, but how?
-  def isMatching(table: Table) = false
-  def isMatching(column: ColumnType[_]) = false
-  def isMatching(langtag: String) = false
+  def isMatching(subjects: ComparisonObjects) = false
 }
 
 case class ConditionTable(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-  override def isMatching(table: Table): Boolean = {
-    conditionMap.forall({
-      case (property, regex) => {
+  override def isMatching(subjects: ComparisonObjects): Boolean = {
+    subjects.tableOpt.exists(table =>
+      conditionMap.forall({
+        case (property, regex) => {
 
-        property match {
-          case "id" => table.id.toString.matches(regex)
-          case "name" => table.name.matches(regex)
-          case "hidden" => table.hidden.toString.matches(regex)
-          case "tableType" => table.tableType.NAME.matches(regex)
-          case "tableGroup" => table.tableGroup.exists(_.id.toString.matches(regex))
-          case _ => false
+          // TODO possibly not the best idea to stingify every property and match with regex!?
+          property match {
+            case "id" => table.id.toString.matches(regex)
+            case "name" => table.name.matches(regex)
+            case "hidden" => table.hidden.toString.matches(regex)
+            case "tableType" => table.tableType.NAME.matches(regex)
+            case "tableGroup" => table.tableGroup.exists(_.id.toString.matches(regex))
+            case _ => false
+          }
         }
-      }
-    })
+      }))
   }
 }
 
@@ -299,7 +336,5 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
 }
 
 case object NoneCondition extends ConditionOption(Json.emptyObj()) {
-  override def isMatching(table: Table) = true
-  override def isMatching(column: ColumnType[_]) = true
-  override def isMatching(langtag: String) = true
+  override def isMatching(subjects: ComparisonObjects) = true
 }

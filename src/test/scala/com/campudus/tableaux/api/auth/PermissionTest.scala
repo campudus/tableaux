@@ -25,7 +25,7 @@ class PermissionTest {
   @Test
   def isMatching_callWithoutTable_returnsFalse(): Unit = {
     val permission: Permission = Permission(defaultPermissionJson)
-    Assert.assertEquals(false, permission.isMatching())
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects()))
   }
 
   @Test
@@ -34,7 +34,7 @@ class PermissionTest {
     val table = Table(1, "table", hidden = false, null, null, null, null)
 
     val permission: Permission = Permission(defaultPermissionJson)
-    Assert.assertEquals(true, permission.isMatching(Some(table)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table)))
   }
 
   @Test
@@ -60,9 +60,9 @@ class PermissionTest {
     )
 
     val permission: Permission = Permission(json)
-    Assert.assertEquals(false, permission.isMatching(Some(table1)))
-    Assert.assertEquals(true, permission.isMatching(Some(table2)))
-    Assert.assertEquals(true, permission.isMatching(Some(table3)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(table1)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table2)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table3)))
   }
 
   @Test
@@ -87,8 +87,8 @@ class PermissionTest {
     )
 
     val permission: Permission = Permission(json)
-    Assert.assertEquals(true, permission.isMatching(Some(table1)))
-    Assert.assertEquals(false, permission.isMatching(Some(table2)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table1)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(table2)))
   }
 
   @Test
@@ -113,8 +113,8 @@ class PermissionTest {
     )
 
     val permission: Permission = Permission(json)
-    Assert.assertEquals(false, permission.isMatching(Some(table1)))
-    Assert.assertEquals(true, permission.isMatching(Some(table2)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(table1)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table2)))
   }
 
   @Test
@@ -139,8 +139,8 @@ class PermissionTest {
     )
 
     val permission: Permission = Permission(json)
-    Assert.assertEquals(false, permission.isMatching(Some(genericTable)))
-    Assert.assertEquals(true, permission.isMatching(Some(settingsTable)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(genericTable)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(settingsTable)))
   }
 
   @Test
@@ -170,8 +170,8 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(true, permission.isMatching(Some(table1)))
-    Assert.assertEquals(true, permission.isMatching(Some(table2)))
-    Assert.assertEquals(false, permission.isMatching(Some(table3)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table1)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table2)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(table3)))
   }
 }
