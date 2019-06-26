@@ -13,7 +13,7 @@ import com.campudus.tableaux.database.domain.{
 }
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.router.auth.{Delete, RoleModel, ScopeTable}
+import com.campudus.tableaux.router.auth.{ComparisonObjects, Delete, RoleModel, ScopeTable}
 import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
 
 import scala.concurrent.Future
@@ -29,7 +29,7 @@ object StructureController {
 class StructureController(
     override val config: TableauxConfig,
     override protected val repository: StructureModel,
-    roleModel: RoleModel
+    protected val roleModel: RoleModel
 )(implicit requestContext: RequestContext)
     extends Controller[StructureModel] {
 
@@ -180,14 +180,14 @@ class StructureController(
     checkArguments(greaterZero(tableId))
     logger.info(s"deleteTable $tableId")
 
-    println(s"XXX: ----------")
+//    println(s"XXX: ----------")
 //    roleModel.println
 //
 //    println(s"XXX: ${requestContext.getUserRoles}")
 
     for {
       table <- tableStruc.retrieve(tableId)
-      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Delete, ScopeTable, Some(table))
+      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Delete, ScopeTable, ComparisonObjects(table))
       columns <- columnStruc.retrieveAll(table)
 
       // only delete special column before deleting table;

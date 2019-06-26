@@ -6,7 +6,7 @@ import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
-import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
+import com.campudus.tableaux.{CustomException, RequestContext, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod
@@ -169,6 +169,8 @@ trait TableauxTestBase
   // default access token used for all integration tests if no explicit token is provided
   var wildcardAccessToken: String = _
 
+  implicit val requestContext: RequestContext = RequestContext()
+
   @Before
   def before(context: TestContext): Unit = {
     vertx = Vertx.vertx()
@@ -235,10 +237,16 @@ trait TableauxTestBase
                "iss" -> "campudus-test",
                "preferred_username" -> "Test",
                "realm_access" -> Json.obj("roles" -> Json.arr("dev"))))
+
+    requestContext.resetPrincipal
   }
 
   @After
   def after(context: TestContext): Unit = vertx.close(context.asyncAssertSuccess())
+
+  def setRequestRoles(roles: String*) = {
+    requestContext.principal = Json.obj("realm_access" -> Json.obj("roles" -> roles))
+  }
 
   def okTest(f: => Future[_])(implicit context: TestContext): Unit = {
     val async = context.async()

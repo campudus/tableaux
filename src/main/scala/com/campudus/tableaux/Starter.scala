@@ -52,8 +52,6 @@ class Starter extends ScalaVerticle with LazyLogging {
 
       val rolePermissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionsPath)
 
-      println("XXX: " + rolePermissions)
-
       val tableauxConfig = new TableauxConfig(
         vertx = this.vertx,
         databaseConfig = databaseConfig,

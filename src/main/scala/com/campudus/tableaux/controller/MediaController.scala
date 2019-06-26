@@ -7,7 +7,8 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
-import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
+import com.campudus.tableaux.router.auth.{Create, Delete, RoleModel, ScopeMedia}
+import com.campudus.tableaux.{InvalidRequestException, RequestContext, TableauxConfig, UnknownServerException}
 import io.vertx.scala.FutureHelper._
 
 import scala.concurrent.{Future, Promise}
@@ -27,16 +28,20 @@ object MediaController {
       config: TableauxConfig,
       folderModel: FolderModel,
       fileModel: FileModel,
-      attachmentModel: AttachmentModel
-  ): MediaController = {
-    new MediaController(config, folderModel, fileModel, attachmentModel)
+      attachmentModel: AttachmentModel,
+      roleModel: RoleModel
+  )(implicit requestContext: RequestContext): MediaController = {
+    new MediaController(config, folderModel, fileModel, attachmentModel, roleModel: RoleModel)
   }
 }
 
-class MediaController(override val config: TableauxConfig,
-                      override protected val repository: FolderModel,
-                      protected val fileModel: FileModel,
-                      protected val attachmentModel: AttachmentModel)
+class MediaController(
+    override val config: TableauxConfig,
+    override protected val repository: FolderModel,
+    protected val fileModel: FileModel,
+    protected val attachmentModel: AttachmentModel,
+    protected val roleModel: RoleModel
+)(implicit requestContext: RequestContext)
     extends Controller[FolderModel] {
 
   import MediaController.ROOT_FOLDER
@@ -62,7 +67,10 @@ class MediaController(override val config: TableauxConfig,
   }
 
   def addNewFolder(name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
-    repository.add(name, description, parent)
+    for {
+      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Create, ScopeMedia)
+      folder <- repository.add(name, description, parent)
+    } yield folder
   }
 
   def changeFolder(id: FolderId, name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
@@ -86,11 +94,16 @@ class MediaController(override val config: TableauxConfig,
     } yield folder
   }
 
-  def addFile(title: MultiLanguageValue[String],
-              description: MultiLanguageValue[String],
-              externalName: MultiLanguageValue[String],
-              folder: Option[FolderId]): Future[TemporaryFile] = {
-    fileModel.add(title, description, externalName, folder).map(TemporaryFile)
+  def addFile(
+      title: MultiLanguageValue[String],
+      description: MultiLanguageValue[String],
+      externalName: MultiLanguageValue[String],
+      folder: Option[FolderId]
+  ): Future[TemporaryFile] = {
+    for {
+      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Create, ScopeMedia)
+      file <- fileModel.add(title, description, externalName, folder).map(TemporaryFile)
+    } yield file
   }
 
   def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[ExtendedFile] = {
@@ -245,6 +258,8 @@ class MediaController(override val config: TableauxConfig,
 
   def deleteFile(uuid: UUID): Future[TableauxFile] = {
     for {
+      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Delete, ScopeMedia)
+
       (file, paths) <- retrieveFile(uuid, withTmp = true)
 
       // retrieve cells with this file for cache invalidation
@@ -271,7 +286,9 @@ class MediaController(override val config: TableauxConfig,
 
   def deleteFile(uuid: UUID, langtag: String): Future[TableauxFile] = {
     for {
-      (file, paths) <- retrieveFile(uuid, withTmp = true)
+      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Delete, ScopeMedia)
+
+      (_, paths) <- retrieveFile(uuid, withTmp = true)
 
       // retrieve cells with this file for cache invalidation
       cellsForFiles <- attachmentModel.retrieveCells(uuid)
