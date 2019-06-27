@@ -4,7 +4,7 @@ import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.MultiLanguageValue
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
-import com.campudus.tableaux.router.auth.RoleModel
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner

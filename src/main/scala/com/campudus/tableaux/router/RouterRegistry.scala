@@ -3,7 +3,8 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
-import com.campudus.tableaux.router.auth.{KeycloakAuthHandler, RoleModel}
+import com.campudus.tableaux.router.auth.KeycloakAuthHandler
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext

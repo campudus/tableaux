@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
-import com.campudus.tableaux.router.auth.{Create, Delete, RoleModel, ScopeMedia}
+import com.campudus.tableaux.router.auth.permission.{Create, Delete, RoleModel, ScopeMedia}
 import com.campudus.tableaux.{InvalidRequestException, RequestContext, TableauxConfig, UnknownServerException}
 import io.vertx.scala.FutureHelper._
 

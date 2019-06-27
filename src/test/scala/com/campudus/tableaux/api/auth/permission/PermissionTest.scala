@@ -1,7 +1,7 @@
-package com.campudus.tableaux.api.auth
+package com.campudus.tableaux.api.auth.permission
 
 import com.campudus.tableaux.database.domain.{GenericTable, SettingsTable, Table, TableGroup}
-import com.campudus.tableaux.router.auth._
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, Permission}
 import org.junit.{Assert, Test}
 import org.vertx.scala.core.json.Json
 
