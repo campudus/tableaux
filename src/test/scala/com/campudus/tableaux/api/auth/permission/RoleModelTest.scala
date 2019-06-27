@@ -1,6 +1,6 @@
-package com.campudus.tableaux.api.auth
+package com.campudus.tableaux.api.auth.permission
 
-import com.campudus.tableaux.router.auth.{Deny, Grant, Permission, RoleModel, ScopeTable, View}
+import com.campudus.tableaux.router.auth.permission._
 import org.junit.{Assert, Test}
 import org.scalatest.Assertions._
 import org.vertx.scala.core.json.{Json, JsonObject}

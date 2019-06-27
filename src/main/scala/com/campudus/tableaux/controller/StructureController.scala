@@ -13,7 +13,7 @@ import com.campudus.tableaux.database.domain.{
 }
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.router.auth.{ComparisonObjects, Delete, RoleModel, ScopeTable}
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, Delete, RoleModel, ScopeTable}
 import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
 
 import scala.concurrent.Future
