@@ -187,7 +187,7 @@ class StructureController(
 
     for {
       table <- tableStruc.retrieve(tableId)
-      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Delete, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(Delete, ScopeTable, ComparisonObjects(table))
       columns <- columnStruc.retrieveAll(table)
 
       // only delete special column before deleting table;
