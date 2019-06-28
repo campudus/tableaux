@@ -304,4 +304,41 @@ class RoleModelTest {
       roleModel.filterPermissions(Seq("view-tables1"), Deny, View, ScopeTable)
     Assert.assertEquals(1, permissions.size)
   }
+
+  @Test
+  def filterPermissions_withoutDefinedAction_returnsAllPermissions(): Unit = {
+
+    val json: JsonObject = Json.fromObjectString("""
+                                                   |{
+                                                   |  "view-tables1": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    },
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["edit"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ],
+                                                   |  "view-tables2": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "table"
+                                                   |    },
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["delete"],
+                                                   |      "scope": "table"
+                                                   |    }
+                                                   |  ]
+                                                   |}""".stripMargin)
+
+    val roleModel: RoleModel = RoleModel(json)
+    val permissions: Seq[Permission] =
+      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, ScopeTable)
+    Assert.assertEquals(4, permissions.size)
+  }
 }
