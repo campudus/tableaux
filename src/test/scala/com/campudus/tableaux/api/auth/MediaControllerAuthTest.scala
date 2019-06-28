@@ -2,7 +2,7 @@ package com.campudus.tableaux.api.auth
 
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.domain.MultiLanguageValue
+import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -11,10 +11,10 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.Json
+import org.skyscreamer.jsonassert.JSONCompareMode
+import org.vertx.scala.core.json.{Json, JsonObject}
 
-@RunWith(classOf[VertxUnitRunner])
-class MediaControllerAuthTest extends TableauxTestBase {
+trait MediaControllerAuthTestBase extends TableauxTestBase {
 
   def createMediaController(roleModel: RoleModel = RoleModel(Json.emptyObj())): MediaController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
@@ -45,6 +45,14 @@ class MediaControllerAuthTest extends TableauxTestBase {
                   MultiLanguageValue("de-DE" -> "file.pdf"),
                   None)
   }
+
+  def getPermission(domainObject: DomainObject): JsonObject = {
+    domainObject.getJson.getJsonObject("permission")
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTestBase {
 
   @Test
   def createFolder_authorized_ok(implicit c: TestContext): Unit = okTest {
@@ -178,21 +186,131 @@ class MediaControllerAuthTest extends TableauxTestBase {
     }
 }
 
-// insertedFile <- model.add(MultiLanguageValue("de-DE" -> "Test 1"),
-// MultiLanguageValue.empty(),
-// MultiLanguageValue("de-DE" -> "external1.pdf"),
-// None)
-//
-// sizeAfterAdd <- model.size()
-//
-// retrievedFile <- model.retrieve(insertedFile.uuid, withTmp = true)
-//
-// updatedFile <- model.update(
-// insertedFile.uuid,
-// title = MultiLanguageValue("de-DE" -> "Changed 1"),
-// description = MultiLanguageValue("de-DE" -> "Changed 1"),
-// internalName = insertedFile.internalName,
-// externalName = MultiLanguageValue("de-DE" -> "external1.pdf"),
-// folder = None,
-// mimeType = insertedFile.mimeType
-// )
+@RunWith(classOf[VertxUnitRunner])
+class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTestBase {
+
+  @Test
+  def enrich_noPermission_noActionIsAllowed(implicit c: TestContext): Unit =
+    okTest {
+      val controller = createMediaController()
+
+      for {
+        permission <- controller.retrieveRootFolder("de-DE").map(getPermission)
+      } yield {
+
+        val expected = Json.obj(
+          "create" -> false,
+          "edit" -> false,
+          "delete" -> false
+        )
+
+        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+      }
+    }
+
+  @Test
+  def enrich_createGranted_onlyCreateIsAllowed(implicit c: TestContext): Unit = {
+
+    setRequestRoles("create-media")
+
+    val roleModel = RoleModel("""
+                                |{
+                                |  "create-media": [
+                                |    {
+                                |      "type": "grant",
+                                |      "action": ["create"],
+                                |      "scope": "media"
+                                |    }
+                                |  ]
+                                |}""".stripMargin)
+
+    val controller = createMediaController(roleModel)
+
+    okTest {
+      for {
+        permission <- controller.retrieveRootFolder("de-DE").map(getPermission)
+      } yield {
+
+        val expected = Json.obj("create" -> true)
+
+        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def enrich_editAndDeleteGranted_onlyEditAndDeleteAreAllowed(implicit c: TestContext): Unit = {
+
+    setRequestRoles("edit-delete-media")
+
+    val roleModel = RoleModel("""
+                                |{
+                                |  "edit-delete-media": [
+                                |    {
+                                |      "type": "grant",
+                                |      "action": ["edit", "delete"],
+                                |      "scope": "media"
+                                |    }
+                                |  ]
+                                |}""".stripMargin)
+
+    val controller = createMediaController(roleModel)
+
+    okTest {
+      for {
+        permission <- controller.retrieveRootFolder("de-DE").map(getPermission)
+      } yield {
+
+        val expected = Json.obj(
+          "create" -> false,
+          "edit" -> true,
+          "delete" -> true
+        )
+
+        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def enrich_editAndDeleteGranted_deleteDenied_onlyEditIsAllowed(implicit c: TestContext): Unit = {
+
+    setRequestRoles("edit-delete-media", "NOT-delete-media")
+
+    val roleModel = RoleModel("""
+                                |{
+                                |  "edit-delete-media": [
+                                |    {
+                                |      "type": "grant",
+                                |      "action": ["edit", "delete"],
+                                |      "scope": "media"
+                                |    }
+                                |  ],
+                                |  "NOT-delete-media": [
+                                |    {
+                                |      "type": "deny",
+                                |      "action": ["delete"],
+                                |      "scope": "media"
+                                |    }
+                                |  ]
+                                |}""".stripMargin)
+
+    val controller = createMediaController(roleModel)
+
+    okTest {
+      for {
+        permission <- controller.retrieveRootFolder("de-DE").map(getPermission)
+      } yield {
+
+        val expected = Json.obj(
+          "create" -> false,
+          "edit" -> true,
+          "delete" -> false
+        )
+
+        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+}
