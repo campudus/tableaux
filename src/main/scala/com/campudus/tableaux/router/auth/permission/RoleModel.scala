@@ -91,14 +91,23 @@ case class RoleModel(jsonObject: JsonObject) {
   def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
     role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
 
+  def filterPermissions(roleNames: Seq[String], permissionType: PermissionType, scope: Scope): Seq[Permission] =
+    filterPermissions(roleNames, permissionType, None, scope)
+
+  def filterPermissions(roleNames: Seq[String],
+                        permissionType: PermissionType,
+                        action: Action,
+                        scope: Scope): Seq[Permission] =
+    filterPermissions(roleNames, permissionType, Some(action), scope)
+
   /**
     * Filters permissions for role name, permissionType, action and scope
     *
     * @return a subset of permissions
     */
-  def filterPermissions(roleNames: Seq[String],
+  private def filterPermissions(roleNames: Seq[String],
                         permissionType: PermissionType,
-                        action: Action,
+                                actionOpt: Option[Action],
                         scope: Scope): Seq[Permission] = {
 
     val permissions: Seq[Permission] =
@@ -107,7 +116,7 @@ case class RoleModel(jsonObject: JsonObject) {
     permissions
       .filter(_.permissionType == permissionType)
       .filter(_.scope == scope)
-      .filter(_.actions.contains(action))
+      .filter(permission => actionOpt.forall(permission.actions.contains(_)))
   }
 
   def println(): Unit =
