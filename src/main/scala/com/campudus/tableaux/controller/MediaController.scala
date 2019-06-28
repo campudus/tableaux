@@ -68,7 +68,7 @@ class MediaController(
 
   def addNewFolder(name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
     for {
-      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Create, ScopeMedia)
+      _ <- roleModel.checkAuthorization(Create, ScopeMedia)
       folder <- repository.add(name, description, parent)
     } yield folder
   }
@@ -101,7 +101,7 @@ class MediaController(
       folder: Option[FolderId]
   ): Future[TemporaryFile] = {
     for {
-      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Create, ScopeMedia)
+      _ <- roleModel.checkAuthorization(Create, ScopeMedia)
       file <- fileModel.add(title, description, externalName, folder).map(TemporaryFile)
     } yield file
   }
@@ -258,7 +258,7 @@ class MediaController(
 
   def deleteFile(uuid: UUID): Future[TableauxFile] = {
     for {
-      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Delete, ScopeMedia)
+      _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
 
       (file, paths) <- retrieveFile(uuid, withTmp = true)
 
@@ -286,7 +286,7 @@ class MediaController(
 
   def deleteFile(uuid: UUID, langtag: String): Future[TableauxFile] = {
     for {
-      _ <- roleModel.checkAuthorization(requestContext.getUserRoles, Delete, ScopeMedia)
+      _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
 
       (_, paths) <- retrieveFile(uuid, withTmp = true)
 
