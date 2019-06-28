@@ -40,7 +40,7 @@ class MediaController(
     override protected val repository: FolderModel,
     protected val fileModel: FileModel,
     protected val attachmentModel: AttachmentModel,
-    protected val roleModel: RoleModel
+    implicit protected val roleModel: RoleModel
 )(implicit requestContext: RequestContext)
     extends Controller[FolderModel] {
 
@@ -63,7 +63,7 @@ class MediaController(
     for {
       subfolders <- repository.retrieveSubfolders(folder)
       files <- fileModel.retrieveFromFolder(folder, sortByLangtag)
-    } yield ExtendedFolder(folder, subfolders, files map ExtendedFile)
+    } yield ExtendedFolder(folder, subfolders, files.map(ExtendedFile))
   }
 
   def addNewFolder(name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
