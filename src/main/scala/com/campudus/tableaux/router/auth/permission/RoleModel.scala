@@ -1,6 +1,6 @@
 package com.campudus.tableaux.router.auth.permission
 
-import com.campudus.tableaux.UnauthorizedException
+import com.campudus.tableaux.{RequestContext, UnauthorizedException}
 import com.campudus.tableaux.helper.JsonUtils._
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -36,10 +36,10 @@ case class RoleModel(jsonObject: JsonObject) {
       inputJson: JsonObject,
       scope: Scope,
       subjects: ComparisonObjects = ComparisonObjects()
-  ): JsonObject = {
+  )(implicit requestContext: RequestContext): JsonObject = {
 
-    val grantPermissions: Seq[Permission] = filterPermissions(requestRoles, Grant, scope)
-    val denyPermissions: Seq[Permission] = filterPermissions(requestRoles, Deny, scope)
+    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, scope)
+    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, scope)
 
     scope match {
       case ScopeMedia => enrichMediaObject(inputJson, grantPermissions, denyPermissions)
@@ -61,24 +61,23 @@ case class RoleModel(jsonObject: JsonObject) {
     * @return
     */
   def checkAuthorization(
-      requestRoles: Seq[String],
       action: Action,
       scope: Scope,
       subjects: ComparisonObjects = ComparisonObjects()
-  ): Future[Unit] = {
+  )(implicit requestContext: RequestContext): Future[Unit] = {
 
 //    Console.println(s"XXX: $requestRoles")
 //    this.println()
 
-    val grantPermissions: Seq[Permission] = filterPermissions(requestRoles, Grant, Some(action), scope)
-    val denyPermissions: Seq[Permission] = filterPermissions(requestRoles, Deny, Some(action), scope)
+    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, Some(action), scope)
+    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, Some(action), scope)
 
     // simples test working
     // TODO test with mixed grant and deny types
-    val isAllowed: Boolean = grantPermissions.exists(_.isMatching(subjects)) &&
-      !denyPermissions.exists(_.isMatching(subjects))
+    val isAllowed: Boolean = grantPermissions.exists(_.isMatching(subjects))
+    val isForbidden: Boolean = denyPermissions.exists(_.isMatching(subjects))
 
-    if (isAllowed) {
+    if (isAllowed && !isForbidden) {
       Future.successful(())
     } else {
       Future.failed(UnauthorizedException(action, scope))

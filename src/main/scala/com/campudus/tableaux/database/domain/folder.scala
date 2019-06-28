@@ -48,6 +48,6 @@ case class ExtendedFolder(
           "files" -> compatibilityGet(files)
         ))
 
-    roleModel.enrichDomainObject(requestContext.getUserRoles, extendedFolderJson, ScopeMedia)
+    roleModel.enrichDomainObject(extendedFolderJson, ScopeMedia)
   }
 }
