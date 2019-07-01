@@ -41,13 +41,21 @@ class StructureController(
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveTable $tableId")
 
-    tableStruc.retrieve(tableId)
+    for {
+      table <- tableStruc.retrieve(tableId)
+      _ = roleModel.filterDomainObjects[Table](ScopeTable, Seq(table), true)
+    } yield table
   }
 
   def retrieveTables(): Future[TableSeq] = {
     logger.info(s"retrieveTables")
 
-    tableStruc.retrieveAll().map(TableSeq)
+    for {
+      tableSeq: Seq[Table] <- tableStruc.retrieveAll()
+    } yield {
+      val filteredTables: Seq[Table] = roleModel.filterDomainObjects[Table](ScopeTable, tableSeq)
+      TableSeq(filteredTables)
+    }
   }
 
   def createColumns(tableId: TableId, columns: Seq[CreateColumn]): Future[ColumnSeq] = {

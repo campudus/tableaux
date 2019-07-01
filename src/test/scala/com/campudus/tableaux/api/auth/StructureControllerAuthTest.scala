@@ -83,4 +83,86 @@ class StructureControllerAuthTest extends TableauxTestBase {
         _ <- controller.deleteTable(table.id)
       } yield ()
     }
+
+  @Test
+  def retrieveTables_threeTablesAllViewable_returnAll(implicit c: TestContext): Unit = okTest {
+
+    setRequestRoles("view-tables")
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      _ <- createDefaultTable("Test1")
+      _ <- createDefaultTable("Test2")
+      _ <- createDefaultTable("Test3")
+
+      tables <- controller.retrieveTables.map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+    } yield {
+      assertEquals(3, tables.size())
+    }
+  }
+
+  @Test
+  def retrieveTables_threeTablesTwoViewable_returnTwo(implicit c: TestContext): Unit = okTest {
+
+    setRequestRoles("view-tables")
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "id": "1|3"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      _ <- createDefaultTable("Test1")
+      _ <- createDefaultTable("Test2") // not viewable
+      _ <- createDefaultTable("Test3")
+
+      tables <- controller.retrieveTables.map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+    } yield {
+      assertEquals(2, tables.size())
+
+      val tableIds = asSeqOf[JsonObject](tables).map(_.getInteger("id"))
+      assertEquals(Seq(1, 3), tableIds)
+    }
+  }
+
+  @Test
+  def retrieveTables_noViewPermission_returnEmptyList(implicit c: TestContext): Unit = okTest {
+
+    val controller = createStructureController()
+
+    for {
+      _ <- createDefaultTable("Test1")
+      _ <- createDefaultTable("Test2") // not viewable
+      _ <- createDefaultTable("Test3")
+
+      tables <- controller.retrieveTables.map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+    } yield {
+      assertEquals(0, tables.size())
+    }
+  }
 }
