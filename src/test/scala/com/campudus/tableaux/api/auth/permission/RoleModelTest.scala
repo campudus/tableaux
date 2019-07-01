@@ -28,7 +28,7 @@ class RoleModelTest {
                                                    |}""".stripMargin)
 
     val roleModel: RoleModel = RoleModel(json)
-    val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-tables"))
+    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-tables"))
     Assert.assertEquals(1, permissions.size)
   }
 
@@ -63,7 +63,7 @@ class RoleModelTest {
                                                    |}""".stripMargin)
 
     val roleModel: RoleModel = RoleModel(json)
-    val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-tables"))
+    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-tables"))
     Assert.assertEquals(2, permissions.size)
   }
 
@@ -82,7 +82,7 @@ class RoleModelTest {
                                                    |}""".stripMargin)
     val roleModel: RoleModel = RoleModel(json)
 
-    val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-media"))
+    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-media"))
     Assert.assertEquals(1, permissions.size)
   }
 
@@ -169,7 +169,7 @@ class RoleModelTest {
                                                    |}""".stripMargin)
 
     val roleModel: RoleModel = RoleModel(json)
-    val permissions: Seq[Permission] = roleModel.getPermissionsForRoles(Seq("view-tables", "view-media"))
+    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-tables", "view-media"))
     Assert.assertEquals(2, permissions.size)
   }
 

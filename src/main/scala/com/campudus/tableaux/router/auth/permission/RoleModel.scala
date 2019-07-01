@@ -46,30 +46,24 @@ case class RoleModel(jsonObject: JsonObject) {
 
   def filterDomainObjects[A](
       scope: Scope,
-      filterObjects: Seq[A],
+      domainObjects: Seq[A],
       isSingleItemRequest: Boolean = false,
       objects: ComparisonObjects = ComparisonObjects()
   )(implicit requestContext: RequestContext): Seq[A] = {
 
-    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, Some(View), scope)
-    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, Some(View), scope)
+    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, View, scope)
+    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, View, scope)
 
-    val filteredObjects = filterObjects.filter({ obj: A =>
+    val filteredObjects: Seq[A] = domainObjects.filter({ obj: A =>
       {
 
-        println()
-
-        Console.println(s"XXX: $obj")
-
-        val co = obj match {
+        val co: ComparisonObjects = obj match {
           case table: Table => ComparisonObjects(table)
-//          case column: ColumnType[_] => ComparisonObjects(column)
+          case _ => ??? // TODO
         }
 
         val isAllowed: Boolean = grantPermissions.exists(_.isMatching(co))
         val isForbidden: Boolean = denyPermissions.exists(_.isMatching(co))
-
-        Console.println(s"XXX: $isAllowed $isForbidden")
 
         isAllowed && !isForbidden
       }
@@ -102,14 +96,9 @@ case class RoleModel(jsonObject: JsonObject) {
       objects: ComparisonObjects = ComparisonObjects()
   )(implicit requestContext: RequestContext): Future[Unit] = {
 
-//    Console.println(s"XXX: $requestRoles")
-//    this.println()
+    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, action, scope)
+    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, action, scope)
 
-    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, Some(action), scope)
-    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, Some(action), scope)
-
-    // simples test working
-    // TODO test with mixed grant and deny types
     val isAllowed: Boolean = grantPermissions.exists(_.isMatching(objects))
     val isForbidden: Boolean = denyPermissions.exists(_.isMatching(objects))
 
@@ -163,39 +152,40 @@ case class RoleModel(jsonObject: JsonObject) {
     )
   }
 
-  // TODO possibly obsolete
-  def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
+  private def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
     role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
 
   def filterPermissions(roleNames: Seq[String], permissionType: PermissionType, scope: Scope): Seq[Permission] =
-    filterPermissions(roleNames, permissionType, None, scope)
+    filterPermissions(roleNames, Some(permissionType), None, Some(scope))
 
   def filterPermissions(roleNames: Seq[String],
                         permissionType: PermissionType,
                         action: Action,
                         scope: Scope): Seq[Permission] =
-    filterPermissions(roleNames, permissionType, Some(action), scope)
+    filterPermissions(roleNames, Some(permissionType), Some(action), Some(scope))
 
   /**
     * Filters permissions for role name, permissionType, action and scope
     *
     * @return a subset of permissions
     */
-  private def filterPermissions(roleNames: Seq[String],
-                                permissionType: PermissionType,
-                                actionOpt: Option[Action],
-                                scope: Scope): Seq[Permission] = {
+  def filterPermissions(
+      roleNames: Seq[String],
+      permissionTypeOpt: Option[PermissionType] = None,
+      actionOpt: Option[Action] = None,
+      scopeOpt: Option[Scope] = None
+  ): Seq[Permission] = {
 
-    val permissions: Seq[Permission] =
-      role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
+    val permissions: Seq[Permission] = getPermissionsForRoles(roleNames)
 
     permissions
-      .filter(_.permissionType == permissionType)
-      .filter(_.scope == scope)
+      .filter(permission => permissionTypeOpt.forall(permission.permissionType == _))
+      .filter(permission => scopeOpt.forall(permission.scope == _))
       .filter(permission => actionOpt.forall(permission.actions.contains(_)))
   }
 
-  def println(): Unit =
+  // TODO just a helper, delete after auth is implemented
+  def printRolePermissions(): Unit =
     role2permissions
       .foreach({
         case (key, permission) => Console.println(s"XXX: $key => ${permission.toString}")

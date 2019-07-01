@@ -13,19 +13,10 @@ case class Permission(
   def isMatching(subjects: ComparisonObjects): Boolean = {
 
     // TODO log which permission/role granted access
-    permissionType match {
-      // TODO split up method when implementing DENY
-      case Grant => {
-        scope match {
-          case ScopeMedia => true
-          case ScopeTable => condition.conditionTable.isMatching(subjects)
-        }
-      }
-      case Deny => {
-        // TODO
-        println(s"XXX: NOT IMPLEMENTED!!!")
-        false
-      }
+    scope match {
+      case ScopeMedia => true
+      case ScopeTable => condition.conditionTable.isMatching(subjects)
+      case _ => ???
     }
   }
 }
