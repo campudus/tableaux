@@ -56,18 +56,16 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
 
   @Test
   def createFolder_authorized_ok(implicit c: TestContext): Unit = okTest {
-    setRequestRoles("create-media")
-
-    val roleModel = RoleModel("""
-                                |{
-                                |  "create-media": [
-                                |    {
-                                |      "type": "grant",
-                                |      "action": ["create"],
-                                |      "scope": "media"
-                                |    }
-                                |  ]
-                                |}""".stripMargin)
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-media": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create"],
+                                    |      "scope": "media"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
 
     val controller = createMediaController(roleModel)
     controller.addNewFolder("folder", "", None)
@@ -83,19 +81,16 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
 
   @Test
   def createFile_authorized_ok(implicit c: TestContext): Unit = okTest {
-
-    setRequestRoles("create-media")
-
-    val roleModel = RoleModel("""
-                                |{
-                                |  "create-media": [
-                                |    {
-                                |      "type": "grant",
-                                |      "action": ["create"],
-                                |      "scope": "media"
-                                |    }
-                                |  ]
-                                |}""".stripMargin)
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-media": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create"],
+                                    |      "scope": "media"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
 
     val controller = createMediaController(roleModel)
     controller.addFile(MultiLanguageValue("de-DE" -> "file"),
@@ -118,23 +113,21 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
   @Test
   def deleteFile_authorized_ok(implicit c: TestContext): Unit =
     okTest {
-      setRequestRoles("delete-media")
-
-      val roleModel = RoleModel("""
-                                  |{
-                                  |  "delete-media": [
-                                  |    {
-                                  |      "type": "grant",
-                                  |      "action": ["delete"],
-                                  |      "scope": "media"
-                                  |    }
-                                  |  ]
-                                  |}""".stripMargin)
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "delete-media": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["delete"],
+                                      |      "scope": "media"
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
 
       val controller = createMediaController(roleModel)
 
       for {
-        file <- insertTestFile
+        file <- insertTestFile()
         _ <- controller.deleteFile(file.uuid)
       } yield ()
     }
@@ -145,7 +138,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
       val controller = createMediaController()
 
       for {
-        file <- insertTestFile
+        file <- insertTestFile()
         _ <- controller.deleteFile(file.uuid)
       } yield ()
     }
@@ -153,23 +146,21 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
   @Test
   def deleteFileLang_authorized_ok(implicit c: TestContext): Unit =
     okTest {
-      setRequestRoles("delete-media")
-
-      val roleModel = RoleModel("""
-                                  |{
-                                  |  "delete-media": [
-                                  |    {
-                                  |      "type": "grant",
-                                  |      "action": ["delete"],
-                                  |      "scope": "media"
-                                  |    }
-                                  |  ]
-                                  |}""".stripMargin)
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "delete-media": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["delete"],
+                                      |      "scope": "media"
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
 
       val controller = createMediaController(roleModel)
 
       for {
-        file <- insertTestFile
+        file <- insertTestFile()
         _ <- controller.deleteFile(file.uuid, "de-DE")
       } yield ()
     }
@@ -180,7 +171,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
       val controller = createMediaController()
 
       for {
-        file <- insertTestFile
+        file <- insertTestFile()
         _ <- controller.deleteFile(file.uuid, "de-DE")
       } yield ()
     }
@@ -210,19 +201,16 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
 
   @Test
   def enrich_createGranted_onlyCreateIsAllowed(implicit c: TestContext): Unit = {
-
-    setRequestRoles("create-media")
-
-    val roleModel = RoleModel("""
-                                |{
-                                |  "create-media": [
-                                |    {
-                                |      "type": "grant",
-                                |      "action": ["create"],
-                                |      "scope": "media"
-                                |    }
-                                |  ]
-                                |}""".stripMargin)
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-media": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create"],
+                                    |      "scope": "media"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
 
     val controller = createMediaController(roleModel)
 
@@ -240,19 +228,16 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
 
   @Test
   def enrich_editAndDeleteGranted_onlyEditAndDeleteAreAllowed(implicit c: TestContext): Unit = {
-
-    setRequestRoles("edit-delete-media")
-
-    val roleModel = RoleModel("""
-                                |{
-                                |  "edit-delete-media": [
-                                |    {
-                                |      "type": "grant",
-                                |      "action": ["edit", "delete"],
-                                |      "scope": "media"
-                                |    }
-                                |  ]
-                                |}""".stripMargin)
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-delete-media": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["edit", "delete"],
+                                    |      "scope": "media"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
 
     val controller = createMediaController(roleModel)
 
@@ -274,26 +259,23 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
 
   @Test
   def enrich_editAndDeleteGranted_deleteDenied_onlyEditIsAllowed(implicit c: TestContext): Unit = {
-
-    setRequestRoles("edit-delete-media", "NOT-delete-media")
-
-    val roleModel = RoleModel("""
-                                |{
-                                |  "edit-delete-media": [
-                                |    {
-                                |      "type": "grant",
-                                |      "action": ["edit", "delete"],
-                                |      "scope": "media"
-                                |    }
-                                |  ],
-                                |  "NOT-delete-media": [
-                                |    {
-                                |      "type": "deny",
-                                |      "action": ["delete"],
-                                |      "scope": "media"
-                                |    }
-                                |  ]
-                                |}""".stripMargin)
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-delete-media": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["edit", "delete"],
+                                    |      "scope": "media"
+                                    |    }
+                                    |  ],
+                                    |  "NOT-delete-media": [
+                                    |    {
+                                    |      "type": "deny",
+                                    |      "action": ["delete"],
+                                    |      "scope": "media"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
 
     val controller = createMediaController(roleModel)
 
