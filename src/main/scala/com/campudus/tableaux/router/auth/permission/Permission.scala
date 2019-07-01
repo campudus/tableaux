@@ -5,6 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.JsonObject
 
 case class Permission(
+    roleName: String,
     permissionType: PermissionType,
     actions: Seq[Action],
     scope: Scope,
@@ -16,14 +17,16 @@ case class Permission(
 
 object Permission {
 
-  def apply(jsonObject: JsonObject): Permission = {
+  def apply(jsonObject: JsonObject): Permission = this.apply(jsonObject, "")
+
+  def apply(jsonObject: JsonObject, roleName: String): Permission = {
     val permissionType: PermissionType = PermissionType(jsonObject.getString("type"))
     val actionString: Seq[String] = asSeqOf[String](jsonObject.getJsonArray("action"))
     val actions: Seq[Action] = actionString.map(key => Action(key))
     val scope: Scope = Scope(jsonObject.getString("scope"))
     val condition: ConditionContainer = ConditionContainer(jsonObject.getJsonObject("condition"))
 
-    new Permission(permissionType, actions, scope, condition)
+    new Permission(roleName, permissionType, actions, scope, condition)
   }
 }
 
