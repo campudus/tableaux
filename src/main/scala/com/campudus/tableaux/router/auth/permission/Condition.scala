@@ -15,7 +15,9 @@ object ConditionContainer {
       Option(jsonObject.getJsonObject("column")).map(ConditionColumn).getOrElse(NoneCondition)
 
     val conditionLangtag: ConditionOption =
-      Option(Json.obj("langtag" -> jsonObject.getString("langtag"))).map(ConditionLangtag).getOrElse(NoneCondition)
+      Option(jsonObject.getString("langtag"))
+        .map(langtags => ConditionLangtag(Json.obj("langtag" -> langtags)))
+        .getOrElse(NoneCondition)
 
     new ConditionContainer(conditionTable, conditionColumn, conditionLangtag)
   }
