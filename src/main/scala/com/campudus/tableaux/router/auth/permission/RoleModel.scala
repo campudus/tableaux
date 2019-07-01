@@ -13,10 +13,6 @@ object RoleModel {
   def apply(jsonObject: JsonObject): RoleModel = {
     new RoleModel(jsonObject)
   }
-
-  def apply(jsonObjectString: String): RoleModel = {
-    new RoleModel(Json.fromObjectString(jsonObjectString))
-}
 }
 
 /**

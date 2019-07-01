@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 import com.campudus.tableaux.{CustomException, RequestContext, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
@@ -244,7 +245,17 @@ trait TableauxTestBase
   @After
   def after(context: TestContext): Unit = vertx.close(context.asyncAssertSuccess())
 
-  def setRequestRoles(roles: String*) = {
+  /**
+    * Initializes the RoleModel with the given config and also sets up the requestsContext with all provided roles
+    */
+  def initRoleModel(roleConfig: String) = {
+    val roleModel = RoleModel(Json.fromObjectString(roleConfig.stripMargin))
+
+    setRequestRoles(roleModel.role2permissions.keySet.toSeq: _*)
+    roleModel
+  }
+
+  private def setRequestRoles(roles: String*) = {
     requestContext.principal = Json.obj("realm_access" -> Json.obj("roles" -> roles))
   }
 
