@@ -1,5 +1,6 @@
 package com.campudus.tableaux.router.auth.permission
 
+import com.campudus.tableaux.database.domain.{ColumnType, Table}
 import com.campudus.tableaux.{RequestContext, UnauthorizedException}
 import com.campudus.tableaux.helper.JsonUtils._
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -15,7 +16,7 @@ object RoleModel {
 
   def apply(jsonObjectString: String): RoleModel = {
     new RoleModel(Json.fromObjectString(jsonObjectString))
-  }
+}
 }
 
 /**
@@ -24,7 +25,7 @@ object RoleModel {
   * - checkAuthorization:
   *       a check method for `POST`, `PUT`, `PATCH` und `DELETE` requests
   *
-  * - filter:
+  * - filterDomainObjects:
   *       a filter method for `GET` requests, to only return viewable items
   *
   * - enrichDomainObject:
@@ -35,7 +36,7 @@ case class RoleModel(jsonObject: JsonObject) {
   def enrichDomainObject(
       inputJson: JsonObject,
       scope: Scope,
-      subjects: ComparisonObjects = ComparisonObjects()
+      objects: ComparisonObjects = ComparisonObjects()
   )(implicit requestContext: RequestContext): JsonObject = {
 
     val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, scope)
@@ -45,6 +46,45 @@ case class RoleModel(jsonObject: JsonObject) {
       case ScopeMedia => enrichMediaObject(inputJson, grantPermissions, denyPermissions)
       case _ => ???
     }
+  }
+
+  def filterDomainObjects[A](
+      scope: Scope,
+      filterObjects: Seq[A],
+      isSingleItemRequest: Boolean = false,
+      objects: ComparisonObjects = ComparisonObjects()
+  )(implicit requestContext: RequestContext): Seq[A] = {
+
+    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, Some(View), scope)
+    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, Some(View), scope)
+
+    val filteredObjects = filterObjects.filter({ obj: A =>
+      {
+
+        println()
+
+        Console.println(s"XXX: $obj")
+
+        val co = obj match {
+          case table: Table => ComparisonObjects(table)
+//          case column: ColumnType[_] => ComparisonObjects(column)
+        }
+
+        val isAllowed: Boolean = grantPermissions.exists(_.isMatching(co))
+        val isForbidden: Boolean = denyPermissions.exists(_.isMatching(co))
+
+        Console.println(s"XXX: $isAllowed $isForbidden")
+
+        isAllowed && !isForbidden
+      }
+    })
+
+    if (isSingleItemRequest && filteredObjects.isEmpty) {
+      throw UnauthorizedException(View, scope)
+    } else {
+      filteredObjects
+    }
+
   }
 
   /**
@@ -63,7 +103,7 @@ case class RoleModel(jsonObject: JsonObject) {
   def checkAuthorization(
       action: Action,
       scope: Scope,
-      subjects: ComparisonObjects = ComparisonObjects()
+      objects: ComparisonObjects = ComparisonObjects()
   )(implicit requestContext: RequestContext): Future[Unit] = {
 
 //    Console.println(s"XXX: $requestRoles")
@@ -74,8 +114,8 @@ case class RoleModel(jsonObject: JsonObject) {
 
     // simples test working
     // TODO test with mixed grant and deny types
-    val isAllowed: Boolean = grantPermissions.exists(_.isMatching(subjects))
-    val isForbidden: Boolean = denyPermissions.exists(_.isMatching(subjects))
+    val isAllowed: Boolean = grantPermissions.exists(_.isMatching(objects))
+    val isForbidden: Boolean = denyPermissions.exists(_.isMatching(objects))
 
     if (isAllowed && !isForbidden) {
       Future.successful(())
