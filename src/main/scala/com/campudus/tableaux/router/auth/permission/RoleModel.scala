@@ -3,6 +3,7 @@ package com.campudus.tableaux.router.auth.permission
 import com.campudus.tableaux.database.domain.{ColumnType, Table}
 import com.campudus.tableaux.{RequestContext, UnauthorizedException}
 import com.campudus.tableaux.helper.JsonUtils._
+import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
@@ -27,7 +28,7 @@ object RoleModel {
   * - enrichDomainObject:
   *       a enrich method for selected `GET` requests, to extend response items with permissions objects
   */
-case class RoleModel(jsonObject: JsonObject) {
+case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   def enrichDomainObject(
       inputJson: JsonObject,
@@ -62,10 +63,31 @@ case class RoleModel(jsonObject: JsonObject) {
           case _ => ??? // TODO
         }
 
-        val isAllowed: Boolean = grantPermissions.exists(_.isMatching(co))
-        val isForbidden: Boolean = denyPermissions.exists(_.isMatching(co))
+        val matchingGrantPermission: Option[Permission] = grantPermissions.find(_.isMatching(co))
 
-        isAllowed && !isForbidden
+        val isAllowed: Boolean = matchingGrantPermission
+          .map({
+            grantPermission =>
+              val matchingDenyPermission: Option[Permission] = denyPermissions.find(_.isMatching(co))
+
+              matchingDenyPermission
+                .map({ denyPermission =>
+                  logger.debug(
+                    s"DENY: A permission in role '${denyPermission.roleName}' filtered the item in scope '$scope'")
+                  false
+                })
+                .getOrElse({
+                  logger.debug(
+                    s"GRANT: A permission in role '${grantPermission.roleName}' passed through the item in scope '$scope'")
+                  true
+                })
+          })
+          .getOrElse({
+            logger.debug(s"DENY: No permission found that could pass through the item")
+            false
+          })
+
+        isAllowed
       }
     })
 
@@ -74,7 +96,6 @@ case class RoleModel(jsonObject: JsonObject) {
     } else {
       filteredObjects
     }
-
   }
 
   /**
@@ -99,10 +120,29 @@ case class RoleModel(jsonObject: JsonObject) {
     val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, action, scope)
     val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, action, scope)
 
-    val isAllowed: Boolean = grantPermissions.exists(_.isMatching(objects))
-    val isForbidden: Boolean = denyPermissions.exists(_.isMatching(objects))
+    val matchingGrantPermission: Option[Permission] = grantPermissions.find(_.isMatching(objects))
 
-    if (isAllowed && !isForbidden) {
+    // TODO refactor
+    val isAllowed: Boolean = matchingGrantPermission
+      .map({ grantPermission =>
+        val matchingDenyPermission: Option[Permission] = denyPermissions.find(_.isMatching(objects))
+
+        matchingDenyPermission
+          .map({ denyPermission =>
+            logger.debug(s"DENY: A permission in role '${denyPermission.roleName}' denies access")
+            false
+          })
+          .getOrElse({
+            logger.debug(s"GRANT: A permission in role '${grantPermission.roleName}' grants access")
+            true
+          })
+      })
+      .getOrElse({
+        logger.debug(s"DENY: No permission found that grants access")
+        false
+      })
+
+    if (isAllowed) {
       Future.successful(())
     } else {
       Future.failed(UnauthorizedException(action, scope))
@@ -114,9 +154,9 @@ case class RoleModel(jsonObject: JsonObject) {
       .fieldNames()
       .asScala
       .map(
-        key => {
-          val permissionsJson: Seq[JsonObject] = asSeqOf[JsonObject](jsonObject.getJsonArray(key))
-          (key, permissionsJson.map(permissionJson => Permission(permissionJson)))
+        roleName => {
+          val permissionsJson: Seq[JsonObject] = asSeqOf[JsonObject](jsonObject.getJsonArray(roleName))
+          (roleName, permissionsJson.map(permissionJson => Permission(permissionJson, roleName)))
         }
       )
       .toMap
@@ -128,26 +168,43 @@ case class RoleModel(jsonObject: JsonObject) {
       })
       .mkString("\n")
 
-  private def enrichMediaObject(inputJson: JsonObject,
-                                grantPermissions: Seq[Permission],
-                                denyPermissions: Seq[Permission]): JsonObject = {
+  private def enrichMediaObject(
+      inputJson: JsonObject,
+      grantPermissions: Seq[Permission],
+      denyPermissions: Seq[Permission]
+  ): JsonObject = {
 
-    val isCreateAllowed = grantPermissions.exists(_.actions.contains(Create))
-    val isCreateForbidden = denyPermissions.exists(_.actions.contains(Create))
+    // TODO refactor to reuse it in other enrich methods
+    def isActionAllowed(action: Action): Boolean = {
+      val matchingGrantPermission: Option[Permission] = grantPermissions.find(_.actions.contains(action))
 
-    val isEditAllowed = grantPermissions.exists(_.actions.contains(Edit))
-    val isEditForbidden = denyPermissions.exists(_.actions.contains(Edit))
+      matchingGrantPermission
+        .map({ grantPermission =>
+          val matchingDenyPermission: Option[Permission] = denyPermissions.find(_.actions.contains(action))
 
-    val isDeleteAllowed = grantPermissions.exists(_.actions.contains(Delete))
-    val isDeleteForbidden = denyPermissions.exists(_.actions.contains(Delete))
+          matchingDenyPermission
+            .map({ denyPermission =>
+              logger.debug(s"DENY: A permission in role '${denyPermission.roleName}' denies $action on Media")
+              false
+            })
+            .getOrElse({
+              logger.debug(s"GRANT: A permission in role '${grantPermission.roleName}' grants $action on Media")
+              true
+            })
+        })
+        .getOrElse({
+          logger.debug(s"DENY: No permission found that grants $action on Media")
+          false
+        })
+    }
 
     inputJson.mergeIn(
       Json.obj(
         "permission" ->
           Json.obj(
-            "create" -> (isCreateAllowed && !isCreateForbidden),
-            "edit" -> (isEditAllowed && !isEditForbidden),
-            "delete" -> (isDeleteAllowed && !isDeleteForbidden)
+            "create" -> isActionAllowed(Create),
+            "edit" -> isActionAllowed(Edit),
+            "delete" -> isActionAllowed(Delete)
           ))
     )
   }

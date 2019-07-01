@@ -189,48 +189,49 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
   }
 
   @Test
-  def retrieveTables__returnTwo(implicit c: TestContext): Unit = okTest {
-    val roleModel = initRoleModel("""
-                                    |{
-                                    |  "view-all-generic-tables": [
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
-                                    |    },
-                                    |    {
-                                    |      "type": "deny",
-                                    |      "action": ["view"],
-                                    |      "scope": "table",
-                                    |      "condition": {
-                                    |        "table": {
-                                    |          "tableType": "settings"
-                                    |        }
-                                    |      }
-                                    |    }
-                                    |  ]
-                                    |}""".stripMargin)
+  def retrieveTables_threeGenericAndOneSettingsTable_returnOnlyThreeGenericTables(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "view-all-generic-tables": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
+                                      |    },
+                                      |    {
+                                      |      "type": "deny",
+                                      |      "action": ["view"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "tableType": "settings"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
 
-    val controller = createStructureController(roleModel)
+      val controller = createStructureController(roleModel)
 
-    for {
-      _ <- createDefaultTable("Test1")
-      _ <- createDefaultTable("Test2")
-      _ <- controller.createSettingsTable("Test3", // not viewable
-                                          hidden = false,
-                                          langtags = None,
-                                          displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
-                                          tableGroupId = None)
-      _ <- createDefaultTable("Test4")
+      for {
+        _ <- createDefaultTable("Test1")
+        _ <- createDefaultTable("Test2")
+        _ <- controller.createSettingsTable("Test3", // not viewable
+                                            hidden = false,
+                                            langtags = None,
+                                            displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
+                                            tableGroupId = None)
+        _ <- createDefaultTable("Test4")
 
-      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
-    } yield {
-      assertEquals(3, tables.size())
+        tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+      } yield {
+        assertEquals(3, tables.size())
 
-      val tableIds = asSeqOf[JsonObject](tables).map(_.getInteger("id"))
-      assertEquals(Seq(1, 2, 4), tableIds)
+        val tableIds = asSeqOf[JsonObject](tables).map(_.getInteger("id"))
+        assertEquals(Seq(1, 2, 4), tableIds)
+      }
     }
-  }
 
   @Test
   def retrieveTables_noViewPermission_returnEmptyList(implicit c: TestContext): Unit = okTest {
