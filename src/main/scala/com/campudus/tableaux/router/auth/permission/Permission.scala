@@ -1,24 +1,17 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
+import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.JsonObject
 
 case class Permission(
     permissionType: PermissionType,
     actions: Seq[Action],
     scope: Scope,
-    condition: ConditionContainer
-) {
+    conditions: ConditionContainer
+) extends LazyLogging {
 
-  def isMatching(subjects: ComparisonObjects): Boolean = {
-
-    // TODO log which permission/role granted access
-    scope match {
-      case ScopeMedia => true
-      case ScopeTable => condition.conditionTable.isMatching(subjects)
-      case _ => ???
-    }
-  }
+  def isMatching(objects: ComparisonObjects): Boolean = conditions.isMatching(objects)
 }
 
 object Permission {

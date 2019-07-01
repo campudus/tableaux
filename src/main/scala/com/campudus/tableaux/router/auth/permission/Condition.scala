@@ -27,16 +27,22 @@ case class ConditionContainer(
     conditionTable: ConditionOption,
     conditionColumn: ConditionOption,
     conditionLangtag: ConditionOption
-)
+) {
+
+  def isMatching(objects: ComparisonObjects): Boolean =
+    conditionTable.isMatching(objects) &&
+      conditionColumn.isMatching(objects) &&
+      conditionLangtag.isMatching(objects)
+}
 
 abstract class ConditionOption(jsonObject: JsonObject) {
   val conditionMap: Map[String, String] = toMap(jsonObject)
 
-  protected def toMap(jsonObject: JsonObject) = {
+  protected def toMap(jsonObject: JsonObject): Map[String, String] = {
     jsonObject.asMap.toMap.asInstanceOf[Map[String, String]]
   }
 
-  def isMatching(subjects: ComparisonObjects) = false
+  def isMatching(objects: ComparisonObjects): Boolean = false
 }
 
 case class ConditionTable(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
@@ -46,7 +52,7 @@ case class ConditionTable(jsonObject: JsonObject) extends ConditionOption(jsonOb
       conditionMap.forall({
         case (property, regex) => {
 
-          // TODO possibly not the best idea to stingify every property and match with regex!?
+          // TODO possibly not the best idea to stringify every property and match with regex!?
           property match {
             case "id" => table.id.toString.matches(regex)
             case "name" => table.name.matches(regex)
@@ -76,5 +82,5 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
 // TODO implement regex validation
 
 case object NoneCondition extends ConditionOption(Json.emptyObj()) {
-  override def isMatching(subjects: ComparisonObjects) = true
+  override def isMatching(subjects: ComparisonObjects): Boolean = true
 }
