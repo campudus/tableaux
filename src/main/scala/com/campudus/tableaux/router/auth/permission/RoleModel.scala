@@ -120,6 +120,10 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     )
   }
 
+  /**
+    * Core function that checks whether an action in a scope is allowed or
+    * denied for given set of user roles. The return value is a boolean.
+    */
   private def isAllowed(
       userRoles: Seq[String],
       action: Action,
@@ -128,25 +132,22 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   ): Boolean = {
 
     def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, scope)
+
     def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action, scope)
 
     val grantPermissionOpt: Option[Permission] = grantPermissions.find(function)
 
-//    *  There are several steps
-//    *    1. filter permissions for assigned user roles, desired action and scope
-//      *    2. first check if a permission with type 'grant' meets the conditions
-//    *        no condition means -> condition evaluates to 'true'
-//    *    3. if at least one meets the conditions check also the deny types
-
-    grantPermissionOpt
-      .map({ grantPermission =>
+    grantPermissionOpt match {
+      case Some(grantPermission) =>
         val denyPermissionOpt: Option[Permission] = denyPermissions.find(function)
 
-        denyPermissionOpt
-          .map(denyPermission => returnAndLog(Deny, loggingMessage(_, denyPermission, scope, View)))
-          .getOrElse(returnAndLog(Grant, loggingMessage(_, grantPermission, scope, View)))
-      })
-      .getOrElse(returnAndLog(Deny, defaultLoggingMessage))
+        denyPermissionOpt match {
+          case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, denyPermission, scope, View))
+          case None => returnAndLog(Grant, loggingMessage(_, grantPermission, scope, View))
+        }
+
+      case None => returnAndLog(Deny, defaultLoggingMessage)
+    }
   }
 
   /**
@@ -167,7 +168,8 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       scope: Scope,
       action: Action
   ): String = {
-    s"${permissionType.toString.toUpperCase}: A permission is fitting for role '${permission.roleName}'. Scope: '$scope' Action: '$action'"
+    s"${permissionType.toString.toUpperCase}: A permission is fitting " +
+      s"for role '${permission.roleName}'. Scope: '$scope' Action: '$action'"
   }
 
   val role2permissions: Map[String, Seq[Permission]] =
