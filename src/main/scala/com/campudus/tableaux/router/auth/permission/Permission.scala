@@ -30,7 +30,9 @@ object Permission {
   }
 }
 
-sealed trait PermissionType
+sealed trait PermissionType {
+  def isAccessAllowed: Boolean = false
+}
 
 object PermissionType {
 
@@ -43,6 +45,8 @@ object PermissionType {
   }
 }
 
-case object Grant extends PermissionType
+case object Grant extends PermissionType {
+  override def isAccessAllowed: Boolean = true
+}
 
 case object Deny extends PermissionType
