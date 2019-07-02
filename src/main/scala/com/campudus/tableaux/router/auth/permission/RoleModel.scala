@@ -30,21 +30,31 @@ object RoleModel {
   */
 case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
-  def enrichDomainObject(
-      inputJson: JsonObject,
+  /**
+    * Checks if a writing request is allowed to change a resource.
+    * If not a UnauthorizedException is thrown.
+    */
+  def checkAuthorization(
+      action: Action,
       scope: Scope,
       objects: ComparisonObjects = ComparisonObjects()
-  )(implicit requestContext: RequestContext): JsonObject = {
+  )(implicit requestContext: RequestContext): Future[Unit] = {
 
-    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, scope)
-    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, scope)
+    val userRoles: Seq[String] = requestContext.getUserRoles
 
-    scope match {
-      case ScopeMedia => enrichMediaObject(inputJson, grantPermissions, denyPermissions)
-      case _ => ???
+    if (isAllowed(userRoles, action, scope, _.isMatching(objects))) {
+      Future.successful(())
+    } else {
+      Future.failed(UnauthorizedException(action, scope))
     }
   }
 
+  /**
+    * Filters the returning domainObjects of a response of
+    * a `GET` requests to only viewable items.
+    * If the `GET` requests points to a specific resource and there is no
+    * permission that grants access a UnauthorizedException is thrown
+    */
   def filterDomainObjects[A](
       scope: Scope,
       domainObjects: Seq[A],
@@ -52,43 +62,15 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       objects: ComparisonObjects = ComparisonObjects()
   )(implicit requestContext: RequestContext): Seq[A] = {
 
-    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, View, scope)
-    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, View, scope)
+    val userRoles: Seq[String] = requestContext.getUserRoles
 
     val filteredObjects: Seq[A] = domainObjects.filter({ obj: A =>
-      {
-
-        val co: ComparisonObjects = obj match {
-          case table: Table => ComparisonObjects(table)
-          case _ => ??? // TODO
-        }
-
-        val matchingGrantPermission: Option[Permission] = grantPermissions.find(_.isMatching(co))
-
-        val isAllowed: Boolean = matchingGrantPermission
-          .map({
-            grantPermission =>
-              val matchingDenyPermission: Option[Permission] = denyPermissions.find(_.isMatching(co))
-
-              matchingDenyPermission
-                .map({ denyPermission =>
-                  logger.debug(
-                    s"DENY: A permission in role '${denyPermission.roleName}' filtered the item in scope '$scope'")
-                  false
-                })
-                .getOrElse({
-                  logger.debug(
-                    s"GRANT: A permission in role '${grantPermission.roleName}' passed through the item in scope '$scope'")
-                  true
-                })
-          })
-          .getOrElse({
-            logger.debug(s"DENY: No permission found that could pass through the item")
-            false
-          })
-
-        isAllowed
+      val co: ComparisonObjects = obj match {
+        case table: Table => ComparisonObjects(table)
+        case _ => ??? // TODO
       }
+
+      isAllowed(userRoles, View, scope, _.isMatching(co))
     })
 
     if (isSingleItemRequest && filteredObjects.isEmpty) {
@@ -99,54 +81,93 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   }
 
   /**
-    * Checks the RoleModel if a specific action on a scope is allowed for a set of given roles.
-    * If not a ForbiddenException is thrown
-    *
-    *  There are several steps
-    *    1. filter permissions for assigned user roles, desired action and scope
-    *    2. first check if a permission with type 'grant' meets the conditions
-    *        no condition means -> condition evaluates to 'true'
-    *
-    *    3. if at least one meets the conditions check also the deny types
-    *
-    * @return
+    * Enriches a domainObject with a permission object to
+    * extend the response item with additional permission info.
     */
-  def checkAuthorization(
-      action: Action,
+  def enrichDomainObject(
+      inputJson: JsonObject,
       scope: Scope,
       objects: ComparisonObjects = ComparisonObjects()
-  )(implicit requestContext: RequestContext): Future[Unit] = {
+  )(implicit requestContext: RequestContext): JsonObject = {
 
-    val grantPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Grant, action, scope)
-    val denyPermissions: Seq[Permission] = filterPermissions(requestContext.getUserRoles, Deny, action, scope)
+    val userRoles: Seq[String] = requestContext.getUserRoles
 
-    val matchingGrantPermission: Option[Permission] = grantPermissions.find(_.isMatching(objects))
-
-    // TODO refactor
-    val isAllowed: Boolean = matchingGrantPermission
-      .map({ grantPermission =>
-        val matchingDenyPermission: Option[Permission] = denyPermissions.find(_.isMatching(objects))
-
-        matchingDenyPermission
-          .map({ denyPermission =>
-            logger.debug(s"DENY: A permission in role '${denyPermission.roleName}' denies access")
-            false
-          })
-          .getOrElse({
-            logger.debug(s"GRANT: A permission in role '${grantPermission.roleName}' grants access")
-            true
-          })
-      })
-      .getOrElse({
-        logger.debug(s"DENY: No permission found that grants access")
-        false
-      })
-
-    if (isAllowed) {
-      Future.successful(())
-    } else {
-      Future.failed(UnauthorizedException(action, scope))
+    scope match {
+      case ScopeMedia => enrichMediaObject(inputJson, userRoles, scope)
+//      case ScopeMedia => enrichMediaObject(inputJson, grantPermissions, denyPermissions)
+      case _ => ???
     }
+  }
+
+  private def enrichMediaObject(
+      inputJson: JsonObject,
+      userRoles: Seq[String],
+      scope: Scope
+  ): JsonObject = {
+
+    def isActionAllowed(action: Action): Boolean = {
+      isAllowed(userRoles, action, scope, _.actions.contains(action))
+    }
+
+    inputJson.mergeIn(
+      Json.obj(
+        "permission" ->
+          Json.obj(
+            "create" -> isActionAllowed(Create),
+            "edit" -> isActionAllowed(Edit),
+            "delete" -> isActionAllowed(Delete)
+          ))
+    )
+  }
+
+  private def isAllowed(
+      userRoles: Seq[String],
+      action: Action,
+      scope: Scope,
+      function: Permission => Boolean
+  ): Boolean = {
+
+    def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, scope)
+    def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action, scope)
+
+    val grantPermissionOpt: Option[Permission] = grantPermissions.find(function)
+
+//    *  There are several steps
+//    *    1. filter permissions for assigned user roles, desired action and scope
+//      *    2. first check if a permission with type 'grant' meets the conditions
+//    *        no condition means -> condition evaluates to 'true'
+//    *    3. if at least one meets the conditions check also the deny types
+
+    grantPermissionOpt
+      .map({ grantPermission =>
+        val denyPermissionOpt: Option[Permission] = denyPermissions.find(function)
+
+        denyPermissionOpt
+          .map(denyPermission => returnAndLog(Deny, loggingMessage(_, denyPermission, scope, View)))
+          .getOrElse(returnAndLog(Grant, loggingMessage(_, grantPermission, scope, View)))
+      })
+      .getOrElse(returnAndLog(Deny, defaultLoggingMessage))
+  }
+
+  /**
+    * Convenient method that combines two concerns.
+    *   1. Logs a generated message with information which role matched with a permission
+    *   2. And depending on the PermissionType, it returns a Boolean result whether it allows or permits an action.
+    */
+  private def returnAndLog(permissionType: PermissionType, messageCurry: PermissionType => String): Boolean = {
+    logger.debug(messageCurry(permissionType))
+    permissionType.isAccessAllowed
+  }
+
+  private def defaultLoggingMessage(permissionType: PermissionType): String = "No permission fitting"
+
+  private def loggingMessage(
+      permissionType: PermissionType,
+      permission: Permission,
+      scope: Scope,
+      action: Action
+  ): String = {
+    s"${permissionType.toString.toUpperCase}: A permission is fitting for role '${permission.roleName}'. Scope: '$scope' Action: '$action'"
   }
 
   val role2permissions: Map[String, Seq[Permission]] =
@@ -167,47 +188,6 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         case (key, permission) => s"$key => ${permission.toString}"
       })
       .mkString("\n")
-
-  private def enrichMediaObject(
-      inputJson: JsonObject,
-      grantPermissions: Seq[Permission],
-      denyPermissions: Seq[Permission]
-  ): JsonObject = {
-
-    // TODO refactor to reuse it in other enrich methods
-    def isActionAllowed(action: Action): Boolean = {
-      val matchingGrantPermission: Option[Permission] = grantPermissions.find(_.actions.contains(action))
-
-      matchingGrantPermission
-        .map({ grantPermission =>
-          val matchingDenyPermission: Option[Permission] = denyPermissions.find(_.actions.contains(action))
-
-          matchingDenyPermission
-            .map({ denyPermission =>
-              logger.debug(s"DENY: A permission in role '${denyPermission.roleName}' denies $action on Media")
-              false
-            })
-            .getOrElse({
-              logger.debug(s"GRANT: A permission in role '${grantPermission.roleName}' grants $action on Media")
-              true
-            })
-        })
-        .getOrElse({
-          logger.debug(s"DENY: No permission found that grants $action on Media")
-          false
-        })
-    }
-
-    inputJson.mergeIn(
-      Json.obj(
-        "permission" ->
-          Json.obj(
-            "create" -> isActionAllowed(Create),
-            "edit" -> isActionAllowed(Edit),
-            "delete" -> isActionAllowed(Delete)
-          ))
-    )
-  }
 
   private def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
     role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
