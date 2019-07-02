@@ -20,13 +20,14 @@ object RoleModel {
   * ## RoleModel is responsible for providing these main functions:
   *
   * - checkAuthorization:
-  *       a check method for `POST`, `PUT`, `PATCH` und `DELETE` requests
+  *       A check method for `POST`, `PUT`, `PATCH` und `DELETE` requests.
   *
   * - filterDomainObjects:
-  *       a filter method for `GET` requests, to only return viewable items
+  *       A filter method for `GET` requests, to only return viewable items.
+  *       If a `GET` requests a specific resource, checkAuthorization should be called instead.
   *
   * - enrichDomainObject:
-  *       a enrich method for selected `GET` requests, to extend response items with permissions objects
+  *       A enrich method for selected `GET` requests, to extend response items with permissions objects.
   */
 case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
@@ -52,19 +53,16 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   /**
     * Filters the returning domainObjects of a response of
     * a `GET` requests to only viewable items.
-    * If the `GET` requests points to a specific resource and there is no
-    * permission that grants access a UnauthorizedException is thrown
     */
   def filterDomainObjects[A](
       scope: Scope,
       domainObjects: Seq[A],
-      isSingleItemRequest: Boolean = false,
       objects: ComparisonObjects = ComparisonObjects()
   )(implicit requestContext: RequestContext): Seq[A] = {
 
     val userRoles: Seq[String] = requestContext.getUserRoles
 
-    val filteredObjects: Seq[A] = domainObjects.filter({ obj: A =>
+    domainObjects.filter({ obj: A =>
       val co: ComparisonObjects = obj match {
         case table: Table => ComparisonObjects(table)
         case _ => ??? // TODO
@@ -72,12 +70,6 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
       isAllowed(userRoles, View, scope, _.isMatching(co))
     })
-
-    if (isSingleItemRequest && filteredObjects.isEmpty) {
-      throw UnauthorizedException(View, scope)
-    } else {
-      filteredObjects
-    }
   }
 
   /**
