@@ -30,13 +30,15 @@ trait StructureControllerAuthTest extends TableauxTestBase {
   def createDefaultTable(name: String): Future[Table] = {
     val controller = createStructureController()
 
-    controller.createGenericTable(name,
-                                  hidden = false,
-                                  langtags = None,
-                                  displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
-                                  tableGroupId = None)
+    requestWithDevUserRole[Table] {
+      controller.createTable(name,
+                             hidden = false,
+                             langtags = None,
+                             displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
+                             GenericTable,
+                             tableGroupId = None)
+    }
   }
-
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -122,9 +124,9 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       val controller = createStructureController()
 
       for {
-        _ <- createDefaultTable("Test")
+        tableId <- createDefaultTable("Test").map(_.id)
 
-        tableId <- controller.retrieveTable(1).map(_.id)
+        _ <- controller.retrieveTable(tableId)
       } yield ()
     }
 
