@@ -255,8 +255,29 @@ trait TableauxTestBase
     roleModel
   }
 
-  private def setRequestRoles(roles: String*) = {
+  protected def setRequestRoles(roles: String*) = {
     requestContext.principal = Json.obj("realm_access" -> Json.obj("roles" -> roles))
+  }
+
+  /**
+    * Helper method to set up Tests without running into permission problem (UnauthorizedException)
+    *
+    *   1. Sets a userRole for requestContext
+    *   2. Invokes a function block with this userRole
+    *   3. Resets the original userRoles defined by the test
+    *
+    *   For this purpose there is a dummy test role "dev" in `role-permissions-test.json`.
+    */
+  protected def requestWithDevUserRole[A](function: => Future[A]): Future[A] = {
+    val userRolesFromTest: Seq[String] = requestContext.getUserRoles
+
+    setRequestRoles("dev")
+
+    val result: Future[A] = function
+
+    setRequestRoles(userRolesFromTest: _*)
+
+    result
   }
 
   def okTest(f: => Future[_])(implicit context: TestContext): Unit = {
