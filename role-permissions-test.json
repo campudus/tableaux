@@ -35,6 +35,11 @@
       "type": "grant",
       "action": ["create", "view", "edit", "delete"],
       "scope": "cell"
+    },
+    {
+      "type": "grant",
+      "action": ["create", "view", "edit", "delete"],
+      "scope": "column"
     }
   ]
 }
