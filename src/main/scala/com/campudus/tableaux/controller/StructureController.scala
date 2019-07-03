@@ -13,7 +13,14 @@ import com.campudus.tableaux.database.domain.{
 }
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, Delete, RoleModel, ScopeTable, View}
+import com.campudus.tableaux.router.auth.permission.{
+  ComparisonObjects,
+  Delete,
+  RoleModel,
+  ScopeColumn,
+  ScopeTable,
+  View
+}
 import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
 
 import scala.concurrent.Future
@@ -83,6 +90,7 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
+      _ <- roleModel.checkAuthorization(View, ScopeColumn, ComparisonObjects(table, column))
     } yield column
   }
 
