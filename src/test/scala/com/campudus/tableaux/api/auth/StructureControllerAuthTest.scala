@@ -1,12 +1,13 @@
 package com.campudus.tableaux.api.auth
 
+import com.campudus.tableaux.{CustomException, UnauthorizedException}
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, Table}
 import com.campudus.tableaux.database.model.StructureModel
-import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.JsonUtils._
-import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeColumn, View}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -37,6 +38,7 @@ trait StructureControllerAuthTest extends TableauxTestBase {
                              displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
                              GenericTable,
                              tableGroupId = None)
+
     }
   }
 }
@@ -95,7 +97,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
 class StructureControllerAuthTest_filterAuthorization extends StructureControllerAuthTest {
 
   @Test
-  def retrieveTable_authorized_ok(implicit c: TestContext): Unit = okTest {
+  def retrieveSpecificTable_authorized_ok(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
                                     |  "view-tables": [
@@ -119,7 +121,7 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
   }
 
   @Test
-  def retrieveTable_notAuthorized_throwsException(implicit c: TestContext): Unit =
+  def retrieveSpecificTable_notAuthorized_throwsException(implicit c: TestContext): Unit =
     exceptionTest("error.request.unauthorized") {
       val controller = createStructureController()
 
@@ -250,4 +252,165 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       assertEquals(0, tables.size())
     }
   }
+
+  @Test
+  def retrieveSpecificColumn_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+
+      for {
+        tableId <- createDefaultTable()
+
+        _ <- controller.retrieveColumn(tableId, 1)
+      } yield ()
+    }
+
+  @Test
+  def retrieveSpecificColumn_allColumnsViewable_ok(implicit c: TestContext): Unit = {
+
+    val roleModel: RoleModel = initRoleModel("""
+                                               |{
+                                               |  "view-all-columns": [
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "column"
+                                               |    }
+                                               |  ]
+                                               |}""".stripMargin)
+
+    okTest {
+      val controller = createStructureController(roleModel)
+
+      for {
+        tableId <- createDefaultTable()
+
+        _ <- controller.retrieveColumn(tableId, 1)
+      } yield ()
+    }
+  }
+
+  @Test
+  def retrieveSpecificColumn_allColumnsWithId1Viewable_ok(implicit c: TestContext): Unit = {
+
+    val roleModel: RoleModel = initRoleModel("""
+                                               |{
+                                               |  "view-column-id1": [
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "column",
+                                               |      "condition": {
+                                               |        "column": {
+                                               |          "id": "1"
+                                               |        }
+                                               |      }
+                                               |    }
+                                               |  ]
+                                               |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        tableId1 <- createDefaultTable("Table1", 1)
+        tableId2 <- createDefaultTable("Table2", 2)
+
+        columnId1: Long <- controller.retrieveColumn(tableId1, 1).map(_.id)
+        ex1 <- controller.retrieveColumn(tableId1, 2).recover({ case ex => ex })
+        columnId2: Long <- controller.retrieveColumn(tableId2, 1).map(_.id)
+        ex2 <- controller.retrieveColumn(tableId2, 2).recover({ case ex => ex })
+
+      } yield {
+        assertEquals(1, columnId1)
+        assertEquals(UnauthorizedException(View, ScopeColumn), ex1)
+        assertEquals(1, columnId2)
+        assertEquals(UnauthorizedException(View, ScopeColumn), ex2)
+      }
+    }
+  }
+
+  @Test
+  def retrieveSpecificColumn_allColumnsOfTable1Viewable_ok(implicit c: TestContext): Unit = {
+
+    val roleModel: RoleModel = initRoleModel("""
+                                               |{
+                                               |  "view-columns-of-table-1": [
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "column",
+                                               |      "condition": {
+                                               |        "table": {
+                                               |          "id": "1"
+                                               |        }
+                                               |      }
+                                               |    }
+                                               |  ]
+                                               |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        tableId1 <- createDefaultTable("Table1", 1)
+        tableId2 <- createDefaultTable("Table2", 2)
+
+        columnId1: Long <- controller.retrieveColumn(tableId1, 1).map(_.id)
+        columnId2: Long <- controller.retrieveColumn(tableId1, 2).map(_.id)
+        ex1 <- controller.retrieveColumn(tableId2, 1).recover({ case ex => ex })
+        ex2 <- controller.retrieveColumn(tableId2, 2).recover({ case ex => ex })
+
+      } yield {
+        assertEquals(1, columnId1)
+        assertEquals(2, columnId2)
+        assertEquals(UnauthorizedException(View, ScopeColumn), ex1)
+        assertEquals(UnauthorizedException(View, ScopeColumn), ex2)
+      }
+    }
+  }
+
+  @Test
+  def retrieveSpecificColumn_onlyColumnWithId1AndOfTable1Viewable_ok(implicit c: TestContext): Unit = {
+
+    val roleModel: RoleModel = initRoleModel("""
+                                               |{
+                                               |  "view-columns-of-table-1": [
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "column",
+                                               |      "condition": {
+                                               |        "table": {
+                                               |          "id": "1"
+                                               |        },
+                                               |        "column": {
+                                               |          "id": "1"
+                                               |        }
+                                               |      }
+                                               |    }
+                                               |  ]
+                                               |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        tableId1 <- createDefaultTable("Table1", 1)
+        tableId2 <- createDefaultTable("Table2", 2)
+
+        columnId1: Long <- controller.retrieveColumn(tableId1, 1).map(_.id)
+        ex1 <- controller.retrieveColumn(tableId1, 2).recover({ case ex => ex })
+        ex2 <- controller.retrieveColumn(tableId2, 1).recover({ case ex => ex })
+        ex3 <- controller.retrieveColumn(tableId2, 2).recover({ case ex => ex })
+
+      } yield {
+        assertEquals(1, columnId1)
+        assertEquals(UnauthorizedException(View, ScopeColumn), ex1)
+        assertEquals(UnauthorizedException(View, ScopeColumn), ex2)
+        assertEquals(UnauthorizedException(View, ScopeColumn), ex3)
+      }
+    }
+  }
+
 }
