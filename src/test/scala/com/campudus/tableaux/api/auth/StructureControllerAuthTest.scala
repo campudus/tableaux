@@ -1,13 +1,11 @@
 package com.campudus.tableaux.api.auth
 
-import java.lang
-
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, Table}
+import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeColumn, View}
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -30,7 +28,7 @@ trait StructureControllerAuthTest extends TableauxTestBase {
     StructureController(tableauxConfig, model, roleModel)
   }
 
-  def createDefaultTable(name: String): Future[lang.Long] = {
+  def createDefaultTable(name: String): Future[Long] = {
     asDevUser(
       sendRequest("POST", "/tables", Json.obj("name" -> name))
     ).map(_.getLong("id"))
@@ -122,6 +120,57 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
                                     displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
                                     tableType = GenericTable,
                                     tableGroupId = None)
+      } yield ()
+    }
+
+  @Test
+  def createColumn_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create", "view"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- sendRequest("POST", "/tables", Json.obj("name" -> "TestTable"))
+        .map(_.getLong("id"))
+
+      col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, false, Nil)
+
+      createdColumns <- controller.createColumns(tableId, Seq(col))
+
+    } yield {
+      assertEquals(1, createdColumns.columns.size)
+      assertEquals(1: Long, createdColumns.columns.head.id)
+      assertEquals("TestColumn", createdColumns.columns.head.name)
+    }
+  }
+
+  @Test
+  def createColumn_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+
+      val controller = createStructureController()
+
+      for {
+        tableId <- sendRequest("POST", "/tables", Json.obj("name" -> "TestTable"))
+          .map(_.getLong("id"))
+
+        col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, false, Nil)
+
+        _ <- controller.createColumns(tableId, Seq(col))
       } yield ()
     }
 }
