@@ -63,6 +63,7 @@ class StructureController(
     logger.info(s"createColumns $tableId columns $columns")
 
     for {
+      _ <- roleModel.checkAuthorization(Create, ScopeColumn)
       table <- retrieveTable(tableId)
       created <- table.tableType match {
         case GenericTable => columnStruc.createColumns(table, columns)
