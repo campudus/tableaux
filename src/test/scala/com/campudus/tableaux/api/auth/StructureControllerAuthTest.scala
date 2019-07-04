@@ -1,11 +1,13 @@
 package com.campudus.tableaux.api.auth
 
-import com.campudus.tableaux.{CustomException, UnauthorizedException}
+import java.lang
+
+import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, Table}
 import com.campudus.tableaux.database.model.StructureModel
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeColumn, View}
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -28,18 +30,10 @@ trait StructureControllerAuthTest extends TableauxTestBase {
     StructureController(tableauxConfig, model, roleModel)
   }
 
-  def createDefaultTable(name: String): Future[Table] = {
-    val controller = createStructureController()
-
-    requestWithDevUserRole[Table] {
-      controller.createTable(name,
-                             hidden = false,
-                             langtags = None,
-                             displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
-                             GenericTable,
-                             tableGroupId = None)
-
-    }
+  def createDefaultTable(name: String): Future[lang.Long] = {
+    asDevUser(
+      sendRequest("POST", "/tables", Json.obj("name" -> name))
+    ).map(_.getLong("id"))
   }
 }
 
@@ -63,14 +57,11 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
 
     for {
 
-      table <- controller.createTable("TestTable",
-                                      hidden = false,
-                                      langtags = None,
-                                      displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
-                                      tableType = GenericTable,
-                                      tableGroupId = None)
+      tableId <- asDevUser(
+        sendRequest("POST", "/tables", Json.obj("name" -> "TestTable"))
+      ).map(_.getLong("id"))
 
-      _ <- controller.deleteTable(table.id)
+      _ <- controller.deleteTable(tableId)
     } yield ()
   }
 
@@ -81,14 +72,56 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
       val controller = createStructureController()
 
       for {
-        table <- controller.createTable("TestTable",
-                                        hidden = false,
-                                        langtags = None,
-                                        displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
-                                        tableType = GenericTable,
-                                        tableGroupId = None)
+        tableId <- asDevUser(
+          sendRequest("POST", "/tables", Json.obj("name" -> "TestTable"))
+        ).map(_.getLong("id"))
 
-        _ <- controller.deleteTable(table.id)
+        _ <- controller.deleteTable(tableId)
+      } yield ()
+    }
+
+  @Test
+  def createTable_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+
+      table <- controller.createTable("TestTable",
+                                      hidden = false,
+                                      langtags = None,
+                                      displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
+                                      tableType = GenericTable,
+                                      tableGroupId = None)
+    } yield {
+      assertEquals(1: Long, table.id)
+      assertEquals("TestTable", table.name)
+    }
+  }
+
+  @Test
+  def createTable_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+
+      val controller = createStructureController()
+
+      for {
+        _ <- controller.createTable("TestTable",
+                                    hidden = false,
+                                    langtags = None,
+                                    displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
+                                    tableType = GenericTable,
+                                    tableGroupId = None)
       } yield ()
     }
 }
@@ -126,7 +159,7 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       val controller = createStructureController()
 
       for {
-        tableId <- createDefaultTable("Test").map(_.id)
+        tableId <- createDefaultTable("Test")
 
         _ <- controller.retrieveTable(tableId)
       } yield ()
@@ -409,6 +442,55 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
         assertEquals(UnauthorizedException(View, ScopeColumn), ex1)
         assertEquals(UnauthorizedException(View, ScopeColumn), ex2)
         assertEquals(UnauthorizedException(View, ScopeColumn), ex3)
+      }
+    }
+  }
+
+  @Test
+  def retrieveColumns_noViewPermission_returnEmptyList(implicit c: TestContext): Unit = {
+    okTest {
+      val controller = createStructureController()
+      for {
+        tableId <- createDefaultTable("Table1", 1)
+
+        columns <- controller.retrieveColumns(tableId).map(_.getJson.getJsonArray("columns", Json.emptyArr()))
+
+      } yield {
+        assertEquals(0, columns.size())
+      }
+    }
+  }
+
+  @Test
+  def retrieveColumns_onlyColumnsWithKindNumericAreViewable_ok(implicit c: TestContext): Unit = {
+
+    val roleModel: RoleModel = initRoleModel("""
+                                               |{
+                                               |  "view-numeric-columns": [
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "column",
+                                               |      "condition": {
+                                               |        "column": {
+                                               |          "kind": "numeric"
+                                               |        }
+                                               |      }
+                                               |    }
+                                               |  ]
+                                               |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        tableId <- createDefaultTable("Table1", 1)
+
+        columns <- controller.retrieveColumns(tableId).map(_.getJson.getJsonArray("columns", Json.emptyArr()))
+
+      } yield {
+        assertEquals(1, columns.size())
+        assertEquals("numeric", columns.get(0).asInstanceOf[JsonObject].getString("kind"))
       }
     }
   }

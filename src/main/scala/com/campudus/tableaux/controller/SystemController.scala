@@ -166,7 +166,7 @@ class SystemController(
     logger.info(s"createTable $tableName columns $rows")
 
     for {
-      table <- structureModel.tableStruc.create(tableName, hidden = false, None, List(), GenericTable, None)
+      table <- structureModel.tableModel.create(tableName, hidden = false, None, List(), GenericTable, None)
       columns <- structureModel.columnStruc.createColumns(table, columns)
 
       columnIds = columns.map(_.id)
