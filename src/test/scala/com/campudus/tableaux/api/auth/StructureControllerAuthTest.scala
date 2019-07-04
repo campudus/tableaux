@@ -252,14 +252,15 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       val controller = createStructureController(roleModel)
 
       for {
-        _ <- createDefaultTable("Test1")
-        _ <- createDefaultTable("Test2")
-        _ <- controller.createSettingsTable("Test3", // not viewable
-                                            hidden = false,
-                                            langtags = None,
-                                            displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
-                                            tableGroupId = None)
-        _ <- createDefaultTable("Test4")
+        _ <- asDevUser(
+          for {
+            _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test1"))
+            _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test2"))
+            _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test3", "type" -> "settings")) // not viewable
+            _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test4"))
+
+          } yield ()
+        )
 
         tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
       } yield {
