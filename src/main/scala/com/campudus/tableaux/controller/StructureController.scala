@@ -13,14 +13,7 @@ import com.campudus.tableaux.database.domain.{
 }
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.router.auth.permission.{
-  ComparisonObjects,
-  Delete,
-  RoleModel,
-  ScopeColumn,
-  ScopeTable,
-  View
-}
+import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
 
 import scala.concurrent.Future
@@ -40,7 +33,7 @@ class StructureController(
 )(implicit requestContext: RequestContext)
     extends Controller[StructureModel] {
 
-  val tableStruc = repository.tableStruc
+  val tableStruc = repository.tableModel
   val columnStruc = repository.columnStruc
   val tableGroupStruc = repository.tableGroupStruc
 
@@ -101,7 +94,10 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       columns <- columnStruc.retrieveAll(table)
-    } yield ColumnSeq(columns)
+    } yield {
+      val filteredColumns: Seq[ColumnType[_]] = roleModel.filterDomainObjects[ColumnType[_]](ScopeColumn, columns)
+      ColumnSeq(filteredColumns)
+    }
   }
 
   def createTable(
@@ -129,6 +125,7 @@ class StructureController(
       tableGroupId: Option[TableGroupId]
   ): Future[Table] = {
     for {
+      _ <- roleModel.checkAuthorization(Create, ScopeTable)
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId)
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
@@ -142,6 +139,7 @@ class StructureController(
       tableGroupId: Option[TableGroupId]
   ): Future[Table] = {
     for {
+      _ <- roleModel.checkAuthorization(Create, ScopeTable)
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId)
 
       _ <- columnStruc.createColumn(created,
@@ -195,11 +193,6 @@ class StructureController(
   def deleteTable(tableId: TableId): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"deleteTable $tableId")
-
-//    println(s"XXX: ----------")
-//    roleModel.println
-//
-//    println(s"XXX: ${requestContext.getUserRoles}")
 
     for {
       table <- tableStruc.retrieve(tableId)

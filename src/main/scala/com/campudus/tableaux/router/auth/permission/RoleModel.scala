@@ -43,6 +43,8 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
     val userRoles: Seq[String] = requestContext.getUserRoles
 
+    println(s"XXX: aspsdjdnpaidsjnbpadirjgbn")
+
     if (isAllowed(userRoles, action, scope, _.isMatching(objects))) {
       Future.successful(())
     } else {
@@ -56,19 +58,19 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     */
   def filterDomainObjects[A](
       scope: Scope,
-      domainObjects: Seq[A],
-      objects: ComparisonObjects = ComparisonObjects()
+      domainObjects: Seq[A]
   )(implicit requestContext: RequestContext): Seq[A] = {
 
     val userRoles: Seq[String] = requestContext.getUserRoles
 
     domainObjects.filter({ obj: A =>
-      val co: ComparisonObjects = obj match {
+      val objects: ComparisonObjects = obj match {
         case table: Table => ComparisonObjects(table)
+        case column: ColumnType[_] => ComparisonObjects(column)
         case _ => ??? // TODO
       }
 
-      isAllowed(userRoles, View, scope, _.isMatching(co))
+      isAllowed(userRoles, View, scope, _.isMatching(objects))
     })
   }
 
@@ -134,8 +136,8 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         val denyPermissionOpt: Option[Permission] = denyPermissions.find(function)
 
         denyPermissionOpt match {
-          case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, denyPermission, scope, View))
-          case None => returnAndLog(Grant, loggingMessage(_, grantPermission, scope, View))
+          case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, denyPermission, scope, action))
+          case None => returnAndLog(Grant, loggingMessage(_, grantPermission, scope, action))
         }
 
       case None => returnAndLog(Deny, defaultLoggingMessage(_, userRoles))
