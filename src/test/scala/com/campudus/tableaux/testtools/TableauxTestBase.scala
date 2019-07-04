@@ -248,14 +248,14 @@ trait TableauxTestBase
   /**
     * Initializes the RoleModel with the given config and also sets up the requestsContext with all provided roles
     */
-  def initRoleModel(roleConfig: String) = {
-    val roleModel = RoleModel(Json.fromObjectString(roleConfig.stripMargin))
+  def initRoleModel(roleConfig: String): RoleModel = {
+    val roleModel: RoleModel = RoleModel(Json.fromObjectString(roleConfig.stripMargin))
 
     setRequestRoles(roleModel.role2permissions.keySet.toSeq: _*)
     roleModel
   }
 
-  protected def setRequestRoles(roles: String*) = {
+  protected def setRequestRoles(roles: String*): Unit = {
     requestContext.principal = Json.obj("realm_access" -> Json.obj("roles" -> roles))
   }
 
@@ -268,7 +268,7 @@ trait TableauxTestBase
     *
     *   For this purpose there is a dummy test role "dev" in `role-permissions-test.json`.
     */
-  protected def requestWithDevUserRole[A](function: => Future[A]): Future[A] = {
+  protected def asDevUser[A](function: => Future[A]): Future[A] = {
     val userRolesFromTest: Seq[String] = requestContext.getUserRoles
 
     setRequestRoles("dev")
@@ -318,9 +318,7 @@ trait TableauxTestBase
   }
 
   def sendRequest(method: String, path: String): Future[JsonObject] = {
-    val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, None).end()
-    p.future
+    sendRequest(method, path, None)
   }
 
   def sendRequest(method: String, path: String, tokenOpt: Option[String]): Future[JsonObject] = {
@@ -330,9 +328,7 @@ trait TableauxTestBase
   }
 
   def sendRequest(method: String, path: String, jsonObj: JsonObject): Future[JsonObject] = {
-    val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, None).end(jsonObj.encode())
-    p.future
+    sendRequest(method, path, jsonObj, None)
   }
 
   def sendRequest(method: String, path: String, jsonObj: JsonObject, tokenOpt: Option[String]): Future[JsonObject] = {
@@ -342,9 +338,7 @@ trait TableauxTestBase
   }
 
   def sendRequest(method: String, path: String, body: String): Future[JsonObject] = {
-    val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, None).end(body)
-    p.future
+    sendRequest(method, path, body, None)
   }
 
   def sendRequest(method: String, path: String, body: String, tokenOpt: Option[String]): Future[JsonObject] = {
@@ -354,29 +348,12 @@ trait TableauxTestBase
   }
 
   def sendRequest(method: String, path: String, domainObject: DomainObject): Future[JsonObject] = {
-    val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, None).end(domainObject.getJson.encode())
-    p.future
-  }
-
-  def sendRequest(method: String,
-                  path: String,
-                  domainObject: DomainObject,
-                  tokenOpt: Option[String]): Future[JsonObject] = {
-    val p = Promise[JsonObject]()
-    httpJsonRequest(method, path, p, tokenOpt).end(domainObject.getJson.encode())
-    p.future
+    sendRequest(method, path, domainObject.getJson)
   }
 
   def sendStringRequest(method: String, path: String): Future[String] = {
     val p = Promise[String]()
     httpStringRequest(method, path, p, None).end()
-    p.future
-  }
-
-  def sendStringRequest(method: String, path: String, tokenOpt: Option[String]): Future[String] = {
-    val p = Promise[String]()
-    httpStringRequest(method, path, p, tokenOpt).end()
     p.future
   }
 
@@ -386,52 +363,27 @@ trait TableauxTestBase
     p.future
   }
 
-  def sendStringRequest(method: String, path: String, jsonObj: JsonObject, tokenOpt: Option[String]): Future[String] = {
-    val p = Promise[String]()
-    httpStringRequest(method, path, p, tokenOpt).end(jsonObj.encode())
-    p.future
-  }
+  private def createResponseHandler[A](
+      p: Promise[A],
+      function: String => A
+  ): (HttpClient, HttpClientResponse) => Unit = { (client: HttpClient, resp: HttpClientResponse) =>
+    def bodyHandler(buf: Buffer): Unit = {
+      val body = buf.toString()
 
-  private def createJsonResponseHandler(p: Promise[JsonObject]): (HttpClient, HttpClientResponse) => Unit = {
-    (client: HttpClient, resp: HttpClientResponse) =>
-      def jsonBodyHandler(buf: Buffer): Unit = {
-        val body = buf.toString()
+      client.close()
 
-        client.close()
-
-        if (resp.statusCode() != 200) {
-          p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
-        } else {
-          try {
-            p.success(Json.fromObjectString(body))
-          } catch {
-            case ex: Exception => p.failure(ex)
-          }
+      if (resp.statusCode() != 200) {
+        p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
+      } else {
+        try {
+          p.success(function(body))
+        } catch {
+          case ex: Exception => p.failure(ex)
         }
       }
+    }
 
-      resp.bodyHandler(jsonBodyHandler(_: Buffer))
-  }
-
-  private def createStringResponseHandler(p: Promise[String]): (HttpClient, HttpClientResponse) => Unit = {
-    (client: HttpClient, resp: HttpClientResponse) =>
-      def stringBodyHandler(buf: Buffer): Unit = {
-        val body = buf.toString()
-
-        client.close()
-
-        if (resp.statusCode() != 200) {
-          p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
-        } else {
-          try {
-            p.success(body)
-          } catch {
-            case ex: Exception => p.failure(ex)
-          }
-        }
-      }
-
-      resp.bodyHandler(stringBodyHandler(_: Buffer))
+    resp.bodyHandler(bodyHandler(_: Buffer))
   }
 
   private def createExceptionHandler[A](p: Promise[A]): (HttpClient, Throwable) => Unit = {
@@ -443,14 +395,18 @@ trait TableauxTestBase
                                 path: String,
                                 p: Promise[String],
                                 tokenOpt: Option[String]): HttpClientRequest = {
-    httpRequest(method, path, createStringResponseHandler(p), createExceptionHandler[String](p), tokenOpt)
+    httpRequest(method, path, createResponseHandler[String](p, _.toString), createExceptionHandler[String](p), tokenOpt)
   }
 
   private def httpJsonRequest(method: String,
                               path: String,
                               p: Promise[JsonObject],
                               tokenOpt: Option[String]): HttpClientRequest = {
-    httpRequest(method, path, createJsonResponseHandler(p), createExceptionHandler[JsonObject](p), tokenOpt)
+    httpRequest(method,
+                path,
+                createResponseHandler[JsonObject](p, Json.fromObjectString),
+                createExceptionHandler[JsonObject](p),
+                tokenOpt)
   }
 
   def httpRequest(
@@ -541,7 +497,7 @@ trait TableauxTestBase
       columnId1 = column1.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
 
       column2 <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
-      columnId2 = column1.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+      columnId2 = column2.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
     } yield (columnId1, columnId2)
   }
 

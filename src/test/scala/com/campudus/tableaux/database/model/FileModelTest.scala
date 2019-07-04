@@ -103,10 +103,11 @@ class FileModelTest extends TableauxTestBase {
       val controller = createMediaController()
 
       for {
-        insertedFile <- controller.addFile(MultiLanguageValue("de-DE" -> "Test 1"),
-                                           MultiLanguageValue.empty(),
-                                           MultiLanguageValue("de-DE" -> "external1.pdf"),
-                                           None)
+        insertedFile <- asDevUser(
+          controller.addFile(MultiLanguageValue("de-DE" -> "Test 1"),
+                             MultiLanguageValue.empty(),
+                             MultiLanguageValue("de-DE" -> "external1.pdf"),
+                             None))
 
         _ <- controller.changeFile(
           insertedFile.uuid,
