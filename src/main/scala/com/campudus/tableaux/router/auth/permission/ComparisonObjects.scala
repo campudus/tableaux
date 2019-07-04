@@ -15,6 +15,10 @@ object ComparisonObjects {
   def apply(table: Table, column: ColumnType[_]): ComparisonObjects = {
     new ComparisonObjects(tableOpt = Some(table), columnOpt = Some(column))
   }
+
+  def apply(column: ColumnType[_]): ComparisonObjects = {
+    new ComparisonObjects(tableOpt = None, columnOpt = Some(column))
+  }
 }
 
 /**
