@@ -43,8 +43,6 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
     val userRoles: Seq[String] = requestContext.getUserRoles
 
-    println(s"XXX: aspsdjdnpaidsjnbpadirjgbn")
-
     if (isAllowed(userRoles, action, scope, _.isMatching(objects))) {
       Future.successful(())
     } else {
