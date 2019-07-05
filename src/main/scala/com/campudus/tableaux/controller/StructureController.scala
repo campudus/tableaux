@@ -63,8 +63,8 @@ class StructureController(
     logger.info(s"createColumns $tableId columns $columns")
 
     for {
-      _ <- roleModel.checkAuthorization(Create, ScopeColumn)
       table <- retrieveTable(tableId)
+      _ <- roleModel.checkAuthorization(Create, ScopeColumn, ComparisonObjects(table))
       created <- table.tableType match {
         case GenericTable => columnStruc.createColumns(table, columns)
         case SettingsTable => Future.failed(ForbiddenException("can't add a column to a settings table", "column"))
