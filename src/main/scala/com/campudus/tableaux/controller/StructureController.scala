@@ -227,6 +227,8 @@ class StructureController(
 
     for {
       table <- tableStruc.retrieve(tableId)
+      column <- columnStruc.retrieve(table, columnId)
+      _ <- roleModel.checkAuthorization(Delete, ScopeColumn, ComparisonObjects(table, column))
       _ <- table.tableType match {
         case GenericTable => columnStruc.delete(table, columnId)
         case SettingsTable =>
