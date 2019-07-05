@@ -27,12 +27,6 @@ trait StructureControllerAuthTest extends TableauxTestBase {
 
     StructureController(tableauxConfig, model, roleModel)
   }
-
-  def createDefaultTable(name: String): Future[Long] = {
-    asDevUser(
-      sendRequest("POST", "/tables", Json.obj("name" -> name))
-    ).map(_.getLong("id"))
-  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -179,7 +173,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
 
     val roleModel = initRoleModel("""
                                     |{
-                                    |  "create-columns-for-model-tables": [
+                                    |  "create-columns-in-model-tables": [
                                     |    {
                                     |      "type": "grant",
                                     |      "action": ["view"],
@@ -212,6 +206,105 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
       } yield {
         assertEquals("TestColumn", createdColumns.head.name)
         assertEquals(UnauthorizedException(Create, ScopeColumn), ex)
+      }
+    }
+  }
+
+  @Test
+  def deleteColumn_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "delete-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["delete"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable("Test")
+      _ <- controller.deleteColumn(tableId, 1)
+    } yield ()
+  }
+
+  @Test
+  def deleteColumn_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+
+      for {
+        tableId <- createDefaultTable("Test")
+        _ <- controller.deleteColumn(tableId, 1)
+      } yield ()
+    }
+
+  @Test
+  def deleteColumn_authorizedInModelTables_notAuthorizedInVariantTables(implicit c: TestContext): Unit = {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "delete-columns-in-model-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["delete"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "name": ".*_model"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        modelTableId <- createDefaultTable("test_model", 1)
+        variantTableId <- createDefaultTable("test_variant", 2)
+
+        _ <- controller.deleteColumn(modelTableId, 1)
+        ex <- controller.deleteColumn(variantTableId, 1).recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(Delete, ScopeColumn), ex)
+      }
+    }
+  }
+
+  @Test
+  def deleteColumn_authorizedForIdentifier_notAuthorizedForNonIdentifier(implicit c: TestContext): Unit = {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "delete-columns-in-model-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["delete"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "column": {
+                                    |          "identifier": "true"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        tableId <- createDefaultTable("test_model", 1)
+
+        _ <- controller.deleteColumn(tableId, 1) // "identifier" == true
+        ex <- controller.deleteColumn(tableId, 2).recover({ case ex => ex }) // "identifier" != true
+      } yield {
+        assertEquals(UnauthorizedException(Delete, ScopeColumn), ex)
       }
     }
   }
