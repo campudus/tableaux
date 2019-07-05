@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
 import com.campudus.tableaux.helper.JsonUtils._
-import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeColumn, View}
+import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -173,6 +173,48 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
         _ <- controller.createColumns(tableId, Seq(col))
       } yield ()
     }
+
+  @Test
+  def createColumn_authorizedInModelTables_notAuthorizedInVariantTables(implicit c: TestContext): Unit = {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-columns-for-model-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create", "view"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "name": ".*_model"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        modelTableId <- createDefaultTable("test_model", 1)
+        variantTableId <- createDefaultTable("test_variant", 2)
+
+        col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, false, Nil)
+
+        createdColumns <- controller.createColumns(modelTableId, Seq(col)).map(_.columns)
+        ex <- controller.createColumns(variantTableId, Seq(col)).recover({ case ex => ex })
+      } yield {
+        assertEquals("TestColumn", createdColumns.head.name)
+        assertEquals(UnauthorizedException(Create, ScopeColumn), ex)
+      }
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
