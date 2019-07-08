@@ -299,13 +299,26 @@ class StructureController(
         "name, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes"
       )
     )
+
+    val structureProperties: Seq[Option[Any]] =
+      Seq(columnName, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes)
+    val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
+
     logger.info(
       s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier " +
         s"frontendReadOnly=$frontendReadOnly displayInfos=$displayInfos, countryCodes=$countryCodes")
 
     for {
       table <- tableStruc.retrieve(tableId)
-      changed <- table.tableType match {
+      column <- columnStruc.retrieve(table, columnId)
+
+      _ <- if (isAtLeastOneStructureProperty) {
+        roleModel.checkAuthorization(EditStructureProperty, ScopeColumn, ComparisonObjects(table, column))
+      } else {
+        roleModel.checkAuthorization(EditDisplayProperty, ScopeColumn, ComparisonObjects(table, column))
+      }
+
+      changedColumn <- table.tableType match {
         case GenericTable =>
           columnStruc.change(table,
                              columnId,
@@ -320,7 +333,7 @@ class StructureController(
       }
 
       _ <- CacheClient(this).invalidateColumn(tableId, columnId)
-    } yield changed
+    } yield changedColumn
   }
 
   def createTableGroup(displayInfos: Seq[DisplayInfo]): Future[TableGroup] = {
