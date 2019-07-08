@@ -27,16 +27,16 @@ trait StructureControllerAuthTest extends TableauxTestBase {
 
     StructureController(tableauxConfig, model, roleModel)
   }
-}
-
-@RunWith(classOf[VertxUnitRunner])
-class StructureControllerAuthTest_checkAuthorization extends StructureControllerAuthTest {
 
   val displayInfoJson =
     Json.obj(
       "displayName" -> Json.obj("de" -> "Name"),
       "description" -> Json.obj("de" -> "Beschreibung")
     )
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class StructureControllerTableAuthTest_checkAuthorization extends StructureControllerAuthTest {
 
   @Test
   def deleteTable_authorized_ok(implicit c: TestContext): Unit = okTest {
@@ -231,6 +231,11 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
       } yield ()
     }
 
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class StructureControllerTableGroupAuthTest_checkAuthorization extends StructureControllerAuthTest {
+
   @Test
   def createTableGroup_authorized_ok(implicit c: TestContext): Unit = {
     val roleModel = initRoleModel("""
@@ -334,6 +339,11 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
         _ <- controller.deleteTableGroup(groupId)
       } yield ()
     }
+
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class StructureControllerColumnAuthTest_checkAuthorization extends StructureControllerAuthTest {
 
   @Test
   def createColumn_authorized_ok(implicit c: TestContext): Unit = okTest {
