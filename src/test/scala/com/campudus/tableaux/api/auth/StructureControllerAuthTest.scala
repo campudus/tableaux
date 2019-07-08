@@ -469,6 +469,111 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
     }
 
   @Test
+  def changeColumnEditDisplayProperty_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editDisplayProperty"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+    val displayInfos = DisplayInfos.fromJson(displayInfoJson)
+
+    for {
+      tableId <- createDefaultTable("Test")
+      _ <- controller.changeColumn(tableId, 1, None, None, None, None, None, Some(displayInfos), None)
+    } yield ()
+  }
+
+  @Test
+  def changeColumnEditDisplayProperty_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+      val displayInfos = DisplayInfos.fromJson(displayInfoJson)
+
+      for {
+        tableId <- createDefaultTable("Test")
+        _ <- controller.changeColumn(tableId, 1, None, None, None, None, None, Some(displayInfos), None)
+      } yield ()
+    }
+
+  @Test
+  def changeColumnEditStructureProperty_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editStructureProperty"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+    val displayInfos = DisplayInfos.fromJson(displayInfoJson)
+
+    for {
+      tableId <- createDefaultTable("Test")
+      _ <- controller.changeColumn(tableId, 1, Some("newName"), None, None, None, None, Some(displayInfos), None)
+    } yield ()
+  }
+
+  @Test
+  def changeColumnEditStructureProperty_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+      val displayInfos = DisplayInfos.fromJson(displayInfoJson)
+
+      for {
+        tableId <- createDefaultTable("Test")
+        _ <- controller.changeColumn(tableId, 1, Some("newName"), None, None, None, None, Some(displayInfos), None)
+      } yield ()
+    }
+
+  @Test
+  def changeColumnEditStructureProperty_authorizedInModelTables_notAuthorizedInVariantTables(
+      implicit c: TestContext): Unit = {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-columns-in-model-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editStructureProperty"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "name": ".*_model"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        modelTableId <- createDefaultTable("test_model", 1)
+        variantTableId <- createDefaultTable("test_variant", 2)
+
+        _ <- controller.changeColumn(modelTableId, 1, Some("newName"), None, None, None, None, None, None)
+        ex <- controller
+          .changeColumn(variantTableId, 1, Some("newName"), None, None, None, None, None, None)
+          .recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(EditStructureProperty, ScopeColumn), ex)
+      }
+    }
+  }
+
+  @Test
   def deleteColumn_authorizedInModelTables_notAuthorizedInVariantTables(implicit c: TestContext): Unit = {
 
     val roleModel = initRoleModel("""

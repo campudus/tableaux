@@ -40,6 +40,11 @@
       "type": "grant",
       "action": ["create", "view", "edit", "delete"],
       "scope": "column"
+    },
+    {
+      "type": "grant",
+      "action": ["create", "view", "edit", "delete"],
+      "scope": "tableGroup"
     }
   ]
 }
