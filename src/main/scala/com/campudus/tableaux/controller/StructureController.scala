@@ -250,14 +250,24 @@ class StructureController(
     checkArguments(greaterZero(tableId),
                    isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId),
                              "name, hidden, langtags, displayName, description, group"))
+
+    val structureProperties: Seq[Option[Any]] = Seq(tableName, hidden, langtags, tableGroupId)
+    val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
+
     logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId")
 
     for {
-      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId)
       table <- tableStruc.retrieve(tableId)
+      _ <- if (isAtLeastOneStructureProperty) {
+        roleModel.checkAuthorization(EditStructureProperty, ScopeTable, ComparisonObjects(table))
+      } else {
+        roleModel.checkAuthorization(EditDisplayProperty, ScopeTable, ComparisonObjects(table))
+      }
+      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId)
+      changedTable <- tableStruc.retrieve(tableId)
     } yield {
-      logger.info(s"retrieved table after change $table")
-      table
+      logger.info(s"retrieved table after change $changedTable")
+      changedTable
     }
   }
 

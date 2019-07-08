@@ -32,6 +32,12 @@ trait StructureControllerAuthTest extends TableauxTestBase {
 @RunWith(classOf[VertxUnitRunner])
 class StructureControllerAuthTest_checkAuthorization extends StructureControllerAuthTest {
 
+  val displayInfos = DisplayInfos.fromJson(
+    Json.obj(
+      "displayName" -> Json.obj("de" -> "Name"),
+      "description" -> Json.obj("de" -> "Beschreibung")
+    ))
+
   @Test
   def deleteTable_authorized_ok(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
@@ -49,9 +55,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
 
     for {
 
-      tableId <- asDevUser(
-        sendRequest("POST", "/tables", Json.obj("name" -> "TestTable"))
-      ).map(_.getLong("id"))
+      tableId <- createDefaultTable("Test")
 
       _ <- controller.deleteTable(tableId)
     } yield ()
@@ -64,9 +68,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
       val controller = createStructureController()
 
       for {
-        tableId <- asDevUser(
-          sendRequest("POST", "/tables", Json.obj("name" -> "TestTable"))
-        ).map(_.getLong("id"))
+        tableId <- createDefaultTable("Test")
 
         _ <- controller.deleteTable(tableId)
       } yield ()
@@ -118,6 +120,83 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
     }
 
   @Test
+  def changeTableDisplayProperties_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "change-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editDisplayProperty"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable("Test")
+
+      _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None)
+    } yield ()
+  }
+
+  @Test
+  def changeTableDisplayProperties_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+
+      for {
+        tableId <- createDefaultTable("Test")
+        _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None)
+      } yield ()
+    }
+
+  @Test
+  def changeTableStructureProperties_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "change-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editStructureProperty"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable("Test")
+      _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None)
+    } yield ()
+  }
+
+  @Test
+  def changeTableStructureProperties_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "change-tables": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["editDisplayProperty"],
+                                      |      "scope": "table"
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createStructureController(roleModel)
+
+      for {
+        tableId <- createDefaultTable("Test")
+
+        _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None)
+      } yield ()
+    }
+
+  @Test
   def createColumn_authorized_ok(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
@@ -138,8 +217,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
     val controller = createStructureController(roleModel)
 
     for {
-      tableId <- sendRequest("POST", "/tables", Json.obj("name" -> "TestTable"))
-        .map(_.getLong("id"))
+      tableId <- createDefaultTable("Test")
 
       col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, false, Nil)
 
@@ -147,7 +225,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
 
     } yield {
       assertEquals(1, createdColumns.columns.size)
-      assertEquals(1: Long, createdColumns.columns.head.id)
+      assertEquals(3: Long, createdColumns.columns.head.id)
       assertEquals("TestColumn", createdColumns.columns.head.name)
     }
   }
@@ -159,8 +237,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
       val controller = createStructureController()
 
       for {
-        tableId <- sendRequest("POST", "/tables", Json.obj("name" -> "TestTable"))
-          .map(_.getLong("id"))
+        tableId <- createDefaultTable("Test")
 
         col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, false, Nil)
 
@@ -436,15 +513,10 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       val controller = createStructureController(roleModel)
 
       for {
-        _ <- asDevUser(
-          for {
-            _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test1"))
-            _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test2"))
-            _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test3", "type" -> "settings")) // not viewable
-            _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test4"))
-
-          } yield ()
-        )
+        _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test1"))
+        _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test2"))
+        _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test3", "type" -> "settings")) // not viewable
+        _ <- sendRequest("POST", "/tables", Json.obj("name" -> "Test4"))
 
         tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
       } yield {
