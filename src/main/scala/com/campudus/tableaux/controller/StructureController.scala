@@ -276,6 +276,8 @@ class StructureController(
     logger.info(s"changeTableOrder $tableId $locationType")
 
     for {
+      table <- tableStruc.retrieve(tableId)
+      _ <- roleModel.checkAuthorization(EditDisplayProperty, ScopeTable, ComparisonObjects(table))
       _ <- tableStruc.changeOrder(tableId, locationType)
     } yield EmptyObject()
   }
