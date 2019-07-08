@@ -5,7 +5,7 @@ import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
-import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
+import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, LocationType, TextType}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -193,6 +193,39 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
         tableId <- createDefaultTable("Test")
 
         _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None)
+      } yield ()
+    }
+
+  @Test
+  def changeTableOrder_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "change-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editDisplayProperty"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable("Test")
+      _ <- controller.changeTableOrder(tableId, LocationType("start", None))
+    } yield ()
+  }
+
+  @Test
+  def changeTableOrder_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+
+      for {
+        tableId <- createDefaultTable("Test")
+
+        _ <- controller.changeTableOrder(tableId, LocationType("start", None))
       } yield ()
     }
 
