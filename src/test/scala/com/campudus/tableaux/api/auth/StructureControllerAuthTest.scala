@@ -32,11 +32,11 @@ trait StructureControllerAuthTest extends TableauxTestBase {
 @RunWith(classOf[VertxUnitRunner])
 class StructureControllerAuthTest_checkAuthorization extends StructureControllerAuthTest {
 
-  val displayInfos = DisplayInfos.fromJson(
+  val displayInfoJson =
     Json.obj(
       "displayName" -> Json.obj("de" -> "Name"),
       "description" -> Json.obj("de" -> "Beschreibung")
-    ))
+    )
 
   @Test
   def deleteTable_authorized_ok(implicit c: TestContext): Unit = okTest {
@@ -133,6 +133,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
                                     |}""".stripMargin)
 
     val controller = createStructureController(roleModel)
+    val displayInfos = DisplayInfos.fromJson(displayInfoJson)
 
     for {
       tableId <- createDefaultTable("Test")
@@ -145,6 +146,7 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
   def changeTableDisplayProperties_notAuthorized_throwsException(implicit c: TestContext): Unit =
     exceptionTest("error.request.unauthorized") {
       val controller = createStructureController()
+      val displayInfos = DisplayInfos.fromJson(displayInfoJson)
 
       for {
         tableId <- createDefaultTable("Test")
@@ -226,6 +228,110 @@ class StructureControllerAuthTest_checkAuthorization extends StructureController
         tableId <- createDefaultTable("Test")
 
         _ <- controller.changeTableOrder(tableId, LocationType("start", None))
+      } yield ()
+    }
+
+  @Test
+  def createTableGroup_authorized_ok(implicit c: TestContext): Unit = {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-table-group": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create"],
+                                    |      "scope": "tableGroup"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+    val displayInfos = DisplayInfos.fromJson(displayInfoJson)
+
+    okTest {
+      for {
+        _ <- controller.createTableGroup(displayInfos)
+      } yield ()
+    }
+  }
+
+  @Test
+  def createTableGroup_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+      val displayInfos = DisplayInfos.fromJson(displayInfoJson)
+
+      for {
+        _ <- controller.createTableGroup(displayInfos)
+      } yield ()
+    }
+
+  @Test
+  def updateTableGroup_authorized_ok(implicit c: TestContext): Unit = {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-table-group": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["edit"],
+                                    |      "scope": "tableGroup"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+    val newInfos = DisplayInfos.fromJson(Json.obj("displayName" -> Json.obj("de" -> "new Name")))
+
+    okTest {
+      for {
+        groupId <- sendRequest("POST", "/groups", displayInfoJson).map(_.getLong("id"))
+        _ <- controller.changeTableGroup(groupId, Some(newInfos))
+      } yield ()
+    }
+  }
+
+  @Test
+  def updateTableGroup_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+      val newInfos = DisplayInfos.fromJson(Json.obj("displayName" -> Json.obj("de" -> "new Name")))
+
+      for {
+        groupId <- sendRequest("POST", "/groups", displayInfoJson).map(_.getLong("id"))
+        _ <- controller.changeTableGroup(groupId, Some(newInfos))
+      } yield ()
+    }
+
+  @Test
+  def deleteTableGroup_authorized_ok(implicit c: TestContext): Unit = {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "delete-table-group": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["delete"],
+                                    |      "scope": "tableGroup"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    okTest {
+      for {
+        groupId <- sendRequest("POST", "/groups", displayInfoJson).map(_.getLong("id"))
+        _ <- controller.deleteTableGroup(groupId)
+      } yield ()
+    }
+  }
+
+  @Test
+  def deleteTableGroup_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val controller = createStructureController()
+
+      for {
+        groupId <- sendRequest("POST", "/groups", displayInfoJson).map(_.getLong("id"))
+        _ <- controller.deleteTableGroup(groupId)
       } yield ()
     }
 

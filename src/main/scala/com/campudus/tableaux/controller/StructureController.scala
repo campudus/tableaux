@@ -328,6 +328,7 @@ class StructureController(
     logger.info(s"createTableGroup $displayInfos")
 
     for {
+      _ <- roleModel.checkAuthorization(Create, ScopeTableGroup)
       tableGroup <- tableGroupStruc.create(displayInfos)
     } yield tableGroup
   }
@@ -337,6 +338,7 @@ class StructureController(
     logger.info(s"changeTableGroup $tableGroupId $displayInfos")
 
     for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeTableGroup)
       _ <- tableGroupStruc.change(tableGroupId, displayInfos)
       tableGroup <- tableGroupStruc.retrieve(tableGroupId)
     } yield tableGroup
@@ -347,6 +349,7 @@ class StructureController(
     logger.info(s"deleteTableGroup $tableGroupId")
 
     for {
+      _ <- roleModel.checkAuthorization(Delete, ScopeTableGroup)
       _ <- tableGroupStruc.delete(tableGroupId)
     } yield EmptyObject()
   }
