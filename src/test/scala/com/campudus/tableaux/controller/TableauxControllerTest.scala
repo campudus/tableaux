@@ -3,6 +3,7 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -18,10 +19,11 @@ class TableauxControllerTest extends TableauxTestBase {
   def createTableauxController(): TableauxController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val roleModel = RoleModel(tableauxConfig.rolePermissions)
 
-    val model = TableauxModel(dbConnection, StructureModel(dbConnection))
+    val model = TableauxModel(dbConnection, StructureModel(dbConnection), roleModel)
 
-    TableauxController(tableauxConfig, model)
+    TableauxController(tableauxConfig, model, roleModel)
   }
 
   @Test

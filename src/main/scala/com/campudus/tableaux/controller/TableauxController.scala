@@ -9,6 +9,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.{RequestContext, TableauxConfig, UnprocessableEntityException}
 import org.vertx.scala.core.json.Json
 
@@ -16,14 +17,17 @@ import scala.concurrent.Future
 
 object TableauxController {
 
-  def apply(config: TableauxConfig, repository: TableauxModel)(
+  def apply(config: TableauxConfig, repository: TableauxModel, roleModel: RoleModel)(
       implicit requestContext: RequestContext): TableauxController = {
-    new TableauxController(config, repository)
+    new TableauxController(config, repository, roleModel)
   }
 }
 
-class TableauxController(override val config: TableauxConfig, override protected val repository: TableauxModel)(
-    implicit requestContext: RequestContext)
+class TableauxController(
+    override val config: TableauxConfig,
+    override protected val repository: TableauxModel,
+    protected val roleModel: RoleModel
+)(implicit requestContext: RequestContext)
     extends Controller[TableauxModel] {
 
   def addCellAnnotation(
