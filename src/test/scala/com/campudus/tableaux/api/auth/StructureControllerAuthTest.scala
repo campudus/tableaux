@@ -5,7 +5,7 @@ import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
-import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, LocationType, TextType}
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -15,8 +15,6 @@ import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
-
-import scala.concurrent.Future
 
 trait StructureControllerAuthTest extends TableauxTestBase {
 
@@ -964,10 +962,10 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       for {
         tableId <- createDefaultTable("Table1", 1)
 
-        columns <- controller.retrieveColumns(tableId).map(_.getJson.getJsonArray("columns", Json.emptyArr()))
+        columns <- controller.retrieveColumns(tableId).map(_.columns)
 
       } yield {
-        assertEquals(0, columns.size())
+        assertEquals(0, columns.length)
       }
     }
   }
@@ -997,13 +995,50 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       for {
         tableId <- createDefaultTable("Table1", 1)
 
-        columns <- controller.retrieveColumns(tableId).map(_.getJson.getJsonArray("columns", Json.emptyArr()))
+        columns <- controller.retrieveColumns(tableId).map(_.columns)
 
       } yield {
-        assertEquals(1, columns.size())
-        assertEquals("numeric", columns.get(0).asInstanceOf[JsonObject].getString("kind"))
+        assertEquals(1, columns.length)
+        assertEquals(NumericType, columns.head.kind)
       }
     }
   }
 
+  @Test
+  def retrieveColumns_onlyColumnsFromModelTableAreViewable_ok(implicit c: TestContext): Unit = {
+    okTest {
+
+      val roleModel: RoleModel = initRoleModel("""
+                                                 |{
+                                                 |  "view-columns-from-model-tables": [
+                                                 |    {
+                                                 |      "type": "grant",
+                                                 |      "action": ["view"],
+                                                 |      "scope": "column",
+                                                 |      "condition": {
+                                                 |        "table": {
+                                                 |          "name": ".*_model"
+                                                 |        },
+                                                 |        "column": {
+                                                 |          "id": ".*"
+                                                 |        }
+                                                 |      }
+                                                 |    }
+                                                 |  ]
+                                                 |}""".stripMargin)
+
+      val controller = createStructureController(roleModel)
+
+      for {
+        modelTableId <- createDefaultTable("test_model", 1)
+        variantTableId <- createDefaultTable("test_variant", 2)
+
+        modelTableColumns <- controller.retrieveColumns(modelTableId).map(_.columns)
+        variantTableColumns <- controller.retrieveColumns(variantTableId).map(_.columns)
+      } yield {
+        assertEquals(2, modelTableColumns.length)
+        assertEquals(0, variantTableColumns.length)
+      }
+    }
+  }
 }
