@@ -88,7 +88,7 @@ class StructureController(
     } yield column
   }
 
-  def retrieveColumns(tableId: TableId): Future[DomainObject] = {
+  def retrieveColumns(tableId: TableId): Future[ColumnSeq] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveColumns $tableId")
 
@@ -96,7 +96,8 @@ class StructureController(
       table <- tableStruc.retrieve(tableId)
       columns <- columnStruc.retrieveAll(table)
     } yield {
-      val filteredColumns: Seq[ColumnType[_]] = roleModel.filterDomainObjects[ColumnType[_]](ScopeColumn, columns)
+      val filteredColumns: Seq[ColumnType[_]] =
+        roleModel.filterDomainObjects[ColumnType[_]](ScopeColumn, columns, ComparisonObjects(table))
       ColumnSeq(filteredColumns)
     }
   }
@@ -301,7 +302,7 @@ class StructureController(
     )
 
     val structureProperties: Seq[Option[Any]] =
-      Seq(columnName, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes)
+      Seq(columnName, ordering, kind, identifier, frontendReadOnly, countryCodes)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
     logger.info(

@@ -53,10 +53,14 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   /**
     * Filters the returning domainObjects of a response of
     * a `GET` requests to only viewable items.
+    *
+    * For example, when filtering columns, it is also possible to
+    * filter them according to their table.
     */
   def filterDomainObjects[A](
       scope: Scope,
-      domainObjects: Seq[A]
+      domainObjects: Seq[A],
+      parentObjects: ComparisonObjects = ComparisonObjects()
   )(implicit requestContext: RequestContext): Seq[A] = {
 
     val userRoles: Seq[String] = requestContext.getUserRoles
@@ -64,7 +68,7 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     domainObjects.filter({ obj: A =>
       val objects: ComparisonObjects = obj match {
         case table: Table => ComparisonObjects(table)
-        case column: ColumnType[_] => ComparisonObjects(column)
+        case column: ColumnType[_] => parentObjects.merge(column)
         case _ => ??? // TODO
       }
 
