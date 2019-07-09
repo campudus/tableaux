@@ -1,8 +1,8 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.domain.{ColumnType, Table}
-import com.campudus.tableaux.{RequestContext, UnauthorizedException}
 import com.campudus.tableaux.helper.JsonUtils._
+import com.campudus.tableaux.{RequestContext, UnauthorizedException}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -11,13 +11,17 @@ import scala.concurrent.Future
 
 object RoleModel {
 
-  def apply(jsonObject: JsonObject): RoleModel = {
-    new RoleModel(jsonObject)
+  def apply(jsonObject: JsonObject, isAuthorization: Boolean = true): RoleModel = {
+    if (isAuthorization) {
+      new RoleModel(jsonObject)
+    } else {
+      new RoleModelStub()
+    }
   }
 }
 
 /**
-  * ## RoleModel is responsible for providing these main functions:
+  * RoleModel is responsible for providing these main functions:
   *
   * - checkAuthorization:
   *       A check method for `POST`, `PUT`, `PATCH` und `DELETE` requests.
@@ -29,7 +33,7 @@ object RoleModel {
   * - enrichDomainObject:
   *       A enrich method for selected `GET` requests, to extend response items with permissions objects.
   */
-case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
+class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   /**
     * Checks if a writing request is allowed to change a resource.
@@ -226,4 +230,35 @@ case class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       .foreach({
         case (key, permission) => Console.println(s"XXX: $key => ${permission.toString}")
       })
+}
+
+/**
+  * This class provides a legacy mode for downward compatibility purposes.
+  * If no authorization configuration is specified, the service starts without verifying
+  * access tokens and without authorizing user roles and permissions.
+  */
+class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
+
+  private def logAuthWarning(): Unit =
+    logger.warn(
+      "Security risk! The server runs in legacy mode without authentication and authorization! " +
+        "Please run the service with an authorization configuration and user role permissions.")
+
+  override def checkAuthorization(action: Action, scope: Scope, objects: ComparisonObjects)(
+      implicit requestContext: RequestContext): Future[Unit] = {
+    logAuthWarning()
+    Future.successful(())
+  }
+
+  override def enrichDomainObject(inputJson: JsonObject, scope: Scope, objects: ComparisonObjects)(
+      implicit requestContext: RequestContext): JsonObject = {
+    logAuthWarning()
+    inputJson
+  }
+
+  override def filterDomainObjects[A](scope: Scope, domainObjects: Seq[A], parentObjects: ComparisonObjects)(
+      implicit requestContext: RequestContext): Seq[A] = {
+    logAuthWarning()
+    domainObjects
+  }
 }
