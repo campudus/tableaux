@@ -6,8 +6,10 @@ import com.campudus.tableaux._
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeCell, View}
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -23,9 +25,9 @@ object TableauxModel {
 
   type Ordering = Long
 
-  def apply(connection: DatabaseConnection, structureModel: StructureModel)(
+  def apply(connection: DatabaseConnection, structureModel: StructureModel, roleModel: RoleModel)(
       implicit requestContext: RequestContext): TableauxModel = {
-    new TableauxModel(connection, structureModel)
+    new TableauxModel(connection, structureModel, roleModel)
   }
 }
 
@@ -80,7 +82,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
 class TableauxModel(
     override protected[this] val connection: DatabaseConnection,
-    override protected[this] val structureModel: StructureModel
+    override protected[this] val structureModel: StructureModel,
+    val roleModel: RoleModel
 )(implicit requestContext: RequestContext)
     extends DatabaseQuery
     with StructureDelegateModel {
@@ -593,6 +596,7 @@ class TableauxModel(
   def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(table, columnId)
+      _ <- roleModel.checkAuthorization(View, ScopeCell, ComparisonObjects(table, column))
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
