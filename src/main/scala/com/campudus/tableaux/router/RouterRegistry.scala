@@ -8,6 +8,7 @@ import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext
+import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
 import io.vertx.scala.ext.web.Router
 import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
@@ -17,15 +18,17 @@ object RouterRegistry extends LazyLogging {
   def init(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection)(
       implicit ec: VertxExecutionContext): Router = {
 
-    val vertx = tableauxConfig.vertx
+    val vertx: Vertx = tableauxConfig.vertx
 
-    val roleModel = RoleModel(tableauxConfig.rolePermissions)
+    val isAuthorization: Boolean = !tableauxConfig.authConfig.isEmpty
+
+    val roleModel: RoleModel = RoleModel(tableauxConfig.rolePermissions, isAuthorization)
 
     val mainRouter: Router = Router.router(vertx)
 
     implicit val requestContext: RequestContext = RequestContext()
 
-    if (!tableauxConfig.authConfig.isEmpty) {
+    if (isAuthorization) {
       val keycloakAuthProvider = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
       val keycloakAuthHandler = OAuth2AuthHandler.create(keycloakAuthProvider)
       mainRouter.route().handler(keycloakAuthHandler)
