@@ -1,10 +1,15 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.MultiLanguage
+import com.campudus.tableaux.database.domain.ColumnType
 import com.typesafe.scalalogging.LazyLogging
+import org.vertx.scala.core
+import org.vertx.scala.core.json
 import org.vertx.scala.core.json.{Json, JsonObject, _}
 
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 object ConditionContainer {
 
@@ -112,7 +117,6 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
         if (column.languageType == MultiLanguage) {
 
           objects.valueOpt match {
-
             case Some(json: JsonObject) => {
               val regex: String = conditionMap.getOrElse("langtag", ".*")
 
