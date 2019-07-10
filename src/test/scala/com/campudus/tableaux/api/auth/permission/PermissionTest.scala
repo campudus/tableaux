@@ -24,10 +24,12 @@ class PermissionTest {
       identifier: Boolean = false,
       table: Table = createTable()
   ): ColumnType[_] = {
+    // displayInfos, only to prevent NPE while println
+    val displayInfos = Seq(DisplayInfos.fromString("en", "name", "desc"))
     val createColumn: CreateColumn =
-      CreateSimpleColumn(name, null, kind, languageType, identifier, frontendReadOnly = false, Nil)
+      CreateSimpleColumn(name, null, kind, languageType, identifier, frontendReadOnly = false, displayInfos)
 
-    val columnInfo: BasicColumnInformation = BasicColumnInformation(table, id, 1, null, createColumn)
+    val columnInfo: BasicColumnInformation = BasicColumnInformation(table, id, 1, displayInfos, createColumn)
 
     SimpleValueColumn(kind, languageType, columnInfo)
   }
@@ -346,5 +348,95 @@ class PermissionTest {
 
     Assert.assertEquals(false, permission.isMatching(ComparisonObjects(variantTable, variantTable_priority_low)))
     Assert.assertEquals(false, permission.isMatching(ComparisonObjects(variantTable, variantTable_priority_high)))
+  }
+
+  @Test
+  def isMatching_singleLanguageColumn_withLangtagCondition(): Unit = {
+    val column = createSimpleColumn(1)
+
+    val json = Json.fromObjectString(
+      """
+        |{
+        |  "type": "grant",
+        |  "action": ["delete"],
+        |  "scope": "column",
+        |  "condition": {
+        |    "langtag": "de"
+        |  }
+        |}
+        |""".stripMargin
+    )
+
+    val permission: Permission = Permission(json)
+
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, "any value")))
+  }
+
+  @Test
+  def isMatching_multiLanguageColumn_withLangtagCondition(): Unit = {
+    val column = createSimpleColumn(1, languageType = MultiLanguage)
+
+    val json = Json.fromObjectString(
+      """
+        |{
+        |  "type": "grant",
+        |  "action": ["delete"],
+        |  "scope": "column",
+        |  "condition": {
+        |    "langtag": "de"
+        |  }
+        |}
+        |""".stripMargin
+    )
+
+    val permission: Permission = Permission(json)
+
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, "wrong value for columnType")))
+
+    val deValue = Json.fromObjectString("""{ "de": "value-de" }""")
+    val enValue = Json.fromObjectString("""{ "en": "value-en" }""")
+    val deEnValues = Json.fromObjectString("""{ "de": "value-de", "en": "value-en"} """)
+
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, deValue)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, enValue)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, deEnValues)))
+  }
+
+  @Test
+  def isMatching_multiLanguageColumn_withLangtagConditionMultipleLangtags(): Unit = {
+    val column = createSimpleColumn(1, languageType = MultiLanguage)
+
+    val json = Json.fromObjectString(
+      """
+        |{
+        |  "type": "grant",
+        |  "action": ["delete"],
+        |  "scope": "column",
+        |  "condition": {
+        |    "langtag": "de|en|es"
+        |  }
+        |}
+        |""".stripMargin
+    )
+
+    val permission: Permission = Permission(json)
+
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, "wrong value for columnType")))
+
+    val deValue = Json.fromObjectString("""{ "de": "value-de" }""")
+    val enValue = Json.fromObjectString("""{ "en": "value-en" }""")
+    val frValue = Json.fromObjectString("""{ "fr": "value-fr" }""")
+    val deEnValues = Json.fromObjectString("""{ "de": "value-de", "en": "value-en"} """)
+
+    val deEnFrValues = Json.fromObjectString("""{ "de": "value-de", "en": "value-en", "fr": "value-fr"} """)
+
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, deValue)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, enValue)))
+    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, deEnValues)))
+
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, frValue)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, frValue)))
+    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, deEnFrValues)))
   }
 }

@@ -1,7 +1,14 @@
 package com.campudus.tableaux.router.auth.permission
 
+import com.campudus.tableaux.database.MultiLanguage
+import com.campudus.tableaux.database.domain.ColumnType
 import com.typesafe.scalalogging.LazyLogging
+import org.vertx.scala.core
+import org.vertx.scala.core.json
 import org.vertx.scala.core.json.{Json, JsonObject, _}
+
+import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 object ConditionContainer {
 
@@ -97,11 +104,69 @@ case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonO
       case None => false
     }
   }
-
 }
 
-case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(jsonObject)
-// TODO implement regex validation
+case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
+
+  override def isMatching(objects: ComparisonObjects): Boolean = {
+
+    // At this point, the value for the column type must already have been checked. -> checkValueTypeForColumn
+
+    import scala.collection.JavaConverters._
+
+    objects.columnOpt match {
+      case Some(column) =>
+        if (column.languageType == MultiLanguage) {
+
+          objects.valueOpt match {
+
+//            case Some(values) => {
+//
+//              println(s"XXX: values $values")
+
+//              ColumnType.splitIntoTypesWithValues(Seq((column, values))) match {
+//                case Failure(_) => {
+//                  println(s"XXX: Fehler")
+//                  false
+//                }
+//
+//                case Success((_, multis, _, _)) =>
+//                  println(s"XXX: multis $multis")
+//
+//                  val langtags: Set[String] = multis.headOption
+//                    .map({ case (_, languageValues) => languageValues.keySet })
+//                    .getOrElse(Set.empty[String])
+//
+//                  val regex: String = conditionMap.getOrElse("langtag", ".*")
+//                  langtags.forall(langtag => {
+//                    println(s"XXX: langtag ${langtag.matches(regex)}")
+//                    langtag.matches(regex)
+//                  })
+//              }
+//            }
+
+            case Some(json: JsonObject) => {
+              val regex: String = conditionMap.getOrElse("langtag", ".*")
+
+              json
+                .fieldNames()
+                .asScala
+                .forall(langtag => {
+                  logger.debug(s"Matching langtag: $langtag -> ${langtag.matches(regex)}")
+                  langtag.matches(regex)
+                })
+            }
+            case _ => true
+          }
+        } else {
+          true
+        }
+
+      case None => false
+    }
+  }
+
+}
 
 case object NoneCondition extends ConditionOption(Json.emptyObj()) {
   override def isMatching(objects: ComparisonObjects): Boolean = true
