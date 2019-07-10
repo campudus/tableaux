@@ -33,12 +33,7 @@
     },
     {
       "type": "grant",
-      "action": ["create", "view", "edit", "delete"],
-      "scope": "cell"
-    },
-    {
-      "type": "grant",
-      "action": ["create", "view", "edit", "delete", "editStructureProperty", "editDisplayProperty"],
+      "action": ["create", "view", "edit", "delete", "editStructureProperty", "editDisplayProperty", "viewCellValue", "editCellValue"],
       "scope": "column"
     },
     {

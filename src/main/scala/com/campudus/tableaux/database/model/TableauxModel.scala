@@ -6,10 +6,9 @@ import com.campudus.tableaux._
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeCell, View}
+import com.campudus.tableaux.router.auth.permission._
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
@@ -463,6 +462,8 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
+      - <- roleModel.checkAuthorization(Edit, ScopeColumn, ComparisonObjects(table, column))
+
       _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
 
       _ <- if (replace) {
@@ -596,7 +597,7 @@ class TableauxModel(
   def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(View, ScopeCell, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column))
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
