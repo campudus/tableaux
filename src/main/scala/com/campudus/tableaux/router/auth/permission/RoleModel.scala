@@ -1,5 +1,6 @@
 package com.campudus.tableaux.router.auth.permission
 
+import com.campudus.tableaux.database.MultiLanguage
 import com.campudus.tableaux.database.domain.{ColumnType, Table}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{RequestContext, UnauthorizedException}
@@ -47,7 +48,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
     val userRoles: Seq[String] = requestContext.getUserRoles
 
-    // For action view condition "langtag" must not be considered.
+    // In case action == ViewCellValue we must not check langtag conditions,
+    //  because we can not retrieve cell values for one language.
     val withLangtagCondition: Boolean = action != ViewCellValue
 
     if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition))) {

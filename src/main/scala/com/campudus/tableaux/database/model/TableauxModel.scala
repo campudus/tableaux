@@ -462,7 +462,7 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
-      - <- roleModel.checkAuthorization(Edit, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, value))
 
       _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
 
