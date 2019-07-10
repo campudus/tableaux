@@ -29,6 +29,22 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
 @RunWith(classOf[VertxUnitRunner])
 class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
 
+  /**
+    * 1. column -> text    | single language
+    * 2. column -> text    | multi language
+    * 3. column -> numeric | single language
+    */
+  private def createTestTable() = {
+    createSimpleTableWithValues(
+      "table",
+      List(TextCol("text"), Multilanguage(TextCol("multilanguage_text")), NumericCol("numeric")),
+      List(
+        List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en"), 1),
+        List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"), 2)
+      )
+    )
+  }
+
   @Test
   def retrieveCell_authorized_ok(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
@@ -156,14 +172,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
 
       for {
 
-        _ <- createSimpleTableWithValues(
-          "table",
-          List(TextCol("text"), Multilanguage(TextCol("multilanguage_text")), NumericCol("numeric")),
-          List(
-            List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en"), 1),
-            List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"), 2)
-          )
-        )
+        _ <- createTestTable()
 
         _ <- controller.retrieveCell(1, 1, 1)
         _ <- controller.retrieveCell(1, 2, 1)
@@ -177,10 +186,10 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
 
       val roleModel = initRoleModel("""
                                       |{
-                                      |  "view-cells": [
+                                      |  "edit-cells": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewCellValue"],
+                                      |      "action": ["editCellValue"],
                                       |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
@@ -196,22 +205,24 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
 
       for {
 
-        _ <- createSimpleTableWithValues(
-          "table",
-          List(TextCol("text"), Multilanguage(TextCol("multilanguage_text")), NumericCol("numeric")),
-          List(
-            List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en"), 1),
-            List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"), 2)
-          )
-        )
+        _ <- createTestTable()
 
-        _ <- controller.retrieveCell(1, 1, 1)
-        _ <- controller.retrieveCell(1, 2, 1)
-        _ <- controller.retrieveCell(1, 3, 1)
-      } yield ()
+        _ <- controller.updateCellValue(1, 1, 1, "new text")
+
+        _ <- controller.updateCellValue(1, 2, 1, Json.obj("de" -> "value-de"))
+        ex1 <- controller.updateCellValue(1, 2, 1, Json.obj("en" -> "value-en")).recover({ case ex => ex })
+        ex2 <- controller
+          .updateCellValue(1, 2, 1, Json.obj("de" -> "value-de", "en" -> "value-en"))
+          .recover({ case ex => ex })
+
+        _ <- controller.updateCellValue(1, 3, 1, 42)
+      } yield {
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
+      }
     }
 
 }
 
-@RunWith(classOf[VertxUnitRunner])
-class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {}
+//@RunWith(classOf[VertxUnitRunner])
+//class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {}

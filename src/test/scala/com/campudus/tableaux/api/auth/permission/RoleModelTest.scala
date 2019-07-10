@@ -152,11 +152,11 @@ class RoleModelTest {
 
     val json: JsonObject = Json.fromObjectString("""
                                                    |{
-                                                   |  "view-cell": [
+                                                   |  "view-column": [
                                                    |    {
                                                    |      "type": "grant",
                                                    |      "action": ["view"],
-                                                   |      "scope": "cell",
+                                                   |      "scope": "column",
                                                    |      "condition": {
                                                    |        "langtag": "de|en"
                                                    |      }
@@ -165,7 +165,7 @@ class RoleModelTest {
                                                    |}""".stripMargin)
     val roleModel: RoleModel = RoleModel(json)
 
-    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-cell"))
+    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-column"))
     Assert.assertEquals(1, permissions.size)
   }
 
