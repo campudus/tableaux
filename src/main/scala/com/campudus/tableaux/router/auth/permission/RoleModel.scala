@@ -48,7 +48,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = requestContext.getUserRoles
 
     // For action view condition "langtag" must not be considered.
-    val withLangtagCondition: Boolean = action != View
+    val withLangtagCondition: Boolean = action != ViewCellValue
 
     if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition))) {
       Future.successful(())

@@ -36,8 +36,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "cell"
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -57,8 +57,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "cell",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column",
                                     |      "condition": {
                                     |        "table": {
                                     |          "name": ".*_model"
@@ -76,7 +76,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       _ <- controller.retrieveCell(modelTableId, 1, 1)
       ex <- controller.retrieveCell(variantTableId, 1, 1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeCell), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
     }
   }
 
@@ -87,8 +87,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "cell",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column",
                                     |      "condition": {
                                     |        "table": {
                                     |          "name": ".*_model"
@@ -112,9 +112,9 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       ex2 <- controller.retrieveCell(variantTableId, 1, 1).recover({ case ex => ex })
       ex3 <- controller.retrieveCell(variantTableId, 2, 1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeCell), ex1)
-      assertEquals(UnauthorizedException(View, ScopeCell), ex2)
-      assertEquals(UnauthorizedException(View, ScopeCell), ex3)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex2)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex3)
     }
   }
 
@@ -127,12 +127,12 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
         tableId <- createDefaultTable()
         ex <- controller.retrieveCell(tableId, 1, 1).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(View, ScopeCell), ex)
+        assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
       }
     }
 
   @Test
-  def retrieveCell_langtagConditionShouldNotAffectActionView(implicit c: TestContext): Unit =
+  def retrieveCell_langtagConditionMustNotBeConsideredOnActionView(implicit c: TestContext): Unit =
     okTest {
 
       val roleModel = initRoleModel("""
@@ -140,8 +140,48 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |  "view-cells": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "cell",
+                                      |      "action": ["viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "langtag": "de"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+
+        _ <- createSimpleTableWithValues(
+          "table",
+          List(TextCol("text"), Multilanguage(TextCol("multilanguage_text")), NumericCol("numeric")),
+          List(
+            List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en"), 1),
+            List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"), 2)
+          )
+        )
+
+        _ <- controller.retrieveCell(1, 1, 1)
+        _ <- controller.retrieveCell(1, 2, 1)
+        _ <- controller.retrieveCell(1, 3, 1)
+      } yield ()
+    }
+
+  @Test
+  def updateCell_langtagConditionMustNotBeConsideredOnActionView(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "view-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["viewCellValue"],
+                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
