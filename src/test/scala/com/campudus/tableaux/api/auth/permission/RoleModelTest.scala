@@ -148,6 +148,28 @@ class RoleModelTest {
   }
 
   @Test
+  def parse_validPermissionWithLangtagCondition_onePermissionParsed(): Unit = {
+
+    val json: JsonObject = Json.fromObjectString("""
+                                                   |{
+                                                   |  "view-cell": [
+                                                   |    {
+                                                   |      "type": "grant",
+                                                   |      "action": ["view"],
+                                                   |      "scope": "cell",
+                                                   |      "condition": {
+                                                   |        "langtag": "de|en"
+                                                   |      }
+                                                   |    }
+                                                   |  ]
+                                                   |}""".stripMargin)
+    val roleModel: RoleModel = RoleModel(json)
+
+    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-cell"))
+    Assert.assertEquals(1, permissions.size)
+  }
+
+  @Test
   def getPermissionsFor_twoRolesWithOneValidPermissionEach_returnsTwoPermissions(): Unit = {
 
     val json: JsonObject = Json.fromObjectString("""

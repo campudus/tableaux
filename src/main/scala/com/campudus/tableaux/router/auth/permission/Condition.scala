@@ -30,13 +30,18 @@ case class ConditionContainer(
     conditionLangtag: ConditionOption
 ) extends LazyLogging {
 
-  def isMatching(objects: ComparisonObjects): Boolean = {
+  def isMatching(objects: ComparisonObjects, withLangtagCondition: Boolean): Boolean = {
     logger.debug(
       s"try matching on conditionTable: $conditionTable conditionColumn $conditionColumn conditionLangtag $conditionLangtag with objects $objects")
 
-    conditionTable.isMatching(objects) &&
-    conditionColumn.isMatching(objects) &&
-    conditionLangtag.isMatching(objects)
+    if (withLangtagCondition) {
+      conditionTable.isMatching(objects) &&
+      conditionColumn.isMatching(objects) &&
+      conditionLangtag.isMatching(objects)
+    } else {
+      conditionTable.isMatching(objects) &&
+      conditionColumn.isMatching(objects)
+    }
   }
 }
 
