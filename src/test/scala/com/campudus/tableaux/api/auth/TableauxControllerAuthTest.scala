@@ -5,6 +5,7 @@ import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.testtools.RequestCreation.{Identifier, Multilanguage, NumericCol, TextCol}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -128,6 +129,46 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       } yield {
         assertEquals(UnauthorizedException(View, ScopeCell), ex)
       }
+    }
+
+  @Test
+  def retrieveCell_langtagConditionShouldNotAffectActionView(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "view-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "cell",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "langtag": "de"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+
+        _ <- createSimpleTableWithValues(
+          "table",
+          List(TextCol("text"), Multilanguage(TextCol("multilanguage_text")), NumericCol("numeric")),
+          List(
+            List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en"), 1),
+            List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"), 2)
+          )
+        )
+
+        _ <- controller.retrieveCell(1, 1, 1)
+        _ <- controller.retrieveCell(1, 2, 1)
+        _ <- controller.retrieveCell(1, 3, 1)
+      } yield ()
     }
 
 }
