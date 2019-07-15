@@ -9,12 +9,8 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{
-  DatabaseException,
-  NotFoundInDatabaseException,
-  ShouldBeUniqueException,
-  UnprocessableEntityException
-}
+import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux._
 import com.google.common.cache.{CacheBuilder, Cache => GuavaBuiltCache}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
@@ -38,8 +34,13 @@ object CachedColumnModel {
   val DEFAULT_MAXIMUM_SIZE: Long = 10000l
 }
 
-class CachedColumnModel(val config: JsonObject, override val connection: DatabaseConnection)
-    extends ColumnModel(connection) {
+class CachedColumnModel(
+    val config: JsonObject,
+    override val connection: DatabaseConnection
+)(
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends ColumnModel(connection) {
 
   implicit val scalaCache = ScalaCache(GuavaCache(createCache()))
 
@@ -190,7 +191,10 @@ object ColumnModel extends LazyLogging {
   }
 }
 
-class ColumnModel(val connection: DatabaseConnection) extends DatabaseQuery {
+class ColumnModel(val connection: DatabaseConnection)(
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends DatabaseQuery {
 
   private lazy val tableStruc = new TableModel(connection)
 

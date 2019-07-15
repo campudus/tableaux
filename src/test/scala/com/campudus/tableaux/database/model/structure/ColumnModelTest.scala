@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model.structure
 
+import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{BasicColumnInformation, CreateSimpleColumn, SimpleValueColumn, Table}
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
@@ -7,6 +8,8 @@ import org.junit.Assert._
 import org.junit.{Before, Test}
 
 class ColumnModelTest {
+
+  implicit val requestContext = RequestContext()
 
   var col1: SimpleValueColumn[_] = _
   var col2: SimpleValueColumn[_] = _

@@ -8,7 +8,13 @@ import com.campudus.tableaux.database.domain.{MultiLanguageColumn, RowLevelAnnot
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
+import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.{
+  RequestContext,
+  RowNotFoundException,
+  UnknownServerException,
+  UnprocessableEntityException
+}
 import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, _}
 
@@ -712,7 +718,10 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   }
 }
 
-class RetrieveRowModel(val connection: DatabaseConnection) extends DatabaseQuery {
+class RetrieveRowModel(val connection: DatabaseConnection)(
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends DatabaseQuery {
 
   import ModelHelper._
 

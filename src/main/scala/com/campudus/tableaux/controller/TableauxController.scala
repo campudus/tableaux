@@ -26,7 +26,7 @@ object TableauxController {
 class TableauxController(
     override val config: TableauxConfig,
     override protected val repository: TableauxModel,
-    protected val roleModel: RoleModel
+    implicit protected val roleModel: RoleModel
 )(implicit requestContext: RequestContext)
     extends Controller[TableauxModel] {
 
