@@ -16,11 +16,11 @@ import org.vertx.scala.core.json.Json
 
 trait TableauxControllerAuthTest extends TableauxTestBase {
 
-  def createTableauxController(roleModel: RoleModel = RoleModel(Json.emptyObj())): TableauxController = {
+  def createTableauxController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): TableauxController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val structureModel = StructureModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection, structureModel, roleModel)
+    val tableauxModel = TableauxModel(dbConnection, structureModel)
 
     TableauxController(tableauxConfig, tableauxModel, roleModel)
   }
