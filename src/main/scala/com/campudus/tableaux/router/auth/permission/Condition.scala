@@ -70,7 +70,6 @@ case class ConditionTable(jsonObject: JsonObject) extends ConditionOption(jsonOb
       case Some(table) =>
         conditionMap.forall({
           case (property, regex) =>
-            // TODO possibly not the best idea to stringify every property and match with regex!?
             property match {
               case "id" => table.id.toString.matches(regex)
               case "name" => table.name.matches(regex)
