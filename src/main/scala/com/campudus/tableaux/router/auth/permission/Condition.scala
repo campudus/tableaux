@@ -1,14 +1,10 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.MultiLanguage
-import com.campudus.tableaux.database.domain.ColumnType
 import com.typesafe.scalalogging.LazyLogging
-import org.vertx.scala.core
-import org.vertx.scala.core.json
 import org.vertx.scala.core.json.{Json, JsonObject, _}
 
-import scala.concurrent.Future
-import scala.util.{Failure, Success}
+import scala.collection.JavaConverters._
 
 object ConditionContainer {
 
@@ -111,9 +107,6 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
   override def isMatching(objects: ComparisonObjects): Boolean = {
 
     // At this point, the value for the column type must already have been checked. -> checkValueTypeForColumn
-
-    import scala.collection.JavaConverters._
-
     objects.columnOpt match {
       case Some(column) =>
         if (column.languageType == MultiLanguage) {
