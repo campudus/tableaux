@@ -22,7 +22,7 @@ object RouterRegistry extends LazyLogging {
 
     val isAuthorization: Boolean = !tableauxConfig.authConfig.isEmpty
 
-    val roleModel: RoleModel = RoleModel(tableauxConfig.rolePermissions, isAuthorization)
+    implicit val roleModel: RoleModel = RoleModel(tableauxConfig.rolePermissions, isAuthorization)
 
     val mainRouter: Router = Router.router(vertx)
 
@@ -44,7 +44,7 @@ object RouterRegistry extends LazyLogging {
 
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection, structureModel, roleModel)
+    val tableauxModel = TableauxModel(dbConnection, structureModel)
     val folderModel = FolderModel(dbConnection)
     val fileModel = FileModel(dbConnection)
     val attachmentModel = AttachmentModel(dbConnection, fileModel)

@@ -120,31 +120,6 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
 
           objects.valueOpt match {
 
-//            case Some(values) => {
-//
-//              println(s"XXX: values $values")
-
-//              ColumnType.splitIntoTypesWithValues(Seq((column, values))) match {
-//                case Failure(_) => {
-//                  println(s"XXX: Fehler")
-//                  false
-//                }
-//
-//                case Success((_, multis, _, _)) =>
-//                  println(s"XXX: multis $multis")
-//
-//                  val langtags: Set[String] = multis.headOption
-//                    .map({ case (_, languageValues) => languageValues.keySet })
-//                    .getOrElse(Set.empty[String])
-//
-//                  val regex: String = conditionMap.getOrElse("langtag", ".*")
-//                  langtags.forall(langtag => {
-//                    println(s"XXX: langtag ${langtag.matches(regex)}")
-//                    langtag.matches(regex)
-//                  })
-//              }
-//            }
-
             case Some(json: JsonObject) => {
               val regex: String = conditionMap.getOrElse("langtag", ".*")
 

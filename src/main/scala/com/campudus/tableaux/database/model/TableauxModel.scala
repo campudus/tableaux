@@ -24,9 +24,11 @@ object TableauxModel {
 
   type Ordering = Long
 
-  def apply(connection: DatabaseConnection, structureModel: StructureModel, roleModel: RoleModel)(
-      implicit requestContext: RequestContext): TableauxModel = {
-    new TableauxModel(connection, structureModel, roleModel)
+  def apply(connection: DatabaseConnection, structureModel: StructureModel)(
+      implicit requestContext: RequestContext,
+      roleModel: RoleModel
+  ): TableauxModel = {
+    new TableauxModel(connection, structureModel)
   }
 }
 
@@ -81,9 +83,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
 class TableauxModel(
     override protected[this] val connection: DatabaseConnection,
-    override protected[this] val structureModel: StructureModel,
-    val roleModel: RoleModel
-)(implicit requestContext: RequestContext)
+    override protected[this] val structureModel: StructureModel
+)(implicit requestContext: RequestContext, roleModel: RoleModel)
     extends DatabaseQuery
     with StructureDelegateModel {
 
