@@ -19,9 +19,9 @@ class TableauxControllerTest extends TableauxTestBase {
   def createTableauxController(): TableauxController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-    val roleModel = RoleModel(tableauxConfig.rolePermissions)
+    implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
 
-    val model = TableauxModel(dbConnection, StructureModel(dbConnection), roleModel)
+    val model = TableauxModel(dbConnection, StructureModel(dbConnection))
 
     TableauxController(tableauxConfig, model, roleModel)
   }
