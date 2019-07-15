@@ -45,15 +45,15 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   protected val structureModel: StructureModel
 
   def createTable(name: String, hidden: Boolean): Future[Table] = {
-    structureModel.tableModel.create(name, hidden, None, List(), GenericTable, None)
+    structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None)
   }
 
   def retrieveTable(tableId: TableId): Future[Table] = {
-    structureModel.tableModel.retrieve(tableId)
+    structureModel.tableStruc.retrieve(tableId)
   }
 
   def retrieveTables(): Future[Seq[Table]] = {
-    structureModel.tableModel.retrieveAll()
+    structureModel.tableStruc.retrieveAll()
   }
 
   def createColumns(table: Table, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {

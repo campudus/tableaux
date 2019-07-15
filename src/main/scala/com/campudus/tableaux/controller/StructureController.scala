@@ -33,7 +33,7 @@ class StructureController(
 )(implicit requestContext: RequestContext)
     extends Controller[StructureModel] {
 
-  val tableStruc = repository.tableModel
+  val tableStruc = repository.tableStruc
   val columnStruc = repository.columnStruc
   val tableGroupStruc = repository.tableGroupStruc
 
