@@ -19,8 +19,8 @@ class StructureControllerTest extends TableauxTestBase {
   def createStructureController(): StructureController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
     val model = StructureModel(dbConnection)
-    val roleModel = RoleModel(tableauxConfig.rolePermissions)
 
     StructureController(tableauxConfig, model, roleModel)
   }

@@ -2,7 +2,7 @@ package com.campudus.tableaux.api.auth
 
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.StructureController
-import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, GenericTable}
+import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, DomainObject, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.database._
@@ -14,11 +14,12 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 trait StructureControllerAuthTest extends TableauxTestBase {
 
-  def createStructureController(roleModel: RoleModel = RoleModel(Json.emptyObj())): StructureController = {
+  def createStructureController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): StructureController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val model = StructureModel(dbConnection)
@@ -31,6 +32,10 @@ trait StructureControllerAuthTest extends TableauxTestBase {
       "displayName" -> Json.obj("de" -> "Name"),
       "description" -> Json.obj("de" -> "Beschreibung")
     )
+
+  def getPermission(domainObject: DomainObject): JsonObject = {
+    domainObject.getJson.getJsonObject("permission")
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -57,6 +62,38 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
 
       _ <- controller.deleteTable(tableId)
     } yield ()
+  }
+
+  @Test
+  def deleteTable_modelAllowedOthersNot(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "delete-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["delete"],
+                                    |      "scope": "table",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "name": ".*_model"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+
+      modelTableId <- createDefaultTable("test_model", 1)
+      variantTableId <- createDefaultTable("test_variant", 1)
+
+      _ <- controller.deleteTable(modelTableId)
+      ex <- controller.deleteTable(variantTableId).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(Delete, ScopeTable), ex)
+    }
   }
 
   @Test
@@ -1039,6 +1076,137 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
         assertEquals(2, modelTableColumns.length)
         assertEquals(0, variantTableColumns.length)
       }
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class StructureControllerAuthTest_enrichDomainObjects extends StructureControllerAuthTest {
+
+  @Test
+  def enrichTableSeq_createIsAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      permission <- controller.retrieveTables().map(getPermission)
+    } yield {
+
+      val expected = Json.obj(
+        "create" -> true,
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def enrichTableSeq_createIsNotAllowed(implicit c: TestContext): Unit = okTest {
+    val controller = createStructureController()
+
+    for {
+      permission <- controller.retrieveTables().map(getPermission)
+    } yield {
+
+      val expected = Json.obj(
+        "create" -> false
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+    }
+  }
+
+//  - editDisplayProperty
+//  - editStructureProperty
+//  - delete
+//  - createRow
+//  - createColumn
+//  - editCellAnnotation
+//  - editRowAnnotation
+
+  @Test
+  def enrichTable_editPropertiesAreAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editDisplayProperty", "editStructureProperty"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable()
+      permission <- controller.retrieveTable(tableId).map(getPermission)
+    } yield {
+
+      val expected = Json.obj(
+        "editDisplayProperty" -> true,
+        "editStructureProperty" -> true
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def enrichTable_editStructureProperty_onlyForModelTablesAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editDisplayProperty"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editStructureProperty"],
+                                    |      "scope": "table",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "name": ".*_model"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      modelTableId <- createDefaultTable("test_model", 1)
+      variantTableId <- createDefaultTable("test_variant", 2)
+      modelTablePermissions <- controller.retrieveTable(modelTableId).map(getPermission)
+      variantTablePermissions <- controller.retrieveTable(variantTableId).map(getPermission)
+    } yield {
+
+      val modelTableExpected = Json.obj(
+        "editDisplayProperty" -> true,
+        "editStructureProperty" -> true
+      )
+
+      val variantTableExpected = Json.obj(
+        "editDisplayProperty" -> true,
+        "editStructureProperty" -> false
+      )
+
+      assertJSONEquals(modelTableExpected, modelTablePermissions, JSONCompareMode.LENIENT)
+      assertJSONEquals(variantTableExpected, variantTablePermissions, JSONCompareMode.LENIENT)
     }
   }
 }
