@@ -1,13 +1,14 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.TableauxConfig
+import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
+import com.campudus.tableaux.database.model.{FolderModel, ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.JsonUtils
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -22,9 +23,10 @@ object SystemController {
       repository: SystemModel,
       tableauxModel: TableauxModel,
       structureModel: StructureModel,
-      serviceModel: ServiceModel
-  ): SystemController = {
-    new SystemController(config, repository, tableauxModel, structureModel, serviceModel)
+      serviceModel: ServiceModel,
+      roleModel: RoleModel
+  )(implicit requestContext: RequestContext): SystemController = {
+    new SystemController(config, repository, tableauxModel, structureModel, serviceModel, roleModel)
   }
 }
 
@@ -35,8 +37,10 @@ class SystemController(
     override protected val repository: SystemModel,
     protected val tableauxModel: TableauxModel,
     protected val structureModel: StructureModel,
-    protected val serviceModel: ServiceModel
-) extends Controller[SystemModel] {
+    protected val serviceModel: ServiceModel,
+    implicit protected val roleModel: RoleModel
+)(implicit requestContext: RequestContext)
+    extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
     for {

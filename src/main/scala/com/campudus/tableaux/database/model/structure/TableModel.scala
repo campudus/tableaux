@@ -1,18 +1,22 @@
 package com.campudus.tableaux.database.model.structure
 
-import com.campudus.tableaux.ShouldBeUniqueException
+import com.campudus.tableaux.{RequestContext, ShouldBeUniqueException}
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-class TableModel(val connection: DatabaseConnection) extends DatabaseQuery {
+class TableModel(val connection: DatabaseConnection)(
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends DatabaseQuery {
 
   val systemModel = SystemModel(connection)
   val tableGroupModel = TableGroupModel(connection)

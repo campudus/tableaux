@@ -98,20 +98,55 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = requestContext.getUserRoles
 
     scope match {
-      case ScopeMedia => enrichMediaObject(inputJson, userRoles, scope)
-//      case ScopeMedia => enrichMediaObject(inputJson, grantPermissions, denyPermissions)
+      case ScopeMedia => enrichMedia(inputJson, userRoles)
+      case ScopeTableSeq => enrichTableSeq(inputJson, userRoles)
+      case ScopeTable => enrichTable(inputJson, userRoles, objects)
       case _ => ???
     }
   }
 
-  private def enrichMediaObject(
-      inputJson: JsonObject,
-      userRoles: Seq[String],
-      scope: Scope
-  ): JsonObject = {
+  private def enrichTable(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
+
+    println(s"XXX: XXXXXXXXXXXXXXXXXX")
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, scope, _.actions.contains(action))
+      isAllowed(userRoles, action, ScopeTable, _.isMatching(objects))
+    }
+
+    inputJson.mergeIn(
+      Json.obj(
+        "permission" ->
+          Json.obj(
+            "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
+            "editStructureProperty" -> isActionAllowed(EditStructureProperty),
+            "delete" -> isActionAllowed(Delete),
+            "createRow" -> isActionAllowed(CreateRow),
+//            "createColumn" -> isAllowed(userRoles, Create, ScopeColumn, _.isMatching(XXX)),
+            "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
+            "editRowAnnotation" -> isActionAllowed(EditRowAnnotation),
+          ))
+    )
+  }
+
+  private def enrichTableSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+
+    def isActionAllowed(action: Action): Boolean = {
+      isAllowed(userRoles, action, ScopeTable, _.actions.contains(action))
+    }
+
+    inputJson.mergeIn(
+      Json.obj(
+        "permission" ->
+          Json.obj(
+            "create" -> isActionAllowed(Create)
+          ))
+    )
+  }
+
+  private def enrichMedia(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+
+    def isActionAllowed(action: Action): Boolean = {
+      isAllowed(userRoles, action, ScopeMedia, _.actions.contains(action))
     }
 
     inputJson.mergeIn(

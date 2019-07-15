@@ -9,6 +9,7 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, LinkId, Row
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
@@ -133,8 +134,9 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
 }
 
 case class CreateHistoryModel(tableauxModel: TableauxModel, connection: DatabaseConnection)(
-    implicit val requestContext: RequestContext)
-    extends DatabaseQuery {
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends DatabaseQuery {
 
   val tableModel = new TableModel(connection)
   val attachmentModel = AttachmentModel(connection)
