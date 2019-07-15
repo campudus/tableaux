@@ -40,7 +40,7 @@ case class ConditionContainer(
 
   def isMatching(objects: ComparisonObjects, withLangtagCondition: Boolean): Boolean = {
     logger.debug(
-      s"try matching on conditionTable: $conditionTable conditionColumn $conditionColumn conditionLangtag $conditionLangtag with objects $objects")
+      s"try matching on conditionTable: $conditionTable conditionColumn $conditionColumn conditionLangtag $conditionLangtag")
 
     if (withLangtagCondition) {
       conditionTable.isMatching(objects) &&
