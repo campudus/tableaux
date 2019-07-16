@@ -107,8 +107,6 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def enrichTable(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
 
-    println(s"XXX: XXXXXXXXXXXXXXXXXX")
-
     def isActionAllowed(action: Action): Boolean = {
       isAllowed(userRoles, action, ScopeTable, _.isMatching(objects))
     }
@@ -121,7 +119,9 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
             "editStructureProperty" -> isActionAllowed(EditStructureProperty),
             "delete" -> isActionAllowed(Delete),
             "createRow" -> isActionAllowed(CreateRow),
-//            "createColumn" -> isAllowed(userRoles, Create, ScopeColumn, _.isMatching(XXX)),
+            // For 'createColumn' we must only check if there is a action Create within a scope 'column',
+            // conditions are not relevant for action 'create'.
+            "createColumn" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create)),
             "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
             "editRowAnnotation" -> isActionAllowed(EditRowAnnotation),
           ))
