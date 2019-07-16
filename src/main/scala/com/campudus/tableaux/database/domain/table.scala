@@ -60,9 +60,7 @@ case class Table(
       "description" -> Json.obj()
     )
 
-    if (langtags.isDefined) {
-      tableJson.mergeIn(Json.obj("langtags" -> langtags.orNull))
-    }
+    langtags.foreach(lt => tableJson.mergeIn(Json.obj("langtags" -> lt)))
 
     displayInfos.foreach { di =>
       {
@@ -81,9 +79,7 @@ case class Table(
       tableJson.mergeIn(Json.obj("type" -> tableType.NAME))
     }
 
-    if (tableGroup.isDefined) {
-      tableJson.put("group", tableGroup.get.getJson)
-    }
+    tableGroup.foreach(tg => tableJson.put("group", tg.getJson))
 
     roleModel.enrichDomainObject(tableJson, ScopeTable, ComparisonObjects(this))
   }
