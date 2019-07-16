@@ -1126,14 +1126,6 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
     }
   }
 
-//  - editDisplayProperty
-//  - editStructureProperty
-//  - delete
-//  - createRow
-//  - createColumn
-//  - editCellAnnotation
-//  - editRowAnnotation
-
   @Test
   def enrichTable_editPropertiesAreAllowed(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
@@ -1207,6 +1199,80 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
 
       assertJSONEquals(modelTableExpected, modelTablePermissions, JSONCompareMode.LENIENT)
       assertJSONEquals(variantTableExpected, variantTablePermissions, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def enrichTable_noActionIsAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable()
+      permission <- controller.retrieveTable(tableId).map(getPermission)
+    } yield {
+
+      val expected = Json.obj(
+        "editDisplayProperty" -> false,
+        "editStructureProperty" -> false,
+        "delete" -> false,
+        "createRow" -> false,
+        "createColumn" -> false,
+        "editCellAnnotation" -> false,
+        "editRowAnnotation" -> false
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def enrichTable_allActionsAreAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editDisplayProperty", "editStructureProperty", "delete",
+                                    |        "createRow", "editCellAnnotation", "editRowAnnotation"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "create"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable()
+      permission <- controller.retrieveTable(tableId).map(getPermission)
+    } yield {
+
+      val expected = Json.obj(
+        "editDisplayProperty" -> true,
+        "editStructureProperty" -> true,
+        "delete" -> true,
+        "createRow" -> true,
+        "createColumn" -> true,
+        "editCellAnnotation" -> true,
+        "editRowAnnotation" -> true
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
     }
   }
 }
