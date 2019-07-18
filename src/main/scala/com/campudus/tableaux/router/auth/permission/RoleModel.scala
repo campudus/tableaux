@@ -19,6 +19,8 @@ object RoleModel {
       new RoleModelStub()
     }
   }
+
+  def apply(): RoleModel = new RoleModel(Json.emptyObj())
 }
 
 /**
@@ -101,7 +103,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       case ScopeMedia => enrichMedia(inputJson, userRoles)
       case ScopeTableSeq => enrichTableSeq(inputJson, userRoles)
       case ScopeTable => enrichTable(inputJson, userRoles, objects)
-      case _ => ???
+      case ScopeColumn => enrichColumn(inputJson, userRoles, objects)
+      case _ => inputJson
     }
   }
 
@@ -124,6 +127,24 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
             "createColumn" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create)),
             "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
             "editRowAnnotation" -> isActionAllowed(EditRowAnnotation),
+          ))
+    )
+  }
+
+  private def enrichColumn(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
+
+    def isActionAllowed(action: Action): Boolean = {
+      isAllowed(userRoles, action, ScopeColumn, _.isMatching(objects))
+    }
+
+    inputJson.mergeIn(
+      Json.obj(
+        "permission" ->
+          Json.obj(
+            "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
+            "editStructureProperty" -> isActionAllowed(EditStructureProperty),
+            "editCellValue" -> isActionAllowed(EditCellValue),
+            "delete" -> isActionAllowed(Delete)
           ))
     )
   }
