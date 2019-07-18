@@ -1275,4 +1275,76 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
       assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
     }
   }
+
+  @Test
+  def enrichColumn_noActionIsAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable()
+      permission <- controller.retrieveColumn(tableId, 1).map(getPermission)
+    } yield {
+      val expected = Json.obj(
+        "editDisplayProperty" -> false,
+        "editStructureProperty" -> false,
+        "delete" -> false,
+        "editCellValue" -> false
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def enrichColumn_allActionsAreAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editDisplayProperty", "editStructureProperty", "delete",
+                                    |        "editCellValue"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable()
+      permission <- controller.retrieveColumn(tableId, 1).map(getPermission)
+    } yield {
+      val expected = Json.obj(
+        "editDisplayProperty" -> true,
+        "editStructureProperty" -> true,
+        "delete" -> true,
+        "editCellValue" -> true
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+    }
+  }
+
 }

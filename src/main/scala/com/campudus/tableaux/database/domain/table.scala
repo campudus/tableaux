@@ -48,7 +48,7 @@ case class Table(
     tableGroup: Option[TableGroup]
 )(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel = new RoleModel(Json.emptyObj())
+    roleModel: RoleModel = RoleModel()
 ) extends DomainObject {
 
   override def getJson: JsonObject = {
