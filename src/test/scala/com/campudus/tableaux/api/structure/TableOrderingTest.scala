@@ -46,7 +46,7 @@ class TableOrderingTest extends TableauxTestBase {
           )
         )
 
-        assertEquals(expected, tables)
+        assertJSONEquals(expected, tables)
       }
     }
   }
@@ -80,7 +80,7 @@ class TableOrderingTest extends TableauxTestBase {
           )
         )
 
-        assertEquals(expected1, tables1)
+        assertJSONEquals(expected1, tables1)
 
         val expected2 = Json.obj(
           "status" -> "ok",
@@ -93,7 +93,7 @@ class TableOrderingTest extends TableauxTestBase {
           )
         )
 
-        assertEquals(expected2, tables2)
+        assertJSONEquals(expected2, tables2)
       }
     }
   }
@@ -127,7 +127,7 @@ class TableOrderingTest extends TableauxTestBase {
           )
         )
 
-        assertEquals(expected1, tables1)
+        assertJSONEquals(expected1, tables1)
 
         val expected2 = Json.obj(
           "status" -> "ok",
@@ -140,7 +140,7 @@ class TableOrderingTest extends TableauxTestBase {
           )
         )
 
-        assertEquals(expected2, tables2)
+        assertJSONEquals(expected2, tables2)
       }
     }
   }
@@ -178,7 +178,7 @@ class TableOrderingTest extends TableauxTestBase {
           )
         )
 
-        assertEquals(expected1, tables1)
+        assertJSONEquals(expected1, tables1)
 
         val expected2 = Json.obj(
           "status" -> "ok",
@@ -191,7 +191,7 @@ class TableOrderingTest extends TableauxTestBase {
           )
         )
 
-        assertEquals(expected2, tables2)
+        assertJSONEquals(expected2, tables2)
       }
     }
   }
@@ -219,7 +219,7 @@ class TableOrderingTest extends TableauxTestBase {
                                    regularTableJson(2, "Second")
                                  ))
 
-        assertEquals(expected1, tables1)
+        assertJSONEquals(expected1, tables1)
       }
     }
   }
@@ -250,7 +250,7 @@ class TableOrderingTest extends TableauxTestBase {
                                    regularTableJson(2, "Second")
                                  ))
 
-        assertEquals(expected1, tables1)
+        assertJSONEquals(expected1, tables1)
       }
     }
   }
@@ -277,7 +277,7 @@ class TableOrderingTest extends TableauxTestBase {
                                    regularTableJson(2, "Second")
                                  ))
 
-        assertEquals(expected1, tables1)
+        assertJSONEquals(expected1, tables1)
       }
     }
   }

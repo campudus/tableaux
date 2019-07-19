@@ -34,10 +34,11 @@ class TableLangtagsTest extends TableauxTestBase {
 
         tableGet <- sendRequest("GET", s"/tables/$tableId")
       } yield {
-        assertEquals(expectedTableJson.copy().mergeIn(createTableJson.copy.mergeIn(Json.obj("langtags" -> langtags))),
-                     tablePost)
-        assertEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
-        assertEquals(tableGet, tableUpdate)
+        assertJSONEquals(
+          expectedTableJson.copy().mergeIn(createTableJson.copy.mergeIn(Json.obj("langtags" -> langtags))),
+          tablePost)
+        assertJSONEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
+        assertJSONEquals(tableGet, tableUpdate)
       }
     }
   }
@@ -63,9 +64,9 @@ class TableLangtagsTest extends TableauxTestBase {
 
       tableGet <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
-      assertEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
-      assertEquals(tableGet, tableUpdate)
+      assertJSONEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
+      assertJSONEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
+      assertJSONEquals(tableGet, tableUpdate)
     }
   }
 
@@ -90,9 +91,9 @@ class TableLangtagsTest extends TableauxTestBase {
 
       tableGet <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
-      assertEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
-      assertEquals(tableGet, tableUpdate)
+      assertJSONEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
+      assertJSONEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
+      assertJSONEquals(tableGet, tableUpdate)
     }
   }
 
@@ -120,11 +121,11 @@ class TableLangtagsTest extends TableauxTestBase {
 
         tableGet <- sendRequest("GET", s"/tables/$tableId")
       } yield {
-        assertEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
-        assertEquals(
+        assertJSONEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
+        assertJSONEquals(
           expectedTableJson.copy().mergeIn(Json.obj("name" -> "Table with no langtags", "langtags" -> langtags)),
           tableUpdate)
-        assertEquals(tableGet, tableUpdate)
+        assertJSONEquals(tableGet, tableUpdate)
       }
     }
   }

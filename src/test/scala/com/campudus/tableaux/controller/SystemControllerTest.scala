@@ -59,8 +59,8 @@ class SystemControllerTest extends TableauxTestBase {
       }
       tablesResult <- sendRequest("GET", "/tables")
     } yield {
-      assertEquals(expectedJson1, result)
-      assertEquals(expectedJson2, tablesResult)
+      assertJSONEquals(expectedJson1, result)
+      assertJSONEquals(expectedJson2, tablesResult)
     }
   }
 

@@ -195,7 +195,7 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
           "delete" -> false
         )
 
-        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, permission)
       }
     }
 
@@ -252,7 +252,7 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
           "delete" -> true
         )
 
-        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, permission)
       }
     }
   }
@@ -290,7 +290,7 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
           "delete" -> false
         )
 
-        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, permission)
       }
     }
   }

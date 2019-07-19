@@ -26,7 +26,7 @@ class GetStructureTest extends TableauxTestBase {
       _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertJSONEquals(expectedJson, test)
     }
   }
 
@@ -52,7 +52,7 @@ class GetStructureTest extends TableauxTestBase {
         _ <- createDefaultTable("Test Table 2")
         test <- sendRequest("GET", "/tables")
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -90,7 +90,7 @@ class GetStructureTest extends TableauxTestBase {
         _ <- createDefaultTable()
         test <- sendRequest("GET", "/tables/1/columns")
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -114,7 +114,7 @@ class GetStructureTest extends TableauxTestBase {
         _ <- createDefaultTable()
         test <- sendRequest("GET", "/tables/1/columns/1")
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -138,7 +138,7 @@ class GetStructureTest extends TableauxTestBase {
         _ <- createDefaultTable()
         test <- sendRequest("GET", "/tables/1/columns/2")
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }

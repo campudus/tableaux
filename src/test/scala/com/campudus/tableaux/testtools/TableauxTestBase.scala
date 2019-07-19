@@ -34,7 +34,25 @@ case class TestCustomException(message: String, id: String, statusCode: Int) ext
   override def toString: String = s"TestCustomException(status=$statusCode,id=$id,message=$message)"
 }
 
+trait JsonAssertable[T] {
+  def serialize(t: T): String
+}
+
+object JsonAssertable {
+  implicit object String extends JsonAssertable[String] {
+    def serialize(t: String) = t
+  }
+  implicit object JsonObject extends JsonAssertable[JsonObject] {
+    def serialize(t: JsonObject) = t.toString
+  }
+  implicit object JsonArray extends JsonAssertable[JsonArray] {
+    def serialize(t: JsonArray) = t.toString
+  }
+}
+
 trait TestAssertionHelper {
+
+  // TODO refactor and use standard junit assertion
 
   def fail[A](message: String)(implicit c: TestContext): Unit = {
     c.fail(message)
@@ -59,12 +77,15 @@ trait TestAssertionHelper {
     c
   }
 
-  def assertJSONEquals(expected: JsonObject, actual: JsonObject, compareMode: JSONCompareMode) {
-    JSONAssert.assertEquals(expected.toString, actual.toString, compareMode)
-  }
+  def assertJSONEquals[T: JsonAssertable](
+      expected: T,
+      actual: T,
+      compareMode: JSONCompareMode = JSONCompareMode.LENIENT
+  ) {
+    val expectedString = implicitly[JsonAssertable[T]].serialize(expected)
+    val actualString = implicitly[JsonAssertable[T]].serialize(actual)
 
-  def assertJSONEquals(expected: String, actual: String, compareMode: JSONCompareMode = JSONCompareMode.LENIENT) {
-    JSONAssert.assertEquals(expected, actual, compareMode)
+    JSONAssert.assertEquals(expectedString, actualString, compareMode)
   }
 
   def assertContainsDeep(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext =
