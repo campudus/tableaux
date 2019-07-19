@@ -2,16 +2,17 @@ package com.campudus.tableaux.api.auth
 
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.StructureController
+import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, DomainObject, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
-import com.campudus.tableaux.database._
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode

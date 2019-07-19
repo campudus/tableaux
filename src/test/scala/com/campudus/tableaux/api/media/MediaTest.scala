@@ -7,6 +7,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.http.{HttpClient, HttpClientResponse}
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -121,7 +122,7 @@ class AttachmentTest extends MediaTestBase {
 
         val uuid = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertNotNull(uuid)
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
             "folder" -> null,
@@ -216,7 +217,7 @@ class AttachmentTest extends MediaTestBase {
 
         val uuid1 = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertNotNull(uuid1)
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
             "folder" -> null,
@@ -349,7 +350,7 @@ class AttachmentTest extends MediaTestBase {
 
         val uuid1 = resultFill1.getJsonArray("value").getJsonObject(0).getString("uuid")
         val uuid2 = resultFill2.getJsonArray("value").getJsonObject(0).getString("uuid")
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
             "folder" -> null,
@@ -362,7 +363,7 @@ class AttachmentTest extends MediaTestBase {
           ),
           resultFill1.getJsonArray("value").getJsonObject(0)
         )
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "folder" -> null,
             "uuid" -> uuid2,
@@ -442,7 +443,7 @@ class AttachmentTest extends MediaTestBase {
 
         val uuid1 = resultFill1.getJsonArray("value").getJsonObject(0).getString("uuid")
         val uuid2 = resultFill2.getJsonArray("value").getJsonObject(0).getString("uuid")
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
             "folder" -> null,
@@ -455,7 +456,7 @@ class AttachmentTest extends MediaTestBase {
           ),
           resultFill1.getJsonArray("value").getJsonObject(0)
         )
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "folder" -> null,
             "uuid" -> uuid2,
@@ -529,7 +530,7 @@ class AttachmentTest extends MediaTestBase {
 
         val uuid1 = resultFill1.getJsonArray("value").getJsonObject(0).getString("uuid")
         val uuid2 = resultFill2.getJsonArray("value").getJsonObject(0).getString("uuid")
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
             "folder" -> null,
@@ -542,7 +543,7 @@ class AttachmentTest extends MediaTestBase {
           ),
           resultFill1.getJsonArray("value").getJsonObject(0)
         )
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "folder" -> null,
             "uuid" -> uuid2,
@@ -617,7 +618,7 @@ class AttachmentTest extends MediaTestBase {
 
         val uuid = resultFill.getJsonArray("value").getJsonObject(0).getString("uuid")
         assertNotNull(uuid)
-        assertContains(
+        assertJSONEquals(
           Json.obj(
             "ordering" -> 1,
             "folder" -> null,

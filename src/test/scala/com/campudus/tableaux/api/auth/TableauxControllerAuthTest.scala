@@ -5,11 +5,12 @@ import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.testtools.RequestCreation.{Identifier, Multilanguage, NumericCol, TextCol}
+import com.campudus.tableaux.testtools.RequestCreation.{Multilanguage, NumericCol, TextCol}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json

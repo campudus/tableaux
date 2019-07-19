@@ -8,7 +8,7 @@ import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.ext.web.Cookie
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}

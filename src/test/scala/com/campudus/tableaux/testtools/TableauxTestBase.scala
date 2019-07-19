@@ -52,31 +52,6 @@ object JsonAssertable {
 
 trait TestAssertionHelper {
 
-  // TODO refactor and use standard junit assertion
-
-  def fail[A](message: String)(implicit c: TestContext): Unit = {
-    c.fail(message)
-  }
-
-  def assertEquals[A](message: String, expected: A, actual: A)(implicit c: TestContext): TestContext = {
-    c.assertEquals(expected, actual, message)
-  }
-
-  def assertEquals[A](expected: A, actual: A)(implicit c: TestContext): TestContext = {
-    c.assertEquals(expected, actual)
-  }
-
-  def assertContains(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext = {
-    expected
-      .fieldNames()
-      .asScala
-      .map(
-        key => assertEquals(s"path [.$key]", expected.getValue(key), actual.getValue(key))
-      )
-
-    c
-  }
-
   def assertJSONEquals[T: JsonAssertable](
       expected: T,
       actual: T,
@@ -86,83 +61,6 @@ trait TestAssertionHelper {
     val actualString = implicitly[JsonAssertable[T]].serialize(actual)
 
     JSONAssert.assertEquals(expectedString, actualString, compareMode)
-  }
-
-  def assertContainsDeep(expected: JsonArray, actual: JsonArray)(implicit c: TestContext): TestContext =
-    assertContainsDeep(expected, actual, path = "")
-
-  def assertContainsDeep(expected: JsonArray, actual: JsonArray, path: String)(implicit c: TestContext): TestContext = {
-    assertEquals(s"expected size is ${expected.size()} != ${actual.size()}, path [$path[]]",
-                 expected.size(),
-                 actual.size())
-
-    expected.asScala
-      .zip(actual.asScala)
-      .zipWithIndex
-      .map({
-        case ((expectedArr: JsonArray, actualArr: JsonArray), index) =>
-          assertContainsDeep(expectedArr, actualArr, s"$path[$index]")
-
-        case ((expectedObj: JsonObject, actualObj: JsonObject), index) =>
-          assertContainsDeep(expectedObj, actualObj, s"$path[$index]")
-
-        case ((expectedVal, actualVal), index) =>
-          assertEquals(s"path [$path[$index]]", expectedVal, actualVal)
-      })
-
-    c
-  }
-
-  def assertContainsDeep(expected: JsonObject, actual: JsonObject)(implicit c: TestContext): TestContext =
-    assertContainsDeep(expected, actual, path = "")
-
-  def assertContainsDeep(expected: JsonObject, actual: JsonObject, path: String)(
-      implicit c: TestContext): TestContext = {
-
-    expected
-      .fieldNames()
-      .asScala
-      .map(key => ((expected.getValue(key), actual.getValue(key)), key))
-      .map({
-        case ((expectedObj: JsonObject, actualObj: JsonObject), key) =>
-          assertContainsDeep(expectedObj, actualObj, s"$path.$key")
-
-        case ((expectedArr: JsonArray, actualArr: JsonArray), key) =>
-          assertContainsDeep(expectedArr, actualArr, s"$path.$key")
-
-        case ((expectedVal, actualVal), key) =>
-          assertEquals(s"path [$path.$key]", expectedVal, actualVal)
-      })
-
-    c
-  }
-
-  def assertNull(expected: Any)(implicit c: TestContext): TestContext = {
-    c.assertNull(expected)
-  }
-
-  def assertNotNull(expected: Any)(implicit c: TestContext): TestContext = {
-    c.assertNotNull(expected)
-  }
-
-  def assertTrue(message: String, condition: Boolean)(implicit c: TestContext): TestContext = {
-    c.assertTrue(condition, message)
-  }
-
-  def assertTrue(condition: Boolean)(implicit c: TestContext): TestContext = {
-    c.assertTrue(condition)
-  }
-
-  def assertFalse(condition: Boolean)(implicit c: TestContext): TestContext = {
-    c.assertFalse(condition)
-  }
-
-  def assertFalse(message: String, condition: Boolean)(implicit c: TestContext): TestContext = {
-    c.assertFalse(condition, message)
-  }
-
-  def assertNotSame[A](first: A, second: A)(implicit c: TestContext): TestContext = {
-    c.assertNotEquals(first, second)
   }
 }
 

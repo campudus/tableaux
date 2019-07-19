@@ -3,6 +3,7 @@ package com.campudus.tableaux.api.content
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
@@ -149,7 +150,7 @@ class DuplicateRowTest extends TableauxTestBase {
         assertNotSame(expected.getNumber("id"), result.getNumber("id"))
         expected.remove("id")
         result.remove("id")
-        assertContains(expected, result)
+        assertJSONEquals(expected, result)
       }
     }
   }

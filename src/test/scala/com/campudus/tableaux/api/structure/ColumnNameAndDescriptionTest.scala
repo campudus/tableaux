@@ -3,6 +3,7 @@ package com.campudus.tableaux.api.structure
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -66,7 +67,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
-        assertContains(columnWithDisplayName, postColumnResult.getJsonArray("columns").getJsonObject(0))
+        assertJSONEquals(columnWithDisplayName, postColumnResult.getJsonArray("columns").getJsonObject(0))
         assertEquals(getColumnResult,
                      postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
       }
@@ -103,8 +104,8 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       changedResult <- sendRequest("POST", s"/tables/$tableId/columns/$columnId", columnWithDisplayName2)
       getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
     } yield {
-      assertContains(columnWithDisplayName, createResult)
-      assertContains(columnWithDisplayName2, changedResult)
+      assertJSONEquals(columnWithDisplayName, createResult)
+      assertJSONEquals(columnWithDisplayName2, changedResult)
       assertEquals(getColumnResult, changedResult.mergeIn(Json.obj("status" -> "ok")))
     }
   }
@@ -139,7 +140,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
         logger.info(s"changedResult=${changedResult.encode()}")
-        assertContains(columnWithDisplayName, createResult)
+        assertJSONEquals(columnWithDisplayName, createResult)
         assertEquals(Json.obj("de-DE" -> "Spalte Eins", "en-GB" -> "Column One"),
                      changedResult.getJsonObject("displayName"))
         assertEquals(changedResult.mergeIn(Json.obj("status" -> "ok")), getColumnResult)
@@ -176,7 +177,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       changedResult <- sendRequest("POST", s"/tables/$tableId/columns/$columnId", columnWithDisplayName2)
       getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
     } yield {
-      assertContains(columnWithDisplayName, createResult)
+      assertJSONEquals(columnWithDisplayName, createResult)
       assertEquals(Json.obj("de-DE" -> "Spalte Eins"), changedResult.getJsonObject("displayName"))
       assertEquals(getColumnResult, changedResult.mergeIn(Json.obj("status" -> "ok")))
     }
@@ -209,7 +210,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
-        assertContains(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
+        assertJSONEquals(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
         assertEquals(getColumnResult,
                      postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
       }
@@ -256,8 +257,8 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         changedResult <- sendRequest("POST", s"/tables/$tableId/columns/$columnId", columnWithDisplayName2)
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
-        assertContains(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
-        assertContains(
+        assertJSONEquals(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
+        assertJSONEquals(
           Json.obj(
             "displayName" -> Json.obj(
               "de-DE" -> "Spalte 1",
@@ -314,9 +315,9 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       changedResult <- sendRequest("POST", s"/tables/$tableId/columns/$columnId", columnWithNulledValues)
       getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
     } yield {
-      assertContains(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
+      assertJSONEquals(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
       logger.info(s"changedResult=${changedResult.encode()}")
-      assertContains(Json.obj("displayName" -> Json.obj(), "description" -> Json.obj()), changedResult)
+      assertJSONEquals(Json.obj("displayName" -> Json.obj(), "description" -> Json.obj()), changedResult)
       assertEquals(changedResult, getColumnResult)
     }
   }
@@ -346,7 +347,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
-        assertContains(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
+        assertJSONEquals(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
         assertEquals(getColumnResult,
                      postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
       }
@@ -394,7 +395,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
         assertEquals(columnId, columnId2)
-        assertContains(patchColumnJson, patchColumnResult)
+        assertJSONEquals(patchColumnJson, patchColumnResult)
         assertEquals(getColumnResult, patchColumnResult.mergeIn(Json.obj("status" -> "ok")))
       }
     }
@@ -423,7 +424,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
 
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
-        assertContains(columnWithDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
+        assertJSONEquals(columnWithDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
         assertEquals(getColumnResult,
                      postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
       }
@@ -460,7 +461,7 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
         assertEquals(columnId, columnId2)
-        assertContains(patchColumnJson, patchColumnResult)
+        assertJSONEquals(patchColumnJson, patchColumnResult)
         assertEquals(getColumnResult, patchColumnResult.mergeIn(Json.obj("status" -> "ok")))
       }
     }

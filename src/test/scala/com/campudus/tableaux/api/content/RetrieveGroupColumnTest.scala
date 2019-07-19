@@ -6,6 +6,7 @@ import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json._
@@ -107,8 +108,8 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
         .map(groupCell => Json.obj("values" -> Json.arr(groupCell)))
         .toSeq
 
-      assertContainsDeep(excepted, rows)
-      assertContainsDeep(Json.arr(exceptedOnlyGroupColumn: _*), rowsOnlyGroupColumn)
+      assertJSONEquals(excepted, rows)
+      assertJSONEquals(Json.arr(exceptedOnlyGroupColumn: _*), rowsOnlyGroupColumn)
     }
   }
 
