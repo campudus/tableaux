@@ -80,7 +80,7 @@ class TranslationStatusTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expectedTranslationStatus, translationStatus)
+        assertJSONEquals(expectedTranslationStatus, translationStatus)
       }
     }
   }
@@ -178,7 +178,7 @@ class TranslationStatusTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expectedTranslationStatus, translationStatus)
+        assertJSONEquals(expectedTranslationStatus, translationStatus)
       }
     }
   }

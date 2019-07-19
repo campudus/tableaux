@@ -6,6 +6,7 @@ import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.{TableauxTestBase, TestCustomException}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
@@ -48,7 +49,7 @@ class GroupColumnTest extends TableauxTestBase {
                                    createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId)))
           .map(_.getJsonArray("columns").getJsonObject(0))
       } yield {
-        assertContainsDeep(
+        assertJSONEquals(
           Json.obj("groups" -> Json.arr(Json.obj("id" -> textColumnId), Json.obj("id" -> booleanColumnId))),
           groupColumn
         )
@@ -72,12 +73,12 @@ class GroupColumnTest extends TableauxTestBase {
 
         groupColumnRetrieved <- sendRequest("GET", s"/tables/1/columns/${groupColumnCreated.getInteger("id")}")
       } yield {
-        assertContainsDeep(
+        assertJSONEquals(
           Json.obj("groups" -> Json.arr(Json.obj("id" -> textColumnId), Json.obj("id" -> booleanColumnId))),
           groupColumnCreated
         )
 
-        assertContainsDeep(
+        assertJSONEquals(
           Json.obj("groups" -> Json.arr(Json.obj("id" -> textColumnId), Json.obj("id" -> booleanColumnId))),
           groupColumnRetrieved
         )
@@ -110,7 +111,7 @@ class GroupColumnTest extends TableauxTestBase {
           })
       } yield {
         // grouped columns will be identifier columns if groupcolumn is
-        assertContainsDeep(
+        assertJSONEquals(
           Json.obj(
             "groups" -> Json.arr(
               Json.obj("id" -> textColumnId),
@@ -155,8 +156,8 @@ class GroupColumnTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expected, groupColumn1)
-        assertContainsDeep(expected, groupColumn2)
+        assertJSONEquals(expected, groupColumn1)
+        assertJSONEquals(expected, groupColumn2)
 
         assertEquals(4, columns.size())
       }
@@ -249,7 +250,7 @@ class GroupColumnTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expectedColumns2, columns2)
+        assertJSONEquals(expectedColumns2, columns2)
 
         val expectedColumns2AfterChange = Json.arr(
           Json.obj("id" -> textColumnId2),
@@ -266,7 +267,7 @@ class GroupColumnTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expectedColumns2AfterChange, columns2AfterChange)
+        assertJSONEquals(expectedColumns2AfterChange, columns2AfterChange)
 
         val expectedLinkColumn2AfterChange = Json.obj(
           "id" -> linkColumnId2,
@@ -279,7 +280,7 @@ class GroupColumnTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expectedLinkColumn2AfterChange, linkColumn2AfterChange)
+        assertJSONEquals(expectedLinkColumn2AfterChange, linkColumn2AfterChange)
       }
     }
   }
@@ -316,7 +317,7 @@ class GroupColumnTest extends TableauxTestBase {
         // before delete
         assertEquals(3, columnsBeforeDelete.size())
 
-        assertContainsDeep(
+        assertJSONEquals(
           Json.arr(
             Json.obj("id" -> textColumnId),
             Json.obj("id" -> booleanColumnId),
@@ -329,7 +330,7 @@ class GroupColumnTest extends TableauxTestBase {
           columnsBeforeDelete
         )
 
-        assertContainsDeep(
+        assertJSONEquals(
           Json.obj(
             "groups" -> Json.arr(
               Json.obj("id" -> textColumnId),
@@ -342,7 +343,7 @@ class GroupColumnTest extends TableauxTestBase {
         // after delete
         assertEquals(2, columnsAfterDelete.size())
 
-        assertContainsDeep(
+        assertJSONEquals(
           Json.arr(
             Json.obj("id" -> textColumnId),
             Json.obj("id" -> groupColumnId,
@@ -353,7 +354,7 @@ class GroupColumnTest extends TableauxTestBase {
           columnsAfterDelete
         )
 
-        assertContainsDeep(
+        assertJSONEquals(
           Json.obj(
             "groups" -> Json.arr(
               Json.obj("id" -> textColumnId, "name" -> "textcolumn")
@@ -365,7 +366,7 @@ class GroupColumnTest extends TableauxTestBase {
         // after change
         assertEquals(2, columnsAfterChange.size())
 
-        assertContainsDeep(
+        assertJSONEquals(
           Json.arr(
             Json.obj("id" -> textColumnId),
             Json.obj("id" -> groupColumnId,
@@ -376,7 +377,7 @@ class GroupColumnTest extends TableauxTestBase {
           columnsAfterChange
         )
 
-        assertContainsDeep(
+        assertJSONEquals(
           Json.obj(
             "groups" -> Json.arr(
               Json.obj("id" -> textColumnId, "name" -> "textcolumn2")

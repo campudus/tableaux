@@ -7,6 +7,7 @@ import com.campudus.tableaux.testtools.RequestCreation.{Columns, LinkBiDirection
 import com.campudus.tableaux.testtools.TestCustomException
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.runner.RunWith
 import org.junit.{Ignore, Test}
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
@@ -57,17 +58,17 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
           .map(_.getJsonArray("columns"))
           .map(findByNameInColumnsArray("table1"))
       } yield {
-        assertContainsDeep(
+        assertJSONEquals(
           Constraint(DefaultCardinality, deleteCascade = true).getJson,
           createdDeleteCascadeLinkColumnTable1.getJsonObject("constraint")
         )
 
-        assertContainsDeep(
+        assertJSONEquals(
           Constraint(DefaultCardinality, deleteCascade = true).getJson,
           retrieveDeleteCascadeLinkColumnTable1.getJsonObject("constraint")
         )
 
-        assertContainsDeep(
+        assertJSONEquals(
           Constraint(DefaultCardinality, deleteCascade = false).getJson,
           retrieveDeleteCascadeLinkColumnTable2.getJsonObject("constraint")
         )
@@ -537,17 +538,17 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
           .map(_.getJsonArray("columns"))
           .map(findByNameInColumnsArray("table1"))
       } yield {
-        assertContainsDeep(
+        assertJSONEquals(
           Constraint(Cardinality(5, 8), deleteCascade = false).getJson,
           createdLinkColumnWithCardinalityTable1.getJsonObject("constraint")
         )
 
-        assertContainsDeep(
+        assertJSONEquals(
           Constraint(Cardinality(5, 8), deleteCascade = false).getJson,
           retrieveLinkColumnWithCardinalityTable1.getJsonObject("constraint")
         )
 
-        assertContainsDeep(
+        assertJSONEquals(
           Constraint(Cardinality(8, 5), deleteCascade = false).getJson,
           retrieveLinkColumnWithCardinalityTable2.getJsonObject("constraint")
         )
@@ -582,7 +583,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         result <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId")
       } yield {
-        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
       }
     }
   }
@@ -617,7 +618,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         result <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId")
       } yield {
         assertEquals(3, rows.getJsonObject("page").getInteger("totalSize"))
-        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
       }
     }
   }
@@ -669,7 +670,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         result <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId1")
       } yield {
-        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), result.getJsonArray("value"))
       }
     }
   }
@@ -693,7 +694,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         assertEquals(0, resultCell.getJsonArray("value").size())
 
         assertEquals(2, resultForeignRows.getJsonObject("page").getLong("totalSize").longValue())
-        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultForeignRows.getJsonArray("rows"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultForeignRows.getJsonArray("rows"))
       }
     }
   }
@@ -718,10 +719,10 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         resultForeignRows <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows")
       } yield {
-        assertContainsDeep(Json.arr(Json.obj("id" -> 2)), resultCell.getJsonArray("value"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 2)), resultCell.getJsonArray("value"))
 
         assertEquals(1, resultForeignRows.getJsonObject("page").getLong("totalSize").longValue())
-        assertContainsDeep(Json.arr(Json.obj("id" -> 1)), resultForeignRows.getJsonArray("rows"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1)), resultForeignRows.getJsonArray("rows"))
       }
     }
   }
@@ -746,7 +747,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         resultForeignRows <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows")
       } yield {
-        assertContainsDeep(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultCell.getJsonArray("value"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultCell.getJsonArray("value"))
 
         assertEquals(0, resultForeignRows.getJsonObject("page").getLong("totalSize").longValue())
         assertEquals(0, resultForeignRows.getJsonArray("rows").size())
@@ -838,36 +839,36 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
             case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
           })
       } yield {
-        assertContainsDeep(Json.arr(
-                             Json.obj("id" -> rowId22),
-                             Json.obj("id" -> rowId21),
-                             Json.obj("id" -> rowId23)
-                           ),
-                           resultCell11.getJsonArray("value"))
+        assertJSONEquals(Json.arr(
+                           Json.obj("id" -> rowId22),
+                           Json.obj("id" -> rowId21),
+                           Json.obj("id" -> rowId23)
+                         ),
+                         resultCell11.getJsonArray("value"))
 
         // cell 11 is already at it's limit
         assertEquals(0, resultForeignRows11.getJsonObject("page").getLong("totalSize").longValue())
         assertEquals(0, resultForeignRows11.getJsonArray("rows").size())
 
-        assertContainsDeep(Json.arr(Json.obj("id" -> rowId11)), resultCell21.getJsonArray("value"))
-        assertContainsDeep(Json.arr(Json.obj("id" -> rowId11)), resultCell22.getJsonArray("value"))
-        assertContainsDeep(Json.arr(Json.obj("id" -> rowId11), Json.obj("id" -> rowId12)),
-                           resultCell23.getJsonArray("value"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> rowId11)), resultCell21.getJsonArray("value"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> rowId11)), resultCell22.getJsonArray("value"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> rowId11), Json.obj("id" -> rowId12)),
+                         resultCell23.getJsonArray("value"))
 
         assertEquals(1, resultForeignRows21.getJsonObject("page").getLong("totalSize").longValue())
-        assertContainsDeep(Json.arr(Json.obj("id" -> rowId12)), resultForeignRows21.getJsonArray("rows"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> rowId12)), resultForeignRows21.getJsonArray("rows"))
 
         // cell 23 is already at it's limit
         assertEquals(0, resultForeignRows23.getJsonObject("page").getLong("totalSize").longValue())
         assertEquals(0, resultForeignRows23.getJsonArray("rows").size())
 
         assertEquals(3, resultForeignRows12.getJsonObject("page").getLong("totalSize").longValue())
-        assertContainsDeep(Json.arr(
-                             Json.obj("id" -> rowId21),
-                             Json.obj("id" -> rowId22),
-                             Json.obj("id" -> rowId24)
-                           ),
-                           resultForeignRows12.getJsonArray("rows"))
+        assertJSONEquals(Json.arr(
+                           Json.obj("id" -> rowId21),
+                           Json.obj("id" -> rowId22),
+                           Json.obj("id" -> rowId24)
+                         ),
+                         resultForeignRows12.getJsonArray("rows"))
       }
     }
   }

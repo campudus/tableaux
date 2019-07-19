@@ -4,6 +4,7 @@ import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
@@ -147,8 +148,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -156,8 +157,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -165,8 +166,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -174,8 +175,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -183,8 +184,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -192,8 +193,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -201,8 +202,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -210,8 +211,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -219,8 +220,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
 
         testInt0 <- sendRequest("PUT",
                                 s"/tables/$tableId/columns/$columnId/rows/$rowId",
@@ -228,8 +229,8 @@ class FillCellTest extends TableauxTestBase {
         testFloat0 <- sendRequest("PUT",
                                   s"/tables/$tableId/columns/$columnId/rows/$rowId",
                                   Json.obj("value" -> Float.MaxValue))
-        _ = assertContains(Json.obj("status" -> "ok"), testInt0)
-        _ = assertContains(Json.obj("status" -> "ok"), testFloat0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testInt0)
+        _ = assertJSONEquals(Json.obj("status" -> "ok"), testFloat0)
       } yield ()
     }
   }
@@ -321,7 +322,7 @@ class FillCellTest extends TableauxTestBase {
       replacedCell <- sendRequest("PUT", s"/tables/$table/columns/1/rows/1", fillCellJson)
     } yield {
       assertNotSame(cell, replacedCell)
-      assertContains(fillCellJson, replacedCell)
+      assertJSONEquals(fillCellJson, replacedCell)
     }
   }
 

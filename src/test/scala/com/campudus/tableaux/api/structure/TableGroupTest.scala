@@ -3,6 +3,7 @@ package com.campudus.tableaux.api.structure
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -21,7 +22,7 @@ class TableGroupTest extends TableauxTestBase {
       createdGroup <- sendRequest("POST", "/groups", createTableGroupJson)
       groupId = createdGroup.getInteger("id")
     } yield {
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
+      assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
     }
   }
 
@@ -53,9 +54,9 @@ class TableGroupTest extends TableauxTestBase {
 
         updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
       } yield {
-        assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
-        assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
-                           updatedGroup)
+        assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
+        assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
+                         updatedGroup)
       }
     }
   }
@@ -76,9 +77,9 @@ class TableGroupTest extends TableauxTestBase {
 
         updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
       } yield {
-        assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
-        assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
-                           updatedGroup)
+        assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
+        assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
+                         updatedGroup)
       }
     }
   }
@@ -117,8 +118,8 @@ class TableGroupTest extends TableauxTestBase {
 
       retrieveTable <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), updatedTable.getJsonObject("group"))
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), retrieveTable.getJsonObject("group"))
+      assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), updatedTable.getJsonObject("group"))
+      assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), retrieveTable.getJsonObject("group"))
     }
   }
 
@@ -160,8 +161,8 @@ class TableGroupTest extends TableauxTestBase {
 
       retrieveTable <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdTable.getJsonObject("group"))
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), retrieveTable.getJsonObject("group"))
+      assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdTable.getJsonObject("group"))
+      assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), retrieveTable.getJsonObject("group"))
     }
   }
 
@@ -186,7 +187,7 @@ class TableGroupTest extends TableauxTestBase {
 
       assertEquals(1, tables.size)
 
-      assertContainsDeep(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), tables.head.getJsonObject("group"))
+      assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), tables.head.getJsonObject("group"))
     }
   }
 

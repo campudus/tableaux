@@ -4,6 +4,7 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, Tabl
 import com.campudus.tableaux.testtools.{TableauxTestBase, TestCustomException}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -31,7 +32,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       } yield {
         val exceptedColumn1Flags = Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
 
-        assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
+        assertJSONEquals(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
         assertNull(rowJson1.getJsonArray("annotations").getJsonArray(1))
       }
     }
@@ -76,15 +77,15 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         val column1Annotations = row.getJsonArray("annotations").getJsonArray(0)
         val column2Annotations = row.getJsonArray("annotations").getJsonArray(1)
 
-        assertContainsDeep(exceptedColumn1Annotations, column1Annotations)
-        assertContainsDeep(exceptedColumn2Annotations, column2Annotations)
+        assertJSONEquals(exceptedColumn1Annotations, column1Annotations)
+        assertJSONEquals(exceptedColumn2Annotations, column2Annotations)
 
         val exceptedColumn1AnnotationsAfterDelete =
           Json.arr(Json.obj("type" -> "info", "value" -> "this is a comment"))
 
         val column1AnnotationsAfterDelete = rowAfterDelete.getJsonArray("annotations").getJsonArray(0)
 
-        assertContainsDeep(exceptedColumn1AnnotationsAfterDelete, column1AnnotationsAfterDelete)
+        assertJSONEquals(exceptedColumn1AnnotationsAfterDelete, column1AnnotationsAfterDelete)
 
         // assert that it does NOT include the deleted annotation in the array.
         assertTrue(column1AnnotationsAfterDelete.size() == 1)
@@ -139,8 +140,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         // assert that each annotation has a UUID
         assertTrue(rowJson1Column1Annotations.asScala.map(_.asInstanceOf[JsonObject]).forall(_.containsKey("uuid")))
 
-        assertContainsDeep(exceptedColumn1Flags, rowJson1Column1Annotations)
-        assertContainsDeep(exceptedColumn2Flags, rowJson1Column2Annotations)
+        assertJSONEquals(exceptedColumn1Flags, rowJson1Column1Annotations)
+        assertJSONEquals(exceptedColumn2Flags, rowJson1Column2Annotations)
       }
     }
   }
@@ -229,7 +230,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           .getJsonObject(0)
           .getJsonArray("langtags")
 
-        assertContainsDeep(Json.arr(Seq("de", "gb", "fr", "es", "cs", "nl").sorted: _*), langtags)
+        assertJSONEquals(Json.arr(Seq("de", "gb", "fr", "es", "cs", "nl").sorted: _*), langtags)
       }
     }
   }
@@ -316,8 +317,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         val exceptedFlagsAfterDelete = Json
           .arr(Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> null))
 
-        assertContainsDeep(exceptedFlags, rowJson.getJsonArray("annotations").getJsonArray(0))
-        assertContainsDeep(exceptedFlagsAfterDelete, rowJsonAfterDelete.getJsonArray("annotations").getJsonArray(0))
+        assertJSONEquals(exceptedFlags, rowJson.getJsonArray("annotations").getJsonArray(0))
+        assertJSONEquals(exceptedFlagsAfterDelete, rowJsonAfterDelete.getJsonArray("annotations").getJsonArray(0))
       }
     }
   }
@@ -394,7 +395,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
             )
           ))
 
-        assertContainsDeep(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
+        assertJSONEquals(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
         assertNull(rowJson1.getJsonArray("annotations").getJsonArray(1))
 
         val exceptedColumn1FlagsAfterDelete = Json.arr(
@@ -404,7 +405,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
             "langtags" -> null
           ))
 
-        assertContainsDeep(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
+        assertJSONEquals(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
         assertNull(rowJson2.getJsonArray("annotations").getJsonArray(1))
       }
     }
@@ -436,7 +437,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           null
         )
 
-        assertContainsDeep(exceptedFlags, rowJson1.getJsonArray("annotations"))
+        assertJSONEquals(exceptedFlags, rowJson1.getJsonArray("annotations"))
       }
     }
   }
@@ -472,7 +473,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           null
         )
 
-        assertContainsDeep(exceptedFlags, rowJson1.getJsonArray("annotations"))
+        assertJSONEquals(exceptedFlags, rowJson1.getJsonArray("annotations"))
         assertNull(rowJson1AfterDelete.getJsonArray("annotations"))
       }
     }
@@ -572,11 +573,11 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
         (annotationsByRows1.getInteger("id").toInt, annotationsByRows2.getInteger("id").toInt) match {
           case (1, 2) =>
-            assertContainsDeep(expectedAnnotationsByRow1, annotationsByRows1)
-            assertContainsDeep(expectedAnnotationsByRow2, annotationsByRows2)
+            assertJSONEquals(expectedAnnotationsByRow1, annotationsByRows1)
+            assertJSONEquals(expectedAnnotationsByRow2, annotationsByRows2)
           case (2, 1) =>
-            assertContainsDeep(expectedAnnotationsByRow1, annotationsByRows2)
-            assertContainsDeep(expectedAnnotationsByRow2, annotationsByRows1)
+            assertJSONEquals(expectedAnnotationsByRow1, annotationsByRows2)
+            assertJSONEquals(expectedAnnotationsByRow2, annotationsByRows1)
           case _ =>
             fail("row ids shouldn't be other than 1, 2 or 2, 1")
         }
