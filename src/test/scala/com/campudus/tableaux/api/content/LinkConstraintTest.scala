@@ -68,10 +68,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
           retrieveDeleteCascadeLinkColumnTable1.getJsonObject("constraint")
         )
 
-        assertJSONEquals(
-          Constraint(DefaultCardinality, deleteCascade = false).getJson,
-          retrieveDeleteCascadeLinkColumnTable2.getJsonObject("constraint")
-        )
+        assertNull(retrieveDeleteCascadeLinkColumnTable2.getJsonObject("constraint"))
       }
     }
   }

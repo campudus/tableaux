@@ -1,12 +1,12 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel.TableId
-import com.campudus.tableaux.testtools.AssertionHelpers
+import com.campudus.tableaux.testtools.TestAssertionHelper
 import org.junit.Assert._
 import org.junit.Test
 import org.vertx.scala.core.json.Json
 
-abstract class AbstractTableDisplayInfosTest extends AssertionHelpers {
+abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
 
   @Test
   def checkSingleName(): Unit = {
