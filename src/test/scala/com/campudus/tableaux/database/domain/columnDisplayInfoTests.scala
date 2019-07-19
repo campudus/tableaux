@@ -1,14 +1,14 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import com.campudus.tableaux.testtools.AssertionHelpers
+import com.campudus.tableaux.testtools.TestAssertionHelper
 import org.junit.Assert._
 import org.junit.Test
 import org.vertx.scala.core.json.Json
 
 import scala.util.{Failure, Success, Try}
 
-abstract class AbstractColumnDisplayInfosTest extends AssertionHelpers {
+abstract class AbstractColumnDisplayInfosTest extends TestAssertionHelper {
 
   @Test
   def checkSingleName(): Unit = {

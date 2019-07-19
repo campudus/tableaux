@@ -34,36 +34,6 @@ case class TestCustomException(message: String, id: String, statusCode: Int) ext
   override def toString: String = s"TestCustomException(status=$statusCode,id=$id,message=$message)"
 }
 
-trait JsonAssertable[T] {
-  def serialize(t: T): String
-}
-
-object JsonAssertable {
-  implicit object String extends JsonAssertable[String] {
-    def serialize(t: String) = t
-  }
-  implicit object JsonObject extends JsonAssertable[JsonObject] {
-    def serialize(t: JsonObject) = t.toString
-  }
-  implicit object JsonArray extends JsonAssertable[JsonArray] {
-    def serialize(t: JsonArray) = t.toString
-  }
-}
-
-trait TestAssertionHelper {
-
-  def assertJSONEquals[T: JsonAssertable](
-      expected: T,
-      actual: T,
-      compareMode: JSONCompareMode = JSONCompareMode.LENIENT
-  ) {
-    val expectedString = implicitly[JsonAssertable[T]].serialize(expected)
-    val actualString = implicitly[JsonAssertable[T]].serialize(actual)
-
-    JSONAssert.assertEquals(expectedString, actualString, compareMode)
-  }
-}
-
 @RunWith(classOf[VertxUnitRunner])
 trait TableauxTestBase
     extends TestConfig

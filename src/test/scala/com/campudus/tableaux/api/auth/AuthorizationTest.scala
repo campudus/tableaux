@@ -108,8 +108,6 @@ class AuthorizationTest extends TableauxTestBase {
 
   @Test
   def deleteTable_validRole(implicit c: TestContext): Unit = {
-    // TODO ich kann immer nur eine globale role-permissions config mitgeben, weil die config im @before TestSetup schon geladen wird
-    // deshalb testen wir die permissions direkt als Unit Tests mit dem Controller und sporadisch mit dem kompletten REST Request hier
     okTest {
 
       def createTableJson: JsonObject = {
