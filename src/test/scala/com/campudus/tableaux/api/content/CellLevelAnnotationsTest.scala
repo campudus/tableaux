@@ -7,6 +7,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.skyscreamer.jsonassert.JSONAssert
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -401,11 +402,18 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         val exceptedColumn1FlagsAfterDelete = Json.arr(
           Json.obj(
             "type" -> "flag",
-            "value" -> "needs_translation",
-            "langtags" -> null
+            "value" -> "needs_translation"
           ))
 
         assertJSONEquals(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
+        assertFalse(
+          "should not include null field",
+          rowJson2
+            .getJsonArray("annotations")
+            .getJsonArray(0)
+            .getJsonObject(0)
+            .containsKey("langtaga")); // JSON serialization from the server should not include null fields, such as "versionedFlows": null
+
         assertNull(rowJson2.getJsonArray("annotations").getJsonArray(1))
       }
     }
