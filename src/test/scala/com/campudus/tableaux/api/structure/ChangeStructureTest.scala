@@ -30,8 +30,8 @@ class ChangeStructureTest extends TableauxTestBase {
       test1 <- sendRequest("POST", "/tables/1", Json.obj("name" -> "New testname"))
       test2 <- sendRequest("GET", "/tables/1")
     } yield {
-      assertEquals(expectedTableJson, test1)
-      assertEquals(expectedTableJson, test2)
+      assertJSONEquals(expectedTableJson, test1)
+      assertJSONEquals(expectedTableJson, test2)
     }
   }
 
@@ -147,8 +147,8 @@ class ChangeStructureTest extends TableauxTestBase {
         resultPost <- sendRequest("POST", s"/tables/$tableId/columns/2", postJson)
         resultGet <- sendRequest("GET", s"/tables/$tableId/columns/2")
       } yield {
-        assertEquals(expectedJson2, resultGet)
-        assertEquals(resultPost, resultGet)
+        assertJSONEquals(expectedJson2, resultGet)
+        assertJSONEquals(resultPost, resultGet)
       }
     }
   }

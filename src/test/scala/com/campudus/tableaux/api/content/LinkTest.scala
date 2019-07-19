@@ -124,7 +124,7 @@ class LinkColumnTest extends LinkTestBase {
       _ <- sendRequest("POST", "/tables/1/columns", postLinkCol(toTableId = 2))
       test <- sendRequest("GET", "/tables/1/columns/3")
     } yield {
-      assertEquals(expectedJson, test)
+      assertJSONEquals(expectedJson, test)
     }
   }
 
@@ -161,7 +161,7 @@ class LinkColumnTest extends LinkTestBase {
         tables <- setupTwoTables()
         test <- sendRequest("POST", "/tables/1/columns", postLinkCol(toTableId = 2))
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -201,7 +201,7 @@ class LinkColumnTest extends LinkTestBase {
         tables <- setupTwoTables()
         test <- sendRequest("POST", "/tables/1/columns", postLinkColWithOrd)
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -251,7 +251,7 @@ class LinkColumnTest extends LinkTestBase {
         createLink <- sendRequest("POST", "/tables/1/columns", postLinkColWithOrd)
         retrieveLinkColumn <- sendRequest("GET", s"/tables/2/columns/3")
       } yield {
-        assertEquals(expectedJson, createLink)
+        assertJSONEquals(expectedJson, createLink)
         assertEquals("Backlink", retrieveLinkColumn.getString("name"))
       }
     }
@@ -293,7 +293,7 @@ class LinkColumnTest extends LinkTestBase {
         columnsA <- sendRequest("GET", s"/tables/$table1/columns")
         columnsB <- sendRequest("GET", s"/tables/$table2/columns")
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
 
         logger.info(columnsA.encode())
         logger.info(columnsB.encode())
@@ -1130,19 +1130,19 @@ class LinkTest extends LinkTestBase {
         }
       } yield {
         val expectedJson = Json.fromObjectString(s"""
-{
-  "status": "ok",
-  "page": {
-    "offset": null,
-    "limit": null,
-    "totalSize": 3
-  },
-  "rows": [
-    {"id": 1,"values": [[{"id": 2,"value": "blub 2"}]]},
-    {"id": 2,"values": [[{"id": 3,"value": "blub 3"}]]},
-    {"id": 3,"values": [[{"id": 1,"value": "blub 1"}]]}
-  ]
-}
+                                                    |{
+                                                    |  "status": "ok",
+                                                    |  "page": {
+                                                    |    "offset": null,
+                                                    |    "limit": null,
+                                                    |    "totalSize": 3
+                                                    |  },
+                                                    |  "rows": [
+                                                    |    {"id": 1,"values": [[{"id": 2,"value": "blub 2"}]]},
+                                                    |    {"id": 2,"values": [[{"id": 3,"value": "blub 3"}]]},
+                                                    |    {"id": 3,"values": [[{"id": 1,"value": "blub 1"}]]}
+                                                    |  ]
+                                                    |}
          """.stripMargin)
 
         assertEquals(expectedJson, rows)
@@ -1207,13 +1207,8 @@ class LinkTest extends LinkTestBase {
         })
     } yield {
       val dependentRowsOfTable1Row1 = dependentObjectsOfTable1Row1
-        .find({
-          case o: JsonObject =>
-            o.getJsonObject("table").getLong("id") == 3
-        })
-        .map({
-          _.getJsonArray("rows")
-        })
+        .find(_.getJsonObject("table").getLong("id") == 3)
+        .map(_.getJsonArray("rows"))
 
       val expectedDependentRowsOfTable1Row1 = Json.arr(
         Json.obj(
@@ -1228,13 +1223,8 @@ class LinkTest extends LinkTestBase {
       assertEquals(Some(expectedDependentRowsOfTable1Row1), dependentRowsOfTable1Row1)
 
       val dependentRowsOfTable2Row1 = dependentObjectsOfTable2Row1
-        .find({
-          case o: JsonObject =>
-            o.getJsonObject("table").getLong("id") == 1
-        })
-        .map({
-          _.getJsonArray("rows")
-        })
+        .find(_.getJsonObject("table").getLong("id") == 1)
+        .map(_.getJsonArray("rows"))
 
       val expectedDependentRowsOfTable2Row1 = Json.arr(
         Json.obj(
@@ -1307,22 +1297,12 @@ class LinkTest extends LinkTestBase {
         })
     } yield {
       val dependentRows11OfTable2 = dependentRows11
-        .find({
-          case o: JsonObject =>
-            o.getJsonObject("table").getLong("id") == 2
-        })
-        .map({
-          _.getJsonArray("rows")
-        })
+        .find(_.getJsonObject("table").getLong("id") == 2)
+        .map(_.getJsonArray("rows"))
 
       val dependentRows11OfTable3 = dependentRows11
-        .find({
-          case o: JsonObject =>
-            o.getJsonObject("table").getLong("id") == 3
-        })
-        .map({
-          _.getJsonArray("rows")
-        })
+        .find(_.getJsonObject("table").getLong("id") == 3)
+        .map(_.getJsonArray("rows"))
 
       val expectedDependentRows11OfTable2 = Json.arr(
         Json.obj(
@@ -1350,13 +1330,8 @@ class LinkTest extends LinkTestBase {
       assertEquals(Some(expectedDependentRows11OfTable3), dependentRows11OfTable3)
 
       val dependentRows21OfTable1 = dependentRows21
-        .find({
-          case o: JsonObject =>
-            o.getJsonObject("table").getLong("id") == 1
-        })
-        .map({
-          _.getJsonArray("rows")
-        })
+        .find(_.getJsonObject("table").getLong("id") == 1)
+        .map(_.getJsonArray("rows"))
 
       val expectedDependentRows21OfTable2 = Json.arr(
         Json.obj(
@@ -1372,13 +1347,8 @@ class LinkTest extends LinkTestBase {
       assertEquals(Some(expectedDependentRows21OfTable2), dependentRows21OfTable1)
 
       val dependentRows32OfTable1 = dependentRows32
-        .find({
-          case o: JsonObject =>
-            o.getJsonObject("table").getLong("id") == 1
-        })
-        .map({
-          _.getJsonArray("rows")
-        })
+        .find(_.getJsonObject("table").getLong("id") == 1)
+        .map(_.getJsonArray("rows"))
 
       val expectedDependentRows32OfTable1 = Json.arr(
         Json.obj(
@@ -1428,13 +1398,8 @@ class LinkTest extends LinkTestBase {
         })
     } yield {
       val dependentRows = dependentRowObjects
-        .find({
-          case o: JsonObject =>
-            o.getJsonObject("table").getLong("id") == 2
-        })
-        .map({
-          _.getJsonArray("rows")
-        })
+        .find(_.getJsonObject("table").getLong("id") == 2)
+        .map(_.getJsonArray("rows"))
 
       val expectedDependentRows = Json.arr(
         Json.obj(

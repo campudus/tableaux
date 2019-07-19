@@ -47,8 +47,8 @@ class CreateTableTest extends TableauxTestBase {
       test1 <- sendRequest("POST", "/tables", createTable1)
       test2 <- sendRequest("POST", "/tables", createTable2)
     } yield {
-      assertEquals(expectedJson1, test1)
-      assertEquals(expectedJson2, test2)
+      assertJSONEquals(expectedJson1, test1)
+      assertJSONEquals(expectedJson2, test2)
     }
   }
 
@@ -71,8 +71,8 @@ class CreateTableTest extends TableauxTestBase {
       test1 <- sendRequest("POST", "/tables", createTable1)
       test2 <- sendRequest("POST", "/tables", createTable2)
     } yield {
-      assertEquals(expectedJson1, test1)
-      assertEquals(expectedJson2, test2)
+      assertJSONEquals(expectedJson1, test1)
+      assertJSONEquals(expectedJson2, test2)
     }
   }
 
@@ -98,11 +98,11 @@ class CreateTableTest extends TableauxTestBase {
       test1Get <- sendRequest("GET", "/tables/1")
       test2Get <- sendRequest("GET", "/tables/2")
     } yield {
-      assertEquals(expectedJson1, test1Post)
-      assertEquals(expectedJson2, test2Post)
+      assertJSONEquals(expectedJson1, test1Post)
+      assertJSONEquals(expectedJson2, test2Post)
 
-      assertEquals(test1Get, test1Post)
-      assertEquals(test2Get, test2Post)
+      assertJSONEquals(test1Get, test1Post)
+      assertJSONEquals(test2Get, test2Post)
     }
   }
 
