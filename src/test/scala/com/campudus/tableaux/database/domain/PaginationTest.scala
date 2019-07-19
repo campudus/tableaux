@@ -4,7 +4,6 @@ import com.campudus.tableaux._
 import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.Matchers._
-import org.scalatest._
 
 class PaginationTest {
 

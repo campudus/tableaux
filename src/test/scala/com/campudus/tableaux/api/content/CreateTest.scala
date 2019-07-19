@@ -4,9 +4,9 @@ import com.campudus.tableaux.testtools.RequestCreation.{Identifier, TextCol}
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
@@ -191,7 +191,7 @@ class CreateRowTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Test Column 2"))
         test <- sendRequest("POST", "/tables/1/rows", valuesRow)
       } yield {
-        assertContains(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -316,7 +316,7 @@ class CreateRowTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Test Column 2"))
         test <- sendRequest("POST", "/tables/1/rows", valuesRow)
       } yield {
-        assertContains(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }

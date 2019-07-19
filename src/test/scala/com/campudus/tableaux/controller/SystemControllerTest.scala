@@ -4,6 +4,7 @@ import com.campudus.tableaux.router.SystemRouter
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
@@ -85,7 +86,7 @@ class SystemControllerTest extends TableauxTestBase {
         }
         versions <- sendRequest("GET", "/system/versions")
       } yield {
-        assertContains(expectedJson, versions.getJsonObject("versions"))
+        assertJSONEquals(expectedJson, versions.getJsonObject("versions"))
       }
     }
   }

@@ -51,7 +51,7 @@ class AnnotationCountTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expectedAnnotationCount, annotationCount)
+        assertJSONEquals(expectedAnnotationCount, annotationCount)
       }
     }
   }
@@ -110,7 +110,7 @@ class AnnotationCountTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expectedAnnotationCount, annotationCount)
+        assertJSONEquals(expectedAnnotationCount, annotationCount)
       }
     }
   }
@@ -158,7 +158,7 @@ class AnnotationCountTest extends TableauxTestBase {
           )
         )
 
-        assertContainsDeep(expectedAnnotationCount, annotationCount)
+        assertJSONEquals(expectedAnnotationCount, annotationCount)
       }
     }
   }

@@ -6,8 +6,9 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
+import org.junit.Assert._
 import org.junit.runner.RunWith
-import org.junit.{After, Before, Test}
+import org.junit.{After, Assert, Before, Test}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
