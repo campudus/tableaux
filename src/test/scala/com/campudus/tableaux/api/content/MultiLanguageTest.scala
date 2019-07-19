@@ -38,7 +38,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
         columnsAfterDelete <- sendRequest("GET", s"/tables/$tableId/columns")
       } yield {
-        assertEquals(exceptedJson(tableId, columnId), column)
+        assertJSONEquals(exceptedJson(tableId, columnId), column)
         assertEquals(6, columnsAfterDelete.getJsonArray("columns").size())
       }
     }

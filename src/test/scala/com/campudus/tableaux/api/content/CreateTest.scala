@@ -6,6 +6,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
@@ -56,7 +57,7 @@ class CreateCompleteTableTest extends TableauxTestBase {
       for {
         test <- sendRequest("POST", "/completetable", createCompleteTableJson)
       } yield {
-        assertContains(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -103,7 +104,7 @@ class CreateCompleteTableTest extends TableauxTestBase {
       for {
         test <- sendRequest("POST", "/completetable", createCompleteTableJson)
       } yield {
-        assertContains(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -146,7 +147,7 @@ class CreateCompleteTableTest extends TableauxTestBase {
       for {
         test <- sendRequest("POST", "/completetable", createCompleteTableJson)
       } yield {
-        assertContains(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }

@@ -75,7 +75,7 @@ class AttachmentTest extends MediaTestBase {
 
         column <- sendRequest("POST", s"/tables/$tableId/columns", column)
       } yield {
-        assertEquals(expectedJson, column)
+        assertJSONEquals(expectedJson, column)
       }
     }
   }

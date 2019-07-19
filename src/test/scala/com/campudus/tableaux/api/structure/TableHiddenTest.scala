@@ -28,8 +28,8 @@ class TableHiddenTest extends TableauxTestBase {
       tableId = tablePost.getLong("id").toLong
       tableGet <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedTableJson, tablePost)
-      assertEquals(expectedTableJson, tableGet)
+      assertJSONEquals(expectedTableJson, tablePost)
+      assertJSONEquals(expectedTableJson, tableGet)
     }
   }
 
@@ -51,8 +51,8 @@ class TableHiddenTest extends TableauxTestBase {
       tableId = tablePost.getLong("id").toLong
       tableGet <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedTableJson, tablePost)
-      assertEquals(expectedTableJson, tableGet)
+      assertJSONEquals(expectedTableJson, tablePost)
+      assertJSONEquals(expectedTableJson, tableGet)
     }
   }
 
@@ -75,8 +75,8 @@ class TableHiddenTest extends TableauxTestBase {
         tableId = tablePost.getLong("id").toLong
         tableGet <- sendRequest("GET", s"/tables/$tableId")
       } yield {
-        assertEquals(expectedTableJson, tablePost)
-        assertEquals(expectedTableJson, tableGet)
+        assertJSONEquals(expectedTableJson, tablePost)
+        assertJSONEquals(expectedTableJson, tableGet)
       }
     }
   }
@@ -102,8 +102,8 @@ class TableHiddenTest extends TableauxTestBase {
         tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
         table <- sendRequest("GET", s"/tables/$tableId")
       } yield {
-        assertEquals(expectedTableJson, tableUpdate)
-        assertEquals(expectedTableJson, table)
+        assertJSONEquals(expectedTableJson, tableUpdate)
+        assertJSONEquals(expectedTableJson, table)
       }
     }
   }
@@ -129,8 +129,8 @@ class TableHiddenTest extends TableauxTestBase {
         tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
         table <- sendRequest("GET", s"/tables/$tableId")
       } yield {
-        assertEquals(expectedTableJson, tableUpdate)
-        assertEquals(expectedTableJson, table)
+        assertJSONEquals(expectedTableJson, tableUpdate)
+        assertJSONEquals(expectedTableJson, table)
       }
     }
   }
@@ -157,10 +157,10 @@ class TableHiddenTest extends TableauxTestBase {
       tableUpdate <- sendRequest("POST", s"/tables/$tableId", updateTableJson)
       table2 <- sendRequest("GET", s"/tables/$tableId")
     } yield {
-      assertEquals(expectedTableJson1, tablePost)
-      assertEquals(expectedTableJson1, table1)
-      assertEquals(expectedTableJson2, tableUpdate)
-      assertEquals(expectedTableJson2, table2)
+      assertJSONEquals(expectedTableJson1, tablePost)
+      assertJSONEquals(expectedTableJson1, table1)
+      assertJSONEquals(expectedTableJson2, tableUpdate)
+      assertJSONEquals(expectedTableJson2, table2)
     }
   }
 

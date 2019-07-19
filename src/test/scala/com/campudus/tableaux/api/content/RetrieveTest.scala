@@ -5,6 +5,7 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 @RunWith(classOf[VertxUnitRunner])
@@ -37,14 +38,23 @@ class RetrieveTest extends TableauxTestBase {
         "totalSize" -> 0
       ),
       "rows" -> Json.arr(),
-      "langtags" -> Json.arr("de-DE", "en-GB")
+      "langtags" -> Json.arr("de-DE", "en-GB"),
+      "permission" -> Json.obj(
+        "editDisplayProperty" -> true,
+        "editStructureProperty" -> true,
+        "delete" -> true,
+        "createRow" -> true,
+        "createColumn" -> true,
+        "editCellAnnotation" -> true,
+        "editRowAnnotation" -> true
+      )
     )
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
       test <- sendRequest("GET", "/completetable/1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertJSONEquals(expectedJson, test, JSONCompareMode.STRICT)
     }
   }
 
@@ -106,7 +116,7 @@ class RetrieveTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/columns", createBooleanColumnJson)
         test <- sendRequest("GET", "/completetable/1")
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -170,7 +180,7 @@ class RetrieveTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/rows")
         test <- sendRequest("GET", "/completetable/1")
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -257,7 +267,7 @@ class RetrieveTest extends TableauxTestBase {
           Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row3", 3, false)))))
         test <- sendRequest("GET", "/completetable/1")
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }

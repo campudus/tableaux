@@ -5,7 +5,6 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.Json
 
 @RunWith(classOf[VertxUnitRunner])
@@ -63,8 +62,8 @@ class CreateColumnTest extends TableauxTestBase {
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
         test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield {
-        assertEquals(expectedJson, test1)
-        assertEquals(expectedJson2, test2)
+        assertJSONEquals(expectedJson, test1)
+        assertJSONEquals(expectedJson2, test2)
       }
     }
   }
@@ -105,8 +104,8 @@ class CreateColumnTest extends TableauxTestBase {
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
         test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield {
-        assertEquals(expectedJson, test1)
-        assertEquals(expectedJson2, test2)
+        assertJSONEquals(expectedJson, test1)
+        assertJSONEquals(expectedJson2, test2)
       }
     }
   }
@@ -147,8 +146,8 @@ class CreateColumnTest extends TableauxTestBase {
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
         test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield {
-        assertEquals(expectedJson, test1)
-        assertEquals(expectedJson2, test2)
+        assertJSONEquals(expectedJson, test1)
+        assertJSONEquals(expectedJson2, test2)
       }
     }
   }
@@ -188,8 +187,8 @@ class CreateColumnTest extends TableauxTestBase {
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
         test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield {
-        assertEquals(expectedJson, test1)
-        assertEquals(expectedJson2, test2)
+        assertJSONEquals(expectedJson, test1)
+        assertJSONEquals(expectedJson2, test2)
       }
     }
   }
@@ -229,8 +228,8 @@ class CreateColumnTest extends TableauxTestBase {
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
         test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield {
-        assertEquals(expectedJson, test1)
-        assertEquals(expectedJson2, test2)
+        assertJSONEquals(expectedJson, test1)
+        assertJSONEquals(expectedJson2, test2)
       }
     }
   }
@@ -271,8 +270,8 @@ class CreateColumnTest extends TableauxTestBase {
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
         test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield {
-        assertEquals(expectedJson, test1)
-        assertEquals(expectedJson2, test2)
+        assertJSONEquals(expectedJson, test1)
+        assertJSONEquals(expectedJson2, test2)
       }
     }
   }
@@ -314,7 +313,7 @@ class CreateColumnTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test <- sendRequest("POST", "/tables/1/columns", jsonObj)
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -355,7 +354,7 @@ class CreateColumnTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test <- sendRequest("POST", "/tables/1/columns", jsonObj)
       } yield {
-        assertEquals(expectedJson, test)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -387,7 +386,7 @@ class CreateColumnTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test <- sendRequest("POST", "/tables/1/columns", createColumn)
       } yield {
-        assertJSONEquals(expectedJson, test, JSONCompareMode.STRICT)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
@@ -419,7 +418,7 @@ class CreateColumnTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test <- sendRequest("POST", "/tables/1/columns", createColumn)
       } yield {
-        assertJSONEquals(expectedJson, test, JSONCompareMode.STRICT)
+        assertJSONEquals(expectedJson, test)
       }
     }
   }
