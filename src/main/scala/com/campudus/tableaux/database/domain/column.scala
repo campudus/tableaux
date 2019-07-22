@@ -6,7 +6,7 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{LanguageNeutral, _}
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeColumn}
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeColumn, ScopeColumnSeq}
 import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException, OkArg, RequestContext}
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.{DateTime, LocalDate}
@@ -588,7 +588,13 @@ case class GroupColumn(
   *
   * @param columns The sequence of columns.
   */
-case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
+case class ColumnSeq(columns: Seq[ColumnType[_]])(
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends DomainObject {
 
-  override def getJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
+  override def getJson: JsonObject = {
+    val columnSeqJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
+    roleModel.enrichDomainObject(columnSeqJson, ScopeColumnSeq)
+  }
 }

@@ -1228,7 +1228,6 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
         "editStructureProperty" -> false,
         "delete" -> false,
         "createRow" -> false,
-        "createColumn" -> false,
         "editCellAnnotation" -> false,
         "editRowAnnotation" -> false
       )
@@ -1268,9 +1267,67 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
         "editStructureProperty" -> true,
         "delete" -> true,
         "createRow" -> true,
-        "createColumn" -> true,
         "editCellAnnotation" -> true,
         "editRowAnnotation" -> true
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def enrichColumnSeq_createIsAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "create"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable()
+      permission <- controller.retrieveColumns(tableId).map(getPermission)
+    } yield {
+      val expected = Json.obj(
+        "create" -> true,
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def enrichColumnSeq_createIsNotAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      tableId <- createDefaultTable()
+      permission <- controller.retrieveColumns(tableId).map(getPermission)
+    } yield {
+      val expected = Json.obj(
+        "create" -> false,
       )
 
       assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)

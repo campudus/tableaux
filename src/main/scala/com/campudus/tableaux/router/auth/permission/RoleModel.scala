@@ -104,6 +104,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       case ScopeTableSeq => enrichTableSeq(inputJson, userRoles)
       case ScopeTable => enrichTable(inputJson, userRoles, objects)
       case ScopeColumn => enrichColumn(inputJson, userRoles, objects)
+      case ScopeColumnSeq => enrichColumnSeq(inputJson, userRoles)
       case _ => inputJson
     }
   }
@@ -122,11 +123,18 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
             "editStructureProperty" -> isActionAllowed(EditStructureProperty),
             "delete" -> isActionAllowed(Delete),
             "createRow" -> isActionAllowed(CreateRow),
-            // For 'createColumn' we must only check if there is a action Create within a scope 'column',
-            // conditions are not relevant for action 'create'.
-            "createColumn" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create)),
             "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
             "editRowAnnotation" -> isActionAllowed(EditRowAnnotation),
+          ))
+    )
+  }
+
+  private def enrichColumnSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+    inputJson.mergeIn(
+      Json.obj(
+        "permission" ->
+          Json.obj(
+            "create" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create)),
           ))
     )
   }
