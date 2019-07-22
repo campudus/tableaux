@@ -1,5 +1,7 @@
 package com.campudus.tableaux.database.domain
 
+import com.campudus.tableaux.RequestContext
+import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeServiceSeq, ScopeTableSeq}
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
@@ -35,10 +37,14 @@ case class Service(
   }
 }
 
-case class ServiceSeq(services: Seq[Service]) extends DomainObject {
+case class ServiceSeq(services: Seq[Service])(
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends DomainObject {
 
   override def getJson: JsonObject = {
-    Json.obj("services" -> services.map(_.getJson))
+    val serviceSeqJson = Json.obj("services" -> services.map(_.getJson))
+    roleModel.enrichDomainObject(serviceSeqJson, ScopeServiceSeq)
   }
 }
 

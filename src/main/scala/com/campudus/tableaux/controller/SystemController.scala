@@ -284,7 +284,7 @@ class SystemController(
   def retrieveServices(): Future[DomainObject] = {
     logger.info(s"retrieveServices")
     for {
-      serviceSeq <- serviceModel.retrieveAll().map(ServiceSeq)
+      serviceSeq <- serviceModel.retrieveAll().map(ServiceSeq(_))
     } yield serviceSeq
   }
 
