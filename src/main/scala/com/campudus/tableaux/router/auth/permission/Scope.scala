@@ -27,3 +27,4 @@ case object ScopeTableGroup extends Scope { override val name = "tableGroup" }
 // they are not intended to be used in the role-permissions configuration.
 case object ScopeTableSeq extends Scope { override val name = "tableSeq" }
 case object ScopeServiceSeq extends Scope { override val name = "serviceSeq" }
+case object ScopeColumnSeq extends Scope { override val name = "columnSeq" }
