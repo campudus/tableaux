@@ -123,6 +123,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
             "editStructureProperty" -> isActionAllowed(EditStructureProperty),
             "delete" -> isActionAllowed(Delete),
             "createRow" -> isActionAllowed(CreateRow),
+            "deleteRow" -> isActionAllowed(DeleteRow),
             "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
             "editRowAnnotation" -> isActionAllowed(EditRowAnnotation),
           ))

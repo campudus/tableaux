@@ -1228,6 +1228,7 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
         "editStructureProperty" -> false,
         "delete" -> false,
         "createRow" -> false,
+        "deleteRow" -> false,
         "editCellAnnotation" -> false,
         "editRowAnnotation" -> false
       )
@@ -1244,7 +1245,7 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
                                     |    {
                                     |      "type": "grant",
                                     |      "action": ["view", "editDisplayProperty", "editStructureProperty", "delete",
-                                    |        "createRow", "editCellAnnotation", "editRowAnnotation"],
+                                    |        "createRow", "deleteRow", "editCellAnnotation", "editRowAnnotation"],
                                     |      "scope": "table"
                                     |    },
                                     |    {
@@ -1267,6 +1268,7 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
         "editStructureProperty" -> true,
         "delete" -> true,
         "createRow" -> true,
+        "deleteRow" -> true,
         "editCellAnnotation" -> true,
         "editRowAnnotation" -> true
       )
