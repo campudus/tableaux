@@ -105,9 +105,28 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       case ScopeTable => enrichTable(inputJson, userRoles, objects)
       case ScopeColumn => enrichColumn(inputJson, userRoles, objects)
       case ScopeColumnSeq => enrichColumnSeq(inputJson, userRoles)
+      case ScopeService => enrichService(inputJson, userRoles)
       case ScopeServiceSeq => enrichServiceSeq(inputJson, userRoles)
       case _ => inputJson
     }
+  }
+
+  private def mergePermissionJson(inputJson: JsonObject, permissionJson: JsonObject): JsonObject =
+    inputJson.mergeIn(Json.obj("permission" -> permissionJson))
+
+  private def enrichService(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+
+    def isActionAllowed(action: Action): Boolean = {
+      isAllowed(userRoles, action, ScopeService, _.actions.contains(action))
+    }
+
+    val permissionJson: JsonObject = Json.obj(
+      "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
+      "editStructureProperty" -> isActionAllowed(EditStructureProperty),
+      "delete" -> isActionAllowed(Delete)
+    )
+
+    mergePermissionJson(inputJson, permissionJson)
   }
 
   private def enrichTable(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
@@ -116,39 +135,34 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       isAllowed(userRoles, action, ScopeTable, _.isMatching(objects))
     }
 
-    inputJson.mergeIn(
+    val permissionJson: JsonObject =
       Json.obj(
-        "permission" ->
-          Json.obj(
-            "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
-            "editStructureProperty" -> isActionAllowed(EditStructureProperty),
-            "delete" -> isActionAllowed(Delete),
-            "createRow" -> isActionAllowed(CreateRow),
-            "deleteRow" -> isActionAllowed(DeleteRow),
-            "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
-            "editRowAnnotation" -> isActionAllowed(EditRowAnnotation),
-          ))
-    )
+        "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
+        "editStructureProperty" -> isActionAllowed(EditStructureProperty),
+        "delete" -> isActionAllowed(Delete),
+        "createRow" -> isActionAllowed(CreateRow),
+        "deleteRow" -> isActionAllowed(DeleteRow),
+        "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
+        "editRowAnnotation" -> isActionAllowed(EditRowAnnotation),
+      )
+
+    mergePermissionJson(inputJson, permissionJson)
   }
 
   private def enrichServiceSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
-    inputJson.mergeIn(
-      Json.obj(
-        "permission" ->
-          Json.obj(
-            "create" -> isAllowed(userRoles, Create, ScopeService, _.actions.contains(Create)),
-          ))
+    val permissionJson: JsonObject = Json.obj(
+      "create" -> isAllowed(userRoles, Create, ScopeService, _.actions.contains(Create)),
     )
+
+    mergePermissionJson(inputJson, permissionJson)
   }
 
   private def enrichColumnSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
-    inputJson.mergeIn(
-      Json.obj(
-        "permission" ->
-          Json.obj(
-            "create" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create)),
-          ))
+    val permissionJson: JsonObject = Json.obj(
+      "create" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create)),
     )
+
+    mergePermissionJson(inputJson, permissionJson)
   }
 
   private def enrichColumn(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
@@ -157,16 +171,14 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       isAllowed(userRoles, action, ScopeColumn, _.isMatching(objects))
     }
 
-    inputJson.mergeIn(
-      Json.obj(
-        "permission" ->
-          Json.obj(
-            "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
-            "editStructureProperty" -> isActionAllowed(EditStructureProperty),
-            "editCellValue" -> isActionAllowed(EditCellValue),
-            "delete" -> isActionAllowed(Delete)
-          ))
+    val permissionJson: JsonObject = Json.obj(
+      "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
+      "editStructureProperty" -> isActionAllowed(EditStructureProperty),
+      "editCellValue" -> isActionAllowed(EditCellValue),
+      "delete" -> isActionAllowed(Delete)
     )
+
+    mergePermissionJson(inputJson, permissionJson)
   }
 
   private def enrichTableSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
@@ -175,13 +187,11 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       isAllowed(userRoles, action, ScopeTable, _.actions.contains(action))
     }
 
-    inputJson.mergeIn(
-      Json.obj(
-        "permission" ->
-          Json.obj(
-            "create" -> isActionAllowed(Create)
-          ))
+    val permissionJson: JsonObject = Json.obj(
+      "create" -> isActionAllowed(Create)
     )
+
+    mergePermissionJson(inputJson, permissionJson)
   }
 
   private def enrichMedia(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
@@ -190,15 +200,13 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       isAllowed(userRoles, action, ScopeMedia, _.actions.contains(action))
     }
 
-    inputJson.mergeIn(
-      Json.obj(
-        "permission" ->
-          Json.obj(
-            "create" -> isActionAllowed(Create),
-            "edit" -> isActionAllowed(Edit),
-            "delete" -> isActionAllowed(Delete)
-          ))
+    val permissionJson: JsonObject = Json.obj(
+      "create" -> isActionAllowed(Create),
+      "edit" -> isActionAllowed(Edit),
+      "delete" -> isActionAllowed(Delete)
     )
+
+    mergePermissionJson(inputJson, permissionJson)
   }
 
   /**
