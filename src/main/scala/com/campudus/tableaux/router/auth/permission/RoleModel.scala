@@ -1,7 +1,7 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.MultiLanguage
-import com.campudus.tableaux.database.domain.{ColumnType, Table}
+import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{RequestContext, UnauthorizedException}
 import com.typesafe.scalalogging.LazyLogging
@@ -77,10 +77,13 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = requestContext.getUserRoles
 
     domainObjects.filter({ obj: A =>
+      // for each domainObject generate objects to compare with
+      // for media and service there's only a global view permission
       val objects: ComparisonObjects = obj match {
         case table: Table => ComparisonObjects(table)
         case column: ColumnType[_] => parentObjects.merge(column)
-        case _ => ??? // TODO
+        case _: Service => ComparisonObjects()
+        case _ => ComparisonObjects()
       }
 
       isAllowed(userRoles, View, scope, _.isMatching(objects))
