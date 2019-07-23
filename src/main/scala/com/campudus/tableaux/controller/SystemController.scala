@@ -1,21 +1,14 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import com.campudus.tableaux.database.model.{FolderModel, ServiceModel, StructureModel, SystemModel, TableauxModel}
+import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.JsonUtils
-import com.campudus.tableaux.router.auth.permission.{
-  ComparisonObjects,
-  Create,
-  Delete,
-  RoleModel,
-  ScopeColumn,
-  ScopeService
-}
+import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.{RequestContext, TableauxConfig}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -289,16 +282,20 @@ class SystemController(
     } yield service
   }
 
-  def retrieveServices(): Future[DomainObject] = {
+  def retrieveServices(): Future[ServiceSeq] = {
     logger.info(s"retrieveServices")
     for {
-      serviceSeq <- serviceModel.retrieveAll().map(ServiceSeq(_))
-    } yield serviceSeq
+      serviceSeq <- serviceModel.retrieveAll()
+    } yield {
+      val filteredServices: Seq[Service] = roleModel.filterDomainObjects[Service](ScopeService, serviceSeq)
+      ServiceSeq(filteredServices)
+    }
   }
 
-  def retrieveService(serviceId: ServiceId): Future[DomainObject] = {
+  def retrieveService(serviceId: ServiceId): Future[Service] = {
     logger.info(s"retrieveService $serviceId")
     for {
+      _ <- roleModel.checkAuthorization(View, ScopeService)
       service <- serviceModel.retrieve(serviceId)
     } yield service
   }
