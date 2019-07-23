@@ -40,6 +40,11 @@
       "type": "grant",
       "action": ["create", "view", "edit", "delete"],
       "scope": "tableGroup"
+    },
+    {
+      "type": "grant",
+      "action": ["create", "view", "delete", "editStructureProperty", "editDisplayProperty"],
+      "scope": "service"
     }
   ]
 }
