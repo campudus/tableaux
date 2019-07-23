@@ -3,7 +3,7 @@ package com.campudus.tableaux.api.auth
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.DomainObject
+import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue, ServiceTypeAction}
 import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -158,6 +158,116 @@ class SystemControllerAuthTest_enrichDomainObjects extends SystemControllerAuthT
       )
 
       assertJSONEquals(expected, permission, JSONCompareMode.STRICT)
+    }
+  }
+
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTest {
+
+  @Test
+  def createService_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "create"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      permission <- controller
+        .createService("a service",
+                       ServiceTypeAction,
+                       None,
+                       MultiLanguageValue[String](None),
+                       MultiLanguageValue[String](None),
+                       true,
+                       None,
+                       None)
+
+    } yield ()
+  }
+
+  @Test
+  def createService_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      ex <- controller
+        .createService("a service",
+                       ServiceTypeAction,
+                       None,
+                       MultiLanguageValue[String](None),
+                       MultiLanguageValue[String](None),
+                       true,
+                       None,
+                       None)
+        .recover({ case ex => ex })
+
+    } yield {
+      assertEquals(UnauthorizedException(Create, ScopeService), ex)
+    }
+  }
+
+  @Test
+  def deleteService_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "delete"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId <- createDefaultService()
+      _ <- controller.deleteService(serviceId)
+    } yield ()
+  }
+
+  @Test
+  def deleteService_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId <- createDefaultService()
+      ex <- controller.deleteService(serviceId).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(Delete, ScopeService), ex)
     }
   }
 
