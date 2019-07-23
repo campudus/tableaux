@@ -8,7 +8,14 @@ import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.database.model.{FolderModel, ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.JsonUtils
-import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.{
+  ComparisonObjects,
+  Create,
+  Delete,
+  RoleModel,
+  ScopeColumn,
+  ScopeService
+}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -247,6 +254,7 @@ class SystemController(
     logger.info(s"createService $name $serviceType $ordering $displayName $description $active $config $scope")
 
     for {
+      _ <- roleModel.checkAuthorization(Create, ScopeService)
       serviceId <- serviceModel.create(name, serviceType, ordering, displayName, description, active, config, scope)
       service <- retrieveService(serviceId)
     } yield service
@@ -299,6 +307,7 @@ class SystemController(
     logger.info(s"deleteService $serviceId")
 
     for {
+      _ <- roleModel.checkAuthorization(Delete, ScopeService)
       _ <- serviceModel.delete(serviceId)
     } yield EmptyObject()
   }
