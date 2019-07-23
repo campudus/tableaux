@@ -31,14 +31,14 @@ trait SystemControllerAuthTest extends TableauxTestBase {
     SystemController(tableauxConfig, systemModel, tableauxModel, structureModel, serviceModel, roleModel)
   }
 
-  private val simpleDefaultService: String = """{
-                                               |  "name": "first service",
-                                               |  "type": "action"
-                                               |}""".stripMargin
+  private def simpleDefaultService(name: String): String = s"""{
+                                                              |  "name": "$name",
+                                                              |  "type": "action"
+                                                              |}""".stripMargin
 
-  protected def createDefaultService(): Future[Long] =
+  protected def createDefaultService(name: String = "first service"): Future[Long] =
     for {
-      serviceId <- sendRequest("POST", "/system/services", simpleDefaultService).map(_.getLong("id"))
+      serviceId <- sendRequest("POST", "/system/services", simpleDefaultService(name)).map(_.getLong("id"))
     } yield serviceId
 
   def getPermission(domainObject: DomainObject): JsonObject = {
@@ -268,6 +268,81 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
       ex <- controller.deleteService(serviceId).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(Delete, ScopeService), ex)
+    }
+  }
+
+  @Test
+  def retrieveService_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId <- createDefaultService()
+      _ <- controller.retrieveService(serviceId)
+    } yield ()
+  }
+
+  @Test
+  def retrieveService_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val controller = createSystemController()
+
+    for {
+      serviceId <- createDefaultService()
+      ex <- controller.retrieveService(serviceId).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(View, ScopeService), ex)
+    }
+  }
+
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class SystemControllerAuthTest_filterAuthorization extends SystemControllerAuthTest {
+
+  @Test
+  def retrieveServices_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId1 <- createDefaultService("first service")
+      serviceId2 <- createDefaultService("second service")
+      services <- controller.retrieveServices()
+    } yield {
+      assertEquals(2, services.services.length)
+    }
+  }
+
+  @Test
+  def retrieveServices_noViewPermission_returnEmptyList(implicit c: TestContext): Unit = okTest {
+    val controller = createSystemController()
+
+    for {
+      serviceId1 <- createDefaultService("first service")
+      serviceId2 <- createDefaultService("second service")
+      services <- controller.retrieveServices()
+    } yield {
+      assertEquals(0, services.services.length)
     }
   }
 
