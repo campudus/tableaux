@@ -304,6 +304,76 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
     }
   }
 
+  @Test
+  def updateServiceEditStructureProperty_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editStructureProperty"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId <- createDefaultService()
+      _ <- controller.updateService(serviceId, Some("changed name"), None, None, None, None, None, None, None)
+    } yield ()
+  }
+
+  @Test
+  def updateServiceEditStructureProperty_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editDisplayProperty"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId <- createDefaultService()
+      ex <- controller
+        .updateService(serviceId, Some("changed name"), None, None, None, None, None, None, None)
+        .recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditStructureProperty, ScopeService), ex)
+    }
+  }
+
+  @Test
+  def updateServiceEditDisplayProperties_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editDisplayProperty"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId <- createDefaultService()
+      _ <- controller.updateService(serviceId, None, None, Some(10), None, None, Some(true), None, None)
+    } yield ()
+  }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])

@@ -273,10 +273,18 @@ class SystemController(
       )
     )
 
+    val structureProperties: Seq[Option[Any]] = Seq(name, serviceType, config, scope)
+    val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
+
     logger.info(
       s"updateService $serviceId $name $serviceType $ordering $displayName $description $active $config $scope")
 
     for {
+      _ <- if (isAtLeastOneStructureProperty) {
+        roleModel.checkAuthorization(EditStructureProperty, ScopeService)
+      } else {
+        roleModel.checkAuthorization(EditDisplayProperty, ScopeService)
+      }
       _ <- serviceModel.update(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
       service <- retrieveService(serviceId)
     } yield service
