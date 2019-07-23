@@ -103,4 +103,62 @@ class SystemControllerAuthTest_enrichDomainObjects extends SystemControllerAuthT
     }
   }
 
+  @Test
+  def retrieveService_allActionsAreAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-and-delete-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editDisplayProperty", "editStructureProperty", "delete"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId <- createDefaultService()
+      permission <- controller.retrieveService(serviceId).map(getPermission)
+    } yield {
+      val expected = Json.obj(
+        "editDisplayProperty" -> true,
+        "editStructureProperty" -> true,
+        "delete" -> true
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.STRICT)
+    }
+  }
+
+  @Test
+  def retrieveService_noActionIsAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-services": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "service"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      serviceId <- createDefaultService()
+      permission <- controller.retrieveService(serviceId).map(getPermission)
+    } yield {
+      val expected = Json.obj(
+        "editDisplayProperty" -> false,
+        "editStructureProperty" -> false,
+        "delete" -> false
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.STRICT)
+    }
+  }
+
 }
