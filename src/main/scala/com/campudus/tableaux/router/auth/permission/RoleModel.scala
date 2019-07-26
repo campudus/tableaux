@@ -1,6 +1,5 @@
 package com.campudus.tableaux.router.auth.permission
 
-import com.campudus.tableaux.database.MultiLanguage
 import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{RequestContext, UnauthorizedException}
@@ -146,7 +145,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         "createRow" -> isActionAllowed(CreateRow),
         "deleteRow" -> isActionAllowed(DeleteRow),
         "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
-        "editRowAnnotation" -> isActionAllowed(EditRowAnnotation),
+        "editRowAnnotation" -> isActionAllowed(EditRowAnnotation)
       )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -154,7 +153,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def enrichServiceSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isAllowed(userRoles, Create, ScopeService, _.actions.contains(Create)),
+      "create" -> isAllowed(userRoles, Create, ScopeService, _.actions.contains(Create))
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -162,7 +161,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def enrichColumnSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create)),
+      "create" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create))
     )
 
     mergePermissionJson(inputJson, permissionJson)
