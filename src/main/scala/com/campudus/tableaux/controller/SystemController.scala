@@ -88,6 +88,7 @@ class SystemController(
     logger.info("Update system structure")
 
     for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.update()
       version <- retrieveVersions()
     } yield PlainDomainObject(Json.obj("updated" -> true).mergeIn(version.getJson))
@@ -97,6 +98,7 @@ class SystemController(
     logger.info("Reset system structure")
 
     for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.uninstall()
       _ <- repository.install()
     } yield EmptyObject()
@@ -110,6 +112,7 @@ class SystemController(
     }
 
     for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       bl <- writeDemoData(readDemoData("bundeslaender"))
       rb <- writeDemoData(readDemoData("regierungsbezirke"))
 
@@ -153,6 +156,7 @@ class SystemController(
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 12, linkToHessen)
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 13, linkToHessen)
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 14, linkToHessen)
+
     } yield TableSeq(Seq(bl, rb))
   }
 
@@ -204,6 +208,7 @@ class SystemController(
 
   def updateLangtags(langtags: Seq[String]): Future[DomainObject] = {
     for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.updateSetting(SystemController.SETTING_LANGTAGS, Json.arr(langtags: _*).toString)
       updatedLangtags <- retrieveLangtags()
     } yield updatedLangtags
@@ -211,6 +216,7 @@ class SystemController(
 
   def updateSentryUrl(sentryUrl: String): Future[DomainObject] = {
     for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.updateSetting(SystemController.SETTING_SENTRY_URL, sentryUrl)
       updatedSentryUrl <- retrieveSentryUrl()
     } yield updatedSentryUrl
