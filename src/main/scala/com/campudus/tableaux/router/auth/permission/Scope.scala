@@ -14,6 +14,7 @@ object Scope {
       case ScopeMedia.name => ScopeMedia
       case ScopeTableGroup.name => ScopeTableGroup
       case ScopeService.name => ScopeService
+      case ScopeSystem.name => ScopeSystem
       case _ => throw new IllegalArgumentException(s"Invalid argument for PermissionType $scope")
     }
   }
@@ -24,6 +25,7 @@ case object ScopeColumn extends Scope { override val name = "column" }
 case object ScopeMedia extends Scope { override val name = "media" }
 case object ScopeTableGroup extends Scope { override val name = "tableGroup" }
 case object ScopeService extends Scope { override val name = "service" }
+case object ScopeSystem extends Scope { override val name = "system" }
 
 // These scopes are to differentiate between domain objects and their sequences and
 // they are not intended to be used in the role-permissions configuration.

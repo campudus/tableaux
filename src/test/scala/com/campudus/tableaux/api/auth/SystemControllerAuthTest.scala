@@ -374,6 +374,150 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
     } yield ()
   }
 
+  @Test
+  def resetDB_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "system": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["edit"],
+                                    |      "scope": "system"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      _ <- controller.resetDB()
+    } yield ()
+  }
+
+  @Test
+  def resetDB_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val controller = createSystemController()
+
+    for {
+      ex <- controller.resetDB().recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex)
+    }
+  }
+
+  @Test
+  def reset_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "system": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["edit"],
+                                    |      "scope": "system"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue", "editCellValue"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      _ <- controller.createDemoTables()
+    } yield ()
+  }
+
+  @Test
+  def reset_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val controller = createSystemController()
+
+    for {
+      ex <- controller.createDemoTables().recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex)
+    }
+  }
+
+  @Test
+  def updateDB_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "system": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["edit"],
+                                    |      "scope": "system"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editCellValue"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      _ <- controller.updateDB()
+    } yield ()
+  }
+
+  @Test
+  def updateDB_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val controller = createSystemController()
+
+    for {
+      ex <- controller.updateDB().recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex)
+    }
+  }
+
+  @Test
+  def updateSetting_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "system": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["edit"],
+                                    |      "scope": "system"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createSystemController(roleModel)
+
+    for {
+      _ <- controller.updateLangtags(Seq("de", "en"))
+      _ <- controller.updateSentryUrl("new_url")
+    } yield ()
+  }
+
+  @Test
+  def updateSetting_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val controller = createSystemController()
+
+    for {
+      ex1 <- controller.updateLangtags(Seq("de", "en")).recover({ case ex => ex })
+      ex2 <- controller.updateSentryUrl("new_url").recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex1)
+      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex2)
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])

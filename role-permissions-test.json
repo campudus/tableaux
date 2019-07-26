@@ -28,6 +28,11 @@
     },
     {
       "type": "grant",
+      "action": ["edit"],
+      "scope": "system"
+    },
+    {
+      "type": "grant",
       "action": ["create", "view", "edit", "delete"],
       "scope": "media"
     },
