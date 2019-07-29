@@ -345,6 +345,7 @@ class MediaController(
 
   def mergeFile(uuid: UUID, langtag: String, mergeWith: UUID): Future[ExtendedFile] = {
     for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
       toMerge <- fileModel.retrieve(mergeWith)
       file <- fileModel.retrieve(uuid)
 
