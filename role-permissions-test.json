@@ -43,7 +43,7 @@
     },
     {
       "type": "grant",
-      "action": ["create", "view", "edit", "delete"],
+      "action": ["create", "edit", "delete"],
       "scope": "tableGroup"
     },
     {
