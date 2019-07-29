@@ -5,7 +5,7 @@ import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
-import com.campudus.tableaux.router.auth.permission.{Edit, RoleModel, ScopeMedia}
+import com.campudus.tableaux.router.auth.permission.{Delete, Edit, RoleModel, ScopeMedia}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -84,6 +84,41 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
 
       val controller = createMediaController()
       controller.addNewFolder("folder", "", None)
+    }
+
+  @Test
+  def deleteFolder_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-media": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["delete"],
+                                    |      "scope": "media"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createMediaController(roleModel)
+
+    for {
+      folderId <- insertTestFolder()
+      _ <- controller.deleteFolder(folderId)
+    } yield ()
+  }
+
+  @Test
+  def deleteFolder_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+
+      val controller = createMediaController()
+
+      for {
+        folderId <- insertTestFolder()
+        ex <- controller.deleteFolder(folderId).recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(Delete, ScopeMedia), ex)
+      }
     }
 
   @Test
