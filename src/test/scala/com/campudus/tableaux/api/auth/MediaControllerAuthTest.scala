@@ -1,12 +1,14 @@
 package com.campudus.tableaux.api.auth
 
+import java.util.UUID
+
 import com.campudus.tableaux.UnauthorizedException
+import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.router.auth.permission.{Delete, Edit, RoleModel, ScopeMedia}
-import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
@@ -16,7 +18,7 @@ import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.{Json, JsonObject}
 
-trait MediaControllerAuthTestBase extends TableauxTestBase {
+trait MediaControllerAuthTestBase extends MediaTestBase {
 
   def createMediaController(roleModel: RoleModel = RoleModel(Json.emptyObj())): MediaController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
@@ -42,10 +44,8 @@ trait MediaControllerAuthTestBase extends TableauxTestBase {
 
   def insertTestFile() = {
     val fileModel = createFileModel
-    fileModel.add(MultiLanguageValue("de-DE" -> "file"),
-                  MultiLanguageValue.empty(),
-                  MultiLanguageValue("de-DE" -> "file.pdf"),
-                  None)
+    fileModel
+      .add(MultiLanguageValue("de" -> "file"), MultiLanguageValue.empty(), MultiLanguageValue("de" -> "file.pdf"), None)
   }
 
   def insertTestFolder() = {
@@ -135,9 +135,9 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                     |}""".stripMargin)
 
     val controller = createMediaController(roleModel)
-    controller.addFile(MultiLanguageValue("de-DE" -> "file"),
+    controller.addFile(MultiLanguageValue("de" -> "file"),
                        MultiLanguageValue.empty(),
-                       MultiLanguageValue("de-DE" -> "file.pdf"),
+                       MultiLanguageValue("de" -> "file.pdf"),
                        None)
   }
 
@@ -146,9 +146,9 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
     exceptionTest("error.request.unauthorized") {
 
       val controller = createMediaController()
-      controller.addFile(MultiLanguageValue("de-DE" -> "file"),
+      controller.addFile(MultiLanguageValue("de" -> "file"),
                          MultiLanguageValue.empty(),
-                         MultiLanguageValue("de-DE" -> "file.pdf"),
+                         MultiLanguageValue("de" -> "file.pdf"),
                          None)
     }
 
@@ -203,7 +203,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
 
       for {
         file <- insertTestFile()
-        _ <- controller.deleteFile(file.uuid, "de-DE")
+        _ <- controller.deleteFile(file.uuid, "de")
       } yield ()
     }
 
@@ -214,7 +214,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
 
       for {
         file <- insertTestFile()
-        _ <- controller.deleteFile(file.uuid, "de-DE")
+        _ <- controller.deleteFile(file.uuid, "de")
       } yield ()
     }
 
@@ -229,8 +229,8 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
 
       for {
 
-        file <- sendRequest("POST", "/files", Json.obj("title" -> Json.obj("de-DE" -> "Ein Titel")))
-        _ <- uploadFile("PUT", s"/files/${file.getString("uuid")}/de-DE", filePath, mimeType)
+        file <- sendRequest("POST", "/files", Json.obj("title" -> Json.obj("de" -> "Ein Titel")))
+        _ <- uploadFile("PUT", s"/files/${file.getString("uuid")}/de", filePath, mimeType)
       } yield ()
     }
 
@@ -321,6 +321,60 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
         assertEquals(UnauthorizedException(Edit, ScopeMedia), ex)
       }
     }
+
+  @Test
+  def mergeFile_authorized_ok(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-media": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["edit"],
+                                      |      "scope": "media"
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createMediaController(roleModel)
+
+      val fileName = "Scr$en Shot.pdf"
+      val file = s"/com/campudus/tableaux/uploads/$fileName"
+      val mimetype = "application/pdf"
+
+      val putFile1 = Json.obj("title" -> Json.obj("de" -> "Test PDF 1"),
+                              "description" -> Json.obj("de" -> "A description about that PDF. 1"))
+
+      for {
+        fileUuid1 <- createFile("de", file, mimetype, None).map(_.getString("uuid"))
+        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile1)
+        fileUuid2 <- createFile("en", file, mimetype, None).map(_.getString("uuid"))
+        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile1)
+
+        _ <- controller.mergeFile(UUID.fromString(fileUuid1), "de", UUID.fromString(fileUuid2))
+      } yield ()
+    }
+
+  @Test
+  def mergeFile_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val controller = createMediaController()
+
+      val fileName = "Scr$en Shot.pdf"
+      val file = s"/com/campudus/tableaux/uploads/$fileName"
+      val mimetype = "application/pdf"
+
+      val putFile1 = Json.obj("title" -> Json.obj("de" -> "Test PDF 1"))
+      val putFile2 = Json.obj("title" -> Json.obj("en" -> "Test PDF 2"))
+
+      for {
+        file1 <- insertTestFile()
+        file2 <- insertTestFile()
+        ex <- controller.mergeFile(file1.uuid, "de", file2.uuid).recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(Edit, ScopeMedia), ex)
+      }
+    }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -332,7 +386,7 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
       val controller = createMediaController()
 
       for {
-        permission <- controller.retrieveRootFolder("de-DE").map(getPermission)
+        permission <- controller.retrieveRootFolder("de").map(getPermission)
       } yield {
 
         val expected = Json.obj(
@@ -362,7 +416,7 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
 
     okTest {
       for {
-        permission <- controller.retrieveRootFolder("de-DE").map(getPermission)
+        permission <- controller.retrieveRootFolder("de").map(getPermission)
       } yield {
 
         val expected = Json.obj("create" -> true)
@@ -389,7 +443,7 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
 
     okTest {
       for {
-        permission <- controller.retrieveRootFolder("de-DE").map(getPermission)
+        permission <- controller.retrieveRootFolder("de").map(getPermission)
       } yield {
 
         val expected = Json.obj(
@@ -427,7 +481,7 @@ class MediaControllerAuthTest_enrichAuthorization extends MediaControllerAuthTes
 
     okTest {
       for {
-        permission <- controller.retrieveRootFolder("de-DE").map(getPermission)
+        permission <- controller.retrieveRootFolder("de").map(getPermission)
       } yield {
 
         val expected = Json.obj(
