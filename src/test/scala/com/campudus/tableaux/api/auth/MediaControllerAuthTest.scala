@@ -48,6 +48,11 @@ trait MediaControllerAuthTestBase extends TableauxTestBase {
                   None)
   }
 
+  def insertTestFolder() = {
+    val folderJson = Json.obj("name" -> "TestFolder", "description" -> "Test Description", "parent" -> null)
+    sendRequest("POST", s"/folders", folderJson).map(_.getLong("id"))
+  }
+
   def getPermission(domainObject: DomainObject): JsonObject = {
     domainObject.getJson.getJsonObject("permission")
   }
@@ -242,6 +247,41 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
             None
           )
           .recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(Edit, ScopeMedia), ex)
+      }
+    }
+
+  @Test
+  def updateFolder_authorized_ok(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-media": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["edit"],
+                                      |      "scope": "media"
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createMediaController(roleModel)
+
+      for {
+        folderId <- insertTestFolder()
+        _ <- controller.changeFolder(folderId, "newName", "newDescription", None)
+      } yield ()
+    }
+
+  @Test
+  def updateFolder_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val controller = createMediaController()
+
+      for {
+        folderId <- insertTestFolder()
+        ex <- controller.changeFolder(folderId, "newName", "newDescription", None).recover({ case ex => ex })
       } yield {
         assertEquals(UnauthorizedException(Edit, ScopeMedia), ex)
       }

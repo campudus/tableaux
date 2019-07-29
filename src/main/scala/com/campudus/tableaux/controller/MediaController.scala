@@ -74,7 +74,10 @@ class MediaController(
   }
 
   def changeFolder(id: FolderId, name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
-    repository.update(id, name, description, parent)
+    for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
+      folder <- repository.update(id, name, description, parent)
+    } yield folder
   }
 
   def deleteFolder(id: FolderId): Future[Folder] = {
