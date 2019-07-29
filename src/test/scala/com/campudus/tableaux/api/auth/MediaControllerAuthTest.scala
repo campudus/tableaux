@@ -1,14 +1,16 @@
 package com.campudus.tableaux.api.auth
 
+import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
-import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.{Edit, RoleModel, ScopeMedia}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
@@ -174,6 +176,75 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
         file <- insertTestFile()
         _ <- controller.deleteFile(file.uuid, "de-DE")
       } yield ()
+    }
+
+  @Test
+  def uploadFile_authorized_ok(implicit c: TestContext): Unit =
+    okTest {
+      val controller = createMediaController()
+
+      val fileName = "Scr$en Shot.pdf"
+      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+      val mimeType = "application/pdf"
+
+      for {
+
+        file <- sendRequest("POST", "/files", Json.obj("title" -> Json.obj("de-DE" -> "Ein Titel")))
+        _ <- uploadFile("PUT", s"/files/${file.getString("uuid")}/de-DE", filePath, mimeType)
+      } yield ()
+    }
+
+  @Test
+  def updateFile_authorized_ok(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-media": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["edit"],
+                                      |      "scope": "media"
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createMediaController(roleModel)
+
+      for {
+        file <- insertTestFile()
+        _ <- controller.changeFile(
+          file.uuid,
+          MultiLanguageValue.empty(),
+          MultiLanguageValue.empty(),
+          MultiLanguageValue.empty(),
+          MultiLanguageValue.empty(),
+          MultiLanguageValue.empty(),
+          None
+        )
+      } yield ()
+    }
+
+  @Test
+  def updateFile_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val controller = createMediaController()
+
+      for {
+        file <- insertTestFile()
+        ex <- controller
+          .changeFile(
+            file.uuid,
+            MultiLanguageValue.empty(),
+            MultiLanguageValue.empty(),
+            MultiLanguageValue.empty(),
+            MultiLanguageValue.empty(),
+            MultiLanguageValue.empty(),
+            None
+          )
+          .recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(Edit, ScopeMedia), ex)
+      }
     }
 }
 

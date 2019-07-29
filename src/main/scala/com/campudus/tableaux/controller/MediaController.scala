@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
-import com.campudus.tableaux.router.auth.permission.{Create, Delete, RoleModel, ScopeMedia}
+import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.{InvalidRequestException, RequestContext, TableauxConfig, UnknownServerException}
 import io.vertx.scala.FutureHelper._
 
@@ -131,6 +131,8 @@ class MediaController(
           val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
 
           (for {
+            _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
+
             (oldFile, paths) <- {
               logger.info("retrieve file")
               retrieveFile(uuid, withTmp = true)
@@ -225,6 +227,7 @@ class MediaController(
       })
 
     for {
+      _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
       _ <- Future.sequence(internalNameChecks)
 
       file <- fileModel.update(uuid, title, description, internalName, externalName, folder, mimeType)
