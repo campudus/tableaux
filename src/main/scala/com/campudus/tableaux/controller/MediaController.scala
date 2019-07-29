@@ -82,6 +82,7 @@ class MediaController(
 
   def deleteFolder(id: FolderId): Future[Folder] = {
     for {
+      _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
       folder <- repository.retrieve(id)
 
       // delete files
