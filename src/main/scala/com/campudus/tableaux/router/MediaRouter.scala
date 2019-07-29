@@ -88,7 +88,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         val name = json.getString("name")
         val description = json.getString("description")
         val parent = getNullableLong("parent")(json)
-        // TODO sortByLangtag should be removed and the real folder should be fetched
         controller.addNewFolder(name, description, parent)
       }
     )
@@ -129,7 +128,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
           val name = json.getString("name")
           val description = json.getString("description")
           val parent = getNullableLong("parent")(json)
-          // TODO sortByLangtag should be removed and the real folder should be fetched
           controller.changeFolder(folderId, name, description, parent)
         }
       )
