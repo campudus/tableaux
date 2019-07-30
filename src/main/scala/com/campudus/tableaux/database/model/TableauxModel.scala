@@ -463,7 +463,25 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
-      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, value))
+      _ <- if (replace && column.languageType == MultiLanguage) {
+        // in order to check the permission to clear all persistent langtag values we simply enrich the input
+        // value with all configured langtags and check all of them for changeability.
+        val enrichedValue: JsonObject = value match {
+          case j: JsonObject => j.copy()
+          case _ => Json.emptyObj()
+        }
+
+        val langtags: Seq[String] = table.langtags.getOrElse(Seq.empty[String])
+
+        langtags.foreach(lt =>
+          if (!enrichedValue.containsKey(lt)) {
+            enrichedValue.mergeIn(Json.obj(lt -> ""))
+        })
+
+        roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
+      } else {
+        roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, value))
+      }
 
       _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
 
@@ -495,6 +513,8 @@ class TableauxModel(
       _ <- checkForSettingsTable(table, columnId, "can't clear key cell of a settings table")
 
       column <- retrieveColumn(table, columnId)
+
+      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
 
       _ <- createHistoryModel.createClearCellInit(table, rowId, Seq(column))
       _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))

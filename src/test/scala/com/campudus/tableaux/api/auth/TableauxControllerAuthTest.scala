@@ -34,14 +34,18 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
     * 1. column -> text    | single language
     * 2. column -> text    | multi language
     * 3. column -> numeric | single language
+    * 4. column -> numeric | multi language
     */
   private def createTestTable() = {
     createSimpleTableWithValues(
       "table",
-      List(TextCol("text"), Multilanguage(TextCol("multilanguage_text")), NumericCol("numeric")),
+      List(TextCol("text"),
+           Multilanguage(TextCol("multilanguage_text")),
+           NumericCol("numeric"),
+           Multilanguage(NumericCol("multilanguage_numeric"))),
       List(
-        List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en"), 1),
-        List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"), 2)
+        List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en"), 1, Json.obj("de" -> 2, "en" -> 3)),
+        List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"), 2, Json.obj("de" -> 2, "en" -> 3))
       )
     )
   }
@@ -190,7 +194,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |  "edit-cells": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["editCellValue"],
+                                      |      "action": ["editCellValue", "viewCellValue"],
                                       |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
@@ -205,7 +209,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       val controller = createTableauxController(roleModel)
 
       for {
-
         _ <- createTestTable()
 
         _ <- controller.updateCellValue(1, 1, 1, "new text")
@@ -217,6 +220,99 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
           .recover({ case ex => ex })
 
         _ <- controller.updateCellValue(1, 3, 1, 42)
+      } yield {
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
+      }
+    }
+
+  @Test
+  def replaceCell_authorizedOnSingleLanguageColumns(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["editCellValue", "viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "langtag": "de-DE"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        _ <- controller.replaceCellValue(1, 1, 1, "new text")
+        _ <- controller.replaceCellValue(1, 3, 1, 42)
+      } yield ()
+    }
+
+  @Test
+  def replaceCell_authorizedOnMultilanguageIfAllLangtagsAreEditable(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["editCellValue", "viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "langtag": "de-DE|en-GB"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        _ <- controller.replaceCellValue(1, 2, 1, Json.obj("de-DE" -> "value-de"))
+        _ <- controller.replaceCellValue(1, 4, 1, Json.obj("en-GB" -> 1))
+      } yield ()
+    }
+
+  @Test
+  def replaceCell_not_authorizedOnMultilanguageIfNotAllLangtagsAreEditable(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["editCellValue", "viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "langtag": "de-DE"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        ex1 <- controller.replaceCellValue(1, 2, 1, Json.obj("en-GB" -> "value-en")).recover({ case ex => ex })
+        ex2 <- controller.replaceCellValue(1, 4, 1, Json.obj("de-DE" -> 1)).recover({ case ex => ex })
       } yield {
         assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
         assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
