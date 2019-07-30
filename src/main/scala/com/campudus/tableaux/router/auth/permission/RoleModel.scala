@@ -315,6 +315,21 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       .filter(permission => actionOpt.forall(permission.actions.contains(_)))
   }
 
+  /* For some methods (clearCell, replaceCell), it is necessary to check the authorization on the basis of
+   * an entire cell and not only on one or more specific langtags. In this case, we simply create a dummy value
+   * object and enrich it with all configured languages (table or system). This way `checkAuthorization`
+   * automatically checks for all languages.
+   */
+  def generateLangtagCheckValue(table: Table, value: JsonObject = Json.emptyObj()): JsonObject = {
+    val langtags: Seq[String] = table.langtags.getOrElse(Seq.empty[String])
+
+    langtags.foreach(lt =>
+      if (!value.containsKey(lt)) {
+        value.mergeIn(Json.obj(lt -> ""))
+    })
+    value
+  }
+
   // TODO just a helper, delete after auth is implemented
   def printRolePermissions(): Unit =
     role2permissions
