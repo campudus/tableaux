@@ -319,6 +319,99 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       }
     }
 
+  @Test
+  def clearCell_authorizedOnSingleLanguageColumns(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["editCellValue", "viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "langtag": "de-DE"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        _ <- controller.clearCellValue(1, 1, 1)
+        _ <- controller.clearCellValue(1, 3, 1)
+      } yield ()
+    }
+
+  @Test
+  def clearCell_authorizedOnMultilanguageIfAllLangtagsAreEditable(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["editCellValue", "viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "langtag": "de-DE|en-GB"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        _ <- controller.clearCellValue(1, 2, 1)
+        _ <- controller.clearCellValue(1, 4, 1)
+      } yield ()
+    }
+
+  @Test
+  def clearCell_not_authorizedOnMultilanguageIfNotAllLangtagsAreEditable(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["editCellValue", "viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "langtag": "de-DE"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        ex1 <- controller.clearCellValue(1, 2, 1).recover({ case ex => ex })
+        ex2 <- controller.clearCellValue(1, 4, 1).recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
+      }
+    }
+
 }
 
 //@RunWith(classOf[VertxUnitRunner])

@@ -514,7 +514,23 @@ class TableauxModel(
 
       column <- retrieveColumn(table, columnId)
 
-      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+//      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+      _ <- if (column.languageType == MultiLanguage) {
+        // in order to check the permission to clear all persistent langtag values we simply enrich the input
+        // value with all configured langtags and check all of them for changeability.
+        val enrichedValue: JsonObject = Json.emptyObj()
+
+        val langtags: Seq[String] = table.langtags.getOrElse(Seq.empty[String])
+
+        langtags.foreach(lt =>
+          if (!enrichedValue.containsKey(lt)) {
+            enrichedValue.mergeIn(Json.obj(lt -> ""))
+        })
+
+        roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
+      } else {
+        roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+      }
 
       _ <- createHistoryModel.createClearCellInit(table, rowId, Seq(column))
       _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
@@ -547,9 +563,8 @@ class TableauxModel(
 
   private def checkForEmptyKey[A](table: Table, keyName: Option[Any]) = {
     keyName match {
-      case Some(key: String) if !key.isEmpty => {
+      case Some(key: String) if !key.isEmpty =>
         Future.successful(())
-      }
       case _ => Future.failed(InvalidRequestException("Key must not be empty and a string in settings table"))
     }
   }
