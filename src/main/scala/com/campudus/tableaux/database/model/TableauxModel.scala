@@ -13,7 +13,7 @@ import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object TableauxModel {
   type LinkId = Long
@@ -464,20 +464,12 @@ class TableauxModel(
       _ <- checkValueTypeForColumn(column, value)
 
       _ <- if (replace && column.languageType == MultiLanguage) {
-        // in order to check the permission to clear all persistent langtag values we simply enrich the input
-        // value with all configured langtags and check all of them for changeability.
-        val enrichedValue: JsonObject = value match {
-          case j: JsonObject => j.copy()
+        val valueJson: JsonObject = value match {
+          case j: JsonObject => j
           case _ => Json.emptyObj()
         }
 
-        val langtags: Seq[String] = table.langtags.getOrElse(Seq.empty[String])
-
-        langtags.foreach(lt =>
-          if (!enrichedValue.containsKey(lt)) {
-            enrichedValue.mergeIn(Json.obj(lt -> ""))
-        })
-
+        val enrichedValue = roleModel.generateLangtagCheckValue(table, valueJson.copy())
         roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
       } else {
         roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, value))
@@ -514,19 +506,8 @@ class TableauxModel(
 
       column <- retrieveColumn(table, columnId)
 
-//      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
       _ <- if (column.languageType == MultiLanguage) {
-        // in order to check the permission to clear all persistent langtag values we simply enrich the input
-        // value with all configured langtags and check all of them for changeability.
-        val enrichedValue: JsonObject = Json.emptyObj()
-
-        val langtags: Seq[String] = table.langtags.getOrElse(Seq.empty[String])
-
-        langtags.foreach(lt =>
-          if (!enrichedValue.containsKey(lt)) {
-            enrichedValue.mergeIn(Json.obj(lt -> ""))
-        })
-
+        val enrichedValue = roleModel.generateLangtagCheckValue(table)
         roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
       } else {
         roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
