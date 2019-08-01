@@ -883,10 +883,11 @@ class TableauxModel(
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String]
-  ): Future[SeqHistory] = {
+  ): Future[Seq[History]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column))
       cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt)
     } yield cellHistorySeq
   }
@@ -896,12 +897,17 @@ class TableauxModel(
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String]
-  ): Future[SeqHistory] = {
-    retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
+  ): Future[Seq[History]] = {
+    for {
+//      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table))
+      cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
+    } yield cellHistorySeq
   }
 
-  def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String]): Future[SeqHistory] = {
-    retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt)
+  def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String]): Future[Seq[History]] = {
+    for {
+      cellHistorySeq <- retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt)
+    } yield cellHistorySeq
   }
 
   private def checkColumnTypeForLangtag[A](column: ColumnType[_], langtagOpt: Option[String]): Future[Unit] = {
