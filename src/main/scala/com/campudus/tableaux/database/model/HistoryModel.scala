@@ -24,7 +24,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String]
-  ): Future[SeqHistory] = {
+  ): Future[Seq[History]] = {
     val (where, binds) = generateWhereAndBinds(Some(column.id), Some(rowId), langtagOpt, typeOpt)
     retrieve(table, where, binds)
   }
@@ -34,7 +34,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String]
-  ): Future[SeqHistory] = {
+  ): Future[Seq[History]] = {
     val (where, binds) = generateWhereAndBinds(None, Some(rowId), langtagOpt, typeOpt)
     retrieve(table, where, binds)
   }
@@ -43,7 +43,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       table: Table,
       langtagOpt: Option[String],
       typeOpt: Option[String]
-  ): Future[SeqHistory] = {
+  ): Future[Seq[History]] = {
     val (where, binds) = generateWhereAndBinds(None, None, langtagOpt, typeOpt)
     retrieve(table, where, binds)
   }
@@ -64,7 +64,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     )
   }
 
-  private def retrieve(table: Table, where: String, binds: Seq[Any]): Future[SeqHistory] = {
+  private def retrieve(table: Table, where: String, binds: Seq[Any]): Future[Seq[History]] = {
     val select =
       s"""
          |  SELECT
@@ -91,8 +91,7 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     for {
       result <- connection.query(select, Json.arr(binds: _*))
     } yield {
-      val histories = resultObjectToJsonArray(result).map(mapToHistory)
-      SeqHistory(histories)
+      resultObjectToJsonArray(result).map(mapToHistory)
     }
   }
 

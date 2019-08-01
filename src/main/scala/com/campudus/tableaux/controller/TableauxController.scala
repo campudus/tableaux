@@ -458,8 +458,8 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      cell <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, typeOpt)
-    } yield cell
+      historySequence <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, typeOpt)
+    } yield SeqHistory(historySequence)
   }
 
   def retrieveRowHistory(
@@ -469,12 +469,14 @@ class TableauxController(
       typeOpt: Option[String]
   ): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"retrieveTableHistory $tableId $rowId $langtagOpt $typeOpt")
+    logger.info(s"retrieveRowHistory $tableId $rowId $langtagOpt $typeOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      cell <- repository.retrieveRowHistory(table, rowId, langtagOpt, typeOpt)
-    } yield cell
+      historySequence <- repository.retrieveRowHistory(table, rowId, langtagOpt, typeOpt)
+    } yield {
+      SeqHistory(historySequence)
+    }
   }
 
   def retrieveTableHistory(
@@ -487,7 +489,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      cell <- repository.retrieveTableHistory(table, langtagOpt, typeOpt)
-    } yield cell
+      historySequence <- repository.retrieveTableHistory(table, langtagOpt, typeOpt)
+    } yield SeqHistory(historySequence)
   }
 }

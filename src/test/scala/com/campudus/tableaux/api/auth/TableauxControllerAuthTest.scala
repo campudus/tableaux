@@ -762,3 +762,105 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
     }
 
 }
+
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
+
+  @Test
+  def retrieveCellHistory_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      _ <- controller.retrieveCellHistory(1, 1, 1, None, None)
+    } yield ()
+  }
+
+  @Test
+  def retrieveCellHistory_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val controller = createTableauxController()
+
+    for {
+      _ <- createTestTable()
+      ex <- controller.retrieveCellHistory(1, 1, 1, None, None).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+    }
+  }
+
+  @Test
+  def retrieveRowHistory_allColumnsViewable_returnAllSevenHistoryEntries(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      historyRows <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
+    } yield {
+      assertEquals(7, historyRows.size())
+    }
+  }
+
+  @Test
+  def retrieveRowHistory_onlyTextColumnsViewable_returnFourHistoryEntries(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "column": {
+                                    |          "kind": "text"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      historyRows <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
+    } yield {
+      // TODO ist momentan noch 7, irgendwie muss ich nach den columns filtern
+      // bei retrieve rows ist das das selbe, noch keine Idee, wie das gehen soll??
+      assertEquals(4, historyRows.size())
+    }
+  }
+
+  @Test
+  def retrieveRowHistory_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val controller = createTableauxController()
+
+    for {
+      _ <- createTestTable()
+      ex <- controller.retrieveCellHistory(1, 1, 1, None, None).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+    }
+  }
+}
