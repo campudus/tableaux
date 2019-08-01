@@ -1,3 +1,7 @@
+IMAGE_NAME = "grud-backend"
+DEPLOY_DIR = 'build/libs'
+ARCHIVE_FILENAME_DOCKER="${IMAGE_NAME}-docker.tar.gz"
+
 def slackParams = { GString message, String color ->
   [
     tokenCredentialId : "${env.SLACK_GRUD_INTEGRATION_ID}",
@@ -47,7 +51,7 @@ pipeline {
 
         script {
           try {
-              configFileProvider([configFile(fileId: 'tableaux-backend-build', targetLocation: 'conf-test.json')]) {
+              configFileProvider([configFile(fileId: 'grud-backend-build', targetLocation: 'conf-test.json')]) {
                 sh './gradlew test'
               }
           } finally {
@@ -57,9 +61,17 @@ pipeline {
       }
     }
 
+    stage('Build docker image') {
+      steps {
+        sh "docker build -t ${IMAGE_NAME} -f Dockerfile --rm ."
+        sh "docker save ${IMAGE_NAME} | gzip -c > ${DEPLOY_DIR}/${ARCHIVE_FILENAME_DOCKER}"
+      }
+    }
+
     stage('Archive artifacts') {
       steps {
-        archiveArtifacts artifacts: 'build/libs/*-fat.jar', fingerprint: true
+        archiveArtifacts artifacts: "${DEPLOY_DIR}/*-fat.jar", fingerprint: true
+        archiveArtifacts artifacts: "${DEPLOY_DIR}/${ARCHIVE_FILENAME_DOCKER}", fingerprint: true
       }
     }
   }

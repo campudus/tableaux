@@ -1,0 +1,5 @@
+# ignore all files and folders for Docker build context ...
+**
+
+# ...except binaries from gradle build
+!build/libs/*
