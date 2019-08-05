@@ -38,7 +38,7 @@ class FileModelTest extends TableauxTestBase {
 
   private def createMediaController(): MediaController = {
     val roleModel = RoleModel(tableauxConfig.rolePermissions)
-
+    setRequestRoles("dev")
     MediaController(tableauxConfig, createFolderModel(), createFileModel(), createAttachmentModel(), roleModel)
   }
 
@@ -104,11 +104,10 @@ class FileModelTest extends TableauxTestBase {
       val controller = createMediaController()
 
       for {
-        insertedFile <- asDevUser(
-          controller.addFile(MultiLanguageValue("de-DE" -> "Test 1"),
-                             MultiLanguageValue.empty(),
-                             MultiLanguageValue("de-DE" -> "external1.pdf"),
-                             None))
+        insertedFile <- controller.addFile(MultiLanguageValue("de-DE" -> "Test 1"),
+                                           MultiLanguageValue.empty(),
+                                           MultiLanguageValue("de-DE" -> "external1.pdf"),
+                                           None)
 
         _ <- controller.changeFile(
           insertedFile.uuid,
