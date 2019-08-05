@@ -26,28 +26,28 @@ pipeline {
   stages {
     stage('Cleanup') {
       steps {
-        echo "Cleanup"
         sh './gradlew clean'
+
+        // cleanup docker
+        sh 'docker rmi $(docker images -f "dangling=true" -q) || true'
+        sh "docker rmi -f \$(docker images -qa --filter=reference='${IMAGE_NAME}') || true"
       }
     }
 
     stage('Assemble test classes') {
       steps {
-        echo "Assemble test classes"
         sh './gradlew testClasses'
       }
     }
 
     stage('Assemble') {
       steps {
-        echo "Assemble"
         sh './gradlew assemble'
       }
     }
 
     stage('Test') {
       steps {
-        echo "Test"
 
         script {
           try {
@@ -76,21 +76,23 @@ pipeline {
     }
   }
 
-   post {
-     success {
-       wrap([$class: 'BuildUser']) {
-         script {
-           slackSend(slackParams("Build successful: ${env.JOB_NAME} @ ${env.BUILD_NUMBER} (${BUILD_USER})", "good"))
-         }
-       }
-     }
+  post {
+    success {
+      wrap([$class: 'BuildUser']) {
+        script {
+          sh "echo successful"
+          slackSend(slackParams("Build successful: ${env.JOB_NAME} @ ${env.BUILD_NUMBER} (${BUILD_USER})", "good"))
+        }
+      }
+    }
 
-     failure {
-       wrap([$class: 'BuildUser']) {
-         script {
-           slackSend(slackParams("Build failed: ${env.JOB_NAME} @ ${env.BUILD_NUMBER} (${BUILD_USER})", "danger"))
-         }
-       }
-     }
-   }
+    failure {
+      wrap([$class: 'BuildUser']) {
+        script {
+          sh "echo failed"
+          slackSend(slackParams("Build failed: ${env.JOB_NAME} @ ${env.BUILD_NUMBER} (${BUILD_USER})", "danger"))
+        }
+      }
+    }
+  }
 }
