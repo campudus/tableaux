@@ -45,7 +45,7 @@ class RetrieveTest extends TableauxTestBase {
         "editStructureProperty" -> true,
         "delete" -> true,
         "createRow" -> true,
-        "createColumn" -> true,
+        "deleteRow" -> true,
         "editCellAnnotation" -> true,
         "editRowAnnotation" -> true
       )
