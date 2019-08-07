@@ -46,9 +46,7 @@ before_script:
 script:
 - export GRADLE_OPTS="-Xmx500m"
 - export JAVA_OPTS="-Xmx500m"
-- ./gradlew test --info --stacktrace
-after_success:
-- ./gradlew reportScoverage coveralls --info --stacktrace
+- ./gradlew reportScoverage coveralls -x compileJava -x compileScala --info --stacktrace
 env:
   global:
   - CI_NAME=travis-ci
