@@ -39,6 +39,7 @@ matrix:
         - sudo service postgresql restart 11
 install: /bin/true
 before_script:
+- if [ "$DB" = "pgsql" ]; then sudo mount -o remount,size=25% /var/ramfs ; fi
 - psql -c 'SHOW SERVER_VERSION;' -U postgres
 - psql -c 'CREATE DATABASE travis_ci_test;' -U postgres
 - ./gradlew spotlessCheck scoverageClasses --info --stacktrace
