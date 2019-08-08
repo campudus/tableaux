@@ -1,8 +1,9 @@
 package com.campudus.tableaux.api.auth
 
 import com.campudus.tableaux.UnauthorizedException
-import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.domain.Pagination
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.RequestCreation.{Multilanguage, NumericCol, TextCol}
@@ -25,10 +26,14 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
 
     TableauxController(tableauxConfig, tableauxModel, roleModel)
   }
-}
 
-@RunWith(classOf[VertxUnitRunner])
-class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
+  def createStructureController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): StructureController = {
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val model = StructureModel(dbConnection)
+
+    StructureController(tableauxConfig, model, roleModel)
+  }
 
   /**
     * 1. column -> text    | single language
@@ -36,7 +41,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
     * 3. column -> numeric | single language
     * 4. column -> numeric | multi language
     */
-  private def createTestTable() = {
+  protected def createTestTable() = {
     createSimpleTableWithValues(
       "table",
       List(TextCol("text"),
@@ -49,6 +54,10 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       )
     )
   }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
 
   @Test
   def retrieveCell_authorized_ok(implicit c: TestContext): Unit = okTest {
@@ -414,5 +423,82 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
 
 }
 
-//@RunWith(classOf[VertxUnitRunner])
-//class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {}
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
+
+  @Test
+  def retrieveRow_filterRowsForTheirColumns_ok(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view", "viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "column": {
+                                      |          "kind": "text"
+                                      |        },
+                                      |        "langtag": "de-DE"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val structureController = createStructureController(roleModel)
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        columns <- structureController.retrieveColumns(1).map(_.columns)
+        values <- controller.retrieveRow(1, 1).map(_.values)
+      } yield {
+        assertEquals(2, columns.length)
+        assertEquals("we have 4 columns at all, only retrieve columns with kind 'text'", 2, values.length)
+      }
+    }
+
+  @Test
+  def retrieveMultipleRows_filterRowsForTheirColumns_ok(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "edit-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view", "viewCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        },
+                                      |        "column": {
+                                      |          "kind": "text"
+                                      |        },
+                                      |        "langtag": "de-DE"
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val structureController = createStructureController(roleModel)
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        columns <- structureController.retrieveColumns(1).map(_.columns)
+        rows <- controller.retrieveRows(1, Pagination(None, None)).map(_.rows)
+      } yield {
+        assertEquals(2, columns.length)
+        assertEquals(2, rows.length)
+        assertEquals(2, rows.head.values.length)
+        assertEquals(2, rows(1).values.length)
+      }
+    }
+}

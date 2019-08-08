@@ -13,7 +13,7 @@ import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object TableauxModel {
   type LinkId = Long
@@ -44,6 +44,9 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
   protected val structureModel: StructureModel
 
+  protected[this] implicit def requestContext: RequestContext
+  protected[this] implicit def roleModel: RoleModel
+
   def createTable(name: String, hidden: Boolean): Future[Table] = {
     structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None)
   }
@@ -65,7 +68,10 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   }
 
   def retrieveColumns(table: Table): Future[Seq[ColumnType[_]]] = {
-    structureModel.columnStruc.retrieveAll(table)
+    for {
+      allColumns <- structureModel.columnStruc.retrieveAll(table)
+      filteredColumns = roleModel.filterDomainObjects[ColumnType[_]](ScopeColumn, allColumns, ComparisonObjects(table))
+    } yield filteredColumns
   }
 
   def retrieveDependencies(table: Table): Future[Seq[DependentColumnInformation]] = {
@@ -84,7 +90,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 class TableauxModel(
     override protected[this] val connection: DatabaseConnection,
     override protected[this] val structureModel: StructureModel
-)(implicit requestContext: RequestContext, roleModel: RoleModel)
+)(override implicit val requestContext: RequestContext, override implicit val roleModel: RoleModel)
     extends DatabaseQuery
     with StructureDelegateModel {
 
