@@ -717,4 +717,48 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
         assertEquals("column 1 and 2 are not changeable", new NoSuchElementException().getClass, ex2.getClass)
       }
     }
+
+  @Test
+  def deleteRow_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val controller = createTableauxController()
+
+      for {
+        _ <- createTestTable()
+        ex1 <- controller.deleteRow(1, 1).recover({ case ex => ex })
+        ex2 <- controller.deleteRow(1, 2).recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(DeleteRow, ScopeTable), ex1)
+        assertEquals(UnauthorizedException(DeleteRow, ScopeTable), ex2)
+      }
+    }
+
+  @Test
+  def deleteRow_authorized_ok(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "create-rows": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["deleteRow"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        _ <- controller.deleteRow(1, 1)
+        _ <- controller.deleteRow(1, 2)
+      } yield ()
+    }
+
 }
