@@ -1,5 +1,7 @@
 package com.campudus.tableaux.api.auth
 
+import java.util.NoSuchElementException
+
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
@@ -432,7 +434,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
       val roleModel = initRoleModel("""
                                       |{
-                                      |  "edit-cells": [
+                                      |  "view-rows": [
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["view", "viewCellValue"],
@@ -464,25 +466,12 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
     }
 
   @Test
-  def retrieveRow_notAuthorized_throwsException(implicit c: TestContext): Unit =
-    okTest {
-      val controller = createTableauxController()
-
-      for {
-        _ <- createTestTable()
-        ex <- controller.retrieveRow(1, 1).recover({ case ex => ex })
-      } yield {
-        assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
-      }
-    }
-
-  @Test
   def retrieveMultipleRows_filterRowsForTheirColumns_ok(implicit c: TestContext): Unit =
     okTest {
 
       val roleModel = initRoleModel("""
                                       |{
-                                      |  "edit-cells": [
+                                      |  "view-rows": [
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["view", "viewCellValue"],
@@ -516,15 +505,216 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
     }
 
   @Test
-  def retrieveMultipleRows_notAuthorized_throwsException(implicit c: TestContext): Unit =
+  def createRow_notAuthorized_throwsException(implicit c: TestContext): Unit =
     okTest {
       val controller = createTableauxController()
 
       for {
         _ <- createTestTable()
-        ex <- controller.retrieveRows(1, Pagination(None, None)).recover({ case ex => ex })
+        ex <- controller.createRow(1, None).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+        assertEquals(UnauthorizedException(CreateRow, ScopeTable), ex)
+      }
+    }
+
+  @Test
+  def createRow_authorized_ok(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "create-rows": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["createRow"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        _ <- controller.createRow(1, None)
+      } yield ()
+    }
+
+  @Test
+  def createRowWithValuesNoColumnsAreViewable_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "create-rows": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["createRow"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        ex <- controller.createRow(1, Some(Seq(Seq((1, "test"))))).recover({ case ex => ex })
+      } yield {
+        assertEquals(new NoSuchElementException().getClass, ex.getClass)
+      }
+    }
+
+  @Test
+  def createRowWithValuesColumnOneAndTwo_authorized_ok(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "create-rows-with-values": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["createRow"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        }
+                                      |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view", "editCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "column": {
+                                      |          "id": "1|2"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        _ <- controller.createRow(1,
+                                  Some(
+                                    Seq(
+                                      Seq(
+                                        (1, "test"),
+                                        (2, Json.obj("de" -> "test_de"))
+                                      ))
+                                  ))
+      } yield ()
+    }
+
+  @Test
+  def createRowWithValuesColumnThreeAndFour_authorized_ok(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "create-rows-with-values": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["createRow"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        }
+                                      |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view", "editCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "column": {
+                                      |          "id": "3|4"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        _ <- controller.createRow(1,
+                                  Some(
+                                    Seq(
+                                      Seq(
+                                        (3, 13),
+                                        (4, Json.obj("de" -> 37))
+                                      )
+                                    )))
+      } yield ()
+    }
+
+  @Test
+  def createRowWithValuesColumnThreeAndFour_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "create-rows-with-values": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["createRow"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "name": ".*"
+                                      |        }
+                                      |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view", "editCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "column": {
+                                      |          "id": "3|4"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- createTestTable()
+        ex1 <- controller
+          .createRow(1,
+                     Some(
+                       Seq(
+                         Seq(
+                           (1, "write is permitted for column 1")
+                         )
+                       )))
+          .recover({ case ex => ex })
+        ex2 <- controller
+          .createRow(1,
+                     Some(
+                       Seq(
+                         Seq(
+                           (2, Json.obj("de" -> "write is permitted for column 2"))
+                         )
+                       )))
+          .recover({ case ex => ex })
+      } yield {
+        assertEquals("column 1 and 2 are not changeable", new NoSuchElementException().getClass, ex1.getClass)
+        assertEquals("column 1 and 2 are not changeable", new NoSuchElementException().getClass, ex2.getClass)
       }
     }
 }
