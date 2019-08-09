@@ -338,6 +338,7 @@ class TableauxController(
     logger.info(s"deleteRow $tableId $rowId")
     for {
       table <- repository.retrieveTable(tableId)
+      _ <- roleModel.checkAuthorization(DeleteRow, ScopeTable, ComparisonObjects(table))
       _ <- repository.deleteRow(table, rowId)
     } yield EmptyObject()
   }
