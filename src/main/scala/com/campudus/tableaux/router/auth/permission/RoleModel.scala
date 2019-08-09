@@ -22,6 +22,11 @@ object RoleModel {
   def apply(): RoleModel = new RoleModel(Json.emptyObj())
 }
 
+sealed trait LoggingMethod
+case object Check extends LoggingMethod
+case object Filter extends LoggingMethod
+case object Enrich extends LoggingMethod
+
 /**
   * RoleModel is responsible for providing these main functions:
   *
@@ -53,7 +58,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     //  because we can not retrieve cell values for one language.
     val withLangtagCondition: Boolean = action != ViewCellValue
 
-    if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition))) {
+    if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition), Check)) {
       Future.successful(())
     } else {
       Future.failed(UnauthorizedException(action, scope))
@@ -85,7 +90,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         case _ => ComparisonObjects()
       }
 
-      isAllowed(userRoles, View, scope, _.isMatching(objects))
+      isAllowed(userRoles, View, scope, _.isMatching(objects), Filter)
     })
   }
 
@@ -119,7 +124,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichService(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeService, _.actions.contains(action))
+      isAllowed(userRoles, action, ScopeService, _.actions.contains(action), Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
@@ -134,7 +139,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichTable(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeTable, _.isMatching(objects))
+      isAllowed(userRoles, action, ScopeTable, _.isMatching(objects), Enrich)
     }
 
     val permissionJson: JsonObject =
@@ -153,7 +158,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def enrichServiceSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isAllowed(userRoles, Create, ScopeService, _.actions.contains(Create))
+      "create" -> isAllowed(userRoles, Create, ScopeService, _.actions.contains(Create), Enrich)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -161,7 +166,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def enrichColumnSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create))
+      "create" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create), Enrich)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -170,7 +175,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichColumn(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeColumn, _.isMatching(objects))
+      isAllowed(userRoles, action, ScopeColumn, _.isMatching(objects), Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
@@ -186,7 +191,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichTableSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeTable, _.actions.contains(action))
+      isAllowed(userRoles, action, ScopeTable, _.actions.contains(action), Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
@@ -199,7 +204,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichMedia(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeMedia, _.actions.contains(action))
+      isAllowed(userRoles, action, ScopeMedia, _.actions.contains(action), Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
@@ -219,7 +224,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       userRoles: Seq[String],
       action: Action,
       scope: Scope,
-      function: Permission => Boolean
+      function: Permission => Boolean,
+      method: LoggingMethod
   ): Boolean = {
 
     def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, scope)
@@ -233,11 +239,11 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         val denyPermissionOpt: Option[Permission] = denyPermissions.find(function)
 
         denyPermissionOpt match {
-          case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, denyPermission, scope, action))
-          case None => returnAndLog(Grant, loggingMessage(_, grantPermission, scope, action))
+          case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, method, denyPermission, scope, action))
+          case None => returnAndLog(Grant, loggingMessage(_, method, grantPermission, scope, action))
         }
 
-      case None => returnAndLog(Deny, defaultLoggingMessage(_, userRoles))
+      case None => returnAndLog(Deny, defaultLoggingMessage(_, method, userRoles))
     }
   }
 
@@ -251,16 +257,19 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     permissionType.isAccessAllowed
   }
 
-  private def defaultLoggingMessage(permissionType: PermissionType, userRoles: Seq[String]): String =
-    s"${permissionType.toString.toUpperCase}: No permission fitting for roles '$userRoles'"
+  private def defaultLoggingMessage(permissionType: PermissionType,
+                                    method: LoggingMethod,
+                                    userRoles: Seq[String]): String =
+    s"${permissionType.toString.toUpperCase}($method): No permission fitting for roles '$userRoles'"
 
   private def loggingMessage(
       permissionType: PermissionType,
+      method: LoggingMethod,
       permission: Permission,
       scope: Scope,
       action: Action
   ): String = {
-    s"${permissionType.toString.toUpperCase}: A permission is fitting " +
+    s"${permissionType.toString.toUpperCase}($method): A permission is fitting " +
       s"for role '${permission.roleName}'. Scope: '$scope' Action: '$action'"
   }
 
