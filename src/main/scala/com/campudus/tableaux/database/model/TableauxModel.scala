@@ -278,7 +278,8 @@ class TableauxModel(
 
   def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = {
     for {
-      columns <- retrieveColumns(table)
+      allColumns <- retrieveColumns(table)
+      columns = roleModel.filterDomainObjects(ScopeColumn, allColumns, ComparisonObjects(table))
       rows <- rows.foldLeft(Future.successful(Vector[Row]())) { (futureRows, row) => // replace ColumnId with ColumnType
       // TODO fail nice if columnid doesn't exist
       {
