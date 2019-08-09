@@ -464,6 +464,19 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
     }
 
   @Test
+  def retrieveRow_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val controller = createTableauxController()
+
+      for {
+        _ <- createTestTable()
+        ex <- controller.retrieveRow(1, 1).recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+      }
+    }
+
+  @Test
   def retrieveMultipleRows_filterRowsForTheirColumns_ok(implicit c: TestContext): Unit =
     okTest {
 
@@ -499,6 +512,19 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
         assertEquals(2, rows.length)
         assertEquals(2, rows.head.values.length)
         assertEquals(2, rows(1).values.length)
+      }
+    }
+
+  @Test
+  def retrieveMultipleRows_notAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      val controller = createTableauxController()
+
+      for {
+        _ <- createTestTable()
+        ex <- controller.retrieveRows(1, Pagination(None, None)).recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
       }
     }
 }
