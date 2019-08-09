@@ -9,7 +9,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
-import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeColumn, ViewCellValue}
 import com.campudus.tableaux.{RequestContext, TableauxConfig, UnprocessableEntityException}
 import org.vertx.scala.core.json.Json
 
@@ -262,6 +262,7 @@ class TableauxController(
     logger.info(s"retrieveRow $tableId $rowId")
     for {
       table <- repository.retrieveTable(tableId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table))
       row <- repository.retrieveRow(table, rowId)
     } yield row
   }
@@ -272,6 +273,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table))
       rows <- repository.retrieveRows(table, pagination)
     } yield rows
   }
