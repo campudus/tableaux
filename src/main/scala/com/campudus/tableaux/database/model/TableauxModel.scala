@@ -901,17 +901,23 @@ class TableauxModel(
     for {
       columns <- retrieveColumns(table)
       cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
-      filteredCellHistorySeq = cellHistorySeq.filter(history => {
-        val columnIds: Seq[ColumnId] = columns.map(_.id)
-        history.columnIdOpt.forall(historyColumnId => columnIds.contains(historyColumnId))
-      })
+      filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
     } yield filteredCellHistorySeq
   }
 
   def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String]): Future[Seq[History]] = {
     for {
+      columns <- retrieveColumns(table)
       cellHistorySeq <- retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt)
-    } yield cellHistorySeq
+      filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
+    } yield filteredCellHistorySeq
+  }
+
+  private def filterCellHistoriesForColumns(cellHistorySeq: Seq[History], columns: Seq[ColumnType[_]]) = {
+    cellHistorySeq.filter(history => {
+      val columnIds: Seq[ColumnId] = columns.map(_.id)
+      history.columnIdOpt.forall(historyColumnId => columnIds.contains(historyColumnId))
+    })
   }
 
   private def checkColumnTypeForLangtag[A](column: ColumnType[_], langtagOpt: Option[String]): Future[Unit] = {
@@ -924,4 +930,5 @@ class TableauxModel(
 
     }
   }
+
 }

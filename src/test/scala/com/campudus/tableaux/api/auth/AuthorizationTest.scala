@@ -116,7 +116,7 @@ class AuthorizationTest extends TableauxTestBase {
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
-        test <- sendRequest("DELETE", "/tables/1", tokenWithRoles("delete-tables"))
+        test <- sendRequest("DELETE", "/tables/1", tokenWithRoles("delete-tables", "view-tables"))
       } yield {
         assertEquals(expectedOkJson, test)
       }
