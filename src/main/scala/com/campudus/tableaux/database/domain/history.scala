@@ -6,7 +6,9 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 
-sealed trait History extends DomainObject
+sealed trait History extends DomainObject {
+  val columnIdOpt: Option[ColumnId]
+}
 
 object History {
   type RevisionId = Long
@@ -54,6 +56,8 @@ case class BaseHistory(
       "timestamp" -> optionToString(timestamp)
     )
   }
+
+  override val columnIdOpt: Option[ColumnId] = None
 }
 
 case class RowFlagHistory(baseHistory: BaseHistory, valueType: String) extends History {
@@ -63,6 +67,8 @@ case class RowFlagHistory(baseHistory: BaseHistory, valueType: String) extends H
         Json.obj("valueType" -> valueType)
       )
   }
+
+  override val columnIdOpt: Option[ColumnId] = None
 }
 
 case class CellFlagHistory(baseHistory: BaseHistory, columnId: ColumnId, languageType: LanguageType, value: JsonObject)
@@ -78,6 +84,8 @@ case class CellFlagHistory(baseHistory: BaseHistory, columnId: ColumnId, languag
       )
       .mergeIn(value)
   }
+
+  override val columnIdOpt: Option[ColumnId] = Some(columnId)
 }
 
 case class CellHistory(
@@ -100,6 +108,8 @@ case class CellHistory(
       )
       .mergeIn(value)
   }
+
+  override val columnIdOpt: Option[ColumnId] = Some(columnId)
 }
 
 case class SeqHistory(rows: Seq[History]) extends DomainObject {

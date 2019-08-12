@@ -806,7 +806,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
+                                    |      "action": ["view", "viewCellValue"],
                                     |      "scope": "column"
                                     |    }
                                     |  ]
@@ -829,7 +829,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
+                                    |      "action": ["view", "viewCellValue"],
                                     |      "scope": "column",
                                     |      "condition": {
                                     |        "column": {
@@ -844,11 +844,10 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      historyRows <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
+      histories <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
     } yield {
-      // TODO ist momentan noch 7, irgendwie muss ich nach den columns filtern
-      // bei retrieve rows ist das das selbe, noch keine Idee, wie das gehen soll??
-      assertEquals(4, historyRows.size())
+      assertEquals(4, histories.size())
+      assertJSONEquals(Json.fromObjectString("""{"revision": 1, "event": "row_created"}"""), histories.getJsonObject(0))
     }
   }
 
