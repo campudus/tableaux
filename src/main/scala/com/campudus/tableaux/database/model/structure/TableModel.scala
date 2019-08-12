@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, View}
 import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
@@ -166,16 +166,17 @@ class TableModel(val connection: DatabaseConnection)(
 
   def retrieveAll(): Future[Seq[Table]] = {
     for {
-      // TODO move filter from StructureController!
       defaultLangtags <- retrieveGlobalLangtags()
       tables <- getTablesWithDisplayInfos(defaultLangtags)
-    } yield tables
+      filteredTables: Seq[Table] = roleModel.filterDomainObjects[Table](ScopeTable, tables)
+    } yield filteredTables
   }
 
   def retrieve(tableId: TableId): Future[Table] = {
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       table <- getTableWithDisplayInfos(tableId, defaultLangtags)
+      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table))
     } yield table
   }
 

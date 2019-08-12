@@ -20,7 +20,19 @@ import org.vertx.scala.core.json.Json
 
 trait TableauxControllerAuthTest extends TableauxTestBase {
 
-  def createTableauxController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): TableauxController = {
+  val defaultViewTableRole = """
+                               |{
+                               |  "view-all-tables": [
+                               |    {
+                               |      "type": "grant",
+                               |      "action": ["view"],
+                               |      "scope": "table"
+                               |    }
+                               |  ]
+                               |}""".stripMargin
+
+  def createTableauxController(
+      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)): TableauxController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val structureModel = StructureModel(dbConnection)
@@ -70,6 +82,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |      "type": "grant",
                                     |      "action": ["viewCellValue"],
                                     |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -96,6 +113,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |          "name": ".*_model"
                                     |        }
                                     |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -129,6 +151,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |          "kind": "text"
                                     |        }
                                     |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -180,6 +207,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -213,6 +245,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -254,6 +291,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de-DE"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -284,6 +326,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de-DE|en-GB"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -314,6 +361,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de-DE"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -347,6 +399,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de-DE"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -377,6 +434,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de-DE|en-GB"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -407,6 +469,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de-DE"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -448,6 +515,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de-DE"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -485,6 +557,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |        },
                                       |        "langtag": "de-DE"
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -532,6 +609,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |          "name": ".*"
                                       |        }
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -559,6 +641,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |          "name": ".*"
                                       |        }
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -598,6 +685,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |          "id": "1|2"
                                       |        }
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -642,6 +734,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |          "id": "3|4"
                                       |        }
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -686,6 +783,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |          "id": "3|4"
                                       |        }
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -748,6 +850,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |          "name": ".*"
                                       |        }
                                       |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -775,6 +882,11 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |      "type": "grant",
                                     |      "action": ["viewCellValue"],
                                     |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -808,6 +920,11 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |      "type": "grant",
                                     |      "action": ["view", "viewCellValue"],
                                     |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -836,6 +953,11 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |          "kind": "text"
                                     |        }
                                     |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -844,22 +966,109 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      histories <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
+      historyRows <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
     } yield {
-      assertEquals(4, histories.size())
-      assertJSONEquals(Json.fromObjectString("""{"revision": 1, "event": "row_created"}"""), histories.getJsonObject(0))
+      assertEquals(4, historyRows.size())
+      assertJSONEquals(Json.fromObjectString("""{"revision": 1, "event": "row_created"}"""),
+                       historyRows.getJsonObject(0))
     }
   }
 
   @Test
   def retrieveRowHistory_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
-    val controller = createTableauxController()
+    val roleModel = initRoleModel("""{}""")
+    val controller = createTableauxController(roleModel)
 
     for {
       _ <- createTestTable()
-      ex <- controller.retrieveCellHistory(1, 1, 1, None, None).recover({ case ex => ex })
+      ex <- controller.retrieveRowHistory(1, 1, None, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+      assertEquals(UnauthorizedException(View, ScopeTable), ex)
     }
   }
+
+  @Test
+  def retrieveTableHistory_onlyTextColumnsViewable_returnEightHistoryEntries(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "viewCellValue"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "column": {
+                                    |          "kind": "text"
+                                    |        }
+                                    |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      histories <- controller.retrieveTableHistory(1, None, None).map(_.getJson.getJsonArray("rows"))
+    } yield {
+      /* histories for two rows with each
+         - 1 x rowCreated
+         - 1 x single language changes
+         - 2 x multi language changes
+       */
+      assertEquals(8, histories.size())
+    }
+  }
+
+  @Test
+  def retrieveTableHistory_noFilter_returnsAllHistoryEntriesOfTable(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      histories <- controller.retrieveTableHistory(1, None, None).map(_.getJson.getJsonArray("rows"))
+    } yield {
+      /* histories for two rows with each
+             - 1 x rowCreated
+             - 2 x single language changes
+             - 4 x multi language changes
+       */
+      assertEquals(14, histories.size())
+    }
+  }
+
+  @Test
+  def retrieveTableHistory_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""{}""")
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      ex <- controller.retrieveTableHistory(1, None, None).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+    }
+  }
+
 }
