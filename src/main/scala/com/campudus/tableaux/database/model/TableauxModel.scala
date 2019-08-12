@@ -899,9 +899,13 @@ class TableauxModel(
       typeOpt: Option[String]
   ): Future[Seq[History]] = {
     for {
-//      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table))
+      columns <- retrieveColumns(table)
       cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
-    } yield cellHistorySeq
+      filteredCellHistorySeq = cellHistorySeq.filter(history => {
+        val columnIds: Seq[ColumnId] = columns.map(_.id)
+        history.columnIdOpt.forall(historyColumnId => columnIds.contains(historyColumnId))
+      })
+    } yield filteredCellHistorySeq
   }
 
   def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String]): Future[Seq[History]] = {

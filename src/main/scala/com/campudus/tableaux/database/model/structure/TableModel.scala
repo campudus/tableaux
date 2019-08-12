@@ -166,6 +166,7 @@ class TableModel(val connection: DatabaseConnection)(
 
   def retrieveAll(): Future[Seq[Table]] = {
     for {
+      // TODO move filter from StructureController!
       defaultLangtags <- retrieveGlobalLangtags()
       tables <- getTablesWithDisplayInfos(defaultLangtags)
     } yield tables
