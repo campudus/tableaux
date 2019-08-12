@@ -53,6 +53,7 @@ class StructureController(
     for {
       tableSeq: Seq[Table] <- tableStruc.retrieveAll()
     } yield {
+      // TODO move to TableModel!
       val filteredTables: Seq[Table] = roleModel.filterDomainObjects[Table](ScopeTable, tableSeq)
       TableSeq(filteredTables)
     }
