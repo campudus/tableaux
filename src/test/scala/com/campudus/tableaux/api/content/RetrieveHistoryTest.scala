@@ -175,11 +175,11 @@ class RetrieveHistoryTest extends TableauxTestBase {
             |  (row_id, column_id, event, history_type, value_type, language_type, value)
             |VALUES
             |  (1, null, 'row_created',  'row',    null,     null,       null),
-            |  (1, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change2"}}'),
-            |  (1, 3,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change3"}}'),
+            |  (1, 1,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change2"}}'),
+            |  (1, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change3"}}'),
             |  (2, null, 'row_created',  'row',    null,     null,       null),
-            |  (2, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change5"}}'),
-            |  (2, 3,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change6"}}')
+            |  (2, 1,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change5"}}'),
+            |  (2, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change6"}}')
             |  """.stripMargin)
 
         allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
