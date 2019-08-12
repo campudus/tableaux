@@ -422,6 +422,11 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |      "type": "grant",
                                     |      "action": ["view","viewCellValue", "editCellValue"],
                                     |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)

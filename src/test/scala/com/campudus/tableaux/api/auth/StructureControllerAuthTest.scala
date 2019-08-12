@@ -1,7 +1,7 @@
 package com.campudus.tableaux.api.auth
 
 import com.campudus.tableaux.UnauthorizedException
-import com.campudus.tableaux.controller.StructureController
+import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, DomainObject, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
@@ -20,7 +20,19 @@ import org.vertx.scala.core.json.{Json, JsonObject}
 
 trait StructureControllerAuthTest extends TableauxTestBase {
 
-  def createStructureController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): StructureController = {
+  val defaultViewTableRole = """
+                               |{
+                               |  "view-all-tables": [
+                               |    {
+                               |      "type": "grant",
+                               |      "action": ["view"],
+                               |      "scope": "table"
+                               |    }
+                               |  ]
+                               |}""".stripMargin
+
+  def createStructureController(
+      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)): StructureController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val model = StructureModel(dbConnection)
@@ -49,7 +61,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                     |  "delete-tables": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["delete"],
+                                    |      "action": ["view", "delete"],
                                     |      "scope": "table"
                                     |    }
                                     |  ]
@@ -72,13 +84,18 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                     |  "delete-tables": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["delete"],
+                                    |      "action": ["view", "delete"],
                                     |      "scope": "table",
                                     |      "condition": {
                                     |        "table": {
                                     |          "name": ".*_model"
                                     |        }
                                     |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -93,6 +110,9 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
       _ <- controller.deleteTable(modelTableId)
       ex <- controller.deleteTable(variantTableId).recover({ case ex => ex })
     } yield {
+      // before deletion, retrieve table is called
+      // so UnauthorizedException for Deletion is only thrown if we can view this table
+      // otherwise we even get an UnauthorizedException for action View
       assertEquals(UnauthorizedException(Delete, ScopeTable), ex)
     }
   }
@@ -117,7 +137,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                     |  "create-tables": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["create"],
+                                    |      "action": ["view", "create"],
                                     |      "scope": "table"
                                     |    }
                                     |  ]
@@ -162,7 +182,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                     |  "change-tables": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["editDisplayProperty"],
+                                    |      "action": ["view", "editDisplayProperty"],
                                     |      "scope": "table"
                                     |    }
                                     |  ]
@@ -197,7 +217,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                     |  "change-tables": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["editStructureProperty"],
+                                    |      "action": ["view", "editStructureProperty"],
                                     |      "scope": "table"
                                     |    }
                                     |  ]
@@ -241,7 +261,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                     |  "change-tables": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["editDisplayProperty"],
+                                    |      "action": ["view", "editDisplayProperty"],
                                     |      "scope": "table"
                                     |    }
                                     |  ]
@@ -481,6 +501,11 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
                                     |      "type": "grant",
                                     |      "action": ["delete"],
                                     |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -513,6 +538,11 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
                                     |      "type": "grant",
                                     |      "action": ["editDisplayProperty"],
                                     |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -547,6 +577,11 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
                                     |      "type": "grant",
                                     |      "action": ["editStructureProperty"],
                                     |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -588,6 +623,11 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
                                     |          "name": ".*_model"
                                     |        }
                                     |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -624,6 +664,11 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
                                     |          "name": ".*_model"
                                     |        }
                                     |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -658,6 +703,11 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
                                     |          "identifier": "true"
                                     |        }
                                     |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -707,7 +757,8 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
   @Test
   def retrieveSpecificTable_notAuthorized_throwsException(implicit c: TestContext): Unit =
     exceptionTest("error.request.unauthorized") {
-      val controller = createStructureController()
+      val roleModel: RoleModel = initRoleModel("""{}""")
+      val controller = createStructureController(roleModel)
 
       for {
         tableId <- createDefaultTable("Test")
@@ -820,7 +871,8 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
   @Test
   def retrieveTables_noViewPermission_returnEmptyList(implicit c: TestContext): Unit = okTest {
 
-    val controller = createStructureController()
+    val roleModel: RoleModel = initRoleModel("""{}""")
+    val controller = createStructureController(roleModel)
 
     for {
       _ <- createDefaultTable("Test1")
@@ -855,6 +907,11 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
                                                |      "type": "grant",
                                                |      "action": ["view"],
                                                |      "scope": "column"
+                                               |    },
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "table"
                                                |    }
                                                |  ]
                                                |}""".stripMargin)
@@ -885,6 +942,11 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
                                                |          "id": "1"
                                                |        }
                                                |      }
+                                               |    },
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "table"
                                                |    }
                                                |  ]
                                                |}""".stripMargin)
@@ -925,6 +987,11 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
                                                |          "id": "1"
                                                |        }
                                                |      }
+                                               |    },
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "table"
                                                |    }
                                                |  ]
                                                |}""".stripMargin)
@@ -968,6 +1035,11 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
                                                |          "id": "1"
                                                |        }
                                                |      }
+                                               |    },
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "table"
                                                |    }
                                                |  ]
                                                |}""".stripMargin)
@@ -1023,6 +1095,11 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
                                                |          "kind": "numeric"
                                                |        }
                                                |      }
+                                               |    },
+                                               |    {
+                                               |      "type": "grant",
+                                               |      "action": ["view"],
+                                               |      "scope": "table"
                                                |    }
                                                |  ]
                                                |}""".stripMargin)
@@ -1061,6 +1138,11 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
                                                  |          "id": ".*"
                                                  |        }
                                                  |      }
+                                                 |    },
+                                                 |    {
+                                                 |      "type": "grant",
+                                                 |      "action": ["view"],
+                                                 |      "scope": "table"
                                                  |    }
                                                  |  ]
                                                  |}""".stripMargin)
