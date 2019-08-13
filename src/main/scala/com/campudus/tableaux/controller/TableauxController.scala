@@ -98,6 +98,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table))
 
       annotations <- repository.retrieveTableWithCellAnnotations(table)
     } yield annotations
@@ -109,7 +110,11 @@ class TableauxController(
     for {
       tables <- repository.retrieveTables()
 
-      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(tables)
+      tablesWithCellAnnotationCount <- if (tables.isEmpty) {
+        Future.successful(Seq.empty[TableWithCellAnnotationCount])
+      } else {
+        repository.retrieveTablesWithCellAnnotationCount(tables)
+      }
     } yield {
       PlainDomainObject(Json.obj("tables" -> tablesWithCellAnnotationCount.map(_.getJson)))
     }
