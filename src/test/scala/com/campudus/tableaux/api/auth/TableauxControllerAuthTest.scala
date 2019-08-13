@@ -55,9 +55,9 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
     * 3. column -> numeric | single language
     * 4. column -> numeric | multi language
     */
-  protected def createTestTable() = {
+  protected def createTestTable(tableName: String = "table") = {
     createSimpleTableWithValues(
-      "table",
+      tableName,
       List(TextCol("text"),
            Multilanguage(TextCol("multilanguage_text")),
            NumericCol("numeric"),
@@ -1382,4 +1382,94 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
     }
   }
 
+  @Test
+  def retrieveAnnotations_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-table": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+
+    for {
+      _ <- createTestTable()
+      _ <- sendRequest("POST", s"/tables/1/columns/1/rows/1/annotations", infoAnnotation).map(toUuid)
+
+      _ <- controller.retrieveTableWithCellAnnotations(1)
+    } yield ()
+  }
+
+  @Test
+  def retrieveAnnotations_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""{}""")
+
+    val controller = createTableauxController(roleModel)
+
+    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+
+    for {
+      _ <- createTestTable()
+      _ <- sendRequest("POST", s"/tables/1/columns/1/rows/1/annotations", infoAnnotation).map(toUuid)
+
+      ex <- controller.retrieveTableWithCellAnnotations(1).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+    }
+  }
+
+  @Test
+  def retrieveAnnotationCount_onlyTableTwoIsViewable_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-table-2": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "name": ".*2"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+
+    for {
+      _ <- createTestTable("table1")
+      _ <- createTestTable("table2")
+      _ <- sendRequest("POST", s"/tables/1/columns/1/rows/1/annotations", infoAnnotation).map(toUuid)
+      _ <- sendRequest("POST", s"/tables/2/columns/1/rows/1/annotations", infoAnnotation).map(toUuid)
+
+      tables <- controller.retrieveTablesWithCellAnnotationCount().map(_.getJson.getJsonArray("tables"))
+    } yield {
+      assertEquals(1, tables.size())
+    }
+  }
+
+  @Test
+  def retrieveAnnotationCount_notEvenOneTableIsViewable(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""{}""")
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+
+      tables <- controller.retrieveTablesWithCellAnnotationCount().map(_.getJson.getJsonArray("tables"))
+    } yield {
+      assertEquals(0, tables.size())
+    }
+  }
 }
