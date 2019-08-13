@@ -61,6 +61,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
       _ <- repository.deleteCellAnnotation(column, rowId, uuid)
     } yield EmptyObject()
   }
@@ -85,6 +86,7 @@ class TableauxController(
         throw UnprocessableEntityException(
           s"There are no annotations with langtags on a language neutral cell (table: $tableId, column: $columnId)")
       }
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
 
       _ <- repository.deleteCellAnnotation(column, rowId, uuid, langtag)
     } yield EmptyObject()

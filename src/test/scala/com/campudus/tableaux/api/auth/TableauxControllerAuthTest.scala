@@ -1,6 +1,6 @@
 package com.campudus.tableaux.api.auth
 
-import java.util.NoSuchElementException
+import java.util.{NoSuchElementException, UUID}
 
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.{StructureController, TableauxController}
@@ -16,7 +16,7 @@ import io.vertx.scala.SQLConnection
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 trait TableauxControllerAuthTest extends TableauxTestBase {
 
@@ -1076,6 +1076,8 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
 @RunWith(classOf[VertxUnitRunner])
 class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
+  def toUuid(jsonObject: JsonObject): String = jsonObject.getString("uuid")
+
   @Test
   def createCellAnnotation_authorized_ok(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
@@ -1134,6 +1136,141 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
     } yield {
       assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex1)
       assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex2)
+    }
+  }
+
+  @Test
+  def deleteCellAnnotation_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editCellAnnotation"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    val langtagInfoAnnotation = Json.fromObjectString("""{"langtags": ["de", "en"], "type": "info"}""")
+    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+
+    for {
+      _ <- createTestTable()
+
+      uuid1 <- sendRequest("POST", s"/tables/1/columns/2/rows/1/annotations", langtagInfoAnnotation).map(toUuid)
+      uuid2 <- sendRequest("POST", s"/tables/1/columns/1/rows/1/annotations", infoAnnotation).map(toUuid)
+
+      _ <- controller.deleteCellAnnotation(1, 1, 1, UUID.fromString(uuid1))
+      _ <- controller.deleteCellAnnotation(1, 2, 1, UUID.fromString(uuid2))
+    } yield ()
+  }
+
+  @Test
+  def deleteCellHistory_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    val langtagInfoAnnotation = Json.fromObjectString("""{"langtags": ["de", "en"], "type": "info"}""")
+    val infoAnnotation = Json.fromObjectString("""{"type": "info", "value": "this is a comment"}""")
+
+    for {
+      _ <- createTestTable()
+
+      uuid1 <- sendRequest("POST", s"/tables/1/columns/2/rows/1/annotations", langtagInfoAnnotation).map(toUuid)
+      uuid2 <- sendRequest("POST", s"/tables/1/columns/1/rows/1/annotations", infoAnnotation).map(toUuid)
+
+      ex1 <- controller.deleteCellAnnotation(1, 1, 1, UUID.fromString(uuid1)).recover({ case ex => ex })
+      ex2 <- controller.deleteCellAnnotation(1, 2, 1, UUID.fromString(uuid2)).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex1)
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex2)
+    }
+  }
+
+  @Test
+  def deleteCellAnnotationWithLangtag_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editCellAnnotation"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    val langtagInfoAnnotation = Json.fromObjectString("""{"langtags": ["de", "en"], "type": "info"}""")
+
+    for {
+      _ <- createTestTable()
+
+      uuid1 <- sendRequest("POST", s"/tables/1/columns/2/rows/1/annotations", langtagInfoAnnotation).map(toUuid)
+
+      _ <- controller.deleteCellAnnotation(1, 2, 1, UUID.fromString(uuid1), "en")
+    } yield ()
+  }
+
+  @Test
+  def deleteCellHistoryWithLangtag_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    val langtagInfoAnnotation = Json.fromObjectString("""{"langtags": ["de", "en"], "type": "info"}""")
+
+    for {
+      _ <- createTestTable()
+
+      uuid1 <- sendRequest("POST", s"/tables/1/columns/2/rows/1/annotations", langtagInfoAnnotation).map(toUuid)
+
+      ex <- controller.deleteCellAnnotation(1, 2, 1, UUID.fromString(uuid1), "en").recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex)
     }
   }
 }
