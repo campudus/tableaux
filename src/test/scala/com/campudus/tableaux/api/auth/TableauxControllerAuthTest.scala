@@ -5,7 +5,7 @@ import java.util.NoSuchElementException
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.Pagination
+import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.RequestCreation.{Multilanguage, NumericCol, TextCol}
@@ -1071,4 +1071,69 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
     }
   }
 
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
+
+  @Test
+  def createCellAnnotation_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editCellAnnotation"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      _ <- controller.addCellAnnotation(1, 1, 1, Seq.empty[String], InfoAnnotationType, "my info annotation")
+      _ <- controller.addCellAnnotation(1, 2, 1, Seq("de"), InfoAnnotationType, "my info annotation-de")
+    } yield ()
+  }
+
+  @Test
+  def retrieveCellHistory_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      ex1 <- controller
+        .addCellAnnotation(1, 1, 1, Seq.empty[String], InfoAnnotationType, "my info annotation")
+        .recover({ case ex => ex })
+      ex2 <- controller
+        .addCellAnnotation(1, 2, 1, Seq("de"), InfoAnnotationType, "my info annotation-de")
+        .recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex1)
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex2)
+    }
+  }
 }

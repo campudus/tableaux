@@ -48,6 +48,7 @@ class TableauxController(
         throw UnprocessableEntityException(
           s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)")
       }
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
     } yield cellAnnotation
