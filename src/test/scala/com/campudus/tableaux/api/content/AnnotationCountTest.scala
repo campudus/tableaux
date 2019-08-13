@@ -162,4 +162,18 @@ class AnnotationCountTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def retrieveFlagCountIfNoTableExistsOrFilterReturnsNoTable(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        annotationCount <- sendRequest("GET", s"/tables/annotationCount")
+      } yield {
+        val expectedAnnotationCount = Json.obj("tables" -> Json.arr())
+
+        assertJSONEquals(expectedAnnotationCount, annotationCount)
+      }
+    }
+  }
+
 }
