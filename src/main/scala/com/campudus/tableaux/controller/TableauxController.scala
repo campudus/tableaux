@@ -239,6 +239,7 @@ class TableauxController(
     logger.info(s"updateRowAnnotations $tableId $rowId $finalFlag")
     for {
       table <- repository.retrieveTable(tableId)
+      _ <- roleModel.checkAuthorization(EditRowAnnotation, ScopeTable, ComparisonObjects(table))
       updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlag)
     } yield updatedRow
   }
@@ -248,6 +249,7 @@ class TableauxController(
     logger.info(s"updateRowsAnnotations $tableId $finalFlag")
     for {
       table <- repository.retrieveTable(tableId)
+      _ <- roleModel.checkAuthorization(EditRowAnnotation, ScopeTable, ComparisonObjects(table))
       _ <- repository.updateRowsAnnotations(table, finalFlag)
     } yield EmptyObject()
   }

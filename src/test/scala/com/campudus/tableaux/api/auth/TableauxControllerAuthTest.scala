@@ -1273,4 +1273,113 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
       assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex)
     }
   }
+
+  @Test
+  def updateRowAnnotations_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editRowAnnotation"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      _ <- controller.updateRowAnnotations(1, 1, Some(true))
+    } yield ()
+  }
+
+  @Test
+  def updateRowAnnotations_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      ex <- controller.updateRowAnnotations(1, 1, Some(true)).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditRowAnnotation, ScopeTable), ex)
+    }
+  }
+
+  @Test
+  def updateRowsAnnotations_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editRowAnnotation"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      _ <- controller.updateRowsAnnotations(1, Some(true))
+    } yield ()
+  }
+
+  @Test
+  def updateRowsAnnotations_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      ex <- controller.updateRowsAnnotations(1, Some(true)).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditRowAnnotation, ScopeTable), ex)
+    }
+  }
+
 }
