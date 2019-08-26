@@ -416,6 +416,8 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
 
+      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+
       _ <- repository.createHistoryModel.createCellsInit(table, rowId, Seq((column, uuid)))
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
       _ <- CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
