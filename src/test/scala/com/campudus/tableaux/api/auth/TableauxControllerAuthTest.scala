@@ -1597,6 +1597,8 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
 @RunWith(classOf[VertxUnitRunner])
 class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxControllerAuthTest {
 
+  val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+
   @Test
   def updateCellLinkOrder_authorized_ok(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
@@ -1616,7 +1618,6 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |}""".stripMargin)
 
     val controller = createTableauxController(roleModel)
-    val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
 
     for {
       linkColumnId <- setupTwoTablesWithEmptyLinks()
@@ -1629,7 +1630,6 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
   @Test
   def updateCellLinkOrder_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
     val controller = createTableauxController()
-    val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
 
     for {
       linkColumnId <- setupTwoTablesWithEmptyLinks()
@@ -1638,6 +1638,51 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
       ex <- controller.updateCellLinkOrder(1, 3, 1, 1, LocationEnd).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex)
+    }
+  }
+
+  @Test
+  def deleteLinkOfCell_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editCellValue", "viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+
+      _ <- controller.deleteLink(1, 3, 1, 1)
+      _ <- controller.deleteLink(1, 3, 1, 2)
+    } yield ()
+  }
+
+  @Test
+  def deleteLinkOfCell_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val controller = createTableauxController()
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+
+      ex1 <- controller.deleteLink(1, 3, 1, 1).recover({ case ex => ex })
+      ex2 <- controller.deleteLink(1, 3, 1, 2).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
+      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
     }
   }
 

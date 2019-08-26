@@ -404,6 +404,7 @@ class TableauxModel(
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
+      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
 
       _ <- column match {
         case linkColumn: LinkColumn => {
@@ -430,7 +431,6 @@ class TableauxModel(
   ): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
-
       _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
 
       _ <- column match {
