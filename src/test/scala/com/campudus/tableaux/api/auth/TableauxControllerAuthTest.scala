@@ -1494,7 +1494,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
   }
 
   @Test
-  def retrieveCell_authorized_ok(implicit c: TestContext): Unit = okTest {
+  def retrieveColumnValues_authorized_ok(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
                                     |  "view-all-cells": [
@@ -1521,7 +1521,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
   }
 
   @Test
-  def retrieveCell_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+  def retrieveColumnValues_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
     val controller = createTableauxController()
 
     for {
@@ -1535,7 +1535,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
   }
 
   @Test
-  def retrieveCell_notAuthorized_table_throwsException(implicit c: TestContext): Unit = okTest {
+  def retrieveColumnValues_notAuthorized_table_throwsException(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
                                     |  "view-all-cells": [
@@ -1558,7 +1558,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
   }
 
   @Test
-  def retrieveCell_onlyColumn2IsAllowed(implicit c: TestContext): Unit = okTest {
+  def retrieveColumnValues_onlyColumn2IsAllowed(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
                                     |  "view-all-cells": [
@@ -1598,7 +1598,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
 class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxControllerAuthTest {
 
   @Test
-  def retrieveCell_authorized_ok(implicit c: TestContext): Unit = okTest {
+  def updateCellLinkOrder_authorized_ok(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
                                     |  "view-all-cells": [
@@ -1627,7 +1627,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
   }
 
   @Test
-  def retrieveCell_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+  def updateCellLinkOrder_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
     val controller = createTableauxController()
     val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
 
