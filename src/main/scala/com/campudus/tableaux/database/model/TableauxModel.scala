@@ -431,6 +431,8 @@ class TableauxModel(
     for {
       column <- retrieveColumn(table, columnId)
 
+      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+
       _ <- column match {
         case linkColumn: LinkColumn => {
           for {
