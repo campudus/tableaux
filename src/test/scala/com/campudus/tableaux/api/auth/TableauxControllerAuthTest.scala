@@ -4,13 +4,15 @@ import java.util.{NoSuchElementException, UUID}
 
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.api.content.LinkTestBase
+import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
+import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.RequestCreation._
-import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
@@ -1683,6 +1685,79 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
     } yield {
       assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
       assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
+    }
+  }
+
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_attachmentCell extends MediaTestBase with TableauxControllerAuthTest {
+
+  def createColumnWithLinkedAttachmentInFirstRow(tableId: TableId)(implicit c: TestContext) = {
+    val columns = RequestCreation
+      .Columns()
+      .add(RequestCreation.AttachmentCol("Downloads"))
+      .getJson
+
+    val file = "/com/campudus/tableaux/uploads/Scr$en Shot.pdf"
+    val mimetype = "application/pdf"
+    val putFile = Json.obj("title" -> Json.obj("de" -> "Test PDF"))
+
+    for {
+      columnId <- sendRequest("POST", s"/tables/$tableId/columns", columns)
+        .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+
+      fileUuid <- createFile("de", file, mimetype, None) map (_.getString("uuid"))
+      _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
+
+      // Add attachments
+      _ <- sendRequest("PATCH",
+                       s"/tables/$tableId/columns/$columnId/rows/1",
+                       Json.obj("value" -> Json.obj("uuid" -> fileUuid, "ordering" -> 1)))
+    } yield (columnId.toLong, fileUuid)
+  }
+
+  @Test
+  def deleteAttachmentOfCell_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-edit-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editCellValue", "viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      tableId <- createDefaultTable()
+      (columnId, fileUuid) <- createColumnWithLinkedAttachmentInFirstRow(tableId)
+
+      _ <- controller.deleteAttachment(1, columnId, 1, fileUuid)
+    } yield ()
+  }
+
+  @Test
+  def deleteAttachmentOfCell_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val controller = createTableauxController()
+
+    for {
+      tableId <- createDefaultTable()
+      (columnId, fileUuid) <- createColumnWithLinkedAttachmentInFirstRow(tableId)
+
+      ex <- controller.deleteAttachment(1, columnId, 1, fileUuid).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex)
     }
   }
 
