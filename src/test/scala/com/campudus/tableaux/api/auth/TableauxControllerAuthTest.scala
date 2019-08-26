@@ -8,7 +8,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.testtools.RequestCreation.{Multilanguage, NumericCol, TextCol}
+import com.campudus.tableaux.testtools.RequestCreation.{Multilanguage, NumericCol, ShortTextCol, TextCol}
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -1472,4 +1472,123 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
       assertEquals(0, tables.size())
     }
   }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest {
+
+  /**
+    * 1. column -> shorttext | single language
+    * 2. column -> shorttext | multi language
+    */
+  def createTestTableWithShortTextColumns() = {
+    createSimpleTableWithValues(
+      "table",
+      List(ShortTextCol("shorttext"), Multilanguage(ShortTextCol("multilanguage_shorttext"))),
+      List(
+        List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en")),
+        List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"))
+      )
+    )
+  }
+
+  @Test
+  def retrieveCell_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTableWithShortTextColumns()
+      _ <- controller.retrieveColumnValues(1, 1, None)
+      _ <- controller.retrieveColumnValues(1, 2, Some("de"))
+    } yield ()
+  }
+
+  @Test
+  def retrieveCell_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val controller = createTableauxController()
+
+    for {
+      _ <- createTestTableWithShortTextColumns()
+      ex1 <- controller.retrieveColumnValues(1, 1, None).recover({ case ex => ex })
+      ex2 <- controller.retrieveColumnValues(1, 2, Some("de")).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex2)
+    }
+  }
+
+  @Test
+  def retrieveCell_notAuthorized_table_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTableWithShortTextColumns()
+      ex <- controller.retrieveColumnValues(1, 1, None).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+    }
+  }
+
+  @Test
+  def retrieveCell_onlyColumn2IsAllowed(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewCellValue"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "column": {
+                                    |          "id": "2"
+                                    |        }
+                                    |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTableWithShortTextColumns()
+      ex <- controller.retrieveColumnValues(1, 1, None).recover({ case ex => ex })
+      _ <- controller.retrieveColumnValues(1, 2, Some("de"))
+      _ <- controller.retrieveColumnValues(1, 2, Some("en"))
+    } yield {
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+    }
+  }
+
 }

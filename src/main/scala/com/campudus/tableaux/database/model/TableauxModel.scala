@@ -869,6 +869,7 @@ class TableauxModel(
         case column => Future.failed(WrongColumnKindException(column, classOf[ShortTextColumn]))
       })
 
+      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, shortTextColumn))
       values <- retrieveRowModel.retrieveColumnValues(shortTextColumn, langtagOpt)
     } yield values
   }
