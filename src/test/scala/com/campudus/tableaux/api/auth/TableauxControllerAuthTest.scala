@@ -3,12 +3,13 @@ package com.campudus.tableaux.api.auth
 import java.util.{NoSuchElementException, UUID}
 
 import com.campudus.tableaux.UnauthorizedException
+import com.campudus.tableaux.api.content.LinkTestBase
 import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.testtools.RequestCreation.{Multilanguage, NumericCol, ShortTextCol, TextCol}
+import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -58,7 +59,7 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
   protected def createTestTable(tableName: String = "table") = {
     createSimpleTableWithValues(
       tableName,
-      List(TextCol("text"),
+      List(Identifier(TextCol("text")),
            Multilanguage(TextCol("multilanguage_text")),
            NumericCol("numeric"),
            Multilanguage(NumericCol("multilanguage_numeric"))),
@@ -1588,6 +1589,55 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
       _ <- controller.retrieveColumnValues(1, 2, Some("en"))
     } yield {
       assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+    }
+  }
+
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxControllerAuthTest {
+
+  @Test
+  def retrieveCell_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editCellValue", "viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+    val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+
+      _ <- controller.updateCellLinkOrder(1, 3, 1, 1, LocationEnd)
+    } yield ()
+  }
+
+  @Test
+  def retrieveCell_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val controller = createTableauxController()
+    val putTwoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+
+      ex <- controller.updateCellLinkOrder(1, 3, 1, 1, LocationEnd).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex)
     }
   }
 
