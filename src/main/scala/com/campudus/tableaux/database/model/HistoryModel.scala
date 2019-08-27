@@ -146,7 +146,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
   private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId): Future[Seq[RowId]] = {
     for {
-      cell <- tableauxModel.retrieveCell(table, column.id, rowId)
+      cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
     } yield {
       cell.getJson
         .getJsonArray("value")
@@ -285,7 +285,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     val linkedCellSeq = linkIds.map(
       linkId =>
         for {
-          foreignIdentifier <- tableauxModel.retrieveCell(column.to.table, column.to.id, linkId)
+          foreignIdentifier <- tableauxModel.retrieveCell(column.to.table, column.to.id, linkId, isInternalCall = true)
         } yield foreignIdentifier
     )
     Future.sequence(linkedCellSeq)
@@ -635,7 +635,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       langtagCountryOpt: Option[String] = None
   ): Future[Option[Any]] = {
     for {
-      cell <- tableauxModel.retrieveCell(table, column.id, rowId)
+      cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
     } yield {
       Option(cell.value) match {
         case Some(v) =>
@@ -894,7 +894,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       _ <- Future.sequence(dependentColumns.map({
         case DependentColumnInformation(linkedTableId, linkedColumnId, _, _, _) =>
           for {
-            linkedTable <- tableModel.retrieve(linkedTableId)
+            linkedTable <- tableModel.retrieve(linkedTableId, isInternalCall = true)
             linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
             _ <- Future.sequence(foreignIds.map(linkId => {
               for {
