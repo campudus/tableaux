@@ -168,15 +168,15 @@ class TableModel(val connection: DatabaseConnection)(
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       tables <- getTablesWithDisplayInfos(defaultLangtags)
-      filteredTables: Seq[Table] = roleModel.filterDomainObjects[Table](ScopeTable, tables)
+      filteredTables: Seq[Table] = roleModel.filterDomainObjects[Table](ScopeTable, tables, isInternalCall = false)
     } yield filteredTables
   }
 
-  def retrieve(tableId: TableId): Future[Table] = {
+  def retrieve(tableId: TableId, isInternalCall: Boolean = false): Future[Table] = {
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       table <- getTableWithDisplayInfos(tableId, defaultLangtags)
-      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table), isInternalCall)
     } yield table
   }
 

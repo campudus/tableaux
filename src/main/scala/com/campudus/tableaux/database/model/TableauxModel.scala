@@ -51,8 +51,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None)
   }
 
-  def retrieveTable(tableId: TableId): Future[Table] = {
-    structureModel.tableStruc.retrieve(tableId)
+  def retrieveTable(tableId: TableId, isInternalCall: Boolean = false): Future[Table] = {
+    structureModel.tableStruc.retrieve(tableId, isInternalCall)
   }
 
   def retrieveTables(): Future[Seq[Table]] = {
@@ -67,10 +67,12 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.columnStruc.retrieve(table, columnId)
   }
 
-  def retrieveColumns(table: Table): Future[Seq[ColumnType[_]]] = {
+  def retrieveColumns(table: Table, isInternalCall: Boolean = false): Future[Seq[ColumnType[_]]] = {
     for {
       allColumns <- structureModel.columnStruc.retrieveAll(table)
-      filteredColumns = roleModel.filterDomainObjects[ColumnType[_]](ScopeColumn, allColumns, ComparisonObjects(table))
+      filteredColumns = roleModel
+        .filterDomainObjects[ColumnType[_]](ScopeColumn, allColumns, ComparisonObjects(table), isInternalCall)
+
     } yield filteredColumns
   }
 
@@ -139,6 +141,7 @@ class TableauxModel(
       result <- {
         val futures = links.map({
           case (linkId, linkDirection) =>
+            // TODO refactor duplication
             connection
               .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
               .map(result => resultObjectToJsonArray(result).map(_.getLong(0).longValue()))
@@ -146,8 +149,8 @@ class TableauxModel(
               .flatMap({
                 case (tableId, rows) =>
                   for {
-                    table <- retrieveTable(tableId)
-                    columns <- retrieveColumns(table)
+                    table <- retrieveTable(tableId, isInternalCall = true)
+                    columns <- retrieveColumns(table, isInternalCall = true)
                     rowObjects <- Future.sequence(rows.map({ rowId =>
                       {
                         retrieveCell(columns.head, rowId)
@@ -227,7 +230,7 @@ class TableauxModel(
 
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
     for {
-      columns <- retrieveColumns(table)
+      columns <- retrieveColumns(table, isInternalCall = true)
 
       specialColumns = columns.filter({
         case _: AttachmentColumn => true
@@ -279,7 +282,7 @@ class TableauxModel(
   def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]]): Future[RowSeq] = {
     for {
       allColumns <- retrieveColumns(table)
-      columns = roleModel.filterDomainObjects(ScopeColumn, allColumns, ComparisonObjects(table))
+      columns = roleModel.filterDomainObjects(ScopeColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
       rows <- rows.foldLeft(Future.successful(Vector[Row]())) { (futureRows, row) => // replace ColumnId with ColumnType
       // TODO fail nice if columnid doesn't exist
       {
@@ -620,10 +623,15 @@ class TableauxModel(
     } yield ()
   }
 
-  def retrieveCell(table: Table, columnId: ColumnId, rowId: RowId): Future[Cell[Any]] = {
+  def retrieveCell(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      isInternalCall: Boolean = false
+  ): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column), isInternalCall)
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
