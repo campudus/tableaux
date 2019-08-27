@@ -1673,6 +1673,46 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
   }
 
   @Test
+  def deleteLinkOfCellIfOnlyFirstTableIsViewable_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    /* History feature and recursive requests like delete row with delete cascade could
+       trigger retrieve* methods that are perhaps not allowed for a user. In this case we must mark these
+       requests as internal so they are always granted.
+     */
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["editCellValue", "viewCellValue"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "id": "1"
+                                    |        }
+                                    |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+
+      _ <- controller.deleteLink(1, 3, 1, 1)
+      _ <- controller.deleteLink(1, 3, 1, 2)
+    } yield ()
+  }
+
+  @Test
   def deleteLinkOfCell_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
     val controller = createTableauxController()
 

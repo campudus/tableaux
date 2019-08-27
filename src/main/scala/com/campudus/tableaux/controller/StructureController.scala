@@ -86,7 +86,7 @@ class StructureController(
     } yield column
   }
 
-  def retrieveColumns(tableId: TableId): Future[ColumnSeq] = {
+  def retrieveColumns(tableId: TableId, isInternalCall: Boolean = false): Future[ColumnSeq] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveColumns $tableId")
 
@@ -95,7 +95,7 @@ class StructureController(
       columns <- columnStruc.retrieveAll(table)
     } yield {
       val filteredColumns: Seq[ColumnType[_]] =
-        roleModel.filterDomainObjects[ColumnType[_]](ScopeColumn, columns, ComparisonObjects(table))
+        roleModel.filterDomainObjects[ColumnType[_]](ScopeColumn, columns, ComparisonObjects(table), isInternalCall)
       ColumnSeq(filteredColumns)
     }
   }

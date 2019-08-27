@@ -39,6 +39,12 @@ case object Enrich extends LoggingMethod
   *
   * - enrichDomainObject:
   *       A enrich method for selected `GET` requests, to extend response items with permissions objects.
+  *
+  *
+  * History feature and recursive requests like deleteRow with delete cascade could
+  * trigger retrieve* methods that are not allowed for a user. In this case we must mark these
+  * requests as internal so they are always granted (isInternalCall: Boolean).
+  *
   */
 class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
@@ -49,19 +55,24 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   def checkAuthorization(
       action: Action,
       scope: Scope,
-      objects: ComparisonObjects = ComparisonObjects()
+      objects: ComparisonObjects = ComparisonObjects(),
+      isInternalCall: Boolean = false
   )(implicit requestContext: RequestContext): Future[Unit] = {
 
-    val userRoles: Seq[String] = requestContext.getUserRoles
-
-    // In case action == ViewCellValue we must not check langtag conditions,
-    //  because we can not retrieve cell values for one language.
-    val withLangtagCondition: Boolean = action != ViewCellValue
-
-    if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition), Check)) {
+    if (isInternalCall) {
       Future.successful(())
     } else {
-      Future.failed(UnauthorizedException(action, scope))
+      val userRoles: Seq[String] = requestContext.getUserRoles
+
+      // In case action == ViewCellValue we must not check langtag conditions,
+      //  because we can not retrieve cell values for one language.
+      val withLangtagCondition: Boolean = action != ViewCellValue
+
+      if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition), Check)) {
+        Future.successful(())
+      } else {
+        Future.failed(UnauthorizedException(action, scope))
+      }
     }
   }
 
@@ -75,23 +86,28 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   def filterDomainObjects[A](
       scope: Scope,
       domainObjects: Seq[A],
-      parentObjects: ComparisonObjects = ComparisonObjects()
+      parentObjects: ComparisonObjects = ComparisonObjects(),
+      isInternalCall: Boolean
   )(implicit requestContext: RequestContext): Seq[A] = {
 
-    val userRoles: Seq[String] = requestContext.getUserRoles
+    if (isInternalCall) {
+      domainObjects
+    } else {
+      val userRoles: Seq[String] = requestContext.getUserRoles
 
-    domainObjects.filter({ obj: A =>
-      // for each domainObject generate objects to compare with
-      // for media and service there's only a global view permission
-      val objects: ComparisonObjects = obj match {
-        case table: Table => ComparisonObjects(table)
-        case column: ColumnType[_] => parentObjects.merge(column)
-        case _: Service => ComparisonObjects()
-        case _ => ComparisonObjects()
-      }
+      domainObjects.filter({ obj: A =>
+        // for each domainObject generate objects to compare with
+        // for media and service there's only a global view permission
+        val objects: ComparisonObjects = obj match {
+          case table: Table => ComparisonObjects(table)
+          case column: ColumnType[_] => parentObjects.merge(column)
+          case _: Service => ComparisonObjects()
+          case _ => ComparisonObjects()
+        }
 
-      isAllowed(userRoles, View, scope, _.isMatching(objects), Filter)
-    })
+        isAllowed(userRoles, View, scope, _.isMatching(objects), Filter)
+      })
+    }
   }
 
   /**
@@ -359,7 +375,7 @@ class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
       "Security risk! The server runs in legacy mode without authentication and authorization! " +
         "Please run the service with an authorization configuration and user role permissions.")
 
-  override def checkAuthorization(action: Action, scope: Scope, objects: ComparisonObjects)(
+  override def checkAuthorization(action: Action, scope: Scope, objects: ComparisonObjects, isInternalCall: Boolean)(
       implicit requestContext: RequestContext): Future[Unit] = {
     logAuthWarning()
     Future.successful(())
@@ -371,8 +387,12 @@ class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
     inputJson
   }
 
-  override def filterDomainObjects[A](scope: Scope, domainObjects: Seq[A], parentObjects: ComparisonObjects)(
-      implicit requestContext: RequestContext): Seq[A] = {
+  override def filterDomainObjects[A](
+      scope: Scope,
+      domainObjects: Seq[A],
+      parentObjects: ComparisonObjects,
+      isInternalCall: Boolean
+  )(implicit requestContext: RequestContext): Seq[A] = {
     logAuthWarning()
     domainObjects
   }

@@ -301,7 +301,8 @@ class SystemController(
     for {
       serviceSeq <- serviceModel.retrieveAll()
     } yield {
-      val filteredServices: Seq[Service] = roleModel.filterDomainObjects[Service](ScopeService, serviceSeq)
+      val filteredServices: Seq[Service] =
+        roleModel.filterDomainObjects[Service](ScopeService, serviceSeq, isInternalCall = false)
       ServiceSeq(filteredServices)
     }
   }
