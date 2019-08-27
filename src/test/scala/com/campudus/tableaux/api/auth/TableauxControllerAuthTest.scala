@@ -1728,6 +1728,70 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
     }
   }
 
+  @Test
+  def retrieveDependentRows_authorized_ok(implicit c: TestContext): Unit = okTest {
+    // Dependent rows must be retrievable, even if the action view is not granted for dependent tables, columns, and cells.
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-all-cells": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "id": "2"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+
+      _ <- controller.retrieveDependentRows(2, 1)
+      _ <- controller.retrieveDependentRows(2, 2)
+    } yield ()
+  }
+
+  @Test
+  def retrieveDependentRows_targetTableIsNotAuthorized_throwsException(implicit c: TestContext): Unit =
+    okTest {
+      // Dependent rows must be retrievable, even if the action view is not granted for dependent tables, columns, and cells.
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "view-all-cells": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "id": "1"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        linkColumnId <- setupTwoTablesWithEmptyLinks()
+        _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+
+        ex1 <- controller.retrieveDependentRows(2, 1).recover({ case ex => ex })
+        ex2 <- controller.retrieveDependentRows(2, 2).recover({ case ex => ex })
+      } yield {
+        assertEquals(UnauthorizedException(View, ScopeTable), ex1)
+        assertEquals(UnauthorizedException(View, ScopeTable), ex2)
+      }
+    }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])

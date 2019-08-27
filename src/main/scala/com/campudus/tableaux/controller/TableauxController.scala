@@ -339,6 +339,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table))
       dependentRows <- repository.retrieveDependentRows(table, rowId)
     } yield dependentRows
   }
