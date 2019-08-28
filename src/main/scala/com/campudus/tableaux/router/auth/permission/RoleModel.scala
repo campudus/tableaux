@@ -87,7 +87,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       scope: Scope,
       domainObjects: Seq[A],
       parentObjects: ComparisonObjects = ComparisonObjects(),
-      isInternalCall: Boolean
+      isInternalCall: Boolean,
+      action: Action = View
   )(implicit requestContext: RequestContext): Seq[A] = {
 
     if (isInternalCall) {
@@ -105,7 +106,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
           case _ => ComparisonObjects()
         }
 
-        isAllowed(userRoles, View, scope, _.isMatching(objects), Filter)
+        isAllowed(userRoles, action, scope, _.isMatching(objects), Filter)
       })
     }
   }
@@ -391,7 +392,8 @@ class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
       scope: Scope,
       domainObjects: Seq[A],
       parentObjects: ComparisonObjects,
-      isInternalCall: Boolean
+      isInternalCall: Boolean,
+      action: Action = View
   )(implicit requestContext: RequestContext): Seq[A] = {
     logAuthWarning()
     domainObjects
