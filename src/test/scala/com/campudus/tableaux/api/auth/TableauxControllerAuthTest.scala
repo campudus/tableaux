@@ -839,38 +839,170 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
     }
 
   @Test
-  def deleteRow_authorized_ok(implicit c: TestContext): Unit =
-    okTest {
-      val roleModel = initRoleModel("""
-                                      |{
-                                      |  "create-rows": [
-                                      |    {
-                                      |      "type": "grant",
-                                      |      "action": ["deleteRow"],
-                                      |      "scope": "table",
-                                      |      "condition": {
-                                      |        "table": {
-                                      |          "name": ".*"
-                                      |        }
-                                      |      }
-                                      |    },
-                                      |    {
-                                      |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
-                                      |    }
-                                      |  ]
-                                      |}""".stripMargin)
+  def deleteRow_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "create-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["deleteRow"],
+                                    |      "scope": "table",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "name": ".*"
+                                    |        }
+                                    |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
 
-      val controller = createTableauxController(roleModel)
+    val controller = createTableauxController(roleModel)
 
-      for {
-        _ <- createTestTable()
-        _ <- controller.deleteRow(1, 1)
-        _ <- controller.deleteRow(1, 2)
-      } yield ()
+    for {
+      _ <- createTestTable()
+      _ <- controller.deleteRow(1, 1)
+      _ <- controller.deleteRow(1, 2)
+    } yield ()
+  }
+
+  @Test
+  def retrieveRowsOfColumn_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      completeRows <- controller.retrieveRows(1, Pagination(None, None)).map(_.rows)
+
+      rows1 <- controller.retrieveRowsOfColumn(1, 1, Pagination(None, None)).map(_.rows)
+      rows2 <- controller.retrieveRowsOfColumn(1, 2, Pagination(None, None)).map(_.rows)
+      rows3 <- controller.retrieveRowsOfColumn(1, 3, Pagination(None, None)).map(_.rows)
+      rows4 <- controller.retrieveRowsOfColumn(1, 4, Pagination(None, None)).map(_.rows)
+    } yield {
+      assertEquals(4, completeRows.head.values.length)
+      assertEquals(1, rows1.head.values.length)
+      assertEquals(1, rows2.head.values.length)
+      assertEquals(1, rows3.head.values.length)
+      assertEquals(1, rows4.head.values.length)
     }
+  }
 
+  @Test
+  def retrieveRowsOfColumn_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      ex1 <- controller.retrieveRowsOfColumn(1, 1, Pagination(None, None)).recover({ case ex => ex })
+      ex2 <- controller.retrieveRowsOfColumn(1, 2, Pagination(None, None)).recover({ case ex => ex })
+      ex3 <- controller.retrieveRowsOfColumn(1, 3, Pagination(None, None)).recover({ case ex => ex })
+      ex4 <- controller.retrieveRowsOfColumn(1, 4, Pagination(None, None)).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex2)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex3)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex4)
+    }
+  }
+
+  @Test
+  def retrieveRowsOfFirstColumn_authorized_ok(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "viewCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      completeRows <- controller.retrieveRows(1, Pagination(None, None)).map(_.rows)
+
+      rowsOfFirstColumn <- controller.retrieveRowsOfFirstColumn(1, Pagination(None, None)).map(_.rows)
+    } yield {
+      assertEquals(4, completeRows.head.values.length)
+      assertEquals(1, rowsOfFirstColumn.head.values.length)
+    }
+  }
+
+  @Test
+  def retrieveRowsOfFirstColumn_notAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      ex <- controller.retrieveRowsOfFirstColumn(1, Pagination(None, None)).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
