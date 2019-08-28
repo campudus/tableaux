@@ -134,6 +134,17 @@ class TableauxModel(
     s"SELECT ${linkDirection.toSql} FROM link_table_$linkId WHERE ${linkDirection.fromSql} = ?"
   }
 
+  private def retrieveDependentTableAndRowIds(
+      linkId: LinkId,
+      linkDirection: LinkDirection,
+      rowId: RowId
+  ): Future[(TableId, Seq[ColumnId])] = {
+    connection
+      .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
+      .map(result => resultObjectToJsonArray(result).map(_.getLong(0).longValue()))
+      .map(dependentRows => (linkDirection.to, dependentRows))
+  }
+
   def retrieveDependentRows(table: Table, rowId: RowId): Future[DependentRowsSeq] = {
 
     for {
@@ -141,11 +152,7 @@ class TableauxModel(
       result <- {
         val futures = links.map({
           case (linkId, linkDirection) =>
-            // TODO refactor duplication
-            connection
-              .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
-              .map(result => resultObjectToJsonArray(result).map(_.getLong(0).longValue()))
-              .map(dependentRows => (linkDirection.to, dependentRows))
+            retrieveDependentTableAndRowIds(linkId, linkDirection, rowId)
               .flatMap({
                 case (tableId, rows) =>
                   for {
@@ -207,10 +214,7 @@ class TableauxModel(
       result <- Future.sequence(
         links.map({
           case (linkId, linkDirection) =>
-            connection
-              .query(selectDependentRows(linkId, linkDirection), Json.arr(rowId))
-              .map(result => resultObjectToJsonArray(result).map(_.getLong(0).longValue()))
-              .map(dependentRows => (linkDirection.to, dependentRows))
+            retrieveDependentTableAndRowIds(linkId, linkDirection, rowId)
               .flatMap({
                 case (dependentTableId, dependentRows) =>
                   for {
@@ -729,8 +733,12 @@ class TableauxModel(
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
     } yield {
       val rowsSeq = RowSeq(rowSeq, Page(pagination, Some(totalSize)))
-      rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
+      copyFirstColumnOfRowsSeq(rowsSeq)
     }
+  }
+
+  private def copyFirstColumnOfRowsSeq(rowsSeq: RowSeq): RowSeq = {
+    rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
   }
 
   def retrieveRows(table: Table, pagination: Pagination): Future[RowSeq] = {
@@ -753,7 +761,7 @@ class TableauxModel(
 
       rowsSeq <- retrieveRows(table, columns, pagination)
     } yield {
-      rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
+      copyFirstColumnOfRowsSeq(rowsSeq)
     }
   }
 
