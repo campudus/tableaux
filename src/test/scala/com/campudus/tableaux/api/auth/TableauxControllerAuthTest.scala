@@ -1792,6 +1792,37 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
       }
     }
 
+  @Test
+  def retrieveRowsOfLinkCell_table1IsAuthorized_ok_table2IsNotAuthorized_throwsException(
+      implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-table-1": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table",
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "id": "1"
+                                    |        }
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
+
+      _ <- controller.retrieveForeignRows(1, linkColumnId, 1, Pagination(None, None))
+      ex <- controller.retrieveForeignRows(2, linkColumnId, 1, Pagination(None, None)).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
