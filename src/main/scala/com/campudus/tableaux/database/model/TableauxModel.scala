@@ -693,7 +693,13 @@ class TableauxModel(
   def retrieveRow(table: Table, rowId: RowId): Future[Row] = {
     for {
       columns <- retrieveColumns(table)
-      row <- retrieveRow(table, columns, rowId)
+      filteredColumns = roleModel
+        .filterDomainObjects[ColumnType[_]](ScopeColumn,
+                                            columns,
+                                            ComparisonObjects(table),
+                                            isInternalCall = false,
+                                            ViewCellValue)
+      row <- retrieveRow(table, filteredColumns, rowId)
     } yield row
   }
 
@@ -744,7 +750,13 @@ class TableauxModel(
   def retrieveRows(table: Table, pagination: Pagination): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)
-      rows <- retrieveRows(table, columns, pagination)
+      filteredColumns = roleModel
+        .filterDomainObjects[ColumnType[_]](ScopeColumn,
+                                            columns,
+                                            ComparisonObjects(table),
+                                            isInternalCall = false,
+                                            ViewCellValue)
+      rows <- retrieveRows(table, filteredColumns, pagination)
     } yield rows
   }
 
