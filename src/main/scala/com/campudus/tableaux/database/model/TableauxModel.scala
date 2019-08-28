@@ -751,6 +751,7 @@ class TableauxModel(
   def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
     for {
       column <- retrieveColumn(table, columnId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column))
 
       // In case of a ConcatColumn we need to retrieve the
       // other values too, so the ConcatColumn can be build.
