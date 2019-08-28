@@ -987,7 +987,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         )
       }
 
-      toTable <- tableStruc.retrieve(linkDirection.to)
+      toTable <- tableStruc.retrieve(linkDirection.to, isInternalCall = true)
 
     } yield (linkId, linkDirection, toTable)
   }
