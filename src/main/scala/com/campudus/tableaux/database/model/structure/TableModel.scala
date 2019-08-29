@@ -164,11 +164,12 @@ class TableModel(val connection: DatabaseConnection)(
         valueOpt.map(value => Json.fromArrayString(value).asScala.map(_.toString).toSeq).getOrElse(Seq.empty))
   }
 
-  def retrieveAll(): Future[Seq[Table]] = {
+  def retrieveAll(isInternalCall: Boolean): Future[Seq[Table]] = {
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       tables <- getTablesWithDisplayInfos(defaultLangtags)
-      filteredTables: Seq[Table] = roleModel.filterDomainObjects[Table](ScopeTable, tables, isInternalCall = false)
+      filteredTables: Seq[Table] = roleModel
+        .filterDomainObjects[Table](ScopeTable, tables, isInternalCall = isInternalCall)
     } yield filteredTables
   }
 

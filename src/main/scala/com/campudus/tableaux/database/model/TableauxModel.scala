@@ -55,8 +55,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     structureModel.tableStruc.retrieve(tableId, isInternalCall)
   }
 
-  def retrieveTables(): Future[Seq[Table]] = {
-    structureModel.tableStruc.retrieveAll()
+  def retrieveTables(isInternalCall: Boolean = false): Future[Seq[Table]] = {
+    structureModel.tableStruc.retrieveAll(isInternalCall)
   }
 
   def createColumns(table: Table, columns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {

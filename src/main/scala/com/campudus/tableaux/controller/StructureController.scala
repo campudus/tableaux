@@ -50,7 +50,7 @@ class StructureController(
     logger.info(s"retrieveTables")
 
     for {
-      tableSeq: Seq[Table] <- tableStruc.retrieveAll()
+      tableSeq: Seq[Table] <- tableStruc.retrieveAll(isInternalCall = false)
     } yield {
       TableSeq(tableSeq)
     }
