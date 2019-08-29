@@ -124,13 +124,13 @@ class TableauxController(
     logger.info(s"retrieveTranslationStatus")
 
     for {
-      tables <- repository.retrieveTables()
+      tables <- repository.retrieveTables(isInternalCall = true)
 
       tablesWithMultiLanguageColumnCount <- Future.sequence(
         tables.map(
           table =>
             repository
-              .retrieveColumns(table)
+              .retrieveColumns(table, isInternalCall = true)
               .map(columns => {
                 val multiLanguageColumnsCount = columns.count({
                   case MultiLanguageColumn(_) => true
@@ -147,7 +147,10 @@ class TableauxController(
         case _ => false
       })
 
-      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables.unzip._1)
+      tablesForWhichViewIsGranted = roleModel
+        .filterDomainObjects[Table](ScopeTable, relevantTables.map(_._1), isInternalCall = false)
+
+      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables.map(_._1))
     } yield {
       val tablesWithMultiLanguageColumnCountMap = tablesWithMultiLanguageColumnCount.toMap
 
@@ -185,13 +188,18 @@ class TableauxController(
           (table, multiLanguageColumnsCount, totalSize, needsTranslationStatusByLangtag)
       })
 
-      val translationStatusByTableJson = translationStatusByTable.map({
-        case (table, _, _, needsTranslationStatusForLangtags) =>
-          table.getJson.mergeIn(
-            Json.obj(
-              "translationStatus" -> Json.obj(needsTranslationStatusForLangtags: _*)
-            ))
-      })
+      val translationStatusByTableJson = translationStatusByTable
+        .filter({
+          case (table, _, _, _) if tablesForWhichViewIsGranted.contains(table) => true
+          case _ => false
+        })
+        .map({
+          case (table, _, _, needsTranslationStatusForLangtags) =>
+            table.getJson.mergeIn(
+              Json.obj(
+                "translationStatus" -> Json.obj(needsTranslationStatusForLangtags: _*)
+              ))
+        })
 
       val mergedLangtags = tables.foldLeft(Seq.empty[String])({
         case (langtagsAcc, table) =>

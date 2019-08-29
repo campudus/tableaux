@@ -19,7 +19,7 @@ import io.vertx.scala.SQLConnection
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 trait TableauxControllerAuthTest extends TableauxTestBase {
 
@@ -2027,5 +2027,100 @@ class TableauxControllerAuthTest_attachmentCell extends MediaTestBase with Table
       assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex)
     }
   }
+
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest {
+
+  @Test
+  def retrieveTranslationStatus_forAllTables_ok(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "view-only-table-1": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table"
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      val annotation =
+        Json.fromObjectString("""{"langtags": ["en-GB"], "type": "flag", "value": "needs_translation"}""")
+
+      for {
+        _ <- createTestTable("table1")
+        _ <- createTestTable("table2")
+        _ <- sendRequest("POST", s"/tables/1/columns/2/rows/1/annotations", annotation)
+        _ <- sendRequest("POST", s"/tables/1/columns/2/rows/2/annotations", annotation)
+
+        translationStatus <- controller.retrieveTranslationStatus()
+      } yield {
+        val globalTranslationStatus = Json.obj("de-DE" -> 1.0, "en-GB" -> 0.75)
+        val table1TranslationStatus = Json.obj("de-DE" -> 1.0, "en-GB" -> 0.5)
+        val table2TranslationStatus = Json.obj("de-DE" -> 1.0, "en-GB" -> 1.0)
+
+        val tablesTranslationStatus: JsonArray = translationStatus.getJson.getJsonArray("tables")
+
+        assertJSONEquals(globalTranslationStatus, translationStatus.getJson.getJsonObject("translationStatus"))
+        assertEquals(2, tablesTranslationStatus.size())
+
+        assertJSONEquals(table1TranslationStatus,
+                         tablesTranslationStatus.getJsonObject(0).getJsonObject("translationStatus"))
+        assertJSONEquals(table2TranslationStatus,
+                         tablesTranslationStatus.getJsonObject(1).getJsonObject("translationStatus"))
+      }
+    }
+
+  @Test
+  def retrieveTranslationStatus_forAllTablesEvenIfViewingIsNotGrantedForTable2_ok(implicit c: TestContext): Unit =
+    okTest {
+
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "view-only-table-2": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view"],
+                                      |      "scope": "table",
+                                      |      "condition": {
+                                      |        "table": {
+                                      |          "id": "2"
+                                      |        }
+                                      |      }
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      val annotation =
+        Json.fromObjectString("""{"langtags": ["en-GB"], "type": "flag", "value": "needs_translation"}""")
+
+      for {
+        _ <- createTestTable("table1")
+        _ <- createTestTable("table2")
+        _ <- sendRequest("POST", s"/tables/1/columns/2/rows/1/annotations", annotation)
+        _ <- sendRequest("POST", s"/tables/1/columns/2/rows/2/annotations", annotation)
+
+        translationStatus <- controller.retrieveTranslationStatus()
+      } yield {
+        val globalTranslationStatus = Json.obj("de-DE" -> 1.0, "en-GB" -> 0.75)
+        val table2TranslationStatus = Json.obj("de-DE" -> 1.0, "en-GB" -> 1.0)
+
+        val tablesTranslationStatus: JsonArray = translationStatus.getJson.getJsonArray("tables")
+
+        assertJSONEquals(globalTranslationStatus, translationStatus.getJson.getJsonObject("translationStatus"))
+        assertEquals(1, tablesTranslationStatus.size())
+
+        assertJSONEquals(table2TranslationStatus,
+                         tablesTranslationStatus.getJsonObject(0).getJsonObject("translationStatus"))
+      }
+    }
 
 }
