@@ -452,6 +452,13 @@ class TableauxController(
     logger.info(s"createTable $tableName columns $columns rows $rows")
 
     for {
+      _ <- roleModel.checkAuthorization(Create, ScopeTable)
+      _ <- roleModel.checkAuthorization(Create, ScopeColumn)
+      _ <- if (!rows.headOption.exists(_.isEmpty)) {
+        roleModel.checkAuthorization(CreateRow, ScopeTable)
+      } else {
+        Future.successful(())
+      }
       table <- repository.createTable(tableName, hidden = false)
       columnIds <- repository.createColumns(table, columns).map(_.map(_.id))
       _ <- repository.createRows(table, rows.map(columnIds.zip(_)))
