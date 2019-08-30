@@ -10,6 +10,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
+import com.campudus.tableaux.helper.JsonUtils.{toCreateColumnSeq, toRowValueSeq}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
@@ -2177,4 +2178,131 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
     }
   }
 
+  val createCompleteTableJson = Json.obj(
+    "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1"),
+                          Json.obj("kind" -> "numeric", "name" -> "Test Column 2")),
+    "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 1)),
+                       Json.obj("values" -> Json.arr("Test Field 2", 2)))
+  )
+
+  val expectedJson = Json.obj(
+    "id" -> 1,
+    "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
+    "rows" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2))
+  )
+
+  val createColumns = toCreateColumnSeq(createCompleteTableJson)
+  val rowValues = toRowValueSeq(createCompleteTableJson)
+
+  @Test
+  def createCompleteTable_createTableNotAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val controller = createTableauxController()
+
+    for {
+      ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(Create, ScopeTable), ex)
+    }
+  }
+
+  @Test
+  def createCompleteTable_createColumnsNotAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "complete-table": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create", "view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(Create, ScopeColumn), ex)
+    }
+  }
+
+  @Test
+  def createCompleteTable_createColumnsAuthorizedWithoutRows_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "complete-table": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create", "view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create", "view"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- controller.createCompleteTable("test table", createColumns, Seq(Seq.empty))
+    } yield ()
+  }
+
+  @Test
+  def createCompleteTable_createRows_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "complete-table": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create", "view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(CreateRow, ScopeTable), ex)
+    }
+  }
+
+  @Test
+  def createCompleteTable_createRows_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "complete-table": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["createRow", "create", "view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["create", "view"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- controller.createCompleteTable("test table", createColumns, rowValues)
+    } yield ()
+  }
 }
