@@ -142,15 +142,17 @@ class TableauxController(
         )
       )
 
-      relevantTables = tablesWithMultiLanguageColumnCount.filter({
-        case (_, count) if count > 0 => true
-        case _ => false
-      })
+      relevantTables = tablesWithMultiLanguageColumnCount
+        .filter({
+          case (_, count) if count > 0 => true
+          case _ => false
+        })
+        .map({ case (table, _) => table })
 
       tablesForWhichViewIsGranted = roleModel
-        .filterDomainObjects[Table](ScopeTable, relevantTables.map(_._1), isInternalCall = false)
+        .filterDomainObjects[Table](ScopeTable, relevantTables, isInternalCall = false)
 
-      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables.map(_._1))
+      tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables)
     } yield {
       val tablesWithMultiLanguageColumnCountMap = tablesWithMultiLanguageColumnCount.toMap
 
