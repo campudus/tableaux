@@ -2039,7 +2039,7 @@ class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest 
 
       val roleModel = initRoleModel("""
                                       |{
-                                      |  "view-only-table-1": [
+                                      |  "view-only-table": [
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["view"],
@@ -2122,5 +2122,59 @@ class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest 
                          tablesTranslationStatus.getJsonObject(0).getJsonObject("translationStatus"))
       }
     }
+
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTest {
+
+  @Test
+  def retrieveCompleteTable_tableNotViewable_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""{}""")
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+
+      ex <- controller.retrieveCompleteTable(1).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+    }
+  }
+
+  @Test
+  def retrieveCompleteTable_onlyMultilanguageColumnsAreViewable_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-cells-of-text-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "viewCellValue"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "column": {
+                                    |          "multilanguage": "true"
+                                    |        }
+                                    |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+
+      res <- controller.retrieveCompleteTable(1)
+    } yield {
+      assertEquals(2, res.columns.length)
+      assertEquals(2, res.rowList.rows.head.values.length)
+    }
+  }
 
 }
