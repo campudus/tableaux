@@ -1,6 +1,6 @@
 package com.campudus.tableaux.router.auth.permission
 
-import com.campudus.tableaux.database.MultiLanguage
+import com.campudus.tableaux.database.{LanguageNeutral, MultiLanguage}
 import com.campudus.tableaux.database.domain.ColumnType
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core
@@ -97,7 +97,10 @@ case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonO
               case "name" => column.name.matches(regex)
               case "identifier" => column.identifier.toString.matches(regex)
               case "kind" => column.kind.toString.matches(regex)
-              case "multilanguage" => column.languageType.toString.matches(regex)
+              case "multilanguage" => {
+                val isMultilanguage: Boolean = column.languageType != LanguageNeutral
+                isMultilanguage.toString.matches(regex)
+              }
               case _ => false
             }
         })
