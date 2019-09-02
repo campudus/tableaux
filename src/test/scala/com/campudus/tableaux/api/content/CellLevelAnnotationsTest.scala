@@ -7,7 +7,6 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.skyscreamer.jsonassert.JSONAssert
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future

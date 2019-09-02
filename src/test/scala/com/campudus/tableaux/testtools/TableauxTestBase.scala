@@ -22,7 +22,6 @@ import io.vertx.scala.core.streams.Pump
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.junit.runner.RunWith
 import org.junit.{After, Before}
-import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.JavaConverters._
@@ -128,7 +127,7 @@ trait TableauxTestBase
                "preferred_username" -> "Test",
                "realm_access" -> Json.obj("roles" -> Json.arr("dev"))))
 
-    requestContext.resetPrincipal
+    requestContext.resetPrincipal()
   }
 
   @After

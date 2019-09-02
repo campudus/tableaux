@@ -3,6 +3,7 @@ package com.campudus.tableaux.database.model.structure
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit
 
+import com.campudus.tableaux._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -10,7 +11,6 @@ import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux._
 import com.google.common.cache.{CacheBuilder, Cache => GuavaBuiltCache}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
