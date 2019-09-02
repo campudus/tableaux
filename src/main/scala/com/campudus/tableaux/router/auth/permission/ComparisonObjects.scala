@@ -31,17 +31,12 @@ object ComparisonObjects {
 
 /**
   * Container for optional comparison objects. For example ScopeMedia doesn't need
-  * any comparison object, while ScopeCell can have a Table, a Column and a Langtag.
+  * any comparison object, while ScopeColumn can have a Table, a Column and a Langtag (is in value object).
   */
 case class ComparisonObjects(
-    // TODO after feature auth check for extreme simplification.
-    //  If we only need table and column, there's no need for this class, because every column has a ref to its table.
     tableOpt: Option[Table] = None,
     columnOpt: Option[ColumnType[_]] = None,
     valueOpt: Option[Any] = None
-//    langtag
-//    cell
-//    row
 ) {
 
   def merge(columnType: ColumnType[_]): ComparisonObjects = {

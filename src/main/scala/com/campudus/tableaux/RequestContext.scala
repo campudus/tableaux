@@ -14,14 +14,13 @@ class RequestContext() {
   var principal: JsonObject = Json.emptyObj() // scalastyle:ignore
 
   // for testing purposes, unit tests must reset the principal in setUp method
-  def resetPrincipal = principal = Json.emptyObj()
+  def resetPrincipal(): Unit = principal = Json.emptyObj()
 
   def getPrincipleString(name: String, defaultValue: String): String = {
     principal.getString(name, defaultValue)
   }
 
   def getUserRoles: Seq[String] = {
-    // println(s"XXXXXX principal: $principal")
     val roles: JsonArray =
       principal
         .getJsonObject("realm_access", Json.emptyObj())

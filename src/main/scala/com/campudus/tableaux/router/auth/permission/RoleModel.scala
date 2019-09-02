@@ -359,13 +359,6 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     })
     value
   }
-
-  // TODO just a helper, delete after auth is implemented
-  def printRolePermissions(): Unit =
-    role2permissions
-      .foreach({
-        case (key, permission) => Console.println(s"XXX: $key => ${permission.toString}")
-      })
 }
 
 /**
