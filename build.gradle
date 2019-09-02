@@ -7,21 +7,21 @@ plugins {
   id 'scala'
   id 'application'
 
-  id "com.github.ben-manes.versions" version '0.21.0'
+  id "com.github.ben-manes.versions" version '0.24.0'
 
   id 'org.scoverage' version '3.1.5'
-  id 'com.github.kt3k.coveralls' version '2.8.2'
+  id 'com.github.kt3k.coveralls' version '2.8.4'
 
-  id 'com.github.johnrengelman.shadow' version '5.0.0'
+  id 'com.github.johnrengelman.shadow' version '5.1.0'
   id 'org.ajoberstar.grgit' version '3.1.1'
 
-  id 'com.diffplug.gradle.spotless' version '3.20.0'
+  id 'com.diffplug.gradle.spotless' version '3.24.2'
 }
 
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
-def vertxVersion = '3.6.3'
+def vertxVersion = '3.8.0'
 def scalaVersion = '2.12.8'
 
 sourceCompatibility = '1.8'
@@ -51,9 +51,9 @@ dependencies {
   compile "io.vertx:vertx-mysql-postgresql-client-scala_2.12:${vertxVersion}"
   compile "io.vertx:vertx-auth-oauth2-scala_2.12:${vertxVersion}"
 
-  compile 'joda-time:joda-time:2.10.1'
+  compile 'joda-time:joda-time:2.10.3'
   compile 'com.typesafe.scala-logging:scala-logging_2.12:3.9.2'
-  compile 'org.slf4j:slf4j-jdk14:1.7.25'
+  compile 'org.slf4j:slf4j-jdk14:1.7.28'
 
   compile 'com.jcabi:jcabi-manifests:1.1'
 
@@ -65,7 +65,7 @@ dependencies {
 
   testCompile "io.vertx:vertx-unit:${vertxVersion}"
   testCompile 'junit:junit:4.12'
-  testCompile "org.scalatest:scalatest_2.12:3.0.5"
+  testCompile "org.scalatest:scalatest_2.12:3.0.8"
   testCompile 'org.skyscreamer:jsonassert:1.5.0'
 }
 
