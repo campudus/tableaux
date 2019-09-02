@@ -1004,6 +1004,104 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
     }
   }
+
+  @Test
+  def duplicateRow_authorized_ok(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "duplicate-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "viewCellValue", "editCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "createRow"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      _ <- controller.duplicateRow(1, 1)
+    } yield ()
+  }
+
+  @Test
+  def duplicateRow_onlyValuesFromColumns3And4_valuesInColumns1And2AreEmpty(implicit c: TestContext): Unit =
+    okTest {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "duplicate-columns": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view", "viewCellValue", "editCellValue"],
+                                      |      "scope": "column",
+                                      |      "condition": {
+                                      |        "column": {
+                                      |          "id": "3|4"
+                                      |        }
+                                      |      }
+                                      |    },
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["view", "createRow"],
+                                      |      "scope": "table"
+                                      |    }
+                                      |  ]
+                                      |}""".stripMargin)
+
+      val controller = createTableauxController(roleModel)
+
+      for {
+        _ <- sendRequest("POST", "/system/settings/langtags", Json.obj("value" -> Json.arr("de", "en")))
+
+        _ <- createTestTable()
+        duplicatedRow <- controller.duplicateRow(1, 1)
+
+        // Request with dev role to get al columns
+        duplicatedRowAllColumns <- sendRequest("GET", s"/tables/1/rows/${duplicatedRow.id}")
+
+      } yield {
+        assertEquals("only 2 (viewable) columns are returned", 2, duplicatedRow.values.length)
+        assertEquals("whole size of columns is 4", 4, duplicatedRowAllColumns.getJsonArray("values").size())
+        // not viewable column values are not duplicated and are therefore empty/null
+        assertNull(duplicatedRowAllColumns.getJsonArray("values").get(0))
+        assertJSONEquals(Json.emptyObj(), duplicatedRowAllColumns.getJsonArray("values").getJsonObject(1))
+      }
+    }
+
+  @Test
+  def duplicateRow_createRowNotAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "duplicate-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "viewCellValue", "editCellValue"],
+                                    |      "scope": "column"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createTableauxController(roleModel)
+
+    for {
+      _ <- createTestTable()
+      ex <- controller.duplicateRow(1, 1).recover({ case ex => ex })
+    } yield {
+      assertEquals(UnauthorizedException(CreateRow, ScopeTable), ex)
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
