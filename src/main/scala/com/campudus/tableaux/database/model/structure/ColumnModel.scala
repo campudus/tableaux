@@ -149,14 +149,13 @@ class CachedColumnModel(
       ordering: Option[Ordering],
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
-      frontendReadOnly: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]]
   ): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super
-        .change(table, columnId, columnName, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes)
+        .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
     } yield r
   }
 }
@@ -436,11 +435,10 @@ class ColumnModel(val connection: DatabaseConnection)(
           | link_id,
           | multilanguage,
           | identifier,
-          | frontend_read_only,
           | format_pattern,
           | country_codes
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -475,7 +473,6 @@ class ColumnModel(val connection: DatabaseConnection)(
                 linkId.orNull,
                 createColumn.languageType.toString,
                 createColumn.identifier,
-                createColumn.frontendReadOnly,
                 formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull
               )
@@ -491,7 +488,6 @@ class ColumnModel(val connection: DatabaseConnection)(
                 linkId.orNull,
                 createColumn.languageType.toString,
                 createColumn.identifier,
-                createColumn.frontendReadOnly,
                 formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull
               )
@@ -700,7 +696,6 @@ class ColumnModel(val connection: DatabaseConnection)(
          |    SELECT json_agg(group_column_id) FROM system_column_groups
          |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
          |  ) AS group_column_ids,
-         |  frontend_read_only,
          |  format_pattern
          |FROM system_columns c
          |WHERE
@@ -786,7 +781,6 @@ class ColumnModel(val connection: DatabaseConnection)(
        |    SELECT json_agg(group_column_id) FROM system_column_groups
        |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
        |  ) AS group_column_ids,
-       |  frontend_read_only,
        |  format_pattern
        |FROM system_columns c
        |WHERE
@@ -900,9 +894,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
       .getOrElse(Seq.empty[ColumnId])
 
-    val frontendReadOnly = row.get[Boolean](8)
-
-    val formatPattern = Option(row.get[String](9))
+    val formatPattern = Option(row.get[String](8))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
@@ -913,7 +905,6 @@ class ColumnModel(val connection: DatabaseConnection)(
         columnName,
         ordering,
         identifier,
-        frontendReadOnly,
         displayInfoSeq,
         groupColumnIds
       )
@@ -1162,7 +1153,6 @@ class ColumnModel(val connection: DatabaseConnection)(
       ordering: Option[Ordering],
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
-      frontendReadOnly: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]]
   ): Future[ColumnType[_]] = {
@@ -1205,15 +1195,6 @@ class ColumnModel(val connection: DatabaseConnection)(
           }
         }
       )
-      (t, resultFrontendReadOnly) <- optionToValidFuture(
-        frontendReadOnly,
-        t, { frontRO: Boolean =>
-          {
-            t.query(s"UPDATE system_columns SET frontend_read_only = ? WHERE table_id = ? AND column_id = ?",
-                    Json.arr(frontRO, tableId, columnId))
-          }
-        }
-      )
       (t, resultCountryCodes) <- optionToValidFuture(
         countryCodes,
         t, { codes: Seq[String] =>
@@ -1238,13 +1219,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
       ).recoverWith(t.rollbackAndFail())
 
-      _ <- Future(
-        checkUpdateResults(resultName,
-                           resultOrdering,
-                           resultKind,
-                           resultIdentifier,
-                           resultFrontendReadOnly,
-                           resultCountryCodes))
+      _ <- Future(checkUpdateResults(resultName, resultOrdering, resultKind, resultIdentifier, resultCountryCodes))
         .recoverWith(t.rollbackAndFail())
 
       _ <- t.commit()
