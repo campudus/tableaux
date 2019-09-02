@@ -230,6 +230,6 @@ spotless {
  * Gradle wrapper
  */
 wrapper {
-  gradleVersion = '5.3'
+  gradleVersion = '5.6.1'
   distributionType = Wrapper.DistributionType.BIN
 }
