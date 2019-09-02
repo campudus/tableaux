@@ -1,7 +1,7 @@
 package com.campudus.tableaux.api.auth
 
 import com.campudus.tableaux.UnauthorizedException
-import com.campudus.tableaux.controller.{StructureController, TableauxController}
+import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateSimpleColumn, DisplayInfos, DomainObject, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel

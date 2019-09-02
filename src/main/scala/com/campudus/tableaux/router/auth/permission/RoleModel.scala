@@ -1,6 +1,6 @@
 package com.campudus.tableaux.router.auth.permission
 
-import com.campudus.tableaux.database.domain.{ColumnType, History, Service, Table}
+import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{RequestContext, UnauthorizedException}
 import com.typesafe.scalalogging.LazyLogging

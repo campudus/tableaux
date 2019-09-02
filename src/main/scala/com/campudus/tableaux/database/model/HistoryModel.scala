@@ -5,7 +5,7 @@ import java.util.UUID
 import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, LinkId, RowId, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
