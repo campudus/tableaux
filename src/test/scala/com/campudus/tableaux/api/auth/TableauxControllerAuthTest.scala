@@ -233,7 +233,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
     }
 
   @Test
-  def updateCell_langtagConditionMustNotBeConsideredOnActionView(implicit c: TestContext): Unit =
+  def updateCell_onlyAuthorizedForSingleLanguageAndLangtagDE(implicit c: TestContext): Unit =
     okTest {
 
       val roleModel = initRoleModel("""
