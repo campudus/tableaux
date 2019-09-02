@@ -9,7 +9,6 @@ sealed trait CreateColumn {
   val languageType: LanguageType
   val ordering: Option[Ordering]
   val identifier: Boolean
-  val frontendReadOnly: Boolean
   val displayInfos: Seq[DisplayInfo]
 }
 
@@ -18,7 +17,6 @@ case class CreateSimpleColumn(override val name: String,
                               override val kind: TableauxDbType,
                               override val languageType: LanguageType,
                               override val identifier: Boolean,
-                              override val frontendReadOnly: Boolean,
                               override val displayInfos: Seq[DisplayInfo])
     extends CreateColumn
 
@@ -37,7 +35,6 @@ object CreateLinkColumn {
             toDisplayInfos: Option[Seq[DisplayInfo]],
             singleDirection: Boolean,
             identifier: Boolean,
-            frontendReadOnly: Boolean,
             displayInfos: Seq[DisplayInfo],
             constraint: Constraint): CreateLinkColumn = {
     val createBackLinkColumn = CreateBackLinkColumn(
@@ -52,7 +49,6 @@ object CreateLinkColumn {
       toTable,
       singleDirection,
       identifier,
-      frontendReadOnly,
       displayInfos,
       constraint,
       createBackLinkColumn
@@ -65,29 +61,26 @@ case class CreateLinkColumn(override val name: String,
                             toTable: TableId,
                             singleDirection: Boolean,
                             override val identifier: Boolean,
-                            override val frontendReadOnly: Boolean,
                             override val displayInfos: Seq[DisplayInfo],
                             constraint: Constraint,
                             foreignLinkColumn: CreateBackLinkColumn)
     extends CreateColumn {
-  override val kind = LinkType
-  override val languageType = LanguageNeutral
+  override val kind: LinkType.type = LinkType
+  override val languageType: LanguageNeutral.type = LanguageNeutral
 }
 
 case class CreateAttachmentColumn(override val name: String,
                                   override val ordering: Option[Ordering],
                                   override val identifier: Boolean,
-                                  override val frontendReadOnly: Boolean,
                                   override val displayInfos: Seq[DisplayInfo])
     extends CreateColumn {
-  override val kind = AttachmentType
-  override val languageType = LanguageNeutral
+  override val kind: AttachmentType.type = AttachmentType
+  override val languageType: LanguageNeutral.type = LanguageNeutral
 }
 
 case class CreateGroupColumn(override val name: String,
                              override val ordering: Option[Ordering],
                              override val identifier: Boolean,
-                             override val frontendReadOnly: Boolean,
                              formatPattern: Option[String],
                              override val displayInfos: Seq[DisplayInfo],
                              groups: Seq[ColumnId])

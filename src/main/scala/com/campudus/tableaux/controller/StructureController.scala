@@ -13,6 +13,7 @@ import com.campudus.tableaux.database.domain.{
 }
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
 
@@ -33,9 +34,9 @@ class StructureController(
 )(implicit requestContext: RequestContext)
     extends Controller[StructureModel] {
 
-  val tableStruc = repository.tableStruc
-  val columnStruc = repository.columnStruc
-  val tableGroupStruc = repository.tableGroupStruc
+  val tableStruc: TableModel = repository.tableStruc
+  val columnStruc: CachedColumnModel = repository.columnStruc
+  val tableGroupStruc: TableGroupModel = repository.tableGroupStruc
 
   def retrieveTable(tableId: TableId): Future[Table] = {
     checkArguments(greaterZero(tableId))
@@ -142,14 +143,9 @@ class StructureController(
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId)
 
-      _ <- columnStruc.createColumn(created,
-                                    CreateSimpleColumn("key",
-                                                       None,
-                                                       ShortTextType,
-                                                       LanguageNeutral,
-                                                       identifier = true,
-                                                       frontendReadOnly = false,
-                                                       Seq.empty))
+      _ <- columnStruc.createColumn(
+        created,
+        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty))
       _ <- columnStruc.createColumn(
         created,
         CreateSimpleColumn("displayKey",
@@ -157,7 +153,6 @@ class StructureController(
                            ShortTextType,
                            MultiLanguage,
                            identifier = false,
-                           frontendReadOnly = false,
                            Seq(
                              NameOnly("de", "Bezeichnung"),
                              NameOnly("en", "Identifier")
@@ -170,7 +165,6 @@ class StructureController(
                            TextType,
                            MultiLanguage,
                            identifier = false,
-                           frontendReadOnly = false,
                            Seq(
                              NameOnly("de", "Inhalt"),
                              NameOnly("en", "Value")
@@ -180,7 +174,6 @@ class StructureController(
                                     CreateAttachmentColumn("attachment",
                                                            None,
                                                            identifier = false,
-                                                           frontendReadOnly = false,
                                                            Seq(
                                                              NameOnly("de", "Anhang"),
                                                              NameOnly("en", "Attachment")
@@ -287,25 +280,23 @@ class StructureController(
                    ordering: Option[Ordering],
                    kind: Option[TableauxDbType],
                    identifier: Option[Boolean],
-                   frontendReadOnly: Option[Boolean],
                    displayInfos: Option[Seq[DisplayInfo]],
                    countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
       isDefined(
-        Seq(columnName, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes),
-        "name, ordering, kind, identifier, frontendReadOnly, displayInfos, countryCodes"
+        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes),
+        "name, ordering, kind, identifier, displayInfos, countryCodes"
       )
     )
 
-    val structureProperties: Seq[Option[Any]] =
-      Seq(columnName, ordering, kind, identifier, frontendReadOnly, countryCodes)
+    val structureProperties: Seq[Option[Any]] = Seq(columnName, ordering, kind, identifier, countryCodes)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
     logger.info(
       s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier " +
-        s"frontendReadOnly=$frontendReadOnly displayInfos=$displayInfos, countryCodes=$countryCodes")
+        s"displayInfos=$displayInfos, countryCodes=$countryCodes")
 
     for {
       table <- tableStruc.retrieve(tableId)
@@ -319,15 +310,7 @@ class StructureController(
 
       changedColumn <- table.tableType match {
         case GenericTable =>
-          columnStruc.change(table,
-                             columnId,
-                             columnName,
-                             ordering,
-                             kind,
-                             identifier,
-                             frontendReadOnly,
-                             displayInfos,
-                             countryCodes)
+          columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 
