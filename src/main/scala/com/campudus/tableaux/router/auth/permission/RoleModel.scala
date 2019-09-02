@@ -260,7 +260,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
           case None => returnAndLog(Grant, loggingMessage(_, method, grantPermission, scope, action))
         }
 
-      case None => returnAndLog(Deny, defaultLoggingMessage(_, method, userRoles))
+      case None => returnAndLog(Deny, defaultLoggingMessage(_, method, userRoles, scope, action))
     }
   }
 
@@ -274,10 +274,14 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     permissionType.isAccessAllowed
   }
 
-  private def defaultLoggingMessage(permissionType: PermissionType,
-                                    method: LoggingMethod,
-                                    userRoles: Seq[String]): String =
-    s"${permissionType.toString.toUpperCase}($method): No permission fitting for roles '$userRoles'"
+  private def defaultLoggingMessage(
+      permissionType: PermissionType,
+      method: LoggingMethod,
+      userRoles: Seq[String],
+      scope: Scope,
+      action: Action
+  ): String =
+    s"${permissionType.toString.toUpperCase}($method): No permission fitting for roles '$userRoles'. Scope: '$scope' Action: '$action'"
 
   private def loggingMessage(
       permissionType: PermissionType,
