@@ -788,6 +788,7 @@ class TableauxModel(
 
   def duplicateRow(table: Table, rowId: RowId): Future[Row] = {
     for {
+      _ <- roleModel.checkAuthorization(CreateRow, ScopeTable, ComparisonObjects(table))
       columns <- retrieveColumns(table).map(_.filter({
         // ConcatColumn && GroupColumn can't be duplicated
         case _: ConcatColumn | _: GroupColumn => false
