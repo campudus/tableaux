@@ -51,7 +51,8 @@ class KeycloakAuthHandler(
     }
 
     if (!audiences.contains(getAudience)) {
-      val exception = AuthenticationException(s"Audience '$getAudience' must be one of $audiences")
+      val exception = AuthenticationException(
+        s"Audiences $audiences of the request doesn't contain configured service audience (resource) '$getAudience'")
       logger.error(exception.getMessage)
       context.fail(exception.statusCode, exception)
       throw exception
@@ -62,7 +63,8 @@ class KeycloakAuthHandler(
     val issuer: String = principal.getString("iss", "_invalid_")
 
     if (issuer != getIssuer) {
-      val exception = AuthenticationException(s"Issuer '$issuer' doesn't match to '$getIssuer'")
+      val exception = AuthenticationException(
+        s"Issuer '$issuer' of the request doesn't match to configured service issuer '$getIssuer'")
       logger.error(exception.getMessage)
       context.fail(exception.statusCode, exception)
       throw exception
