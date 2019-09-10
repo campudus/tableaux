@@ -1,5 +1,6 @@
 package com.campudus.tableaux.router.auth.permission
 
+import com.campudus.tableaux.database.LanguageNeutral
 import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{RequestContext, UnauthorizedException}
@@ -191,6 +192,38 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def enrichColumn(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
 
+    def getEditCellValuePermission: Any = {
+
+      def isMultilanguage: Boolean = {
+        objects.columnOpt.exists(_.languageType != LanguageNeutral)
+      }
+
+      if (isMultilanguage) {
+        val langtags = objects.tableOpt.map(_.langtags.getOrElse(Seq.empty[String])).getOrElse(Seq.empty[String])
+
+        val editCellValueJson = Json.emptyObj()
+
+        langtags.foreach(lt => {
+          // generate dummy value for only this specific langtag
+          val comparisonObjectsWithLangtagCheckValue = objects.merge(Json.obj(lt -> ""))
+
+          editCellValueJson.mergeIn(
+            Json.obj(
+              lt ->
+                isAllowed(userRoles,
+                          EditCellValue,
+                          ScopeColumn,
+                          _.isMatching(comparisonObjectsWithLangtagCheckValue),
+                          Enrich)))
+        })
+
+        editCellValueJson
+
+      } else {
+        isActionAllowed(EditCellValue)
+      }
+    }
+
     def isActionAllowed(action: Action): Boolean = {
       isAllowed(userRoles, action, ScopeColumn, _.isMatching(objects), Enrich)
     }
@@ -198,7 +231,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val permissionJson: JsonObject = Json.obj(
       "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
       "editStructureProperty" -> isActionAllowed(EditStructureProperty),
-      "editCellValue" -> isActionAllowed(EditCellValue),
+      "editCellValue" -> getEditCellValuePermission,
       "delete" -> isActionAllowed(Delete)
     )
 
