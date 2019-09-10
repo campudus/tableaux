@@ -1,0 +1,168 @@
+{
+  "roles": {
+    "realm": [
+      {
+        "name": "view-table",
+        "description": "Grants access to view all tables except for hidden ones"
+      },
+      {
+        "name": "view-hidden-table",
+        "description": "Grants access to view hidden tables"
+      },
+      {
+        "name": "create-row",
+        "description": "Grants access to create rows in generic tables"
+      },
+      {
+        "name": "delete-row",
+        "description": "Grants access to delete rows in generic tables"
+      },
+      {
+        "name": "create-row-setting-table",
+        "description": "Grants access to create rows in setting tables"
+      },
+      {
+        "name": "delete-row-setting-table",
+        "description": "Grants access to delete rows in setting tables"
+      },
+      {
+        "name": "change-table-display",
+        "description": "Grants access to rename tables"
+      },
+      {
+        "name": "change-column-display",
+        "description": "Grants access to rename columns"
+      },
+      {
+        "name": "view-column",
+        "description": "Grants access to view all columns"
+      },
+      {
+        "name": "change-media",
+        "description": "Grants access to create, edit and delete files and folders"
+      },
+      {
+        "name": "change-annotation",
+        "description": "Grants access to add/remove cell and row annotations"
+      },
+      {
+        "name": "view-cell-value",
+        "description": "Grants access to view cell values of all columns"
+      },
+      {
+        "name": "edit-single-language-cell-value",
+        "description": "Grants access to edit all SINGLE LANGUAGE cell values of all columns"
+      },
+      {
+        "name": "edit-multi-language-cell-value",
+        "description": "Grants access to edit all MULTI LANGUAGE cell values of all columns"
+      },
+      {
+        "name": "edit-cell-value-de",
+        "description": "Grants access to edit all GERMAN cell values of all columns"
+      },
+      {
+        "name": "edit-cell-value-en",
+        "description": "Grants access to edit all ENGLISH cell values of all columns"
+      },
+      {
+        "name": "change-system",
+        "description": "Grants access to system, for example for changing system settings"
+      },
+      {
+        "name": "change-table-group",
+        "description": "Grants access to create, edit and delete table groups"
+      },
+      {
+        "name": "change-service",
+        "description": "Grants access to create, edit and delete services"
+      },
+      {
+        "name": "dev",
+        "description": "ONLY FOR DEVELOPER!!! Grants complete access to all actions"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "Developer",
+      "path": "/Developer",
+      "realmRoles": [
+        "dev"
+      ]
+    },
+    {
+      "name": "Admin",
+      "path": "/Admin",
+      "realmRoles": [
+        "change-system",
+        "edit-single-language-cell-value",
+        "edit-multi-language-cell-value",
+        "view-cell-value",
+        "change-annotation",
+        "change-media",
+        "view-column",
+        "change-column-display",
+        "change-table-display",
+        "view-table",
+        "create-row-setting-table",
+        "delete-row-setting-table",
+        "create-row",
+        "delete-row"
+      ]
+    },
+    {
+      "name": "Editor",
+      "path": "/Editor",
+      "realmRoles": [
+        "edit-single-language-cell-value",
+        "edit-multi-language-cell-value",
+        "view-cell-value",
+        "change-annotation",
+        "change-media",
+        "view-column",
+        "view-table",
+        "create-row",
+        "delete-row"
+      ]
+    },
+    {
+      "name": "Translator",
+      "path": "/Translator",
+      "realmRoles": [],
+      "subGroups": [
+        {
+          "name": "Translator-DE",
+          "path": "/Translator/Translator-DE",
+          "realmRoles": [
+            "view-cell-value",
+            "edit-cell-value-de",
+            "change-annotation",
+            "view-column",
+            "view-table"
+          ]
+        },
+        {
+          "name": "Translator-EN",
+          "path": "/Translator/Translator-EN",
+          "realmRoles": [
+            "view-cell-value",
+            "edit-cell-value-en",
+            "change-annotation",
+            "view-column",
+            "view-table"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reader",
+      "path": "/Reader",
+      "realmRoles": [
+        "view-cell-value",
+        "view-column",
+        "view-table"
+      ]
+    }
+  ]
+}

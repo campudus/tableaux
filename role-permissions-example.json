@@ -1,340 +1,227 @@
 {
-  "view-tables": [
+  //###########################
+  //########## user ###########
+  //###########################
+  "view-table": [
     {
       "type": "grant",
       "action": ["view"],
       "scope": "table",
       "condition": {
         "table": {
-          "id": ".*",
           "hidden": "false"
         }
       }
     }
   ],
-  "viewHidden-tables": [
+  "view-hidden-table": [
     {
       "type": "grant",
       "action": ["view"],
       "scope": "table",
       "condition": {
         "table": {
-          "id": ".*",
           "hidden": "true"
         }
       }
     }
   ],
-  "editDisplayProperty-tables": [
-    {
-      "type": "grant",
-      "action": ["editDisplayProperty"],
-      "scope": "table",
-      "condition": {
-        "table": {
-          "id": ".*"
-        }
-      }
-    }
-  ],
-  "editStructureProperty-tables": [
-    {
-      "type": "grant",
-      "action": ["editStructureProperty"],
-      "scope": "table",
-      "condition": {
-        "table": {
-          "id": ".*"
-        }
-      }
-    }
-  ],
-  "createRow-tables": [
+  "create-row": [
     {
       "type": "grant",
       "action": ["createRow"],
       "scope": "table",
       "condition": {
         "table": {
-          "id": ".*"
+          "tableType": "generic"
         }
       }
     }
   ],
-  "deleteRow-tables": [
+  "delete-row": [
     {
       "type": "grant",
       "action": ["deleteRow"],
       "scope": "table",
       "condition": {
         "table": {
-          "id": ".*"
+          "tableType": "generic"
         }
       }
     }
   ],
-  "create-tables": [
+  "create-row-setting-table": [
     {
       "type": "grant",
-      "action": ["create"],
-      "scope": "table"
-    }
-  ],
-  "delete-tables": [
-    {
-      "type": "grant",
-      "action": ["delete"],
+      "action": ["createRow"],
       "scope": "table",
       "condition": {
         "table": {
-          "id": ".*"
+          "tableType": "settings"
         }
       }
     }
   ],
-  "editCellAnnotation-tables": [
+  "delete-row-setting-table": [
     {
       "type": "grant",
-      "action": ["editCellAnnotation"],
+      "action": ["deleteRow"],
       "scope": "table",
       "condition": {
         "table": {
-          "id": ".*"
+          "tableType": "settings"
         }
       }
     }
   ],
-  "editRowAnnotation-tables": [
-    {
-      "type": "grant",
-      "action": ["editRowAnnotation"],
-      "scope": "table",
-      "condition": {
-        "table": {
-          "id": ".*"
-        }
-      }
-    }
-  ],
-  "view-columns": [
-    {
-      "type": "grant",
-      "action": ["view"],
-      "scope": "column",
-      "condition": {
-        "table": {
-          "id": ".*"
-        },
-        "column": {
-          "id": ".*"
-        }
-      }
-    }
-  ],
-  "editDisplayProperty-columns": [
+  "change-table-display": [
     {
       "type": "grant",
       "action": ["editDisplayProperty"],
-      "scope": "column",
-      "condition": {
-        "table": {
-          "id": ".*"
-        },
-        "column": {
-          "id": ".*"
-        }
-      }
+      "scope": "table"
     }
   ],
-  "create-columns": [
+  "change-column-display": [
     {
       "type": "grant",
-      "action": ["create"],
-      "scope": "column",
-      "condition": {
-        "table": {
-          "id": ".*"
-        }
-      }
+      "action": ["editDisplayProperty"],
+      "scope": "column"
     }
   ],
-  "editStructureProperty-columns": [
-    {
-      "type": "grant",
-      "action": ["editStructureProperty"],
-      "scope": "column",
-      "condition": {
-        "table": {
-          "id": ".*"
-        },
-        "column": {
-          "id": ".*"
-        }
-      }
-    }
-  ],
-  "delete-columns": [
-    {
-      "type": "grant",
-      "action": ["delete"],
-      "scope": "column",
-      "condition": {
-        "table": {
-          "id": ".*"
-        },
-        "column": {
-          "id": ".*"
-        }
-      }
-    }
-  ],
-  "view-cells": [
+  "view-column": [
     {
       "type": "grant",
       "action": ["view"],
-      "scope": "cell",
-      "condition": {
-        "table": {
-          "id": ".*"
-        },
-        "column": {
-          "id": ".*"
-        }
-      }
+      "scope": "column"
     }
   ],
-  "edit-singleLanguage-cells": [
+  "change-media": [
     {
       "type": "grant",
-      "action": ["edit"],
-      "scope": "cell",
+      "action": ["create", "edit", "delete"],
+      "scope": "media"
+    }
+  ],
+  "change-annotation": [
+    {
+      "type": "grant",
+      "action": ["editCellAnnotation", "editRowAnnotation"],
+      "scope": "table"
+    }
+  ],
+  "view-cell-value": [
+    {
+      "type": "grant",
+      "action": ["viewCellValue"],
+      "scope": "column"
+    }
+  ],
+  "edit-single-language-cell-value": [
+    {
+      "type": "grant",
+      "action": ["editCellValue"],
+      "scope": "column",
       "condition": {
-        "table": {
-          "id": ".*"
-        },
         "column": {
-          "id": ".*",
           "multilanguage": "false"
         }
       }
     }
   ],
-  "edit-multiLanguage-DE-cells": [
+  "edit-multi-language-cell-value": [
     {
       "type": "grant",
-      "action": ["edit"],
-      "scope": "cell",
+      "action": ["editCellValue"],
+      "scope": "column",
       "condition": {
-        "table": {
-          "id": ".*"
-        },
         "column": {
-          "id": ".*",
-          "multilanguage": "true",
-          "languageType": "language"
-        },
-        "langtag": "de"
+          "multilanguage": "true"
+        }
       }
     }
   ],
-  "edit-multiLanguage-EN-cells": [
+  "edit-cell-value-de": [
     {
       "type": "grant",
-      "action": ["edit"],
-      "scope": "cell",
+      "action": ["editCellValue"],
+      "scope": "column",
       "condition": {
-        "table": {
-          "id": ".*",
-          "group.id": "34"
-        },
         "column": {
-          "id": ".*",
-          "multilanguage": "true",
-          "languageType": "language"
+          "multilanguage": "true"
         },
-        "langtag": "en"
+        "langtag": "de-DE"
       }
     }
   ],
-  "edit-multiLanguage-ES-cells": [
+  "edit-cell-value-en": [
     {
       "type": "grant",
-      "action": ["edit"],
-      "scope": "cell",
+      "action": ["editCellValue"],
+      "scope": "column",
       "condition": {
-        "table": {
-          "id": ".*"
-        },
         "column": {
-          "id": ".*",
-          "multilanguage": "true",
-          "languageType": "language"
+          "multilanguage": "true"
         },
-        "langtag": "es"
+        "langtag": "en-GB"
       }
     }
   ],
-  "edit-multiLanguage-FR-cells": [
+
+  //###########################
+  //#### admin - developer ####
+  //###########################
+  "change-system": [
     {
       "type": "grant",
       "action": ["edit"],
-      "scope": "cell",
-      "condition": {
-        "table": {
-          "id": ".*"
-        },
-        "column": {
-          "id": ".*",
-          "multilanguage": "true",
-          "languageType": "language"
-        },
-        "langtag": "fr"
-      }
+      "scope": "system"
     }
   ],
-  "edit-multiLanguage-ALL-cells": [
+  "change-table-group": [
+    {
+      "type": "grant",
+      "action": ["create", "edit", "delete"],
+      "scope": "tableGroup"
+    }
+  ],
+  "change-service": [
+    {
+      "type": "grant",
+      "action": ["create", "view", "delete", "editStructureProperty", "editDisplayProperty"],
+      "scope": "service"
+    }
+  ],
+
+  // shortcut role to get all available permissions
+  "dev": [
+    {
+      "type": "grant",
+      "action": ["create", "view", "delete", "editDisplayProperty", "createRow", "deleteRow", "editStructureProperty", "editCellAnnotation", "editRowAnnotation"],
+      "scope": "table"
+    },
+    {
+      "type": "grant",
+      "action": ["create", "view", "delete", "editStructureProperty", "editDisplayProperty", "viewCellValue", "editCellValue"],
+      "scope": "column"
+    },
     {
       "type": "grant",
       "action": ["edit"],
-      "scope": "cell",
-      "condition": {
-        "table": {
-          "id": ".*"
-        },
-        "column": {
-          "id": ".*",
-          "multilanguage": "true",
-          "languageType": "language"
-        },
-        "langtag": "de|en|fr|es|nl|pl"
-      }
-    }
-  ],
-  "editSettingTableKeys": [
+      "scope": "system"
+    },
     {
       "type": "grant",
-      "action": ["editSettingTableKey"],
-      "scope": "cell"
-    }
-  ],
-  "create-media": [
+      "action": ["create", "edit", "delete"],
+      "scope": "tableGroup"
+    },
     {
       "type": "grant",
-      "action": ["create"],
-      "scope": "media"
-    }
-  ],
-  "edit-media": [
+      "action": ["create", "view", "delete", "editStructureProperty", "editDisplayProperty"],
+      "scope": "service"
+    },
     {
       "type": "grant",
-      "action": ["edit"],
-      "scope": "media"
-    }
-  ],
-  "delete-media": [
-    {
-      "type": "grant",
-      "action": ["delete"],
+      "action": ["create", "edit", "delete"],
       "scope": "media"
     }
   ]
