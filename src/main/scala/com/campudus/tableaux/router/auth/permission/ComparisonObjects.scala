@@ -39,7 +39,11 @@ case class ComparisonObjects(
     valueOpt: Option[Any] = None
 ) {
 
-  def merge(columnType: ColumnType[_]): ComparisonObjects = {
-    new ComparisonObjects(this.tableOpt, Some(columnType))
+  def merge(column: ColumnType[_]): ComparisonObjects = {
+    new ComparisonObjects(this.tableOpt, Some(column))
+  }
+
+  def merge(value: Any): ComparisonObjects = {
+    new ComparisonObjects(this.tableOpt, this.columnOpt, Some(value))
   }
 }
