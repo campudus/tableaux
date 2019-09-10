@@ -23,7 +23,7 @@
   "dev": [
     {
       "type": "grant",
-      "action": ["create", "view", "edit", "delete", "editDisplayProperty", "createRow", "deleteRow", "editStructureProperty", "editCellAnnotation", "editRowAnnotation", "viewCellValue", "editCellValue"],
+      "action": ["create", "view", "delete", "editDisplayProperty", "createRow", "deleteRow", "editStructureProperty", "editCellAnnotation", "editRowAnnotation"],
       "scope": "table"
     },
     {
@@ -33,12 +33,12 @@
     },
     {
       "type": "grant",
-      "action": ["create", "view", "edit", "delete"],
+      "action": ["create", "edit", "delete"],
       "scope": "media"
     },
     {
       "type": "grant",
-      "action": ["create", "view", "edit", "delete", "editStructureProperty", "editDisplayProperty", "viewCellValue", "editCellValue"],
+      "action": ["create", "view", "delete", "editStructureProperty", "editDisplayProperty", "viewCellValue", "editCellValue"],
       "scope": "column"
     },
     {
