@@ -1489,4 +1489,73 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
     }
   }
 
+  @Test
+  def enrichColumn_editCellValueIsAllowedForLangtagsDeAndEs(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editCellValue"],
+                                    |      "scope": "column",
+                                    |      "condition": {
+                                    |        "langtag": "en|es"
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      _ <- sendRequest("POST", "/system/settings/langtags", Json.obj("value" -> Json.arr("de", "en", "fr", "es")))
+
+      _ <- createFullTableWithMultilanguageColumns("Test Table")
+      permission1 <- controller.retrieveColumn(1, 1).map(getPermission)
+      permission2 <- controller.retrieveColumn(1, 2).map(getPermission)
+    } yield {
+      val expected = Json.obj("de" -> false, "en" -> true, "fr" -> false, "es" -> true)
+
+      assertJSONEquals(expected, permission1.getJsonObject("editCellValue"), JSONCompareMode.LENIENT)
+      assertJSONEquals(expected, permission2.getJsonObject("editCellValue"), JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def enrichColumn_editCellValueWithoutLangtagConditionIsAllowedForAllLangtags(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "edit-columns": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view"],
+                                    |      "scope": "table"
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["view", "editCellValue"],
+                                    |      "scope": "column"
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      _ <- sendRequest("POST", "/system/settings/langtags", Json.obj("value" -> Json.arr("de", "en", "fr", "es")))
+
+      _ <- createFullTableWithMultilanguageColumns("Test Table")
+      permission <- controller.retrieveColumn(1, 1).map(getPermission)
+    } yield {
+      val expected = Json.obj("de" -> true, "en" -> true, "fr" -> true, "es" -> true)
+
+      assertJSONEquals(expected, permission.getJsonObject("editCellValue"), JSONCompareMode.LENIENT)
+    }
+  }
+
 }
