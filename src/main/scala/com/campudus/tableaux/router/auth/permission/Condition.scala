@@ -1,6 +1,6 @@
 package com.campudus.tableaux.router.auth.permission
 
-import com.campudus.tableaux.database.{LanguageNeutral, MultiLanguage}
+import com.campudus.tableaux.database.{LanguageNeutral, LanguageType, MultiLanguage}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonObject, _}
 
@@ -111,7 +111,7 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
     // At this point, the value for the column type must already have been checked. -> checkValueTypeForColumn
     objects.columnOpt match {
       case Some(column) =>
-        if (column.languageType == MultiLanguage) {
+        if (column.languageType == MultiLanguage || column.languageType.toString == LanguageType.COUNTRY) {
 
           objects.valueOpt match {
             case Some(json: JsonObject) => {
