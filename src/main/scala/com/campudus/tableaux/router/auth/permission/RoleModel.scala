@@ -1,7 +1,7 @@
 package com.campudus.tableaux.router.auth.permission
 
-import com.campudus.tableaux.database.LanguageNeutral
 import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
+import com.campudus.tableaux.database.{MultiCountry, MultiLanguage}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.{RequestContext, UnauthorizedException}
 import com.typesafe.scalalogging.LazyLogging
@@ -194,13 +194,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
     def getEditCellValuePermission: Any = {
 
-      def isMultilanguage: Boolean = {
-        objects.columnOpt.exists(_.languageType != LanguageNeutral)
-      }
-
-      if (isMultilanguage) {
-        val langtags = objects.tableOpt.map(_.langtags.getOrElse(Seq.empty[String])).getOrElse(Seq.empty[String])
-
+      def getCellValueJson(langtags: Seq[String]) = {
         val editCellValueJson = Json.emptyObj()
 
         langtags.foreach(lt => {
@@ -218,9 +212,27 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         })
 
         editCellValueJson
+      }
 
-      } else {
-        isActionAllowed(EditCellValue)
+      objects.columnOpt match {
+        case Some(column) => {
+
+          column.languageType match {
+            case MultiLanguage => {
+              val langtags = objects.tableOpt.map(_.langtags.getOrElse(Seq.empty[String])).getOrElse(Seq.empty[String])
+
+              getCellValueJson(langtags)
+            }
+
+            case MultiCountry(countryCodes) => {
+              getCellValueJson(countryCodes.codes)
+            }
+
+            case _ => isActionAllowed(EditCellValue)
+          }
+        }
+
+//        case _ =>
       }
     }
 
