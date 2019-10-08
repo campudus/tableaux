@@ -232,7 +232,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
           }
         }
 
-//        case _ =>
+        case _ =>
       }
     }
 
