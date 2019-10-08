@@ -1,6 +1,6 @@
 package com.campudus.tableaux.router.auth.permission
 
-import com.campudus.tableaux.database.{LanguageNeutral, LanguageType, MultiLanguage}
+import com.campudus.tableaux.database.{LanguageNeutral, MultiCountry, MultiLanguage}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonObject, _}
 
@@ -111,24 +111,25 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
     // At this point, the value for the column type must already have been checked. -> checkValueTypeForColumn
     objects.columnOpt match {
       case Some(column) =>
-        if (column.languageType == MultiLanguage || column.languageType.toString == LanguageType.COUNTRY) {
+        column.languageType match {
 
-          objects.valueOpt match {
-            case Some(json: JsonObject) => {
-              val regex: String = conditionMap.getOrElse("langtag", ".*")
+          case MultiLanguage | MultiCountry(_) =>
+            objects.valueOpt match {
+              case Some(json: JsonObject) => {
+                val regex: String = conditionMap.getOrElse("langtag", ".*")
 
-              json
-                .fieldNames()
-                .asScala
-                .forall(langtag => {
-                  logger.debug(s"Matching langtag: $langtag -> ${langtag.matches(regex)}")
-                  langtag.matches(regex)
-                })
+                json
+                  .fieldNames()
+                  .asScala
+                  .forall(langtag => {
+                    logger.debug(s"Matching langtag: $langtag -> ${langtag.matches(regex)}")
+                    langtag.matches(regex)
+                  })
+              }
+              case _ => true
             }
-            case _ => true
-          }
-        } else {
-          true
+
+          case LanguageNeutral => true
         }
 
       case None => false
