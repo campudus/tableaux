@@ -8,6 +8,7 @@ import org.vertx.scala.core.json.{Json, JsonObject}
 import scala.concurrent.Future
 import scala.io.Source
 import scala.reflect.io.Path
+import scala.util.{Failure, Success, Try}
 
 object FileUtils {
 
@@ -44,9 +45,18 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
     }
   }
 
-  def readJsonFile(filename: String): JsonObject = {
-    val rawJsonString = withFile(filename)(_.mkString("\n").replaceAll(commentsRegex, ""))
-    Json.fromObjectString(rawJsonString)
+  def readJsonFile(filename: String, default: JsonObject): JsonObject = {
+    Try {
+      val rawJsonString = withFile(filename)(_.mkString("\n").replaceAll(commentsRegex, ""))
+      Json.fromObjectString(rawJsonString)
+    } match {
+      case Success(jsonContent) => jsonContent
+      case Failure(ex) => {
+        logger.warn(s"Error while reading json file: ${ex.getMessage}")
+        default
+      }
+    }
+
   }
 
   def asyncReadJsonFile(filename: String): Future[JsonObject] = {
