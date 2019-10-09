@@ -166,6 +166,13 @@
       }
     }
   ],
+  "view-service": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "service"
+    }
+  ],
 
   //###########################
   //#### admin - developer ####
