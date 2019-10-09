@@ -77,7 +77,7 @@ trait TableauxTestBase
     authConfig = config.getJsonObject("auth", Json.obj())
 
     val rolePermissionsPath = config.getString("rolePermissionsPath")
-    val rolePermissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionsPath)
+    val rolePermissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionsPath, Json.emptyObj())
 
     host = config.getString("host")
     port = config.getInteger("port").intValue()
