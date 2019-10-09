@@ -413,20 +413,13 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   */
 class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
 
-  private def logAuthWarning(): Unit =
-    logger.warn(
-      "Security risk! The server runs in legacy mode without authentication and authorization! " +
-        "Please run the service with an authorization configuration and user role permissions.")
-
   override def checkAuthorization(action: Action, scope: Scope, objects: ComparisonObjects, isInternalCall: Boolean)(
       implicit requestContext: RequestContext): Future[Unit] = {
-    logAuthWarning()
     Future.successful(())
   }
 
   override def enrichDomainObject(inputJson: JsonObject, scope: Scope, objects: ComparisonObjects)(
       implicit requestContext: RequestContext): JsonObject = {
-    logAuthWarning()
     inputJson
   }
 
@@ -437,7 +430,6 @@ class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
       isInternalCall: Boolean,
       action: Action = View
   )(implicit requestContext: RequestContext): Seq[A] = {
-    logAuthWarning()
     domainObjects
   }
 }
