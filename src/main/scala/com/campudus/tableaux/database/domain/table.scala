@@ -67,11 +67,13 @@ case class Table(
       {
         di.optionalName.map(name => {
           tableJson.mergeIn(
-            Json.obj("displayName" -> tableJson.getJsonObject("displayName").mergeIn(Json.obj(di.langtag -> name))))
+            Json.obj("displayName" -> tableJson.getJsonObject("displayName").mergeIn(Json.obj(di.langtag -> name)))
+          )
         })
         di.optionalDescription.map(desc => {
           tableJson.mergeIn(
-            Json.obj("description" -> tableJson.getJsonObject("description").mergeIn(Json.obj(di.langtag -> desc))))
+            Json.obj("description" -> tableJson.getJsonObject("description").mergeIn(Json.obj(di.langtag -> desc)))
+          )
         })
       }
     }
@@ -110,9 +112,9 @@ case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: Row
 
 case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[ColumnType[_]]]) extends DomainObject {
   override def getJson: JsonObject = {
-    Json.obj("tables" -> tables.map (tbl => {
+    Json.obj("tables" -> tables.map(tbl => {
       tbl.getJson.mergeIn(
-        Json.obj( "columns" -> {
+        Json.obj("columns" -> {
           val columns = columnMap.get(tbl.id).get
           columns.map(_.getJson)
         })

@@ -22,7 +22,8 @@ import scala.concurrent.Future
 object StructureController {
 
   def apply(config: TableauxConfig, repository: StructureModel, roleModel: RoleModel)(
-      implicit requestContext: RequestContext): StructureController = {
+      implicit requestContext: RequestContext
+  ): StructureController = {
     new StructureController(config, repository, roleModel)
   }
 }
@@ -101,22 +102,25 @@ class StructureController(
     }
   }
 
-  def retrieveStructure() : Future[TablesStructure] = {
+  def retrieveStructure(): Future[TablesStructure] = {
     type ColumnSeq = Seq[ColumnType[_]]
     type IdColumnTuple = (TableId, ColumnSeq)
 
     def collectColumns(table: Table): Future[IdColumnTuple] = {
-      columnStruc.retrieveAll(table)
-        .map( columnSeq => (table.id -> columnSeq ))
+      columnStruc
+        .retrieveAll(table)
+        .map(columnSeq => (table.id -> columnSeq))
     }
 
-    def toColumnMap = (
-      mapAccum: Map[TableId, ColumnSeq],
-      next: IdColumnTuple
-    ) => next match {
-      case (id, columns) => mapAccum + (id -> columns)
-      case _ => mapAccum
-    }
+    def toColumnMap =
+      (
+          mapAccum: Map[TableId, ColumnSeq],
+          next: IdColumnTuple
+      ) =>
+        next match {
+          case (id, columns) => mapAccum + (id -> columns)
+          case _ => mapAccum
+      }
 
     val emptyMap = Map[TableId, ColumnSeq]()
 
@@ -173,7 +177,8 @@ class StructureController(
 
       _ <- columnStruc.createColumn(
         created,
-        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty))
+        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty)
+      )
       _ <- columnStruc.createColumn(
         created,
         CreateSimpleColumn("displayKey",
@@ -302,14 +307,16 @@ class StructureController(
     } yield EmptyObject()
   }
 
-  def changeColumn(tableId: TableId,
-                   columnId: ColumnId,
-                   columnName: Option[String],
-                   ordering: Option[Ordering],
-                   kind: Option[TableauxDbType],
-                   identifier: Option[Boolean],
-                   displayInfos: Option[Seq[DisplayInfo]],
-                   countryCodes: Option[Seq[String]]): Future[ColumnType[_]] = {
+  def changeColumn(
+      tableId: TableId,
+      columnId: ColumnId,
+      columnName: Option[String],
+      ordering: Option[Ordering],
+      kind: Option[TableauxDbType],
+      identifier: Option[Boolean],
+      displayInfos: Option[Seq[DisplayInfo]],
+      countryCodes: Option[Seq[String]]
+  ): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
@@ -324,7 +331,8 @@ class StructureController(
 
     logger.info(
       s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier " +
-        s"displayInfos=$displayInfos, countryCodes=$countryCodes")
+        s"displayInfos=$displayInfos, countryCodes=$countryCodes"
+    )
 
     for {
       table <- tableStruc.retrieve(tableId)
