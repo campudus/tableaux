@@ -101,6 +101,34 @@ class StructureController(
     }
   }
 
+  def retrieveStructure() : Future[TablesStructure] = {
+    type ColumnSeq = Seq[ColumnType[_]]
+    type IdColumnTuple = (TableId, ColumnSeq)
+
+    def collectColumns(table: Table): Future[IdColumnTuple] = {
+      columnStruc.retrieveAll(table)
+        .map( columnSeq => (table.id -> columnSeq ))
+    }
+
+    def toColumnMap = (
+      mapAccum: Map[TableId, ColumnSeq],
+      next: IdColumnTuple
+    ) => next match {
+      case (id, columns) => mapAccum + (id -> columns)
+      case _ => mapAccum
+    }
+
+    val emptyMap = Map[TableId, ColumnSeq]()
+
+    for {
+      tables <- tableStruc.retrieveAll(isInternalCall = false)
+      columns <- Future.sequence(tables.map(collectColumns))
+    } yield {
+      val columnMap = columns.foldLeft(emptyMap)(toColumnMap)
+      TablesStructure(tables, columnMap)
+    }
+  }
+
   def createTable(
       tableName: String,
       hidden: Boolean,

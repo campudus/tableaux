@@ -28,6 +28,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   private val group: String = s"/groups/$groupId"
   private val groups: String = "/groups"
 
+  private val structure = "/structure"
+
   def route: Router = {
     val router = Router.router(vertx)
 
@@ -36,6 +38,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     router.getWithRegex(table).handler(retrieveTable)
     router.getWithRegex(columns).handler(retrieveColumns)
     router.getWithRegex(column).handler(retrieveColumn)
+    router.get(structure).handler(retrieveStructure)
 
     // DELETE
     router.deleteWithRegex(group).handler(deleteGroup)
@@ -68,6 +71,12 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
     router.patchWithRegex(group).handler(updateGroup)
 
     router
+  }
+
+  private def retrieveStructure(context: RoutingContext): Unit = {
+    sendReply(context, asyncGetReply {
+      controller.retrieveStructure()
+    })
   }
 
   private def retrieveTables(context: RoutingContext): Unit = {

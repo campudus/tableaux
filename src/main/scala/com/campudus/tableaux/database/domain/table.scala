@@ -4,6 +4,7 @@ import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, ScopeTableSeq}
 import org.vertx.scala.core.json._
+import io.vertx.core.json.JsonObject
 
 object TableType {
 
@@ -104,5 +105,18 @@ case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: Row
         _.getJson
       }))
       .mergeIn(rowList.getJson)
+  }
+}
+
+case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[ColumnType[_]]]) extends DomainObject {
+  override def getJson: JsonObject = {
+    Json.obj("tables" -> tables.map (tbl => {
+      tbl.getJson.mergeIn(
+        Json.obj( "columns" -> {
+          val columns = columnMap.get(tbl.id).get
+          columns.map(_.getJson)
+        })
+      )
+    }))
   }
 }
