@@ -11,11 +11,12 @@ import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.google.common.cache.{CacheBuilder, Cache => GuavaBuiltCache}
+import com.google.common.cache.CacheBuilder
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
-import scalacache.guava.GuavaCache
-import scalacache.{ScalaCache, caching, remove}
+import scalacache._
+import scalacache.guava._
+import scalacache.modes.scalaFuture._
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet
@@ -26,12 +27,12 @@ object CachedColumnModel {
   /**
     * Default never expire
     */
-  val DEFAULT_EXPIRE_AFTER_ACCESS: Long = -1l
+  val DEFAULT_EXPIRE_AFTER_ACCESS: Long = -1L
 
   /**
     * Max. 10k cached values per column
     */
-  val DEFAULT_MAXIMUM_SIZE: Long = 10000l
+  val DEFAULT_MAXIMUM_SIZE: Long = 10000L
 }
 
 class CachedColumnModel(
@@ -42,9 +43,9 @@ class CachedColumnModel(
     roleModel: RoleModel
 ) extends ColumnModel(connection) {
 
-  implicit val scalaCache = ScalaCache(GuavaCache(createCache()))
+  implicit val scalaCache: Cache[Object] = GuavaCache(createCache())
 
-  private def createCache(): GuavaBuiltCache[String, Object] = {
+  private def createCache() = {
     val builder = CacheBuilder
       .newBuilder()
 
@@ -62,7 +63,7 @@ class CachedColumnModel(
 
     builder.recordStats()
 
-    builder.build[String, Object]
+    builder.build[String, Entry[Object]]
   }
 
   private def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
@@ -106,15 +107,15 @@ class CachedColumnModel(
   }
 
   override def retrieve(table: Table, columnId: ColumnId): Future[ColumnType[_]] = {
-    caching("retrieve", table.id, columnId) {
+    cachingF[Future, Object]("retrieve", table.id, columnId)(None)(
       super.retrieve(table, columnId)
-    }
+    ).asInstanceOf[Future[ColumnType[_]]]
   }
 
   override def retrieveAll(table: Table): Future[Seq[ColumnType[_]]] = {
-    caching("retrieveAll", table.id) {
+    cachingF[Future, Object]("retrieveAll", table.id)(None)(
       super.retrieveAll(table)
-    }
+    ).asInstanceOf[Future[Seq[ColumnType[_]]]]
   }
 
   override def createColumns(table: Table, createColumns: Seq[CreateColumn]): Future[Seq[ColumnType[_]]] = {
