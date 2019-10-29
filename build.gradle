@@ -57,7 +57,7 @@ dependencies {
 
   compile 'com.jcabi:jcabi-manifests:1.1'
 
-  compile 'com.github.cb372:scalacache-guava_2.12:0.10.0'
+  compile 'com.github.cb372:scalacache-guava_2.12:0.28.0'
 
   compile 'org.webjars:swagger-ui:3.17.6'
 
