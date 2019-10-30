@@ -115,7 +115,7 @@ case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[Colum
     Json.obj("tables" -> tables.map(tbl => {
       tbl.getJson.mergeIn(
         Json.obj("columns" -> {
-          val columns = columnMap.get(tbl.id).getOrElse(Seq[ColumnType[_]]())
+          val columns = columnMap.getOrElse(tbl.id, Seq[ColumnType[_]]())
           columns.map(_.getJson)
         })
       )
