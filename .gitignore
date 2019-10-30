@@ -50,3 +50,6 @@ project/plugins/project/
 
 # zsh
 .gradletasknamecache
+/file-uploads
+/.bloop
+/.metals
