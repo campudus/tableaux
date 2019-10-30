@@ -6,6 +6,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
+import com.campudus.tableaux.testtools.JsonAssertable.JsonObject
 
 @RunWith(classOf[VertxUnitRunner])
 class GetStructureTest extends TableauxTestBase {
@@ -139,6 +140,49 @@ class GetStructureTest extends TableauxTestBase {
         test <- sendRequest("GET", "/tables/1/columns/2")
       } yield {
         assertJSONEquals(expectedJson, test)
+      }
+    }
+  }
+
+  @Test
+  def retrieveTableStructure(implicit c: TestContext): Unit = {
+    okTest {
+      val expectedJson = Json.obj(
+        "tables" -> Json.arr(
+          Json.obj(
+            "id" -> 1,
+            "name" -> "Test Table 1",
+            "langtags" -> Json.arr("de-DE", "en-GB"),
+            "columns" -> Json.arr(
+              Json.obj(
+                "id" -> 1,
+                "name" -> "Test Column 1",
+                "kind" -> "text",
+                "identifier" -> true,
+                "multilanguage" -> false,
+                "ordering" -> 1
+              ),
+              Json.obj(
+                "id" -> 2,
+                "name" -> "Test Column 2",
+                "kind" -> "numeric",
+                "identifier" -> false,
+                "multilanguage" -> false,
+                "ordering" -> 2
+              )
+            )
+          )
+        )
+      )
+
+      for {
+        _ <- createDefaultTable()
+        test <- sendRequest("GET", "/structure")
+      } yield {
+        assertJSONEquals(
+          expectedJson,
+          test
+        )
       }
     }
   }
