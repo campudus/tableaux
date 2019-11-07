@@ -101,6 +101,8 @@ class SystemController(
       _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.uninstall()
       _ <- repository.install()
+      _ <- invalidateCache()
+      _ <- structureModel.columnStruc.removeAllCache()
     } yield EmptyObject()
   }
 
