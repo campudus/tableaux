@@ -66,6 +66,12 @@ class CachedColumnModel(
     builder.build[String, Entry[Object]]
   }
 
+  def removeAllCache(): Future[Unit] = {
+    for {
+      _ <- removeAll()
+    } yield ()
+  }
+
   private def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
 
     for {
