@@ -46,20 +46,6 @@ pipeline {
       }
     }
 
-    stage('Test') {
-      steps {
-
-        script {
-          try {
-              configFileProvider([configFile(fileId: 'grud-backend-build', targetLocation: 'conf-test.json')]) {
-                sh './gradlew test'
-              }
-          } finally {
-            junit '**/build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
-          }
-        }
-      }
-    }
 
     stage('Build docker image') {
       steps {
