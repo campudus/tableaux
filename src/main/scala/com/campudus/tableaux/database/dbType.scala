@@ -16,6 +16,7 @@ object TableauxDbType {
       case ShortTextType.name => ShortTextType
       case RichTextType.name => RichTextType
       case NumericType.name => NumericType
+      case IntegerType.name => IntegerType
       case CurrencyType.name => CurrencyType
       case LinkType.name => LinkType
       case AttachmentType.name => AttachmentType
@@ -45,6 +46,10 @@ case object ShortTextType extends TableauxDbType {
 
 case object NumericType extends TableauxDbType {
   override val name = "numeric"
+}
+
+case object IntegerType extends TableauxDbType {
+  override val name = "integer"
 }
 
 case object LinkType extends TableauxDbType {
