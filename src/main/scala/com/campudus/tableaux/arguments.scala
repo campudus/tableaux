@@ -179,6 +179,7 @@ object ArgumentChecker {
 
   def tryMap[A, B](tryFn: A => B, ex: => CustomException)(a: A): ArgumentCheck[B] = {
     Try(OkArg(tryFn(a))).getOrElse(FailArg[B](ex))
+
   }
 
   def checkArguments(args: ArgumentCheck[_]*): Unit = {
