@@ -61,12 +61,8 @@ trait BaseRouter extends VertxAccess {
       }
 
       catchedReplyFunction
-        .map({ result =>
-          Ok(result.toJson(returnType).mergeIn(baseResult))
-        })
-        .map({ reply =>
-          Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))
-        })
+        .map({ result => Ok(result.toJson(returnType).mergeIn(baseResult)) })
+        .map({ reply => Header("Expires", "-1", Header("Cache-Control", "no-cache", reply)) })
         .recover({
           case ex: InvalidNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
           case ex: NoNonceException => Error(RouterException(ex.message, null, ex.id, ex.statusCode))
@@ -150,7 +146,8 @@ trait BaseRouter extends VertxAccess {
         RouterException(message =
                           s"No route found for path ${context.request().method().toString} ${context.normalisedPath()}",
                         id = "NOT FOUND",
-                        statusCode = 404))
+                        statusCode = 404)
+      )
     )
   }
 
@@ -253,26 +250,26 @@ trait BaseRouter extends VertxAccess {
                         Error(RouterException("Send embedded file exception", ex, "errors.routing.sendEmbeddedFile")))
         }
       case SendFile(path, absolute) => {
-        val filePath = if (absolute) {
-          path
-        } else {
-          new File(workingDirectory, path).toString
-        }
+          val filePath = if (absolute) {
+            path
+          } else {
+            new File(workingDirectory, path).toString
+          }
 
-        for {
-          _ <- checkExistence(filePath)
-          file <- directoryToIndexFile(filePath)
-        } yield {
-          logger.info(s"Serving file $file after receiving request for: $path")
-          resp.sendFile(file)
+          for {
+            _ <- checkExistence(filePath)
+            file <- directoryToIndexFile(filePath)
+          } yield {
+            logger.info(s"Serving file $file after receiving request for: $path")
+            resp.sendFile(file)
 
+          }
+        } recover {
+          case ex: FileNotFoundException =>
+            endResponse(resp, Error(RouterException("File not found", ex, "errors.routing.fileNotFound", 404)))
+          case ex =>
+            endResponse(resp, Error(RouterException("Send file exception", ex, "errors.routing.sendFile")))
         }
-      } recover {
-        case ex: FileNotFoundException =>
-          endResponse(resp, Error(RouterException("File not found", ex, "errors.routing.fileNotFound", 404)))
-        case ex =>
-          endResponse(resp, Error(RouterException("Send file exception", ex, "errors.routing.sendFile")))
-      }
       case Error(RouterException(message, cause, id, 404)) =>
         logger.warn(s"Error 404: $message", cause)
         resp.setStatusCode(404)

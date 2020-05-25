@@ -34,11 +34,13 @@ sealed trait ColumnInformation {
 
 object BasicColumnInformation {
 
-  def apply(table: Table,
-            columnId: ColumnId,
-            ordering: Ordering,
-            displayInfos: Seq[DisplayInfo],
-            createColumn: CreateColumn): BasicColumnInformation = {
+  def apply(
+      table: Table,
+      columnId: ColumnId,
+      ordering: Ordering,
+      displayInfos: Seq[DisplayInfo],
+      createColumn: CreateColumn
+  ): BasicColumnInformation = {
     BasicColumnInformation(table,
                            columnId,
                            createColumn.name,
@@ -49,14 +51,15 @@ object BasicColumnInformation {
   }
 }
 
-case class BasicColumnInformation(override val table: Table,
-                                  override val id: ColumnId,
-                                  override val name: String,
-                                  override val ordering: Ordering,
-                                  override val identifier: Boolean,
-                                  override val displayInfos: Seq[DisplayInfo],
-                                  override val groupColumnIds: Seq[ColumnId])
-    extends ColumnInformation
+case class BasicColumnInformation(
+    override val table: Table,
+    override val id: ColumnId,
+    override val name: String,
+    override val ordering: Ordering,
+    override val identifier: Boolean,
+    override val displayInfos: Seq[DisplayInfo],
+    override val groupColumnIds: Seq[ColumnId]
+) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
   override val name = "ID"
@@ -90,13 +93,15 @@ object ColumnType {
     * - attachment
     */
   def splitIntoTypesWithValues(columnsWithValue: Seq[(ColumnType[_], _)]): Try[
-    (List[LanguageNeutralAndValue], List[MultiLanguageAndValue], List[LinkAndRowIds], List[AttachmentAndUUIDs])] = {
+    (List[LanguageNeutralAndValue], List[MultiLanguageAndValue], List[LinkAndRowIds], List[AttachmentAndUUIDs])
+  ] = {
     Try {
       columnsWithValue.foldLeft(
         (List.empty[LanguageNeutralAndValue],
          List.empty[MultiLanguageAndValue],
          List.empty[LinkAndRowIds],
-         List.empty[AttachmentAndUUIDs])) {
+         List.empty[AttachmentAndUUIDs])
+      ) {
 
         case ((s, m, l, a), (MultiLanguageColumn(c), v)) =>
           (s, (c, MultiLanguageColumn.checkValidValue(c, v).get) :: m, l, a)
@@ -124,15 +129,17 @@ object ColumnType {
     * - link
     * - attachment
     */
-  def splitIntoTypes(columns: Seq[ColumnType[_]])
-    : (List[SimpleValueColumn[_]], List[SimpleValueColumn[_]], List[LinkColumn], List[AttachmentColumn]) = {
+  def splitIntoTypes(
+      columns: Seq[ColumnType[_]]
+  ): (List[SimpleValueColumn[_]], List[SimpleValueColumn[_]], List[LinkColumn], List[AttachmentColumn]) = {
     columns.foldLeft(
       (
         List[SimpleValueColumn[_]](),
         List[SimpleValueColumn[_]](),
         List[LinkColumn](),
         List[AttachmentColumn]()
-      )) {
+      )
+    ) {
 
       case ((s, m, l, a), MultiLanguageColumn(c)) =>
         (s, c :: m, l, a)
@@ -249,11 +256,13 @@ object MultiLanguageColumn {
                   case MultiLanguage =>
                     throw new IllegalArgumentException(
                       s"Invalid value at key $key for MultiLanguage column ${columnType.name}",
-                      ex)
+                      ex
+                    )
                   case MultiCountry(_) | LanguageNeutral =>
                     throw new IllegalArgumentException(
                       s"Invalid value at key $key for MultiCountry column ${columnType.name}",
-                      ex)
+                      ex
+                    )
                 }
             })
             .toMap
@@ -290,6 +299,7 @@ object SimpleValueColumn {
       case BooleanType => BooleanColumn.apply
       case DateType => DateColumn.apply
       case DateTimeType => DateTimeColumn.apply
+      case IntegerType => IntegerColumn.apply
 
       case _ => throw new IllegalArgumentException("Can only map type to SimpleValueColumn")
     }
@@ -303,8 +313,8 @@ object SimpleValueColumn {
   */
 sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(override val languageType: LanguageType)(
     implicit val requestContext: RequestContext,
-    val roleModel: RoleModel)
-    extends ColumnType[A] {
+    val roleModel: RoleModel
+) extends ColumnType[A] {
 
   override def checkValidValue[B](value: B): Try[Option[A]] = {
     Option(value) match {
@@ -318,56 +328,64 @@ sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(o
 
 case class TextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel)
-    extends SimpleValueColumn[String](TextType)(languageType) {
+    roleModel: RoleModel
+) extends SimpleValueColumn[String](TextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
 case class ShortTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel)
-    extends SimpleValueColumn[String](ShortTextType)(languageType) {
+    roleModel: RoleModel
+) extends SimpleValueColumn[String](ShortTextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
 case class RichTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel)
-    extends SimpleValueColumn[String](RichTextType)(languageType) {
+    roleModel: RoleModel
+) extends SimpleValueColumn[String](RichTextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
 case class NumberColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel)
-    extends SimpleValueColumn[Number](NumericType)(languageType) {
+    roleModel: RoleModel
+) extends SimpleValueColumn[Number](NumericType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
+case class IntegerColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends SimpleValueColumn[Number](IntegerType)(languageType) {
+
+  override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Integer])
+}
+
 case class CurrencyColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel)
-    extends SimpleValueColumn[Number](CurrencyType)(languageType) {
+    roleModel: RoleModel
+) extends SimpleValueColumn[Number](CurrencyType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
 case class BooleanColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel)
-    extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
+    roleModel: RoleModel
+) extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[Boolean] = Try(value.asInstanceOf[Boolean])
 }
 
 case class DateColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel)
-    extends SimpleValueColumn[String](DateType)(languageType) {
+    roleModel: RoleModel
+) extends SimpleValueColumn[String](DateType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = {
     Try(LocalDate.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
@@ -376,8 +394,8 @@ case class DateColumn(override val languageType: LanguageType)(override val colu
 
 case class DateTimeColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
     implicit requestContext: RequestContext,
-    roleModel: RoleModel)
-    extends SimpleValueColumn[String](DateTimeType)(languageType) {
+    roleModel: RoleModel
+) extends SimpleValueColumn[String](DateTimeType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = {
     Try(DateTime.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
@@ -474,8 +492,8 @@ case class LinkColumn(
 
 case class AttachmentColumn(override val columnInformation: ColumnInformation)(
     implicit val requestContext: RequestContext,
-    val roleModel: RoleModel)
-    extends ColumnType[Seq[(UUID, Option[Ordering])]] {
+    val roleModel: RoleModel
+) extends ColumnType[Seq[(UUID, Option[Ordering])]] {
   override val kind: AttachmentType.type = AttachmentType
   override val languageType: LanguageNeutral.type = LanguageNeutral
 
@@ -544,7 +562,8 @@ sealed trait ConcatenateColumn extends ColumnType[JsonArray] {
 
 case class ConcatColumn(
     override val columnInformation: ConcatColumnInformation,
-    override val columns: Seq[ColumnType[_]])(implicit val requestContext: RequestContext, val roleModel: RoleModel)
+    override val columns: Seq[ColumnType[_]]
+)(implicit val requestContext: RequestContext, val roleModel: RoleModel)
     extends ConcatenateColumn {
   override val kind: ConcatType.type = ConcatType
 
@@ -555,7 +574,8 @@ case class ConcatColumn(
 case class GroupColumn(
     override val columnInformation: ColumnInformation,
     override val columns: Seq[ColumnType[_]],
-    formatPattern: Option[String])(implicit val requestContext: RequestContext, val roleModel: RoleModel)
+    formatPattern: Option[String]
+)(implicit val requestContext: RequestContext, val roleModel: RoleModel)
     extends ConcatenateColumn {
   override val kind: GroupType.type = GroupType
 
