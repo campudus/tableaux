@@ -213,6 +213,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           createdColumns <- future
           createdColumn <- createColumn(table, next)
         } yield {
+          println("createColumn",Console.BLUE + createdColumn)
           createdColumns :+ createdColumn
         }
     }
@@ -222,6 +223,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
     def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
       BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
+    println(createColumn)
 
     createColumn match {
       case simpleColumnInfo: CreateSimpleColumn =>
@@ -321,6 +323,7 @@ class ColumnModel(val connection: DatabaseConnection)(
             t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
         }
       } yield {
+      println(columnInfo)
         (t, columnInfo)
       }
     }
@@ -431,6 +434,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       linkId: Option[LinkId],
       formatPattern: Option[String]
   ): Future[(connection.Transaction, CreatedColumnInformation)] = {
+    println(createColumn)
 
     def insertStatement(tableId: TableId, ordering: String) = {
       s"""|INSERT INTO system_columns (
@@ -443,9 +447,10 @@ class ColumnModel(val connection: DatabaseConnection)(
           | multilanguage,
           | identifier,
           | format_pattern,
-          | country_codes
+          | country_codes,
+          | separator
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -481,7 +486,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.languageType.toString,
                 createColumn.identifier,
                 formatPattern.orNull,
-                countryCodes.map(f => Json.arr(f: _*)).orNull
+                countryCodes.map(f => Json.arr(f: _*)).orNull,
+                createColumn.separator
               )
             )
           case Some(ord) =>
@@ -496,7 +502,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.languageType.toString,
                 createColumn.identifier,
                 formatPattern.orNull,
-                countryCodes.map(f => Json.arr(f: _*)).orNull
+                countryCodes.map(f => Json.arr(f: _*)).orNull,
+                createColumn.separator
               )
             )
         }
@@ -698,6 +705,7 @@ class ColumnModel(val connection: DatabaseConnection)(
          |  ordering,
          |  multilanguage,
          |  identifier,
+         |  separator,
          |  array_to_json(country_codes),
          |  (
          |    SELECT json_agg(group_column_id) FROM system_column_groups
@@ -885,6 +893,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val kind = TableauxDbType(row.get[String](2))
     val ordering = row.get[Ordering](3)
     val identifier = row.get[Boolean](5)
+    val separator = row.get[Boolean](6)
 
     val languageType = LanguageType(Option(row.get[String](4))) match {
       case LanguageNeutral => LanguageNeutral
@@ -913,7 +922,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         ordering,
         identifier,
         displayInfoSeq,
-        groupColumnIds
+        groupColumnIds,
+        separator
       )
 
       column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern)

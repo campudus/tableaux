@@ -73,6 +73,7 @@ class StructureController(
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
       sorted = retrieved.sortBy(_.ordering)
     } yield {
+      println(retrieved)
       ColumnSeq(sorted)
     }
   }
@@ -177,7 +178,7 @@ class StructureController(
 
       _ <- columnStruc.createColumn(
         created,
-        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty)
+        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty, false)
       )
       _ <- columnStruc.createColumn(
         created,
@@ -189,7 +190,7 @@ class StructureController(
                            Seq(
                              NameOnly("de", "Bezeichnung"),
                              NameOnly("en", "Identifier")
-                           ))
+                           ),false)
       )
       _ <- columnStruc.createColumn(
         created,
@@ -201,7 +202,7 @@ class StructureController(
                            Seq(
                              NameOnly("de", "Inhalt"),
                              NameOnly("en", "Value")
-                           ))
+                           ),false)
       )
       _ <- columnStruc.createColumn(created,
                                     CreateAttachmentColumn("attachment",

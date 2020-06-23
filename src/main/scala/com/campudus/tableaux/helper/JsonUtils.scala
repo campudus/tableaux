@@ -86,7 +86,8 @@ object JsonUtils extends LazyLogging {
           } yield {
             // optional fields
             val ordering = Try(json.getInteger("ordering").longValue()).toOption
-            val identifier = Try[Boolean](json.getBoolean("identifier")).getOrElse(false)
+            val identifier = json.getBoolean("identifier",false)
+            val separator = json.getBoolean("separator",true)
 
             // languageType or deprecated multilanguage
             // if languageType == 'country' countryCodes must be specified
@@ -155,7 +156,7 @@ object JsonUtils extends LazyLogging {
                 CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups)
 
               case _ =>
-                CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos)
+                CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos, separator)
             }
           }
         }
