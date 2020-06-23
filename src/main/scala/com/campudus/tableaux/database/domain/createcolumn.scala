@@ -10,6 +10,7 @@ sealed trait CreateColumn {
   val ordering: Option[Ordering]
   val identifier: Boolean
   val displayInfos: Seq[DisplayInfo]
+  val separator: Boolean
 }
 
 case class CreateSimpleColumn(override val name: String,
@@ -17,7 +18,8 @@ case class CreateSimpleColumn(override val name: String,
                               override val kind: TableauxDbType,
                               override val languageType: LanguageType,
                               override val identifier: Boolean,
-                              override val displayInfos: Seq[DisplayInfo])
+                              override val displayInfos: Seq[DisplayInfo],
+                              override val separator: Boolean)
     extends CreateColumn
 
 case class CreateBackLinkColumn(
@@ -67,6 +69,7 @@ case class CreateLinkColumn(override val name: String,
     extends CreateColumn {
   override val kind: LinkType.type = LinkType
   override val languageType: LanguageNeutral.type = LanguageNeutral
+  override val separator: Boolean = false
 }
 
 case class CreateAttachmentColumn(override val name: String,
@@ -76,6 +79,7 @@ case class CreateAttachmentColumn(override val name: String,
     extends CreateColumn {
   override val kind: AttachmentType.type = AttachmentType
   override val languageType: LanguageNeutral.type = LanguageNeutral
+  override val separator: Boolean = false
 }
 
 case class CreateGroupColumn(override val name: String,
@@ -87,6 +91,7 @@ case class CreateGroupColumn(override val name: String,
     extends CreateColumn {
   override val kind: TableauxDbType = GroupType
   override val languageType: LanguageType = LanguageNeutral
+  override val separator: Boolean = false
 }
 
 case class CreatedColumnInformation(

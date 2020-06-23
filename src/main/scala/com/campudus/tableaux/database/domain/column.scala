@@ -30,6 +30,7 @@ sealed trait ColumnInformation {
   val identifier: Boolean
   val displayInfos: Seq[DisplayInfo]
   val groupColumnIds: Seq[ColumnId]
+  val separator: Boolean
 }
 
 object BasicColumnInformation {
@@ -47,7 +48,8 @@ object BasicColumnInformation {
                            ordering,
                            createColumn.identifier,
                            displayInfos,
-                           Seq.empty)
+                           Seq.empty,
+                           createColumn.separator)
   }
 }
 
@@ -58,7 +60,8 @@ case class BasicColumnInformation(
     override val ordering: Ordering,
     override val identifier: Boolean,
     override val displayInfos: Seq[DisplayInfo],
-    override val groupColumnIds: Seq[ColumnId]
+    override val groupColumnIds: Seq[ColumnId],
+    override val separator: Boolean
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -74,6 +77,7 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
 
   // ConcatColumn can't be grouped
   override val groupColumnIds: Seq[ColumnId] = Seq.empty
+  override val separator: Boolean = false;
 }
 
 object ColumnType {
@@ -174,6 +178,8 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   final val identifier: Boolean = columnInformation.identifier
 
+  val separator: Boolean = columnInformation.separator
+
   protected[this] implicit def requestContext: RequestContext
   protected[this] implicit def roleModel: RoleModel
 
@@ -190,7 +196,8 @@ sealed trait ColumnType[+A] extends DomainObject {
       "multilanguage" -> multilanguage,
       "identifier" -> identifier,
       "displayName" -> Json.obj(),
-      "description" -> Json.obj()
+      "description" -> Json.obj(),
+      "separator" -> separator
     )
 
     languageType match {
