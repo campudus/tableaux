@@ -157,12 +157,13 @@ class CachedColumnModel(
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
-      countryCodes: Option[Seq[String]]
+      countryCodes: Option[Seq[String]],
+      separator: Option[Boolean]
   ): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super
-        .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
+        .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator)
     } yield r
   }
 }
@@ -720,6 +721,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     for {
       result <- connection.query(select, Json.arr(table.id, columnId))
       row = selectNotNull(result).head
+      stuff = println(result)
 
       mappedColumn <- mapRowResultToColumnType(table, row, depth).flatMap({
         case g: GroupColumn =>
@@ -791,6 +793,7 @@ class ColumnModel(val connection: DatabaseConnection)(
        |  ordering,
        |  multilanguage,
        |  identifier,
+       |  separator,
        |  array_to_json(country_codes),
        |  (
        |    SELECT json_agg(group_column_id) FROM system_column_groups
@@ -888,6 +891,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def mapRowResultToColumnType(table: Table, row: JsonArray, depth: Int): Future[ColumnType[_]] = {
+    println(row)
     val columnId = row.get[ColumnId](0)
     val columnName = row.get[String](1)
     val kind = TableauxDbType(row.get[String](2))
@@ -899,18 +903,18 @@ class ColumnModel(val connection: DatabaseConnection)(
       case LanguageNeutral => LanguageNeutral
       case MultiLanguage => MultiLanguage
       case c: MultiCountry =>
-        val codes = Option(row.get[String](6))
+        val codes = Option(row.get[String](7))
           .map(str => Json.fromArrayString(str).asScala.map({ case code: String => code }).toSeq)
           .getOrElse(Seq.empty[String])
 
         MultiCountry(CountryCodes(codes))
     }
 
-    val groupColumnIds = Option(row.get[String](7))
+    val groupColumnIds = Option(row.get[String](8))
       .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
       .getOrElse(Seq.empty[ColumnId])
 
-    val formatPattern = Option(row.get[String](8))
+    val formatPattern = Option(row.get[String](9))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
@@ -1171,7 +1175,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
-      countryCodes: Option[Seq[String]]
+      countryCodes: Option[Seq[String]],
+      separator: Option[Boolean]
   ): Future[ColumnType[_]] = {
     val tableId = table.id
 
@@ -1212,6 +1217,15 @@ class ColumnModel(val connection: DatabaseConnection)(
           }
         }
       )
+      (t, resultSeparator) <- optionToValidFuture(
+        separator,
+        t, { sep: Boolean =>
+          {
+            t.query(s"UPDATE system_columns SET separator = ? WHERE table_id = ? AND column_id = ?",
+                    Json.arr(sep, tableId, columnId))
+          }
+        }
+      )
       (t, resultCountryCodes) <- optionToValidFuture(
         countryCodes,
         t, { codes: Seq[String] =>
@@ -1236,7 +1250,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
       ).recoverWith(t.rollbackAndFail())
 
-      _ <- Future(checkUpdateResults(resultName, resultOrdering, resultKind, resultIdentifier, resultCountryCodes))
+      _ <- Future(checkUpdateResults(resultName, resultOrdering, resultKind, resultIdentifier, resultCountryCodes, resultSeparator))
         .recoverWith(t.rollbackAndFail())
 
       _ <- t.commit()
