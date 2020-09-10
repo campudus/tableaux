@@ -35,8 +35,8 @@ class KeycloakAuthHandler(
         throw exception
     }
 
-    checkAudience(context, principal)
-    checkIssuer(context, principal)
+    // checkAudience(context, principal)
+    // checkIssuer(context, principal)
 
     requestContext.principal = principal
 
@@ -44,32 +44,32 @@ class KeycloakAuthHandler(
     context.next()
   }
 
-  private def checkAudience(context: RoutingContext, principal: JsonObject): Unit = {
-    val audiences: Seq[String] = principal.getValue("aud") match {
-      case s: String => Seq(s)
-      case o: JsonArray => o.asScala.map({ case item: String => item }).toSeq
-    }
+  // private def checkAudience(context: RoutingContext, principal: JsonObject): Unit = {
+  //   val audiences: Seq[String] = principal.getValue("aud") match {
+  //     case s: String => Seq(s)
+  //     case o: JsonArray => o.asScala.map({ case item: String => item }).toSeq
+  //   }
 
-    if (!audiences.contains(getAudience)) {
-      val exception = AuthenticationException(
-        s"Audiences $audiences of the request doesn't contain configured service audience (resource) '$getAudience'")
-      logger.error(exception.getMessage)
-      context.fail(exception.statusCode, exception)
-      throw exception
-    }
-  }
+  //   if (!audiences.contains(getAudience)) {
+  //     val exception = AuthenticationException(
+  //       s"Audiences $audiences of the request doesn't contain configured service audience (resource) '$getAudience'")
+  //     logger.error(exception.getMessage)
+  //     context.fail(exception.statusCode, exception)
+  //     throw exception
+  //   }
+  // }
 
-  private def checkIssuer(context: RoutingContext, principal: JsonObject): Unit = {
-    val issuer: String = principal.getString("iss", "_invalid_")
+  // private def checkIssuer(context: RoutingContext, principal: JsonObject): Unit = {
+  //   val issuer: String = principal.getString("iss", "_invalid_")
 
-    if (issuer != getIssuer) {
-      val exception = AuthenticationException(
-        s"Issuer '$issuer' of the request doesn't match to configured service issuer '$getIssuer'")
-      logger.error(exception.getMessage)
-      context.fail(exception.statusCode, exception)
-      throw exception
-    }
-  }
+  //   if (issuer != getIssuer) {
+  //     val exception = AuthenticationException(
+  //       s"Issuer '$issuer' of the request doesn't match to configured service issuer '$getIssuer'")
+  //     logger.error(exception.getMessage)
+  //     context.fail(exception.statusCode, exception)
+  //     throw exception
+  //   }
+  // }
 
   def getAudience: String = tableauxConfig.authConfig.getString("resource")
   def getIssuer: String = tableauxConfig.authConfig.getString("issuer")

@@ -316,14 +316,15 @@ class StructureController(
       kind: Option[TableauxDbType],
       identifier: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
-      countryCodes: Option[Seq[String]]
+      countryCodes: Option[Seq[String]],
+      separator: Option[Boolean]
   ): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
       isDefined(
-        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes),
-        "name, ordering, kind, identifier, displayInfos, countryCodes"
+        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator),
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator"
       )
     )
 
@@ -331,7 +332,7 @@ class StructureController(
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
     logger.info(
-      s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier " +
+      s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier separator=$separator" +
         s"displayInfos=$displayInfos, countryCodes=$countryCodes"
     )
 
@@ -347,7 +348,7 @@ class StructureController(
 
       changedColumn <- table.tableType match {
         case GenericTable =>
-          columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes)
+          columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 
