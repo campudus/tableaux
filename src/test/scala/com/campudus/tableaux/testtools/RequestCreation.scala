@@ -63,6 +63,8 @@ object RequestCreation {
 
   case class NumericCol(name: String) extends ColumnType("numeric")
 
+  case class IntegerCol(name: String) extends ColumnType("integer")
+
   case class CurrencyCol(name: String) extends ColumnType("currency")
 
   case class BooleanCol(name: String) extends ColumnType("boolean")
