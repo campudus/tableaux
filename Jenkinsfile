@@ -1,6 +1,7 @@
-IMAGE_NAME = "grud-backend"
+IMAGE_NAME = "campudus/grud-backend"
 DEPLOY_DIR = 'build/libs'
-ARCHIVE_FILENAME_DOCKER="${IMAGE_NAME}-docker.tar.gz"
+LEGACY_ARCHIVE_FILENAME="grud-backend-docker.tar.gz"
+DOCKER_BASE_IMAGE_TAG = "build-${BUILD_NUMBER}"
 
 def slackParams = { GString message, String color ->
   [
@@ -11,8 +12,21 @@ def slackParams = { GString message, String color ->
   ]
 }
 
+def getTriggeringUser = env.BUILD_USER ? env.BUILD_USER : { sh (
+      script: 'git --no-pager show -s --format=%an',
+      returnStdout: true
+    ).trim()
+}
+
 pipeline {
   agent any
+
+  environment {
+    GIT_HASH = sh (
+      script: 'git log -1 --pretty=%h',
+      returnStdout: true
+    ).trim()
+  }
 
   triggers {
     pollSCM('H/5 * * * *')
@@ -48,7 +62,6 @@ pipeline {
 
     stage('Test') {
       steps {
-
         script {
           try {
               configFileProvider([configFile(fileId: 'grud-backend-build', targetLocation: 'conf-test.json')]) {
@@ -63,15 +76,25 @@ pipeline {
 
     stage('Build docker image') {
       steps {
-        sh "docker build -t ${IMAGE_NAME} -f Dockerfile --rm ."
-        sh "docker save ${IMAGE_NAME} | gzip -c > ${DEPLOY_DIR}/${ARCHIVE_FILENAME_DOCKER}"
+        sh "docker build -t ${IMAGE_NAME}:${DOCKER_BASE_IMAGE_TAG}-${GIT_HASH} -t ${IMAGE_NAME}:latest -f Dockerfile --rm ."
+        // Legacy, but needed for some project deployments
+        sh "docker save ${IMAGE_NAME}:latest | gzip -c > ${DEPLOY_DIR}/${LEGACY_ARCHIVE_FILENAME}"
       }
     }
 
     stage('Archive artifacts') {
       steps {
         archiveArtifacts artifacts: "${DEPLOY_DIR}/*-fat.jar", fingerprint: true
-        archiveArtifacts artifacts: "${DEPLOY_DIR}/${ARCHIVE_FILENAME_DOCKER}", fingerprint: true
+        archiveArtifacts artifacts: "${DEPLOY_DIR}/${LEGACY_ARCHIVE_FILENAME}", fingerprint: true
+      }
+    }
+
+    stage('Push to docker registry') {
+      steps {
+        withDockerRegistry([ credentialsId: "dockerhub", url: "" ]) {
+          sh "docker push ${IMAGE_NAME}:${DOCKER_BASE_IMAGE_TAG}-${GIT_HASH}"
+          sh "docker push ${IMAGE_NAME}:latest"
+        }
       }
     }
   }
@@ -81,7 +104,8 @@ pipeline {
       wrap([$class: 'BuildUser']) {
         script {
           sh "echo successful"
-          slackSend(slackParams("Build successful: ${env.JOB_NAME} @ ${env.BUILD_NUMBER} (${BUILD_USER})", "good"))
+          slackSend(slackParams("""Build successful: <${BUILD_URL}|${env.JOB_NAME} @ \
+              ${env.BUILD_NUMBER}> (${getTriggeringUser()})""", "good"))
         }
       }
     }
@@ -90,7 +114,8 @@ pipeline {
       wrap([$class: 'BuildUser']) {
         script {
           sh "echo failed"
-          slackSend(slackParams("Build failed: ${env.JOB_NAME} @ ${env.BUILD_NUMBER} (${BUILD_USER})", "danger"))
+          slackSend(slackParams("""Build failed: <${BUILD_URL}|${env.JOB_NAME} @ \
+              ${env.BUILD_NUMBER}> (${getTriggeringUser()})""", "danger"))
         }
       }
     }
