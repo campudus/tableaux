@@ -73,7 +73,6 @@ class StructureController(
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
       sorted = retrieved.sortBy(_.ordering)
     } yield {
-      println(retrieved)
       ColumnSeq(sorted)
     }
   }
