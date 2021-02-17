@@ -630,7 +630,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           val json = getJson(context)
           for {
             updated <- if (json.containsKey("value")) {
-              println(tableId, columnId, rowId, json.getValue("value"))
               controller.replaceCellValue(tableId, columnId, rowId, json.getValue("value"))
             } else {
               Future.failed(InvalidJsonException("request must contain a value", "value_is_missing"))

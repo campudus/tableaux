@@ -214,7 +214,6 @@ class ColumnModel(val connection: DatabaseConnection)(
           createdColumns <- future
           createdColumn <- createColumn(table, next)
         } yield {
-          println("createColumn",Console.BLUE + createdColumn)
           createdColumns :+ createdColumn
         }
     }
@@ -224,7 +223,6 @@ class ColumnModel(val connection: DatabaseConnection)(
 
     def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
       BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
-    println(createColumn)
 
     createColumn match {
       case simpleColumnInfo: CreateSimpleColumn =>
@@ -324,7 +322,6 @@ class ColumnModel(val connection: DatabaseConnection)(
             t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
         }
       } yield {
-      println(columnInfo)
         (t, columnInfo)
       }
     }
@@ -435,7 +432,6 @@ class ColumnModel(val connection: DatabaseConnection)(
       linkId: Option[LinkId],
       formatPattern: Option[String]
   ): Future[(connection.Transaction, CreatedColumnInformation)] = {
-    println(createColumn)
 
     def insertStatement(tableId: TableId, ordering: String) = {
       s"""|INSERT INTO system_columns (
@@ -721,7 +717,6 @@ class ColumnModel(val connection: DatabaseConnection)(
     for {
       result <- connection.query(select, Json.arr(table.id, columnId))
       row = selectNotNull(result).head
-      stuff = println(result)
 
       mappedColumn <- mapRowResultToColumnType(table, row, depth).flatMap({
         case g: GroupColumn =>
@@ -891,7 +886,6 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def mapRowResultToColumnType(table: Table, row: JsonArray, depth: Int): Future[ColumnType[_]] = {
-    println(row)
     val columnId = row.get[ColumnId](0)
     val columnName = row.get[String](1)
     val kind = TableauxDbType(row.get[String](2))
