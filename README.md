@@ -25,6 +25,16 @@ Build without running tests:
 ./gradlew clean assemble
 ```
 
+## Tests:
+
+Tests use their own seperate config, named `conf-travis.json` or `conf-test.json`.
+
+Run tests:
+
+```
+./gradlew test
+```
+
 ## Run as fat jar
 
 To execute the **fat jar** call it like this:
