@@ -83,6 +83,26 @@ class FillCellTest extends TableauxTestBase {
   }
 
   @Test
+  def fillSingleIntegerCell(implicit c: TestContext): Unit = okTest {
+    val fillNumberCellJson = Json.obj("value" -> 101)
+
+    val expectedCell = Json.obj("status" -> "ok", "value" -> 101)
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", "/tables/1/rows")
+      test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillNumberCellJson)
+      getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
+    } yield {
+      assertEquals(expectedCell, test)
+      assertEquals(expectedCell, getResult)
+    }
+
+  }
+
+
+  @Test
   def fillNumberCellWithFloatingNumber(implicit c: TestContext): Unit = okTest {
     for {
       (tableId, columnId, rowId) <- createSimpleTableWithCell("table1", NumericCol("num-column"))
