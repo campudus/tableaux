@@ -31,11 +31,13 @@ matrix:
       addons:
         postgresql: '12'
         apt:
-          sources:
-            - sourceline: deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main 12
-              key_url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
           packages:
             - postgresql-12
+      before_install:
+        # https://travis-ci.community/t/test-against-postgres-12/6768/10
+        - sudo sed -i 's/port = 5433/port = 5432/' /etc/postgresql/12/main/postgresql.conf
+        - sudo cp /etc/postgresql/{13,12}/main/pg_hba.conf
+        - sudo pg_ctlcluster 12 main restart
     - name: "Test with postgresql 13"
       dist: focal
       jdk:
