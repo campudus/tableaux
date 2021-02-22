@@ -194,6 +194,7 @@ class CreateColumnTest extends TableauxTestBase {
       }
     }
   }
+
   @Test
   def createIntegerColumn(implicit c: TestContext): Unit = {
     okTest {

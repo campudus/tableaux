@@ -101,7 +101,6 @@ class FillCellTest extends TableauxTestBase {
 
   }
 
-
   @Test
   def fillNumberCellWithFloatingNumber(implicit c: TestContext): Unit = okTest {
     for {

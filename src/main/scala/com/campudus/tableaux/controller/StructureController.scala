@@ -189,7 +189,8 @@ class StructureController(
                            Seq(
                              NameOnly("de", "Bezeichnung"),
                              NameOnly("en", "Identifier")
-                           ),false)
+                           ),
+                           false)
       )
       _ <- columnStruc.createColumn(
         created,
@@ -201,7 +202,8 @@ class StructureController(
                            Seq(
                              NameOnly("de", "Inhalt"),
                              NameOnly("en", "Value")
-                           ),false)
+                           ),
+                           false)
       )
       _ <- columnStruc.createColumn(created,
                                     CreateAttachmentColumn("attachment",
@@ -347,7 +349,8 @@ class StructureController(
 
       changedColumn <- table.tableType match {
         case GenericTable =>
-          columnStruc.change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator)
+          columnStruc
+            .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 

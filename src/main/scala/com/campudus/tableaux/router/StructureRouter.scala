@@ -237,7 +237,15 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
           val (optName, optOrd, optKind, optId, optDisplayInfos, optCountryCodes, optSeparator) =
             toColumnChanges(json)
 
-          controller.changeColumn(tableId, columnId, optName, optOrd, optKind, optId, optDisplayInfos, optCountryCodes,optSeparator)
+          controller.changeColumn(tableId,
+                                  columnId,
+                                  optName,
+                                  optOrd,
+                                  optKind,
+                                  optId,
+                                  optDisplayInfos,
+                                  optCountryCodes,
+                                  optSeparator)
         }
       )
     }
