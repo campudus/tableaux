@@ -18,25 +18,18 @@ matrix:
     - name: "Test with postgresql 9.6"
       addons:
         postgresql: '9.6'
-    - name: "Test with postgresql 10.7"
+    - name: "Test with postgresql 10"
       addons:
-        postgresql: "10.7"
-        apt:
-          packages:
-          - postgresql-10
-          - postgresql-client-10
-      before_install:
-        - sudo cp /etc/postgresql/{9.6,10}/main/pg_hba.conf
-        - sudo /etc/init.d/postgresql restart
-    - name: "Test with postgresql 11.2"
+        postgresql: '10'
+    - name: "Test with postgresql 11"
       addons:
-        postgresql: "11.2"
-      before_install:
-        - sudo apt-get update
-        - sudo apt-get --yes remove postgresql\*
-        - sudo apt-get install -y postgresql-11 postgresql-client-11
-        - sudo cp /etc/postgresql/{9.6,11}/main/pg_hba.conf
-        - sudo service postgresql restart 11
+        postgresql: "11"
+    - name: "Test with postgresql 12"
+      addons:
+        postgresql: "12"
+    - name: "Test with postgresql 13"
+      addons:
+        postgresql: "13"
 install: /bin/true
 before_script:
 - if [ "$DB" = "pgsql" ]; then sudo mount -o remount,size=25% /var/ramfs ; fi
