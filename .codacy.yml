@@ -1,0 +1,21 @@
+---
+engines:
+  scalastyle:
+    enabled: true
+    exclude_paths:
+      - "src/test/**"
+  codacy-scalameta-pro:
+    enabled: true
+    exclude_paths:
+      - "src/test/**"
+  coverage:
+    enabled: true
+  metrics:
+    enabled: true
+  duplication:
+    enabled: true
+
+
+exclude_paths:
+  - "build/**"
+  - .git/**
