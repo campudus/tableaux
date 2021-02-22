@@ -153,4 +153,20 @@ class ChangeStructureTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def changeSeparatorFlagValue(implicit c: TestContext): Unit = okTest {
+    val postJson = Json.obj("separator" -> false)
+    val expectedSeparatorValue = false
+
+    for {
+      _ <- createDefaultTable()
+      resultPost <- sendRequest("POST", "/tables/1/columns/2", postJson)
+      resultGet <- sendRequest("GET", "/tables/1/columns/2")
+    } yield {
+      assertEquals(expectedSeparatorValue, resultGet.getBoolean("separator"))
+      assertEquals(resultPost, resultGet)
+    }
+  }
+
 }
