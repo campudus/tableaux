@@ -1,4 +1,4 @@
-# Tableaux [![Build Status](https://travis-ci.org/campudus/tableaux.svg?branch=master)](https://travis-ci.org/campudus/tableaux) [![Coverage Status](https://coveralls.io/repos/campudus/tableaux/badge.svg?branch=master&service=github)](https://coveralls.io/github/campudus/tableaux?branch=master) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/86e7fdd23bc1405e84ae2950b772e309)](https://www.codacy.com/app/Campudus/tableaux?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=campudus/tableaux&amp;utm_campaign=Badge_Grade)
+# Tableaux [![Build Status](https://travis-ci.com/campudus/tableaux.svg?branch=master)](https://travis-ci.com/campudus/tableaux) [![Coverage Status](https://coveralls.io/repos/campudus/tableaux/badge.svg?branch=master&service=github)](https://coveralls.io/github/campudus/tableaux?branch=master) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/07e1410aa5404dd29eaa0b569d55a6de)](https://www.codacy.com/gh/campudus/tableaux/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=campudus/tableaux&amp;utm_campaign=Badge_Grade)
 
 Tableaux (pronounced /ta.blo/) is a restful service for storing data in tables. These tables can have links between them.
 
@@ -62,13 +62,13 @@ or with automatic redeploy on code changes
 ## License
 
     Copyright 2016-present Campudus GmbH.
-    
+
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
-    
+
         http://www.apache.org/licenses/LICENSE-2.0
-    
+
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
