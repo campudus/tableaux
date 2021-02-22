@@ -9,15 +9,15 @@ cache:
   - $HOME/.gradle
 matrix:
   include:
-    - name: "Test with postgresql 9.4"
-      addons:
-        postgresql: '9.4'
-    - name: "Test with postgresql 9.5"
-      addons:
-        postgresql: '9.5'
-    - name: "Test with postgresql 9.6"
-      addons:
-        postgresql: '9.6'
+    # - name: "Test with postgresql 9.4"
+    #   addons:
+    #     postgresql: '9.4'
+    # - name: "Test with postgresql 9.5"
+    #   addons:
+    #     postgresql: '9.5'
+    # - name: "Test with postgresql 9.6"
+    #   addons:
+    #     postgresql: '9.6'
     - name: "Test with postgresql 10"
       addons:
         postgresql: '10'
@@ -31,10 +31,11 @@ matrix:
       addons:
         postgresql: '12'
         apt:
+          sources:
+            - sourceline: deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main 12
+              key_url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
           packages:
             - postgresql-12
-      env:
-        - PGPORT=5433
     - name: "Test with postgresql 13"
       dist: focal
       jdk:
