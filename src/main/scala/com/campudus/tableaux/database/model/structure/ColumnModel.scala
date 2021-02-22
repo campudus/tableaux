@@ -1244,7 +1244,13 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
       ).recoverWith(t.rollbackAndFail())
 
-      _ <- Future(checkUpdateResults(resultName, resultOrdering, resultKind, resultIdentifier, resultCountryCodes, resultSeparator))
+      _ <- Future(
+        checkUpdateResults(resultName,
+                           resultOrdering,
+                           resultKind,
+                           resultIdentifier,
+                           resultCountryCodes,
+                           resultSeparator))
         .recoverWith(t.rollbackAndFail())
 
       _ <- t.commit()
