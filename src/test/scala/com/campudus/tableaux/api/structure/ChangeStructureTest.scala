@@ -156,8 +156,8 @@ class ChangeStructureTest extends TableauxTestBase {
 
   @Test
   def changeSeparatorFlagValue(implicit c: TestContext): Unit = okTest {
-    val postJson = Json.obj("separator" -> false)
-    val expectedSeparatorValue = false
+    val postJson = Json.obj("separator" -> true)
+    val expectedSeparatorValue = true
 
     for {
       _ <- createDefaultTable()

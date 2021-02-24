@@ -1,2 +1,2 @@
 ALTER TABLE system_columns
-  ADD COLUMN separator BOOLEAN;
+  ADD COLUMN separator BOOLEAN DEFAULT 'FALSE' NOT NULL;
