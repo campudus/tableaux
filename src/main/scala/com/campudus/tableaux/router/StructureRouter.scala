@@ -3,11 +3,12 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
-import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
+import com.campudus.tableaux.{InvalidJsonException,WrongJsonTypeException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
+import scala.util.{Try,Success,Failure}
 
 object StructureRouter {
 
@@ -135,7 +136,10 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         val hidden = json.getBoolean("hidden", false).booleanValue()
         val displayInfos = DisplayInfos.fromJson(json)
         val tableType = TableType(json.getString("type", GenericTable.NAME))
-        val attributes = Option(json.getJsonObject("attributes"))
+          val attributes = Try(json.getJsonObject("attributes")) match {
+            case Success(value) => Option(value)
+            case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+          }
 
         // if contains than user wants langtags to be set
         // but then langtags could be null so that's the second option
@@ -185,7 +189,10 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             case Nil => None
             case list => Some(list)
           }
-          val attributes = Option(json.getJsonObject("attributes"))
+          val attributes = Try(json.getJsonObject("attributes")) match {
+            case Success(value) => Option(value)
+            case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+          }
 
           // if contains than user wants langtags to be set
           // but then langtags could be null so that's the second option

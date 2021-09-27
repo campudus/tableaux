@@ -98,6 +98,11 @@ case class ShouldBeUniqueException(override val message: String, subId: String) 
   override val statusCode = 400
 }
 
+case class WrongJsonTypeException(override val message: String) extends CustomException {
+  override val id = s"error.request.json.wrongtype"
+  override val statusCode = 400
+}
+
 case class WrongColumnKindException[T <: ColumnType[_]](column: ColumnType[_], shouldBe: Class[T])
     extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
