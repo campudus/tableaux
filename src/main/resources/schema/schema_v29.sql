@@ -1,2 +1,2 @@
 ALTER TABLE system_table
-  ADD COLUMN attributes json;
+  ADD COLUMN attributes json NOT NULL DEFAULT '{}';
