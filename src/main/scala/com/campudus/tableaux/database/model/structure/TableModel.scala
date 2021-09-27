@@ -27,7 +27,8 @@ class TableModel(val connection: DatabaseConnection)(
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
       tableType: TableType,
-      tableGroupIdOpt: Option[TableGroupId]
+      tableGroupIdOpt: Option[TableGroupId],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
     connection.transactional { t =>
       {
@@ -45,13 +46,18 @@ class TableModel(val connection: DatabaseConnection)(
 
           (t, result) <- t
             .query(
-              s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id) VALUES (?, ?, ?, ?, ?) RETURNING table_id",
+              s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id, attributes) VALUES (?, ?, ?, ?, ?, ?) RETURNING table_id",
               Json
                 .arr(name,
                      hidden,
                      langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull,
                      tableType.NAME,
-                     tableGroupIdOpt.orNull)
+                     tableGroupIdOpt.orNull,
+                     attributes match {
+                       case Some(obj) => obj.encode()
+                       case None => null
+                     }
+                     )
             )
           id = insertNotNull(result).head.get[TableId](0)
 
@@ -82,7 +88,9 @@ class TableModel(val connection: DatabaseConnection)(
                  Option(langtags.flatten.getOrElse(defaultLangtags)),
                  displayInfos,
                  tableType,
-                 tableGroup))
+                 tableGroup,
+                 attributes
+                 ))
       }
     }
   }
@@ -186,7 +194,7 @@ class TableModel(val connection: DatabaseConnection)(
       t <- connection.begin()
 
       (t, tableResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id FROM system_table WHERE table_id = ?",
+        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes FROM system_table WHERE table_id = ?",
         Json.arr(tableId))
       (t, displayInfoResult) <- t.query(
         "SELECT table_id, langtag, name, description FROM system_table_lang WHERE table_id = ?",
@@ -267,7 +275,8 @@ class TableModel(val connection: DatabaseConnection)(
           .getOrElse(defaultLangtags)),
       List(),
       TableType(row.getString(4)),
-      Option(row.getLong(5)).map(_.longValue()).flatMap(tableGroups.get)
+      Option(row.getLong(5)).map(_.longValue()).flatMap(tableGroups.get),
+      Option(row.getString(6)).map(jsonString => new JsonObject(jsonString))
     )
   }
 

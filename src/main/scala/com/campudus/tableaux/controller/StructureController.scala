@@ -16,6 +16,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
+import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 
@@ -139,14 +140,15 @@ class StructureController(
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
       tableType: TableType,
-      tableGroupId: Option[TableGroupId]
+      tableGroupId: Option[TableGroupId],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
     logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
 
     tableType match {
-      case SettingsTable => createSettingsTable(tableName, hidden, langtags, displayInfos, tableGroupId)
-      case _ => createGenericTable(tableName, hidden, langtags, displayInfos, tableGroupId)
+      case SettingsTable => createSettingsTable(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+      case _ => createGenericTable(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
     }
   }
 
@@ -155,11 +157,12 @@ class StructureController(
       hidden: Boolean,
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
-      tableGroupId: Option[TableGroupId]
+      tableGroupId: Option[TableGroupId],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId)
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId, attributes)
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
   }
@@ -169,11 +172,12 @@ class StructureController(
       hidden: Boolean,
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
-      tableGroupId: Option[TableGroupId]
+      tableGroupId: Option[TableGroupId],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId)
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId, attributes)
 
       _ <- columnStruc.createColumn(
         created,

@@ -296,7 +296,7 @@ object JsonUtils extends LazyLogging {
         Try(Json.fromObjectString(jsonString)) match {
           case Success(json) => json
           case Failure(_) =>
-            logger.error(s"Couldn't parse json. Excepted JSON but got: $jsonString")
+            logger.error(s"Couldn't parse json. Expected JSON but got: $jsonString")
             Json.emptyObj()
         }
       case None => Json.emptyObj()

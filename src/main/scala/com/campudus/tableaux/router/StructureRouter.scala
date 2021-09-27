@@ -135,6 +135,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         val hidden = json.getBoolean("hidden", false).booleanValue()
         val displayInfos = DisplayInfos.fromJson(json)
         val tableType = TableType(json.getString("type", GenericTable.NAME))
+        val attributes = Option(json.getJsonObject("attributes"))
 
         // if contains than user wants langtags to be set
         // but then langtags could be null so that's the second option
@@ -151,7 +152,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
           Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq)
         )
         val tableGroupId = booleanToValueOption(json.containsKey("group"), json.getLong("group")).map(_.toLong)
-        controller.createTable(name, hidden, langtags, displayInfos, tableType, tableGroupId)
+        controller.createTable(name, hidden, langtags, displayInfos, tableType, tableGroupId, attributes)
       }
     )
   }
