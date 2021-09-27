@@ -305,7 +305,8 @@ class TableModel(val connection: DatabaseConnection)(
       hidden: Option[Boolean],
       langtags: Option[Option[Seq[String]]],
       displayInfos: Option[Seq[DisplayInfo]],
-      tableGroupId: Option[Option[TableGroupId]]
+      tableGroupId: Option[Option[TableGroupId]],
+      attributes: Option[JsonObject]
   ): Future[Unit] = {
     for {
       t <- connection.begin()
@@ -355,10 +356,18 @@ class TableModel(val connection: DatabaseConnection)(
           }
         }
       )
+      (t, result5) <- optionToValidFuture(
+        attributes,
+        t, { attributes: JsonObject =>
+          {
+            t.query(s"UPDATE system_table SET attributes = ? WHERE table_id = ?", Json.arr(attributes.encode(), tableId))
+          }
+        }
+      )
 
       t <- insertOrUpdateTableDisplayInfo(t, tableId, displayInfos)
 
-      _ <- Future(checkUpdateResults(result1, result2, result3, result4)) recoverWith t.rollbackAndFail()
+      _ <- Future(checkUpdateResults(result1, result2, result3, result4, result5)) recoverWith t.rollbackAndFail()
 
       _ <- t.commit()
     } yield ()

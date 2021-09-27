@@ -276,10 +276,11 @@ class StructureController(
       hidden: Option[Boolean],
       langtags: Option[Option[Seq[String]]],
       displayInfos: Option[Seq[DisplayInfo]],
-      tableGroupId: Option[Option[TableGroupId]]
+      tableGroupId: Option[Option[TableGroupId]],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
     checkArguments(greaterZero(tableId),
-                   isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId),
+                   isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId, attributes),
                              "name, hidden, langtags, displayName, description, group"))
 
     val structureProperties: Seq[Option[Any]] = Seq(tableName, hidden, langtags, tableGroupId)
@@ -294,7 +295,7 @@ class StructureController(
       } else {
         roleModel.checkAuthorization(EditDisplayProperty, ScopeTable, ComparisonObjects(table))
       }
-      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId)
+      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
       changedTable <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $changedTable")

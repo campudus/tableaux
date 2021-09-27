@@ -185,6 +185,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             case Nil => None
             case list => Some(list)
           }
+          val attributes = Option(json.getJsonObject("attributes"))
 
           // if contains than user wants langtags to be set
           // but then langtags could be null so that's the second option
@@ -206,7 +207,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             Option(json.getLong("group")).map(_.toLong)
           )
 
-          controller.changeTable(tableId, name, hidden, langtags, displayInfos, tableGroupId)
+          controller.changeTable(tableId, name, hidden, langtags, displayInfos, tableGroupId, attributes)
         }
       )
     }
