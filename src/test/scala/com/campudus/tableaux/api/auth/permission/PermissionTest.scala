@@ -17,7 +17,7 @@ class PermissionTest {
       hidden: Boolean = false,
       tableType: TableType = GenericTable,
       tableGroupOpt: Option[TableGroup] = None
-  ): Table = Table(id, name, hidden, null, null, tableType, tableGroupOpt)
+  ): Table = Table(id, name, hidden, null, null, tableType, tableGroupOpt, None)
 
   private def createSimpleColumn(
       id: Long = 1,
@@ -60,7 +60,7 @@ class PermissionTest {
   @Test
   def isMatching_tablePermissionRegexAll_returnsTrue(): Unit = {
 
-    val table = Table(1, "table", hidden = false, null, null, null, null)
+    val table = Table(1, "table", hidden = false, null, null, null, null, None)
 
     val permission: Permission = Permission(defaultPermissionJson)
     Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table)))

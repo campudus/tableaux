@@ -152,7 +152,8 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                       langtags = None,
                                       displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
                                       tableType = GenericTable,
-                                      tableGroupId = None)
+                                      tableGroupId = None,
+                                      attributes = None)
     } yield {
       assertEquals(1: Long, table.id)
       assertEquals("TestTable", table.name)
@@ -171,7 +172,8 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                     langtags = None,
                                     displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
                                     tableType = GenericTable,
-                                    tableGroupId = None)
+                                    tableGroupId = None,
+                                    attributes = None)
       } yield ()
     }
 
@@ -194,7 +196,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
     for {
       tableId <- createDefaultTable("Test")
 
-      _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None)
+      _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None, None)
     } yield ()
   }
 
@@ -206,7 +208,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
 
       for {
         tableId <- createDefaultTable("Test")
-        _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None)
+        _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None, None)
       } yield ()
     }
 
@@ -227,7 +229,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
 
     for {
       tableId <- createDefaultTable("Test")
-      _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None)
+      _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None, None)
     } yield ()
   }
 
@@ -250,7 +252,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
       for {
         tableId <- createDefaultTable("Test")
 
-        _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None)
+        _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None, None)
       } yield ()
     }
 

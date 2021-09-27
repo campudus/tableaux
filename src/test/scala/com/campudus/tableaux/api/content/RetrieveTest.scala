@@ -38,6 +38,7 @@ class RetrieveTest extends TableauxTestBase {
         "limit" -> null,
         "totalSize" -> 0
       ),
+      "attributes" -> Json.obj(),
       "rows" -> Json.arr(),
       "langtags" -> Json.arr("de-DE", "en-GB"),
       "permission" -> Json.obj(
@@ -55,6 +56,7 @@ class RetrieveTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables", createTableJson)
       test <- sendRequest("GET", "/completetable/1")
     } yield {
+      println(test.encode(), test)
       assertJSONEquals(expectedJson, test, JSONCompareMode.STRICT)
     }
   }

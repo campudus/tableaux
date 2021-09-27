@@ -100,7 +100,7 @@ class ArgumentCheckerTest {
       fail("Should throw an exception")
     } catch {
       case ex: IllegalArgumentException =>
-        assertEquals("(0) Non of these options has a (valid) value. ()", ex.getMessage)
+        assertEquals("(0) None of these options has a (valid) value. ()", ex.getMessage)
       case _: Throwable => fail(s"Should throw an IllegalArgumentException")
     }
   }
@@ -112,7 +112,7 @@ class ArgumentCheckerTest {
       fail("Should throw an exception")
     } catch {
       case ex: IllegalArgumentException =>
-        assertEquals("(0) Non of these options has a (valid) value. (value1, value2, value3)", ex.getMessage)
+        assertEquals("(0) None of these options has a (valid) value. (value1, value2, value3)", ex.getMessage)
       case _: Throwable => fail(s"Should throw an IllegalArgumentException")
     }
   }
@@ -165,7 +165,7 @@ class ArgumentCheckerTest {
 
     assertEquals(
       FailArg(InvalidJsonException(
-        "Warning: no_string should be another type. Error: java.lang.Integer cannot be cast to java.lang.CharSequence",
+        "Warning: no_string should be another type. Error: class java.lang.Integer cannot be cast to class java.lang.CharSequence (java.lang.Integer and java.lang.CharSequence are in module java.base of loader 'bootstrap')",
         "invalid")),
       hasString("no_string", json)
     )
@@ -173,7 +173,7 @@ class ArgumentCheckerTest {
     assertEquals(
       FailArg(
         InvalidJsonException(
-          "Warning: no_array should be another type. Error: java.lang.String cannot be cast to io.vertx.core.json.JsonArray",
+          "Warning: no_array should be another type. Error: class java.lang.String cannot be cast to class io.vertx.core.json.JsonArray (java.lang.String is in module java.base of loader 'bootstrap'; io.vertx.core.json.JsonArray is in unnamed module of loader 'app')",
           "invalid")),
       hasArray("no_array", json)
     )
@@ -181,7 +181,7 @@ class ArgumentCheckerTest {
     assertEquals(
       FailArg(
         InvalidJsonException(
-          "Warning: no_long should be another type. Error: java.lang.String cannot be cast to java.lang.Number",
+          "Warning: no_long should be another type. Error: class java.lang.String cannot be cast to class java.lang.Number (java.lang.String and java.lang.Number are in module java.base of loader 'bootstrap')",
           "invalid")),
       hasLong("no_long", json)
     )
