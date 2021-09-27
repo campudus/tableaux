@@ -55,7 +55,7 @@ class TableModel(val connection: DatabaseConnection)(
                      tableGroupIdOpt.orNull,
                      attributes match {
                        case Some(obj) => obj.encode()
-                       case None => null
+                       case None => "{}"
                      }
                      )
             )
@@ -221,7 +221,7 @@ class TableModel(val connection: DatabaseConnection)(
       t <- connection.begin()
 
       (t, tablesResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id FROM system_table ORDER BY ordering, table_id")
+        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes FROM system_table ORDER BY ordering, table_id")
       (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
 
       _ <- t.commit()
