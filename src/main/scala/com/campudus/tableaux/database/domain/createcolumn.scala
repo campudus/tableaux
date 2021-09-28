@@ -1,4 +1,5 @@
 package com.campudus.tableaux.database.domain
+import org.vertx.scala.core.json._
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -11,6 +12,7 @@ sealed trait CreateColumn {
   val identifier: Boolean
   val displayInfos: Seq[DisplayInfo]
   val separator: Boolean
+  val attributes: Option[JsonObject]
 }
 
 case class CreateSimpleColumn(override val name: String,
@@ -19,7 +21,8 @@ case class CreateSimpleColumn(override val name: String,
                               override val languageType: LanguageType,
                               override val identifier: Boolean,
                               override val displayInfos: Seq[DisplayInfo],
-                              override val separator: Boolean)
+                              override val separator: Boolean,
+                              override val attributes: Option[JsonObject])
     extends CreateColumn
 
 case class CreateBackLinkColumn(
@@ -38,7 +41,8 @@ object CreateLinkColumn {
             singleDirection: Boolean,
             identifier: Boolean,
             displayInfos: Seq[DisplayInfo],
-            constraint: Constraint): CreateLinkColumn = {
+            constraint: Constraint,
+            attributes: Option[JsonObject]): CreateLinkColumn = {
     val createBackLinkColumn = CreateBackLinkColumn(
       name = toName,
       displayInfos = toDisplayInfos,
@@ -53,7 +57,8 @@ object CreateLinkColumn {
       identifier,
       displayInfos,
       constraint,
-      createBackLinkColumn
+      createBackLinkColumn,
+      attributes
     )
   }
 }
@@ -65,7 +70,8 @@ case class CreateLinkColumn(override val name: String,
                             override val identifier: Boolean,
                             override val displayInfos: Seq[DisplayInfo],
                             constraint: Constraint,
-                            foreignLinkColumn: CreateBackLinkColumn)
+                            foreignLinkColumn: CreateBackLinkColumn,
+                            override val attributes: Option[JsonObject])
     extends CreateColumn {
   override val kind: LinkType.type = LinkType
   override val languageType: LanguageNeutral.type = LanguageNeutral
@@ -75,7 +81,9 @@ case class CreateLinkColumn(override val name: String,
 case class CreateAttachmentColumn(override val name: String,
                                   override val ordering: Option[Ordering],
                                   override val identifier: Boolean,
-                                  override val displayInfos: Seq[DisplayInfo])
+                                  override val displayInfos: Seq[DisplayInfo],
+                                  override val attributes: Option[JsonObject]
+                                  )
     extends CreateColumn {
   override val kind: AttachmentType.type = AttachmentType
   override val languageType: LanguageNeutral.type = LanguageNeutral
@@ -87,7 +95,9 @@ case class CreateGroupColumn(override val name: String,
                              override val identifier: Boolean,
                              formatPattern: Option[String],
                              override val displayInfos: Seq[DisplayInfo],
-                             groups: Seq[ColumnId])
+                             groups: Seq[ColumnId],
+                             override val attributes: Option[JsonObject]
+                             )
     extends CreateColumn {
   override val kind: TableauxDbType = GroupType
   override val languageType: LanguageType = LanguageNeutral

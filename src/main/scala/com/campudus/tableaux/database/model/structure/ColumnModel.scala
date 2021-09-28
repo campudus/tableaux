@@ -158,12 +158,13 @@ class CachedColumnModel(
       identifier: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]],
-      separator: Option[Boolean]
+      separator: Option[Boolean],
+      attributes: Option[JsonObject],
   ): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super
-        .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator)
+        .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes)
     } yield r
   }
 }
@@ -445,9 +446,10 @@ class ColumnModel(val connection: DatabaseConnection)(
           | identifier,
           | format_pattern,
           | country_codes,
-          | separator
+          | separator,
+          | attributes
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -456,6 +458,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       case MultiCountry(codes) => Some(codes.codes)
       case _ => None
     }
+
+          val attributes = createColumn.attributes.map(atts => atts.encode()).getOrElse("{}")
 
     def insertColumn(t: connection.Transaction): Future[(connection.Transaction, CreatedColumnInformation)] = {
       for {
@@ -484,7 +488,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.identifier,
                 formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull,
-                createColumn.separator
+                createColumn.separator,
+                attributes
               )
             )
           case Some(ord) =>
@@ -500,7 +505,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.identifier,
                 formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull,
-                createColumn.separator
+                createColumn.separator,
+                attributes
               )
             )
         }
@@ -703,6 +709,7 @@ class ColumnModel(val connection: DatabaseConnection)(
          |  multilanguage,
          |  identifier,
          |  separator,
+         |  attributes,
          |  array_to_json(country_codes),
          |  (
          |    SELECT json_agg(group_column_id) FROM system_column_groups
@@ -789,6 +796,7 @@ class ColumnModel(val connection: DatabaseConnection)(
        |  multilanguage,
        |  identifier,
        |  separator,
+       |  attributes,
        |  array_to_json(country_codes),
        |  (
        |    SELECT json_agg(group_column_id) FROM system_column_groups
@@ -892,19 +900,20 @@ class ColumnModel(val connection: DatabaseConnection)(
     val ordering = row.get[Ordering](3)
     val identifier = row.get[Boolean](5)
     val separator = row.get[Boolean](6)
+    val attributes = new JsonObject(row.get[String](7))
 
     val languageType = LanguageType(Option(row.get[String](4))) match {
       case LanguageNeutral => LanguageNeutral
       case MultiLanguage => MultiLanguage
       case c: MultiCountry =>
-        val codes = Option(row.get[String](7))
+        val codes = Option(row.get[String](8))
           .map(str => Json.fromArrayString(str).asScala.map({ case code: String => code }).toSeq)
           .getOrElse(Seq.empty[String])
 
         MultiCountry(CountryCodes(codes))
     }
 
-    val groupColumnIds = Option(row.get[String](8))
+    val groupColumnIds = Option(row.get[String](9))
       .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
       .getOrElse(Seq.empty[ColumnId])
 
@@ -921,7 +930,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         identifier,
         displayInfoSeq,
         groupColumnIds,
-        separator
+        separator,
+        attributes
       )
 
       column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern)
@@ -1170,7 +1180,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       identifier: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]],
-      separator: Option[Boolean]
+      separator: Option[Boolean],
+      attributes: Option[JsonObject]
   ): Future[ColumnType[_]] = {
     val tableId = table.id
 
@@ -1220,6 +1231,15 @@ class ColumnModel(val connection: DatabaseConnection)(
           }
         }
       )
+      (t, resultAttributes) <- optionToValidFuture(
+        attributes,
+        t, { att: JsonObject =>
+          {
+            t.query(s"UPDATE system_columns SET attributes = ? WHERE table_id = ? AND column_id = ?",
+                    Json.arr(att.encode(), tableId, columnId))
+          }
+        }
+      )
       (t, resultCountryCodes) <- optionToValidFuture(
         countryCodes,
         t, { codes: Seq[String] =>
@@ -1250,7 +1270,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                            resultKind,
                            resultIdentifier,
                            resultCountryCodes,
-                           resultSeparator))
+                           resultSeparator,
+                           resultAttributes))
         .recoverWith(t.rollbackAndFail())
 
       _ <- t.commit()

@@ -181,7 +181,7 @@ class StructureController(
 
       _ <- columnStruc.createColumn(
         created,
-        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty, false)
+        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty, false, Option(new JsonObject("{}")))
       )
       _ <- columnStruc.createColumn(
         created,
@@ -194,7 +194,7 @@ class StructureController(
                              NameOnly("de", "Bezeichnung"),
                              NameOnly("en", "Identifier")
                            ),
-                           false)
+                           false,Option(new JsonObject("{}")))
       )
       _ <- columnStruc.createColumn(
         created,
@@ -207,7 +207,7 @@ class StructureController(
                              NameOnly("de", "Inhalt"),
                              NameOnly("en", "Value")
                            ),
-                           false)
+                           false,Option(new JsonObject("{}")))
       )
       _ <- columnStruc.createColumn(created,
                                     CreateAttachmentColumn("attachment",
@@ -216,7 +216,7 @@ class StructureController(
                                                            Seq(
                                                              NameOnly("de", "Anhang"),
                                                              NameOnly("en", "Attachment")
-                                                           )))
+                                                           ),attributes))
 
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
@@ -323,14 +323,15 @@ class StructureController(
       identifier: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]],
-      separator: Option[Boolean]
+      separator: Option[Boolean],
+      attributes: Option[JsonObject],
   ): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
       isDefined(
-        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator),
-        "name, ordering, kind, identifier, displayInfos, countryCodes, separator"
+        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes),
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes"
       )
     )
 
@@ -355,7 +356,7 @@ class StructureController(
       changedColumn <- table.tableType match {
         case GenericTable =>
           columnStruc
-            .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator)
+            .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 

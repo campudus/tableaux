@@ -130,7 +130,8 @@ class SystemController(
           singleDirection = false,
           identifier = false,
           List(),
-          Constraint(Cardinality(1, 0), deleteCascade = false)
+          Constraint(Cardinality(1, 0), deleteCascade = false),
+          Option(new JsonObject("{}"))
         )
       )
 
