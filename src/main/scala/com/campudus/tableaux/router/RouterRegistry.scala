@@ -10,8 +10,9 @@ import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
-import io.vertx.scala.ext.web.Router
+import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
+import io.vertx.scala.ext.web.handler.CookieHandler
 
 object RouterRegistry extends LazyLogging {
 
@@ -24,9 +25,12 @@ object RouterRegistry extends LazyLogging {
 
     implicit val roleModel: RoleModel = RoleModel(tableauxConfig.rolePermissions, isAuthorization)
 
+
     val mainRouter: Router = Router.router(vertx)
 
     implicit val requestContext: RequestContext = RequestContext()
+    mainRouter.route().handler(CookieHandler.create())
+    mainRouter.route().handler(retrieveCookies)
 
     if (isAuthorization) {
       val keycloakAuthProvider = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
@@ -72,4 +76,11 @@ object RouterRegistry extends LazyLogging {
 
     mainRouter
   }
+
+    private def retrieveCookies(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
+      requestContext.cookies = context.cookies().toSet
+      context.next()
+    }
+
+
 }
