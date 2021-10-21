@@ -25,7 +25,6 @@ object RouterRegistry extends LazyLogging {
 
     implicit val roleModel: RoleModel = RoleModel(tableauxConfig.rolePermissions, isAuthorization)
 
-
     val mainRouter: Router = Router.router(vertx)
 
     implicit val requestContext: RequestContext = RequestContext()
@@ -77,10 +76,9 @@ object RouterRegistry extends LazyLogging {
     mainRouter
   }
 
-    private def retrieveCookies(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
-      requestContext.cookies = context.cookies().toSet
-      context.next()
-    }
-
+  private def retrieveCookies(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
+    requestContext.cookies = context.cookies().toSet
+    context.next()
+  }
 
 }
