@@ -33,7 +33,7 @@ class RequestContext() {
 // field has to be mutable and is only set from RouterRegistry::routes
   var cookies: Set[Cookie] = Set.empty[Cookie] // scalastyle:ignore
 
-  def getCookieValue(name: String, defaultValue: String = "dev"): String = {
+  def getCookieValue(name: String, defaultValue: String): String = {
     cookies.find(_.getName() == name).map(_.getValue()).getOrElse(defaultValue)
   }
 }
