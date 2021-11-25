@@ -351,7 +351,7 @@ class CreateColumnTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
+            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           ),
           Json.obj(
@@ -362,7 +362,7 @@ class CreateColumnTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
+            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           )
         )
@@ -394,7 +394,7 @@ class CreateColumnTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
+            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           ),
           Json.obj(
@@ -405,7 +405,7 @@ class CreateColumnTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
+            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           )
         )
@@ -419,48 +419,5 @@ class CreateColumnTest extends TableauxTestBase {
       }
     }
   }
-  def createMultipleColumnsWithAttributes(implicit c: TestContext): Unit = {
-    okTest {
-      val attributeObject = Json.obj("arrayAttribute" -> Json.arr("test",2, Json.obj("arrayObj" -> "test")), "numberAttribute" -> 42, "stringAttribute" -> "DONT PANIC", "objAttribute" -> Json.obj("objObjAttribute" -> "test"))
 
-      val jsonObj = Json.obj(
-        "columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "ordering" -> 2, "attributes" -> attributeObject),
-          Json.obj("kind" -> "text", "name" -> "Test Column 2", "ordering" -> 1, "attributes" -> attributeObject)))
-
-      val expectedJson = Json.obj(
-        "status" -> "ok",
-        "columns" -> Json.arr(
-          Json.obj(
-            "id" -> 2,
-            "ordering" -> 1,
-            "kind" -> "text",
-            "name" -> "Test Column 2",
-            "multilanguage" -> false,
-            "identifier" -> false,
-            "displayName" -> Json.obj(),
-            "attributes" -> attributeObject,
-            "description" -> Json.obj()
-          ),
-          Json.obj(
-            "id" -> 1,
-            "ordering" -> 2,
-            "kind" -> "numeric",
-            "name" -> "Test Column 1",
-            "multilanguage" -> false,
-            "identifier" -> false,
-            "displayName" -> Json.obj(),
-            "attributes" -> attributeObject,
-            "description" -> Json.obj()
-          )
-        )
-      )
-
-      for {
-        _ <- sendRequest("POST", "/tables", createTableJson)
-        test <- sendRequest("POST", "/tables/1/columns", jsonObj)
-      } yield {
-        assertJSONEquals(expectedJson, test)
-      }
-    }
-  }
 }
