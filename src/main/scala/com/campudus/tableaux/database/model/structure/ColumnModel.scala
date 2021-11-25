@@ -17,10 +17,12 @@ import org.vertx.scala.core.json._
 import scalacache._
 import scalacache.guava._
 import scalacache.modes.scalaFuture._
+import io.vertx.scala.core.Vertx
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
+import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorClient
 
 object CachedColumnModel {
 
@@ -164,7 +166,16 @@ class CachedColumnModel(
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super
-        .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes)
+        .change(table,
+                columnId,
+                columnName,
+                ordering,
+                kind,
+                identifier,
+                displayInfos,
+                countryCodes,
+                separator,
+                attributes)
     } yield r
   }
 }
@@ -222,42 +233,60 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   def createColumn(table: Table, createColumn: CreateColumn): Future[ColumnType[_]] = {
 
+    val attributes = createColumn.attributes
+    val validator = JsonSchemaValidatorClient(Vertx.currentContext().get.owner())
+
     def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
       BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
 
-    createColumn match {
-      case simpleColumnInfo: CreateSimpleColumn =>
-        createValueColumn(table.id, simpleColumnInfo)
-          .map({
-            case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-              SimpleValueColumn(simpleColumnInfo.kind,
-                                simpleColumnInfo.languageType,
-                                applyColumnInformation(id, ordering, displayInfos))
+    for {
+      _ <- if (attributes.nonEmpty) {
+        validator
+          .validateAttributesJson(attributes.get.encode())
+          .recover({
+            case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
           })
+      } else {
+        Future { Unit }
+      }
+      columnCreate <- createColumn match {
+        case simpleColumnInfo: CreateSimpleColumn =>
+          createValueColumn(table.id, simpleColumnInfo)
+            .map({
+              case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+                SimpleValueColumn(simpleColumnInfo.kind,
+                                  simpleColumnInfo.languageType,
+                                  applyColumnInformation(id, ordering, displayInfos))
+            })
 
-      case linkColumnInfo: CreateLinkColumn =>
-        createLinkColumn(table, linkColumnInfo)
-          .map({
-            case (linkId, toCol, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
-              val linkDirection = LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
-              LinkColumn(applyColumnInformation(id, ordering, displayInfos), toCol, linkId, linkDirection)
-          })
+        case linkColumnInfo: CreateLinkColumn =>
+          createLinkColumn(table, linkColumnInfo)
+            .map({
+              case (linkId, toCol, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
+                val linkDirection = LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
+                LinkColumn(applyColumnInformation(id, ordering, displayInfos), toCol, linkId, linkDirection)
+            })
 
-      case attachmentColumnInfo: CreateAttachmentColumn =>
-        createAttachmentColumn(table.id, attachmentColumnInfo)
-          .map({
-            case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-              AttachmentColumn(applyColumnInformation(id, ordering, displayInfos))
-          })
+        case attachmentColumnInfo: CreateAttachmentColumn =>
+          createAttachmentColumn(table.id, attachmentColumnInfo)
+            .map({
+              case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+                AttachmentColumn(applyColumnInformation(id, ordering, displayInfos))
+            })
 
-      case groupColumnInfo: CreateGroupColumn =>
-        createGroupColumn(table, groupColumnInfo)
-          .map({
-            case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-              // For simplification we return GroupColumn without grouped columns...
-              // ... StructureController will retrieve these anyway
-              GroupColumn(applyColumnInformation(id, ordering, displayInfos), Seq.empty, groupColumnInfo.formatPattern)
-          })
+        case groupColumnInfo: CreateGroupColumn =>
+          createGroupColumn(table, groupColumnInfo)
+            .map({
+              case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+                // For simplification we return GroupColumn without grouped columns...
+                // ... StructureController will retrieve these anyway
+                GroupColumn(applyColumnInformation(id, ordering, displayInfos),
+                            Seq.empty,
+                            groupColumnInfo.formatPattern)
+            })
+      }
+    } yield {
+      columnCreate
     }
   }
 
@@ -459,7 +488,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       case _ => None
     }
 
-          val attributes = createColumn.attributes.map(atts => atts.encode()).getOrElse("{}")
+    val attributes = createColumn.attributes.map(atts => atts.encode()).getOrElse("{}")
 
     def insertColumn(t: connection.Transaction): Future[(connection.Transaction, CreatedColumnInformation)] = {
       for {

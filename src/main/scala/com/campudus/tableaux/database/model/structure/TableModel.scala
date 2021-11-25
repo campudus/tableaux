@@ -48,16 +48,17 @@ class TableModel(val connection: DatabaseConnection)(
             .query(
               s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id, attributes) VALUES (?, ?, ?, ?, ?, ?) RETURNING table_id",
               Json
-                .arr(name,
-                     hidden,
-                     langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull,
-                     tableType.NAME,
-                     tableGroupIdOpt.orNull,
-                     attributes match {
-                       case Some(obj) => obj.encode()
-                       case None => "{}"
-                     }
-                     )
+                .arr(
+                  name,
+                  hidden,
+                  langtags.flatMap(_.map(f => Json.arr(f: _*))).orNull,
+                  tableType.NAME,
+                  tableGroupIdOpt.orNull,
+                  attributes match {
+                    case Some(obj) => obj.encode()
+                    case None => "{}"
+                  }
+                )
             )
           id = insertNotNull(result).head.get[TableId](0)
 
@@ -89,8 +90,7 @@ class TableModel(val connection: DatabaseConnection)(
                  displayInfos,
                  tableType,
                  tableGroup,
-                 attributes
-                 ))
+                 attributes))
       }
     }
   }
@@ -195,7 +195,8 @@ class TableModel(val connection: DatabaseConnection)(
 
       (t, tableResult) <- t.query(
         "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes FROM system_table WHERE table_id = ?",
-        Json.arr(tableId))
+        Json.arr(tableId)
+      )
       (t, displayInfoResult) <- t.query(
         "SELECT table_id, langtag, name, description FROM system_table_lang WHERE table_id = ?",
         Json.arr(tableId))
@@ -360,7 +361,8 @@ class TableModel(val connection: DatabaseConnection)(
         attributes,
         t, { attributes: JsonObject =>
           {
-            t.query(s"UPDATE system_table SET attributes = ? WHERE table_id = ?", Json.arr(attributes.encode(), tableId))
+            t.query(s"UPDATE system_table SET attributes = ? WHERE table_id = ?",
+                    Json.arr(attributes.encode(), tableId))
           }
         }
       )

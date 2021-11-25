@@ -1,6 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.cache.CacheVerticle
+import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorVerticle
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
@@ -42,6 +43,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       if (cacheConfig.isEmpty) {
         logger.warn("Cache config is empty, using default settings.")
       }
+      val jsonSchemaConfig = Json.obj()
 
       val host = getStringDefault(config, "host", Starter.DEFAULT_HOST)
       val port = getIntDefault(config, "port", Starter.DEFAULT_PORT)
@@ -66,6 +68,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       for {
         _ <- createUploadsDirectories(tableauxConfig)
         server <- deployHttpServer(port, host, tableauxConfig, connection)
+        _ <- deployJsonSchemaValidatorVerticle(jsonSchemaConfig)
         _ <- deployCacheVerticle(cacheConfig)
       } yield {
         this.server = server
@@ -98,6 +101,23 @@ class Starter extends ScalaVerticle with LazyLogging {
       .createHttpServer()
       .requestHandler(mainRouter.accept)
       .listenFuture(port, host)
+  }
+
+  private def deployJsonSchemaValidatorVerticle(config: JsonObject): Future[String] = {
+
+    val options = DeploymentOptions()
+      .setConfig(config)
+
+    val deployFuture = vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[JsonSchemaValidatorVerticle], options)
+
+    deployFuture.onComplete({
+      case Success(id) =>
+        logger.info(s"JsonSchemaValidatorVerticle deployed with ID $id")
+      case Failure(e) =>
+        logger.error("JsonSchemaValidatorVerticle couldn't be deployed.", e)
+    })
+
+    deployFuture
   }
 
   private def deployCacheVerticle(config: JsonObject): Future[String] = {

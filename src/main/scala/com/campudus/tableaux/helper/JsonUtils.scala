@@ -7,10 +7,14 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
-import com.campudus.tableaux.{InvalidJsonException,WrongJsonTypeException, TableauxConfig}
+import com.campudus.tableaux.{InvalidJsonException, WrongJsonTypeException, TableauxConfig}
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
+
+import org.everit.json.schema.Schema;
+import org.everit.json.schema.loader.SchemaLoader;
+import org.json.JSONObject;
 
 object JsonUtils extends LazyLogging {
 
@@ -89,10 +93,10 @@ object JsonUtils extends LazyLogging {
             val ordering = Try(json.getInteger("ordering").longValue()).toOption
             val identifier = json.getBoolean("identifier", false)
             val separator = json.getBoolean("separator", true)
-          val attributes = Try(json.getJsonObject("attributes")) match {
-            case Success(value) => Option(value)
-            case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
-          }
+            val attributes = Try(json.getJsonObject("attributes")) match {
+              case Success(value) => Option(value)
+              case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+            }
 
             // languageType or deprecated multilanguage
             // if languageType == 'country' countryCodes must be specified
@@ -147,8 +151,7 @@ object JsonUtils extends LazyLogging {
                                  displayInfos,
                                  constraint.getOrElse(DefaultConstraint),
                                  createBackLinkColumn,
-                                 attributes
-                                 )
+                                 attributes)
 
               case GroupType =>
                 // group specific fields
@@ -163,7 +166,14 @@ object JsonUtils extends LazyLogging {
                 CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups, attributes)
 
               case _ =>
-                CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos, separator, attributes)
+                CreateSimpleColumn(name,
+                                   ordering,
+                                   dbType,
+                                   languageType,
+                                   identifier,
+                                   displayInfos,
+                                   separator,
+                                   attributes)
             }
           }
         }
@@ -256,10 +266,10 @@ object JsonUtils extends LazyLogging {
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     val identifier = Try(json.getBoolean("identifier").booleanValue()).toOption
     val separator = Try(json.getBoolean("separator").booleanValue()).toOption
-          val attributes = Try(json.getJsonObject("attributes")) match {
-            case Success(value) => Option(value)
-            case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
-          }
+    val attributes = Try(json.getJsonObject("attributes")) match {
+      case Success(value) => Option(value)
+      case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+    }
     val displayInfos = DisplayInfos.fromJson(json) match {
       case list if list.isEmpty => None
       case list => Some(list)
@@ -325,5 +335,13 @@ object JsonUtils extends LazyLogging {
   def asSeqOf[A](jsonArray: JsonArray): Seq[A] = {
     jsonArray.asScala.map(_.asInstanceOf[A]).toSeq
   }
+
+  def createAttributesValidator(): Schema = {
+    val jsonContent =
+      scala.io.Source.fromInputStream(getClass.getResourceAsStream("/AttributesSchema.json"), "UTF-8").mkString
+    SchemaLoader.load(new JSONObject(jsonContent))
+  }
+
+  // val attributesValidator = createAttributesValidator()
 
 }

@@ -82,8 +82,7 @@ case class CreateAttachmentColumn(override val name: String,
                                   override val ordering: Option[Ordering],
                                   override val identifier: Boolean,
                                   override val displayInfos: Seq[DisplayInfo],
-                                  override val attributes: Option[JsonObject]
-                                  )
+                                  override val attributes: Option[JsonObject])
     extends CreateColumn {
   override val kind: AttachmentType.type = AttachmentType
   override val languageType: LanguageNeutral.type = LanguageNeutral
@@ -96,8 +95,7 @@ case class CreateGroupColumn(override val name: String,
                              formatPattern: Option[String],
                              override val displayInfos: Seq[DisplayInfo],
                              groups: Seq[ColumnId],
-                             override val attributes: Option[JsonObject]
-                             )
+                             override val attributes: Option[JsonObject])
     extends CreateColumn {
   override val kind: TableauxDbType = GroupType
   override val languageType: LanguageType = LanguageNeutral
