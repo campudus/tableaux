@@ -1,4 +1,3 @@
-
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.TableauxTestBase
@@ -8,11 +7,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
-
 @RunWith(classOf[VertxUnitRunner])
 class TableAttributesTest extends TableauxTestBase {
 
-      val baseExpectedTableJson = Json.obj("status" -> "ok",
+  val baseExpectedTableJson = Json.obj("status" -> "ok",
                                        "id" -> 1,
                                        "name" -> "sometable",
                                        "displayName" -> Json.obj(),
@@ -20,16 +18,25 @@ class TableAttributesTest extends TableauxTestBase {
                                        "hidden" -> false,
                                        "langtags" -> Json.arr("de-DE", "en-GB"))
 
-      val validAttributes = Json.obj(
-        "stringAttribute" -> "stringAttribute",
-        "numberAttribute" -> 42,
-        "objectAttribute" -> Json.obj(
-          "someAttribute" -> "someString",
-          "someOtherAttribute" -> 2.5
-          ),
-        "arrayAttribute" -> Json.arr("stringVal", 42, Json.obj("someAttribute" -> "someValue"))
-        )
 
+      val validAttributes = Json.obj(
+        "stringAttribute" -> Json.obj(
+          "type" -> "string",
+          "value" -> "stringValue"
+        ),
+        "numberAttribute" -> Json.obj(
+          "type" -> "number",
+          "value" -> 42
+        ),
+        "booleanAttribute" -> Json.obj(
+          "type" -> "boolean",
+          "value" -> true
+        ),
+      "arrayAttribute" ->  Json.obj(
+        "type" -> "array",
+        "value" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+        )
+      )
 
   @Test
   def createRegularTableWithoutAttributes(implicit c: TestContext): Unit = {
@@ -71,7 +78,7 @@ class TableAttributesTest extends TableauxTestBase {
   }
 
   @Test
-  def createRegularTableWithInvalidAttributesWhichShouldFail(implicit c: TestContext): Unit = {
+  def createRegularTableWithInvalidAttributesTypeWhichShouldFail(implicit c: TestContext): Unit = {
     exceptionTest("error.request.json.wrongtype") {
       val invalidAttributes = "notAValidJsonObject"
       val createTableJson = Json.obj(
@@ -81,7 +88,39 @@ class TableAttributesTest extends TableauxTestBase {
 
       for {
         tablePost <- sendRequest("POST", "/tables", createTableJson)
-      } yield  ()
+      } yield ()
+    }
+  }
+
+  @Test
+  def createRegularTableWithInvalidAttributesContentWhichShouldFail(implicit c: TestContext): Unit = {
+    exceptionTest("error.json.attributes") {
+      val invalidAttributes = Json.obj(
+        "stringAttribute" -> Json.obj(
+          "type" -> "strig",
+          "value" -> "stringValue"
+        ),
+        "numberAttribute" -> Json.obj(
+          "type" -> "number",
+          "value" -> "42"
+        ),
+        "booleanAttribute" -> Json.obj(
+          "tpe" -> "boolean",
+          "value" -> true
+        ),
+      "arrayAttribute" ->  Json.obj(
+        "type" -> "array",
+        "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+        )
+      )
+      val createTableJson = Json.obj(
+        "name" -> "sometable",
+        "attributes" -> invalidAttributes
+      )
+
+      for {
+        tablePost <- sendRequest("POST", "/tables", createTableJson)
+      } yield ()
     }
   }
 }

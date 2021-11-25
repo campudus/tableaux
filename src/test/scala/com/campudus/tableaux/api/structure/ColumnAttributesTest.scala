@@ -1,4 +1,3 @@
-
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
@@ -7,7 +6,6 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
-
 
 @RunWith(classOf[VertxUnitRunner])
 class ColumnAttributesTest extends TableauxTestBase {
@@ -59,20 +57,32 @@ class ColumnAttributesTest extends TableauxTestBase {
       }
     }
   }
+
   @Test
   def createColumnsWithValidAttributes(implicit c: TestContext): Unit = {
     okTest {
       val validAttributes = Json.obj(
-        "stringAttribute" -> "stringAttribute",
-        "numberAttribute" -> 42,
-        "objectAttribute" -> Json.obj(
-          "someAttribute" -> "someString",
-          "someOtherAttribute" -> 2.5
-          ),
-        "arrayAttribute" -> Json.arr("stringVal", 42, Json.obj("someAttribute" -> "someValue"))
+        "stringAttribute" -> Json.obj(
+          "type" -> "string",
+          "value" -> "stringValue"
+        ),
+        "numberAttribute" -> Json.obj(
+          "type" -> "number",
+          "value" -> 42
+        ),
+        "booleanAttribute" -> Json.obj(
+          "type" -> "boolean",
+          "value" -> true
+        ),
+      "arrayAttribute" ->  Json.obj(
+        "type" -> "array",
+        "value" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
         )
-      val createColumn1 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> validAttributes)))
-      val createColumn2 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> validAttributes)))
+      )
+      val createColumn1 = Json.obj(
+        "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> validAttributes)))
+      val createColumn2 = Json.obj(
+        "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> validAttributes)))
 
       val expectedJson = Json.obj(
         "status" -> "ok",
@@ -112,13 +122,19 @@ class ColumnAttributesTest extends TableauxTestBase {
       }
     }
   }
+
   @Test
   def UpdateColumnsWithValidAttributes(implicit c: TestContext): Unit = {
     okTest {
-      val attributes = Json.obj("randomAttribute" -> "randomAttribute")
+      val attributes = Json.obj("randomAttribute" -> Json.obj(
+        "type"-> "string",
+        "value"-> "stringValue"
+        ))
 
-      val createColumn1 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> attributes)))
-      val createColumn2 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> attributes)))
+      val createColumn1 =
+        Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> attributes)))
+      val createColumn2 =
+        Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> attributes)))
       val updateColumn1 = Json.obj("attributes" -> attributes)
       val updateColumn2 = Json.obj("attributes" -> attributes)
 
@@ -133,33 +149,72 @@ class ColumnAttributesTest extends TableauxTestBase {
         created2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
         updated1 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created1)}", updateColumn1)
         updated2 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created2)}", updateColumn2)
-        } yield  {
+      } yield {
         assertJSONEquals(expectedJson, updated1)
-        assertJSONEquals(expectedJson, updated2 )
-        }
+        assertJSONEquals(expectedJson, updated2)
+      }
     }
   }
+
   @Test
-  def createColumnsWithInvalidAttributes(implicit c: TestContext): Unit = {
+  def createColumnsWithInvalidAttributesType(implicit c: TestContext): Unit = {
     exceptionTest("error.request.json.wrongtype") {
       val InvalidAttributes = "InvalidAttributesValue"
 
-        val createColumn1 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> InvalidAttributes)))
-      val createColumn2 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> InvalidAttributes)))
+      val createColumn1 = Json.obj(
+        "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> InvalidAttributes)))
+      val createColumn2 = Json.obj(
+        "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> InvalidAttributes)))
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
         test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
-      } yield  ()
+      } yield ()
     }
   }
+
   @Test
-  def UpdateColumnsWithInvalidAttributes(implicit c: TestContext): Unit = {
+  def createColumnsWithInvalidAttributesContent(implicit c: TestContext): Unit = {
+    exceptionTest("error.json.attributes") {
+      val invalidAttributes = Json.obj(
+        "stringAttribute" -> Json.obj(
+          "type" -> "strig",
+          "value" -> "stringValue"
+        ),
+        "numberAttribute" -> Json.obj(
+          "type" -> "number",
+          "value" -> "42"
+        ),
+        "booleanAttribute" -> Json.obj(
+          "tpe" -> "boolean",
+          "value" -> true
+        ),
+      "arrayAttribute" ->  Json.obj(
+        "type" -> "array",
+        "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+        )
+      )
+
+      val createColumn1 = Json.obj(
+        "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> invalidAttributes)))
+      val createColumn2 = Json.obj(
+        "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> invalidAttributes)))
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+      } yield ()
+    }
+  }
+
+  @Test
+  def UpdateColumnsWithInvalidAttributesType(implicit c: TestContext): Unit = {
     exceptionTest("error.request.json.wrongtype") {
       val invalidAttributes = "invalidAttributes"
 
-        val createColumn1 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1")))
+      val createColumn1 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1")))
       val createColumn2 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2")))
       val updateColumn1 = Json.obj("attributes" -> invalidAttributes)
       val updateColumn2 = Json.obj("attributes" -> invalidAttributes)
@@ -170,8 +225,44 @@ class ColumnAttributesTest extends TableauxTestBase {
         created2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
         updated1 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created1)}", updateColumn1)
         updated2 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created2)}", updateColumn2)
-        } yield  ()
+      } yield ()
+    }
+  }
+  @Test
+  def UpdateColumnsWithInvalidAttributesContent(implicit c: TestContext): Unit = {
+    exceptionTest("error.json.attributes") {
+
+      val invalidAttributes = Json.obj(
+        "stringAttribute" -> Json.obj(
+          "type" -> "strig",
+          "value" -> "stringValue"
+        ),
+        "numberAttribute" -> Json.obj(
+          "type" -> "number",
+          "value" -> "42"
+        ),
+        "booleanAttribute" -> Json.obj(
+          "tpe" -> "boolean",
+          "value" -> true
+        ),
+      "arrayAttribute" ->  Json.obj(
+        "type" -> "array",
+        "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+        )
+      )
+
+      val createColumn1 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1")))
+      val createColumn2 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2")))
+      val updateColumn1 = Json.obj("attributes" -> invalidAttributes)
+      val updateColumn2 = Json.obj("attributes" -> invalidAttributes)
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        created1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        created2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+        updated1 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created1)}", updateColumn1)
+        updated2 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created2)}", updateColumn2)
+      } yield ()
     }
   }
 }
-
