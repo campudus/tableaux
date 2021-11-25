@@ -39,7 +39,7 @@ class GetStructureTest extends TableauxTestBase {
         "hidden" -> false,
         "displayName" -> Json.obj(),
         "description" -> Json.obj(),
-      "attributes" -> Json.obj(),
+        "attributes" -> Json.obj(),
         "langtags" -> Json.arr("de-DE", "en-GB")
       )
       val expectedJson = Json.obj(
@@ -74,7 +74,7 @@ class GetStructureTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> true,
             "displayName" -> Json.obj(),
-      "attributes" -> Json.obj(),
+            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           ),
           Json.obj(
@@ -85,7 +85,7 @@ class GetStructureTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-      "attributes" -> Json.obj(),
+            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           )
         )
@@ -112,7 +112,7 @@ class GetStructureTest extends TableauxTestBase {
         "multilanguage" -> false,
         "identifier" -> true,
         "displayName" -> Json.obj(),
-      "attributes" -> Json.obj(),
+        "attributes" -> Json.obj(),
         "description" -> Json.obj()
       )
 
@@ -137,7 +137,7 @@ class GetStructureTest extends TableauxTestBase {
         "multilanguage" -> false,
         "identifier" -> false,
         "displayName" -> Json.obj(),
-      "attributes" -> Json.obj(),
+        "attributes" -> Json.obj(),
         "description" -> Json.obj()
       )
 
@@ -166,7 +166,7 @@ class GetStructureTest extends TableauxTestBase {
                 "kind" -> "text",
                 "identifier" -> true,
                 "multilanguage" -> false,
-      "attributes" -> Json.obj(),
+                "attributes" -> Json.obj(),
                 "ordering" -> 1
               ),
               Json.obj(
@@ -175,7 +175,7 @@ class GetStructureTest extends TableauxTestBase {
                 "kind" -> "numeric",
                 "identifier" -> false,
                 "multilanguage" -> false,
-      "attributes" -> Json.obj(),
+                "attributes" -> Json.obj(),
                 "ordering" -> 2
               )
             )

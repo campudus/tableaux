@@ -164,9 +164,11 @@ class ArgumentCheckerTest {
     assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasLong("test", json))
 
     assertEquals(
-      FailArg(InvalidJsonException(
-        "Warning: no_string should be another type. Error: class java.lang.Integer cannot be cast to class java.lang.CharSequence (java.lang.Integer and java.lang.CharSequence are in module java.base of loader 'bootstrap')",
-        "invalid")),
+      FailArg(
+        InvalidJsonException(
+          "Warning: no_string should be another type. Error: class java.lang.Integer cannot be cast to class java.lang.CharSequence (java.lang.Integer and java.lang.CharSequence are in module java.base of loader 'bootstrap')",
+          "invalid"
+        )),
       hasString("no_string", json)
     )
 
@@ -174,7 +176,8 @@ class ArgumentCheckerTest {
       FailArg(
         InvalidJsonException(
           "Warning: no_array should be another type. Error: class java.lang.String cannot be cast to class io.vertx.core.json.JsonArray (java.lang.String is in module java.base of loader 'bootstrap'; io.vertx.core.json.JsonArray is in unnamed module of loader 'app')",
-          "invalid")),
+          "invalid"
+        )),
       hasArray("no_array", json)
     )
 
@@ -182,7 +185,8 @@ class ArgumentCheckerTest {
       FailArg(
         InvalidJsonException(
           "Warning: no_long should be another type. Error: class java.lang.String cannot be cast to class java.lang.Number (java.lang.String and java.lang.Number are in module java.base of loader 'bootstrap')",
-          "invalid")),
+          "invalid"
+        )),
       hasLong("no_long", json)
     )
   }

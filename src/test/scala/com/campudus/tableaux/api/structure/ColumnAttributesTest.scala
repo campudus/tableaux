@@ -74,9 +74,9 @@ class ColumnAttributesTest extends TableauxTestBase {
           "type" -> "boolean",
           "value" -> true
         ),
-      "arrayAttribute" ->  Json.obj(
-        "type" -> "array",
-        "value" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+        "arrayAttribute" -> Json.obj(
+          "type" -> "array",
+          "value" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
         )
       )
       val createColumn1 = Json.obj(
@@ -126,9 +126,10 @@ class ColumnAttributesTest extends TableauxTestBase {
   @Test
   def UpdateColumnsWithValidAttributes(implicit c: TestContext): Unit = {
     okTest {
-      val attributes = Json.obj("randomAttribute" -> Json.obj(
-        "type"-> "string",
-        "value"-> "stringValue"
+      val attributes = Json.obj(
+        "randomAttribute" -> Json.obj(
+          "type" -> "string",
+          "value" -> "stringValue"
         ))
 
       val createColumn1 =
@@ -190,9 +191,9 @@ class ColumnAttributesTest extends TableauxTestBase {
           "tpe" -> "boolean",
           "value" -> true
         ),
-      "arrayAttribute" ->  Json.obj(
-        "type" -> "array",
-        "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+        "arrayAttribute" -> Json.obj(
+          "type" -> "array",
+          "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
         )
       )
 
@@ -228,6 +229,7 @@ class ColumnAttributesTest extends TableauxTestBase {
       } yield ()
     }
   }
+
   @Test
   def UpdateColumnsWithInvalidAttributesContent(implicit c: TestContext): Unit = {
     exceptionTest("error.json.attributes") {
@@ -245,9 +247,9 @@ class ColumnAttributesTest extends TableauxTestBase {
           "tpe" -> "boolean",
           "value" -> true
         ),
-      "arrayAttribute" ->  Json.obj(
-        "type" -> "array",
-        "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+        "arrayAttribute" -> Json.obj(
+          "type" -> "array",
+          "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
         )
       )
 

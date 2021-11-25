@@ -18,25 +18,24 @@ class TableAttributesTest extends TableauxTestBase {
                                        "hidden" -> false,
                                        "langtags" -> Json.arr("de-DE", "en-GB"))
 
-
-      val validAttributes = Json.obj(
-        "stringAttribute" -> Json.obj(
-          "type" -> "string",
-          "value" -> "stringValue"
-        ),
-        "numberAttribute" -> Json.obj(
-          "type" -> "number",
-          "value" -> 42
-        ),
-        "booleanAttribute" -> Json.obj(
-          "type" -> "boolean",
-          "value" -> true
-        ),
-      "arrayAttribute" ->  Json.obj(
-        "type" -> "array",
-        "value" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
-        )
-      )
+  val validAttributes = Json.obj(
+    "stringAttribute" -> Json.obj(
+      "type" -> "string",
+      "value" -> "stringValue"
+    ),
+    "numberAttribute" -> Json.obj(
+      "type" -> "number",
+      "value" -> 42
+    ),
+    "booleanAttribute" -> Json.obj(
+      "type" -> "boolean",
+      "value" -> true
+    ),
+    "arrayAttribute" -> Json.obj(
+      "type" -> "array",
+      "value" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+    )
+  )
 
   @Test
   def createRegularTableWithoutAttributes(implicit c: TestContext): Unit = {
@@ -108,9 +107,9 @@ class TableAttributesTest extends TableauxTestBase {
           "tpe" -> "boolean",
           "value" -> true
         ),
-      "arrayAttribute" ->  Json.obj(
-        "type" -> "array",
-        "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
+        "arrayAttribute" -> Json.obj(
+          "type" -> "array",
+          "vale" -> Json.arr(Json.obj("type" -> "string", "value" -> "test"))
         )
       )
       val createTableJson = Json.obj(
