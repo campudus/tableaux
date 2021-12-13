@@ -108,12 +108,13 @@ class Starter extends ScalaVerticle with LazyLogging {
     val options = DeploymentOptions()
       .setConfig(config)
 
-      val jsonSchemaValidatorClient = JsonSchemaValidatorClient(vertx)
-      val deployFuture = for {
-        deployedVerticle <- vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[JsonSchemaValidatorVerticle], options)
-        schemas <- FileUtils(vertxAccessContainer()).getSchemaList()
-        _ <- jsonSchemaValidatorClient.registerMultipleSchemas(schemas)
-      } yield (deployedVerticle)
+    val jsonSchemaValidatorClient = JsonSchemaValidatorClient(vertx)
+    val deployFuture = for {
+      deployedVerticle <- vertx
+        .deployVerticleFuture(ScalaVerticle.nameForVerticle[JsonSchemaValidatorVerticle], options)
+      schemas <- FileUtils(vertxAccessContainer()).getSchemaList()
+      _ <- jsonSchemaValidatorClient.registerMultipleSchemas(schemas)
+    } yield (deployedVerticle)
 
     deployFuture.onComplete({
       case Success(id) =>

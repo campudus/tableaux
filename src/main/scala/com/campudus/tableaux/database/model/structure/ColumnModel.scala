@@ -22,7 +22,7 @@ import io.vertx.scala.core.Vertx
 import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{ JsonSchemaValidatorClient, ValidatorKeys }
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
 
 object CachedColumnModel {
 

@@ -13,9 +13,6 @@ import org.everit.json.schema.Schema;
 import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONObject;
 
-
-
-
 class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
 
   private lazy val eventBus = vertx.eventBus()
@@ -58,6 +55,7 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
         }
 
       }
-          case None => message.fail(400, s"Schema with key $key unknown")
-  }  }
+      case None => message.fail(400, s"Schema with key $key unknown")
+    }
+  }
 }

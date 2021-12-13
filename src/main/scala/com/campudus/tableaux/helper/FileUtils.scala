@@ -74,38 +74,38 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
     }
   }
 
-    def readSchemaFromFS(indexJson: JsonArray):Future[List[JsonObject]] = {
-      val asList = indexJson.asScala.toList
-      var keyList: List[String] = List()
-      val asListOfFutures = asList.map(obj =>{
-        val descriptor = obj.asInstanceOf[JsonObject]
-        val key = descriptor.getString("key")
-        keyList = keyList :+ key
-        val file = descriptor.getString("file")
-        asyncReadResourceFile(s"/JsonSchema/$file")
+  def readSchemaFromFS(indexJson: JsonArray): Future[List[JsonObject]] = {
+    val asList = indexJson.asScala.toList
+    var keyList: List[String] = List()
+    val asListOfFutures = asList.map(obj => {
+      val descriptor = obj.asInstanceOf[JsonObject]
+      val key = descriptor.getString("key")
+      keyList = keyList :+ key
+      val file = descriptor.getString("file")
+      asyncReadResourceFile(s"/JsonSchema/$file")
+    })
+    val asFutureList = Future.sequence(asListOfFutures)
+    asFutureList.map(list => {
+      val zipped = keyList zip list
+      zipped.map(tuple => {
+        val (key, schemaString) = tuple
+        Json.obj("key" -> key, "schema" -> new JsonObject(schemaString))
       })
-      val asFutureList = Future.sequence(asListOfFutures)
-      asFutureList.map(list => {
-        val zipped = keyList zip list
-        zipped.map(tuple => {
-          val (key, schemaString) = tuple
-          Json.obj("key" -> key, "schema" -> new JsonObject(schemaString))
-        })
-      })
-    }
+    })
+  }
 
-    private def asyncReadResourceFile(path: String): Future[String] = {
-      Future {
+  private def asyncReadResourceFile(path: String): Future[String] = {
+    Future {
       scala.io.Source.fromInputStream(getClass.getResourceAsStream(path), "UTF-8").mkString
-}
     }
+  }
 
   def getSchemaList(): Future[List[JsonObject]] = {
 
     for {
       indexString <- asyncReadResourceFile("/JsonSchema/index.json")
       schemas <- readSchemaFromFS(Json.fromArrayString(indexString))
-    } yield {schemas}
+    } yield { schemas }
   }
 
 }
