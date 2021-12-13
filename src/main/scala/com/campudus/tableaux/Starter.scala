@@ -1,7 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.cache.CacheVerticle
-import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorVerticle
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorVerticle, JsonSchemaValidatorClient}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
@@ -108,7 +108,12 @@ class Starter extends ScalaVerticle with LazyLogging {
     val options = DeploymentOptions()
       .setConfig(config)
 
-    val deployFuture = vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[JsonSchemaValidatorVerticle], options)
+      val jsonSchemaValidatorClient = JsonSchemaValidatorClient(vertx)
+      val deployFuture = for {
+        deployedVerticle <- vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[JsonSchemaValidatorVerticle], options)
+        schemas <- FileUtils(vertxAccessContainer()).getSchemaList()
+        _ <- jsonSchemaValidatorClient.registerMultipleSchemas(schemas)
+      } yield (deployedVerticle)
 
     deployFuture.onComplete({
       case Success(id) =>

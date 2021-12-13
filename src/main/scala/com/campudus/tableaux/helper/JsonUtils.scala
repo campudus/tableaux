@@ -12,10 +12,6 @@ import com.campudus.tableaux.{InvalidJsonException, WrongJsonTypeException, Tabl
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-import org.everit.json.schema.Schema;
-import org.everit.json.schema.loader.SchemaLoader;
-import org.json.JSONObject;
-
 object JsonUtils extends LazyLogging {
 
   def asCastedNullableList[A](array: JsonArray): ArgumentCheck[Seq[A]] = {
@@ -335,13 +331,5 @@ object JsonUtils extends LazyLogging {
   def asSeqOf[A](jsonArray: JsonArray): Seq[A] = {
     jsonArray.asScala.map(_.asInstanceOf[A]).toSeq
   }
-
-  def createAttributesValidator(): Schema = {
-    val jsonContent =
-      scala.io.Source.fromInputStream(getClass.getResourceAsStream("/AttributesSchema.json"), "UTF-8").mkString
-    SchemaLoader.load(new JSONObject(jsonContent))
-  }
-
-  // val attributesValidator = createAttributesValidator()
 
 }

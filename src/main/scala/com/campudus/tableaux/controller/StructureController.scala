@@ -11,7 +11,7 @@ import com.campudus.tableaux.database.domain.{
   NameOnly,
   _
 }
-import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorClient
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient,ValidatorKeys}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
@@ -164,7 +164,7 @@ class StructureController(
     val validator = JsonSchemaValidatorClient(vertx)
     attributes match {
       case Some(s) => {
-        validator.validateAttributesJson(s.encode()).flatMap(createTable).recover {
+        validator.validateJson(ValidatorKeys.ATTRIBUTES,s).flatMap(createTable).recover {
           case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
         }
       }
@@ -334,7 +334,7 @@ class StructureController(
       }
       _ <- if (attributes.nonEmpty) {
         validator
-          .validateAttributesJson(attributes.get.encode())
+          .validateJson(ValidatorKeys.ATTRIBUTES,attributes.get)
           .recover({
             case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
           })
@@ -395,7 +395,7 @@ class StructureController(
       column <- columnStruc.retrieve(table, columnId)
       _ <- if (attributes.nonEmpty) {
         validator
-          .validateAttributesJson(attributes.get.encode())
+          .validateJson(ValidatorKeys.ATTRIBUTES,attributes.get)
           .recover({
             case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
           })

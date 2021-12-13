@@ -22,7 +22,7 @@ import io.vertx.scala.core.Vertx
 import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
-import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorClient
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{ JsonSchemaValidatorClient, ValidatorKeys }
 
 object CachedColumnModel {
 
@@ -242,7 +242,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     for {
       _ <- if (attributes.nonEmpty) {
         validator
-          .validateAttributesJson(attributes.get.encode())
+          .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
           .recover({
             case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
           })

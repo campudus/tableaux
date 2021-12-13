@@ -18,7 +18,20 @@ class JsonSchemaValidatorClient(vertxAccess: Vertx) extends VertxAccess {
   val vertx = vertxAccess
   val eventBus = vertx.eventBus()
 
-  def validateAttributesJson(json: String): Future[Unit] = {
-    eventBus.sendFuture[String]("json.schema.validate.attributes", json).map((f: Message[String]) => {})
+  def validateJson(key:String, json: JsonObject): Future[Unit] = {
+    val containerJson = Json.obj("key" -> key, "jsonToValidate" -> json)
+    eventBus.sendFuture[String]("json.schema.validate", containerJson).map((f: Message[String]) => {})
   }
+
+  def registerMultipleSchemas(schemaWithKeyList: List[JsonObject]): Future[List[Unit]] = {
+    Future.sequence(schemaWithKeyList.map(registerSchema))
+  }
+
+  def registerSchema(schemaWithKey: JsonObject): Future[Unit] = {
+    eventBus.sendFuture[String]("json.schema.register", schemaWithKey).map((f: Message[String]) => {})
+  }
+}
+
+object ValidatorKeys {
+  val ATTRIBUTES = "attributes"
 }
