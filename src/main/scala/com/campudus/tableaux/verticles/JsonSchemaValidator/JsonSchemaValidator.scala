@@ -38,7 +38,6 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
 
   private def messageHandlerValidateJson(message: Message[JsonObject]): Unit = {
     val keyWithJson = message.body()
-    println(keyWithJson)
     val jsonToValidate = keyWithJson.getJsonObject("jsonToValidate")
     val key = keyWithJson.getString("key")
     val attributes = new JSONObject(jsonToValidate.encode())
