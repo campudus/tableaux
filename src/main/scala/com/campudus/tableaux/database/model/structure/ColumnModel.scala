@@ -284,9 +284,33 @@ class ColumnModel(val connection: DatabaseConnection)(
                             Seq.empty,
                             groupColumnInfo.formatPattern)
             })
-      }
-    } yield {
+
+         case statusColumnInfo: CreateStatusColumn => 
+           for {
+                _ <- validator.validateStatusRulesJson(statusColumnInfo.rules.encode())
+                statusColumn <- createStatusColumn(table, statusColumnInfo).map({
+                  case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+                    StatusColumnapplyColumnInformation(id, ordering, displayInfos))
+
+                })
+                } yield {
+                  statusColumn
+                }
+    }} yield {
       columnCreate
+    }
+  }
+
+  private def createStatusColumn(
+      table: Table,
+      statusColumnInfo: CreateStatusColumn
+    ): Future[CreatedColumnInformation] = {
+    connection.transactional { t =>
+      for {
+        (t, columnInfo) <- insertSystemColumn(t, table.id, statusColumnInfo, None, None)
+        } yield {
+          (t, columnInfo )
+        }
     }
   }
 
@@ -476,11 +500,17 @@ class ColumnModel(val connection: DatabaseConnection)(
           | format_pattern,
           | country_codes,
           | separator,
-          | attributes
+          | attributes,
+          | rules,
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
+    }
+
+    val rules = createColumn match {
+      case createStatusColumn: CreateStatusColumn => createStatusColumn.rules.encode()
+      case _ => "NULL"
     }
 
     val countryCodes = createColumn.languageType match {
@@ -518,7 +548,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull,
                 createColumn.separator,
-                attributes
+                attributes,
+                rules
               )
             )
           case Some(ord) =>
@@ -535,7 +566,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull,
                 createColumn.separator,
-                attributes
+                attributes,
+                rules
               )
             )
         }

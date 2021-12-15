@@ -419,6 +419,15 @@ case class DateTimeColumn(override val languageType: LanguageType)(override val 
   }
 }
 
+case class StatusColumn(override val columnInformation: ColumnInformation)(
+    implicit requestContext: RequestContext,
+    roleModel: RoleModel
+) extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
+
+  override def checkValidSingleValue[B](value: B): Try[Boolean] = Try(value.asInstanceOf[Boolean])
+}
+
+
 /*
  * Special column types
  */
@@ -610,6 +619,8 @@ case class GroupColumn(
     json
   }
 }
+
+
 
 /**
   * Column seq is just a sequence of columns.

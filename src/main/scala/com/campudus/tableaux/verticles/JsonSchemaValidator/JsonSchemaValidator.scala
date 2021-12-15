@@ -56,5 +56,6 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
       }
       case None => message.fail(400, s"Schema with key $key unknown")
     }
+
   }
 }

@@ -8,6 +8,8 @@ import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkAr
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 import com.campudus.tableaux.{InvalidJsonException, WrongJsonTypeException, TableauxConfig}
+import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorClient
+import io.vertx.scala.core.Vertx
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -160,6 +162,20 @@ object JsonUtils extends LazyLogging {
                 val formatPattern = Try(Option(json.getString("formatPattern"))).toOption.flatten
 
                 CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups, attributes)
+
+              case StatusType =>
+
+                val validator = JsonSchemaValidatorClient(Vertx.currentContext().get.owner())
+                val rules = json.getJsonArray("rules", new JsonArray())
+                       CreateStatusColumn(
+                         name,
+                         ordering,
+                         dbType,
+                         displayInfos,
+                         attributes,
+                         rules
+                         )
+
 
               case _ =>
                 CreateSimpleColumn(name,
