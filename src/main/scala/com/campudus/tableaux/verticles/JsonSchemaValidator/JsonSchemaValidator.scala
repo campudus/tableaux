@@ -2,16 +2,15 @@ package com.campudus.tableaux.verticles.JsonSchemaValidator
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.eventbus.Message
 import scala.concurrent.Future
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
 import com.typesafe.scalalogging.LazyLogging
 import scala.language.implicitConversions
-import org.json.JSONObject;
+import org.json.{ JSONObject, JSONArray };
 import scala.util.{Failure, Success, Try}
 import org.everit.json.schema.ValidationException;
 
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.loader.SchemaLoader;
-import org.json.JSONObject;
 
 class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
 
@@ -23,7 +22,8 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
   }
 
   override def startFuture(): Future[_] = {
-    eventBus.consumer("json.schema.validate", messageHandlerValidateJson).completionFuture()
+    eventBus.consumer("json.schema.validate.object", messageHandlerValidateJson).completionFuture()
+    eventBus.consumer("json.schema.validate.array", messageHandlerValidateJsonArray).completionFuture()
     eventBus.consumer("json.schema.register", messageHandlerRegisterSchema).completionFuture()
   }
 
@@ -36,10 +36,33 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
     message.reply("")
   }
 
+  private def messageHandlerValidateJsonArray(message: Message[JsonObject]): Unit = {
+    val keyWithJson = message.body()
+    val key = keyWithJson.getString("key")
+    val jsonToValidate = keyWithJson.getJsonArray("jsonToValidate")
+    val attributes = new JSONArray(jsonToValidate.encode())
+    val validatorOption = validators.get(key)
+    validatorOption match {
+      case Some(validator) => {
+        Try(validator.validate(attributes)) match {
+          case Success(v) => {
+            message.reply("")
+          }
+          case Failure(e) => {
+            message.fail(400, e.getMessage())
+          }
+        }
+
+      }
+      case None => message.fail(400, s"Schema with key $key unknown")
+    }
+
+  }
+
   private def messageHandlerValidateJson(message: Message[JsonObject]): Unit = {
     val keyWithJson = message.body()
-    val jsonToValidate = keyWithJson.getJsonObject("jsonToValidate")
     val key = keyWithJson.getString("key")
+    val jsonToValidate = keyWithJson.getJsonObject("jsonToValidate")
     val attributes = new JSONObject(jsonToValidate.encode())
     val validatorOption = validators.get(key)
     validatorOption match {

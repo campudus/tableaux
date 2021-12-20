@@ -1,3 +1,4 @@
 [
-  {"key": "attributes", "file": "AttributesSchema.json"}
+  {"key": "attributes", "file": "AttributesSchema.json"},
+  {"key": "status", "file": "StatusSchema.json"}
 ]

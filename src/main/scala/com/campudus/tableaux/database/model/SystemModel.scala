@@ -151,12 +151,12 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     setupVersion(readSchemaFile("schema_v26"), 26),
     setupVersion(readSchemaFile("schema_v27"), 27),
     setupVersion(readSchemaFile("schema_v28"), 28),
-    setupVersion(readSchemaFile("schema_v29"), 29)
+    setupVersion(readSchemaFile("schema_v29"), 29),
+    setupVersion(readSchemaFile("schema_v30"), 30)
   )
 
   private def readSchemaFile(name: String): String = {
-    Source.fromInputStream(getClass.getResourceAsStream(s"/schema/$name.sql"), "UTF-8").mkString
-  }
+    Source.fromInputStream(getClass.getResourceAsStream(s"/schema/$name.sql"), "UTF-8").mkString }
 
   private def setupVersion(stmt: String, versionId: Int)(t: connection.Transaction): Future[connection.Transaction] = {
     logger.debug(s"Setup schema version $versionId")

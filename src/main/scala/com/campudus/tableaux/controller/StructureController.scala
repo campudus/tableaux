@@ -371,6 +371,7 @@ class StructureController(
       countryCodes: Option[Seq[String]],
       separator: Option[Boolean],
       attributes: Option[JsonObject],
+      rules: Option[JsonArray]
   ): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
@@ -421,7 +422,8 @@ class StructureController(
                     displayInfos,
                     countryCodes,
                     separator,
-                    attributes)
+                    attributes,
+                    rules)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 

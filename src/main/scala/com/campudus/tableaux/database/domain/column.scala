@@ -59,6 +59,32 @@ object BasicColumnInformation {
   }
 }
 
+object StatusColumnInformation {
+
+  def apply(
+      table: Table,
+      columnId: ColumnId,
+      ordering: Ordering,
+      displayInfos: Seq[DisplayInfo],
+      createColumn: CreateStatusColumn
+  ): StatusColumnInformation = {
+    val attributes = createColumn.attributes match {
+      case Some(obj) => obj
+      case None => new JsonObject("{}")
+    }
+    StatusColumnInformation(table,
+                           columnId,
+                           createColumn.name,
+                           ordering,
+                           createColumn.identifier,
+                           displayInfos,
+                           Seq.empty,
+                           createColumn.separator,
+                           attributes,
+                           createColumn.rules)
+  }
+}
+
 case class BasicColumnInformation(
     override val table: Table,
     override val id: ColumnId,
@@ -69,6 +95,19 @@ case class BasicColumnInformation(
     override val groupColumnIds: Seq[ColumnId],
     override val separator: Boolean,
     override val attributes: JsonObject
+) extends ColumnInformation
+
+case class StatusColumnInformation(
+    override val table: Table,
+    override val id: ColumnId,
+    override val name: String,
+    override val ordering: Ordering,
+    override val identifier: Boolean,
+    override val displayInfos: Seq[DisplayInfo],
+    override val groupColumnIds: Seq[ColumnId],
+    override val separator: Boolean,
+    override val attributes: JsonObject,
+    val rules: JsonArray
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -419,14 +458,6 @@ case class DateTimeColumn(override val languageType: LanguageType)(override val 
   }
 }
 
-case class StatusColumn(override val columnInformation: ColumnInformation)(
-    implicit requestContext: RequestContext,
-    roleModel: RoleModel
-) extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
-
-  override def checkValidSingleValue[B](value: B): Try[Boolean] = Try(value.asInstanceOf[Boolean])
-}
-
 
 /*
  * Special column types
@@ -515,6 +546,32 @@ case class LinkColumn(
     }
   }
 }
+
+case class StatusColumn(override val columnInformation: ColumnInformation, rules: JsonArray)(
+    implicit val requestContext: RequestContext,
+    val roleModel: RoleModel
+) extends ColumnType[String] with LazyLogging {
+
+  override val languageType: LanguageNeutral.type = LanguageNeutral
+  // override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
+  override def checkValidValue[B](value: B): Try[Option[String]] = {
+    Try {
+     Some(value.asInstanceOf[String])
+    }
+  }
+  override val kind = StatusType
+  override def getJson: JsonObject = {
+    // println(columnInformation)
+    super.getJson
+      .mergeIn(
+        Json.obj(
+          "rules" -> rules
+        )
+      )
+  }
+}
+
+
 
 case class AttachmentColumn(override val columnInformation: ColumnInformation)(
     implicit val requestContext: RequestContext,
