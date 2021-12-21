@@ -43,7 +43,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
@@ -56,7 +55,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
@@ -87,7 +85,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
@@ -100,7 +97,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
@@ -131,7 +127,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
@@ -144,7 +139,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
@@ -174,7 +168,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
@@ -187,7 +180,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
@@ -217,7 +209,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
@@ -230,7 +221,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
@@ -260,7 +250,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
@@ -273,7 +262,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
@@ -304,7 +292,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0)))
       )
@@ -317,7 +304,6 @@ class CreateColumnTest extends TableauxTestBase {
                  "multilanguage" -> false,
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
                  "description" -> Json.obj())
             .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0)))
       )
@@ -351,7 +337,6 @@ class CreateColumnTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           ),
           Json.obj(
@@ -362,7 +347,6 @@ class CreateColumnTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           )
         )
@@ -394,7 +378,6 @@ class CreateColumnTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           ),
           Json.obj(
@@ -405,7 +388,6 @@ class CreateColumnTest extends TableauxTestBase {
             "multilanguage" -> false,
             "identifier" -> false,
             "displayName" -> Json.obj(),
-            "attributes" -> Json.obj(),
             "description" -> Json.obj()
           )
         )
