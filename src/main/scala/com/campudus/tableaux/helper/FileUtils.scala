@@ -74,7 +74,7 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
     }
   }
 
-  def readSchemaFromFS(indexJson: JsonArray): Future[List[JsonObject]] = {
+  private def readSchemaFromFS(indexJson: JsonArray): Future[List[JsonObject]] = {
     val asList = indexJson.asScala.toList
     var keyList: List[String] = List()
     val asListOfFutures = asList.map(obj => {
