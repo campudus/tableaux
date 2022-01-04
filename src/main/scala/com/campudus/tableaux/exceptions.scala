@@ -67,6 +67,10 @@ case class InvalidJsonException(override val message: String, subId: String) ext
   override val statusCode = 400
 }
 
+case class ColumnNotFoundException(override val message: String) extends CustomException {
+  override val id = s"error.json.column"
+  override val statusCode = 404
+}
 case class InvalidNonceException(override val message: String) extends CustomException {
   override val id = "error.nonce.invalid"
   override val statusCode = 401

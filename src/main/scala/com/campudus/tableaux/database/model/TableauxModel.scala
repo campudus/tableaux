@@ -647,6 +647,7 @@ class TableauxModel(
     val columns = column match {
       case c: ConcatColumn => c.columns.+:(c)
       case c: GroupColumn => c.columns.+:(c)
+      case c: StatusColumn => c.columns.+:(c)
       case _ => Seq(column)
     }
 
@@ -846,6 +847,13 @@ class TableauxModel(
       }
     }
 
+    def fetchValuesForStatusColumn(concatenateColumn: ConcatenateColumn, rowId: RowId): Future[Cell[Any]] = {
+      for {
+        cell <- retrieveCell(concatenateColumn, rowId)
+        _ = println(cell)
+      } yield cell
+    }
+
     // post-process RawRows and transform them to Rows
     rawRows.foldLeft(Future.successful(List.empty[Row])) {
       case (rawRowsFuture, RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues)) =>
@@ -862,6 +870,14 @@ class TableauxModel(
                   // Fetch linked values of each linked row
                   fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatenateColumn], array)
                     .map(cellValue => (c, cellValue))
+
+                case (c: StatusColumn, value) => 
+                {
+                  fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
+                  //TODO derive status value
+                  ???
+                  Future.successful((c, value))
+                }
 
                 case (c: AttachmentColumn, _) =>
                   // AttachmentColumns are fetched via AttachmentModel

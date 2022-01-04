@@ -547,18 +547,18 @@ case class LinkColumn(
   }
 }
 
-case class StatusColumn(override val columnInformation: ColumnInformation, rules: JsonArray)(
+case class StatusColumn(override val columnInformation: ColumnInformation, rules: JsonArray, override val columns: Seq[ColumnType[_]])(
     implicit val requestContext: RequestContext,
     val roleModel: RoleModel
-) extends ColumnType[String] with LazyLogging {
+) extends ConcatenateColumn with LazyLogging {
 
   override val languageType: LanguageNeutral.type = LanguageNeutral
   // override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
-  override def checkValidValue[B](value: B): Try[Option[String]] = {
-    Try {
-     Some(value.asInstanceOf[String])
-    }
-  }
+  // override def checkValidValue[B](value: B): Try[Option[String]] = {
+  //   Try {
+  //    Some(value.asInstanceOf[String])
+  //   }
+  // }
   override val kind = StatusType
   override def getJson: JsonObject = {
     // println(columnInformation)
