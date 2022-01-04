@@ -31,14 +31,7 @@
         },
         "displayName": {"$ref": "#/$defs/multilanguage"},
         "tooltip": {"$ref": "#/$defs/multilanguage"},
-        "conditions": {
-          "type": "array",
-          "items": {
-            "anyOf": [
-              {"$ref": "#/$defs/condition"}
-            ]
-          } 
-        }
+        "conditions": {"$ref": "#/$defs/condition"}
       }
     },
     "condition": {
