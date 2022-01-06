@@ -778,7 +778,6 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int): Future[ColumnType[_]] = {
-    println("retrieve one")
     val select =
       s"""
          |SELECT
@@ -823,7 +822,6 @@ class ColumnModel(val connection: DatabaseConnection)(
     retrieveColumns(table, MAX_DEPTH, identifiersOnly = false)
 
   private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean): Future[Seq[ColumnType[_]]] = {
-    println("retrieve columns")
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
 
@@ -1041,7 +1039,6 @@ class ColumnModel(val connection: DatabaseConnection)(
 
     val formatPattern = Option(row.get[String](10))
 
-    println(s"mapRowResultToColumnType ${kind}")
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
 

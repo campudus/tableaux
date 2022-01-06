@@ -561,7 +561,6 @@ case class StatusColumn(override val columnInformation: ColumnInformation, rules
   // }
   override val kind = StatusType
   override def getJson: JsonObject = {
-    // println(columnInformation)
     super.getJson
       .mergeIn(
         Json.obj(

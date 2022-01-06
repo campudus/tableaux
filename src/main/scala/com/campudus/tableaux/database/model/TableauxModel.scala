@@ -10,6 +10,7 @@ import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRo
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission._
 import org.vertx.scala.core.json._
+import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
@@ -575,12 +576,32 @@ class TableauxModel(
     )
   }
 
+  def retrieveAllStatusColumnsForTable(table: Table): Future[Seq[StatusColumn]] = {
+    for {
+      allColumns <- structureModel.columnStruc.retrieveAll(table)
+    } yield allColumns.filter(column => column.kind == StatusType).map(column => column.asInstanceOf[StatusColumn])
+  }
+
+  def maybeInvalidateStatusCells(column: ColumnType[_], rowId: RowId): Future[Unit] = {
+    for {
+      statusColumns <- retrieveAllStatusColumnsForTable(column.table)
+      _ = statusColumns.foreach(( statusColumn: StatusColumn) =>{
+        if(statusColumn.columns.map(column => column.id).contains(column.id)){
+          CacheClient(this.connection).invalidateCellValue(statusColumn.table.id, statusColumn.id, rowId)
+        }
+      } )
+    } yield ()
+  }
+
   def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId): Future[Unit] = {
     def invalidateColumn: (TableId, ColumnId) => Future[_] = CacheClient(this.connection).invalidateColumn
 
     for {
       // invalidate the cell itself
       _ <- CacheClient(this.connection).invalidateCellValue(column.table.id, column.id, rowId)
+
+      // invalidate Status cell if it exists and has dependency on this column
+      _ <- maybeInvalidateStatusCells(column, rowId)
 
       // invalidate the concat cell if column is an identifier
       _ <- if (column.identifier) {
@@ -655,9 +676,10 @@ class TableauxModel(
       valueCache <- CacheClient(this.connection).retrieveCellValue(column.table.id, column.id, rowId)
 
       value <- valueCache match {
-        case Some(obj) =>
+        case Some(obj) =>{
           // Cache hit
           Future.successful(obj)
+        }
         case None =>
           // Cache miss
           for {
@@ -847,11 +869,55 @@ class TableauxModel(
       }
     }
 
-    def fetchValuesForStatusColumn(concatenateColumn: ConcatenateColumn, rowId: RowId): Future[Cell[Any]] = {
+    def fetchValuesForStatusColumn(concatenateColumn: ConcatenateColumn, rowId: RowId): Future[Map[ColumnId,(ColumnType[_], Any)]] = {
+      val columns = concatenateColumn.columns
       for {
-        cell <- retrieveCell(concatenateColumn, rowId)
-        _ = println(cell)
-      } yield cell
+        row <- retrieveRow(concatenateColumn.table,columns, rowId)
+      } yield columns.zip(row.values).foldLeft(Map[ColumnId,(ColumnType[_], Any)]())({case (acc,(col,remVal)) => acc + (col.id -> (col,remVal))})
+    }
+
+    def calcStatusValue(rules: JsonArray, columnsWithValues: Map[ColumnId,(ColumnType[_], Any)]): Seq[Boolean] = {
+
+
+    def calcValue(condition: JsonObject): Boolean = {
+
+      val compositionFunction = condition.getString("composition") match {
+        case "OR" => (acc: Boolean, value: Boolean) => acc || value
+        case "AND" => (acc: Boolean, value: Boolean) => acc && value
+      }
+
+      val values = condition.getJsonArray("values")
+
+      asSeqOf[JsonObject](values).map(value => {
+          if(value.containsKey("values")){
+            calcValue(value)
+          } else {
+            val columnId: ColumnId = value.getLong("column").asInstanceOf[ColumnId]
+            val (column, columnValue) = columnsWithValues(columnId)
+
+            val operatorFunction = condition.getString("operator") match {
+              case "NOT" => (a: Any, b: Any) => a != b
+              case _ => (a: Any, b: Any) => a == b
+            }
+
+            val compareValue = column.kind match {
+              case BooleanType => value.getBoolean("value")
+              case RichTextType => value.getString("value")
+              case ShortTextType => value.getString("value")
+              case NumericType => value.getNumber("value")
+              case _ => value.getValue("value")
+            }
+
+            operatorFunction(columnValue, compareValue)
+          }
+        }).reduceLeft(compositionFunction)
+    }
+
+      asSeqOf[JsonObject](rules).map(rule => {
+        val conditions = rule.getJsonObject("conditions")
+        calcValue(conditions)
+      })
+
     }
 
     // post-process RawRows and transform them to Rows
@@ -872,12 +938,11 @@ class TableauxModel(
                     .map(cellValue => (c, cellValue))
 
                 case (c: StatusColumn, value) => 
-                {
-                  fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
-                  //TODO derive status value
-                  ???
-                  Future.successful((c, value))
-                }
+                  for {
+                  dependentColumnValues <- fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
+                  statusValue = calcStatusValue(c.rules,dependentColumnValues)
+                  } yield {(c, statusValue)}
+                  // Future.successful((c, value))
 
                 case (c: AttachmentColumn, _) =>
                   // AttachmentColumns are fetched via AttachmentModel
@@ -892,6 +957,8 @@ class TableauxModel(
 
           // Generate values for GroupColumn && ConcatColumn
           columnsWithPostProcessedValues = columnsWithFetchedValues.map({
+            case (c: StatusColumn, value) => value
+
             case (c: ConcatenateColumn, _) =>
               // Post-process GroupColumn && ConcatColumn, concatenate their values
               columnsWithFetchedValues
@@ -901,6 +968,7 @@ class TableauxModel(
                 .map({
                   case (_, value) => value
                 })
+
 
             case (_, value) =>
               // Post-processing is only needed for ConcatColumn and GroupColumn
