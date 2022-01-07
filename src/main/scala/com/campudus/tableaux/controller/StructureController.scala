@@ -412,7 +412,7 @@ class StructureController(
           .recover({
             case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
           })
-          _ <- columnStruc.calcDependentColumns(rules.get, table)
+          _ <- columnStruc.retrieveAndValidateDependentStatusColumns(rules.get, table)
         } yield ()
       } else {
         Future { Unit }

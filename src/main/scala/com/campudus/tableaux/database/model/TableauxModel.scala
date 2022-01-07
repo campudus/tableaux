@@ -900,14 +900,7 @@ class TableauxModel(
               case _ => (a: Any, b: Any) => a == b
             }
 
-            val compareValue = column.kind match {
-              case BooleanType => value.getBoolean("value")
-              case RichTextType => value.getString("value")
-              case ShortTextType => value.getString("value")
-              case NumericType => value.getNumber("value")
-              case _ => value.getValue("value")
-            }
-
+            val compareValue = value.getValue("value")
             operatorFunction(columnValue, compareValue)
           }
         }).reduceLeft(compositionFunction)

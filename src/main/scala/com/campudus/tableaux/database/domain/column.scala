@@ -570,6 +570,10 @@ case class StatusColumn(override val columnInformation: ColumnInformation, rules
   }
 }
 
+object StatusColumn {
+  val validColumnTypes:Seq[TableauxDbType] = Seq(BooleanType, RichTextType, ShortTextType, NumericType)
+}
+
 
 
 case class AttachmentColumn(override val columnInformation: ColumnInformation)(

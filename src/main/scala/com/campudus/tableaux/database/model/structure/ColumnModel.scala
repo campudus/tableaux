@@ -11,6 +11,7 @@ import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.{ WrongStatusColumnKindException , WrongLanguageTypeException, WrongStatusConditionTypeException}
 import com.google.common.cache.CacheBuilder
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
@@ -184,8 +185,8 @@ class CachedColumnModel(
   }
 
 
-override def calcDependentColumns(rules: JsonArray, table: Table): Future[Seq[ColumnType[_]]] = {
-    super.calcDependentColumns(rules,table)
+override def retrieveAndValidateDependentStatusColumns(rules: JsonArray, table: Table): Future[Seq[ColumnType[_]]] = {
+    super.retrieveAndValidateDependentStatusColumns(rules,table)
   }
 }
 
@@ -314,17 +315,13 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
-  // private def validateStatusColumnRules(rules: JsonArray): Unit = {
-
-  // }
-
   private def createStatusColumn(
       table: Table,
       statusColumnInfo: CreateStatusColumn
     ): Future[( Seq[ColumnType[_]], CreatedColumnInformation )] = {
     connection.transactional { t => 
       for {
-        dependentColumns <- calcDependentColumns(statusColumnInfo.rules, table)
+        dependentColumns <- retrieveAndValidateDependentStatusColumns(statusColumnInfo.rules, table)
         (t, columnInfo) <- insertSystemColumn(t, table.id, statusColumnInfo, None, None)
         } yield {
           (t, (dependentColumns, columnInfo) )
@@ -955,34 +952,63 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   private def mapStatusColumn(columnInformation: ColumnInformation, rules: JsonArray): Future[StatusColumn] = {
     for {
-      columns <- calcDependentColumns(rules, columnInformation.table)
+      columns <- retrieveAndValidateDependentStatusColumns(rules, columnInformation.table)
       statusColumn = StatusColumn(columnInformation,rules, columns)
     } yield statusColumn
   }
 
-  def calcDependentColumns(rules: JsonArray, table: Table): Future[Seq[ColumnType[_]]] = {
+  def retrieveAndValidateDependentStatusColumns(rules: JsonArray, table: Table): Future[Seq[ColumnType[_]]] = {
 
-    def calcDependentColumnIdsFromValues(values: JsonArray): Seq[ColumnId] = {
+    var valueTypeMap: Map[ColumnId, Seq[_]] = Map()
+
+    def calcDependentColumnIdsFromValuesWithSideEffect(values: JsonArray): Seq[ColumnId] = {
+
+
       asSeqOf[JsonObject](values).map(value => {
           if(value.containsKey("values")){
             val newValues = value.getJsonArray("values")
-            calcDependentColumnIdsFromValues(newValues)
+            calcDependentColumnIdsFromValuesWithSideEffect(newValues)
           } else {
-            Seq(value.getLong("column").asInstanceOf[ColumnId])
+            val columnId = value.getLong("column").asInstanceOf[ColumnId]
+            valueTypeMap += (columnId ->  (Seq(value.getValue("value")) ++ valueTypeMap.getOrElse(columnId, Seq())))
+            Seq(columnId)
           }
       }).flatten
     }
 
     val dependentColumnIds = asSeqOf[JsonObject](rules).map(json => {
       val values = json.getJsonObject("conditions").getJsonArray("values")
-      calcDependentColumnIdsFromValues(values)
+      calcDependentColumnIdsFromValuesWithSideEffect(values)
     }).flatten.distinct
 
     for {
-      columns <- Future.sequence(dependentColumnIds.map(id => retrieveOne(table, id, 0).recover {
-        case ex => throw new ColumnNotFoundException(s"Column with id: ${id} does not exist")
-      }
-))    }
+      columns <- Future.sequence(dependentColumnIds.map(id => retrieveOne(table, id, 1)))
+      // validate column types and languagetype
+      _ = columns.foreach(column => {
+        if(!StatusColumn.validColumnTypes.contains(column.kind)){
+          throw new WrongStatusColumnKindException(column, StatusColumn.validColumnTypes)
+        }
+        column.languageType match {
+          case LanguageNeutral => {}
+          case _ => throw new WrongLanguageTypeException(column, LanguageNeutral)
+        }
+
+        val ( checkForExpectedValueType, expectedType ): (Any => Boolean, String) = column.kind match {
+          case ShortTextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
+          case RichTextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
+          case NumericType => (valueToCompare => valueToCompare.isInstanceOf[Number], "Number")
+          case BooleanType => (valueToCompare => valueToCompare.isInstanceOf[Boolean], "Boolean")
+          case _ => throw new WrongStatusColumnKindException(column, StatusColumn.validColumnTypes)
+        }
+
+        valueTypeMap(column.id).foreach(value => {
+          if(!checkForExpectedValueType(value)){
+            throw new WrongStatusConditionTypeException(column, value.getClass().toString, expectedType )
+          }
+        })
+
+      })
+    }
     yield  columns
   }
 
