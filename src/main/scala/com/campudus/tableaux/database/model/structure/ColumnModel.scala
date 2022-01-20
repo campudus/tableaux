@@ -304,7 +304,6 @@ class ColumnModel(val connection: DatabaseConnection)(
             _ <- validator.validateJson(ValidatorKeys.STATUS, statusColumnInfo.rules).recover {
               case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
             }
-            // _ = validateStatusColumnRules(statusColumnInfo.rules)
 
             statusColumn <- createStatusColumn(table, statusColumnInfo).map({
               case (dependentColumns, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
@@ -1004,6 +1003,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
 
         val (checkForExpectedValueType, expectedType): (Any => Boolean, String) = column.kind match {
+          case TextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
           case ShortTextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
           case RichTextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
           case NumericType => (valueToCompare => valueToCompare.isInstanceOf[Number], "Number")
