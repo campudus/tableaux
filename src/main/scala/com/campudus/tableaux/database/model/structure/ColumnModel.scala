@@ -1342,10 +1342,6 @@ private def checkForStatusColumnDependency(columnId: ColumnId, columns: Seq[Colu
     val tableId = table.id
 
     for {
-      columns <- retrieveAll(table)
-      _ = if(kind.isDefined){
-        checkForStatusColumnDependency(columnId, columns, "changed")
-      }
       t <- connection.begin()
 
       // change column settings
