@@ -133,9 +133,9 @@ class ColumnAttributesTest extends TableauxTestBase {
         ))
 
       val createColumn1 =
-        Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> attributes)))
+        Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1")))
       val createColumn2 =
-        Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> attributes)))
+        Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2")))
       val updateColumn1 = Json.obj("attributes" -> attributes)
       val updateColumn2 = Json.obj("attributes" -> attributes)
 
@@ -164,13 +164,10 @@ class ColumnAttributesTest extends TableauxTestBase {
 
       val createColumn1 = Json.obj(
         "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> InvalidAttributes)))
-      val createColumn2 = Json.obj(
-        "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> InvalidAttributes)))
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield ()
     }
   }
@@ -199,13 +196,10 @@ class ColumnAttributesTest extends TableauxTestBase {
 
       val createColumn1 = Json.obj(
         "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1", "attributes" -> invalidAttributes)))
-      val createColumn2 = Json.obj(
-        "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2", "attributes" -> invalidAttributes)))
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield ()
     }
   }
@@ -216,16 +210,12 @@ class ColumnAttributesTest extends TableauxTestBase {
       val invalidAttributes = "invalidAttributes"
 
       val createColumn1 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1")))
-      val createColumn2 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2")))
       val updateColumn1 = Json.obj("attributes" -> invalidAttributes)
-      val updateColumn2 = Json.obj("attributes" -> invalidAttributes)
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         created1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-        created2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
         updated1 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created1)}", updateColumn1)
-        updated2 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created2)}", updateColumn2)
       } yield ()
     }
   }
@@ -254,16 +244,12 @@ class ColumnAttributesTest extends TableauxTestBase {
       )
 
       val createColumn1 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column1")))
-      val createColumn2 = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "column2")))
       val updateColumn1 = Json.obj("attributes" -> invalidAttributes)
-      val updateColumn2 = Json.obj("attributes" -> invalidAttributes)
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         created1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
-        created2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
         updated1 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created1)}", updateColumn1)
-        updated2 <- sendRequest("POST", s"/tables/1/columns/${extractIdFromColumnAnswer(created2)}", updateColumn2)
       } yield ()
     }
   }

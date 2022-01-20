@@ -209,7 +209,7 @@ class StructureController(
                            identifier = true,
                            Seq.empty,
                            false,
-                           Option(new JsonObject("{}")))
+                           Option(Json.obj()))
       )
       _ <- columnStruc.createColumn(
         created,
@@ -224,7 +224,7 @@ class StructureController(
             NameOnly("en", "Identifier")
           ),
           false,
-          Option(new JsonObject("{}"))
+          Option(Json.obj())
         )
       )
       _ <- columnStruc.createColumn(
@@ -239,7 +239,7 @@ class StructureController(
                              NameOnly("en", "Value")
                            ),
                            false,
-                           Option(new JsonObject("{}")))
+                           Option(Json.obj()))
       )
       _ <- columnStruc.createColumn(created,
                                     CreateAttachmentColumn("attachment",

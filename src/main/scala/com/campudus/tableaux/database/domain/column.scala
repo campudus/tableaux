@@ -85,7 +85,7 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   // ConcatColumn can't be grouped
   override val groupColumnIds: Seq[ColumnId] = Seq.empty
   override val separator: Boolean = false
-  override val attributes: JsonObject = new JsonObject("{}")
+  override val attributes: JsonObject = Json.obj()
 }
 
 object ColumnType {

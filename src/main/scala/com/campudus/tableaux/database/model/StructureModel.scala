@@ -4,7 +4,7 @@ import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.router.auth.permission.RoleModel
-import org.vertx.scala.core.json.JsonObject
+import org.vertx.scala.core.json.Json
 
 object StructureModel {
 
@@ -23,6 +23,6 @@ class StructureModel(override protected[this] val connection: DatabaseConnection
   val tableStruc = new TableModel(connection)
 
   val columnStruc =
-    new CachedColumnModel(connection.vertx.getOrCreateContext().config().getOrElse(new JsonObject()), connection)
+    new CachedColumnModel(connection.vertx.getOrCreateContext().config().getOrElse(Json.obj()), connection)
   val tableGroupStruc = new TableGroupModel(connection)
 }

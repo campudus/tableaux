@@ -56,7 +56,6 @@ class RetrieveTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/tables", createTableJson)
       test <- sendRequest("GET", "/completetable/1")
     } yield {
-      println(test.encode(), test)
       assertJSONEquals(expectedJson, test, JSONCompareMode.STRICT)
     }
   }
