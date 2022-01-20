@@ -389,6 +389,47 @@ trait TableauxTestBase
     } yield (columnId1, columnId2)
   }
 
+  protected def createStatusTestColumns(tableId: TableId): Future[Unit] = {
+    val createShortTextColumnJson =
+      Json.obj("columns" -> Json.arr(Json.obj("kind" -> "shorttext", "name" -> "Test Column 1")))
+    val createRichTextColumnJson =
+      Json.obj("columns" -> Json.arr(Json.obj("kind" -> "richtext", "name" -> "Test Column 2")))
+    val createNumberColumnJson =
+      Json.obj("columns" -> Json.arr(Json.obj("kind" -> "numeric", "name" -> "Test Column 3")))
+
+    val createBooleanColumnJson =
+      Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 4")))
+
+    for {
+      column1 <- sendRequest("POST", s"/tables/$tableId/columns", createShortTextColumnJson)
+      column2 <- sendRequest("POST", s"/tables/$tableId/columns", createRichTextColumnJson)
+      column3 <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
+      column4 <- sendRequest("POST", s"/tables/$tableId/columns", createBooleanColumnJson)
+    } yield ()
+
+  }
+
+  protected def createFullStatusTestTable(): Future[TableId] = {
+    val postTable = Json.obj("name" -> "status test table")
+    val shortTextValue = Json.obj("value" -> "short_text_value")
+    val richTextValue = Json.obj("value" -> "rich_text_value")
+    val numberValue = Json.obj("value" -> 42)
+    val booleanValue = Json.obj("value" -> true)
+    for {
+      tableId <- sendRequest("POST", "/tables", postTable) map { js =>
+        {
+          js.getLong("id")
+        }
+      }
+      _ <- createStatusTestColumns(tableId)
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", shortTextValue)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/1", richTextValue)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/3/rows/1", numberValue)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/4/rows/1", booleanValue)
+    } yield tableId
+  }
+
   protected def createEmptyDefaultTable(
       name: String = "Test Table 1",
       tableNum: Int = 1,

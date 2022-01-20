@@ -69,6 +69,8 @@ object RequestCreation {
 
   case class BooleanCol(name: String) extends ColumnType("boolean")
 
+  case class StatusCol(name: String) extends ColumnType("status")
+
   sealed abstract class BaseGroupCol(groups: Seq[ColumnId]) extends ColumnType("group") {
     override def getJson: JsonObject = {
       super.getJson.mergeIn(

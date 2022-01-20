@@ -10,7 +10,7 @@
   "$defs": {
     "rule": {
       "type": "object",
-      "required":["name", "conditions"],
+      "required":["name","color","conditions", "icon", "displayName", "tooltip"],
       "properties": {
         "name": {
           "type": "string"
