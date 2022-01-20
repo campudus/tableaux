@@ -11,7 +11,7 @@ import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux.{ WrongStatusColumnKindException , WrongLanguageTypeException, WrongStatusConditionTypeException}
+import com.campudus.tableaux.{ WrongStatusColumnKindException , WrongLanguageTypeException, WrongStatusConditionTypeException, HasStatusColumnDependencyException}
 import com.google.common.cache.CacheBuilder
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
@@ -936,7 +936,6 @@ class ColumnModel(val connection: DatabaseConnection)(
 
       case StatusType =>
         mapStatusColumn(columnInformation, rules)
-        // Future(StatusColumn(columnInformation,rules))
 
       case LinkType =>
         mapLinkColumn(depth, columnInformation)
@@ -1193,6 +1192,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         .getOrElse(
           throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.", "delete-non-existing"))
 
+      _ = checkForStatusColumnDependency(columnId, columns, "deleted")
+
       _ <- {
         column match {
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
@@ -1203,6 +1204,14 @@ class ColumnModel(val connection: DatabaseConnection)(
       }
     } yield ()
   }
+  
+private def checkForStatusColumnDependency(columnId: ColumnId, columns: Seq[ColumnType[_]], actionErrorMessage: String): Unit = {
+  columns.filter(column => column.kind == StatusType).foreach(column => {
+    if(column.asInstanceOf[StatusColumn].columns.map(col => col.id).contains(columnId)){
+      throw new HasStatusColumnDependencyException(s"Column can't be ${actionErrorMessage} because Column with id ${column.id} has dependency on this column. Remove Rules from Column ${column.name} with id: ${column.id} containing  column with id: ${columnId} ") 
+    }
+  })
+}
 
   private def deleteLink(column: LinkColumn, bothDirections: Boolean): Future[Unit] = {
     val tableId = column.table.id
@@ -1333,6 +1342,10 @@ class ColumnModel(val connection: DatabaseConnection)(
     val tableId = table.id
 
     for {
+      columns <- retrieveAll(table)
+      _ = if(kind.isDefined){
+        checkForStatusColumnDependency(columnId, columns, "changed")
+      }
       t <- connection.begin()
 
       // change column settings

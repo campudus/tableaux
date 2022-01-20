@@ -895,7 +895,7 @@ class TableauxModel(
             val columnId: ColumnId = value.getLong("column").asInstanceOf[ColumnId]
             val (column, columnValue) = columnsWithValues(columnId)
 
-            val operatorFunction = condition.getString("operator") match {
+            val operatorFunction = value.getString("operator") match {
               case "NOT" => (a: Any, b: Any) => a != b
               case _ => (a: Any, b: Any) => a == b
             }

@@ -152,3 +152,8 @@ case class UnauthorizedException(action: Action, scope: Scope) extends CustomExc
   override val statusCode: Int = 403
   override val message: String = s"Action $action on scope $scope is not allowed."
 }
+
+case class HasStatusColumnDependencyException(override val message: String) extends CustomException {
+  override val id: String = s"error.column.dependency"
+  override val statusCode: Int = 409
+}
