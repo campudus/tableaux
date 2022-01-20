@@ -243,7 +243,15 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         context,
         asyncGetReply {
           val json = getJson(context)
-          val (optName, optOrd, optKind, optId, optDisplayInfos, optCountryCodes, optSeparator, optAttributes, optRules) =
+          val (optName,
+               optOrd,
+               optKind,
+               optId,
+               optDisplayInfos,
+               optCountryCodes,
+               optSeparator,
+               optAttributes,
+               optRules) =
             toColumnChanges(json)
 
           controller.changeColumn(tableId,

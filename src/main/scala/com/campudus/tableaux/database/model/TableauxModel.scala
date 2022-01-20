@@ -585,11 +585,11 @@ class TableauxModel(
   def maybeInvalidateStatusCells(column: ColumnType[_], rowId: RowId): Future[Unit] = {
     for {
       statusColumns <- retrieveAllStatusColumnsForTable(column.table)
-      _ = statusColumns.foreach(( statusColumn: StatusColumn) =>{
-        if(statusColumn.columns.map(column => column.id).contains(column.id)){
+      _ = statusColumns.foreach((statusColumn: StatusColumn) => {
+        if (statusColumn.columns.map(column => column.id).contains(column.id)) {
           CacheClient(this.connection).invalidateCellValue(statusColumn.table.id, statusColumn.id, rowId)
         }
-      } )
+      })
     } yield ()
   }
 
@@ -676,7 +676,7 @@ class TableauxModel(
       valueCache <- CacheClient(this.connection).retrieveCellValue(column.table.id, column.id, rowId)
 
       value <- valueCache match {
-        case Some(obj) =>{
+        case Some(obj) => {
           // Cache hit
           Future.successful(obj)
         }
@@ -869,42 +869,57 @@ class TableauxModel(
       }
     }
 
-    def fetchValuesForStatusColumn(concatenateColumn: ConcatenateColumn, rowId: RowId): Future[Map[ColumnId,(ColumnType[_], Any)]] = {
+    def fetchValuesForStatusColumn(concatenateColumn: ConcatenateColumn,
+                                   rowId: RowId): Future[Map[ColumnId, (ColumnType[_], Any)]] = {
       val columns = concatenateColumn.columns
       for {
-        row <- retrieveRow(concatenateColumn.table,columns, rowId)
-      } yield columns.zip(row.values).foldLeft(Map[ColumnId,(ColumnType[_], Any)]())({case (acc,(col,remVal)) => acc + (col.id -> (col,remVal))})
+        row <- retrieveRow(concatenateColumn.table, columns, rowId)
+      } yield
+        columns
+          .zip(row.values)
+          .foldLeft(Map[ColumnId, (ColumnType[_], Any)]())({
+            case (acc, (col, remVal)) => acc + (col.id -> (col, remVal))
+          })
     }
 
-    def calcStatusValue(rules: JsonArray, columnsWithValues: Map[ColumnId,(ColumnType[_], Any)]): Seq[Boolean] = {
+    def calcStatusValue(rules: JsonArray, columnsWithValues: Map[ColumnId, (ColumnType[_], Any)]): Seq[Boolean] = {
 
+      def calcValue(condition: JsonObject): Boolean = {
 
-    def calcValue(condition: JsonObject): Boolean = {
+        val compositionFunction = condition.getString("composition") match {
+          case "OR" =>
+            (acc: Boolean, value: Boolean) =>
+              acc || value
+          case "AND" =>
+            (acc: Boolean, value: Boolean) =>
+              acc && value
+        }
 
-      val compositionFunction = condition.getString("composition") match {
-        case "OR" => (acc: Boolean, value: Boolean) => acc || value
-        case "AND" => (acc: Boolean, value: Boolean) => acc && value
-      }
+        val values = condition.getJsonArray("values")
 
-      val values = condition.getJsonArray("values")
+        asSeqOf[JsonObject](values)
+          .map(value => {
+            if (value.containsKey("values")) {
+              calcValue(value)
+            } else {
+              val columnId: ColumnId = value.getLong("column").asInstanceOf[ColumnId]
+              val (column, columnValue) = columnsWithValues(columnId)
 
-      asSeqOf[JsonObject](values).map(value => {
-          if(value.containsKey("values")){
-            calcValue(value)
-          } else {
-            val columnId: ColumnId = value.getLong("column").asInstanceOf[ColumnId]
-            val (column, columnValue) = columnsWithValues(columnId)
+              val operatorFunction = value.getString("operator") match {
+                case "NOT" =>
+                  (a: Any, b: Any) =>
+                    a != b
+                case _ =>
+                  (a: Any, b: Any) =>
+                    a == b
+              }
 
-            val operatorFunction = value.getString("operator") match {
-              case "NOT" => (a: Any, b: Any) => a != b
-              case _ => (a: Any, b: Any) => a == b
+              val compareValue = value.getValue("value")
+              operatorFunction(columnValue, compareValue)
             }
-
-            val compareValue = value.getValue("value")
-            operatorFunction(columnValue, compareValue)
-          }
-        }).reduceLeft(compositionFunction)
-    }
+          })
+          .reduceLeft(compositionFunction)
+      }
 
       asSeqOf[JsonObject](rules).map(rule => {
         val conditions = rule.getJsonObject("conditions")
@@ -930,12 +945,11 @@ class TableauxModel(
                   fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatenateColumn], array)
                     .map(cellValue => (c, cellValue))
 
-                case (c: StatusColumn, value) => 
+                case (c: StatusColumn, value) =>
                   for {
-                  dependentColumnValues <- fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
-                  statusValue = calcStatusValue(c.rules,dependentColumnValues)
-                  } yield {(c, statusValue)}
-                  // Future.successful((c, value))
+                    dependentColumnValues <- fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
+                    statusValue = calcStatusValue(c.rules, dependentColumnValues)
+                  } yield { (c, statusValue) }
 
                 case (c: AttachmentColumn, _) =>
                   // AttachmentColumns are fetched via AttachmentModel
@@ -961,7 +975,6 @@ class TableauxModel(
                 .map({
                   case (_, value) => value
                 })
-
 
             case (_, value) =>
               // Post-processing is only needed for ConcatColumn and GroupColumn

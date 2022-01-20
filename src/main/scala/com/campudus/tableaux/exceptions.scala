@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.domain.ColumnType
 import com.campudus.tableaux.database.model.TableauxModel.{RowId, TableId}
 import com.campudus.tableaux.router.RouterException
 import com.campudus.tableaux.router.auth.permission.{Action, Scope}
-import com.campudus.tableaux.database.{ TableauxDbType , LanguageType}
+import com.campudus.tableaux.database.{TableauxDbType, LanguageType}
 
 sealed trait CustomException extends Throwable {
   val message: String
@@ -116,26 +116,28 @@ case class WrongColumnKindException[T <: ColumnType[_]](column: ColumnType[_], s
     s"This action is not possible on ${column.name}. Action only available for columns of kind ${shouldBe.toString}."
 }
 
-    case class WrongStatusColumnKindException(wrongColumn: ColumnType[_], shouldBe: Seq[TableauxDbType]) extends CustomException {
+case class WrongStatusColumnKindException(wrongColumn: ColumnType[_], shouldBe: Seq[TableauxDbType])
+    extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
   override val message: String =
     s"This action is not possible on Column with kind: ${wrongColumn.kind}. Action only available for columns of kind ${shouldBe.toString}."
-    }
+}
 
-    case class WrongLanguageTypeException(wrongColumn: ColumnType[_], shouldBe: LanguageType) extends CustomException {
+case class WrongLanguageTypeException(wrongColumn: ColumnType[_], shouldBe: LanguageType) extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
   override val message: String =
     s"This action is not possible on Columns with LanguageType:  ${wrongColumn.languageType}. Action only available for columns of LanguageType ${shouldBe.toString}."
-    }
+}
 
-    case class WrongStatusConditionTypeException(column: ColumnType[_], is: String, shouldBe: String) extends CustomException {
+case class WrongStatusConditionTypeException(column: ColumnType[_], is: String, shouldBe: String)
+    extends CustomException {
   override val id: String = s"error.request.status.value.wrongtype"
   override val statusCode: Int = 400
   override val message: String =
     s"Type of condition value does not match column type. Value for column ${column.id} is ${is} but should be ${shouldBe}."
-    }
+}
 
 case class ForbiddenException(override val message: String, subId: String) extends CustomException {
   override val id: String = s"error.request.forbidden.$subId"

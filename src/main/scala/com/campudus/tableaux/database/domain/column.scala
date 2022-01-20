@@ -73,15 +73,15 @@ object StatusColumnInformation {
       case None => new JsonObject("{}")
     }
     StatusColumnInformation(table,
-                           columnId,
-                           createColumn.name,
-                           ordering,
-                           createColumn.identifier,
-                           displayInfos,
-                           Seq.empty,
-                           createColumn.separator,
-                           attributes,
-                           createColumn.rules)
+                            columnId,
+                            createColumn.name,
+                            ordering,
+                            createColumn.identifier,
+                            displayInfos,
+                            Seq.empty,
+                            createColumn.separator,
+                            attributes,
+                            createColumn.rules)
   }
 }
 
@@ -458,7 +458,6 @@ case class DateTimeColumn(override val languageType: LanguageType)(override val 
   }
 }
 
-
 /*
  * Special column types
  */
@@ -547,18 +546,15 @@ case class LinkColumn(
   }
 }
 
-case class StatusColumn(override val columnInformation: ColumnInformation, rules: JsonArray, override val columns: Seq[ColumnType[_]])(
+case class StatusColumn(override val columnInformation: ColumnInformation,
+                        rules: JsonArray,
+                        override val columns: Seq[ColumnType[_]])(
     implicit val requestContext: RequestContext,
     val roleModel: RoleModel
-) extends ConcatenateColumn with LazyLogging {
+) extends ConcatenateColumn
+    with LazyLogging {
 
   override val languageType: LanguageNeutral.type = LanguageNeutral
-  // override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
-  // override def checkValidValue[B](value: B): Try[Option[String]] = {
-  //   Try {
-  //    Some(value.asInstanceOf[String])
-  //   }
-  // }
   override val kind = StatusType
   override def getJson: JsonObject = {
     super.getJson
@@ -571,10 +567,8 @@ case class StatusColumn(override val columnInformation: ColumnInformation, rules
 }
 
 object StatusColumn {
-  val validColumnTypes:Seq[TableauxDbType] = Seq(BooleanType, RichTextType, ShortTextType, NumericType)
+  val validColumnTypes: Seq[TableauxDbType] = Seq(BooleanType, RichTextType, ShortTextType, NumericType)
 }
-
-
 
 case class AttachmentColumn(override val columnInformation: ColumnInformation)(
     implicit val requestContext: RequestContext,
@@ -679,8 +673,6 @@ case class GroupColumn(
     json
   }
 }
-
-
 
 /**
   * Column seq is just a sequence of columns.

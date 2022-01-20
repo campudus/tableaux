@@ -164,18 +164,16 @@ object JsonUtils extends LazyLogging {
                 CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups, attributes)
 
               case StatusType =>
-
                 val validator = JsonSchemaValidatorClient(Vertx.currentContext().get.owner())
                 val rules = json.getJsonArray("rules", new JsonArray())
-                       CreateStatusColumn(
-                         name,
-                         ordering,
-                         dbType,
-                         displayInfos,
-                         attributes,
-                         rules
-                         )
-
+                CreateStatusColumn(
+                  name,
+                  ordering,
+                  dbType,
+                  displayInfos,
+                  attributes,
+                  rules
+                )
 
               case _ =>
                 CreateSimpleColumn(name,

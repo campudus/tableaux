@@ -107,9 +107,8 @@ case class CreateStatusColumn(override val name: String,
                               override val kind: TableauxDbType,
                               override val displayInfos: Seq[DisplayInfo],
                               override val attributes: Option[JsonObject],
-                              rules: JsonArray
-                              )
-extends CreateColumn {
+                              rules: JsonArray)
+    extends CreateColumn {
   override val separator: Boolean = false
   override val identifier: Boolean = false
   override val languageType: LanguageType = LanguageNeutral

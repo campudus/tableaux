@@ -408,10 +408,10 @@ class StructureController(
       _ <- if (rules.nonEmpty) {
         for {
           _ <- validator
-          .validateJson(ValidatorKeys.STATUS, rules.get)
-          .recover({
-            case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
-          })
+            .validateJson(ValidatorKeys.STATUS, rules.get)
+            .recover({
+              case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
+            })
           _ <- columnStruc.retrieveAndValidateDependentStatusColumns(rules.get, table)
         } yield ()
       } else {

@@ -156,7 +156,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   )
 
   private def readSchemaFile(name: String): String = {
-    Source.fromInputStream(getClass.getResourceAsStream(s"/schema/$name.sql"), "UTF-8").mkString }
+    Source.fromInputStream(getClass.getResourceAsStream(s"/schema/$name.sql"), "UTF-8").mkString
+  }
 
   private def setupVersion(stmt: String, versionId: Int)(t: connection.Transaction): Future[connection.Transaction] = {
     logger.debug(s"Setup schema version $versionId")

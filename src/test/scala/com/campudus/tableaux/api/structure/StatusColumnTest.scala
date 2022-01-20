@@ -10,26 +10,31 @@ import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
 @RunWith(classOf[VertxUnitRunner])
 class StatusColumnTest extends TableauxTestBase {
   def extractIdFromColumnAnswer(answer: JsonObject) = answer.getJsonArray("columns").getJsonObject(0).getInteger("id")
-  def createStatusColumnJson(name: String, rules: JsonArray) = Json.obj("name" -> name, "kind" -> "status", "rules" -> rules)
+
+  def createStatusColumnJson(name: String, rules: JsonArray) =
+    Json.obj("name" -> name, "kind" -> "status", "rules" -> rules)
   def createShortTextColumnJson(name: String) = Json.obj("name" -> name, "kind" -> "shorttext")
   def createRichTextColumnJson(name: String) = Json.obj("name" -> name, "kind" -> "richtext")
   def createBooleanColumnJson(name: String) = Json.obj("name" -> name, "kind" -> "boolean")
   def createNumericColumnJson(name: String) = Json.obj("name" -> name, "kind" -> "numeric")
-  def createSingleStatusRule(name:String, conditions: JsonObject) = 
-        Json.obj(
+
+  def createSingleStatusRule(name: String, conditions: JsonObject) =
+    Json
+      .obj(
         "name" -> name,
         "displayName" -> Json.obj(
           "de" -> "german_name"
-          ),
+        ),
         "color" -> "#fffff",
         "icon" -> Json.obj(
           "type" -> "fa",
           "value" -> "some_icon"
-          ),
+        ),
         "tooltip" -> Json.obj(
           "de" -> "tooltip_value"
-          )
-  ).mergeIn(Json.obj("conditions" -> conditions))
+        )
+      )
+      .mergeIn(Json.obj("conditions" -> conditions))
 
   val createTableJson = Json.obj("name" -> "Test Nr. 1")
 
@@ -44,35 +49,34 @@ class StatusColumnTest extends TableauxTestBase {
             "column" -> 1,
             "operator" -> "IS",
             "value" -> "some_short_text"
-            ),
+          ),
           Json.obj(
             "column" -> 2,
             "operator" -> "NOT",
             "value" -> "some_rich_text"
-            ),
+          ),
           Json.obj(
             "column" -> 3,
             "operator" -> "IS",
             "value" -> true
-            ),
+          ),
           Json.obj(
             "composition" -> "OR",
             "values" -> Json.arr(
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "IS",
-            "value" -> 42
-            ),
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "NOT",
-            "value" -> 420
-            )
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "IS",
+                "value" -> 42
+              ),
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "NOT",
+                "value" -> 420
               )
             )
           )
         )
-
+      )
 
       val secondConditionsObject = Json.obj(
         "composition" -> "OR",
@@ -81,34 +85,34 @@ class StatusColumnTest extends TableauxTestBase {
             "column" -> 1,
             "operator" -> "IS",
             "value" -> "some_short_text"
-            ),
+          ),
           Json.obj(
             "column" -> 2,
             "operator" -> "NOT",
             "value" -> "some_rich_text"
-            ),
+          ),
           Json.obj(
             "column" -> 3,
             "operator" -> "IS",
             "value" -> true
-            ),
+          ),
           Json.obj(
             "composition" -> "AND",
             "values" -> Json.arr(
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "IS",
-            "value" -> 42
-            ),
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "NOT",
-            "value" -> 420
-            )
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "IS",
+                "value" -> 42
+              ),
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "NOT",
+                "value" -> 420
               )
             )
           )
         )
+      )
 
       val rulesJson = Json.arr(
         createSingleStatusRule("first", firstConditionsObject),
@@ -121,15 +125,17 @@ class StatusColumnTest extends TableauxTestBase {
       val createColumn4 = createNumericColumnJson("column4")
       val createColumn5 = createStatusColumnJson("column5", rulesJson)
 
-      val createOtherColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1,
-        createColumn2,
-        createColumn3,
-        createColumn4
+      val createOtherColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1,
+          createColumn2,
+          createColumn3,
+          createColumn4
         ))
 
-      val createStatusColumn = Json.obj("columns" -> Json.arr(
-        createColumn5
+      val createStatusColumn = Json.obj(
+        "columns" -> Json.arr(
+          createColumn5
         ))
 
       val expectedJson = Json.obj(
@@ -142,10 +148,10 @@ class StatusColumnTest extends TableauxTestBase {
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
                  "attributes" -> Json.obj(),
-                 "description" -> Json.obj()).mergeIn(createColumn5)
-
-          )
+                 "description" -> Json.obj())
+            .mergeIn(createColumn5)
         )
+      )
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
@@ -162,24 +168,28 @@ class StatusColumnTest extends TableauxTestBase {
     okTest {
 
       val createColumn1 = Json.obj("name" -> "column1", "kind" -> "status")
-      val createColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1
+      val createColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1
         ))
 
       val expectedJson = Json.obj(
         "status" -> "ok",
         "columns" -> Json.arr(
           Json
-            .obj("id" -> 1,
-                 "ordering" -> 1,
-                 "multilanguage" -> false,
-                 "identifier" -> false,
-                 "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
-                 "rules" -> Json.arr(),
-                 "description" -> Json.obj()).mergeIn(createColumn1)
-          )
+            .obj(
+              "id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "attributes" -> Json.obj(),
+              "rules" -> Json.arr(),
+              "description" -> Json.obj()
+            )
+            .mergeIn(createColumn1)
         )
+      )
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
@@ -190,30 +200,33 @@ class StatusColumnTest extends TableauxTestBase {
     }
   }
 
-
   @Test
   def createStatusColumnWithEmptyRules(implicit c: TestContext): Unit = {
     okTest {
 
-      val createColumn1 = createStatusColumnJson("column1",Json.arr())
-      val createColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1
+      val createColumn1 = createStatusColumnJson("column1", Json.arr())
+      val createColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1
         ))
 
       val expectedJson = Json.obj(
         "status" -> "ok",
         "columns" -> Json.arr(
           Json
-            .obj("id" -> 1,
-                 "ordering" -> 1,
-                 "multilanguage" -> false,
-                 "identifier" -> false,
-                 "displayName" -> Json.obj(),
-                 "attributes" -> Json.obj(),
-                 "rules" -> Json.arr(),
-                 "description" -> Json.obj()).mergeIn(createColumn1)
-          )
+            .obj(
+              "id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "attributes" -> Json.obj(),
+              "rules" -> Json.arr(),
+              "description" -> Json.obj()
+            )
+            .mergeIn(createColumn1)
         )
+      )
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
@@ -236,35 +249,34 @@ class StatusColumnTest extends TableauxTestBase {
             "column" -> 1,
             "opertor" -> "IS",
             "value" -> "some_short_text"
-            ),
+          ),
           Json.obj(
             "column" -> 2,
             "operator" -> "NOT",
             "value" -> "some_rich_text"
-            ),
+          ),
           Json.obj(
             "column" -> 3,
             "operator" -> "IS",
             "valu" -> true
-            ),
+          ),
           Json.obj(
             "compsition" -> "OR",
             "values" -> Json.arr(
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "IS",
-            "value" -> 42
-            ),
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "NOT",
-            "value" -> 420
-            )
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "IS",
+                "value" -> 42
+              ),
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "NOT",
+                "value" -> 420
               )
             )
           )
         )
-
+      )
 
       val rulesJson = Json.arr(
         createSingleStatusRule("first", firstConditionsObject)
@@ -276,15 +288,17 @@ class StatusColumnTest extends TableauxTestBase {
       val createColumn4 = createNumericColumnJson("column4")
       val createColumn5 = createStatusColumnJson("column5", rulesJson)
 
-      val createOtherColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1,
-        createColumn2,
-        createColumn3,
-        createColumn4
+      val createOtherColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1,
+          createColumn2,
+          createColumn3,
+          createColumn4
         ))
 
-      val createStatusColumn = Json.obj("columns" -> Json.arr(
-        createColumn5
+      val createStatusColumn = Json.obj(
+        "columns" -> Json.arr(
+          createColumn5
         ))
 
       val expectedJson = Json.obj(
@@ -297,16 +311,16 @@ class StatusColumnTest extends TableauxTestBase {
                  "identifier" -> false,
                  "displayName" -> Json.obj(),
                  "attributes" -> Json.obj(),
-                 "description" -> Json.obj()).mergeIn(createColumn5)
-
-          )
+                 "description" -> Json.obj())
+            .mergeIn(createColumn5)
         )
+      )
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         _ <- sendRequest("POST", "/tables/1/columns", createOtherColumnsJson)
         _ <- sendRequest("POST", "/tables/1/columns", createStatusColumn)
-      } yield  ()
+      } yield ()
     }
   }
 
@@ -321,34 +335,34 @@ class StatusColumnTest extends TableauxTestBase {
             "column" -> 1,
             "operator" -> "IS",
             "value" -> "some_short_text"
-            ),
+          ),
           Json.obj(
             "column" -> 2,
             "operator" -> "NOT",
             "value" -> "some_rich_text"
-            ),
+          ),
           Json.obj(
             "column" -> 3,
             "operator" -> "IS",
             "value" -> true
-            ),
+          ),
           Json.obj(
             "composition" -> "OR",
             "values" -> Json.arr(
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "IS",
-            "value" -> 42
-            ),
-          Json.obj(
-            "column" -> 42, //column does not exist
-            "operator" -> "NOT",
-            "value" -> 420
-            )
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "IS",
+                "value" -> 42
+              ),
+              Json.obj(
+                "column" -> 42, //column does not exist
+                "operator" -> "NOT",
+                "value" -> 420
               )
             )
           )
         )
+      )
 
       val rulesJson = Json.arr(
         createSingleStatusRule("first", firstConditionsObject)
@@ -360,18 +374,19 @@ class StatusColumnTest extends TableauxTestBase {
       val createColumn4 = createNumericColumnJson("column4")
       val createColumn5 = createStatusColumnJson("column5", rulesJson)
 
-      val createColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1,
-        createColumn2,
-        createColumn3,
-        createColumn4,
-        createColumn5
+      val createColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1,
+          createColumn2,
+          createColumn3,
+          createColumn4,
+          createColumn5
         ))
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createColumnsJson)
-      } yield  ()
+      } yield ()
     }
   }
 
@@ -386,35 +401,34 @@ class StatusColumnTest extends TableauxTestBase {
             "column" -> 1,
             "operator" -> "IS",
             "value" -> "some_short_text"
-            ),
+          ),
           Json.obj(
             "column" -> 2,
             "operator" -> "NOT",
             "value" -> "some_rich_text"
-            ),
+          ),
           Json.obj(
             "column" -> 3,
             "operator" -> "IS",
             "value" -> true
-            ),
+          ),
           Json.obj(
             "composition" -> "OR",
             "values" -> Json.arr(
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "IS",
-            "value" -> 42
-            ),
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "NOT",
-            "value" -> 420
-            )
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "IS",
+                "value" -> 42
+              ),
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "NOT",
+                "value" -> 420
               )
             )
           )
         )
-
+      )
 
       val rulesJson = Json.arr(
         createSingleStatusRule("first", firstConditionsObject)
@@ -426,15 +440,17 @@ class StatusColumnTest extends TableauxTestBase {
       val createColumn4 = createNumericColumnJson("column4")
       val createColumn5 = createStatusColumnJson("column5", rulesJson)
 
-      val createOtherColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1,
-        createColumn2,
-        createColumn3,
-        createColumn4
+      val createOtherColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1,
+          createColumn2,
+          createColumn3,
+          createColumn4
         ))
 
-      val createStatusColumn = Json.obj("columns" -> Json.arr(
-        createColumn5
+      val createStatusColumn = Json.obj(
+        "columns" -> Json.arr(
+          createColumn5
         ))
 
       for {
@@ -442,7 +458,7 @@ class StatusColumnTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables", Json.obj("name" -> "table 2"))
         test1 <- sendRequest("POST", "/tables/1/columns", createOtherColumnsJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createStatusColumn)
-      } yield  ()
+      } yield ()
     }
   }
 
@@ -457,36 +473,34 @@ class StatusColumnTest extends TableauxTestBase {
             "column" -> 1,
             "operator" -> "IS",
             "value" -> true //wrong value, should be string
-            ),
+          ),
           Json.obj(
             "column" -> 2,
             "operator" -> "NOT",
             "value" -> "some_rich_text"
-            ),
+          ),
           Json.obj(
             "column" -> 3,
             "operator" -> "IS",
             "value" -> true
-            ),
+          ),
           Json.obj(
             "composition" -> "OR",
             "values" -> Json.arr(
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "IS",
-            "value" -> 42
-            ),
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "NOT",
-            "value" -> 420
-            )
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "IS",
+                "value" -> 42
+              ),
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "NOT",
+                "value" -> 420
               )
             )
           )
         )
-
-
+      )
 
       val rulesJson = Json.arr(
         createSingleStatusRule("first", firstConditionsObject)
@@ -498,22 +512,24 @@ class StatusColumnTest extends TableauxTestBase {
       val createColumn4 = createNumericColumnJson("column4")
       val createColumn5 = createStatusColumnJson("column5", rulesJson)
 
-      val createOtherColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1,
-        createColumn2,
-        createColumn3,
-        createColumn4
+      val createOtherColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1,
+          createColumn2,
+          createColumn3,
+          createColumn4
         ))
 
-      val createStatusColumn = Json.obj("columns" -> Json.arr(
-        createColumn5
+      val createStatusColumn = Json.obj(
+        "columns" -> Json.arr(
+          createColumn5
         ))
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createOtherColumnsJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createStatusColumn)
-      } yield  ()
+      } yield ()
     }
   }
 
@@ -528,34 +544,34 @@ class StatusColumnTest extends TableauxTestBase {
             "column" -> 1,
             "operator" -> "IS",
             "value" -> "some_short_text"
-            ),
+          ),
           Json.obj(
             "column" -> 2,
             "operator" -> "NOT",
             "value" -> "some_rich_text"
-            ),
+          ),
           Json.obj(
             "column" -> 3,
             "operator" -> "IS",
             "value" -> true
-            ),
+          ),
           Json.obj(
             "composition" -> "OR",
             "values" -> Json.arr(
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "IS",
-            "value" -> 42
-            ),
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "NOT",
-            "value" -> 420
-            )
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "IS",
+                "value" -> 42
+              ),
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "NOT",
+                "value" -> 420
               )
             )
           )
         )
+      )
 
       val rulesJson = Json.arr(
         createSingleStatusRule("first", firstConditionsObject)
@@ -567,24 +583,27 @@ class StatusColumnTest extends TableauxTestBase {
       val createColumn4 = createNumericColumnJson("column4")
       val createColumn5 = createStatusColumnJson("column5", rulesJson)
 
-      val createOtherColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1,
-        createColumn2,
-        createColumn3,
-        createColumn4
+      val createOtherColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1,
+          createColumn2,
+          createColumn3,
+          createColumn4
         ))
 
-      val createStatusColumn = Json.obj("columns" -> Json.arr(
-        createColumn5
+      val createStatusColumn = Json.obj(
+        "columns" -> Json.arr(
+          createColumn5
         ))
 
       for {
         _ <- sendRequest("POST", "/tables", createTableJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createOtherColumnsJson)
         test1 <- sendRequest("POST", "/tables/1/columns", createStatusColumn)
-      } yield  ()
+      } yield ()
     }
   }
+
   @Test
   def deleteStatusColum(implicit c: TestContext): Unit = {
     okTest {
@@ -595,35 +614,34 @@ class StatusColumnTest extends TableauxTestBase {
             "column" -> 1,
             "operator" -> "IS",
             "value" -> "some_short_text"
-            ),
+          ),
           Json.obj(
             "column" -> 2,
             "operator" -> "NOT",
             "value" -> "some_rich_text"
-            ),
+          ),
           Json.obj(
             "column" -> 3,
             "operator" -> "IS",
             "value" -> true
-            ),
+          ),
           Json.obj(
             "composition" -> "OR",
             "values" -> Json.arr(
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "IS",
-            "value" -> 42
-            ),
-          Json.obj(
-            "column" -> 4,
-            "operator" -> "NOT",
-            "value" -> 420
-            )
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "IS",
+                "value" -> 42
+              ),
+              Json.obj(
+                "column" -> 4,
+                "operator" -> "NOT",
+                "value" -> 420
               )
             )
           )
         )
-
+      )
 
       val rulesJson = Json.arr(
         createSingleStatusRule("first", firstConditionsObject)
@@ -635,15 +653,17 @@ class StatusColumnTest extends TableauxTestBase {
       val createColumn4 = createNumericColumnJson("column4")
       val createColumn5 = createStatusColumnJson("column5", rulesJson)
 
-      val createOtherColumnsJson = Json.obj("columns" -> Json.arr(
-        createColumn1,
-        createColumn2,
-        createColumn3,
-        createColumn4
+      val createOtherColumnsJson = Json.obj(
+        "columns" -> Json.arr(
+          createColumn1,
+          createColumn2,
+          createColumn3,
+          createColumn4
         ))
 
-      val createStatusColumn = Json.obj("columns" -> Json.arr(
-        createColumn5
+      val createStatusColumn = Json.obj(
+        "columns" -> Json.arr(
+          createColumn5
         ))
 
       val expectedJson = Json.obj("status" -> "ok")

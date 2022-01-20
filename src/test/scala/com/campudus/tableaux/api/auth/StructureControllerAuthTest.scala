@@ -593,7 +593,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
 
     for {
       tableId <- createDefaultTable("Test")
-      _ <- controller.changeColumn(tableId, 1, Some("newName"), None, None, None, Some(displayInfos), None, None, None, None)
+      _ <- controller
+        .changeColumn(tableId, 1, Some("newName"), None, None, None, Some(displayInfos), None, None, None, None)
     } yield ()
   }
 

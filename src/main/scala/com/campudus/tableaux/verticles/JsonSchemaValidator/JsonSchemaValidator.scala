@@ -5,7 +5,7 @@ import scala.concurrent.Future
 import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
 import com.typesafe.scalalogging.LazyLogging
 import scala.language.implicitConversions
-import org.json.{ JSONObject, JSONArray };
+import org.json.{JSONObject, JSONArray};
 import scala.util.{Failure, Success, Try}
 import org.everit.json.schema.ValidationException;
 
