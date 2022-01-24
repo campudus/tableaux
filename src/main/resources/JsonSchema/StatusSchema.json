@@ -69,8 +69,33 @@
     },
     "multilanguage": {
      "type": "object",
+     "required": ["de"],
      "properties": {
        "de": {
+         "type": "string"
+       },
+       "en": {
+         "type": "string"
+       },
+       "us": {
+         "type": "string"
+       },
+       "fr": {
+         "type": "string"
+       },
+       "it": {
+         "type": "string"
+       },
+       "es": {
+         "type": "string"
+       },
+       "pl": {
+         "type": "string"
+       },
+       "nl": {
+         "type": "string"
+       },
+       "cs": {
          "type": "string"
        }
      }
