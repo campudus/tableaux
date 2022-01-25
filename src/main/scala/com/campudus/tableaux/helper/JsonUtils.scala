@@ -7,6 +7,7 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import com.campudus.tableaux.{InvalidJsonException, WrongJsonTypeException, TableauxConfig}
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -88,6 +89,10 @@ object JsonUtils extends LazyLogging {
             val ordering = Try(json.getInteger("ordering").longValue()).toOption
             val identifier = json.getBoolean("identifier", false)
             val separator = json.getBoolean("separator", true)
+            val attributes = Try(json.getJsonObject("attributes")) match {
+              case Success(value) => Option(value)
+              case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+            }
 
             // languageType or deprecated multilanguage
             // if languageType == 'country' countryCodes must be specified
@@ -98,7 +103,7 @@ object JsonUtils extends LazyLogging {
 
             dbType match {
               case AttachmentType =>
-                CreateAttachmentColumn(name, ordering, identifier, displayInfos)
+                CreateAttachmentColumn(name, ordering, identifier, displayInfos, attributes)
 
               case LinkType =>
                 // link specific fields
@@ -141,7 +146,8 @@ object JsonUtils extends LazyLogging {
                                  identifier,
                                  displayInfos,
                                  constraint.getOrElse(DefaultConstraint),
-                                 createBackLinkColumn)
+                                 createBackLinkColumn,
+                                 attributes)
 
               case GroupType =>
                 // group specific fields
@@ -153,10 +159,17 @@ object JsonUtils extends LazyLogging {
 
                 val formatPattern = Try(Option(json.getString("formatPattern"))).toOption.flatten
 
-                CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups)
+                CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups, attributes)
 
               case _ =>
-                CreateSimpleColumn(name, ordering, dbType, languageType, identifier, displayInfos, separator)
+                CreateSimpleColumn(name,
+                                   ordering,
+                                   dbType,
+                                   languageType,
+                                   identifier,
+                                   displayInfos,
+                                   separator,
+                                   attributes)
             }
           }
         }
@@ -241,13 +254,18 @@ object JsonUtils extends LazyLogging {
                                           Option[Boolean],
                                           Option[Seq[DisplayInfo]],
                                           Option[Seq[String]],
-                                          Option[Boolean]) = {
+                                          Option[Boolean],
+                                          Option[JsonObject]) = {
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
     val kind = Try(toTableauxType(json.getString("kind")).get).toOption
     val identifier = Try(json.getBoolean("identifier").booleanValue()).toOption
     val separator = Try(json.getBoolean("separator").booleanValue()).toOption
+    val attributes = Try(json.getJsonObject("attributes")) match {
+      case Success(value) => Option(value)
+      case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+    }
     val displayInfos = DisplayInfos.fromJson(json) match {
       case list if list.isEmpty => None
       case list => Some(list)
@@ -261,7 +279,7 @@ object JsonUtils extends LazyLogging {
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 
-    (name, ord, kind, identifier, displayInfos, countryCodes, separator)
+    (name, ord, kind, identifier, displayInfos, countryCodes, separator, attributes)
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {
@@ -296,7 +314,7 @@ object JsonUtils extends LazyLogging {
         Try(Json.fromObjectString(jsonString)) match {
           case Success(json) => json
           case Failure(_) =>
-            logger.error(s"Couldn't parse json. Excepted JSON but got: $jsonString")
+            logger.error(s"Couldn't parse json. Expected JSON but got: $jsonString")
             Json.emptyObj()
         }
       case None => Json.emptyObj()

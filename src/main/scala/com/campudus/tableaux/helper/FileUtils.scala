@@ -3,12 +3,14 @@ package com.campudus.tableaux.helper
 import java.nio.file.FileAlreadyExistsException
 
 import io.vertx.scala.core.Vertx
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
 
 import scala.concurrent.Future
 import scala.io.Source
 import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
+import scala.reflect.io.File
+import scala.collection.JavaConverters._
 
 object FileUtils {
 
@@ -70,6 +72,40 @@ class FileUtils(vertxAccess: VertxAccess) extends VertxAccess {
     Future {
       withFile(filename)(func)
     }
+  }
+
+  private def readSchemaFromFS(indexJson: JsonArray): Future[List[JsonObject]] = {
+    val asList = indexJson.asScala.toList
+    var keyList: List[String] = List()
+    val asListOfFutures = asList.map(obj => {
+      val descriptor = obj.asInstanceOf[JsonObject]
+      val key = descriptor.getString("key")
+      keyList = keyList :+ key
+      val file = descriptor.getString("file")
+      asyncReadResourceFile(s"/JsonSchema/$file")
+    })
+    val asFutureList = Future.sequence(asListOfFutures)
+    asFutureList.map(list => {
+      val zipped = keyList zip list
+      zipped.map(tuple => {
+        val (key, schemaString) = tuple
+        Json.obj("key" -> key, "schema" -> new JsonObject(schemaString))
+      })
+    })
+  }
+
+  private def asyncReadResourceFile(path: String): Future[String] = {
+    Future {
+      scala.io.Source.fromInputStream(getClass.getResourceAsStream(path), "UTF-8").mkString
+    }
+  }
+
+  def getSchemaList(): Future[List[JsonObject]] = {
+
+    for {
+      indexString <- asyncReadResourceFile("/JsonSchema/index.json")
+      schemas <- readSchemaFromFS(Json.fromArrayString(indexString))
+    } yield { schemas }
   }
 
 }

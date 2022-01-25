@@ -765,7 +765,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   def retrieveTablesWithCellAnnotations(tables: Seq[Table]): Future[Seq[TableWithCellAnnotations]] = {
     val query = tables
       .map({
-        case Table(id, _, _, _, _, _, _) =>
+        case Table(id, _, _, _, _, _, _, _) =>
           s"""SELECT
              |$id::bigint as table_id,
              |ua.row_id,

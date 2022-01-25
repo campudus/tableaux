@@ -38,6 +38,7 @@ class RetrieveTest extends TableauxTestBase {
         "limit" -> null,
         "totalSize" -> 0
       ),
+      "attributes" -> Json.obj(),
       "rows" -> Json.arr(),
       "langtags" -> Json.arr("de-DE", "en-GB"),
       "permission" -> Json.obj(

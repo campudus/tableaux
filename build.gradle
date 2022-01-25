@@ -44,6 +44,7 @@ dependencies {
   compile "io.vertx:vertx-web:${vertxVersion}"
   compile "io.vertx:vertx-mysql-postgresql-client:${vertxVersion}"
   compile "io.vertx:vertx-auth-oauth2:${vertxVersion}"
+  compile "com.github.erosb:everit-json-schema:1.14.0"
 
   // add Vert.x Scala
   compile "io.vertx:vertx-lang-scala_2.12:${vertxVersion}"

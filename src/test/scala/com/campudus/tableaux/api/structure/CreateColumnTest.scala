@@ -401,4 +401,5 @@ class CreateColumnTest extends TableauxTestBase {
       }
     }
   }
+
 }

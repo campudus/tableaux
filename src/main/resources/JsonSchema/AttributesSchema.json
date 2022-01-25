@@ -1,0 +1,73 @@
+{
+  "$id": "https://example.com/person.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "patternProperties": {
+    "^.+$": {
+      "anyOf": [
+        {"$ref": "#/$defs/stringAttribute"},
+        {"$ref": "#/$defs/numberAttribute"},
+        {"$ref": "#/$defs/booleanAttribute"},
+        {"$ref": "#/$defs/arrayAttribute"}
+      ]
+    }
+  },
+  "$defs": {
+    "stringAttribute": {
+      "type": "object",
+      "required":["type", "value"],
+      "properties": {
+        "type": {
+          "enum": ["string"]
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "numberAttribute": {
+      "type": "object",
+      "required":["type", "value"],
+      "properties": {
+        "type": {
+          "enum": ["number"]
+        },
+        "value": {
+          "type": "number"
+        }
+      }
+    },
+    "booleanAttribute": {
+      "type": "object",
+      "required":["type", "value"],
+      "properties": {
+        "type": {
+          "enum": ["boolean"]
+        },
+        "value": {
+          "type": "boolean"
+        }
+      }
+    },
+    "arrayAttribute": {
+      "type": "object",
+      "required":["type", "value"],
+      "properties": {
+        "type": {
+          "enum": ["array"]
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {"$ref": "#/$defs/stringAttribute"},
+              {"$ref": "#/$defs/numberAttribute"},
+              {"$ref": "#/$defs/booleanAttribute"},
+              {"$ref": "#/$defs/arrayAttribute"}
+            ]
+          }
+        }
+      }
+    }
+  }
+}

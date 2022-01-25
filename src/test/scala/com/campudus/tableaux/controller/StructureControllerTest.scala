@@ -34,7 +34,8 @@ class StructureControllerTest extends TableauxTestBase {
                              langtags = None,
                              displayInfos = null,
                              tableType = GenericTable,
-                             tableGroupId = None)
+                             tableGroupId = None,
+                             attributes = None)
     )
   }
 
@@ -43,7 +44,9 @@ class StructureControllerTest extends TableauxTestBase {
     val controller = createStructureController()
     illegalArgumentTest(
       controller
-        .createColumns(0, Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List(), false)))
+        .createColumns(
+          0,
+          Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List(), false, None)))
     )
   }
 
@@ -58,9 +61,16 @@ class StructureControllerTest extends TableauxTestBase {
     val controller = createStructureController()
     illegalArgumentTest(
       controller
-        .createColumns(
-          0,
-          Seq(CreateSimpleColumn(null, None, TextType, LanguageNeutral, identifier = false, List(), separator = false)))
+        .createColumns(0,
+                       Seq(
+                         CreateSimpleColumn(null,
+                                            None,
+                                            TextType,
+                                            LanguageNeutral,
+                                            identifier = false,
+                                            List(),
+                                            separator = false,
+                                            None)))
     )
   }
 
@@ -70,7 +80,7 @@ class StructureControllerTest extends TableauxTestBase {
     illegalArgumentTest(
       controller.createColumns(
         0,
-        Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List(), separator = false)))
+        Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List(), separator = false, None)))
     )
   }
 

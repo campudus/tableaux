@@ -152,7 +152,8 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                       langtags = None,
                                       displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
                                       tableType = GenericTable,
-                                      tableGroupId = None)
+                                      tableGroupId = None,
+                                      attributes = None)
     } yield {
       assertEquals(1: Long, table.id)
       assertEquals("TestTable", table.name)
@@ -171,7 +172,8 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
                                     langtags = None,
                                     displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
                                     tableType = GenericTable,
-                                    tableGroupId = None)
+                                    tableGroupId = None,
+                                    attributes = None)
       } yield ()
     }
 
@@ -194,7 +196,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
     for {
       tableId <- createDefaultTable("Test")
 
-      _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None)
+      _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None, None)
     } yield ()
   }
 
@@ -206,7 +208,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
 
       for {
         tableId <- createDefaultTable("Test")
-        _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None)
+        _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None, None)
       } yield ()
     }
 
@@ -227,7 +229,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
 
     for {
       tableId <- createDefaultTable("Test")
-      _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None)
+      _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None, None)
     } yield ()
   }
 
@@ -250,7 +252,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
       for {
         tableId <- createDefaultTable("Test")
 
-        _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None)
+        _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None, None)
       } yield ()
     }
 
@@ -424,7 +426,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
     for {
       tableId <- createDefaultTable("Test")
 
-      col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, Nil, false)
+      col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, Nil, false, None)
 
       createdColumns <- controller.createColumns(tableId, Seq(col))
 
@@ -444,7 +446,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
       for {
         tableId <- createDefaultTable("Test")
 
-        col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, Nil, false)
+        col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, Nil, false, None)
 
         _ <- controller.createColumns(tableId, Seq(col))
       } yield ()
@@ -481,7 +483,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
         modelTableId <- createDefaultTable("test_model", 1)
         variantTableId <- createDefaultTable("test_variant", 2)
 
-        col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, Nil, false)
+        col = CreateSimpleColumn("TestColumn", None, TextType, LanguageNeutral, true, Nil, false, None)
 
         createdColumns <- controller.createColumns(modelTableId, Seq(col)).map(_.columns)
         ex <- controller.createColumns(variantTableId, Seq(col)).recover({ case ex => ex })
@@ -552,7 +554,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
 
     for {
       tableId <- createDefaultTable("Test")
-      _ <- controller.changeColumn(tableId, 1, None, None, None, None, Some(displayInfos), None, None)
+      _ <- controller.changeColumn(tableId, 1, None, None, None, None, Some(displayInfos), None, None, None)
     } yield ()
   }
 
@@ -564,7 +566,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
 
       for {
         tableId <- createDefaultTable("Test")
-        _ <- controller.changeColumn(tableId, 1, None, None, None, None, Some(displayInfos), None, None)
+        _ <- controller.changeColumn(tableId, 1, None, None, None, None, Some(displayInfos), None, None, None)
       } yield ()
     }
 
@@ -591,7 +593,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
 
     for {
       tableId <- createDefaultTable("Test")
-      _ <- controller.changeColumn(tableId, 1, Some("newName"), None, None, None, Some(displayInfos), None, None)
+      _ <- controller.changeColumn(tableId, 1, Some("newName"), None, None, None, Some(displayInfos), None, None, None)
     } yield ()
   }
 
@@ -603,7 +605,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
 
       for {
         tableId <- createDefaultTable("Test")
-        _ <- controller.changeColumn(tableId, 1, Some("newName"), None, None, None, Some(displayInfos), None, None)
+        _ <- controller
+          .changeColumn(tableId, 1, Some("newName"), None, None, None, Some(displayInfos), None, None, None)
       } yield ()
     }
 
@@ -639,9 +642,9 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
         modelTableId <- createDefaultTable("test_model", 1)
         variantTableId <- createDefaultTable("test_variant", 2)
 
-        _ <- controller.changeColumn(modelTableId, 1, Some("newName"), None, None, None, None, None, None)
+        _ <- controller.changeColumn(modelTableId, 1, Some("newName"), None, None, None, None, None, None, None)
         ex <- controller
-          .changeColumn(variantTableId, 1, Some("newName"), None, None, None, None, None, None)
+          .changeColumn(variantTableId, 1, Some("newName"), None, None, None, None, None, None, None)
           .recover({ case ex => ex })
       } yield {
         assertEquals(UnauthorizedException(EditStructureProperty, ScopeColumn), ex)

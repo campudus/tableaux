@@ -11,11 +11,21 @@ import com.campudus.tableaux.database.domain.{
   NameOnly,
   _
 }
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig}
+import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig, InvalidJsonException}
+import org.vertx.scala.core.json._
+import io.vertx.scala.core.eventbus.EventBus
+import io.vertx.scala.core.Vertx
+import com.campudus.tableaux.helper.JsonUtils
+import org.json.JSONObject;
+import scala.util.{Failure, Success, Try}
+import org.everit.json.schema.ValidationException;
+import scala.collection.JavaConverters._
+import io.vertx.scala.core.eventbus.Message
 
 import scala.concurrent.Future
 
@@ -139,15 +149,28 @@ class StructureController(
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
       tableType: TableType,
-      tableGroupId: Option[TableGroupId]
+      tableGroupId: Option[TableGroupId],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
     logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
 
-    tableType match {
-      case SettingsTable => createSettingsTable(tableName, hidden, langtags, displayInfos, tableGroupId)
-      case _ => createGenericTable(tableName, hidden, langtags, displayInfos, tableGroupId)
+    def createTable(anything: Unit): Future[Table] =
+      tableType match {
+        case SettingsTable => createSettingsTable(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+        case _ => createGenericTable(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+      }
+
+    val validator = JsonSchemaValidatorClient(vertx)
+    attributes match {
+      case Some(s) => {
+        validator.validateJson(ValidatorKeys.ATTRIBUTES, s).flatMap(createTable).recover {
+          case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
+        }
+      }
+      case None => createTable(Unit)
     }
+
   }
 
   def createGenericTable(
@@ -155,11 +178,12 @@ class StructureController(
       hidden: Boolean,
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
-      tableGroupId: Option[TableGroupId]
+      tableGroupId: Option[TableGroupId],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId)
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId, attributes)
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
   }
@@ -169,28 +193,39 @@ class StructureController(
       hidden: Boolean,
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
-      tableGroupId: Option[TableGroupId]
+      tableGroupId: Option[TableGroupId],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId)
+      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId, attributes)
 
       _ <- columnStruc.createColumn(
         created,
-        CreateSimpleColumn("key", None, ShortTextType, LanguageNeutral, identifier = true, Seq.empty, false)
+        CreateSimpleColumn("key",
+                           None,
+                           ShortTextType,
+                           LanguageNeutral,
+                           identifier = true,
+                           Seq.empty,
+                           false,
+                           Option(Json.obj()))
       )
       _ <- columnStruc.createColumn(
         created,
-        CreateSimpleColumn("displayKey",
-                           None,
-                           ShortTextType,
-                           MultiLanguage,
-                           identifier = false,
-                           Seq(
-                             NameOnly("de", "Bezeichnung"),
-                             NameOnly("en", "Identifier")
-                           ),
-                           false)
+        CreateSimpleColumn(
+          "displayKey",
+          None,
+          ShortTextType,
+          MultiLanguage,
+          identifier = false,
+          Seq(
+            NameOnly("de", "Bezeichnung"),
+            NameOnly("en", "Identifier")
+          ),
+          false,
+          Option(Json.obj())
+        )
       )
       _ <- columnStruc.createColumn(
         created,
@@ -203,7 +238,8 @@ class StructureController(
                              NameOnly("de", "Inhalt"),
                              NameOnly("en", "Value")
                            ),
-                           false)
+                           false,
+                           Option(Json.obj()))
       )
       _ <- columnStruc.createColumn(created,
                                     CreateAttachmentColumn("attachment",
@@ -212,7 +248,8 @@ class StructureController(
                                                            Seq(
                                                              NameOnly("de", "Anhang"),
                                                              NameOnly("en", "Attachment")
-                                                           )))
+                                                           ),
+                                                           attributes))
 
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
@@ -272,16 +309,21 @@ class StructureController(
       hidden: Option[Boolean],
       langtags: Option[Option[Seq[String]]],
       displayInfos: Option[Seq[DisplayInfo]],
-      tableGroupId: Option[Option[TableGroupId]]
+      tableGroupId: Option[Option[TableGroupId]],
+      attributes: Option[JsonObject]
   ): Future[Table] = {
-    checkArguments(greaterZero(tableId),
-                   isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId),
-                             "name, hidden, langtags, displayName, description, group"))
+    checkArguments(
+      greaterZero(tableId),
+      isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId, attributes),
+                "name, hidden, langtags, displayName, description, group")
+    )
 
     val structureProperties: Seq[Option[Any]] = Seq(tableName, hidden, langtags, tableGroupId)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
     logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId")
+
+    val validator = JsonSchemaValidatorClient(vertx)
 
     for {
       table <- tableStruc.retrieve(tableId)
@@ -290,7 +332,16 @@ class StructureController(
       } else {
         roleModel.checkAuthorization(EditDisplayProperty, ScopeTable, ComparisonObjects(table))
       }
-      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId)
+      _ <- if (attributes.nonEmpty) {
+        validator
+          .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
+          .recover({
+            case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
+          })
+      } else {
+        Future { Unit }
+      }
+      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
       changedTable <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $changedTable")
@@ -318,14 +369,15 @@ class StructureController(
       identifier: Option[Boolean],
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]],
-      separator: Option[Boolean]
+      separator: Option[Boolean],
+      attributes: Option[JsonObject],
   ): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
       isDefined(
-        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator),
-        "name, ordering, kind, identifier, displayInfos, countryCodes, separator"
+        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes),
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes"
       )
     )
 
@@ -336,10 +388,20 @@ class StructureController(
       s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier separator=$separator" +
         s"displayInfos=$displayInfos, countryCodes=$countryCodes"
     )
+    val validator = JsonSchemaValidatorClient(vertx)
 
     for {
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
+      _ <- if (attributes.nonEmpty) {
+        validator
+          .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
+          .recover({
+            case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
+          })
+      } else {
+        Future { Unit }
+      }
 
       _ <- if (isAtLeastOneStructureProperty) {
         roleModel.checkAuthorization(EditStructureProperty, ScopeColumn, ComparisonObjects(table, column))
@@ -350,7 +412,16 @@ class StructureController(
       changedColumn <- table.tableType match {
         case GenericTable =>
           columnStruc
-            .change(table, columnId, columnName, ordering, kind, identifier, displayInfos, countryCodes, separator)
+            .change(table,
+                    columnId,
+                    columnName,
+                    ordering,
+                    kind,
+                    identifier,
+                    displayInfos,
+                    countryCodes,
+                    separator,
+                    attributes)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 

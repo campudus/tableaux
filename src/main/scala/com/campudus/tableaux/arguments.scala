@@ -102,7 +102,7 @@ object ArgumentChecker {
     val empty = !options.exists(_.isDefined)
 
     if (empty) {
-      FailArg(InvalidRequestException(s"Non of these options has a (valid) value. ($name)"))
+      FailArg(InvalidRequestException(s"None of these options has a (valid) value. ($name)"))
     } else {
       OkArg(())
     }

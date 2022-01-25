@@ -31,6 +31,7 @@ sealed trait ColumnInformation {
   val displayInfos: Seq[DisplayInfo]
   val groupColumnIds: Seq[ColumnId]
   val separator: Boolean
+  val attributes: JsonObject
 }
 
 object BasicColumnInformation {
@@ -42,6 +43,10 @@ object BasicColumnInformation {
       displayInfos: Seq[DisplayInfo],
       createColumn: CreateColumn
   ): BasicColumnInformation = {
+    val attributes = createColumn.attributes match {
+      case Some(obj) => obj
+      case None => new JsonObject("{}")
+    }
     BasicColumnInformation(table,
                            columnId,
                            createColumn.name,
@@ -49,7 +54,8 @@ object BasicColumnInformation {
                            createColumn.identifier,
                            displayInfos,
                            Seq.empty,
-                           createColumn.separator)
+                           createColumn.separator,
+                           attributes)
   }
 }
 
@@ -61,7 +67,8 @@ case class BasicColumnInformation(
     override val identifier: Boolean,
     override val displayInfos: Seq[DisplayInfo],
     override val groupColumnIds: Seq[ColumnId],
-    override val separator: Boolean
+    override val separator: Boolean,
+    override val attributes: JsonObject
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -77,7 +84,8 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
 
   // ConcatColumn can't be grouped
   override val groupColumnIds: Seq[ColumnId] = Seq.empty
-  override val separator: Boolean = false;
+  override val separator: Boolean = false
+  override val attributes: JsonObject = Json.obj()
 }
 
 object ColumnType {
@@ -179,6 +187,7 @@ sealed trait ColumnType[+A] extends DomainObject {
   final val identifier: Boolean = columnInformation.identifier
 
   val separator: Boolean = columnInformation.separator
+  val attributes: JsonObject = columnInformation.attributes
 
   protected[this] implicit def requestContext: RequestContext
   protected[this] implicit def roleModel: RoleModel
@@ -197,7 +206,8 @@ sealed trait ColumnType[+A] extends DomainObject {
       "identifier" -> identifier,
       "displayName" -> Json.obj(),
       "description" -> Json.obj(),
-      "separator" -> separator
+      "separator" -> separator,
+      "attributes" -> attributes
     )
 
     languageType match {

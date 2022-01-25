@@ -3,11 +3,12 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
-import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
+import com.campudus.tableaux.{InvalidJsonException, WrongJsonTypeException, TableauxConfig}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
+import scala.util.{Try, Success, Failure}
 
 object StructureRouter {
 
@@ -135,6 +136,10 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         val hidden = json.getBoolean("hidden", false).booleanValue()
         val displayInfos = DisplayInfos.fromJson(json)
         val tableType = TableType(json.getString("type", GenericTable.NAME))
+        val attributes = Try(json.getJsonObject("attributes")) match {
+          case Success(value) => Option(value)
+          case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+        }
 
         // if contains than user wants langtags to be set
         // but then langtags could be null so that's the second option
@@ -151,7 +156,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
           Option(json.getJsonArray("langtags")).map(_.asScala.map(_.toString).toSeq)
         )
         val tableGroupId = booleanToValueOption(json.containsKey("group"), json.getLong("group")).map(_.toLong)
-        controller.createTable(name, hidden, langtags, displayInfos, tableType, tableGroupId)
+        controller.createTable(name, hidden, langtags, displayInfos, tableType, tableGroupId, attributes)
       }
     )
   }
@@ -184,6 +189,10 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             case Nil => None
             case list => Some(list)
           }
+          val attributes = Try(json.getJsonObject("attributes")) match {
+            case Success(value) => Option(value)
+            case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+          }
 
           // if contains than user wants langtags to be set
           // but then langtags could be null so that's the second option
@@ -205,7 +214,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             Option(json.getLong("group")).map(_.toLong)
           )
 
-          controller.changeTable(tableId, name, hidden, langtags, displayInfos, tableGroupId)
+          controller.changeTable(tableId, name, hidden, langtags, displayInfos, tableGroupId, attributes)
         }
       )
     }
@@ -234,7 +243,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         context,
         asyncGetReply {
           val json = getJson(context)
-          val (optName, optOrd, optKind, optId, optDisplayInfos, optCountryCodes, optSeparator) =
+          val (optName, optOrd, optKind, optId, optDisplayInfos, optCountryCodes, optSeparator, optAttributes) =
             toColumnChanges(json)
 
           controller.changeColumn(tableId,
@@ -245,7 +254,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
                                   optId,
                                   optDisplayInfos,
                                   optCountryCodes,
-                                  optSeparator)
+                                  optSeparator,
+                                  optAttributes)
         }
       )
     }

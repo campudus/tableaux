@@ -35,7 +35,7 @@ object Table {
       implicit requestContext: RequestContext,
       roleModel: RoleModel
   ): Table = {
-    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None)
+    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None)
   }
 }
 
@@ -46,7 +46,8 @@ case class Table(
     langtags: Option[Seq[String]],
     displayInfos: Seq[DisplayInfo],
     tableType: TableType,
-    tableGroup: Option[TableGroup]
+    tableGroup: Option[TableGroup],
+    attributes: Option[JsonObject]
 )(
     implicit requestContext: RequestContext,
     roleModel: RoleModel = RoleModel()
@@ -58,7 +59,8 @@ case class Table(
       "name" -> name,
       "hidden" -> hidden,
       "displayName" -> Json.obj(),
-      "description" -> Json.obj()
+      "description" -> Json.obj(),
+      "attributes" -> attributes.getOrElse(new JsonObject("{}"))
     )
 
     langtags.foreach(lt => tableJson.mergeIn(Json.obj("langtags" -> lt)))
