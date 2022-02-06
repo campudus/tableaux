@@ -991,7 +991,10 @@ class ColumnModel(val connection: DatabaseConnection)(
       .distinct
 
     for {
-      columns <- Future.sequence(dependentColumnIds.map(id => retrieveOne(table, id, 1)))
+      columns <- Future.sequence(dependentColumnIds.map(id =>
+        retrieveOne(table, id, 1).recover({
+          case _ => throw new ColumnNotFoundException(s"Column with id $id not found")
+        })))
       // validate column types and languagetype
       _ = columns.foreach(column => {
         if (!StatusColumn.validColumnTypes.contains(column.kind)) {

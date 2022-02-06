@@ -325,8 +325,8 @@ class StatusColumnTest extends TableauxTestBase {
   }
 
   @Test
-  def createStatusColumnWithNonExistantColumn(implicit c: TestContext): Unit = {
-    exceptionTest("NOT FOUND") { //TODO better Exception
+  def createStatusColumnWithNonExistentColumn(implicit c: TestContext): Unit = {
+    exceptionTest("NOT FOUND") {
 
       val firstConditionsObject = Json.obj(
         "composition" -> "AND",
