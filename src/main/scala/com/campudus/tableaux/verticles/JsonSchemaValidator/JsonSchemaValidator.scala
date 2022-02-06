@@ -22,8 +22,7 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
   }
 
   override def startFuture(): Future[_] = {
-    eventBus.consumer("json.schema.validate.object", messageHandlerValidateJson).completionFuture()
-    eventBus.consumer("json.schema.validate.array", messageHandlerValidateJsonArray).completionFuture()
+    eventBus.consumer("json.schema.validate", messageHandlerValidateJson).completionFuture()
     eventBus.consumer("json.schema.register", messageHandlerRegisterSchema).completionFuture()
   }
 
@@ -36,38 +35,18 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
     message.reply("")
   }
 
-  private def messageHandlerValidateJsonArray(message: Message[JsonObject]): Unit = {
-    val keyWithJson = message.body()
-    val key = keyWithJson.getString("key")
-    val jsonToValidate = keyWithJson.getJsonArray("jsonToValidate")
-    val attributes = new JSONArray(jsonToValidate.encode())
-    val validatorOption = validators.get(key)
-    validatorOption match {
-      case Some(validator) => {
-        Try(validator.validate(attributes)) match {
-          case Success(v) => {
-            message.reply("")
-          }
-          case Failure(e) => {
-            message.fail(400, e.getMessage())
-          }
-        }
-
-      }
-      case None => message.fail(400, s"Schema with key $key unknown")
-    }
-
-  }
-
   private def messageHandlerValidateJson(message: Message[JsonObject]): Unit = {
     val keyWithJson = message.body()
     val key = keyWithJson.getString("key")
-    val jsonToValidate = keyWithJson.getJsonObject("jsonToValidate")
-    val attributes = new JSONObject(jsonToValidate.encode())
+    val jsonType = keyWithJson.getString("jsonType")
+    val jsonToValidate = jsonType match {
+      case "array" => new JSONArray(keyWithJson.getJsonArray("jsonToValidate").encode())
+      case _ => new JSONObject(keyWithJson.getJsonObject("jsonToValidate").encode())
+    }
     val validatorOption = validators.get(key)
     validatorOption match {
       case Some(validator) => {
-        Try(validator.validate(attributes)) match {
+        Try(validator.validate(jsonToValidate)) match {
           case Success(v) => {
             message.reply("")
           }
