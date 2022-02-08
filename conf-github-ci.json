@@ -1,17 +1,14 @@
 {
-  "host" : "127.0.0.1",
-
-  "uploadsDirectory" : "uploads/",
-  "workingDirectory" : "./",
+  "host": "127.0.0.1",
+  "uploadsDirectory": "uploads/",
+  "workingDirectory": "./",
   "rolePermissionsPath": "./role-permissions-test.json",
-
-  "database" : {
-    "host" : "localhost",
-    "port" : 5432,
-    "username" : "postgres",
-    "database" : "travis_ci_test"
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "username": "postgres",
+    "database": "github_ci_test"
   },
-
   "auth": {
     "realm": "keycloak-realm-permission-test",
     "realm-public-key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuuFUzR6uqEU80fNWA88FInoGtUgeQ7JEm1yzh8ii6zP0u+FzezLveJAhTO63YtbYddiyZZ+oQcA4ONbyBQLTrtC9X9Nbi/dhaygWFkZYLoNhGbOASrOCOIAStsU2pRfcOt/7WTxV6G/RaugO3/fArfvs/8SZ54qS1g2fIHz4jhKepQj/SRxqvhTLSY6cQHEqiToxAVjONV1toLaHWDbVSA1mVZ9hbhdhE07DZaT/YS4EgjgrLTxQohqy7R9pqk6yJ6TsOcbQfbXVZpKv5BoOV+EtDjlvHxAyHH0Dg2pCK8HSmyEqKaNfG/R/HfYb8JC4tIJunEEhm/1fEt1EkxIZqQIDAQAB",
