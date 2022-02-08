@@ -946,7 +946,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
       .getOrElse(Seq.empty[ColumnId])
 
-    val formatPattern = Option(row.get[String](9))
+    val formatPattern = Option(row.get[String](10))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
