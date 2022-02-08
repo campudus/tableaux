@@ -57,11 +57,15 @@ jobs:
         with:
           java-version: "1.8"
 
-      - name: Setup
+      - name: Setup Test ENV
         run: |
           pwd
           mkdir -p uploads
           ls -rtl
+          mkdir -p /tmp/vertx-cache/
+          chmod a+w /tmp/vertx-cache/
+          ls -rtl /tmp/vertx-cache/
+          chmod a+w gradlew
 
       # test queries database with postgres client
       - name: Install PostgreSQL client
