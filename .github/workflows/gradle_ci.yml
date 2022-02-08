@@ -58,12 +58,7 @@ jobs:
           java-version: "1.8"
 
       - name: Setup Test ENV
-        run: |
-          pwd
-          mkdir -p uploads
-          mkdir -p /tmp/vertx-cache/
-          chmod a+w /tmp/vertx-cache/
-          mv conf-github-ci.json conf-test.json
+        run: mv conf-github-ci.json conf-test.json
 
       # # test queries database with postgres client
       # - name: Install PostgreSQL client
@@ -75,40 +70,30 @@ jobs:
       #   env:
       #     PGPASSWORD: ${{ matrix.postgres-pw }}
 
-      # - name: Cleanup
-      #   uses: gradle/gradle-build-action@v2
-      #   with:
-      #     arguments: clean
+      - name: Cleanup
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: clean
 
-      # - name: Assemble test classes
-      #   uses: gradle/gradle-build-action@v2
-      #   env:
-      #     CI: true
-      #   with:
-      #     arguments: testClasses
-
-      # - name: Assemble
-      #   uses: gradle/gradle-build-action@v2
-      #   with:
-      #     arguments: assemble
-
-      # - name: Spotless Check
-      #   uses: gradle/gradle-build-action@v2
-      #   with:
-      #     arguments: spotlessCheck scoverageClasses
+      - name: Spotless Check
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: spotlessCheck scoverageClasses
 
       - name: Test
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: clean testClasses assemble test --info
+          arguments: testClasses assemble test --info
 
       - name: Archive test results
+        if: always()
         uses: actions/upload-artifact@v2
         with:
           name: code-coverage-report
           path: build/reports/tests/test
 
       - name: Archive code coverage results
+        if: always()
         uses: actions/upload-artifact@v2
         with:
           name: code-coverage-report
