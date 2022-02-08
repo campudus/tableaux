@@ -21,7 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        postgres-version: [9.6, 10, 11, 12]
+        # postgres-version: [9.6, 10, 11, 12]
+        # matrix working for test again use only one version
+        postgres-version: [12]
       max-parallel: 4
 
     services:
@@ -51,16 +53,6 @@ jobs:
       - name: Setup Test ENV
         run: mv conf-github-ci.json conf-test.json
 
-      # test queries database with postgres client
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client
-      - name: Query database
-        run: psql -h ${{ env.POSTGRES_HOST }} -d ${{ env.POSTGRES_DB }} -U ${{ env.POSTGRES_USER }} -c 'SELECT VERSION();'
-        env:
-          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
-
       - name: Cleanup
         uses: gradle/gradle-build-action@v2
         with:
@@ -74,7 +66,7 @@ jobs:
       - name: Test
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: testClasses assemble test --info
+          arguments: testClasses assemble reportScoverage --info
 
       - name: Archive test results
         if: always()
@@ -87,5 +79,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v2
         with:
-          name: code-coverage-report
+          name: coverage-report
           path: output/test/code-coverage.html
