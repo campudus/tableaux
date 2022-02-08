@@ -61,38 +61,36 @@ jobs:
         run: |
           pwd
           mkdir -p uploads
-          ls -rtl
           mkdir -p /tmp/vertx-cache/
           chmod a+w /tmp/vertx-cache/
-          ls -rtl /tmp/vertx-cache/
-          chmod a+w gradlew
+          mv conf-github-ci.json conf-test.json
 
-      # test queries database with postgres client
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client
-      - name: Query database
-        run: psql -h ${{ matrix.postgres-host }} -d ${{ matrix.postgres-db }} -U ${{ matrix.postgres-user }} -c 'SELECT VERSION();'
-        env:
-          PGPASSWORD: ${{ matrix.postgres-pw }}
+      # # test queries database with postgres client
+      # - name: Install PostgreSQL client
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install --yes postgresql-client
+      # - name: Query database
+      #   run: psql -h ${{ matrix.postgres-host }} -d ${{ matrix.postgres-db }} -U ${{ matrix.postgres-user }} -c 'SELECT VERSION();'
+      #   env:
+      #     PGPASSWORD: ${{ matrix.postgres-pw }}
 
-      - name: Cleanup
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: clean
+      # - name: Cleanup
+      #   uses: gradle/gradle-build-action@v2
+      #   with:
+      #     arguments: clean
 
-      - name: Assemble test classes
-        uses: gradle/gradle-build-action@v2
-        env:
-          CI: true
-        with:
-          arguments: testClasses
+      # - name: Assemble test classes
+      #   uses: gradle/gradle-build-action@v2
+      #   env:
+      #     CI: true
+      #   with:
+      #     arguments: testClasses
 
-      - name: Assemble
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: assemble
+      # - name: Assemble
+      #   uses: gradle/gradle-build-action@v2
+      #   with:
+      #     arguments: assemble
 
       # - name: Spotless Check
       #   uses: gradle/gradle-build-action@v2
@@ -102,4 +100,4 @@ jobs:
       - name: Test
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: test -Pconf='github_ci_test.json' --info --stacktrace
+          arguments: clean testClasses assemble test --info
