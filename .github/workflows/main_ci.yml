@@ -2,9 +2,11 @@
 
 # The workflow is used for code quality and integrity checks for pull requests
 # Pushes on master are currently built and deployed with Jenkins
-name: PR Integration Check Test
+name: CI
 
 on:
+  push:
+    branches: [master]
   pull_request:
     branches: [master]
 
