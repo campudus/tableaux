@@ -74,6 +74,7 @@ mainClassName = "io.vertx.core.Launcher"
 def mainVerticle = "scala:com.campudus.tableaux.Starter"
 
 test {
+  failFast = true
   maxHeapSize = "512m"
   // http://www.oracle.com/technetwork/java/javase/relnotes-139183.html#vm
   // https://stackoverflow.com/a/4659279/104779
