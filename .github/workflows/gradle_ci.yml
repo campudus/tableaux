@@ -13,6 +13,14 @@ on:
   pull_request:
     branches: [master]
 
+env:
+  CI: true
+  POSTGRES_DB: testing
+  POSTGRES_USER: testing
+  POSTGRES_PASSWORD: testing
+  POSTGRES_HOST: 127.0.0.1
+  POSTGRES_PORT: 5432
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,28 +28,18 @@ jobs:
       matrix:
         postgres-version:
           - 9.6
-        postgres-db:
-          - testing
-        postgres-pw:
-          - testing
-        postgres-user:
-          - testing
-        postgres-host:
-          - 127.0.0.1
-        postgres-port:
-          - 5432
       # uncomment when we activate matrix
       # max-parallel: 4
 
     services:
       postgres:
         image: postgres:${{ matrix.postgres-version }}
-        env:
-          POSTGRES_DB: ${{ matrix.postgres-db }}
-          POSTGRES_USER: ${{ matrix.postgres-user }}
-          POSTGRES_PASSWORD: ${{ matrix.postgres-pw }}
         ports:
           - 5432:5432
+        env:
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
         # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
@@ -60,15 +58,15 @@ jobs:
       - name: Setup Test ENV
         run: mv conf-github-ci.json conf-test.json
 
-      # # test queries database with postgres client
-      # - name: Install PostgreSQL client
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install --yes postgresql-client
-      # - name: Query database
-      #   run: psql -h ${{ matrix.postgres-host }} -d ${{ matrix.postgres-db }} -U ${{ matrix.postgres-user }} -c 'SELECT VERSION();'
-      #   env:
-      #     PGPASSWORD: ${{ matrix.postgres-pw }}
+      # test queries database with postgres client
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Query database
+        run: psql -h ${{ env.POSTGRES_HOST }} -d ${{ env.POSTGRES_DB }} -U ${{ env.POSTGRES_USER }} -c 'SELECT VERSION();'
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
 
       - name: Cleanup
         uses: gradle/gradle-build-action@v2
@@ -89,7 +87,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v2
         with:
-          name: code-coverage-report
+          name: test-report
           path: build/reports/tests/test
 
       - name: Archive code coverage results
