@@ -18,30 +18,33 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        database-version:
+        postgres-version:
           - 9.6
-        database-name:
+        postgres-db:
           - github_ci_test
-        database-password:
+        postgres-pw:
           - postgres
-        database-user:
+        postgres-user:
           - postgres
-        database-host:
+        postgres-host:
           - 127.0.0.1
-        database-port:
+        postgres-port:
           - 5432
+      # uncomment when we activate matrix
+      # max-parallel: 4
 
     services:
       postgres:
-        image: postgres:${{ matrix.database-version }}
+        image: postgres:${{ matrix.postgres-version }}
         env:
-          POSTGRES_DB: ${{ matrix.database-name }}
-          POSTGRES_USER: ${{ matrix.database-user }}
-          POSTGRES_PASSWORD: ${{ matrix.database-password }}
+          POSTGRES_DB: ${{ matrix.postgres-db }}
+          POSTGRES_USER: ${{ matrix.postgres-user }}
+          POSTGRES_PASSWORD: ${{ matrix.postgres-pw }}
         ports:
           - 5432:5432
         # Set health checks to wait until postgres has started
-        options: --health-cmd pg_isready
+        options: >-
+          --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -54,36 +57,40 @@ jobs:
         with:
           java-version: "1.8"
 
-      - name: Cache local Gradle stuff
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
 
-      - name: Cache local Maven repository
-        uses: actions/cache@v2
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+      # test queries database with postgres client
+      - name: Query database
+        run: psql -h ${{ matrix.postgres-host }} -d ${{ matrix.postgres-db }} -U ${{ matrix.postgres-user }} -c 'SELECT VERSION();'
+        env:
+          # postgress password is required; alternatively, you can run:
+          # `PGPASSWORD=postgres_password psql ...`
+          PGPASSWORD: ${{ matrix.postgres-pw }}
 
-      - name: Cleanup
-        run: ./gradlew clean
+      # - name: Cleanup
+      #   uses: gradle/gradle-build-action@4137be6a8bf7d7133955359dbd952c0ca73b1021
+      #   with:
+      #     arguments: clean
 
-      - name: Assemble test classes
-        run: ./gradlew testClasses
+      # - name: Assemble test classes
+      #   uses: gradle/gradle-build-action@4137be6a8bf7d7133955359dbd952c0ca73b1021
+      #   with:
+      #     arguments: testClasses
 
-      - name: Assemble
-        run: ./gradlew assemble
+      # - name: Assemble
+      #   uses: gradle/gradle-build-action@4137be6a8bf7d7133955359dbd952c0ca73b1021
+      #   with:
+      #     arguments: assemble
 
-      - name: Spotless Check
-        run: ./gradlew spotlessCheck scoverageClasses --info --stacktrace
+      # - name: Spotless Check
+      #   uses: gradle/gradle-build-action@4137be6a8bf7d7133955359dbd952c0ca73b1021
+      #   with:
+      #     arguments: spotlessCheck scoverageClasses --info --stacktrace
 
-      - name: Test
-        # TODO inject conf-test.json somehow
-        run: ./gradlew test -Pconf='github_ci_test.json' --info --stacktrace
+      # - name: Test
+      #   uses: gradle/gradle-build-action@4137be6a8bf7d7133955359dbd952c0ca73b1021
+      #   with:
+      #     arguments: test -Pconf='github_ci_test.json' --tests="com.campudus.tableaux.helper.FileUtilsTest.testLoadNonExistingJsonFileShouldFail" --info --stacktrace
