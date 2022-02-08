@@ -89,6 +89,14 @@ jobs:
           name: Coverage Report
           path: output/test/code-coverage.html
 
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit/Integration Tests
+          path: build/test-results/test/TEST-*.xml
+          reporter: java-junit
+
   publish-test-results:
     name: "Publish Unit Tests Results"
     needs: build-and-test
