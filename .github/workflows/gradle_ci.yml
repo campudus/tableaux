@@ -54,9 +54,26 @@ jobs:
         with:
           java-version: "1.8"
 
-      # not needed because of fresh build node
-      # - name: Cleanup
-      #   run: ./gradlew clean
+      - name: Cache local Gradle stuff
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Cleanup
+        run: ./gradlew clean
 
       - name: Assemble test classes
         run: ./gradlew testClasses
