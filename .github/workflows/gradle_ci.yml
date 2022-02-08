@@ -21,11 +21,11 @@ jobs:
         postgres-version:
           - 9.6
         postgres-db:
-          - github_ci_test
+          - testing
         postgres-pw:
-          - postgres
+          - testing
         postgres-user:
-          - postgres
+          - testing
         postgres-host:
           - 127.0.0.1
         postgres-port:
@@ -57,15 +57,21 @@ jobs:
         with:
           java-version: "1.8"
 
-      ## test queries database with postgres client
-      # - name: Install PostgreSQL client
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install --yes postgresql-client
-      # - name: Query database
-      #   run: psql -h ${{ matrix.postgres-host }} -d ${{ matrix.postgres-db }} -U ${{ matrix.postgres-user }} -c 'SELECT VERSION();'
-      #   env:
-      #     PGPASSWORD: ${{ matrix.postgres-pw }}
+      - name: Setup
+        run: |
+          pwd
+          mkdir -p uploads
+          ls -rtl
+
+      # test queries database with postgres client
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Query database
+        run: psql -h ${{ matrix.postgres-host }} -d ${{ matrix.postgres-db }} -U ${{ matrix.postgres-user }} -c 'SELECT VERSION();'
+        env:
+          PGPASSWORD: ${{ matrix.postgres-pw }}
 
       - name: Cleanup
         uses: gradle/gradle-build-action@v2
