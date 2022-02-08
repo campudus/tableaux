@@ -851,9 +851,9 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
 
       val linkTable =
         """[
-          |  {"id": 5, "value": "table2RowId3", "value": "table2RowId3"},
-          |  {"id": 4, "value": "table2RowId2", "value": "table2RowId2"},
-          |  {"id": 3, "value": "table2RowId1", "value": "table2RowId1"}
+          |  {"id": 5, "value": "table2RowId3"},
+          |  {"id": 4, "value": "table2RowId2"},
+          |  {"id": 3, "value": "table2RowId1"}
           |]""".stripMargin
 
       val backLink = """[ {"id": 1, "value": "table1row1"} ]""".stripMargin
