@@ -1,3 +1,5 @@
+# https://docs.github.com/en/actions
+
 # The workflow is used for code quality and integrity checks for pull requests
 # Pushes on master are currently built and deployed with Jenkins
 name: PR Integration Check Test
@@ -19,10 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        postgres-version:
-          - 9.6
-      # uncomment when we activate matrix
-      # max-parallel: 4
+        postgres-version: [9.6, 10, 11, 12]
+      max-parallel: 4
 
     services:
       postgres:
