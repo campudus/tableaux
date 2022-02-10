@@ -23,9 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # postgres-version: [9.6, 10, 11, 12]
-        # matrix working for test again use only one version
-        postgres-version: [12]
+        postgres-version: [9.6, 10, 11, 12]
       max-parallel: 4
 
     services:
