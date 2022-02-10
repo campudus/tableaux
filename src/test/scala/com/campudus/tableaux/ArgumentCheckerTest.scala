@@ -1,6 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.ArgumentChecker._
+import org.junit.Assert
 import org.junit.Assert._
 import org.junit.Ignore
 import org.junit.Test
@@ -145,9 +146,7 @@ class ArgumentCheckerTest {
     }
   }
 
-  // TODO reactivate tests when gitgub actions are working
   @Test
-  @Ignore
   def checkHasValueOfType(): Unit = {
     val json = Json.obj(
       "string" -> "valid", // valid
@@ -162,34 +161,31 @@ class ArgumentCheckerTest {
     assertEquals(OkArg(json.getJsonArray("array")), hasArray("array", json))
     assertEquals(OkArg(json.getLong("long").toLong), hasLong("long", json))
 
-    assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasString("test", json))
-    assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasArray("test", json))
-    assertEquals(FailArg(InvalidJsonException("Warning: test is null", "null")), hasLong("test", json))
+    def exceptionTest(regex: String, argument: ArgumentCheck[_]): Unit = {
+      try {
+        argument.get
+        Assert.fail("should fail")
+      } catch {
+        case ex: InvalidJsonException => {
+          assertTrue(ex.getMessage.matches(regex))
+        }
+        case xx: Throwable => {
+          Assert.fail("should fail with an InvalidJsonException")
+        }
+      }
+    }
 
-    assertEquals(
-      FailArg(
-        InvalidJsonException(
-          "Warning: no_string should be another type. Error: class java.lang.Integer cannot be cast to class java.lang.CharSequence (java.lang.Integer and java.lang.CharSequence are in module java.base of loader 'bootstrap')",
-          "invalid"
-        )),
+    // validate test of type casting with regex because on different platforms/JDKs/JREs the error messages are slightly different e.g. word `class`
+    exceptionTest(
+      """Warning: no_string should be another type\. Error:( class)? java\.lang\.Integer cannot be cast to( class)? java\.lang\.CharSequence.*""",
       hasString("no_string", json)
     )
-
-    assertEquals(
-      FailArg(
-        InvalidJsonException(
-          "Warning: no_array should be another type. Error: class java.lang.String cannot be cast to class io.vertx.core.json.JsonArray (java.lang.String is in module java.base of loader 'bootstrap'; io.vertx.core.json.JsonArray is in unnamed module of loader 'app')",
-          "invalid"
-        )),
+    exceptionTest(
+      """Warning: no_array should be another type\. Error:( class)? java\.lang\.String cannot be cast to( class)? io\.vertx\.core\.json\.JsonArray.*""",
       hasArray("no_array", json)
     )
-
-    assertEquals(
-      FailArg(
-        InvalidJsonException(
-          "Warning: no_long should be another type. Error: class java.lang.String cannot be cast to class java.lang.Number (java.lang.String and java.lang.Number are in module java.base of loader 'bootstrap')",
-          "invalid"
-        )),
+    exceptionTest(
+      """Warning: no_long should be another type\. Error:( class)? java\.lang\.String cannot be cast to( class)? java\.lang\.Number.*""",
       hasLong("no_long", json)
     )
   }
