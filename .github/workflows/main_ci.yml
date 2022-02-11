@@ -25,6 +25,7 @@ jobs:
       matrix:
         postgres-version: [9.6, 10, 11, 12]
       max-parallel: 4
+      fail-fast: false
 
     services:
       postgres:
@@ -96,6 +97,10 @@ jobs:
           name: Unit/Integration Tests
           path: build/test-results/test/TEST-*.xml
           reporter: java-junit
+          list-suites: "all"
+          list-tests: "all"
+          fail-on-error: "true"
+          max-annotations: "10"
 
   publish-test-results:
     name: "Publish Unit Tests Results"
