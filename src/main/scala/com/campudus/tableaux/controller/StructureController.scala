@@ -13,6 +13,7 @@ import com.campudus.tableaux.database.domain.{
 }
 import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
 import com.campudus.tableaux.database.model.StructureModel
+import com.campudus.tableaux.database.model.structure.ColumnModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.router.auth.permission._
@@ -371,13 +372,14 @@ class StructureController(
       countryCodes: Option[Seq[String]],
       separator: Option[Boolean],
       attributes: Option[JsonObject],
+      rules: Option[JsonArray]
   ): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
       isDefined(
-        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes),
-        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes"
+        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules),
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules"
       )
     )
 
@@ -403,6 +405,19 @@ class StructureController(
         Future { Unit }
       }
 
+      _ <- if (rules.nonEmpty) {
+        for {
+          _ <- validator
+            .validateJson(ValidatorKeys.STATUS, rules.get)
+            .recover({
+              case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
+            })
+          _ <- columnStruc.retrieveAndValidateDependentStatusColumns(rules.get, table)
+        } yield ()
+      } else {
+        Future { Unit }
+      }
+
       _ <- if (isAtLeastOneStructureProperty) {
         roleModel.checkAuthorization(EditStructureProperty, ScopeColumn, ComparisonObjects(table, column))
       } else {
@@ -421,7 +436,8 @@ class StructureController(
                     displayInfos,
                     countryCodes,
                     separator,
-                    attributes)
+                    attributes,
+                    rules)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 

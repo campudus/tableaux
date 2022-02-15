@@ -102,6 +102,18 @@ case class CreateGroupColumn(override val name: String,
   override val separator: Boolean = false
 }
 
+case class CreateStatusColumn(override val name: String,
+                              override val ordering: Option[Ordering],
+                              override val kind: TableauxDbType,
+                              override val displayInfos: Seq[DisplayInfo],
+                              override val attributes: Option[JsonObject],
+                              rules: JsonArray)
+    extends CreateColumn {
+  override val separator: Boolean = false
+  override val identifier: Boolean = false
+  override val languageType: LanguageType = LanguageNeutral
+}
+
 case class CreatedColumnInformation(
     tableId: TableId,
     columnId: ColumnId,

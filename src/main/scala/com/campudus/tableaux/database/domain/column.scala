@@ -59,6 +59,32 @@ object BasicColumnInformation {
   }
 }
 
+object StatusColumnInformation {
+
+  def apply(
+      table: Table,
+      columnId: ColumnId,
+      ordering: Ordering,
+      displayInfos: Seq[DisplayInfo],
+      createColumn: CreateStatusColumn
+  ): StatusColumnInformation = {
+    val attributes = createColumn.attributes match {
+      case Some(obj) => obj
+      case None => new JsonObject("{}")
+    }
+    StatusColumnInformation(table,
+                            columnId,
+                            createColumn.name,
+                            ordering,
+                            createColumn.identifier,
+                            displayInfos,
+                            Seq.empty,
+                            createColumn.separator,
+                            attributes,
+                            createColumn.rules)
+  }
+}
+
 case class BasicColumnInformation(
     override val table: Table,
     override val id: ColumnId,
@@ -69,6 +95,19 @@ case class BasicColumnInformation(
     override val groupColumnIds: Seq[ColumnId],
     override val separator: Boolean,
     override val attributes: JsonObject
+) extends ColumnInformation
+
+case class StatusColumnInformation(
+    override val table: Table,
+    override val id: ColumnId,
+    override val name: String,
+    override val ordering: Ordering,
+    override val identifier: Boolean,
+    override val displayInfos: Seq[DisplayInfo],
+    override val groupColumnIds: Seq[ColumnId],
+    override val separator: Boolean,
+    override val attributes: JsonObject,
+    val rules: JsonArray
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -505,6 +544,30 @@ case class LinkColumn(
       Some(castedValue)
     }
   }
+}
+
+case class StatusColumn(override val columnInformation: ColumnInformation,
+                        rules: JsonArray,
+                        override val columns: Seq[ColumnType[_]])(
+    implicit val requestContext: RequestContext,
+    val roleModel: RoleModel
+) extends ConcatenateColumn
+    with LazyLogging {
+
+  override val languageType: LanguageNeutral.type = LanguageNeutral
+  override val kind = StatusType
+  override def getJson: JsonObject = {
+    super.getJson
+      .mergeIn(
+        Json.obj(
+          "rules" -> rules
+        )
+      )
+  }
+}
+
+object StatusColumn {
+  val validColumnTypes: Seq[TableauxDbType] = Seq(BooleanType, RichTextType, ShortTextType, TextType, NumericType)
 }
 
 case class AttachmentColumn(override val columnInformation: ColumnInformation)(

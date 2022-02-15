@@ -1,0 +1,104 @@
+{
+  "$id": "https://example.com/person.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "array",
+  "items": {
+    "anyOf": [
+      {"$ref": "#/$defs/rule"}
+    ]
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "required":["name","color","conditions", "icon", "displayName", "tooltip"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": ["fa"]
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        },
+        "displayName": {"$ref": "#/$defs/multilanguage"},
+        "tooltip": {"$ref": "#/$defs/multilanguage"},
+        "conditions": {"$ref": "#/$defs/condition"}
+      }
+    },
+    "condition": {
+      "type": "object",
+      "required": ["composition", "values"],
+      "properties": {
+        "composition": {
+          "enum": [ "OR", "AND" ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {"$ref": "#/$defs/condition"},
+              {"$ref": "#/$defs/conditionValue"}
+            ]
+          }
+        }
+      }
+    },
+    "conditionValue": {
+      "type": "object",
+      "required": ["column", "operator", "value"],
+      "properties": {
+        "column": {
+          "type": "number"
+        },
+        "operator": {
+          "enum": ["IS", "NOT"]
+        },
+        "value": {
+          "type": ["number", "string", "boolean"]
+        }
+      }
+    },
+    "multilanguage": {
+     "type": "object",
+     "required": ["de"],
+     "properties": {
+       "de": {
+         "type": "string"
+       },
+       "en": {
+         "type": "string"
+       },
+       "us": {
+         "type": "string"
+       },
+       "fr": {
+         "type": "string"
+       },
+       "it": {
+         "type": "string"
+       },
+       "es": {
+         "type": "string"
+       },
+       "pl": {
+         "type": "string"
+       },
+       "nl": {
+         "type": "string"
+       },
+       "cs": {
+         "type": "string"
+       }
+     }
+    }
+  }
+}

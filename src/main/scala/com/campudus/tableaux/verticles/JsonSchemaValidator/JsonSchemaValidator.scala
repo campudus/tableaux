@@ -2,16 +2,15 @@ package com.campudus.tableaux.verticles.JsonSchemaValidator
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.eventbus.Message
 import scala.concurrent.Future
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
 import com.typesafe.scalalogging.LazyLogging
 import scala.language.implicitConversions
-import org.json.JSONObject;
+import org.json.{JSONObject, JSONArray};
 import scala.util.{Failure, Success, Try}
 import org.everit.json.schema.ValidationException;
 
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.loader.SchemaLoader;
-import org.json.JSONObject;
 
 class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
 
@@ -38,13 +37,16 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
 
   private def messageHandlerValidateJson(message: Message[JsonObject]): Unit = {
     val keyWithJson = message.body()
-    val jsonToValidate = keyWithJson.getJsonObject("jsonToValidate")
     val key = keyWithJson.getString("key")
-    val attributes = new JSONObject(jsonToValidate.encode())
+    val jsonType = keyWithJson.getString("jsonType")
+    val jsonToValidate = jsonType match {
+      case "array" => new JSONArray(keyWithJson.getJsonArray("jsonToValidate").encode())
+      case _ => new JSONObject(keyWithJson.getJsonObject("jsonToValidate").encode())
+    }
     val validatorOption = validators.get(key)
     validatorOption match {
       case Some(validator) => {
-        Try(validator.validate(attributes)) match {
+        Try(validator.validate(jsonToValidate)) match {
           case Success(v) => {
             message.reply("")
           }
@@ -56,5 +58,6 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
       }
       case None => message.fail(400, s"Schema with key $key unknown")
     }
+
   }
 }

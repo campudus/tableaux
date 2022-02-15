@@ -11,6 +11,12 @@ import com.campudus.tableaux.database.model.structure.CachedColumnModel._
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.{
+  WrongStatusColumnKindException,
+  WrongLanguageTypeException,
+  WrongStatusConditionTypeException,
+  HasStatusColumnDependencyException
+}
 import com.google.common.cache.CacheBuilder
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json._
@@ -18,6 +24,8 @@ import scalacache._
 import scalacache.guava._
 import scalacache.modes.scalaFuture._
 import io.vertx.scala.core.Vertx
+import com.campudus.tableaux.helper.JsonUtils.asSeqOf
+import scala.util.{Try, Success, Failure}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet
@@ -162,6 +170,7 @@ class CachedColumnModel(
       countryCodes: Option[Seq[String]],
       separator: Option[Boolean],
       attributes: Option[JsonObject],
+      rules: Option[JsonArray]
   ): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -175,8 +184,13 @@ class CachedColumnModel(
                 displayInfos,
                 countryCodes,
                 separator,
-                attributes)
+                attributes,
+                rules)
     } yield r
+  }
+
+  override def retrieveAndValidateDependentStatusColumns(rules: JsonArray, table: Table): Future[Seq[ColumnType[_]]] = {
+    super.retrieveAndValidateDependentStatusColumns(rules, table)
   }
 }
 
@@ -284,9 +298,40 @@ class ColumnModel(val connection: DatabaseConnection)(
                             Seq.empty,
                             groupColumnInfo.formatPattern)
             })
+
+        case statusColumnInfo: CreateStatusColumn =>
+          for {
+            _ <- validator.validateJson(ValidatorKeys.STATUS, statusColumnInfo.rules).recover {
+              case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
+            }
+
+            statusColumn <- createStatusColumn(table, statusColumnInfo).map({
+              case (dependentColumns, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
+                StatusColumn(StatusColumnInformation(table, id, ordering, displayInfos, statusColumnInfo),
+                             statusColumnInfo.rules,
+                             dependentColumns)
+
+            })
+          } yield {
+            statusColumn
+          }
       }
     } yield {
       columnCreate
+    }
+  }
+
+  private def createStatusColumn(
+      table: Table,
+      statusColumnInfo: CreateStatusColumn
+  ): Future[(Seq[ColumnType[_]], CreatedColumnInformation)] = {
+    connection.transactional { t =>
+      for {
+        dependentColumns <- retrieveAndValidateDependentStatusColumns(statusColumnInfo.rules, table)
+        (t, columnInfo) <- insertSystemColumn(t, table.id, statusColumnInfo, None, None)
+      } yield {
+        (t, (dependentColumns, columnInfo))
+      }
     }
   }
 
@@ -476,11 +521,17 @@ class ColumnModel(val connection: DatabaseConnection)(
           | format_pattern,
           | country_codes,
           | separator,
-          | attributes
+          | attributes,
+          | rules
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
+    }
+
+    val rules = createColumn match {
+      case createStatusColumn: CreateStatusColumn => createStatusColumn.rules.encode()
+      case _ => "[]"
     }
 
     val countryCodes = createColumn.languageType match {
@@ -518,7 +569,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull,
                 createColumn.separator,
-                attributes
+                attributes,
+                rules
               )
             )
           case Some(ord) =>
@@ -535,7 +587,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 formatPattern.orNull,
                 countryCodes.map(f => Json.arr(f: _*)).orNull,
                 createColumn.separator,
-                attributes
+                attributes,
+                rules
               )
             )
         }
@@ -739,6 +792,7 @@ class ColumnModel(val connection: DatabaseConnection)(
          |  identifier,
          |  separator,
          |  attributes,
+         |  rules,
          |  array_to_json(country_codes),
          |  (
          |    SELECT json_agg(group_column_id) FROM system_column_groups
@@ -826,6 +880,7 @@ class ColumnModel(val connection: DatabaseConnection)(
        |  identifier,
        |  separator,
        |  attributes,
+       |  rules,
        |  array_to_json(country_codes),
        |  (
        |    SELECT json_agg(group_column_id) FROM system_column_groups
@@ -878,11 +933,15 @@ class ColumnModel(val connection: DatabaseConnection)(
       kind: TableauxDbType,
       languageType: LanguageType,
       columnInformation: ColumnInformation,
-      formatPattern: Option[String]
+      formatPattern: Option[String],
+      rules: JsonArray
   ): Future[ColumnType[_]] = {
     kind match {
       case AttachmentType =>
         Future(AttachmentColumn(columnInformation))
+
+      case StatusType =>
+        mapStatusColumn(columnInformation, rules)
 
       case LinkType =>
         mapLinkColumn(depth, columnInformation)
@@ -894,6 +953,75 @@ class ColumnModel(val connection: DatabaseConnection)(
       case _ =>
         Future(SimpleValueColumn(kind, languageType, columnInformation))
     }
+  }
+
+  private def mapStatusColumn(columnInformation: ColumnInformation, rules: JsonArray): Future[StatusColumn] = {
+    for {
+      columns <- retrieveAndValidateDependentStatusColumns(rules, columnInformation.table)
+      statusColumn = StatusColumn(columnInformation, rules, columns)
+    } yield statusColumn
+  }
+
+  def retrieveAndValidateDependentStatusColumns(rules: JsonArray, table: Table): Future[Seq[ColumnType[_]]] = {
+
+    var valueTypeMap: Map[ColumnId, Seq[_]] = Map()
+
+    def calcDependentColumnIdsFromValuesWithSideEffect(values: JsonArray): Seq[ColumnId] = {
+
+      asSeqOf[JsonObject](values)
+        .map(value => {
+          if (value.containsKey("values")) {
+            val newValues = value.getJsonArray("values")
+            calcDependentColumnIdsFromValuesWithSideEffect(newValues)
+          } else {
+            val columnId = value.getLong("column").asInstanceOf[ColumnId]
+            valueTypeMap += (columnId -> (Seq(value.getValue("value")) ++ valueTypeMap.getOrElse(columnId, Seq())))
+            Seq(columnId)
+          }
+        })
+        .flatten
+    }
+
+    val dependentColumnIds = asSeqOf[JsonObject](rules)
+      .map(json => {
+        val values = json.getJsonObject("conditions").getJsonArray("values")
+        calcDependentColumnIdsFromValuesWithSideEffect(values)
+      })
+      .flatten
+      .distinct
+
+    for {
+      columns <- Future.sequence(dependentColumnIds.map(id =>
+        retrieveOne(table, id, 1).recover({
+          case _ => throw new ColumnNotFoundException(s"Column with id $id not found")
+        })))
+      // validate column types and languagetype
+      _ = columns.foreach(column => {
+        if (!StatusColumn.validColumnTypes.contains(column.kind)) {
+          throw new WrongStatusColumnKindException(column, StatusColumn.validColumnTypes)
+        }
+        column.languageType match {
+          case LanguageNeutral => {}
+          case _ => throw new WrongLanguageTypeException(column, LanguageNeutral)
+        }
+
+        val (checkForExpectedValueType, expectedType): (Any => Boolean, String) = column.kind match {
+          case TextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
+          case ShortTextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
+          case RichTextType => (valueToCompare => valueToCompare.isInstanceOf[String], "String")
+          case NumericType => (valueToCompare => valueToCompare.isInstanceOf[Number], "Number")
+          case BooleanType => (valueToCompare => valueToCompare.isInstanceOf[Boolean], "Boolean")
+          case _ => throw new WrongStatusColumnKindException(column, StatusColumn.validColumnTypes)
+        }
+
+        valueTypeMap(column.id).foreach(value => {
+          if (!checkForExpectedValueType(value)) {
+            throw new WrongStatusConditionTypeException(column, value.getClass().toString, expectedType)
+          }
+        })
+
+      })
+    } yield columns
   }
 
   private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation): Future[LinkColumn] = {
@@ -930,23 +1058,24 @@ class ColumnModel(val connection: DatabaseConnection)(
     val identifier = row.get[Boolean](5)
     val separator = row.get[Boolean](6)
     val attributes = new JsonObject(row.get[String](7))
+    val rules = new JsonArray(row.get[String](8))
 
     val languageType = LanguageType(Option(row.get[String](4))) match {
       case LanguageNeutral => LanguageNeutral
       case MultiLanguage => MultiLanguage
       case c: MultiCountry =>
-        val codes = Option(row.get[String](8))
+        val codes = Option(row.get[String](9))
           .map(str => Json.fromArrayString(str).asScala.map({ case code: String => code }).toSeq)
           .getOrElse(Seq.empty[String])
 
         MultiCountry(CountryCodes(codes))
     }
 
-    val groupColumnIds = Option(row.get[String](9))
+    val groupColumnIds = Option(row.get[String](10))
       .map(str => Json.fromArrayString(str).asScala.map(_.asInstanceOf[Int].toLong).toSeq)
       .getOrElse(Seq.empty[ColumnId])
 
-    val formatPattern = Option(row.get[String](10))
+    val formatPattern = Option(row.get[String](11))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
@@ -963,7 +1092,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         attributes
       )
 
-      column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern)
+      column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules)
     } yield column
   }
 
@@ -1076,6 +1205,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         .getOrElse(
           throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.", "delete-non-existing"))
 
+      _ = checkForStatusColumnDependency(columnId, columns, "deleted")
+
       _ <- {
         column match {
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
@@ -1085,6 +1216,19 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
       }
     } yield ()
+  }
+
+  private def checkForStatusColumnDependency(columnId: ColumnId,
+                                             columns: Seq[ColumnType[_]],
+                                             actionErrorMessage: String): Unit = {
+    columns
+      .filter(column => column.kind == StatusType)
+      .foreach(column => {
+        if (column.asInstanceOf[StatusColumn].columns.map(col => col.id).contains(columnId)) {
+          throw new HasStatusColumnDependencyException(
+            s"Column can't be ${actionErrorMessage} because Column with id ${column.id} has dependency on this column. Remove Rules from Column ${column.name} with id: ${column.id} containing  column with id: ${columnId} ")
+        }
+      })
   }
 
   private def deleteLink(column: LinkColumn, bothDirections: Boolean): Future[Unit] = {
@@ -1210,7 +1354,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       displayInfos: Option[Seq[DisplayInfo]],
       countryCodes: Option[Seq[String]],
       separator: Option[Boolean],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      rules: Option[JsonArray]
   ): Future[ColumnType[_]] = {
     val tableId = table.id
 
@@ -1269,6 +1414,15 @@ class ColumnModel(val connection: DatabaseConnection)(
           }
         }
       )
+      (t, resultRules) <- optionToValidFuture(
+        rules,
+        t, { rul: JsonArray =>
+          {
+            t.query(s"UPDATE system_columns SET rules = ? WHERE table_id = ? AND column_id = ?",
+                    Json.arr(rul.encode(), tableId, columnId))
+          }
+        }
+      )
       (t, resultCountryCodes) <- optionToValidFuture(
         countryCodes,
         t, { codes: Seq[String] =>
@@ -1300,7 +1454,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                            resultIdentifier,
                            resultCountryCodes,
                            resultSeparator,
-                           resultAttributes))
+                           resultAttributes,
+                           resultRules))
         .recoverWith(t.rollbackAndFail())
 
       _ <- t.commit()

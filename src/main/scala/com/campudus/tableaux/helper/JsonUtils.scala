@@ -8,6 +8,8 @@ import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkAr
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 import com.campudus.tableaux.{InvalidJsonException, WrongJsonTypeException, TableauxConfig}
+import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorClient
+import io.vertx.scala.core.Vertx
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -161,6 +163,18 @@ object JsonUtils extends LazyLogging {
 
                 CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups, attributes)
 
+              case StatusType =>
+                val validator = JsonSchemaValidatorClient(Vertx.currentContext().get.owner())
+                val rules = json.getJsonArray("rules", new JsonArray())
+                CreateStatusColumn(
+                  name,
+                  ordering,
+                  dbType,
+                  displayInfos,
+                  attributes,
+                  rules
+                )
+
               case _ =>
                 CreateSimpleColumn(name,
                                    ordering,
@@ -255,7 +269,8 @@ object JsonUtils extends LazyLogging {
                                           Option[Seq[DisplayInfo]],
                                           Option[Seq[String]],
                                           Option[Boolean],
-                                          Option[JsonObject]) = {
+                                          Option[JsonObject],
+                                          Option[JsonArray]) = {
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
@@ -265,6 +280,10 @@ object JsonUtils extends LazyLogging {
     val attributes = Try(json.getJsonObject("attributes")) match {
       case Success(value) => Option(value)
       case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
+    }
+    val rules = Try(json.getJsonArray("rules")) match {
+      case Success(value) => Option(value)
+      case Failure(s) => throw WrongJsonTypeException("Field rules is not a valid json object.")
     }
     val displayInfos = DisplayInfos.fromJson(json) match {
       case list if list.isEmpty => None
@@ -279,7 +298,7 @@ object JsonUtils extends LazyLogging {
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 
-    (name, ord, kind, identifier, displayInfos, countryCodes, separator, attributes)
+    (name, ord, kind, identifier, displayInfos, countryCodes, separator, attributes, rules)
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {

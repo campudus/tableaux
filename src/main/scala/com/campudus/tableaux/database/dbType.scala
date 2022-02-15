@@ -24,6 +24,7 @@ object TableauxDbType {
       case DateType.name => DateType
       case DateTimeType.name => DateTimeType
       case GroupType.name => GroupType
+      case StatusType.name => StatusType
     }
   }
 }
@@ -86,4 +87,8 @@ case object CurrencyType extends TableauxDbType {
 
 case object GroupType extends TableauxDbType {
   override val name = "group"
+}
+
+case object StatusType extends TableauxDbType {
+  override val name = "status"
 }
