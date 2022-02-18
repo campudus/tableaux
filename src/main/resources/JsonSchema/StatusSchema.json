@@ -3,20 +3,19 @@
   "$schema": "http://json-schema.org/draft-07/schema",
   "type": "array",
   "items": {
-    "anyOf": [
-      {"$ref": "#/$defs/rule"}
-    ]
+    "anyOf": [{ "$ref": "#/$defs/rule" }]
   },
   "$defs": {
     "rule": {
       "type": "object",
-      "required":["name","color","conditions", "icon", "displayName", "tooltip"],
+      "required": ["name", "color", "conditions", "icon", "displayName", "tooltip"],
       "properties": {
         "name": {
           "type": "string"
         },
         "color": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^#?(?:[0-9a-fA-F]{3}){1,2}$"
         },
         "icon": {
           "type": "object",
@@ -29,9 +28,9 @@
             }
           }
         },
-        "displayName": {"$ref": "#/$defs/multilanguage"},
-        "tooltip": {"$ref": "#/$defs/multilanguage"},
-        "conditions": {"$ref": "#/$defs/condition"}
+        "displayName": { "$ref": "#/$defs/multilanguage" },
+        "tooltip": { "$ref": "#/$defs/multilanguage" },
+        "conditions": { "$ref": "#/$defs/condition" }
       }
     },
     "condition": {
@@ -39,15 +38,12 @@
       "required": ["composition", "values"],
       "properties": {
         "composition": {
-          "enum": [ "OR", "AND" ]
+          "enum": ["OR", "AND"]
         },
         "values": {
           "type": "array",
           "items": {
-            "anyOf": [
-              {"$ref": "#/$defs/condition"},
-              {"$ref": "#/$defs/conditionValue"}
-            ]
+            "anyOf": [{ "$ref": "#/$defs/condition" }, { "$ref": "#/$defs/conditionValue" }]
           }
         }
       }
@@ -68,37 +64,12 @@
       }
     },
     "multilanguage": {
-     "type": "object",
-     "required": ["de"],
-     "properties": {
-       "de": {
-         "type": "string"
-       },
-       "en": {
-         "type": "string"
-       },
-       "us": {
-         "type": "string"
-       },
-       "fr": {
-         "type": "string"
-       },
-       "it": {
-         "type": "string"
-       },
-       "es": {
-         "type": "string"
-       },
-       "pl": {
-         "type": "string"
-       },
-       "nl": {
-         "type": "string"
-       },
-       "cs": {
-         "type": "string"
-       }
-     }
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "string"
+        }
+      }
     }
   }
 }
