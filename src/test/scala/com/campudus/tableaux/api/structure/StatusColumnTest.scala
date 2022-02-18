@@ -25,7 +25,7 @@ class StatusColumnTest extends TableauxTestBase {
         "displayName" -> Json.obj(
           "de" -> "german_name"
         ),
-        "color" -> "#fffff",
+        "color" -> "#ffffff",
         "icon" -> Json.obj(
           "type" -> "fa",
           "value" -> "some_icon"
