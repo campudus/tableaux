@@ -1,13 +1,13 @@
 # https://docs.github.com/en/actions
 
-# The workflow is used for code quality and integrity checks for pull requests
-# Pushes on master are currently built and deployed with Jenkins
-name: CI
+# The workflow is used for code quality and integrity checks for pushes on branches
+name: CI | Push on branches but master
 
 on:
   push:
     branches:
       - "*"
+      - "!master"
 
 env:
   CI: true
@@ -20,15 +20,10 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        postgres-version: [12]
-      max-parallel: 4
-      fail-fast: false
 
     services:
       postgres:
-        image: postgres:${{ matrix.postgres-version }}
+        image: postgres:12
         ports:
           - 5432:5432
         env:
