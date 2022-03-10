@@ -1,7 +1,9 @@
 # https://docs.github.com/en/actions
 
-# The workflow is used for code quality and integrity checks for pushes on branches
-name: CI | Push on branches but master
+# The workflow is used for code quality and integrity checks for pushes on branches.
+# Unfortunately, there is no way not to build on branch pushes when there are also builds on pull requests.
+# https://github.community/t/how-to-trigger-an-action-on-push-or-pull-request-but-not-both/16662
+name: CI | Push on branches
 
 on:
   push:
