@@ -44,9 +44,11 @@ class GroupColumnTest extends TableauxTestBase {
         textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
         booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
 
-        groupColumn <- sendRequest("POST",
-                                   "/tables/1/columns",
-                                   createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId)))
+        groupColumn <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId))
+        )
           .map(_.getJsonArray("columns").getJsonObject(0))
       } yield {
         assertJSONEquals(
@@ -66,9 +68,11 @@ class GroupColumnTest extends TableauxTestBase {
         textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
         booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
 
-        groupColumnCreated <- sendRequest("POST",
-                                          "/tables/1/columns",
-                                          createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId)))
+        groupColumnCreated <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId))
+        )
           .map(_.getJsonArray("columns").getJsonObject(0))
 
         groupColumnRetrieved <- sendRequest("GET", s"/tables/1/columns/${groupColumnCreated.getInteger("id")}")
@@ -98,7 +102,8 @@ class GroupColumnTest extends TableauxTestBase {
         groupColumnCreated <- sendRequest(
           "POST",
           "/tables/1/columns",
-          Columns(Identifier(GroupCol("groupcolumn", Seq(textColumnId, booleanColumnId)))))
+          Columns(Identifier(GroupCol("groupcolumn", Seq(textColumnId, booleanColumnId))))
+        )
           .map(_.getJsonArray("columns").getJsonObject(0))
 
         columns <- sendRequest("GET", "/tables/1/columns")
@@ -135,14 +140,18 @@ class GroupColumnTest extends TableauxTestBase {
         textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
         booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
 
-        groupColumn1 <- sendRequest("POST",
-                                    "/tables/1/columns",
-                                    Columns(GroupCol("groupcolumn1", Seq(textColumnId, booleanColumnId))))
+        groupColumn1 <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          Columns(GroupCol("groupcolumn1", Seq(textColumnId, booleanColumnId)))
+        )
           .map(_.getJsonArray("columns").getJsonObject(0))
 
-        groupColumn2 <- sendRequest("POST",
-                                    "/tables/1/columns",
-                                    Columns(GroupCol("groupcolumn2", Seq(textColumnId, booleanColumnId))))
+        groupColumn2 <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          Columns(GroupCol("groupcolumn2", Seq(textColumnId, booleanColumnId)))
+        )
           .map(_.getJsonArray("columns").getJsonObject(0))
 
         columns <- sendRequest("GET", "/tables/1/columns")
@@ -173,14 +182,18 @@ class GroupColumnTest extends TableauxTestBase {
         textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
         booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
 
-        groupColumn1 <- sendRequest("POST",
-                                    "/tables/1/columns",
-                                    Columns(GroupCol("groupcolumn1", Seq(textColumnId, booleanColumnId))))
+        groupColumn1 <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          Columns(GroupCol("groupcolumn1", Seq(textColumnId, booleanColumnId)))
+        )
           .map(_.getJsonArray("columns").getJsonObject(0))
 
-        _ <- sendRequest("POST",
-                         "/tables/1/columns",
-                         Columns(GroupCol("groupcolumn2", Seq(groupColumn1.getLong("id"), booleanColumnId))))
+        _ <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          Columns(GroupCol("groupcolumn2", Seq(groupColumn1.getLong("id"), booleanColumnId)))
+        )
       } yield ()
     }
   }
@@ -194,9 +207,11 @@ class GroupColumnTest extends TableauxTestBase {
         textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
         booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
 
-        _ <- sendRequest("POST",
-                         "/tables/1/columns",
-                         Columns(GroupCol("groupcolumn1", Seq(textColumnId, booleanColumnId, 100))))
+        _ <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          Columns(GroupCol("groupcolumn1", Seq(textColumnId, booleanColumnId, 100)))
+        )
       } yield ()
     }
   }
@@ -294,10 +309,9 @@ class GroupColumnTest extends TableauxTestBase {
         textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
         booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
 
-        groupColumnCreated <- sendRequest("POST",
-                                          "/tables/1/columns",
-                                          Columns(GroupCol("groupcolumn", Seq(textColumnId, booleanColumnId))))
-          .map(_.getJsonArray("columns").getJsonObject(0))
+        groupColumnCreated <-
+          sendRequest("POST", "/tables/1/columns", Columns(GroupCol("groupcolumn", Seq(textColumnId, booleanColumnId))))
+            .map(_.getJsonArray("columns").getJsonObject(0))
 
         groupColumnId = groupColumnCreated.getInteger("id")
 
@@ -321,11 +335,13 @@ class GroupColumnTest extends TableauxTestBase {
           Json.arr(
             Json.obj("id" -> textColumnId),
             Json.obj("id" -> booleanColumnId),
-            Json.obj("id" -> groupColumnId,
-                     "groups" -> Json.arr(
-                       Json.obj("id" -> textColumnId),
-                       Json.obj("id" -> booleanColumnId)
-                     ))
+            Json.obj(
+              "id" -> groupColumnId,
+              "groups" -> Json.arr(
+                Json.obj("id" -> textColumnId),
+                Json.obj("id" -> booleanColumnId)
+              )
+            )
           ),
           columnsBeforeDelete
         )
@@ -346,10 +362,12 @@ class GroupColumnTest extends TableauxTestBase {
         assertJSONEquals(
           Json.arr(
             Json.obj("id" -> textColumnId),
-            Json.obj("id" -> groupColumnId,
-                     "groups" -> Json.arr(
-                       Json.obj("id" -> textColumnId, "name" -> "textcolumn")
-                     ))
+            Json.obj(
+              "id" -> groupColumnId,
+              "groups" -> Json.arr(
+                Json.obj("id" -> textColumnId, "name" -> "textcolumn")
+              )
+            )
           ),
           columnsAfterDelete
         )
@@ -369,10 +387,12 @@ class GroupColumnTest extends TableauxTestBase {
         assertJSONEquals(
           Json.arr(
             Json.obj("id" -> textColumnId),
-            Json.obj("id" -> groupColumnId,
-                     "groups" -> Json.arr(
-                       Json.obj("id" -> textColumnId, "name" -> "textcolumn2")
-                     ))
+            Json.obj(
+              "id" -> groupColumnId,
+              "groups" -> Json.arr(
+                Json.obj("id" -> textColumnId, "name" -> "textcolumn2")
+              )
+            )
           ),
           columnsAfterChange
         )
@@ -397,11 +417,15 @@ class GroupColumnTest extends TableauxTestBase {
 
         textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
 
-        groupColumn <- sendRequest("POST",
-                                   "/tables/1/columns",
-                                   createGroupColumnWithFormatPatternJson("groupcolumn",
-                                                                          Seq(textColumnId),
-                                                                          "The value '{{1}}' with fancy format"))
+        groupColumn <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnWithFormatPatternJson(
+            "groupcolumn",
+            Seq(textColumnId),
+            "The value '{{1}}' with fancy format"
+          )
+        )
           .map(_.getJsonArray("columns").getJsonObject(0))
       } yield {
         val expected = """{
@@ -424,9 +448,11 @@ class GroupColumnTest extends TableauxTestBase {
         textCol2 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn2"))
         textCol3 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn3"))
 
-        groupColumn <- sendRequest("POST",
-                                   "/tables/1/columns",
-                                   createGroupColumnJson("groupcolumn", Seq(textCol1, textCol2, textCol3)))
+        groupColumn <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnJson("groupcolumn", Seq(textCol1, textCol2, textCol3))
+        )
           .map(_.getJsonArray("columns").getJsonObject(0))
       } yield {
         val expected = """{
@@ -455,9 +481,11 @@ class GroupColumnTest extends TableauxTestBase {
         groupColumn <- sendRequest(
           "POST",
           "/tables/1/columns",
-          createGroupColumnWithFormatPatternJson("groupcolumn",
-                                                 Seq(textCol1, textCol2, textCol3),
-                                                 "{{1}} × {{2}} × {{3}} mm (B × H × T)")
+          createGroupColumnWithFormatPatternJson(
+            "groupcolumn",
+            Seq(textCol1, textCol2, textCol3),
+            "{{1}} × {{2}} × {{3}} mm (B × H × T)"
+          )
         ).map(_.getJsonArray("columns").getJsonObject(0))
       } yield {
         val expected = """{
@@ -485,7 +513,8 @@ class GroupColumnTest extends TableauxTestBase {
         groupColumn <- sendRequest(
           "POST",
           "/tables/1/columns",
-          createGroupColumnWithFormatPatternJson("groupcolumn", Seq(textCol1), "{{1}} × {{2}} mm"))
+          createGroupColumnWithFormatPatternJson("groupcolumn", Seq(textCol1), "{{1}} × {{2}} mm")
+        )
       } yield ()
     }
   }

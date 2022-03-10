@@ -18,7 +18,8 @@ import scala.concurrent.Future
 object TableauxController {
 
   def apply(config: TableauxConfig, repository: TableauxModel, roleModel: RoleModel)(
-      implicit requestContext: RequestContext): TableauxController = {
+      implicit requestContext: RequestContext
+  ): TableauxController = {
     new TableauxController(config, repository, roleModel)
   }
 }
@@ -46,7 +47,8 @@ class TableauxController(
       column <- repository.retrieveColumn(table, columnId)
       _ = if (column.languageType == LanguageNeutral && langtags.nonEmpty) {
         throw UnprocessableEntityException(
-          s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)")
+          s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)"
+        )
       }
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
 
@@ -73,10 +75,12 @@ class TableauxController(
       uuid: UUID,
       langtag: String
   ): Future[EmptyObject] = {
-    checkArguments(greaterZero(tableId),
-                   greaterThan(columnId, -1, "columnId"),
-                   greaterZero(rowId),
-                   notNull(langtag, "langtag"))
+    checkArguments(
+      greaterZero(tableId),
+      greaterThan(columnId, -1, "columnId"),
+      greaterZero(rowId),
+      notNull(langtag, "langtag")
+    )
     logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid $langtag")
 
     for {
@@ -84,7 +88,8 @@ class TableauxController(
       column <- repository.retrieveColumn(table, columnId)
       _ = if (column.languageType == LanguageNeutral) {
         throw UnprocessableEntityException(
-          s"There are no annotations with langtags on a language neutral cell (table: $tableId, column: $columnId)")
+          s"There are no annotations with langtags on a language neutral cell (table: $tableId, column: $columnId)"
+        )
       }
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
 
@@ -110,11 +115,12 @@ class TableauxController(
     for {
       tables <- repository.retrieveTables()
 
-      tablesWithCellAnnotationCount <- if (tables.isEmpty) {
-        Future.successful(Seq.empty[TableWithCellAnnotationCount])
-      } else {
-        repository.retrieveTablesWithCellAnnotationCount(tables)
-      }
+      tablesWithCellAnnotationCount <-
+        if (tables.isEmpty) {
+          Future.successful(Seq.empty[TableWithCellAnnotationCount])
+        } else {
+          repository.retrieveTablesWithCellAnnotationCount(tables)
+        }
     } yield {
       PlainDomainObject(Json.obj("tables" -> tablesWithCellAnnotationCount.map(_.getJson)))
     }
@@ -127,18 +133,17 @@ class TableauxController(
       tables <- repository.retrieveTables(isInternalCall = true)
 
       tablesWithMultiLanguageColumnCount <- Future.sequence(
-        tables.map(
-          table =>
-            repository
-              .retrieveColumns(table, isInternalCall = true)
-              .map(columns => {
-                val multiLanguageColumnsCount = columns.count({
-                  case MultiLanguageColumn(_) => true
-                  case _ => false
-                })
-
-                (table, multiLanguageColumnsCount)
+        tables.map(table =>
+          repository
+            .retrieveColumns(table, isInternalCall = true)
+            .map(columns => {
+              val multiLanguageColumnsCount = columns.count({
+                case MultiLanguageColumn(_) => true
+                case _ => false
               })
+
+              (table, multiLanguageColumnsCount)
+            })
         )
       )
 
@@ -178,11 +183,12 @@ class TableauxController(
                 })
                 .sum
 
-              val percentage = if (count > 0 && multiLanguageCellCount > 0) {
-                1.0 - (count.toDouble / multiLanguageCellCount.toDouble)
-              } else {
-                1.0
-              }
+              val percentage =
+                if (count > 0 && multiLanguageCellCount > 0) {
+                  1.0 - (count.toDouble / multiLanguageCellCount.toDouble)
+                } else {
+                  1.0
+                }
 
               (langtag, percentage)
             })
@@ -200,7 +206,8 @@ class TableauxController(
             table.getJson.mergeIn(
               Json.obj(
                 "translationStatus" -> Json.obj(needsTranslationStatusForLangtags: _*)
-              ))
+              )
+            )
         })
 
       val mergedLangtags = tables.foldLeft(Seq.empty[String])({
@@ -422,7 +429,7 @@ class TableauxController(
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(uuid, "uuid"))
     logger.info(s"deleteAttachment $tableId $columnId $rowId $uuid")
 
-    //TODO introduce a Cell identifier with tableId, columnId and rowId
+    // TODO introduce a Cell identifier with tableId, columnId and rowId
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
@@ -454,11 +461,12 @@ class TableauxController(
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
       _ <- roleModel.checkAuthorization(Create, ScopeColumn)
-      _ <- if (!rows.headOption.exists(_.isEmpty)) {
-        roleModel.checkAuthorization(CreateRow, ScopeTable)
-      } else {
-        Future.successful(())
-      }
+      _ <-
+        if (!rows.headOption.exists(_.isEmpty)) {
+          roleModel.checkAuthorization(CreateRow, ScopeTable)
+        } else {
+          Future.successful(())
+        }
       table <- repository.createTable(tableName, hidden = false)
       columnIds <- repository.createColumns(table, columns).map(_.map(_.id))
       _ <- repository.createRows(table, rows.map(columnIds.zip(_)))

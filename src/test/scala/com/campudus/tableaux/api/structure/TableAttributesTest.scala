@@ -10,13 +10,15 @@ import org.vertx.scala.core.json.Json
 @RunWith(classOf[VertxUnitRunner])
 class TableAttributesTest extends TableauxTestBase {
 
-  val baseExpectedTableJson = Json.obj("status" -> "ok",
-                                       "id" -> 1,
-                                       "name" -> "sometable",
-                                       "displayName" -> Json.obj(),
-                                       "description" -> Json.obj(),
-                                       "hidden" -> false,
-                                       "langtags" -> Json.arr("de-DE", "en-GB"))
+  val baseExpectedTableJson = Json.obj(
+    "status" -> "ok",
+    "id" -> 1,
+    "name" -> "sometable",
+    "displayName" -> Json.obj(),
+    "description" -> Json.obj(),
+    "hidden" -> false,
+    "langtags" -> Json.arr("de-DE", "en-GB")
+  )
 
   val validAttributes = Json.obj(
     "stringAttribute" -> Json.obj(

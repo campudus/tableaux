@@ -72,6 +72,7 @@ case class ColumnNotFoundException(override val message: String) extends CustomE
   override val id = s"error.json.column"
   override val statusCode = 404
 }
+
 case class InvalidNonceException(override val message: String) extends CustomException {
   override val id = "error.nonce.invalid"
   override val statusCode = 401
@@ -112,6 +113,7 @@ case class WrongColumnKindException[T <: ColumnType[_]](column: ColumnType[_], s
     extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
+
   override val message: String =
     s"This action is not possible on ${column.name}. Action only available for columns of kind ${shouldBe.toString}."
 }
@@ -120,6 +122,7 @@ case class WrongStatusColumnKindException(wrongColumn: ColumnType[_], shouldBe: 
     extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
+
   override val message: String =
     s"This action is not possible on Column with kind: ${wrongColumn.kind}. Action only available for columns of kind ${shouldBe.toString}."
 }
@@ -127,6 +130,7 @@ case class WrongStatusColumnKindException(wrongColumn: ColumnType[_], shouldBe: 
 case class WrongLanguageTypeException(wrongColumn: ColumnType[_], shouldBe: LanguageType) extends CustomException {
   override val id: String = s"error.request.column.wrongtype"
   override val statusCode: Int = 400
+
   override val message: String =
     s"This action is not possible on Columns with LanguageType:  ${wrongColumn.languageType}. Action only available for columns of LanguageType ${shouldBe.toString}."
 }
@@ -135,6 +139,7 @@ case class WrongStatusConditionTypeException(column: ColumnType[_], is: String, 
     extends CustomException {
   override val id: String = s"error.request.status.value.wrongtype"
   override val statusCode: Int = 400
+
   override val message: String =
     s"Type of condition value does not match column type. Value for column ${column.id} is ${is} but should be ${shouldBe}."
 }

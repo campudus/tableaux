@@ -63,7 +63,8 @@ class TableModel(val connection: DatabaseConnection)(
           id = insertNotNull(result).head.get[TableId](0)
 
           (t, _) <- t.query(
-            s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, PRIMARY KEY (id))")
+            s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, PRIMARY KEY (id))"
+          )
           t <- createLanguageTable(t, id)
           t <- createCellAnnotationsTable(t, id)
           t <- createHistoryTable(t, id)
@@ -81,16 +82,19 @@ class TableModel(val connection: DatabaseConnection)(
           }
 
           defaultLangtags <- retrieveGlobalLangtags()
-        } yield
-          (t,
-           Table(id,
-                 name,
-                 hidden,
-                 Option(langtags.flatten.getOrElse(defaultLangtags)),
-                 displayInfos,
-                 tableType,
-                 tableGroup,
-                 attributes))
+        } yield (
+          t,
+          Table(
+            id,
+            name,
+            hidden,
+            Option(langtags.flatten.getOrElse(defaultLangtags)),
+            displayInfos,
+            tableType,
+            tableGroup,
+            attributes
+          )
+        )
       }
     }
   }
@@ -169,7 +173,8 @@ class TableModel(val connection: DatabaseConnection)(
     systemModel
       .retrieveSetting(SystemController.SETTING_LANGTAGS)
       .map(valueOpt =>
-        valueOpt.map(value => Json.fromArrayString(value).asScala.map(_.toString).toSeq).getOrElse(Seq.empty))
+        valueOpt.map(value => Json.fromArrayString(value).asScala.map(_.toString).toSeq).getOrElse(Seq.empty)
+      )
   }
 
   def retrieveAll(isInternalCall: Boolean): Future[Seq[Table]] = {
@@ -199,7 +204,8 @@ class TableModel(val connection: DatabaseConnection)(
       )
       (t, displayInfoResult) <- t.query(
         "SELECT table_id, langtag, name, description FROM system_table_lang WHERE table_id = ?",
-        Json.arr(tableId))
+        Json.arr(tableId)
+      )
 
       _ <- t.commit()
 
@@ -222,7 +228,8 @@ class TableModel(val connection: DatabaseConnection)(
       t <- connection.begin()
 
       (t, tablesResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes FROM system_table ORDER BY ordering, table_id")
+        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes FROM system_table ORDER BY ordering, table_id"
+      )
       (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
 
       _ <- t.commit()
@@ -273,7 +280,8 @@ class TableModel(val connection: DatabaseConnection)(
       Option(
         Option(row.getString(3))
           .map(s => convertJsonArrayToSeq(Json.fromArrayString(s), { case f: String => f }))
-          .getOrElse(defaultLangtags)),
+          .getOrElse(defaultLangtags)
+      ),
       List(),
       TableType(row.getString(4)),
       Option(row.getLong(5)).map(_.longValue()).flatMap(tableGroups.get),
@@ -314,13 +322,15 @@ class TableModel(val connection: DatabaseConnection)(
 
       (t, result1) <- optionToValidFuture(
         tableName,
-        t, { name: String =>
+        t,
+        { name: String =>
           {
             for {
               t <- t
                 .selectSingleValue[Long](
                   "SELECT COUNT(*) FROM system_table WHERE user_table_name = ? AND table_id != ?",
-                  Json.arr(name, tableId))
+                  Json.arr(name, tableId)
+                )
                 .flatMap({
                   case (t, count) =>
                     if (count > 0) {
@@ -329,29 +339,37 @@ class TableModel(val connection: DatabaseConnection)(
                       Future.successful(t)
                     }
                 })
-              (t, result) <- t.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?",
-                                     Json.arr(name, tableId))
+              (t, result) <-
+                t.query(s"UPDATE system_table SET user_table_name = ? WHERE table_id = ?", Json.arr(name, tableId))
             } yield (t, result)
           }
         }
       )
-      (t, result2) <- optionToValidFuture(hidden, t, { hidden: Boolean =>
-        {
-          t.query(s"UPDATE system_table SET is_hidden = ? WHERE table_id = ?", Json.arr(hidden, tableId))
+      (t, result2) <- optionToValidFuture(
+        hidden,
+        t,
+        { hidden: Boolean =>
+          {
+            t.query(s"UPDATE system_table SET is_hidden = ? WHERE table_id = ?", Json.arr(hidden, tableId))
+          }
         }
-      })
+      )
       (t, result3) <- optionToValidFuture(
         langtags,
-        t, { langtags: Option[Seq[String]] =>
+        t,
+        { langtags: Option[Seq[String]] =>
           {
-            t.query(s"UPDATE system_table SET langtags = ? WHERE table_id = ?",
-                    Json.arr(langtags.map(f => Json.arr(f: _*)).orNull, tableId))
+            t.query(
+              s"UPDATE system_table SET langtags = ? WHERE table_id = ?",
+              Json.arr(langtags.map(f => Json.arr(f: _*)).orNull, tableId)
+            )
           }
         }
       )
       (t, result4) <- optionToValidFuture(
         tableGroupId,
-        t, { tableGroupId: Option[TableGroupId] =>
+        t,
+        { tableGroupId: Option[TableGroupId] =>
           {
             t.query(s"UPDATE system_table SET group_id = ? WHERE table_id = ?", Json.arr(tableGroupId.orNull, tableId))
           }
@@ -359,10 +377,13 @@ class TableModel(val connection: DatabaseConnection)(
       )
       (t, result5) <- optionToValidFuture(
         attributes,
-        t, { attributes: JsonObject =>
+        t,
+        { attributes: JsonObject =>
           {
-            t.query(s"UPDATE system_table SET attributes = ? WHERE table_id = ?",
-                    Json.arr(attributes.encode(), tableId))
+            t.query(
+              s"UPDATE system_table SET attributes = ? WHERE table_id = ?",
+              Json.arr(attributes.encode(), tableId)
+            )
           }
         }
       )
@@ -387,14 +408,17 @@ class TableModel(val connection: DatabaseConnection)(
           case (future, di) =>
             for {
               t <- future
-              (t, select) <- t.query("SELECT COUNT(*) FROM system_table_lang WHERE table_id = ? AND langtag = ?",
-                                     Json.arr(tableId, di.langtag))
+              (t, select) <- t.query(
+                "SELECT COUNT(*) FROM system_table_lang WHERE table_id = ? AND langtag = ?",
+                Json.arr(tableId, di.langtag)
+              )
               count = select.getJsonArray("results").getJsonArray(0).getLong(0)
-              (statement, binds) = if (count > 0) {
-                dis.updateSql(di.langtag)
-              } else {
-                dis.insertSql(di.langtag)
-              }
+              (statement, binds) =
+                if (count > 0) {
+                  dis.updateSql(di.langtag)
+                } else {
+                  dis.insertSql(di.langtag)
+                }
               (t, _) <- t.query(statement, Json.arr(binds: _*))
             } yield t
         }
@@ -411,17 +435,25 @@ class TableModel(val connection: DatabaseConnection)(
         )
       case LocationEnd =>
         List(
-          (s"UPDATE system_table SET ordering = ordering - 1 WHERE ordering >= (SELECT ordering FROM system_table WHERE table_id = ?)",
-           Json.arr(tableId)),
-          (s"UPDATE system_table SET ordering = (SELECT MAX(ordering) + 1 FROM system_table) WHERE table_id = ?",
-           Json.arr(tableId))
+          (
+            s"UPDATE system_table SET ordering = ordering - 1 WHERE ordering >= (SELECT ordering FROM system_table WHERE table_id = ?)",
+            Json.arr(tableId)
+          ),
+          (
+            s"UPDATE system_table SET ordering = (SELECT MAX(ordering) + 1 FROM system_table) WHERE table_id = ?",
+            Json.arr(tableId)
+          )
         )
       case LocationBefore(relativeTo) =>
         List(
-          (s"UPDATE system_table SET ordering = (SELECT ordering FROM system_table WHERE table_id = ?) WHERE table_id = ?",
-           Json.arr(relativeTo, tableId)),
-          (s"UPDATE system_table SET ordering = ordering + 1 WHERE (ordering >= (SELECT ordering FROM system_table WHERE table_id = ?) AND table_id != ?)",
-           Json.arr(relativeTo, tableId))
+          (
+            s"UPDATE system_table SET ordering = (SELECT ordering FROM system_table WHERE table_id = ?) WHERE table_id = ?",
+            Json.arr(relativeTo, tableId)
+          ),
+          (
+            s"UPDATE system_table SET ordering = ordering + 1 WHERE (ordering >= (SELECT ordering FROM system_table WHERE table_id = ?) AND table_id != ?)",
+            Json.arr(relativeTo, tableId)
+          )
         )
     }
 

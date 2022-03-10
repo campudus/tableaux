@@ -32,7 +32,8 @@ trait StructureControllerAuthTest extends TableauxTestBase {
                                |}""".stripMargin
 
   def createStructureController(
-      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)): StructureController = {
+      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)
+  ): StructureController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val model = StructureModel(dbConnection)
@@ -147,13 +148,15 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
 
     for {
 
-      table <- controller.createTable("TestTable",
-                                      hidden = false,
-                                      langtags = None,
-                                      displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
-                                      tableType = GenericTable,
-                                      tableGroupId = None,
-                                      attributes = None)
+      table <- controller.createTable(
+        "TestTable",
+        hidden = false,
+        langtags = None,
+        displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
+        tableType = GenericTable,
+        tableGroupId = None,
+        attributes = None
+      )
     } yield {
       assertEquals(1: Long, table.id)
       assertEquals("TestTable", table.name)
@@ -167,13 +170,15 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
       val controller = createStructureController()
 
       for {
-        _ <- controller.createTable("TestTable",
-                                    hidden = false,
-                                    langtags = None,
-                                    displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
-                                    tableType = GenericTable,
-                                    tableGroupId = None,
-                                    attributes = None)
+        _ <- controller.createTable(
+          "TestTable",
+          hidden = false,
+          langtags = None,
+          displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
+          tableType = GenericTable,
+          tableGroupId = None,
+          attributes = None
+        )
       } yield ()
     }
 
@@ -613,7 +618,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
 
   @Test
   def changeColumnEditStructureProperty_authorizedInModelTables_notAuthorizedInVariantTables(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
 
     val roleModel = initRoleModel("""
                                     |{
@@ -1190,7 +1196,7 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
     } yield {
 
       val expected = Json.obj(
-        "create" -> true,
+        "create" -> true
       )
 
       assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
@@ -1388,7 +1394,7 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
       permission <- controller.retrieveColumns(tableId).map(getPermission)
     } yield {
       val expected = Json.obj(
-        "create" -> true,
+        "create" -> true
       )
 
       assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
@@ -1415,7 +1421,7 @@ class StructureControllerAuthTest_enrichDomainObjects extends StructureControlle
       permission <- controller.retrieveColumns(tableId).map(getPermission)
     } yield {
       val expected = Json.obj(
-        "create" -> false,
+        "create" -> false
       )
 
       assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)

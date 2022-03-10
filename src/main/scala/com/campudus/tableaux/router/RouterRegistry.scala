@@ -17,7 +17,8 @@ import io.vertx.scala.ext.web.handler.CookieHandler
 object RouterRegistry extends LazyLogging {
 
   def init(tableauxConfig: TableauxConfig, dbConnection: DatabaseConnection)(
-      implicit ec: VertxExecutionContext): Router = {
+      implicit ec: VertxExecutionContext
+  ): Router = {
 
     val vertx: Vertx = tableauxConfig.vertx
 
@@ -42,7 +43,8 @@ object RouterRegistry extends LazyLogging {
     } else {
       logger.warn(
         "Started WITHOUT access token verification. The API is completely publicly available and NOT secured! " +
-          "This is for development and/or testing purposes ONLY.")
+          "This is for development and/or testing purposes ONLY."
+      )
     }
 
     val systemModel = SystemModel(dbConnection)
@@ -54,8 +56,10 @@ object RouterRegistry extends LazyLogging {
     val serviceModel = ServiceModel(dbConnection)
 
     val systemRouter =
-      SystemRouter(tableauxConfig,
-                   SystemController(_, systemModel, tableauxModel, structureModel, serviceModel, roleModel))
+      SystemRouter(
+        tableauxConfig,
+        SystemController(_, systemModel, tableauxModel, structureModel, serviceModel, roleModel)
+      )
     val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel, roleModel))
     val mediaRouter =
       MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel, roleModel))

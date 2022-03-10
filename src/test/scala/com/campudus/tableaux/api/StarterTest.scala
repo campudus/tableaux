@@ -19,14 +19,15 @@ class StarterTest extends LazyLogging with TestAssertionHelper {
   val vertx: Vertx = Vertx.vertx()
 
   implicit lazy val executionContext: VertxExecutionContext = VertxExecutionContext(
-    io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext()))
+    io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext())
+  )
 
   @Test
   def deployStarterVerticleWithEmptyConfig(implicit c: TestContext): Unit = {
     val async = c.async()
 
     val options = DeploymentOptions()
-    // will fail because of empty config
+      // will fail because of empty config
       .setConfig(Json.obj())
 
     val completionHandler = {
@@ -57,7 +58,8 @@ class StarterTest extends LazyLogging with TestAssertionHelper {
           "database" -> Json.obj(
             "username" -> "postgres"
           )
-        ))
+        )
+      )
 
     val completionHandler = {
       case Success(id) =>

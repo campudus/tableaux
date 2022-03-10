@@ -57,9 +57,11 @@ object DisplayInfos {
     val both = nameLangtags
       .intersect(descriptionLangtags)
       .map(lang => {
-        NameAndDescription(lang,
-                           json.getJsonObject("displayName").getString(lang),
-                           json.getJsonObject("description").getString(lang))
+        NameAndDescription(
+          lang,
+          json.getJsonObject("displayName").getString(lang),
+          json.getJsonObject("description").getString(lang)
+        )
       })
 
     val nameOnly = nameLangtags

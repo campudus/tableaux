@@ -18,9 +18,10 @@ package org.vertx.scala.core
 import scala.collection.mutable.Map
 
 /**
-  * @author swilliams
-  * @author Edgar Chan
-  *
+  * @author
+  *   swilliams
+  * @author
+  *   Edgar Chan
   */
 package object json {
 

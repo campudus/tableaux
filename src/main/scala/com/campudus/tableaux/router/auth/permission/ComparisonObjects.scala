@@ -30,8 +30,8 @@ object ComparisonObjects {
 }
 
 /**
-  * Container for optional comparison objects. For example ScopeMedia doesn't need
-  * any comparison object, while ScopeColumn can have a Table, a Column and a Langtag (is in value object).
+  * Container for optional comparison objects. For example ScopeMedia doesn't need any comparison object, while
+  * ScopeColumn can have a Table, a Column and a Langtag (is in value object).
   */
 case class ComparisonObjects(
     tableOpt: Option[Table] = None,

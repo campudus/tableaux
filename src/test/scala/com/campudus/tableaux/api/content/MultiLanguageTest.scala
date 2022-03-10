@@ -143,13 +143,17 @@ class MultiLanguageTest extends TableauxTestBase {
               Json.obj(
                 "de-DE" -> "Hallo, Welt!",
                 "en-GB" -> "Hello, World!"
-              ))))
+              )
+            )
+          )
+        )
       )
 
       val removeEn: JsonObject = Json.obj(
         "value" -> Json.obj(
           "en-GB" -> null
-        ))
+        )
+      )
 
       for {
         (tableId, columnId) <- createSimpleTableWithMultilanguageColumn("multi-table", "multi-column")
@@ -163,7 +167,8 @@ class MultiLanguageTest extends TableauxTestBase {
       } yield {
         assertEquals(
           Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!", "en-GB" -> "Hello, World!")),
-          cellAfterCreation)
+          cellAfterCreation
+        )
 
         assertEquals(Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!")), cellAfterRemoveEn)
       }
@@ -182,7 +187,10 @@ class MultiLanguageTest extends TableauxTestBase {
               Json.obj(
                 "de-DE" -> "Hallo, Welt!",
                 "en-GB" -> "Hello, World!"
-              ))))
+              )
+            )
+          )
+        )
       )
 
       val emptyValue: JsonObject = Json.obj("value" -> Json.obj())
@@ -228,7 +236,8 @@ class MultiLanguageTest extends TableauxTestBase {
                   "de-DE" -> "Hallo, Welt!",
                   "en-GB" -> "Hello, World!"
                 )
-              ))
+              )
+          )
         )
       )
 
@@ -284,7 +293,8 @@ class MultiLanguageTest extends TableauxTestBase {
                   "de-DE" -> "Hallo, Welt!",
                   "en-GB" -> "Hello, World!"
                 )
-              ))
+              )
+          )
         )
       )
 

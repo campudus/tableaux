@@ -57,7 +57,9 @@ class ColumnValuesTest extends TableauxTestBase {
     val createStringColumnJson =
       Json.obj(
         "columns" -> Json.arr(
-          Json.obj("kind" -> "shorttext", "name" -> "column", "identifier" -> true, "languageType" -> "language")))
+          Json.obj("kind" -> "shorttext", "name" -> "column", "identifier" -> true, "languageType" -> "language")
+        )
+      )
 
     val expectedJson1 = Json.obj(
       "status" -> "ok",

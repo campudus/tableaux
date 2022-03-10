@@ -148,10 +148,12 @@ class CachedColumnModel(
     } yield r
   }
 
-  override def delete(table: Table,
-                      columnId: ColumnId,
-                      bothDirections: Boolean,
-                      checkForLastColumn: Boolean = true): Future[Unit] = {
+  override def delete(
+      table: Table,
+      columnId: ColumnId,
+      bothDirections: Boolean,
+      checkForLastColumn: Boolean = true
+  ): Future[Unit] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super.delete(table, columnId, bothDirections, checkForLastColumn)
@@ -175,17 +177,19 @@ class CachedColumnModel(
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super
-        .change(table,
-                columnId,
-                columnName,
-                ordering,
-                kind,
-                identifier,
-                displayInfos,
-                countryCodes,
-                separator,
-                attributes,
-                rules)
+        .change(
+          table,
+          columnId,
+          columnName,
+          ordering,
+          kind,
+          identifier,
+          displayInfos,
+          countryCodes,
+          separator,
+          attributes,
+          rules
+        )
     } yield r
   }
 
@@ -196,8 +200,10 @@ class CachedColumnModel(
 
 object ColumnModel extends LazyLogging {
 
-  def isColumnGroupMatchingToFormatPattern(formatPattern: Option[String],
-                                           groupedColumns: Seq[ColumnType[_]]): Boolean = {
+  def isColumnGroupMatchingToFormatPattern(
+      formatPattern: Option[String],
+      groupedColumns: Seq[ColumnType[_]]
+  ): Boolean = {
     val formatVariable = "\\{\\{(\\d+)\\}\\}".r
 
     formatPattern match {
@@ -215,7 +221,8 @@ object ColumnModel extends LazyLogging {
 
         logger.info(
           s"Compare distinct wildcards (${distinctWildcards.mkString(", ")}) " +
-            s"with columnIDs (${columnIDs.mkString(", ")})")
+            s"with columnIDs (${columnIDs.mkString(", ")})"
+        )
 
         distinctWildcards == columnIDs
       }
@@ -254,23 +261,26 @@ class ColumnModel(val connection: DatabaseConnection)(
       BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
 
     for {
-      _ <- if (attributes.nonEmpty) {
-        validator
-          .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
-          .recover({
-            case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
-          })
-      } else {
-        Future { Unit }
-      }
+      _ <-
+        if (attributes.nonEmpty) {
+          validator
+            .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
+            .recover({
+              case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
+            })
+        } else {
+          Future { Unit }
+        }
       columnCreate <- createColumn match {
         case simpleColumnInfo: CreateSimpleColumn =>
           createValueColumn(table.id, simpleColumnInfo)
             .map({
               case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-                SimpleValueColumn(simpleColumnInfo.kind,
-                                  simpleColumnInfo.languageType,
-                                  applyColumnInformation(id, ordering, displayInfos))
+                SimpleValueColumn(
+                  simpleColumnInfo.kind,
+                  simpleColumnInfo.languageType,
+                  applyColumnInformation(id, ordering, displayInfos)
+                )
             })
 
         case linkColumnInfo: CreateLinkColumn =>
@@ -294,9 +304,11 @@ class ColumnModel(val connection: DatabaseConnection)(
               case CreatedColumnInformation(_, id, ordering, displayInfos) =>
                 // For simplification we return GroupColumn without grouped columns...
                 // ... StructureController will retrieve these anyway
-                GroupColumn(applyColumnInformation(id, ordering, displayInfos),
-                            Seq.empty,
-                            groupColumnInfo.formatPattern)
+                GroupColumn(
+                  applyColumnInformation(id, ordering, displayInfos),
+                  Seq.empty,
+                  groupColumnInfo.formatPattern
+                )
             })
 
         case statusColumnInfo: CreateStatusColumn =>
@@ -307,9 +319,11 @@ class ColumnModel(val connection: DatabaseConnection)(
 
             statusColumn <- createStatusColumn(table, statusColumnInfo).map({
               case (dependentColumns, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
-                StatusColumn(StatusColumnInformation(table, id, ordering, displayInfos, statusColumnInfo),
-                             statusColumnInfo.rules,
-                             dependentColumns)
+                StatusColumn(
+                  StatusColumnInformation(table, id, ordering, displayInfos, statusColumnInfo),
+                  statusColumnInfo.rules,
+                  dependentColumns
+                )
 
             })
           } yield {
@@ -351,18 +365,21 @@ class ColumnModel(val connection: DatabaseConnection)(
         _ = {
           if (groupedColumns.size != groupColumnInfo.groups.size) {
             throw UnprocessableEntityException(
-              s"GroupColumn (${groupColumnInfo.name}) couldn't be created because some columns don't exist")
+              s"GroupColumn (${groupColumnInfo.name}) couldn't be created because some columns don't exist"
+            )
           }
 
           if (groupedColumns.exists(_.kind == GroupType)) {
             throw UnprocessableEntityException(
-              s"GroupColumn (${groupColumnInfo.name}) can't contain another GroupColumn")
+              s"GroupColumn (${groupColumnInfo.name}) can't contain another GroupColumn"
+            )
           }
 
           if (!isColumnGroupMatchingToFormatPattern(groupColumnInfo.formatPattern, groupedColumns)) {
             throw UnprocessableEntityException(
               s"GroupColumns (${groupedColumns.map(_.id).mkString(", ")}) don't match to formatPattern " +
-                s"${"\"" + groupColumnInfo.formatPattern.map(_.toString).orNull + "\""}")
+                s"${"\"" + groupColumnInfo.formatPattern.map(_.toString).orNull + "\""}"
+            )
           }
         }
 
@@ -544,8 +561,10 @@ class ColumnModel(val connection: DatabaseConnection)(
     def insertColumn(t: connection.Transaction): Future[(connection.Transaction, CreatedColumnInformation)] = {
       for {
         t <- t
-          .selectSingleValue[Long]("SELECT COUNT(*) FROM system_columns WHERE table_id = ? AND user_column_name = ?",
-                                   Json.arr(tableId, createColumn.name))
+          .selectSingleValue[Long](
+            "SELECT COUNT(*) FROM system_columns WHERE table_id = ? AND user_column_name = ?",
+            Json.arr(tableId, createColumn.name)
+          )
           .flatMap({
             case (t, count) =>
               if (count > 0) {
@@ -666,20 +685,22 @@ class ColumnModel(val connection: DatabaseConnection)(
         .map(mapRowToDependentColumnInformation)
 
       recursiveDependentColumnInformation <- dependentColumnInformation.foldLeft(
-        Future.successful(dependentColumnInformation))({
+        Future.successful(dependentColumnInformation)
+      )({
         case (dependentColumnInformationFuture, dependentColumn) =>
           for {
             dependentColumnInformation <- dependentColumnInformationFuture
 
-            resultSeq <- if (dependentColumn.identifier) {
-              if (depth > 0) {
-                retrieveDependencies(dependentColumn.tableId, depth - 1)
+            resultSeq <-
+              if (dependentColumn.identifier) {
+                if (depth > 0) {
+                  retrieveDependencies(dependentColumn.tableId, depth - 1)
+                } else {
+                  Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
+                }
               } else {
-                Future.failed(DatabaseException("Link is too deep. Check schema.", "link-depth"))
+                Future.successful(Seq.empty)
               }
-            } else {
-              Future.successful(Seq.empty)
-            }
           } yield (dependentColumnInformation ++ resultSeq).distinct
       })
     } yield recursiveDependentColumnInformation
@@ -851,24 +872,25 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def generateRetrieveColumnsQuery(identifiersOnly: Boolean): String = {
-    val identifierFilter = if (identifiersOnly) {
-      // select either identifier column and/or
-      // ... grouped columns if GroupColumn is an identifier
-      """
-        |AND identifier = TRUE OR
-        |(
-        | SELECT COUNT(*)
-        | FROM
-        | system_columns sc
-        | LEFT JOIN system_column_groups g
-        |   ON (sc.table_id = g.table_id AND sc.column_id = g.grouped_column_id)
-        | LEFT JOIN system_columns sc2
-        |   ON (sc2.table_id = g.table_id AND sc2.column_id = g.group_column_id)
-        | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id AND sc.table_id = c.table_id
-        |) > 0""".stripMargin
-    } else {
-      ""
-    }
+    val identifierFilter =
+      if (identifiersOnly) {
+        // select either identifier column and/or
+        // ... grouped columns if GroupColumn is an identifier
+        """
+          |AND identifier = TRUE OR
+          |(
+          | SELECT COUNT(*)
+          | FROM
+          | system_columns sc
+          | LEFT JOIN system_column_groups g
+          |   ON (sc.table_id = g.table_id AND sc.column_id = g.grouped_column_id)
+          | LEFT JOIN system_columns sc2
+          |   ON (sc2.table_id = g.table_id AND sc2.column_id = g.group_column_id)
+          | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id AND sc.table_id = c.table_id
+          |) > 0""".stripMargin
+      } else {
+        ""
+      }
 
     s"""
        |SELECT
@@ -994,7 +1016,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       columns <- Future.sequence(dependentColumnIds.map(id =>
         retrieveOne(table, id, 1).recover({
           case _ => throw new ColumnNotFoundException(s"Column with id $id not found")
-        })))
+        })
+      ))
       // validate column types and languagetype
       _ = columns.foreach(column => {
         if (!StatusColumn.validColumnTypes.contains(column.kind)) {
@@ -1173,10 +1196,12 @@ class ColumnModel(val connection: DatabaseConnection)(
   def delete(table: Table, columnId: ColumnId): Future[Unit] =
     delete(table, columnId, bothDirections = false, checkForLastColumn = true)
 
-  protected def delete(table: Table,
-                       columnId: ColumnId,
-                       bothDirections: Boolean,
-                       checkForLastColumn: Boolean = true): Future[Unit] = {
+  protected def delete(
+      table: Table,
+      columnId: ColumnId,
+      bothDirections: Boolean,
+      checkForLastColumn: Boolean = true
+  ): Future[Unit] = {
 
     // Retrieve all filter for columnId and check if columns is not empty
     // If columns is empty last column would be deleted => error
@@ -1188,22 +1213,24 @@ class ColumnModel(val connection: DatabaseConnection)(
             Future.failed(NotFoundInDatabaseException("No column found at all", "no-column-found"))
         })
 
-      _ <- if (checkForLastColumn) {
-        Future
-          .successful(columns)
-          .filter(!_.forall(_.id == columnId))
-          .recoverWith({
-            case _: NoSuchElementException =>
-              Future.failed(DatabaseException("Last column can't be deleted", "delete-last-column"))
-          })
-      } else {
-        Future.successful(columns)
-      }
+      _ <-
+        if (checkForLastColumn) {
+          Future
+            .successful(columns)
+            .filter(!_.forall(_.id == columnId))
+            .recoverWith({
+              case _: NoSuchElementException =>
+                Future.failed(DatabaseException("Last column can't be deleted", "delete-last-column"))
+            })
+        } else {
+          Future.successful(columns)
+        }
 
       column = columns
         .find(_.id == columnId)
         .getOrElse(
-          throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.", "delete-non-existing"))
+          throw NotFoundInDatabaseException("Column can't be deleted because it doesn't exist.", "delete-non-existing")
+        )
 
       _ = checkForStatusColumnDependency(columnId, columns, "deleted")
 
@@ -1218,15 +1245,18 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield ()
   }
 
-  private def checkForStatusColumnDependency(columnId: ColumnId,
-                                             columns: Seq[ColumnType[_]],
-                                             actionErrorMessage: String): Unit = {
+  private def checkForStatusColumnDependency(
+      columnId: ColumnId,
+      columns: Seq[ColumnType[_]],
+      actionErrorMessage: String
+  ): Unit = {
     columns
       .filter(column => column.kind == StatusType)
       .foreach(column => {
         if (column.asInstanceOf[StatusColumn].columns.map(col => col.id).contains(columnId)) {
           throw new HasStatusColumnDependencyException(
-            s"Column can't be ${actionErrorMessage} because Column with id ${column.id} has dependency on this column. Remove Rules from Column ${column.name} with id: ${column.id} containing  column with id: ${columnId} ")
+            s"Column can't be ${actionErrorMessage} because Column with id ${column.id} has dependency on this column. Remove Rules from Column ${column.name} with id: ${column.id} containing  column with id: ${columnId} "
+          )
         }
       })
   }
@@ -1238,8 +1268,10 @@ class ColumnModel(val connection: DatabaseConnection)(
     for {
       t <- connection.begin()
 
-      (t, result) <- t.query("SELECT link_id FROM system_columns WHERE column_id = ? AND table_id = ?",
-                             Json.arr(column.id, column.table.id))
+      (t, result) <- t.query(
+        "SELECT link_id FROM system_columns WHERE column_id = ? AND table_id = ?",
+        Json.arr(column.id, column.table.id)
+      )
       linkId = selectCheckSize(result, 1).head.get[Long](0)
 
       (t, result) <- t.query("SELECT COUNT(*) = 1 FROM system_columns WHERE link_id = ?", Json.arr(linkId))
@@ -1251,28 +1283,29 @@ class ColumnModel(val connection: DatabaseConnection)(
         // which are linked together.
         // ColumnModel.deleteLink() with both = true
         // is called by StructureController.deleteTable().
-        val deleteFuture = if (bothDirections) {
-          for {
-            (t, _) <- t.query(
-              s"""
-                 |DELETE FROM user_table_annotations_$tableId ua
-                 |WHERE EXISTS (
-                 |SELECT 1 FROM system_columns c
-                 |WHERE
-                 |  c.link_id = ? AND
-                 |  c.table_id = ? AND
-                 |  ua.column_id = c.column_id
-                 |)""".stripMargin,
-              Json.arr(linkId, tableId)
-            )
-            (t, _) <- t.query("DELETE FROM system_columns WHERE link_id = ?", Json.arr(linkId))
-          } yield t
-        } else {
-          for {
-            (t) <- deleteSystemColumn(t, tableId, columnId)
-            (t) <- deleteAnnotations(t, tableId, columnId)
-          } yield t
-        }
+        val deleteFuture =
+          if (bothDirections) {
+            for {
+              (t, _) <- t.query(
+                s"""
+                   |DELETE FROM user_table_annotations_$tableId ua
+                   |WHERE EXISTS (
+                   |SELECT 1 FROM system_columns c
+                   |WHERE
+                   |  c.link_id = ? AND
+                   |  c.table_id = ? AND
+                   |  ua.column_id = c.column_id
+                   |)""".stripMargin,
+                Json.arr(linkId, tableId)
+              )
+              (t, _) <- t.query("DELETE FROM system_columns WHERE link_id = ?", Json.arr(linkId))
+            } yield t
+          } else {
+            for {
+              (t) <- deleteSystemColumn(t, tableId, columnId)
+              (t) <- deleteAnnotations(t, tableId, columnId)
+            } yield t
+          }
 
         deleteFuture.flatMap({ t =>
           if (unidirectional || bothDirections) {
@@ -1326,9 +1359,11 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield ()
   }
 
-  private def deleteSystemColumn(t: connection.Transaction,
-                                 tableId: TableId,
-                                 columnId: ColumnId): Future[connection.Transaction] = {
+  private def deleteSystemColumn(
+      t: connection.Transaction,
+      tableId: TableId,
+      columnId: ColumnId
+  ): Future[connection.Transaction] = {
     for {
       (t, _) <- t
         .query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
@@ -1336,9 +1371,11 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield t
   }
 
-  private def deleteAnnotations(t: connection.Transaction,
-                                tableId: TableId,
-                                columnId: ColumnId): Future[connection.Transaction] = {
+  private def deleteAnnotations(
+      t: connection.Transaction,
+      tableId: TableId,
+      columnId: ColumnId
+  ): Future[connection.Transaction] = {
     for {
       (t, _) <- t.query(s"DELETE FROM user_table_annotations_$tableId WHERE column_id = ?", Json.arr(columnId))
     } yield t
@@ -1365,70 +1402,97 @@ class ColumnModel(val connection: DatabaseConnection)(
       // change column settings
       (t, resultName) <- optionToValidFuture(
         columnName,
-        t, { name: String =>
+        t,
+        { name: String =>
           {
-            t.query(s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?",
-                    Json.arr(name, tableId, columnId))
+            t.query(
+              s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(name, tableId, columnId)
+            )
           }
         }
       )
-      (t, resultOrdering) <- optionToValidFuture(ordering, t, { ord: Ordering =>
-        {
-          t.query(s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?",
-                  Json.arr(ord, tableId, columnId))
+      (t, resultOrdering) <- optionToValidFuture(
+        ordering,
+        t,
+        { ord: Ordering =>
+          {
+            t.query(
+              s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(ord, tableId, columnId)
+            )
+          }
         }
-      })
+      )
       (t, resultKind) <- optionToValidFuture(
         kind,
-        t, { k: TableauxDbType =>
+        t,
+        { k: TableauxDbType =>
           {
-            t.query(s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?",
-                    Json.arr(k.name, tableId, columnId))
+            t.query(
+              s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(k.name, tableId, columnId)
+            )
           }
         }
       )
       (t, resultIdentifier) <- optionToValidFuture(
         identifier,
-        t, { ident: Boolean =>
+        t,
+        { ident: Boolean =>
           {
-            t.query(s"UPDATE system_columns SET identifier = ? WHERE table_id = ? AND column_id = ?",
-                    Json.arr(ident, tableId, columnId))
+            t.query(
+              s"UPDATE system_columns SET identifier = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(ident, tableId, columnId)
+            )
           }
         }
       )
       (t, resultSeparator) <- optionToValidFuture(
         separator,
-        t, { sep: Boolean =>
+        t,
+        { sep: Boolean =>
           {
-            t.query(s"UPDATE system_columns SET separator = ? WHERE table_id = ? AND column_id = ?",
-                    Json.arr(sep, tableId, columnId))
+            t.query(
+              s"UPDATE system_columns SET separator = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(sep, tableId, columnId)
+            )
           }
         }
       )
       (t, resultAttributes) <- optionToValidFuture(
         attributes,
-        t, { att: JsonObject =>
+        t,
+        { att: JsonObject =>
           {
-            t.query(s"UPDATE system_columns SET attributes = ? WHERE table_id = ? AND column_id = ?",
-                    Json.arr(att.encode(), tableId, columnId))
+            t.query(
+              s"UPDATE system_columns SET attributes = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(att.encode(), tableId, columnId)
+            )
           }
         }
       )
       (t, resultRules) <- optionToValidFuture(
         rules,
-        t, { rul: JsonArray =>
+        t,
+        { rul: JsonArray =>
           {
-            t.query(s"UPDATE system_columns SET rules = ? WHERE table_id = ? AND column_id = ?",
-                    Json.arr(rul.encode(), tableId, columnId))
+            t.query(
+              s"UPDATE system_columns SET rules = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(rul.encode(), tableId, columnId)
+            )
           }
         }
       )
       (t, resultCountryCodes) <- optionToValidFuture(
         countryCodes,
-        t, { codes: Seq[String] =>
+        t,
+        { codes: Seq[String] =>
           {
-            t.query(s"UPDATE system_columns SET country_codes = ? WHERE table_id = ? AND column_id = ?",
-                    Json.arr(Json.arr(codes: _*), tableId, columnId))
+            t.query(
+              s"UPDATE system_columns SET country_codes = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(Json.arr(codes: _*), tableId, columnId)
+            )
           }
         }
       )
@@ -1439,23 +1503,28 @@ class ColumnModel(val connection: DatabaseConnection)(
       // change column kind
       (t, _) <- optionToValidFuture(
         kind,
-        t, { k: TableauxDbType =>
+        t,
+        { k: TableauxDbType =>
           {
             t.query(
-              s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}")
+              s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}"
+            )
           }
         }
       ).recoverWith(t.rollbackAndFail())
 
       _ <- Future(
-        checkUpdateResults(resultName,
-                           resultOrdering,
-                           resultKind,
-                           resultIdentifier,
-                           resultCountryCodes,
-                           resultSeparator,
-                           resultAttributes,
-                           resultRules))
+        checkUpdateResults(
+          resultName,
+          resultOrdering,
+          resultKind,
+          resultIdentifier,
+          resultCountryCodes,
+          resultSeparator,
+          resultAttributes,
+          resultRules
+        )
+      )
         .recoverWith(t.rollbackAndFail())
 
       _ <- t.commit()
@@ -1480,13 +1549,15 @@ class ColumnModel(val connection: DatabaseConnection)(
               t <- future
               (t, select) <- t.query(
                 "SELECT COUNT(*) FROM system_columns_lang WHERE table_id = ? AND column_id = ? AND langtag = ?",
-                Json.arr(tableId, columnId, di.langtag))
+                Json.arr(tableId, columnId, di.langtag)
+              )
               count = select.getJsonArray("results").getJsonArray(0).getLong(0)
-              (statement, binds) = if (count > 0) {
-                dis.updateSql(di.langtag)
-              } else {
-                dis.insertSql(di.langtag)
-              }
+              (statement, binds) =
+                if (count > 0) {
+                  dis.updateSql(di.langtag)
+                } else {
+                  dis.insertSql(di.langtag)
+                }
               (t, _) <- t.query(statement, Json.arr(binds: _*))
             } yield t
         }

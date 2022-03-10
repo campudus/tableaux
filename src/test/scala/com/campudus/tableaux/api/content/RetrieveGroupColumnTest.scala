@@ -124,16 +124,20 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
       textColumn <- sendRequest("GET", s"/tables/1/columns/$textColumnId")
       booleanColumn <- sendRequest("GET", s"/tables/1/columns/$booleanColumnId")
 
-      _ <- sendRequest("POST",
-                       "/tables/1/columns",
-                       createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId)))
+      _ <- sendRequest(
+        "POST",
+        "/tables/1/columns",
+        createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId))
+      )
         .map(_.getJsonArray("columns").getJsonObject(0))
 
-      createRow = Rows(Json.arr(textColumn, booleanColumn),
-                       Json.obj(
-                         "textcolumn" -> "blub",
-                         "booleancolumn" -> true
-                       ))
+      createRow = Rows(
+        Json.arr(textColumn, booleanColumn),
+        Json.obj(
+          "textcolumn" -> "blub",
+          "booleancolumn" -> true
+        )
+      )
 
       createdRow <- sendRequest("POST", "/tables/1/rows", createRow)
         .map(_.getJsonArray("rows").getJsonObject(0))
@@ -163,9 +167,11 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
       // create columns for table 1
       textColumnId <- sendCreateColumnRequest(table1, Columns(TextCol("textcolumn")))
       booleanColumnId <- sendCreateColumnRequest(table1, Columns(BooleanCol("booleancolumn")))
-      _ <- sendRequest("POST",
-                       s"/tables/$table1/columns",
-                       Columns(Identifier(GroupCol("groupcolumn", Seq(textColumnId, booleanColumnId)))))
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$table1/columns",
+        Columns(Identifier(GroupCol("groupcolumn", Seq(textColumnId, booleanColumnId))))
+      )
 
       textColumn <- sendRequest("GET", s"/tables/$table1/columns/$textColumnId")
       booleanColumn <- sendRequest("GET", s"/tables/$table1/columns/$booleanColumnId")

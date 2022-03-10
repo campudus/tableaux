@@ -47,15 +47,17 @@ object BasicColumnInformation {
       case Some(obj) => obj
       case None => new JsonObject("{}")
     }
-    BasicColumnInformation(table,
-                           columnId,
-                           createColumn.name,
-                           ordering,
-                           createColumn.identifier,
-                           displayInfos,
-                           Seq.empty,
-                           createColumn.separator,
-                           attributes)
+    BasicColumnInformation(
+      table,
+      columnId,
+      createColumn.name,
+      ordering,
+      createColumn.identifier,
+      displayInfos,
+      Seq.empty,
+      createColumn.separator,
+      attributes
+    )
   }
 }
 
@@ -72,16 +74,18 @@ object StatusColumnInformation {
       case Some(obj) => obj
       case None => new JsonObject("{}")
     }
-    StatusColumnInformation(table,
-                            columnId,
-                            createColumn.name,
-                            ordering,
-                            createColumn.identifier,
-                            displayInfos,
-                            Seq.empty,
-                            createColumn.separator,
-                            attributes,
-                            createColumn.rules)
+    StatusColumnInformation(
+      table,
+      columnId,
+      createColumn.name,
+      ordering,
+      createColumn.identifier,
+      displayInfos,
+      Seq.empty,
+      createColumn.separator,
+      attributes,
+      createColumn.rules
+    )
   }
 }
 
@@ -135,23 +139,24 @@ object ColumnType {
   private type AttachmentAndUUIDs = (AttachmentColumn, Seq[(UUID, Option[Ordering])])
 
   /**
-    * Splits Seq of columns into column types and
-    * parses for correct value depending on column type.
+    * Splits Seq of columns into column types and parses for correct value depending on column type.
     *
-    * - language-neutral
-    * - multi-language and/or multi-country
-    * - link
-    * - attachment
+    *   - language-neutral
+    *   - multi-language and/or multi-country
+    *   - link
+    *   - attachment
     */
   def splitIntoTypesWithValues(columnsWithValue: Seq[(ColumnType[_], _)]): Try[
     (List[LanguageNeutralAndValue], List[MultiLanguageAndValue], List[LinkAndRowIds], List[AttachmentAndUUIDs])
   ] = {
     Try {
       columnsWithValue.foldLeft(
-        (List.empty[LanguageNeutralAndValue],
-         List.empty[MultiLanguageAndValue],
-         List.empty[LinkAndRowIds],
-         List.empty[AttachmentAndUUIDs])
+        (
+          List.empty[LanguageNeutralAndValue],
+          List.empty[MultiLanguageAndValue],
+          List.empty[LinkAndRowIds],
+          List.empty[AttachmentAndUUIDs]
+        )
       ) {
 
         case ((s, m, l, a), (MultiLanguageColumn(c), v)) =>
@@ -175,10 +180,10 @@ object ColumnType {
   /**
     * Splits Seq of columns into column types.
     *
-    * - language-neutral
-    * - multi-language and/or multi-country
-    * - link
-    * - attachment
+    *   - language-neutral
+    *   - multi-language and/or multi-country
+    *   - link
+    *   - attachment
     */
   def splitIntoTypes(
       columns: Seq[ColumnType[_]]
@@ -506,8 +511,10 @@ case class LinkColumn(
             case arg: OkArg[Long] =>
               Seq(arg.get)
             case _ =>
-              throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x",
-                                         "link-value")
+              throw InvalidJsonException(
+                s"A link column expects a JSON object with to values, but got $x",
+                "link-value"
+              )
           }
 
         case x: JsonObject if x.containsKey("values") =>
@@ -520,8 +527,10 @@ case class LinkColumn(
             case Success(ids) =>
               ids
             case Failure(_) =>
-              throw InvalidJsonException(s"A link column expects a JSON object with to values, but got $x",
-                                         "link-value")
+              throw InvalidJsonException(
+                s"A link column expects a JSON object with to values, but got $x",
+                "link-value"
+              )
           }
 
         case x: JsonObject =>
@@ -546,9 +555,11 @@ case class LinkColumn(
   }
 }
 
-case class StatusColumn(override val columnInformation: ColumnInformation,
-                        rules: JsonArray,
-                        override val columns: Seq[ColumnType[_]])(
+case class StatusColumn(
+    override val columnInformation: ColumnInformation,
+    rules: JsonArray,
+    override val columns: Seq[ColumnType[_]]
+)(
     implicit val requestContext: RequestContext,
     val roleModel: RoleModel
 ) extends ConcatenateColumn
@@ -556,6 +567,7 @@ case class StatusColumn(override val columnInformation: ColumnInformation,
 
   override val languageType: LanguageNeutral.type = LanguageNeutral
   override val kind = StatusType
+
   override def getJson: JsonObject = {
     super.getJson
       .mergeIn(
@@ -677,7 +689,8 @@ case class GroupColumn(
 /**
   * Column seq is just a sequence of columns.
   *
-  * @param columns The sequence of columns.
+  * @param columns
+  *   The sequence of columns.
   */
 case class ColumnSeq(columns: Seq[ColumnType[_]])(
     implicit requestContext: RequestContext,

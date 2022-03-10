@@ -33,11 +33,13 @@ abstract class AbstractColumnDisplayInfosTest extends TestAssertionHelper {
          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "),
       statement
     )
-    checkPartsInRandomOrder(Seq(
-                              Seq(1, 1, "de-DE", "Spalte 1", null),
-                              Seq(1, 1, "en-GB", "Column 1", null)
-                            ),
-                            binds)
+    checkPartsInRandomOrder(
+      Seq(
+        Seq(1, 1, "de-DE", "Spalte 1", null),
+        Seq(1, 1, "en-GB", "Column 1", null)
+      ),
+      binds
+    )
   }
 
   @Test
@@ -63,11 +65,13 @@ abstract class AbstractColumnDisplayInfosTest extends TestAssertionHelper {
          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "),
       statement
     )
-    checkPartsInRandomOrder(Seq(
-                              Seq(1, 1, "de-DE", null, "Spalte 1 Beschreibung"),
-                              Seq(1, 1, "en-GB", null, "Column 1 Description")
-                            ),
-                            binds)
+    checkPartsInRandomOrder(
+      Seq(
+        Seq(1, 1, "de-DE", null, "Spalte 1 Beschreibung"),
+        Seq(1, 1, "en-GB", null, "Column 1 Description")
+      ),
+      binds
+    )
   }
 
   @Test
@@ -88,7 +92,8 @@ abstract class AbstractColumnDisplayInfosTest extends TestAssertionHelper {
     val di = multipleNameAndDesc(
       1,
       1,
-      List(("de-DE", "Spalte 1", "Spalte 1 Beschreibung"), ("en-GB", "Column 1", "Column 1 Description")))
+      List(("de-DE", "Spalte 1", "Spalte 1 Beschreibung"), ("en-GB", "Column 1", "Column 1 Description"))
+    )
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -96,11 +101,13 @@ abstract class AbstractColumnDisplayInfosTest extends TestAssertionHelper {
          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "),
       statement
     )
-    checkPartsInRandomOrder(Seq(
-                              Seq(1, 1, "de-DE", "Spalte 1", "Spalte 1 Beschreibung"),
-                              Seq(1, 1, "en-GB", "Column 1", "Column 1 Description")
-                            ),
-                            binds)
+    checkPartsInRandomOrder(
+      Seq(
+        Seq(1, 1, "de-DE", "Spalte 1", "Spalte 1 Beschreibung"),
+        Seq(1, 1, "en-GB", "Column 1", "Column 1 Description")
+      ),
+      binds
+    )
   }
 
   @Test
@@ -113,22 +120,26 @@ abstract class AbstractColumnDisplayInfosTest extends TestAssertionHelper {
          |VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)""".stripMargin.replaceAll("\n", " "),
       statement
     )
-    checkPartsInRandomOrder(Seq(
-                              Seq(1, 1, "de-DE", "Spalte 1", null),
-                              Seq(1, 1, "en-GB", null, "Column 1 Description")
-                            ),
-                            binds)
+    checkPartsInRandomOrder(
+      Seq(
+        Seq(1, 1, "de-DE", "Spalte 1", null),
+        Seq(1, 1, "en-GB", null, "Column 1 Description")
+      ),
+      binds
+    )
   }
 
   @Test
   def checkCombinations(): Unit = {
-    val di = multipleNameAndDesc(1,
-                                 1,
-                                 List(
-                                   ("de-DE", "Spalte 1", "Spalte 1 Beschreibung"),
-                                   ("en-GB", null, "Column 1 Description"),
-                                   ("fr_FR", "Colonne 1", null)
-                                 ))
+    val di = multipleNameAndDesc(
+      1,
+      1,
+      List(
+        ("de-DE", "Spalte 1", "Spalte 1 Beschreibung"),
+        ("en-GB", null, "Column 1 Description"),
+        ("fr_FR", "Colonne 1", null)
+      )
+    )
     val (statement, binds) = di.createSql
     assertTrue(di.nonEmpty)
     assertEquals(
@@ -282,13 +293,16 @@ class ColumnDisplayInfosTestJsonObject extends AbstractColumnDisplayInfosTest {
       name: String,
       desc: String
   ): ColumnDisplayInfos = {
-    ColumnDisplayInfos(tableId,
-                       columnId,
-                       DisplayInfos.fromJson(
-                         Json.obj(
-                           "displayName" -> Json.obj(langtag -> name),
-                           "description" -> Json.obj(langtag -> desc)
-                         )))
+    ColumnDisplayInfos(
+      tableId,
+      columnId,
+      DisplayInfos.fromJson(
+        Json.obj(
+          "displayName" -> Json.obj(langtag -> name),
+          "description" -> Json.obj(langtag -> desc)
+        )
+      )
+    )
   }
 
   override def multipleNameAndDesc(
@@ -299,10 +313,12 @@ class ColumnDisplayInfosTestJsonObject extends AbstractColumnDisplayInfosTest {
     val result = infos.foldLeft(Json.obj()) {
       case (json, (lang, name, null)) =>
         json.mergeIn(
-          Json.obj("displayName" -> json.getJsonObject("displayName", Json.obj()).mergeIn(Json.obj(lang -> name))))
+          Json.obj("displayName" -> json.getJsonObject("displayName", Json.obj()).mergeIn(Json.obj(lang -> name)))
+        )
       case (json, (lang, null, desc)) =>
         json.mergeIn(
-          Json.obj("description" -> json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc))))
+          Json.obj("description" -> json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc)))
+        )
       case (json, (lang, name, desc)) =>
         val n = json.getJsonObject("displayName", Json.obj()).mergeIn(Json.obj(lang -> name))
         val d = json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc))
@@ -342,9 +358,11 @@ class DisplayInfosTest {
                                        |}
       """.stripMargin)
 
-    val expected = List(NameAndDescription("en", "displayName en", "description en"),
-                        NameOnly("fr", "displayName fr"),
-                        DescriptionOnly("ch", "description ch"))
+    val expected = List(
+      NameAndDescription("en", "displayName en", "description en"),
+      NameOnly("fr", "displayName fr"),
+      DescriptionOnly("ch", "description ch")
+    )
 
     assertEquals(expected, DisplayInfos.fromJson(json))
   }

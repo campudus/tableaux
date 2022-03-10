@@ -39,7 +39,8 @@ sealed trait UpdateCreateRowModelHelper {
   protected[this] val connection: DatabaseConnection
 
   def rowExists(t: connection.Transaction, tableId: TableId, rowId: RowId)(
-      implicit ec: ExecutionContext): Future[connection.Transaction] = {
+      implicit ec: ExecutionContext
+  ): Future[connection.Transaction] = {
     t.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
       .flatMap({
         case (t, true) => Future.successful(t)
@@ -72,7 +73,8 @@ sealed trait UpdateCreateRowModelHelper {
   }
 
   def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])])(
-      implicit ec: ExecutionContext): Future[Unit] = {
+      implicit ec: ExecutionContext
+  ): Future[Unit] = {
     val futureSequence = values.map({
       case (column: LinkColumn, toIds) =>
         val linkId = column.linkId
@@ -94,18 +96,19 @@ sealed trait UpdateCreateRowModelHelper {
                 case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
               })
 
-            (t, _) <- if (toIds.nonEmpty) {
-              t.query(
+            (t, _) <-
+              if (toIds.nonEmpty) {
+                t.query(
                   s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
                   Json.arr(binds: _*)
                 )
-                .map({
-                  // if size doesn't match we hit the cardinality limit
-                  case (t, result) => (t, insertCheckSize(result, toIds.size))
-                })
-            } else {
-              Future.successful((t, Json.emptyArr()))
-            }
+                  .map({
+                    // if size doesn't match we hit the cardinality limit
+                    case (t, result) => (t, insertCheckSize(result, toIds.size))
+                  })
+              } else {
+                Future.successful((t, Json.emptyArr()))
+              }
           } yield (t, ())
         })
     })
@@ -156,8 +159,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         // we only care about links because of delete cascade handling
         // for simple, multis, and attachments do same as in clearRow()
         for {
-          _ <- if (simple.isEmpty) Future.successful(())
-          else updateSimple(table, rowId, simple.map({ case (c, _) => (c, None) }))
+          _ <-
+            if (simple.isEmpty) Future.successful(())
+            else updateSimple(table, rowId, simple.map({ case (c, _) => (c, None) }))
           _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis.map(_._1))
           _ <- if (links.isEmpty) Future.successful(()) else clearLinksWithValues(table, rowId, links, deleteRowFn)
           _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments.map(_._1))
@@ -181,7 +185,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       columnsWithValues: Seq[(LinkColumn, Seq[RowId])],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[_] = {
     val futureSequence = columnsWithValues.map({
       case (column, values) => {
@@ -190,11 +194,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         val linkTable = s"link_table_${column.linkId}"
 
         for {
-          _ <- if (column.linkDirection.constraint.deleteCascade) {
-            deleteLinkedRows(table, rowId, column, deleteRowFn, values)
-          } else {
-            connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ?", Json.arr(rowId))
-          }
+          _ <-
+            if (column.linkDirection.constraint.deleteCascade) {
+              deleteLinkedRows(table, rowId, column, deleteRowFn, values)
+            } else {
+              connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ?", Json.arr(rowId))
+            }
         } yield ()
       }
     })
@@ -206,7 +211,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       columns: Seq[LinkColumn],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      deleteRowFn: (Table, RowId) => Future[EmptyObject]
   ): Future[_] = clearLinksWithValues(table, rowId, columns.map((_, Seq.empty)), deleteRowFn)
 
   private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
@@ -234,8 +239,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
             // only delete foreign row if it's not part of new values...
             // ... otherwise delete link
             if (newForeignRowIds.contains(foreignRowId)) {
-              connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ? AND $toIdColumn = ?",
-                               Json.arr(rowId, foreignRowId))
+              connection.query(
+                s"DELETE FROM $linkTable WHERE $fromIdColumn = ? AND $toIdColumn = ?",
+                Json.arr(rowId, foreignRowId)
+              )
             } else {
               deleteRowFn(column.to.table, foreignRowId)
             }
@@ -286,11 +293,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     val sql = s"DELETE FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?"
 
     for {
-      _ <- if (column.linkDirection.constraint.deleteCascade) {
-        deleteRowFn(column.to.table, toRowId)
-      } else {
-        connection.query(sql, Json.arr(fromRowId, toRowId))
-      }
+      _ <-
+        if (column.linkDirection.constraint.deleteCascade) {
+          deleteRowFn(column.to.table, toRowId)
+        } else {
+          connection.query(sql, Json.arr(fromRowId, toRowId))
+        }
     } yield ()
   }
 
@@ -309,30 +317,40 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     val listOfStatements: List[(String, JsonArray)] = locationType match {
       case LocationStart =>
         List(
-          (s"UPDATE $linkTable SET $orderColumn = (SELECT MIN($orderColumn) - 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)",
-           Json.arr(rowId, rowId, toId, rowId))
+          (
+            s"UPDATE $linkTable SET $orderColumn = (SELECT MIN($orderColumn) - 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn > (SELECT MIN($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)",
+            Json.arr(rowId, rowId, toId, rowId)
+          )
         )
       case LocationEnd =>
         List(
-          (s"UPDATE $linkTable SET $orderColumn = (SELECT MAX($orderColumn) + 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)",
-           Json.arr(rowId, rowId, toId, rowId))
+          (
+            s"UPDATE $linkTable SET $orderColumn = (SELECT MAX($orderColumn) + 1 FROM $linkTable WHERE $rowIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ? AND $orderColumn < (SELECT MAX($orderColumn) FROM $linkTable WHERE $rowIdColumn = ?)",
+            Json.arr(rowId, rowId, toId, rowId)
+          )
         )
       case LocationBefore(relativeTo) =>
         List(
-          (s"UPDATE $linkTable SET $orderColumn = (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ?",
-           Json.arr(rowId, relativeTo, rowId, toId)),
-          (s"UPDATE $linkTable SET $orderColumn = $orderColumn + 1 WHERE ($orderColumn >= (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) AND ($rowIdColumn = ? AND $toIdColumn != ?))",
-           Json.arr(rowId, relativeTo, rowId, toId))
+          (
+            s"UPDATE $linkTable SET $orderColumn = (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) WHERE $rowIdColumn = ? AND $toIdColumn = ?",
+            Json.arr(rowId, relativeTo, rowId, toId)
+          ),
+          (
+            s"UPDATE $linkTable SET $orderColumn = $orderColumn + 1 WHERE ($orderColumn >= (SELECT $orderColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?) AND ($rowIdColumn = ? AND $toIdColumn != ?))",
+            Json.arr(rowId, relativeTo, rowId, toId)
+          )
         )
     }
 
-    val normalize = (s"""
-                        |UPDATE $linkTable
-                        |SET $orderColumn = r.ordering
-                        |FROM (SELECT $rowIdColumn, $toIdColumn, row_number() OVER (ORDER BY $rowIdColumn, $orderColumn) AS ordering FROM $linkTable WHERE $rowIdColumn = ?) r
-                        |WHERE $linkTable.$rowIdColumn = r.$rowIdColumn AND $linkTable.$toIdColumn = r.$toIdColumn
+    val normalize = (
+      s"""
+         |UPDATE $linkTable
+         |SET $orderColumn = r.ordering
+         |FROM (SELECT $rowIdColumn, $toIdColumn, row_number() OVER (ORDER BY $rowIdColumn, $orderColumn) AS ordering FROM $linkTable WHERE $rowIdColumn = ?) r
+         |WHERE $linkTable.$rowIdColumn = r.$rowIdColumn AND $linkTable.$toIdColumn = r.$toIdColumn
        """.stripMargin,
-                     Json.arr(rowId))
+      Json.arr(rowId)
+    )
 
     for {
       t <- connection.begin()
@@ -348,8 +366,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       t <- locationType match {
         case LocationBefore(relativeTo) =>
           // Check if row is linked
-          t.query(s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?",
-                   Json.arr(rowId, relativeTo))
+          t.query(
+            s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?",
+            Json.arr(rowId, relativeTo)
+          )
             .map({
               case (t, result) =>
                 selectNotNull(result)
@@ -440,7 +460,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
             )
             (t, result) <- t.query(
               s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ? AND langtag = ?",
-              Json.arr(binds: _*))
+              Json.arr(binds: _*)
+            )
           } yield (t, result)
       }
     } else {
@@ -462,11 +483,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
             case (future, (uuid, ordering)) =>
               for {
                 list <- future
-                addedOrUpdatedAttachment <- if (currentAttachments.exists(_.file.file.uuid.equals(uuid))) {
-                  attachmentModel.update(Attachment(table.id, column.id, rowId, uuid, ordering))
-                } else {
-                  attachmentModel.add(Attachment(table.id, column.id, rowId, uuid, ordering))
-                }
+                addedOrUpdatedAttachment <-
+                  if (currentAttachments.exists(_.file.file.uuid.equals(uuid))) {
+                    attachmentModel.update(Attachment(table.id, column.id, rowId, uuid, ordering))
+                  } else {
+                    attachmentModel.add(Attachment(table.id, column.id, rowId, uuid, ordering))
+                  }
               } yield addedOrUpdatedAttachment :: list
           }
         } yield attachmentFiles
@@ -744,10 +766,12 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         (s"langtag = ? AND (COALESCE(TRIM($projection), '') = '') IS FALSE", Json.arr(langtag))
       case (MultiLanguage, None) =>
         throw new IllegalArgumentException(
-          "Column values from multi-language column can only be retrieved with a langtag")
+          "Column values from multi-language column can only be retrieved with a langtag"
+        )
       case _ =>
         throw new IllegalArgumentException(
-          "Column values can only be retrieved from shorttext language-neutral or multi-language columns")
+          "Column values can only be retrieved from shorttext language-neutral or multi-language columns"
+        )
     }
 
     val query =
@@ -785,14 +809,16 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       resultObjectToJsonArray(result)
         .map(jsonArrayToSeq)
         .map({
-          case Seq(tableId: TableId,
-                   rowId: RowId,
-                   columnId: ColumnId,
-                   uuidStr: String,
-                   langtags,
-                   annotationType: String,
-                   value,
-                   createdAtStr: String) =>
+          case Seq(
+                tableId: TableId,
+                rowId: RowId,
+                columnId: ColumnId,
+                uuidStr: String,
+                langtags,
+                annotationType: String,
+                value,
+                createdAtStr: String
+              ) =>
             import scala.collection.JavaConverters._
 
             (
@@ -853,9 +879,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   def retrieveCellAnnotationCount(tables: Seq[TableId]): Future[Map[TableId, Seq[CellAnnotationCount]]] = {
 
     /**
-      * If type is not flag we ignore the value. Other types (info, warning, error) are comment annotations.
-      * Their values are always different. The value of flag annotations is important because it describes what
-      * sort of flag annotation it is (needs_translation, important, check-me, later).
+      * If type is not flag we ignore the value. Other types (info, warning, error) are comment annotations. Their
+      * values are always different. The value of flag annotations is important because it describes what sort of flag
+      * annotation it is (needs_translation, important, check-me, later).
       */
     val query = tables
       .map({ tableId =>
@@ -911,7 +937,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     for {
       result <- connection.query(
         s"SELECT ut.id, ${generateFlagsAndAnnotationsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?",
-        Json.arr(rowId))
+        Json.arr(rowId)
+      )
     } yield {
       val rawRow = mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
       (rawRow.rowLevelAnnotations, rawRow.cellLevelAnnotations)
@@ -990,10 +1017,12 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
           .getOrElse(Json.emptyArr())
         val rawValues = row.drop(3)
 
-        RawRow(rowId,
-               RowLevelAnnotations(finalFlag),
-               CellLevelAnnotations(columns, cellAnnotations),
-               (columns, rawValues).zipped.map(mapValueByColumnType))
+        RawRow(
+          rowId,
+          RowLevelAnnotations(finalFlag),
+          CellLevelAnnotations(columns, cellAnnotations),
+          (columns, rawValues).zipped.map(mapValueByColumnType)
+        )
       case _ =>
         // shouldn't happen b/c of assert
         throw UnknownServerException(s"Please check generateProjection!")
@@ -1031,7 +1060,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
               Try(v.toInt)
                 .orElse(Try(v.toDouble))
                 .getOrElse(throw UnknownServerException(
-                  s"invalid value in database, should be numeric string (column: $column)"))
+                  s"invalid value in database, should be numeric string (column: $column)"
+                ))
             case Some(v) =>
               v
           })
@@ -1054,7 +1084,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         Try(v.toInt)
           .orElse(Try(v.toDouble))
           .getOrElse(
-            throw UnknownServerException(s"invalid value in database, should be a numeric string (column: $column)"))
+            throw UnknownServerException(s"invalid value in database, should be a numeric string (column: $column)")
+          )
 
       case _ =>
         value

@@ -9,8 +9,8 @@ class LocationTypeTest {
   def testLocationTypeApply(): Unit = {
     assertEquals(LocationStart, LocationType("start", None))
     assertEquals(LocationEnd, LocationType("end", None))
-    assertEquals(LocationBefore(10l), LocationType("before", Option(10l)))
-    assertEquals(LocationBefore(10l), LocationType("before", Option(10)))
+    assertEquals(LocationBefore(10L), LocationType("before", Option(10L)))
+    assertEquals(LocationBefore(10L), LocationType("before", Option(10)))
   }
 
   @Test

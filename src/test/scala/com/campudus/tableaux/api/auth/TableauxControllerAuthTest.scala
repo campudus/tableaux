@@ -36,7 +36,8 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
                                |}""".stripMargin
 
   def createTableauxController(
-      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)): TableauxController = {
+      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)
+  ): TableauxController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val structureModel = StructureModel(dbConnection)
@@ -54,18 +55,18 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
   }
 
   /**
-    * 1. column -> text    | single language
-    * 2. column -> text    | multi language
-    * 3. column -> numeric | single language
-    * 4. column -> numeric | multi language
+    *   1. column -> text | single language 2. column -> text | multi language 3. column -> numeric | single language 4.
+    *      column -> numeric | multi language
     */
   protected def createTestTable(tableName: String = "table") = {
     createSimpleTableWithValues(
       tableName,
-      List(Identifier(TextCol("text")),
-           Multilanguage(TextCol("multilanguage_text")),
-           NumericCol("numeric"),
-           Multilanguage(NumericCol("multilanguage_numeric"))),
+      List(
+        Identifier(TextCol("text")),
+        Multilanguage(TextCol("multilanguage_text")),
+        NumericCol("numeric"),
+        Multilanguage(NumericCol("multilanguage_numeric"))
+      ),
       List(
         List("test1", Json.obj("de" -> "test1-de", "en" -> "test1-en"), 1, Json.obj("de" -> 2, "en" -> 3)),
         List("test2", Json.obj("de" -> "test2-de", "en" -> "test2-en"), 2, Json.obj("de" -> 2, "en" -> 3))
@@ -702,14 +703,17 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
       for {
         _ <- createTestTable()
-        _ <- controller.createRow(1,
-                                  Some(
-                                    Seq(
-                                      Seq(
-                                        (1, "test"),
-                                        (2, Json.obj("de" -> "test_de"))
-                                      ))
-                                  ))
+        _ <- controller.createRow(
+          1,
+          Some(
+            Seq(
+              Seq(
+                (1, "test"),
+                (2, Json.obj("de" -> "test_de"))
+              )
+            )
+          )
+        )
       } yield ()
     }
 
@@ -751,14 +755,17 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
       for {
         _ <- createTestTable()
-        _ <- controller.createRow(1,
-                                  Some(
-                                    Seq(
-                                      Seq(
-                                        (3, 13),
-                                        (4, Json.obj("de" -> 37))
-                                      )
-                                    )))
+        _ <- controller.createRow(
+          1,
+          Some(
+            Seq(
+              Seq(
+                (3, 13),
+                (4, Json.obj("de" -> 37))
+              )
+            )
+          )
+        )
       } yield ()
     }
 
@@ -801,22 +808,28 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       for {
         _ <- createTestTable()
         ex1 <- controller
-          .createRow(1,
-                     Some(
-                       Seq(
-                         Seq(
-                           (1, "write is permitted for column 1")
-                         )
-                       )))
+          .createRow(
+            1,
+            Some(
+              Seq(
+                Seq(
+                  (1, "write is permitted for column 1")
+                )
+              )
+            )
+          )
           .recover({ case ex => ex })
         ex2 <- controller
-          .createRow(1,
-                     Some(
-                       Seq(
-                         Seq(
-                           (2, Json.obj("de" -> "write is permitted for column 2"))
-                         )
-                       )))
+          .createRow(
+            1,
+            Some(
+              Seq(
+                Seq(
+                  (2, Json.obj("de" -> "write is permitted for column 2"))
+                )
+              )
+            )
+          )
           .recover({ case ex => ex })
       } yield {
         assertEquals("column 1 and 2 are not changeable", new NoSuchElementException().getClass, ex1.getClass)
@@ -1203,8 +1216,10 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       historyRows <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
     } yield {
       assertEquals(4, historyRows.size())
-      assertJSONEquals(Json.fromObjectString("""{"revision": 1, "event": "row_created"}"""),
-                       historyRows.getJsonObject(0))
+      assertJSONEquals(
+        Json.fromObjectString("""{"revision": 1, "event": "row_created"}"""),
+        historyRows.getJsonObject(0)
+      )
     }
   }
 
@@ -1712,8 +1727,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest {
 
   /**
-    * 1. column -> shorttext | single language
-    * 2. column -> shorttext | multi language
+    *   1. column -> shorttext | single language 2. column -> shorttext | multi language
     */
   def createTestTableWithShortTextColumns() = {
     createSimpleTableWithValues(
@@ -2025,7 +2039,8 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
 
   @Test
   def retrieveRowsOfLinkCell_table1IsAuthorized_ok_table2IsNotAuthorized_throwsException(
-      implicit c: TestContext): Unit = okTest {
+      implicit c: TestContext
+  ): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
                                     |  "view-table-1": [
@@ -2077,9 +2092,11 @@ class TableauxControllerAuthTest_attachmentCell extends MediaTestBase with Table
       _ <- sendRequest("PUT", s"/files/$fileUuid", putFile)
 
       // Add attachments
-      _ <- sendRequest("PATCH",
-                       s"/tables/$tableId/columns/$columnId/rows/1",
-                       Json.obj("value" -> Json.obj("uuid" -> fileUuid, "ordering" -> 1)))
+      _ <- sendRequest(
+        "PATCH",
+        s"/tables/$tableId/columns/$columnId/rows/1",
+        Json.obj("value" -> Json.obj("uuid" -> fileUuid, "ordering" -> 1))
+      )
     } yield (columnId.toLong, fileUuid)
   }
 
@@ -2169,10 +2186,14 @@ class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest 
         assertJSONEquals(globalTranslationStatus, translationStatus.getJson.getJsonObject("translationStatus"))
         assertEquals(2, tablesTranslationStatus.size())
 
-        assertJSONEquals(table1TranslationStatus,
-                         tablesTranslationStatus.getJsonObject(0).getJsonObject("translationStatus"))
-        assertJSONEquals(table2TranslationStatus,
-                         tablesTranslationStatus.getJsonObject(1).getJsonObject("translationStatus"))
+        assertJSONEquals(
+          table1TranslationStatus,
+          tablesTranslationStatus.getJsonObject(0).getJsonObject("translationStatus")
+        )
+        assertJSONEquals(
+          table2TranslationStatus,
+          tablesTranslationStatus.getJsonObject(1).getJsonObject("translationStatus")
+        )
       }
     }
 
@@ -2217,8 +2238,10 @@ class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest 
         assertJSONEquals(globalTranslationStatus, translationStatus.getJson.getJsonObject("translationStatus"))
         assertEquals(1, tablesTranslationStatus.size())
 
-        assertJSONEquals(table2TranslationStatus,
-                         tablesTranslationStatus.getJsonObject(0).getJsonObject("translationStatus"))
+        assertJSONEquals(
+          table2TranslationStatus,
+          tablesTranslationStatus.getJsonObject(0).getJsonObject("translationStatus")
+        )
       }
     }
 
@@ -2277,10 +2300,14 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
   }
 
   val createCompleteTableJson = Json.obj(
-    "columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 1"),
-                          Json.obj("kind" -> "numeric", "name" -> "Test Column 2")),
-    "rows" -> Json.arr(Json.obj("values" -> Json.arr("Test Field 1", 1)),
-                       Json.obj("values" -> Json.arr("Test Field 2", 2)))
+    "columns" -> Json.arr(
+      Json.obj("kind" -> "text", "name" -> "Test Column 1"),
+      Json.obj("kind" -> "numeric", "name" -> "Test Column 2")
+    ),
+    "rows" -> Json.arr(
+      Json.obj("values" -> Json.arr("Test Field 1", 1)),
+      Json.obj("values" -> Json.arr("Test Field 2", 2))
+    )
   )
 
   val expectedJson = Json.obj(

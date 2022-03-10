@@ -98,11 +98,12 @@ class SystemServiceTest extends TableauxTestBase {
                         |}""".stripMargin
 
     for {
-      _ <- sqlConnection.query("""
-                                 |INSERT INTO system_services
-                                 |  ("type", "name", "ordering", "description", "active")
-                                 |VALUES
-                                 |  ('action', 'service1', 1, E'{"de": "Deutsch", "en": "english"}', TRUE)""".stripMargin)
+      _ <-
+        sqlConnection.query("""
+                              |INSERT INTO system_services
+                              |  ("type", "name", "ordering", "description", "active")
+                              |VALUES
+                              |  ('action', 'service1', 1, E'{"de": "Deutsch", "en": "english"}', TRUE)""".stripMargin)
 
       service1 <- sendRequest("GET", "/system/services/1")
     } yield {

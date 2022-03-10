@@ -24,10 +24,12 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
   /**
     * Will add a new entity marked as temporary!
     */
-  def add(title: MultiLanguageValue[String],
-          description: MultiLanguageValue[String],
-          externalName: MultiLanguageValue[String],
-          folder: Option[FolderId]): Future[TableauxFile] = {
+  def add(
+      title: MultiLanguageValue[String],
+      description: MultiLanguageValue[String],
+      externalName: MultiLanguageValue[String],
+      folder: Option[FolderId]
+  ): Future[TableauxFile] = {
     val uuid = UUID.randomUUID()
 
     val insert =
@@ -41,7 +43,8 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
         "title" -> title.values,
         "description" -> description.values,
         "external_name" -> externalName.values
-      ))
+      )
+    )
 
     for {
       resultJson <- connection.query(insert, Json.arr(uuid.toString, folder.orNull))
@@ -80,11 +83,12 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
                   case (t, json) =>
                     (t, selectNotNull(json).head.get[Long](0))
                 })
-              (t, result) <- if (count > 0) {
-                t.query(update, binds)
-              } else {
-                t.query(insert, binds)
-              }
+              (t, result) <-
+                if (count > 0) {
+                  t.query(update, binds)
+                } else {
+                  t.query(insert, binds)
+                }
             } yield (t, result)
         })
 
@@ -135,11 +139,12 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
 
   def retrieve(id: UUID, withTmp: Boolean): Future[TableauxFile] = {
     for {
-      resultJson <- if (withTmp) {
-        connection.query(select("f.uuid = ?"), Json.arr(id.toString))
-      } else {
-        connection.query(select("f.uuid = ? AND tmp = FALSE"), Json.arr(id.toString))
-      }
+      resultJson <-
+        if (withTmp) {
+          connection.query(select("f.uuid = ?"), Json.arr(id.toString))
+        } else {
+          connection.query(select("f.uuid = ? AND tmp = FALSE"), Json.arr(id.toString))
+        }
       resultRow = selectNotNull(resultJson).head
     } yield {
       convertRowToFile(resultRow)
@@ -201,25 +206,27 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
     }
 
     TableauxFile(
-      UUID.fromString(row.get[String](0)), //uuid
+      UUID.fromString(row.get[String](0)), // uuid
       folders, // folders
-      MultiLanguageValue.fromString(row.get[String](5)), //title
-      MultiLanguageValue.fromString(row.get[String](6)), //description
-      MultiLanguageValue.fromString(row.get[String](7)), //internal_name
-      MultiLanguageValue.fromString(row.get[String](8)), //external_name
-      MultiLanguageValue.fromString(row.get[String](9)), //mime_type
-      convertStringToDateTime(row.get[String](3)), //created_at
-      convertStringToDateTime(row.get[String](4)) //updated_at
+      MultiLanguageValue.fromString(row.get[String](5)), // title
+      MultiLanguageValue.fromString(row.get[String](6)), // description
+      MultiLanguageValue.fromString(row.get[String](7)), // internal_name
+      MultiLanguageValue.fromString(row.get[String](8)), // external_name
+      MultiLanguageValue.fromString(row.get[String](9)), // mime_type
+      convertStringToDateTime(row.get[String](3)), // created_at
+      convertStringToDateTime(row.get[String](4)) // updated_at
     )
   }
 
-  def update(uuid: UUID,
-             title: MultiLanguageValue[String],
-             description: MultiLanguageValue[String],
-             internalName: MultiLanguageValue[String],
-             externalName: MultiLanguageValue[String],
-             folder: Option[FolderId],
-             mimeType: MultiLanguageValue[String]): Future[TableauxFile] = {
+  def update(
+      uuid: UUID,
+      title: MultiLanguageValue[String],
+      description: MultiLanguageValue[String],
+      internalName: MultiLanguageValue[String],
+      externalName: MultiLanguageValue[String],
+      folder: Option[FolderId],
+      mimeType: MultiLanguageValue[String]
+  ): Future[TableauxFile] = {
     val update =
       s"""UPDATE $table SET
          |idfolder = ?,
@@ -234,7 +241,8 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
         "internal_name" -> internalName.values,
         "external_name" -> externalName.values,
         "mime_type" -> mimeType.values
-      ))
+      )
+    )
 
     for {
       resultJson <- connection.query(update, Json.arr(folder.orNull, uuid.toString))

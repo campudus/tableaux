@@ -113,6 +113,7 @@ case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: Row
 }
 
 case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[ColumnType[_]]]) extends DomainObject {
+
   override def getJson: JsonObject = {
     Json.obj("tables" -> tables.map(tbl => {
       tbl.getJson.mergeIn(

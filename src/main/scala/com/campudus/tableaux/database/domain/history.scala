@@ -61,6 +61,7 @@ case class BaseHistory(
 }
 
 case class RowFlagHistory(baseHistory: BaseHistory, valueType: String) extends History {
+
   override def getJson: JsonObject = {
     baseHistory.getJson
       .mergeIn(
@@ -73,6 +74,7 @@ case class RowFlagHistory(baseHistory: BaseHistory, valueType: String) extends H
 
 case class CellFlagHistory(baseHistory: BaseHistory, columnId: ColumnId, languageType: LanguageType, value: JsonObject)
     extends History {
+
   override def getJson: JsonObject = {
     baseHistory.getJson
       .mergeIn(

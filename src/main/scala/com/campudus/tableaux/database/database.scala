@@ -195,8 +195,10 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
           case None => connection.update(stmt)
         }
       case (_, _) =>
-        throw DatabaseException(s"Command $command in Statement $stmt not supported",
-                                "error.database.command_not_supported")
+        throw DatabaseException(
+          s"Command $command in Statement $stmt not supported",
+          "error.database.command_not_supported"
+        )
     }
 
     future.map({
@@ -220,11 +222,12 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     val updated = obj.getInteger("updated", 0)
     val keys = obj.getJsonArray("keys", Json.arr())
 
-    val fields = if (keys.size() >= 1) {
-      Json.arr("no_name")
-    } else {
-      Json.arr()
-    }
+    val fields =
+      if (keys.size() >= 1) {
+        Json.arr("no_name")
+      } else {
+        Json.arr()
+      }
 
     val results = Json.arr(keys.getList.asScala.map({ v: Any =>
       {

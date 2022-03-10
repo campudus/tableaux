@@ -36,7 +36,8 @@ class TableLangtagsTest extends TableauxTestBase {
       } yield {
         assertJSONEquals(
           expectedTableJson.copy().mergeIn(createTableJson.copy.mergeIn(Json.obj("langtags" -> langtags))),
-          tablePost)
+          tablePost
+        )
         assertJSONEquals(expectedTableJson.copy().mergeIn(updateTableJson), tableUpdate)
         assertJSONEquals(tableGet, tableUpdate)
       }
@@ -124,7 +125,8 @@ class TableLangtagsTest extends TableauxTestBase {
         assertJSONEquals(expectedTableJson.copy().mergeIn(createTableJson), tablePost)
         assertJSONEquals(
           expectedTableJson.copy().mergeIn(Json.obj("name" -> "Table with no langtags", "langtags" -> langtags)),
-          tableUpdate)
+          tableUpdate
+        )
         assertJSONEquals(tableGet, tableUpdate)
       }
     }

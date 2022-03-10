@@ -151,12 +151,13 @@ case class TableWithCellAnnotations(table: Table, annotations: Map[RowId, Map[Co
   }
 }
 
-case class CellAnnotationCount(annotationType: CellAnnotationType,
-                               value: Option[String],
-                               langtag: Option[String],
-                               count: Long,
-                               lastCreatedAt: DateTime)
-    extends DomainObject {
+case class CellAnnotationCount(
+    annotationType: CellAnnotationType,
+    value: Option[String],
+    langtag: Option[String],
+    count: Long,
+    lastCreatedAt: DateTime
+) extends DomainObject {
 
   override def getJson: JsonObject = {
     Json.obj(

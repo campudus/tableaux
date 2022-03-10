@@ -15,6 +15,7 @@ case class Folder(
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime]
 ) extends DomainObject {
+
   override def getJson: JsonObject = Json.obj(
     "id" -> (id match {
       case 0 => None.orNull
@@ -46,7 +47,8 @@ case class ExtendedFolder(
         Json.obj(
           "subfolders" -> compatibilityGet(subfolders),
           "files" -> compatibilityGet(files)
-        ))
+        )
+      )
 
     roleModel.enrichDomainObject(extendedFolderJson, ScopeMedia)
   }

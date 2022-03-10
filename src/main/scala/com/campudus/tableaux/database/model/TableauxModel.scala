@@ -34,8 +34,8 @@ object TableauxModel {
 }
 
 /**
-  * Needed because e.g. `TableauxController#createCompleteTable` and `TableauxController#retrieveCompleteTable`
-  * need to call method from `StructureModel`.
+  * Needed because e.g. `TableauxController#createCompleteTable` and `TableauxController#retrieveCompleteTable` need to
+  * call method from `StructureModel`.
   */
 sealed trait StructureDelegateModel extends DatabaseQuery {
 
@@ -180,13 +180,15 @@ class TableauxModel(
         .groupBy({ case (dependentTable, column, _) => (dependentTable, column) })
         .map({
           case ((groupedByTable, groupedByColumn), dependentRowInformation) =>
-            (groupedByTable,
-             groupedByColumn,
-             dependentRowInformation
-               .flatMap({
-                 case (_, _, values) => values
-               })
-               .distinct)
+            (
+              groupedByTable,
+              groupedByColumn,
+              dependentRowInformation
+                .flatMap({
+                  case (_, _, values) => values
+                })
+                .distinct
+            )
         })
         .filter({
           case (_, _, values) => values.nonEmpty
@@ -289,40 +291,40 @@ class TableauxModel(
       allColumns <- retrieveColumns(table)
       columns = roleModel.filterDomainObjects(ScopeColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
       rows <- rows.foldLeft(Future.successful(Vector[Row]())) { (futureRows, row) => // replace ColumnId with ColumnType
-      // TODO fail nice if columnid doesn't exist
-      {
-        val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
+        // TODO fail nice if columnid doesn't exist
+        {
+          val columnValuePairs = row.map { case (columnId, value) => (columns.find(_.id == columnId).get, value) }
 
-        futureRows.flatMap { rows =>
-          for {
+          futureRows.flatMap { rows =>
+            for {
 
-            // TODO add more checks like unique etc. for all tables depending on column configuration
-            _ <- table.tableType match {
-              case SettingsTable => {
+              // TODO add more checks like unique etc. for all tables depending on column configuration
+              _ <- table.tableType match {
+                case SettingsTable => {
 
-                val keyColumn = columns.find(_.id == 1).orNull
-                val keyName = row
-                  .find({ case (id, _) => id == 1 })
-                  .flatMap({ case (_, colName) => Option(colName) })
+                  val keyColumn = columns.find(_.id == 1).orNull
+                  val keyName = row
+                    .find({ case (id, _) => id == 1 })
+                    .flatMap({ case (_, colName) => Option(colName) })
 
-                for {
-                  _ <- checkForEmptyKey(table, keyName)
-                  _ <- checkForDuplicateKey(table, keyColumn, keyName)
-                } yield ()
+                  for {
+                    _ <- checkForEmptyKey(table, keyName)
+                    _ <- checkForDuplicateKey(table, keyColumn, keyName)
+                  } yield ()
+                }
+                case _ => Future.successful(())
               }
-              case _ => Future.successful(())
+
+              rowId <- createRowModel.createRow(table, columnValuePairs)
+              _ <- createHistoryModel.createRow(table, rowId)
+              _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
+
+              newRow <- retrieveRow(table, columns, rowId)
+            } yield {
+              rows ++ Seq(newRow)
             }
-
-            rowId <- createRowModel.createRow(table, columnValuePairs)
-            _ <- createHistoryModel.createRow(table, rowId)
-            _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
-
-            newRow <- retrieveRow(table, columns, rowId)
-          } yield {
-            rows ++ Seq(newRow)
           }
         }
-      }
       }
     } yield RowSeq(rows)
   }
@@ -480,28 +482,30 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
 
-      _ <- if (replace && column.languageType == MultiLanguage) {
-        val valueJson: JsonObject = value match {
-          case j: JsonObject => j
-          case _ => Json.emptyObj()
-        }
+      _ <-
+        if (replace && column.languageType == MultiLanguage) {
+          val valueJson: JsonObject = value match {
+            case j: JsonObject => j
+            case _ => Json.emptyObj()
+          }
 
-        val enrichedValue = roleModel.generateLangtagCheckValue(table, valueJson.copy())
-        roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
-      } else {
-        roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, value))
-      }
+          val enrichedValue = roleModel.generateLangtagCheckValue(table, valueJson.copy())
+          roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
+        } else {
+          roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, value))
+        }
 
       _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
 
-      _ <- if (replace) {
-        for {
-          _ <- createHistoryModel.clearBackLinksWhichWillBeDeleted(table, rowId, Seq((column, value)))
-          _ <- updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
-        } yield ()
-      } else {
-        Future.successful(())
-      }
+      _ <-
+        if (replace) {
+          for {
+            _ <- createHistoryModel.clearBackLinksWhichWillBeDeleted(table, rowId, Seq((column, value)))
+            _ <- updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
+          } yield ()
+        } else {
+          Future.successful(())
+        }
 
       _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
       _ <- invalidateCellAndDependentColumns(column, rowId)
@@ -523,12 +527,13 @@ class TableauxModel(
 
       column <- retrieveColumn(table, columnId)
 
-      _ <- if (column.languageType == MultiLanguage) {
-        val enrichedValue = roleModel.generateLangtagCheckValue(table)
-        roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
-      } else {
-        roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
-      }
+      _ <-
+        if (column.languageType == MultiLanguage) {
+          val enrichedValue = roleModel.generateLangtagCheckValue(table)
+          roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
+        } else {
+          roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+        }
 
       _ <- createHistoryModel.createClearCellInit(table, rowId, Seq(column))
       _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
@@ -572,7 +577,8 @@ class TableauxModel(
       rowIds.map(rowId =>
         for {
           _ <- invalidateCellAndDependentColumns(column, rowId)
-        } yield ())
+        } yield ()
+      )
     )
   }
 
@@ -604,17 +610,19 @@ class TableauxModel(
       _ <- maybeInvalidateStatusCells(column, rowId)
 
       // invalidate the concat cell if column is an identifier
-      _ <- if (column.identifier) {
-        CacheClient(this.connection).invalidateCellValue(column.table.id, 0, rowId)
-      } else {
-        Future.successful(())
-      }
+      _ <-
+        if (column.identifier) {
+          CacheClient(this.connection).invalidateCellValue(column.table.id, 0, rowId)
+        } else {
+          Future.successful(())
+        }
 
-      _ <- if (column.columnInformation.groupColumnIds.nonEmpty) {
-        Future.sequence(column.columnInformation.groupColumnIds.map(invalidateColumn(column.table.id, _)))
-      } else {
-        Future.successful(())
-      }
+      _ <-
+        if (column.columnInformation.groupColumnIds.nonEmpty) {
+          Future.sequence(column.columnInformation.groupColumnIds.map(invalidateColumn(column.table.id, _)))
+        } else {
+          Future.successful(())
+        }
 
       dependentGroupColumns <- retrieveDependentGroupColumns(column)
       dependentLinkColumns <- retrieveDependencies(column.table)
@@ -717,11 +725,13 @@ class TableauxModel(
     for {
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
-        .filterDomainObjects[ColumnType[_]](ScopeColumn,
-                                            columns,
-                                            ComparisonObjects(table),
-                                            isInternalCall = false,
-                                            ViewCellValue)
+        .filterDomainObjects[ColumnType[_]](
+          ScopeColumn,
+          columns,
+          ComparisonObjects(table),
+          isInternalCall = false,
+          ViewCellValue
+        )
       row <- retrieveRow(table, filteredColumns, rowId)
     } yield row
   }
@@ -774,11 +784,13 @@ class TableauxModel(
     for {
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
-        .filterDomainObjects[ColumnType[_]](ScopeColumn,
-                                            columns,
-                                            ComparisonObjects(table),
-                                            isInternalCall = false,
-                                            ViewCellValue)
+        .filterDomainObjects[ColumnType[_]](
+          ScopeColumn,
+          columns,
+          ComparisonObjects(table),
+          isInternalCall = false,
+          ViewCellValue
+        )
       rows <- retrieveRows(table, filteredColumns, pagination)
     } yield rows
   }
@@ -847,11 +859,12 @@ class TableauxModel(
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[RawRow]): Future[Seq[Row]] = {
 
     /**
-      * Fetches ConcatColumn values for
-      * linked rows
+      * Fetches ConcatColumn values for linked rows
       */
-    def fetchConcatValuesForLinkedRows(concatenateColumn: ConcatenateColumn,
-                                       linkedRows: JsonArray): Future[List[JsonObject]] = {
+    def fetchConcatValuesForLinkedRows(
+        concatenateColumn: ConcatenateColumn,
+        linkedRows: JsonArray
+    ): Future[List[JsonObject]] = {
       import scala.collection.JavaConverters._
 
       // Iterate over each linked row and
@@ -869,17 +882,18 @@ class TableauxModel(
       }
     }
 
-    def fetchValuesForStatusColumn(concatenateColumn: ConcatenateColumn,
-                                   rowId: RowId): Future[Map[ColumnId, (ColumnType[_], Any)]] = {
+    def fetchValuesForStatusColumn(
+        concatenateColumn: ConcatenateColumn,
+        rowId: RowId
+    ): Future[Map[ColumnId, (ColumnType[_], Any)]] = {
       val columns = concatenateColumn.columns
       for {
         row <- retrieveRow(concatenateColumn.table, columns, rowId)
-      } yield
-        columns
-          .zip(row.values)
-          .foldLeft(Map[ColumnId, (ColumnType[_], Any)]())({
-            case (acc, (col, remVal)) => acc + (col.id -> (col, remVal))
-          })
+      } yield columns
+        .zip(row.values)
+        .foldLeft(Map[ColumnId, (ColumnType[_], Any)]())({
+          case (acc, (col, remVal)) => acc + (col.id -> (col, remVal))
+        })
     }
 
     def calcStatusValue(rules: JsonArray, columnsWithValues: Map[ColumnId, (ColumnType[_], Any)]): Seq[Boolean] = {
@@ -1048,7 +1062,9 @@ class TableauxModel(
       case (LanguageNeutral, Some(_)) =>
         Future.failed(
           InvalidRequestException(
-            "History values filtered by langtags can only be retrieved from multi-language columns"))
+            "History values filtered by langtags can only be retrieved from multi-language columns"
+          )
+        )
       case (_, _) => Future.successful(())
 
     }

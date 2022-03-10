@@ -85,7 +85,8 @@ class AuthorizationTest extends TableauxTestBase {
 
       val token: String =
         tokenHelper.generateToken(
-          Json.obj("aud" -> "grud-backend", "iss" -> "campudus-test", "exp" -> timestampOneMinuteAgo))
+          Json.obj("aud" -> "grud-backend", "iss" -> "campudus-test", "exp" -> timestampOneMinuteAgo)
+        )
 
       for {
         _ <- sendRequest("GET", "/system/versions", Some(token))

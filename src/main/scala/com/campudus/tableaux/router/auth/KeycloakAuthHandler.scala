@@ -19,9 +19,8 @@ class KeycloakAuthHandler(
     with VertxAccess {
 
   /**
-    * Validates Access Token's "aud" and "iss" claims (https://tools.ietf.org/html/rfc7519).
-    * If successful it stores the principal in requestContext for authorization.
-    * If not context fails with statusCode 401.
+    * Validates Access Token's "aud" and "iss" claims (https://tools.ietf.org/html/rfc7519). If successful it stores the
+    * principal in requestContext for authorization. If not context fails with statusCode 401.
     */
   override def handle(context: RoutingContext): Unit = {
     val user: Option[User] = context.user()
@@ -52,7 +51,8 @@ class KeycloakAuthHandler(
 
     if (!audiences.contains(getAudience)) {
       val exception = AuthenticationException(
-        s"Audiences $audiences of the request doesn't contain configured service audience (resource) '$getAudience'")
+        s"Audiences $audiences of the request doesn't contain configured service audience (resource) '$getAudience'"
+      )
       logger.error(exception.getMessage)
       context.fail(exception.statusCode, exception)
       throw exception
@@ -64,7 +64,8 @@ class KeycloakAuthHandler(
 
     if (issuer != getIssuer) {
       val exception = AuthenticationException(
-        s"Issuer '$issuer' of the request doesn't match to configured service issuer '$getIssuer'")
+        s"Issuer '$issuer' of the request doesn't match to configured service issuer '$getIssuer'"
+      )
       logger.error(exception.getMessage)
       context.fail(exception.statusCode, exception)
       throw exception

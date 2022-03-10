@@ -49,26 +49,32 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
                 lastResult.flatMap({
                   case (lastOrdering, seq) =>
                     val newOrdering = lastOrdering + 1
-                    Future(newOrdering,
-                           seq :+ attachment.copy(ordering = Some(attachment.ordering.getOrElse(newOrdering))))
+                    Future(
+                      newOrdering,
+                      seq :+ attachment.copy(ordering = Some(attachment.ordering.getOrElse(newOrdering)))
+                    )
                 })
               }
           }
 
           params <- Future({
-            changedAttachments.flatMap(
-              attachment =>
-                List(attachment.tableId,
-                     attachment.columnId,
-                     attachment.rowId,
-                     attachment.uuid.toString,
-                     attachment.ordering.get))
+            changedAttachments.flatMap(attachment =>
+              List(
+                attachment.tableId,
+                attachment.columnId,
+                attachment.rowId,
+                attachment.uuid.toString,
+                attachment.ordering.get
+              )
+            )
           })
 
           (t, _) <- {
             if (params.nonEmpty) {
-              t.query(s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr",
-                      Json.arr(params: _*))
+              t.query(
+                s"INSERT INTO $table(table_id, column_id, row_id, attachment_uuid, ordering) VALUES $paramStr",
+                Json.arr(params: _*)
+              )
             } else {
               Future.successful((t, Json.emptyObj()))
             }
@@ -111,7 +117,8 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
           for {
             (t, result) <- t.query(
               s"SELECT COALESCE(MAX(ordering),0) + 1 FROM $table WHERE table_id = ? AND column_id = ? AND row_id = ?",
-              Json.arr(a.tableId, a.columnId, a.rowId))
+              Json.arr(a.tableId, a.columnId, a.rowId)
+            )
             resultArr <- Future(selectNotNull(result))
           } yield {
             (t, resultArr.head.get[Ordering](0))

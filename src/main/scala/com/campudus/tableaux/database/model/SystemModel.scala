@@ -42,10 +42,10 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   }
 
   /**
-    * Runs only necessary setup functions
-    * based on current version.
+    * Runs only necessary setup functions based on current version.
     *
-    * @see SystemModel#retrieveCurrentVersion
+    * @see
+    *   SystemModel#retrieveCurrentVersion
     */
   def update(): Future[Unit] = {
     for {
@@ -78,20 +78,21 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   }
 
   /**
-    * Current specification version is defined by the
-    * count of setup functions.
+    * Current specification version is defined by the count of setup functions.
     *
-    * @return Current specification version
+    * @return
+    *   Current specification version
     */
   def retrieveSpecificationVersion(): Int = setupFunctions.size
 
   /**
-    * Creates system_version tables if it doesn't exist. Each entry in the
-    * system_version tables defines one incremental update of the system
-    * structure (all system tables need for tableaux to work).
+    * Creates system_version tables if it doesn't exist. Each entry in the system_version tables defines one incremental
+    * update of the system structure (all system tables need for tableaux to work).
     *
-    * @see SystemModel#retrieveCurrentVersion
-    * @return current version
+    * @see
+    *   SystemModel#retrieveCurrentVersion
+    * @return
+    *   current version
     */
   def retrieveCurrentVersion(): Future[Int] = {
     for {
@@ -113,7 +114,8 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
 
       (t, version) <- {
         t.query(
-          "SELECT max_version FROM (SELECT MAX(version) AS max_version FROM system_version) sub WHERE max_version IS NOT NULL") map {
+          "SELECT max_version FROM (SELECT MAX(version) AS max_version FROM system_version) sub WHERE max_version IS NOT NULL"
+        ) map {
           case (t, result) =>
             val version = Try(selectNotNull(result).head.getInteger(0).toInt).getOrElse(-1)
             (t, version)

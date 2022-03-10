@@ -114,7 +114,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
            |)
          """.stripMargin,
         _
-      ))
+      )
+    )
 
     val whereType: Option[(String, String)] = typeOpt.map((s" AND history_type = ?", _))
 
@@ -227,11 +228,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
               (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
               _ <- insertCellHistory(table, rowId, column.id, column.kind, languageType, wrapLinkValue(linksData))
 
-              _ <- if (allowRecursion) {
-                createLinksRecursive(column, changedLinkIds)
-              } else {
-                Future.successful(())
-              }
+              _ <-
+                if (allowRecursion) {
+                  createLinksRecursive(column, changedLinkIds)
+                } else {
+                  Future.successful(())
+                }
             } yield ()
           }
       })
@@ -239,12 +241,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   /**
-    * Writes a new history entry on base of the current linked rows for a {@code table},
-    * a {@code linkColumn} and ({@code rowIds}).
+    * Writes a new history entry on base of the current linked rows for a {@code table}, a {@code linkColumn} and
+    * ({@code rowIds}).
     *
     * Since we want to update the links after deleting dependent rows, we need to check if the rows have not already
-    * been deleted by the delete cascade function. For example this happens for back links with "delete cascade" in
-    * only one direction.
+    * been deleted by the delete cascade function. For example this happens for back links with "delete cascade" in only
+    * one direction.
     *
     * Also make sure the links have changed before and the cache is invalidated.
     *
@@ -254,18 +256,19 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     */
   def updateLinks(table: Table, linkColumn: LinkColumn, rowIds: Seq[RowId]): Future[Seq[Unit]] = {
     Future.sequence(
-      rowIds.map(
-        rowId =>
-          for {
-            rowExists <- tableauxModel.retrieveRowModel.rowExists(table.id, rowId)
+      rowIds.map(rowId =>
+        for {
+          rowExists <- tableauxModel.retrieveRowModel.rowExists(table.id, rowId)
 
-            _ <- if (rowExists) {
+          _ <-
+            if (rowExists) {
               updateLinks(table, linkColumn, rowId, rowExists)
             } else {
               Future.successful(())
             }
-          } yield ()
-      ))
+        } yield ()
+      )
+    )
   }
 
   private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId, rowExists: Boolean): Future[Unit] = {
@@ -283,11 +286,10 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   private def retrieveForeignIdentifierCells(column: LinkColumn, linkIds: Seq[RowId]): Future[Seq[Cell[Any]]] = {
-    val linkedCellSeq = linkIds.map(
-      linkId =>
-        for {
-          foreignIdentifier <- tableauxModel.retrieveCell(column.to.table, column.to.id, linkId, isInternalCall = true)
-        } yield foreignIdentifier
+    val linkedCellSeq = linkIds.map(linkId =>
+      for {
+        foreignIdentifier <- tableauxModel.retrieveCell(column.to.table, column.to.id, linkId, isInternalCall = true)
+      } yield foreignIdentifier
     )
     Future.sequence(linkedCellSeq)
   }
@@ -317,14 +319,17 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
             columnValueOptSeq
               .map({
                 case (column: SimpleValueColumn[_], valueOpt) =>
-                  insertCellHistory(table,
-                                    rowId,
-                                    column.id,
-                                    column.kind,
-                                    column.languageType,
-                                    wrapLanguageValue(langtag, valueOpt.orNull))
+                  insertCellHistory(
+                    table,
+                    rowId,
+                    column.id,
+                    column.kind,
+                    column.languageType,
+                    wrapLanguageValue(langtag, valueOpt.orNull)
+                  )
               })
-        }))
+        })
+    )
   }
 
   private def createSimple(
@@ -340,7 +345,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
         .map({
           case (column: SimpleValueColumn[_], valueOpt) =>
             insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapValue(valueOpt.orNull))
-        }))
+        })
+    )
   }
 
   private def createAttachments(
@@ -451,21 +457,23 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       value: String
   ): Future[RowId] = {
     val json = Json.obj("value" -> value)
-    insertHistory(tableId,
-                  rowId,
-                  None,
-                  eventType,
-                  HistoryTypeRowFlag,
-                  Some(value),
-                  Some(LanguageType.NEUTRAL),
-                  Some(json.toString))
+    insertHistory(
+      tableId,
+      rowId,
+      None,
+      eventType,
+      HistoryTypeRowFlag,
+      Some(value),
+      Some(LanguageType.NEUTRAL),
+      Some(json.toString)
+    )
   }
 
   /**
     * Creates an initial history cell value when changing a cell value (for backward compatibility).
     *
-    * If we didn't call this method on any cell change/deletion the previously
-    * valid value wouldn't be logged in a history table.
+    * If we didn't call this method on any cell change/deletion the previously valid value wouldn't be logged in a
+    * history table.
     */
   def createCellsInit(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
     val columns = values.map({ case (col: ColumnType[_], _) => col })
@@ -494,8 +502,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   /**
     * Creates an initial history cell value when deleting a cell value (for backward compatibility).
     *
-    * If we didn't call this method on any cell change/deletion the previously
-    * valid value wouldn't be logged in a history table.
+    * If we didn't call this method on any cell change/deletion the previously valid value wouldn't be logged in a
+    * history table.
     */
   def createClearCellInit(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
@@ -518,17 +526,19 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(columns.map({ column =>
       for {
         historyEntryExists <- historyExists(table.id, column.id, rowId, None)
-        _ <- if (!historyEntryExists) {
-          for {
-            currentAttachments <- attachmentModel.retrieveAll(table.id, column.id, rowId)
-            _ <- if (currentAttachments.nonEmpty) {
-              createAttachments(table, rowId, Seq(column))
-            } else {
-              Future.successful(())
-            }
-          } yield ()
-        } else
-          Future.successful(())
+        _ <-
+          if (!historyEntryExists) {
+            for {
+              currentAttachments <- attachmentModel.retrieveAll(table.id, column.id, rowId)
+              _ <-
+                if (currentAttachments.nonEmpty) {
+                  createAttachments(table, rowId, Seq(column))
+                } else {
+                  Future.successful(())
+                }
+            } yield ()
+          } else
+            Future.successful(())
       } yield ()
     }))
   }
@@ -538,11 +548,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     def createIfNotEmpty(linkColumn: LinkColumn): Future[Unit] = {
       for {
         linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
-        _ <- if (linkIds.nonEmpty) {
-          createLinks(table, rowId, Seq((linkColumn, linkIds)), allowRecursion = true)
-        } else {
-          Future.successful(())
-        }
+        _ <-
+          if (linkIds.nonEmpty) {
+            createLinks(table, rowId, Seq((linkColumn, linkIds)), allowRecursion = true)
+          } else {
+            Future.successful(())
+          }
       } yield ()
     }
 
@@ -611,7 +622,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
                   _ <- if (!historyEntryExists) createIfNotEmpty(column, langtag) else Future.successful(())
                 } yield ()
               })
-        }))
+        })
+    )
   }
 
   private def historyExists(
@@ -626,7 +638,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
     connection.selectSingleValue[Boolean](
       s"SELECT COUNT(*) > 0 FROM user_table_history_$tableId WHERE column_id = ? AND row_id = ? $whereLanguage",
-      Json.arr(columnId, rowId))
+      Json.arr(columnId, rowId)
+    )
   }
 
   private def retrieveCellValue(
@@ -655,13 +668,15 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   /**
-    * Writes empty back link history for the linked rows that are going to be deleted.
-    * The difference of the existing linked foreign row IDs and the linked foreign row IDs after the change
-    * are going to be cleared.
+    * Writes empty back link history for the linked rows that are going to be deleted. The difference of the existing
+    * linked foreign row IDs and the linked foreign row IDs after the change are going to be cleared.
     *
-    * @param table table in which links are changed
-    * @param rowId rows in which links changed
-    * @param values Seq of columns an the new linked foreign row IDs
+    * @param table
+    *   table in which links are changed
+    * @param rowId
+    *   rows in which links changed
+    * @param values
+    *   Seq of columns an the new linked foreign row IDs
     */
   def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[_] = {
     ColumnType.splitIntoTypesWithValues(values) match {
@@ -703,18 +718,21 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     val annotationsToBeRemoved = langtagOpt.map(Seq(_)).getOrElse(annotation.langtags)
 
     logger.info(
-      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} $getUserName")
+      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} $getUserName"
+    )
 
-    insertAnnotationHistory(column.table,
-                            column,
-                            rowId,
-                            uuid,
-                            AnnotationRemovedEvent,
-                            annotationsToBeRemoved,
-                            annotation.annotationType,
-                            annotation.value,
-                            languageType,
-                            getUserName)
+    insertAnnotationHistory(
+      column.table,
+      column,
+      rowId,
+      uuid,
+      AnnotationRemovedEvent,
+      annotationsToBeRemoved,
+      annotation.annotationType,
+      annotation.value,
+      languageType,
+      getUserName
+    )
   }
 
   def addCellAnnotation(
@@ -729,16 +747,18 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
     logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value $getUserName")
 
-    insertAnnotationHistory(column.table,
-                            column,
-                            rowId,
-                            uuid,
-                            AnnotationAddedEvent,
-                            langtags,
-                            annotationType,
-                            value,
-                            languageType,
-                            getUserName)
+    insertAnnotationHistory(
+      column.table,
+      column,
+      rowId,
+      uuid,
+      AnnotationAddedEvent,
+      langtags,
+      annotationType,
+      value,
+      languageType,
+      getUserName
+    )
   }
 
   private def insertAnnotationHistory(
@@ -794,7 +814,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
               Some(languageType.toString),
               Some(wrapAnnotationValue(value, uuid, Some(langtag)).toString)
             )
-          } yield historyRowId)
+          } yield historyRowId
+        )
       case (_, MultiCountry(_)) => Seq.empty[Future[RowId]]
     }
 
@@ -820,14 +841,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
-    val futureSequence = columns.map(
-      column =>
-        insertCellHistory(table,
-                          rowId,
-                          column.id,
-                          column.kind,
-                          column.languageType,
-                          Json.obj("value" -> Json.emptyArr())))
+    val futureSequence = columns.map(column =>
+      insertCellHistory(table, rowId, column.id, column.kind, column.languageType, Json.obj("value" -> Json.emptyArr()))
+    )
 
     Future.sequence(futureSequence)
   }
@@ -899,12 +915,14 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
             linkedColumn <- tableauxModel.retrieveColumn(linkedTable, linkedColumnId)
             _ <- Future.sequence(foreignIds.map(linkId => {
               for {
-                _ <- insertCellHistory(linkedTable,
-                                       linkId,
-                                       linkedColumn.id,
-                                       linkedColumn.kind,
-                                       linkedColumn.languageType,
-                                       wrapLinkValue())
+                _ <- insertCellHistory(
+                  linkedTable,
+                  linkId,
+                  linkedColumn.id,
+                  linkedColumn.kind,
+                  linkedColumn.languageType,
+                  wrapLinkValue()
+                )
               } yield ()
             }))
           } yield ()

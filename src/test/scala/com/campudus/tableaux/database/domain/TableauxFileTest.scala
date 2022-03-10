@@ -75,11 +75,14 @@ class TableauxFileTest {
     assertEquals(Json.obj("de-DE" -> s"/files/${file.uuid}/de-DE/filename.pdf"), file.getJson.getJsonObject("url"))
 
     val noExternalFile = ExtendedFile(baseFile.copy(externalName = MultiLanguageValue.empty()))
-    assertEquals(Json.obj("de-DE" -> s"/files/${file.uuid}/de-DE/internal.pdf"),
-                 noExternalFile.getJson.getJsonObject("url"))
+    assertEquals(
+      Json.obj("de-DE" -> s"/files/${file.uuid}/de-DE/internal.pdf"),
+      noExternalFile.getJson.getJsonObject("url")
+    )
 
     val multipleExternalFile = ExtendedFile(
-      baseFile.copy(externalName = MultiLanguageValue("de-DE" -> "dateiname.pdf", "en-GB" -> "filename.pdf")))
+      baseFile.copy(externalName = MultiLanguageValue("de-DE" -> "dateiname.pdf", "en-GB" -> "filename.pdf"))
+    )
     assertEquals(
       Json.obj(
         "de-DE" -> s"/files/${file.uuid}/de-DE/dateiname.pdf",
@@ -89,7 +92,8 @@ class TableauxFileTest {
     )
 
     val multipleInternalFile = ExtendedFile(
-      baseFile.copy(internalName = MultiLanguageValue("de-DE" -> "intern.pdf", "en-GB" -> "internal.pdf")))
+      baseFile.copy(internalName = MultiLanguageValue("de-DE" -> "intern.pdf", "en-GB" -> "internal.pdf"))
+    )
     assertEquals(
       Json.obj(
         "de-DE" -> s"/files/${file.uuid}/de-DE/filename.pdf",

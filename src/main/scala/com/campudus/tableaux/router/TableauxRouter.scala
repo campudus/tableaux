@@ -32,6 +32,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val cell: String = s"/tables/$tableId/columns/$columnId/rows/$rowId"
   private val cellAnnotations: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations"
   private val cellAnnotation: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuidRegex"
+
   private val cellAnnotationLangtag: String =
     s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuidRegex/$langtagRegex"
 
@@ -139,8 +140,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Get foreign rows from a link cell point of view
-    * e.g. cardinality in both direction will be considered
+    * Get foreign rows from a link cell point of view e.g. cardinality in both direction will be considered
     */
   private def retrieveRowsOfLinkCell(context: RoutingContext): Unit = {
     for {
@@ -329,7 +329,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    *  Retrieve unique values of a multi-language shorttext column
+    * Retrieve unique values of a multi-language shorttext column
     */
   private def retrieveUniqueColumnValuesWithLangtag(context: RoutingContext): Unit = {
     for {
@@ -466,11 +466,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       asyncGetReply {
         val json = getJson(context)
         for {
-          completeTable <- if (json.containsKey("rows")) {
-            controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), toRowValueSeq(json))
-          } else {
-            controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), Seq())
-          }
+          completeTable <-
+            if (json.containsKey("rows")) {
+              controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), toRowValueSeq(json))
+            } else {
+              controller.createCompleteTable(json.getString("name"), toCreateColumnSeq(json), Seq())
+            }
         } yield completeTable
       }
     )
@@ -629,11 +630,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val json = getJson(context)
           for {
-            updated <- if (json.containsKey("value")) {
-              controller.replaceCellValue(tableId, columnId, rowId, json.getValue("value"))
-            } else {
-              Future.failed(InvalidJsonException("request must contain a value", "value_is_missing"))
-            }
+            updated <-
+              if (json.containsKey("value")) {
+                controller.replaceCellValue(tableId, columnId, rowId, json.getValue("value"))
+              } else {
+                Future.failed(InvalidJsonException("request must contain a value", "value_is_missing"))
+              }
           } yield updated
         }
       )

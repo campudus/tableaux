@@ -24,13 +24,17 @@ class AnnotationCountTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId2 = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId1/annotations",
-                         Json.obj("langtags" -> Json.arr("en"), "type" -> "flag", "value" -> "needs_translation"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId1/annotations",
+          Json.obj("langtags" -> Json.arr("en"), "type" -> "flag", "value" -> "needs_translation")
+        )
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId2/annotations",
-                         Json.obj("langtags" -> Json.arr("en"), "type" -> "flag", "value" -> "needs_translation"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId2/annotations",
+          Json.obj("langtags" -> Json.arr("en"), "type" -> "flag", "value" -> "needs_translation")
+        )
 
         annotationCount <- sendRequest("GET", s"/tables/annotationCount")
       } yield {
@@ -71,13 +75,17 @@ class AnnotationCountTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId2/rows")
         rowId2 = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId1/columns/1/rows/$rowId1/annotations",
-                         Json.obj("langtags" -> Json.arr("en"), "type" -> "flag", "value" -> "needs_translation"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId1/columns/1/rows/$rowId1/annotations",
+          Json.obj("langtags" -> Json.arr("en"), "type" -> "flag", "value" -> "needs_translation")
+        )
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId2/columns/1/rows/$rowId2/annotations",
-                         Json.obj("langtags" -> Json.arr("en"), "type" -> "flag", "value" -> "needs_translation"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId2/columns/1/rows/$rowId2/annotations",
+          Json.obj("langtags" -> Json.arr("en"), "type" -> "flag", "value" -> "needs_translation")
+        )
 
         annotationCount <- sendRequest("GET", s"/tables/annotationCount")
       } yield {
@@ -129,13 +137,17 @@ class AnnotationCountTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId2 = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId1/annotations",
-                         Json.obj("type" -> "info", "value" -> "Test Row 1"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId1/annotations",
+          Json.obj("type" -> "info", "value" -> "Test Row 1")
+        )
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId2/annotations",
-                         Json.obj("type" -> "info", "value" -> "Test Row 2"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId2/annotations",
+          Json.obj("type" -> "info", "value" -> "Test Row 2")
+        )
 
         annotationCount <- sendRequest("GET", s"/tables/annotationCount")
       } yield {
