@@ -64,7 +64,7 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
                 attachment.columnId,
                 attachment.rowId,
                 attachment.uuid.toString,
-                attachment.ordering.get
+                attachment.ordering.getOrElse(0)
               )
             )
           })
