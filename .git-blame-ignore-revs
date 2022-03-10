@@ -1,0 +1,9 @@
+# git-blame ignored revisions
+# To configure, run
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# Requires Git > 2.23
+# See https://git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt
+
+# scalafmt bump version
+# 3.4.0
+eb4c754b8632a9232a39706675a8232111b3107a
