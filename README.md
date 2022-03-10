@@ -2,12 +2,41 @@
 
 Tableaux (pronounced /ta.blo/) is a restful service for storing data in tables. These tables can have links between them.
 
-## Setup
+## Getting Started
+
+### Preparing the environment
+
+To get a working setup, you need a jdd. The easiest way to work with different java versions is to use [jEnv](https://github.com/jenv/jenv). It also works out of the box with gradle. If jEnv doesn't pick up the locally configured JDK automatically you can use the following command to set it up manually:
+
+```sh
+jenv enable-plugin gradle
+```
+
+To check if gradle is working, you can use the following command, which will print all the infos and versions:
+
+```sh
+gradlew -v
+
+> ------------------------------------------------------------
+> Gradle 7.4.1
+> ------------------------------------------------------------
+> 
+> Build time:   2022-03-09 15:04:47 UTC
+> Revision:     36dc52588e09b4b72f2010bc07599e0ee0434e2e
+> 
+> Kotlin:       1.5.31
+> Groovy:       3.0.9
+> Ant:          Apache Ant(TM) version 1.10.11 compiled on July 10 2021
+> JVM:          17.0.2 (Homebrew 17.0.2+0)
+> OS:           Mac OS X 12.2.1 x86_64
+```
+
+### Setup
 
 At first you need to setup your database and create a new `conf.json` based on `conf-example.json`.
 After that you can need to call `POST /system/reset` once to initialize system tables. If you wish you can fill in the demo data with `POST /system/resetDemo`.
 
-## Update
+### Update DB schema (optionally)
 
 If you upgrade from an older schema version you need to call `POST /system/update` before that. Schema will be upgraded automatically.
 
@@ -61,6 +90,10 @@ or with automatic redeploy on code changes
 ```bash
 ./gradlew run -Pconf='other.json'
 ```
+
+## Authentication and permission handling
+
+TODO add documentation for authentication and permission handling. Currently the docs are filed in confluence and hackmd.io.
 
 ## Highlevel Features
 
