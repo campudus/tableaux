@@ -27,47 +27,44 @@ def scalaVersion = '2.12.8'
 sourceCompatibility = '1.8'
 
 repositories {
+  // deprecated will be removed in gradle 8.0
   jcenter()
 }
 
-configurations {
-  compileOnly
-}
-
 dependencies {
-  compile "org.scala-lang:scala-library:${scalaVersion}"
+  implementation "org.scala-lang:scala-library:${scalaVersion}"
 
   // add scala-reflect to keep dependencies up-to-date
-  compile "org.scala-lang:scala-reflect:${scalaVersion}"
+  implementation "org.scala-lang:scala-reflect:${scalaVersion}"
 
-  compile "io.vertx:vertx-core:${vertxVersion}"
-  compile "io.vertx:vertx-web:${vertxVersion}"
-  compile "io.vertx:vertx-mysql-postgresql-client:${vertxVersion}"
-  compile "io.vertx:vertx-auth-oauth2:${vertxVersion}"
-  compile "com.github.erosb:everit-json-schema:1.14.0"
+  implementation "io.vertx:vertx-core:${vertxVersion}"
+  implementation "io.vertx:vertx-web:${vertxVersion}"
+  implementation "io.vertx:vertx-mysql-postgresql-client:${vertxVersion}"
+  implementation "io.vertx:vertx-auth-oauth2:${vertxVersion}"
+  implementation "com.github.erosb:everit-json-schema:1.14.0"
 
   // add Vert.x Scala
-  compile "io.vertx:vertx-lang-scala_2.12:${vertxVersion}"
-  compile "io.vertx:vertx-web-scala_2.12:${vertxVersion}"
-  compile "io.vertx:vertx-mysql-postgresql-client-scala_2.12:${vertxVersion}"
-  compile "io.vertx:vertx-auth-oauth2-scala_2.12:${vertxVersion}"
+  implementation "io.vertx:vertx-lang-scala_2.12:${vertxVersion}"
+  implementation "io.vertx:vertx-web-scala_2.12:${vertxVersion}"
+  implementation "io.vertx:vertx-mysql-postgresql-client-scala_2.12:${vertxVersion}"
+  implementation "io.vertx:vertx-auth-oauth2-scala_2.12:${vertxVersion}"
 
-  compile 'joda-time:joda-time:2.10.3'
-  compile 'com.typesafe.scala-logging:scala-logging_2.12:3.9.2'
-  compile 'org.slf4j:slf4j-jdk14:1.7.28'
+  implementation 'joda-time:joda-time:2.10.3'
+  implementation 'com.typesafe.scala-logging:scala-logging_2.12:3.9.2'
+  implementation 'org.slf4j:slf4j-jdk14:1.7.28'
 
-  compile 'com.jcabi:jcabi-manifests:1.1'
+  implementation 'com.jcabi:jcabi-manifests:1.1'
 
-  compile 'com.github.cb372:scalacache-guava_2.12:0.28.0'
+  implementation 'com.github.cb372:scalacache-guava_2.12:0.28.0'
 
-  compile 'org.webjars:swagger-ui:3.17.6'
+  implementation 'org.webjars:swagger-ui:3.17.6'
 
   compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
-  testCompile "io.vertx:vertx-unit:${vertxVersion}"
-  testCompile 'junit:junit:4.12'
-  testCompile "org.scalatest:scalatest_2.12:3.0.8"
-  testCompile 'org.skyscreamer:jsonassert:1.5.0'
+  testImplementation "io.vertx:vertx-unit:${vertxVersion}"
+  testImplementation 'junit:junit:4.12'
+  testImplementation "org.scalatest:scalatest_2.12:3.0.8"
+  testImplementation 'org.skyscreamer:jsonassert:1.5.0'
 }
 
 mainClassName = "io.vertx.core.Launcher"
@@ -129,8 +126,6 @@ tasks.withType(ScalaCompile) {
 
 sourceSets {
   main {
-    compileClasspath += configurations.compileOnly
-
     // let Scala compiler do everything – even java stuff
     scala {
       srcDirs += "src/main/scala"
@@ -139,9 +134,6 @@ sourceSets {
     java {
       srcDirs = []
     }
-  }
-  test {
-    compileClasspath += configurations.compileOnly
   }
 }
 
