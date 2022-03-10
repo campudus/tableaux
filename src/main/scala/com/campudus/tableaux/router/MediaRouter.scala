@@ -174,9 +174,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     for {
       fileUuid <- getUUID(context)
     } yield {
-      sendReply(context, asyncGetReply {
-        controller.retrieveFile(UUID.fromString(fileUuid)).map({ case (file, _) => file })
-      })
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveFile(UUID.fromString(fileUuid)).map({ case (file, _) => file })
+        }
+      )
     }
   }
 
@@ -240,8 +243,10 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       sendReply(
         context,
         asyncGetReply {
-          handleUpload(context,
-                       (action: UploadAction) => controller.replaceFile(UUID.fromString(fileUuid), langtag, action))
+          handleUpload(
+            context,
+            (action: UploadAction) => controller.replaceFile(UUID.fromString(fileUuid), langtag, action)
+          )
         }
       )
     }
@@ -291,8 +296,10 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     }
   }
 
-  private def handleUpload(implicit context: RoutingContext,
-                           fn: UploadAction => Future[DomainObject]): Future[DomainObject] = {
+  private def handleUpload(
+      implicit context: RoutingContext,
+      fn: UploadAction => Future[DomainObject]
+  ): Future[DomainObject] = {
 
     val req: HttpServerRequest = context.request().setExpectMultipart(true)
 
@@ -304,9 +311,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       10000L,
       _ => {
         p.failure(
-          RouterException(message = "No valid file upload received",
-                          id = "errors.upload.invalidRequest",
-                          statusCode = 400))
+          RouterException(
+            message = "No valid file upload received",
+            id = "errors.upload.invalidRequest",
+            statusCode = 400
+          )
+        )
       }
     )
 

@@ -104,13 +104,19 @@ class FlattenTest {
 
   @Test
   def flatJsonObjectSeq_nested(): Unit = {
-    val expected = Seq(Json.obj("de" -> "foo", "en" -> "bar"),
-                       Json.obj("de" -> "foo", "en" -> "bar"),
-                       Json.obj("de" -> "baz", "en" -> "qux"))
+    val expected = Seq(
+      Json.obj("de" -> "foo", "en" -> "bar"),
+      Json.obj("de" -> "foo", "en" -> "bar"),
+      Json.obj("de" -> "baz", "en" -> "qux")
+    )
     val actual = flatten(
       Seq(
-        Json.arr(Json.obj("de" -> "foo", "en" -> "bar"),
-                 Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> "qux")))))
+        Json.arr(
+          Json.obj("de" -> "foo", "en" -> "bar"),
+          Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> "qux"))
+        )
+      )
+    )
     assertEquals(expected, actual)
   }
 }
@@ -142,8 +148,10 @@ class MultilanguageConcatenationTest {
         |}
         |""".stripMargin
 
-    val actual = compress(Seq("de", "en"),
-                          Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> 42))))
+    val actual = compress(
+      Seq("de", "en"),
+      Seq(Json.arr(Json.obj("de" -> "foo", "en" -> "bar"), Json.obj("de" -> "baz", "en" -> 42)))
+    )
     JSONAssert.assertEquals(expected, actual.getOrElse(Json.emptyObj()).toString, JSONCompareMode.STRICT)
   }
 

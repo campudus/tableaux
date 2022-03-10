@@ -110,7 +110,9 @@ class DuplicateRowTest extends TableauxTestBase {
           Json.obj(
             "kind" -> "attachment",
             "name" -> "Downloads"
-          )))
+          )
+        )
+      )
       val fileName = "Scr$en Shot.pdf"
       val filePath = s"/com/campudus/tableaux/uploads/$fileName"
       val mimeType = "application/pdf"
@@ -129,7 +131,9 @@ class DuplicateRowTest extends TableauxTestBase {
               "row 3 column 1",
               3,
               Json.obj("uuid" -> uuid)
-            )))
+            )
+          )
+        )
       )
 
       for {

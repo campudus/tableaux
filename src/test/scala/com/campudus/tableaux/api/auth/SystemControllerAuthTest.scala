@@ -183,14 +183,16 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
 
     for {
       permission <- controller
-        .createService("a service",
-                       ServiceTypeAction,
-                       None,
-                       MultiLanguageValue[String](None),
-                       MultiLanguageValue[String](None),
-                       true,
-                       None,
-                       None)
+        .createService(
+          "a service",
+          ServiceTypeAction,
+          None,
+          MultiLanguageValue[String](None),
+          MultiLanguageValue[String](None),
+          true,
+          None,
+          None
+        )
 
     } yield ()
   }
@@ -212,14 +214,16 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
 
     for {
       ex <- controller
-        .createService("a service",
-                       ServiceTypeAction,
-                       None,
-                       MultiLanguageValue[String](None),
-                       MultiLanguageValue[String](None),
-                       true,
-                       None,
-                       None)
+        .createService(
+          "a service",
+          ServiceTypeAction,
+          None,
+          MultiLanguageValue[String](None),
+          MultiLanguageValue[String](None),
+          true,
+          None,
+          None
+        )
         .recover({ case ex => ex })
 
     } yield {

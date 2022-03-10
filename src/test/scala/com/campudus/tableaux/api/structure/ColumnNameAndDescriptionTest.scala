@@ -68,8 +68,10 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
         assertJSONEquals(columnWithDisplayName, postColumnResult.getJsonArray("columns").getJsonObject(0))
-        assertEquals(getColumnResult,
-                     postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
+        assertEquals(
+          getColumnResult,
+          postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok"))
+        )
       }
     }
   }
@@ -141,8 +143,10 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
       } yield {
         logger.info(s"changedResult=${changedResult.encode()}")
         assertJSONEquals(columnWithDisplayName, createResult)
-        assertEquals(Json.obj("de-DE" -> "Spalte Eins", "en-GB" -> "Column One"),
-                     changedResult.getJsonObject("displayName"))
+        assertEquals(
+          Json.obj("de-DE" -> "Spalte Eins", "en-GB" -> "Column One"),
+          changedResult.getJsonObject("displayName")
+        )
         assertEquals(changedResult.mergeIn(Json.obj("status" -> "ok")), getColumnResult)
       }
     }
@@ -211,8 +215,10 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
         assertJSONEquals(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
-        assertEquals(getColumnResult,
-                     postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
+        assertEquals(
+          getColumnResult,
+          postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok"))
+        )
       }
     }
   }
@@ -348,8 +354,10 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
         assertJSONEquals(columnWithDisplayNameAndDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
-        assertEquals(getColumnResult,
-                     postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
+        assertEquals(
+          getColumnResult,
+          postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok"))
+        )
       }
     }
   }
@@ -366,20 +374,24 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         "description" -> description
       )
 
-      val postColumnJson = columnWithNameAndDescription(name = Json.obj(
-                                                          "de-DE" -> "Spalte 1"
-                                                        ),
-                                                        description = Json.obj(
-                                                          "en-GB" -> "Description Column 1"
-                                                        ))
+      val postColumnJson = columnWithNameAndDescription(
+        name = Json.obj(
+          "de-DE" -> "Spalte 1"
+        ),
+        description = Json.obj(
+          "en-GB" -> "Description Column 1"
+        )
+      )
       val postColumnWithDisplayNames = Json.obj("columns" -> Json.arr(postColumnJson))
 
-      val patchColumnJson = columnWithNameAndDescription(name = Json.obj(
-                                                           "de-DE" -> "Erste Spalte"
-                                                         ),
-                                                         description = Json.obj(
-                                                           "en-GB" -> "Description of first column"
-                                                         ))
+      val patchColumnJson = columnWithNameAndDescription(
+        name = Json.obj(
+          "de-DE" -> "Erste Spalte"
+        ),
+        description = Json.obj(
+          "en-GB" -> "Description of first column"
+        )
+      )
       val patchColumnWithDisplayNames = patchColumnJson
 
       for {
@@ -425,8 +437,10 @@ class ColumnNameAndDescriptionTest extends TableauxTestBase {
         getColumnResult <- sendRequest("GET", s"/tables/$tableId/columns/$columnId")
       } yield {
         assertJSONEquals(columnWithDescription, postColumnResult.getJsonArray("columns").getJsonObject(0))
-        assertEquals(getColumnResult,
-                     postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok")))
+        assertEquals(
+          getColumnResult,
+          postColumnResult.getJsonArray("columns").getJsonObject(0).mergeIn(Json.obj("status" -> "ok"))
+        )
       }
     }
   }

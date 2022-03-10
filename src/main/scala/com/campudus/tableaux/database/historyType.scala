@@ -27,15 +27,19 @@ object HistoryType {
 case object HistoryTypeRow extends HistoryType {
   override val typeName = HistoryType.Row
 }
+
 case object HistoryTypeCell extends HistoryType {
   override val typeName = HistoryType.Cell
 }
+
 case object HistoryTypeCellComment extends HistoryType {
   override val typeName = HistoryType.CellComment
 }
+
 case object HistoryTypeCellFlag extends HistoryType {
   override val typeName = HistoryType.CellFlag
 }
+
 case object HistoryTypeRowFlag extends HistoryType {
   override val typeName = HistoryType.RowFlag
 }

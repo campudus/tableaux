@@ -75,15 +75,21 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def retrieveStructure(context: RoutingContext): Unit = {
-    sendReply(context, asyncGetReply {
-      controller.retrieveStructure()
-    })
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveStructure()
+      }
+    )
   }
 
   private def retrieveTables(context: RoutingContext): Unit = {
-    sendReply(context, asyncGetReply {
-      controller.retrieveTables()
-    })
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveTables()
+      }
+    )
   }
 
   private def retrieveTable(context: RoutingContext): Unit = {
@@ -243,28 +249,32 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         context,
         asyncGetReply {
           val json = getJson(context)
-          val (optName,
-               optOrd,
-               optKind,
-               optId,
-               optDisplayInfos,
-               optCountryCodes,
-               optSeparator,
-               optAttributes,
-               optRules) =
+          val (
+            optName,
+            optOrd,
+            optKind,
+            optId,
+            optDisplayInfos,
+            optCountryCodes,
+            optSeparator,
+            optAttributes,
+            optRules
+          ) =
             toColumnChanges(json)
 
-          controller.changeColumn(tableId,
-                                  columnId,
-                                  optName,
-                                  optOrd,
-                                  optKind,
-                                  optId,
-                                  optDisplayInfos,
-                                  optCountryCodes,
-                                  optSeparator,
-                                  optAttributes,
-                                  optRules)
+          controller.changeColumn(
+            tableId,
+            columnId,
+            optName,
+            optOrd,
+            optKind,
+            optId,
+            optDisplayInfos,
+            optCountryCodes,
+            optSeparator,
+            optAttributes,
+            optRules
+          )
         }
       )
     }

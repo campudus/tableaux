@@ -55,8 +55,10 @@ class TableGroupTest extends TableauxTestBase {
         updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
       } yield {
         assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
-        assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
-                         updatedGroup)
+        assertJSONEquals(
+          Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
+          updatedGroup
+        )
       }
     }
   }
@@ -78,8 +80,10 @@ class TableGroupTest extends TableauxTestBase {
         updatedGroup <- sendRequest("POST", s"/groups/$groupId", changeTableGroupJson)
       } yield {
         assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson), createdGroup)
-        assertJSONEquals(Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
-                         updatedGroup)
+        assertJSONEquals(
+          Json.obj("id" -> groupId).mergeIn(createTableGroupJson).mergeIn(changeTableGroupJson),
+          updatedGroup
+        )
       }
     }
   }

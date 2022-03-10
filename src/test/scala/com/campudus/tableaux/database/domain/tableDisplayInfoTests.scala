@@ -36,12 +36,15 @@ abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
     val (createStmt, createBind) = di.createSql
     assertEquals(
       "INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?), (?, ?, ?, ?)",
-      createStmt)
-    checkPartsInRandomOrder(Seq(
-                              Seq(1, "de-DE", "Tabelle 1", null),
-                              Seq(1, "en-GB", "Table 1", null)
-                            ),
-                            createBind)
+      createStmt
+    )
+    checkPartsInRandomOrder(
+      Seq(
+        Seq(1, "de-DE", "Tabelle 1", null),
+        Seq(1, "en-GB", "Table 1", null)
+      ),
+      createBind
+    )
 
     assertEquals(2, di.insertSql.size)
     val (insertStmtDe, insertBindDe) = di.insertSql("de-DE")
@@ -91,12 +94,15 @@ abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
     val (createStatement, createBind) = di.createSql
     assertEquals(
       "INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?), (?, ?, ?, ?)",
-      createStatement)
-    checkPartsInRandomOrder(Seq(
-                              Seq(1, "de-DE", null, "Tabelle 1 Beschreibung"),
-                              Seq(1, "en-GB", null, "Table 1 Description")
-                            ),
-                            createBind)
+      createStatement
+    )
+    checkPartsInRandomOrder(
+      Seq(
+        Seq(1, "de-DE", null, "Tabelle 1 Beschreibung"),
+        Seq(1, "en-GB", null, "Table 1 Description")
+      ),
+      createBind
+    )
 
     assertEquals(2, di.insertSql.size)
     val (insertStmtDe, insertBindDe) = di.insertSql("de-DE")
@@ -121,30 +127,38 @@ abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
     assertTrue(di.nonEmpty)
 
     val (createStatement, createBinds) = di.createSql
-    assertEquals("INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?)",
-                 createStatement)
+    assertEquals(
+      "INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?)",
+      createStatement
+    )
     assertEquals(Seq(1, "de-DE", "Tabelle 1", "Tabelle 1 Beschreibung"), createBinds)
 
     assertEquals(1, di.insertSql.size)
     val (insertStmtDe, insertBindDe) = di.insertSql("de-DE")
-    assertEquals("INSERT INTO system_table_lang (name, description, table_id, langtag) VALUES (?, ?, ?, ?)",
-                 insertStmtDe)
+    assertEquals(
+      "INSERT INTO system_table_lang (name, description, table_id, langtag) VALUES (?, ?, ?, ?)",
+      insertStmtDe
+    )
     assertEquals(Seq("Tabelle 1", "Tabelle 1 Beschreibung", 1, "de-DE"), insertBindDe)
 
     assertEquals(1, di.updateSql.size)
     val (updateStmtDe, updateBindDe) = di.updateSql("de-DE")
-    assertEquals("UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
-                 updateStmtDe)
+    assertEquals(
+      "UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
+      updateStmtDe
+    )
     assertEquals(Seq("Tabelle 1", "Tabelle 1 Beschreibung", 1, "de-DE"), updateBindDe)
   }
 
   @Test
   def checkMultipleNamesAndDescriptions(): Unit = {
-    val di = multipleNameAndDesc(1,
-                                 List(
-                                   ("de-DE", "Tabelle 1", "Tabelle 1 Beschreibung"),
-                                   ("en-GB", "Table 1", "Table 1 Description")
-                                 ))
+    val di = multipleNameAndDesc(
+      1,
+      List(
+        ("de-DE", "Tabelle 1", "Tabelle 1 Beschreibung"),
+        ("en-GB", "Table 1", "Table 1 Description")
+      )
+    )
     assertTrue(di.nonEmpty)
 
     val (createStatement, createBinds) = di.createSql
@@ -152,34 +166,44 @@ abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
       "INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?), (?, ?, ?, ?)",
       createStatement
     )
-    checkPartsInRandomOrder(Seq(
-                              Seq(1, "de-DE", "Tabelle 1", "Tabelle 1 Beschreibung"),
-                              Seq(1, "en-GB", "Table 1", "Table 1 Description")
-                            ),
-                            createBinds)
+    checkPartsInRandomOrder(
+      Seq(
+        Seq(1, "de-DE", "Tabelle 1", "Tabelle 1 Beschreibung"),
+        Seq(1, "en-GB", "Table 1", "Table 1 Description")
+      ),
+      createBinds
+    )
 
     assertEquals(2, di.insertSql.size)
 
     val (insertStmtDe, insertBindDe) = di.insertSql("de-DE")
-    assertEquals("INSERT INTO system_table_lang (name, description, table_id, langtag) VALUES (?, ?, ?, ?)",
-                 insertStmtDe)
+    assertEquals(
+      "INSERT INTO system_table_lang (name, description, table_id, langtag) VALUES (?, ?, ?, ?)",
+      insertStmtDe
+    )
     assertEquals(Seq("Tabelle 1", "Tabelle 1 Beschreibung", 1, "de-DE"), insertBindDe)
 
     val (insertStmtEn, insertBindEn) = di.insertSql("en-GB")
-    assertEquals("INSERT INTO system_table_lang (name, description, table_id, langtag) VALUES (?, ?, ?, ?)",
-                 insertStmtEn)
+    assertEquals(
+      "INSERT INTO system_table_lang (name, description, table_id, langtag) VALUES (?, ?, ?, ?)",
+      insertStmtEn
+    )
     assertEquals(Seq("Table 1", "Table 1 Description", 1, "en-GB"), insertBindEn)
 
     assertEquals(2, di.updateSql.size)
 
     val (updateStmtDe, updateBindDe) = di.updateSql("de-DE")
-    assertEquals("UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
-                 updateStmtDe)
+    assertEquals(
+      "UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
+      updateStmtDe
+    )
     assertEquals(Seq("Tabelle 1", "Tabelle 1 Beschreibung", 1, "de-DE"), updateBindDe)
 
     val (updateStmtEn, updateBindEn) = di.updateSql("en-GB")
-    assertEquals("UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
-                 updateStmtEn)
+    assertEquals(
+      "UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
+      updateStmtEn
+    )
     assertEquals(Seq("Table 1", "Table 1 Description", 1, "en-GB"), updateBindEn)
   }
 
@@ -193,11 +217,13 @@ abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
       "INSERT INTO system_table_lang (table_id, langtag, name, description) VALUES (?, ?, ?, ?), (?, ?, ?, ?)",
       createStatement
     )
-    checkPartsInRandomOrder(Seq(
-                              Seq(1, "de-DE", "Tabelle 1", null),
-                              Seq(1, "en-GB", null, "Table 1 Description")
-                            ),
-                            createBinds)
+    checkPartsInRandomOrder(
+      Seq(
+        Seq(1, "de-DE", "Tabelle 1", null),
+        Seq(1, "en-GB", null, "Table 1 Description")
+      ),
+      createBinds
+    )
 
     assertEquals(2, di.insertSql.size)
     val (insertStatementDe, insertBindsDe) = di.insertSql("de-DE")
@@ -218,12 +244,14 @@ abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
 
   @Test
   def checkCombinations(): Unit = {
-    val di = multipleNameAndDesc(1,
-                                 List(
-                                   ("de-DE", "Tabelle 1", "Tabelle 1 Beschreibung"),
-                                   ("en-GB", null, "Table 1 Description"),
-                                   ("fr_FR", "Tableau 1", null)
-                                 ))
+    val di = multipleNameAndDesc(
+      1,
+      List(
+        ("de-DE", "Tabelle 1", "Tabelle 1 Beschreibung"),
+        ("en-GB", null, "Table 1 Description"),
+        ("fr_FR", "Tableau 1", null)
+      )
+    )
     assertTrue(di.nonEmpty)
     val (createStatement, createBinds) = di.createSql
     assertEquals(
@@ -240,8 +268,10 @@ abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
 
     assertEquals(3, di.insertSql.size)
     val (insertStatementDe, insertBindsDe) = di.insertSql("de-DE")
-    assertEquals("INSERT INTO system_table_lang (name, description, table_id, langtag) VALUES (?, ?, ?, ?)",
-                 insertStatementDe)
+    assertEquals(
+      "INSERT INTO system_table_lang (name, description, table_id, langtag) VALUES (?, ?, ?, ?)",
+      insertStatementDe
+    )
     assertEquals(Seq("Tabelle 1", "Tabelle 1 Beschreibung", 1, "de-DE"), insertBindsDe)
     val (insertStatementEn, insertBindsEn) = di.insertSql("en-GB")
     assertEquals("INSERT INTO system_table_lang (description, table_id, langtag) VALUES (?, ?, ?)", insertStatementEn)
@@ -252,8 +282,10 @@ abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
 
     assertEquals(3, di.updateSql.size)
     val (updateStatementDe, updateBindsDe) = di.updateSql("de-DE")
-    assertEquals("UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
-                 updateStatementDe)
+    assertEquals(
+      "UPDATE system_table_lang SET name = ?, description = ? WHERE table_id = ? AND langtag = ?",
+      updateStatementDe
+    )
     assertEquals(Seq("Tabelle 1", "Tabelle 1 Beschreibung", 1, "de-DE"), updateBindsDe)
     val (updateStatementEn, updateBindsEn) = di.updateSql("en-GB")
     assertEquals("UPDATE system_table_lang SET description = ? WHERE table_id = ? AND langtag = ?", updateStatementEn)
@@ -348,22 +380,27 @@ class TableDisplayInfosTestJsonObject extends AbstractTableDisplayInfosTest {
   }
 
   override def singleNameAndDesc(tableId: TableId, langtag: String, name: String, desc: String): TableDisplayInfos = {
-    TableDisplayInfos(tableId,
-                      DisplayInfos.fromJson(
-                        Json.obj(
-                          "displayName" -> Json.obj(langtag -> name),
-                          "description" -> Json.obj(langtag -> desc)
-                        )))
+    TableDisplayInfos(
+      tableId,
+      DisplayInfos.fromJson(
+        Json.obj(
+          "displayName" -> Json.obj(langtag -> name),
+          "description" -> Json.obj(langtag -> desc)
+        )
+      )
+    )
   }
 
   override def multipleNameAndDesc(tableId: TableId, infos: List[(String, String, String)]): TableDisplayInfos = {
     val result = infos.foldLeft(Json.obj()) {
       case (json, (lang, name, null)) =>
         json.mergeIn(
-          Json.obj("displayName" -> json.getJsonObject("displayName", Json.obj()).mergeIn(Json.obj(lang -> name))))
+          Json.obj("displayName" -> json.getJsonObject("displayName", Json.obj()).mergeIn(Json.obj(lang -> name)))
+        )
       case (json, (lang, null, desc)) =>
         json.mergeIn(
-          Json.obj("description" -> json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc))))
+          Json.obj("description" -> json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc)))
+        )
       case (json, (lang, name, desc)) =>
         val n = json.getJsonObject("displayName", Json.obj()).mergeIn(Json.obj(lang -> name))
         val d = json.getJsonObject("description", Json.obj()).mergeIn(Json.obj(lang -> desc))

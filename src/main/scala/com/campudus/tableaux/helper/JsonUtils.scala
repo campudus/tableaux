@@ -53,13 +53,16 @@ object JsonUtils extends LazyLogging {
   }
 
   private def checkForJsonObject(seq: Seq[JsonObject]): ArgumentCheck[Seq[JsonObject]] = {
-    tryMap((y: Seq[JsonObject]) => {
-      y map { x: JsonObject =>
-        {
-          x
+    tryMap(
+      (y: Seq[JsonObject]) => {
+        y map { x: JsonObject =>
+          {
+            x
+          }
         }
-      }
-    }, InvalidJsonException(s"Warning: Array should only contain JsonObjects", "object"))(seq)
+      },
+      InvalidJsonException(s"Warning: Array should only contain JsonObjects", "object")
+    )(seq)
   }
 
   private def toTableauxType(kind: String): ArgumentCheck[TableauxDbType] = {
@@ -141,15 +144,17 @@ object JsonUtils extends LazyLogging {
                   ).orElse(Success(false))
                 } yield Constraint(Cardinality(cardinalityFrom, cardinalityTo), deleteCascade)
 
-                CreateLinkColumn(name,
-                                 ordering,
-                                 toTableId,
-                                 singleDirection,
-                                 identifier,
-                                 displayInfos,
-                                 constraint.getOrElse(DefaultConstraint),
-                                 createBackLinkColumn,
-                                 attributes)
+                CreateLinkColumn(
+                  name,
+                  ordering,
+                  toTableId,
+                  singleDirection,
+                  identifier,
+                  displayInfos,
+                  constraint.getOrElse(DefaultConstraint),
+                  createBackLinkColumn,
+                  attributes
+                )
 
               case GroupType =>
                 // group specific fields
@@ -176,14 +181,16 @@ object JsonUtils extends LazyLogging {
                 )
 
               case _ =>
-                CreateSimpleColumn(name,
-                                   ordering,
-                                   dbType,
-                                   languageType,
-                                   identifier,
-                                   displayInfos,
-                                   separator,
-                                   attributes)
+                CreateSimpleColumn(
+                  name,
+                  ordering,
+                  dbType,
+                  languageType,
+                  identifier,
+                  displayInfos,
+                  separator,
+                  attributes
+                )
             }
           }
         }
@@ -198,21 +205,27 @@ object JsonUtils extends LazyLogging {
         case LanguageType.COUNTRY =>
           if (json.containsKey("countryCodes")) {
 
-            val countryCodeSeq = checkAllValuesOfArray[String](json.getJsonArray("countryCodes"),
-                                                               d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
-                                                               "countryCodes")
+            val countryCodeSeq = checkAllValuesOfArray[String](
+              json.getJsonArray("countryCodes"),
+              d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
+              "countryCodes"
+            )
               .map(_.asScala.toSeq.map({ case code: String => code }))
               .get
 
             MultiCountry(CountryCodes(countryCodeSeq))
           } else {
-            throw InvalidJsonException("If 'languageType' is 'country' the field 'countryCodes' must be specified.",
-                                       "countrycodes")
+            throw InvalidJsonException(
+              "If 'languageType' is 'country' the field 'countryCodes' must be specified.",
+              "countrycodes"
+            )
           }
         case LanguageType.NEUTRAL => LanguageNeutral
         case _ =>
-          throw InvalidJsonException("Field 'languageType' should only contain 'neutral', 'language' or 'country'",
-                                     "languagetype")
+          throw InvalidJsonException(
+            "Field 'languageType' should only contain 'neutral', 'language' or 'country'",
+            "languagetype"
+          )
       }
     } else if (json.containsKey("multilanguage")) {
       logger.warn("JSON contains deprecated field 'multilanguage' use 'languageType' instead.")
@@ -262,15 +275,17 @@ object JsonUtils extends LazyLogging {
     } yield valueList
   }
 
-  def toColumnChanges(json: JsonObject): (Option[String],
-                                          Option[Ordering],
-                                          Option[TableauxDbType],
-                                          Option[Boolean],
-                                          Option[Seq[DisplayInfo]],
-                                          Option[Seq[String]],
-                                          Option[Boolean],
-                                          Option[JsonObject],
-                                          Option[JsonArray]) = {
+  def toColumnChanges(json: JsonObject): (
+      Option[String],
+      Option[Ordering],
+      Option[TableauxDbType],
+      Option[Boolean],
+      Option[Seq[DisplayInfo]],
+      Option[Seq[String]],
+      Option[Boolean],
+      Option[JsonObject],
+      Option[JsonArray]
+  ) = {
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
     val ord = Try(json.getInteger("ordering").longValue()).toOption
@@ -292,9 +307,11 @@ object JsonUtils extends LazyLogging {
 
     val countryCodes = booleanToValueOption(
       json.containsKey("countryCodes"), {
-        checkAllValuesOfArray[String](json.getJsonArray("countryCodes"),
-                                      d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
-                                      "countryCodes").get
+        checkAllValuesOfArray[String](
+          json.getJsonArray("countryCodes"),
+          d => d.isInstanceOf[String] && d.matches("[A-Z]{2,3}"),
+          "countryCodes"
+        ).get
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 
@@ -314,14 +331,15 @@ object JsonUtils extends LazyLogging {
       location <- notNull(json.getString("location"), "location")
       location <- oneOf(location, List("start", "end", "before"), "location")
     } yield {
-      val relativeTo = if ("before" == location) {
-        isDefined(Option(json.getLong("id")).map(_.longValue()), "id") match {
-          case FailArg(ex) => throw ex
-          case OkArg(id) => Some(id)
+      val relativeTo =
+        if ("before" == location) {
+          isDefined(Option(json.getLong("id")).map(_.longValue()), "id") match {
+            case FailArg(ex) => throw ex
+            case OkArg(id) => Some(id)
+          }
+        } else {
+          None
         }
-      } else {
-        None
-      }
 
       LocationType(location, relativeTo)
     }).get
@@ -345,7 +363,8 @@ object JsonUtils extends LazyLogging {
     *
     * @param jsonArray
     * @tparam A
-    * @return Seq[A]
+    * @return
+    *   Seq[A]
     */
   def asSeqOf[A](jsonArray: JsonArray): Seq[A] = {
     jsonArray.asScala.map(_.asInstanceOf[A]).toSeq

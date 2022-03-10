@@ -73,12 +73,16 @@ class IdentifierTest extends TableauxTestBase {
         _ <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson)
 
         // make the first and the last an identifier column and reorder them
-        _ <- sendRequest("POST",
-                         "/tables/1/columns/1",
-                         Json.obj("name" -> "Column 1 but second concat column", "identifier" -> true, "ordering" -> 3))
-        _ <- sendRequest("POST",
-                         "/tables/1/columns/3",
-                         Json.obj("name" -> "Column 3 but first concat column", "identifier" -> true, "ordering" -> 1))
+        _ <- sendRequest(
+          "POST",
+          "/tables/1/columns/1",
+          Json.obj("name" -> "Column 1 but second concat column", "identifier" -> true, "ordering" -> 3)
+        )
+        _ <- sendRequest(
+          "POST",
+          "/tables/1/columns/3",
+          Json.obj("name" -> "Column 3 but first concat column", "identifier" -> true, "ordering" -> 1)
+        )
 
         testColumns <- sendRequest("GET", "/tables/1/columns")
 
@@ -136,10 +140,12 @@ class IdentifierTest extends TableauxTestBase {
         // create multiple tables
         (tableId1, columnIds1, rowIds1) <- createSimpleTableWithValues(
           "table1",
-          List(TextCol("text11"),
-               Identifier(NumericCol("num12")),
-               Identifier(Multilanguage(TextCol("multitext13"))),
-               NumericCol("num14")),
+          List(
+            TextCol("text11"),
+            Identifier(NumericCol("num12")),
+            Identifier(Multilanguage(TextCol("multitext13"))),
+            NumericCol("num14")
+          ),
           List(
             List("table1col1row1", 121, Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
             List("table1col1row2", 122, Json.obj("de-DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
@@ -147,10 +153,12 @@ class IdentifierTest extends TableauxTestBase {
         )
         (tableId2, columnIds2, rowIds2) <- createSimpleTableWithValues(
           "table2",
-          List(TextCol("text21"),
-               Identifier(NumericCol("num22")),
-               Identifier(Multilanguage(TextCol("multitext23"))),
-               NumericCol("num24")),
+          List(
+            TextCol("text21"),
+            Identifier(NumericCol("num22")),
+            Identifier(Multilanguage(TextCol("multitext23"))),
+            NumericCol("num24")
+          ),
           List(
             List("table2col1row1", 221, Json.obj("de-DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"), 241),
             List("table2col1row2", 222, Json.obj("de-DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"), 242)
@@ -158,10 +166,12 @@ class IdentifierTest extends TableauxTestBase {
         )
         (tableId3, columnIds3, rowIds3) <- createSimpleTableWithValues(
           "table3",
-          List(TextCol("text31"),
-               Identifier(NumericCol("num32")),
-               Identifier(Multilanguage(TextCol("multitext33"))),
-               NumericCol("num34")),
+          List(
+            TextCol("text31"),
+            Identifier(NumericCol("num32")),
+            Identifier(Multilanguage(TextCol("multitext33"))),
+            NumericCol("num34")
+          ),
           List(
             List("table3col1row1", 321, Json.obj("de-DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"), 341),
             List("table3col1row2", 322, Json.obj("de-DE" -> "table3col3row2-de", "en_GB" -> "table3col3row2-gb"), 342)
@@ -169,10 +179,12 @@ class IdentifierTest extends TableauxTestBase {
         )
         (tableId4, columnIds4, rowIds4) <- createSimpleTableWithValues(
           "table4",
-          List(TextCol("text41"),
-               Identifier(NumericCol("num42")),
-               Identifier(Multilanguage(TextCol("multitext43"))),
-               NumericCol("num44")),
+          List(
+            TextCol("text41"),
+            Identifier(NumericCol("num42")),
+            Identifier(Multilanguage(TextCol("multitext43"))),
+            NumericCol("num44")
+          ),
           List(
             List("table4col1row1", 421, Json.obj("de-DE" -> "table4col3row1-de", "en_GB" -> "table4col3row1-gb"), 441),
             List("table4col1row2", 422, Json.obj("de-DE" -> "table4col3row2-de", "en_GB" -> "table4col3row2-gb"), 442)
@@ -182,28 +194,37 @@ class IdentifierTest extends TableauxTestBase {
         // link from table 2 to table 1
         postLinkColTable2 = Json.obj(
           "columns" -> Json.arr(
-            Json.obj("name" -> "link251",
-                     "kind" -> "link",
-                     "toTable" -> tableId1,
-                     "identifier" -> true,
-                     "singleDirection" -> true)))
+            Json.obj(
+              "name" -> "link251",
+              "kind" -> "link",
+              "toTable" -> tableId1,
+              "identifier" -> true,
+              "singleDirection" -> true
+            )
+          )
+        )
         linkColRes2 <- sendRequest("POST", s"/tables/$tableId2/columns", postLinkColTable2)
         linkColId2 = linkColRes2.getJsonArray("columns").getJsonObject(0).getLong("id")
 
         // link from table 3 to table 2
         postLinkColTable3 = Json.obj(
           "columns" -> Json.arr(
-            Json.obj("name" -> "link352",
-                     "kind" -> "link",
-                     "toTable" -> tableId2,
-                     "identifier" -> true,
-                     "singleDirection" -> true)))
+            Json.obj(
+              "name" -> "link352",
+              "kind" -> "link",
+              "toTable" -> tableId2,
+              "identifier" -> true,
+              "singleDirection" -> true
+            )
+          )
+        )
         linkColRes3 <- sendRequest("POST", s"/tables/$tableId3/columns", postLinkColTable3)
         linkColId3 = linkColRes3.getJsonArray("columns").getJsonObject(0).getLong("id")
 
         // link from table 4 to table 3
         postLinkColTable4 = Json.obj(
-          "columns" -> Json.arr(Json.obj("name" -> "link452", "kind" -> "link", "toTable" -> tableId3)))
+          "columns" -> Json.arr(Json.obj("name" -> "link452", "kind" -> "link", "toTable" -> tableId3))
+        )
         linkColRes4 <- sendRequest("POST", s"/tables/$tableId4/columns", postLinkColTable4)
         linkColId4 = linkColRes4.getJsonArray("columns").getJsonObject(0).getLong("id")
 
@@ -301,16 +322,20 @@ class IdentifierTest extends TableauxTestBase {
                         Json.obj("de-DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"),
                         // links into table 1 row 1 and row 2
                         Json.arr(
-                          Json.obj("id" -> rowIds1.head,
-                                   "value" -> Json.arr(
-                                     121,
-                                     Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
-                                   )),
-                          Json.obj("id" -> rowIds1(1),
-                                   "value" -> Json.arr(
-                                     122,
-                                     Json.obj("de-DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb")
-                                   ))
+                          Json.obj(
+                            "id" -> rowIds1.head,
+                            "value" -> Json.arr(
+                              121,
+                              Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
+                            )
+                          ),
+                          Json.obj(
+                            "id" -> rowIds1(1),
+                            "value" -> Json.arr(
+                              122,
+                              Json.obj("de-DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb")
+                            )
+                          )
                         )
                       )
                     ),
@@ -321,11 +346,13 @@ class IdentifierTest extends TableauxTestBase {
                         Json.obj("de-DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"),
                         // links into table 1 row 1
                         Json.arr(
-                          Json.obj("id" -> rowIds1.head,
-                                   "value" -> Json.arr(
-                                     121,
-                                     Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
-                                   ))
+                          Json.obj(
+                            "id" -> rowIds1.head,
+                            "value" -> Json.arr(
+                              121,
+                              Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb")
+                            )
+                          )
                         )
                       )
                     )
@@ -351,10 +378,12 @@ class IdentifierTest extends TableauxTestBase {
       for {
         (tableId1, columnIds1, rowIds1) <- createSimpleTableWithValues(
           "table1",
-          List(TextCol("text11"),
-               Identifier(NumericCol("num12")),
-               Identifier(Multilanguage(TextCol("multitext13"))),
-               NumericCol("num14")),
+          List(
+            TextCol("text11"),
+            Identifier(NumericCol("num12")),
+            Identifier(Multilanguage(TextCol("multitext13"))),
+            NumericCol("num14")
+          ),
           List(
             List("table1col1row1", 121, Json.obj("de-DE" -> "table1col3row1-de", "en_GB" -> "table1col3row1-gb"), 141),
             List("table1col1row2", 122, Json.obj("de-DE" -> "table1col3row2-de", "en_GB" -> "table1col3row2-gb"), 142)
@@ -362,10 +391,12 @@ class IdentifierTest extends TableauxTestBase {
         )
         (tableId2, columnIds2, rowIds2) <- createSimpleTableWithValues(
           "table2",
-          List(TextCol("text21"),
-               Identifier(NumericCol("num22")),
-               Identifier(Multilanguage(TextCol("multitext23"))),
-               NumericCol("num24")),
+          List(
+            TextCol("text21"),
+            Identifier(NumericCol("num22")),
+            Identifier(Multilanguage(TextCol("multitext23"))),
+            NumericCol("num24")
+          ),
           List(
             List("table2col1row1", 221, Json.obj("de-DE" -> "table2col3row1-de", "en_GB" -> "table2col3row1-gb"), 241),
             List("table2col1row2", 222, Json.obj("de-DE" -> "table2col3row2-de", "en_GB" -> "table2col3row2-gb"), 242)
@@ -373,10 +404,12 @@ class IdentifierTest extends TableauxTestBase {
         )
         (tableId3, columnIds3, rowIds3) <- createSimpleTableWithValues(
           "table3",
-          List(TextCol("text31"),
-               Identifier(NumericCol("num32")),
-               Identifier(Multilanguage(TextCol("multitext33"))),
-               NumericCol("num34")),
+          List(
+            TextCol("text31"),
+            Identifier(NumericCol("num32")),
+            Identifier(Multilanguage(TextCol("multitext33"))),
+            NumericCol("num34")
+          ),
           List(
             List("table3col1row1", 321, Json.obj("de-DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"), 341),
             List("table3col1row2", 322, Json.obj("de-DE" -> "table3col3row2-de", "en_GB" -> "table3col3row2-gb"), 342)
@@ -386,16 +419,21 @@ class IdentifierTest extends TableauxTestBase {
         // add link column from table 2 and make it identifier
         postLinkColTable2 = Json.obj(
           "columns" -> Json.arr(
-            Json.obj("name" -> "link251",
-                     "kind" -> "link",
-                     "toTable" -> tableId1,
-                     "identifier" -> true,
-                     "singleDirection" -> true)))
+            Json.obj(
+              "name" -> "link251",
+              "kind" -> "link",
+              "toTable" -> tableId1,
+              "identifier" -> true,
+              "singleDirection" -> true
+            )
+          )
+        )
         linkColRes2 <- sendRequest("POST", s"/tables/$tableId2/columns", postLinkColTable2)
         linkColId2 = linkColRes2.getJsonArray("columns").getJsonObject(0).getLong("id")
         // add link from table 3 to table 2 (with 3 identifiers)
         postLinkColTable3 = Json.obj(
-          "columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "toTable" -> tableId2)))
+          "columns" -> Json.arr(Json.obj("name" -> "link352", "kind" -> "link", "toTable" -> tableId2))
+        )
         linkColRes3 <- sendRequest("POST", s"/tables/$tableId3/columns", postLinkColTable3)
         linkColId3 = linkColRes3.getJsonArray("columns").getJsonObject(0).getLong("id")
 
@@ -577,17 +615,21 @@ class IdentifierTest extends TableauxTestBase {
         table1column3 <- sendRequest("POST", "/tables/1/columns", multilangTextColumn) map {
           _.getJsonArray("columns").get[JsonObject](0).getLong("id")
         }
-        _ <- sendRequest("POST",
-                         "/tables/1/columns/3/rows/1",
-                         Json.obj("value" -> Json.obj("de-DE" -> "Tschüss", "en-US" -> "Goodbye")))
+        _ <- sendRequest(
+          "POST",
+          "/tables/1/columns/3/rows/1",
+          Json.obj("value" -> Json.obj("de-DE" -> "Tschüss", "en-US" -> "Goodbye"))
+        )
 
         // create multi-language column and fill cell
         table2column3 <- sendRequest("POST", "/tables/2/columns", multilangTextColumn) map {
           _.getJsonArray("columns").get[JsonObject](0).getLong("id")
         }
-        _ <- sendRequest("POST",
-                         "/tables/2/columns/3/rows/1",
-                         Json.obj("value" -> Json.obj("de-DE" -> "Hallo", "en-US" -> "Hello")))
+        _ <- sendRequest(
+          "POST",
+          "/tables/2/columns/3/rows/1",
+          Json.obj("value" -> Json.obj("de-DE" -> "Hallo", "en-US" -> "Hello"))
+        )
 
         // create link column, which will link to concatcolumn in this case
         table1column4 <- sendRequest("POST", "/tables/1/columns", linkColumnToTable2) map {
@@ -625,14 +667,18 @@ class IdentifierTest extends TableauxTestBase {
     val linkColumnToTable2 =
       Json.obj(
         "columns" -> Json.arr(
-          Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "singleDirection" -> true)))
+          Json.obj("name" -> "Test Link 1", "kind" -> "link", "toTable" -> 2, "singleDirection" -> true)
+        )
+      )
 
     val postAttachmentColumn = Json.obj(
       "columns" -> Json.arr(
         Json.obj(
           "kind" -> "attachment",
           "name" -> "Downloads"
-        )))
+        )
+      )
+    )
 
     val fileName = "Scr$en Shot.pdf"
     val filePath = s"/com/campudus/tableaux/uploads/$fileName"

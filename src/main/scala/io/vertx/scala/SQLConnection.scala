@@ -59,8 +59,8 @@ class SQLConnection(val vertxAccess: VertxAccess, private val config: JsonObject
   override val vertx: Vertx = vertxAccess.vertx
 
   /**
-    * It's non shared, otherwise stopping the verticle will last forever.
-    * Test will create many SQLConnection not just the verticle.
+    * It's non shared, otherwise stopping the verticle will last forever. Test will create many SQLConnection not just
+    * the verticle.
     */
   private val client = PostgreSQLClient.createNonShared(vertxAccess.vertx, config)
 

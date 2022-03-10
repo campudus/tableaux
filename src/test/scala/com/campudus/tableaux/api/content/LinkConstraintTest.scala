@@ -85,12 +85,11 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         columns <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
 
-        rowId <- sendRequest("POST",
-                             s"/tables/$tableId1/rows",
-                             Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-          .map(_.getJsonArray("rows"))
-          .map(_.getJsonObject(0))
-          .map(_.getLong("id"))
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/$rowId")
 
@@ -143,7 +142,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
           s"/tables/$tableId1/columns",
           Columns(
             LinkBiDirectionalCol("deleteCascade", tableId2, Constraint(DefaultCardinality, deleteCascade = false))
-          ))
+          )
+        )
 
         columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
 
@@ -171,12 +171,11 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
 
-        rowId <- sendRequest("POST",
-                             s"/tables/$tableId1/rows",
-                             Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-          .map(_.getJsonArray("rows"))
-          .map(_.getJsonObject(0))
-          .map(_.getLong("id"))
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
 
         _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(2))))
 
@@ -227,17 +226,17 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("POST", s"/tables/$tableId1/rows")
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(1, 2)))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+          Json.obj("value" -> Json.arr(1, 2))
+        )
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId2/columns/$table2LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(2)))
+        _ <-
+          sendRequest("PUT", s"/tables/$tableId2/columns/$table2LinkColumnId/rows/1", Json.obj("value" -> Json.arr(2)))
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId2/columns/$table2LinkColumnId/rows/2",
-                         Json.obj("value" -> Json.arr(3)))
+        _ <-
+          sendRequest("PUT", s"/tables/$tableId2/columns/$table2LinkColumnId/rows/2", Json.obj("value" -> Json.arr(3)))
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
@@ -252,7 +251,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
   @Test
   def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList_simple(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
       for {
         // Given current links: [1, 2] -> after test: [2]
@@ -261,14 +261,15 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         table1LinkColumnId <- createDeleteCascadeLinkColumn(tableId1, tableId2, "deleteCascade1")
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(1, 2)))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+          Json.obj("value" -> Json.arr(1, 2))
+        )
 
         // When
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(2)))
+        _ <-
+          sendRequest("PUT", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1", Json.obj("value" -> Json.arr(2)))
 
         // Then
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
@@ -280,7 +281,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
   @Test
   def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList_onlyDelete(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
       for {
         // Given current links: [1, 2, 3] -> after test: [1, 3]
@@ -293,14 +295,18 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         _ <- sendRequest("POST", s"/tables/$tableId2/columns/2/rows/3", Json.obj("value" -> 3))
         _ <- sendRequest("POST", s"/tables/$tableId2/columns/1/rows/3", Json.obj("value" -> s"table${tableId2}row3"))
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(1, 2, 3)))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+          Json.obj("value" -> Json.arr(1, 2, 3))
+        )
 
         // When
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(1, 3)))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+          Json.obj("value" -> Json.arr(1, 3))
+        )
 
         // Then
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
@@ -316,7 +322,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
   @Test
   def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList_reverseOrder(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
       for {
         // Given: current links: [1, 2, 3] --> after test: [3, 2, 1]
@@ -329,14 +336,18 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         _ <- sendRequest("POST", s"/tables/$tableId2/columns/2/rows/3", Json.obj("value" -> 3))
         _ <- sendRequest("POST", s"/tables/$tableId2/columns/1/rows/3", Json.obj("value" -> s"table${tableId2}row3"))
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(1, 2, 3)))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+          Json.obj("value" -> Json.arr(1, 2, 3))
+        )
 
         // When
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(3, 2, 1)))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+          Json.obj("value" -> Json.arr(3, 2, 1))
+        )
 
         // Then
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
@@ -352,7 +363,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
   @Test
   def putLinkWithDeleteCascadeShouldNotDeleteForeignRowsIfTheyAreAlsoInNewLinkList_deleteOneRowAddAnother(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
       for {
         // Given: current links: [1, 2, 3] ->  after test: [2, 4]
@@ -368,14 +380,18 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         _ <- sendRequest("POST", s"/tables/$tableId2/columns/2/rows/4", Json.obj("value" -> 4))
         _ <- sendRequest("POST", s"/tables/$tableId2/columns/1/rows/4", Json.obj("value" -> s"table${tableId2}row4"))
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(1, 2, 3)))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+          Json.obj("value" -> Json.arr(1, 2, 3))
+        )
 
         // When
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(2, 4)))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
+          Json.obj("value" -> Json.arr(2, 4))
+        )
 
         // Then
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
@@ -401,12 +417,11 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         columns <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
 
-        rowId <- sendRequest("POST",
-                             s"/tables/$tableId1/rows",
-                             Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-          .map(_.getJsonArray("rows"))
-          .map(_.getJsonObject(0))
-          .map(_.getLong("id"))
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
 
         // clear cell
         _ <- sendRequest("DELETE", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId")
@@ -432,16 +447,17 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         columns <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
 
-        rowId <- sendRequest("POST",
-                             s"/tables/$tableId1/rows",
-                             Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-          .map(_.getJsonArray("rows"))
-          .map(_.getJsonObject(0))
-          .map(_.getLong("id"))
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
 
-        _ <- sendRequest("PUT",
-                         s"/tables/1/columns/$linkColumnId/rows/1",
-                         Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2))))
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/1/columns/$linkColumnId/rows/1",
+          Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+        )
 
         // delete link from link cell with delete cascade
         _ <- sendRequest("DELETE", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId/link/1")
@@ -470,13 +486,11 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         table2LinkColumnId <- createDeleteCascadeLinkColumn(tableId2, tableId1, "deleteCascade2")
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(1)))
+        _ <-
+          sendRequest("PUT", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1", Json.obj("value" -> Json.arr(1)))
 
-        _ <- sendRequest("PUT",
-                         s"/tables/$tableId2/columns/$table2LinkColumnId/rows/1",
-                         Json.obj("value" -> Json.arr(1)))
+        _ <-
+          sendRequest("PUT", s"/tables/$tableId2/columns/$table2LinkColumnId/rows/1", Json.obj("value" -> Json.arr(1)))
 
         // This will currently end up in a endless loop
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
@@ -565,12 +579,11 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         columns <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
 
-        rowId <- sendRequest("POST",
-                             s"/tables/$tableId1/rows",
-                             Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
-          .map(_.getJsonArray("rows"))
-          .map(_.getJsonObject(0))
-          .map(_.getLong("id"))
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
 
         _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
@@ -597,12 +610,11 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         columns <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
 
-        rowId <- sendRequest("POST",
-                             s"/tables/$tableId1/rows",
-                             Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
-          .map(_.getJsonArray("rows"))
-          .map(_.getJsonObject(0))
-          .map(_.getLong("id"))
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
 
         _ <- sendRequest("POST", s"/tables/$tableId1/rows/$rowId/duplicate", Json.emptyObj())
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
@@ -642,13 +654,17 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         rowId2 <- sendRequest("POST", s"/tables/$tableId1/rows")
           .map(_.getLong("id"))
 
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId1",
-                         Json.obj("value" -> Json.arr(1, 2)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId1",
+          Json.obj("value" -> Json.arr(1, 2))
+        )
 
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId2",
-                         Json.obj("value" -> Json.arr(1, 2)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId2",
+          Json.obj("value" -> Json.arr(1, 2))
+        )
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
@@ -657,9 +673,11 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         rowId3 <- sendRequest("POST", s"/tables/$tableId2/rows")
           .map(_.getLong("id"))
 
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId3",
-                         Json.obj("value" -> Json.arr(rowId1, rowId2)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId3",
+          Json.obj("value" -> Json.arr(rowId1, rowId2))
+        )
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
@@ -708,9 +726,11 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
           .map(_.getLong("id"))
 
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1",
-                         Json.obj("value" -> Json.arr(2)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1",
+          Json.obj("value" -> Json.arr(2))
+        )
 
         resultCell <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
 
@@ -736,9 +756,11 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
           .map(_.getLong("id"))
 
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1",
-                         Json.obj("value" -> Json.arr(1, 2)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1",
+          Json.obj("value" -> Json.arr(1, 2))
+        )
 
         resultCell <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
 
@@ -796,13 +818,17 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
           .map(_.getInteger("id"))
 
         // let's do some real tests
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11",
-                         Json.obj("value" -> Json.arr(rowId22, rowId21, rowId23)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11",
+          Json.obj("value" -> Json.arr(rowId22, rowId21, rowId23))
+        )
 
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23",
-                         Json.obj("value" -> Json.arr(rowId12)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23",
+          Json.obj("value" -> Json.arr(rowId12))
+        )
 
         resultCell11 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11")
 
@@ -816,9 +842,11 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         resultForeignRows23 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23/foreignRows")
         resultForeignRows12 <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId12/foreignRows")
 
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11",
-                         Json.obj("value" -> Json.arr(rowId24)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId1/columns/$linkColumnId1/rows/$rowId11",
+          Json.obj("value" -> Json.arr(rowId24))
+        )
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
@@ -828,20 +856,24 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
           .map(_.getJsonArray("rows").getJsonObject(0))
           .map(_.getInteger("id"))
 
-        _ <- sendRequest("PATCH",
-                         s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23",
-                         Json.obj("value" -> Json.arr(rowId13)))
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId2/columns/$linkColumnId2/rows/$rowId23",
+          Json.obj("value" -> Json.arr(rowId13))
+        )
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, "error.database.checkSize", _) => Future.successful(())
           })
       } yield {
-        assertJSONEquals(Json.arr(
-                           Json.obj("id" -> rowId22),
-                           Json.obj("id" -> rowId21),
-                           Json.obj("id" -> rowId23)
-                         ),
-                         resultCell11.getJsonArray("value"))
+        assertJSONEquals(
+          Json.arr(
+            Json.obj("id" -> rowId22),
+            Json.obj("id" -> rowId21),
+            Json.obj("id" -> rowId23)
+          ),
+          resultCell11.getJsonArray("value")
+        )
 
         // cell 11 is already at it's limit
         assertEquals(0, resultForeignRows11.getJsonObject("page").getLong("totalSize").longValue())
@@ -849,8 +881,10 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         assertJSONEquals(Json.arr(Json.obj("id" -> rowId11)), resultCell21.getJsonArray("value"))
         assertJSONEquals(Json.arr(Json.obj("id" -> rowId11)), resultCell22.getJsonArray("value"))
-        assertJSONEquals(Json.arr(Json.obj("id" -> rowId11), Json.obj("id" -> rowId12)),
-                         resultCell23.getJsonArray("value"))
+        assertJSONEquals(
+          Json.arr(Json.obj("id" -> rowId11), Json.obj("id" -> rowId12)),
+          resultCell23.getJsonArray("value")
+        )
 
         assertEquals(1, resultForeignRows21.getJsonObject("page").getLong("totalSize").longValue())
         assertJSONEquals(Json.arr(Json.obj("id" -> rowId12)), resultForeignRows21.getJsonArray("rows"))
@@ -860,12 +894,14 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         assertEquals(0, resultForeignRows23.getJsonArray("rows").size())
 
         assertEquals(3, resultForeignRows12.getJsonObject("page").getLong("totalSize").longValue())
-        assertJSONEquals(Json.arr(
-                           Json.obj("id" -> rowId21),
-                           Json.obj("id" -> rowId22),
-                           Json.obj("id" -> rowId24)
-                         ),
-                         resultForeignRows12.getJsonArray("rows"))
+        assertJSONEquals(
+          Json.arr(
+            Json.obj("id" -> rowId21),
+            Json.obj("id" -> rowId22),
+            Json.obj("id" -> rowId24)
+          ),
+          resultForeignRows12.getJsonArray("rows")
+        )
       }
     }
   }

@@ -173,7 +173,8 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue2)
         historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -224,7 +225,8 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", newValue2)
         historyAfterCreation <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -266,7 +268,8 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue2)
         historyAfterCreation <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -308,7 +311,8 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/7/rows/1", newValue1)
         _ <- sendRequest("POST", "/tables/1/columns/7/rows/1", newValue2)
         historyAfterCreation <- sendRequest("GET", "/tables/1/columns/7/rows/1/history?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -349,7 +353,8 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("DE" -> 2999.99)))
         _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", Json.obj("value" -> Json.obj("DE" -> 4000)))
         historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -381,7 +386,8 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue1)
         historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
       } yield {
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
@@ -499,14 +505,17 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("DELETE", "/tables/1/columns/3/rows/1")
 
         textHistoryRows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de-DE?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
         booleanHistoryRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history/de-DE?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
         numericHistoryRows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history/de-DE?historyType=cell").map(
-          toRowsArray)
+          toRowsArray
+        )
 
         textHistory = textHistoryRows.get[JsonObject](1)
-        //for boolean setting one value also sets all other langtags to false, so take pos=2
+        // for boolean setting one value also sets all other langtags to false, so take pos=2
         booleanHistory = booleanHistoryRows.get[JsonObject](2)
         numericHistory = numericHistoryRows.get[JsonObject](1)
       } yield {
@@ -1017,18 +1026,22 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
 
       } yield {
         JSONAssert
-          .assertEquals("""[{"id": 4, "value": "table2RowId2"}]""",
-                        historyAfterCreation.toString,
-                        JSONCompareMode.STRICT)
+          .assertEquals(
+            """[{"id": 4, "value": "table2RowId2"}]""",
+            historyAfterCreation.toString,
+            JSONCompareMode.STRICT
+          )
 
         assertEquals(2, backLinkRow3.size())
         assertEquals(2, backLinkRow4.size())
         assertEquals(2, backLinkRow5.size())
 
         JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""[{"id": 1, "value": "table1row1"}]""",
-                                getLinksValue(backLinkRow4, 1).toString,
-                                JSONCompareMode.STRICT)
+        JSONAssert.assertEquals(
+          """[{"id": 1, "value": "table1row1"}]""",
+          getLinksValue(backLinkRow4, 1).toString,
+          JSONCompareMode.STRICT
+        )
         JSONAssert.assertEquals("[]", getLinksValue(backLinkRow5, 1).toString, JSONCompareMode.LENIENT)
       }
     }
@@ -1058,13 +1071,17 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         assertEquals(1, linksTable1Rows5.size())
 
         JSONAssert
-          .assertEquals("""[{"id": 3}, {"id": 4}]""",
-                        getLinksValue(linksTable2Rows, 0).toString,
-                        JSONCompareMode.STRICT_ORDER)
+          .assertEquals(
+            """[{"id": 3}, {"id": 4}]""",
+            getLinksValue(linksTable2Rows, 0).toString,
+            JSONCompareMode.STRICT_ORDER
+          )
         JSONAssert
-          .assertEquals("""[{"id": 3}, {"id": 4}, {"id": 5}]""",
-                        getLinksValue(linksTable2Rows, 1).toString,
-                        JSONCompareMode.STRICT_ORDER)
+          .assertEquals(
+            """[{"id": 3}, {"id": 4}, {"id": 5}]""",
+            getLinksValue(linksTable2Rows, 1).toString,
+            JSONCompareMode.STRICT_ORDER
+          )
       }
     }
   }
@@ -1167,8 +1184,10 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
       } yield {
         import scala.collection.JavaConverters._
 
-        assertEquals(List(5, 4, 3),
-                     links.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") }))
+        assertEquals(
+          List(5, 4, 3),
+          links.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") })
+        )
         JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
       }
     }
@@ -1260,7 +1279,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
   @Test
   def changeSimpleValue_secondChangeWithHistoryFeature_shouldAgainCreateSingleHistoryEntries(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
@@ -1296,7 +1316,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
   @Test
   def changeMultilanguageValue_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
@@ -1340,7 +1361,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
   @Test
   def changeCurrencyPOST_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
@@ -1733,7 +1755,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
   @Test
   def deleteMultilanguageCell_firstChangeWithHistoryFeature_shouldCreateInitialHistoryEntry(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
@@ -2004,9 +2027,11 @@ class CreateAttachmentHistoryTest extends MediaTestBase with TestHelper {
         fileUuid2 <- createTestAttachment("Test 2")
         fileUuid3 <- createTestAttachment("Test 3")
 
-        _ <- sendRequest("POST",
-                         s"/tables/1/columns/3/rows/1",
-                         Json.obj("value" -> Json.arr(fileUuid1, fileUuid2, fileUuid3)))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/columns/3/rows/1",
+          Json.obj("value" -> Json.arr(fileUuid1, fileUuid2, fileUuid3))
+        )
         _ <- sendRequest("DELETE", s"/tables/1/columns/3/rows/1/attachment/$fileUuid2")
 
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
@@ -2056,13 +2081,17 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- createEmptyDefaultTable()
         _ <- sendRequest("POST", "/tables/1/rows")
 
-        uuid1 <- sendRequest("POST",
-                             "/tables/1/columns/1/rows/1/annotations",
-                             Json.obj("type" -> "info", "value" -> "Test 1")).map(_.getString("uuid"))
+        uuid1 <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          Json.obj("type" -> "info", "value" -> "Test 1")
+        ).map(_.getString("uuid"))
 
-        uuid2 <- sendRequest("POST",
-                             "/tables/1/columns/1/rows/1/annotations",
-                             Json.obj("type" -> "info", "value" -> "Test 2")).map(_.getString("uuid"))
+        uuid2 <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          Json.obj("type" -> "info", "value" -> "Test 2")
+        ).map(_.getString("uuid"))
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_comment").map(toRowsArray)
 
@@ -2084,12 +2113,16 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
 
         // add annotations
-        uuid1 <- sendRequest("POST",
-                             "/tables/1/columns/1/rows/1/annotations",
-                             Json.obj("type" -> "info", "value" -> "Test 1")).map(_.getString("uuid"))
-        uuid2 <- sendRequest("POST",
-                             "/tables/1/columns/1/rows/1/annotations",
-                             Json.obj("type" -> "info", "value" -> "Test 2")).map(_.getString("uuid"))
+        uuid1 <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          Json.obj("type" -> "info", "value" -> "Test 1")
+        ).map(_.getString("uuid"))
+        uuid2 <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          Json.obj("type" -> "info", "value" -> "Test 2")
+        ).map(_.getString("uuid"))
 
         // remove annotations
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid1")
@@ -2180,9 +2213,11 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows")
 
-        uuid <- sendRequest("POST",
-                            "/tables/1/columns/1/rows/1/annotations",
-                            annotation("needs_translation", Json.arr("de-DE"))).map(_.getString("uuid"))
+        uuid <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          annotation("needs_translation", Json.arr("de-DE"))
+        ).map(_.getString("uuid"))
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
 
@@ -2206,9 +2241,11 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows")
 
-        uuid <- sendRequest("POST",
-                            "/tables/1/columns/1/rows/1/annotations",
-                            annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
+        uuid <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          annotation("needs_translation", Json.arr("de-DE", "en-GB"))
+        ).map(_.getString("uuid"))
 
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell_flag").map(toRowsArray)
       } yield {
@@ -2238,9 +2275,11 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
 
         // add two annotations
-        uuid <- sendRequest("POST",
-                            "/tables/1/columns/1/rows/1/annotations",
-                            annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
+        uuid <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          annotation("needs_translation", Json.arr("de-DE", "en-GB"))
+        ).map(_.getString("uuid"))
 
         // remove both annotations
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid")
@@ -2276,9 +2315,11 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
 
         // add two annotations
-        uuid <- sendRequest("POST",
-                            "/tables/1/columns/1/rows/1/annotations",
-                            annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
+        uuid <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          annotation("needs_translation", Json.arr("de-DE", "en-GB"))
+        ).map(_.getString("uuid"))
 
         // remove german annotation
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid/de-DE")
@@ -2306,9 +2347,11 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
 
         // add two annotations
-        uuid <- sendRequest("POST",
-                            "/tables/1/columns/1/rows/1/annotations",
-                            annotation("needs_translation", Json.arr("de-DE", "en-GB"))).map(_.getString("uuid"))
+        uuid <- sendRequest(
+          "POST",
+          "/tables/1/columns/1/rows/1/annotations",
+          annotation("needs_translation", Json.arr("de-DE", "en-GB"))
+        ).map(_.getString("uuid"))
 
         // remove them one by one
         _ <- sendRequest("DELETE", s"/tables/1/columns/1/rows/1/annotations/$uuid/de-DE")
@@ -2506,7 +2549,9 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
       val createStringColumnJson =
         Json.obj(
           "columns" -> Json.arr(
-            Json.obj("kind" -> "shorttext", "name" -> "column", "identifier" -> true, "languageType" -> "language")))
+            Json.obj("kind" -> "shorttext", "name" -> "column", "identifier" -> true, "languageType" -> "language")
+          )
+        )
 
       for {
         // prepare table
@@ -2514,12 +2559,16 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
         columns <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson).map(_.getJsonArray("columns"))
 
         // add rows
-        _ <- sendRequest("POST",
-                         s"/tables/1/rows",
-                         Rows(columns, Json.obj("column" -> Json.obj("de-DE" -> "a", "en-GB" -> "b"))))
-        _ <- sendRequest("POST",
-                         s"/tables/1/rows",
-                         Rows(columns, Json.obj("column" -> Json.obj("de-DE" -> "c", "en-GB" -> "d"))))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/rows",
+          Rows(columns, Json.obj("column" -> Json.obj("de-DE" -> "a", "en-GB" -> "b")))
+        )
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/rows",
+          Rows(columns, Json.obj("column" -> Json.obj("de-DE" -> "c", "en-GB" -> "d")))
+        )
 
         rowsCreated <- sendRequest("GET", s"/tables/1/history?historyType=row").map(toRowsArray)
       } yield {
@@ -2789,12 +2838,16 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         JSONAssert.assertEquals("""[]""", getLinksValue(table2Row4, 1).toString, JSONCompareMode.STRICT_ORDER)
         JSONAssert.assertEquals(linkToTable1Row3, getLinksValue(table2Row5, 0).toString, JSONCompareMode.STRICT_ORDER)
 
-        JSONAssert.assertEquals("""[{"id": 3}, {"id": 4}, {"id": 5}]""",
-                                getLinksValue(table1Row3, 0).toString,
-                                JSONCompareMode.STRICT_ORDER)
-        JSONAssert.assertEquals("""[{"id": 3}, {"id": 5}]""",
-                                getLinksValue(table1Row3, 1).toString,
-                                JSONCompareMode.STRICT_ORDER)
+        JSONAssert.assertEquals(
+          """[{"id": 3}, {"id": 4}, {"id": 5}]""",
+          getLinksValue(table1Row3, 0).toString,
+          JSONCompareMode.STRICT_ORDER
+        )
+        JSONAssert.assertEquals(
+          """[{"id": 3}, {"id": 5}]""",
+          getLinksValue(table1Row3, 1).toString,
+          JSONCompareMode.STRICT_ORDER
+        )
       }
     }
   }
@@ -2833,9 +2886,11 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         assertJSONEquals("""[{"id": 3}]""", getLinksValue(t2r5, 0).toString, JSONCompareMode.STRICT_ORDER)
 
         assertJSONEquals("""[{"id": 3}, {"id": 4}]""", getLinksValue(t1r3, 0).toString, JSONCompareMode.STRICT_ORDER)
-        assertJSONEquals("""[{"id": 3}, {"id": 4}, {"id": 5}]""",
-                         getLinksValue(t1r3, 1).toString,
-                         JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(
+          """[{"id": 3}, {"id": 4}, {"id": 5}]""",
+          getLinksValue(t1r3, 1).toString,
+          JSONCompareMode.STRICT_ORDER
+        )
       }
     }
   }

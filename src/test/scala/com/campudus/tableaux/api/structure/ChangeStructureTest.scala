@@ -101,12 +101,15 @@ class ChangeStructureTest extends TableauxTestBase {
       for {
         _ <- createDefaultTable()
 
-        _ <- sendRequest("POST",
-                         "/tables/1/rows",
-                         Json.obj(
-                           "rows" ->
-                             Json.obj("values" ->
-                               Json.arr("Test", 5))))
+        _ <- sendRequest(
+          "POST",
+          "/tables/1/rows",
+          Json.obj(
+            "rows" ->
+              Json.obj("values" ->
+                Json.arr("Test", 5))
+          )
+        )
 
         // change numeric column to text column
         changeToText <- sendRequest("POST", "/tables/1/columns/2", kindTextJson)

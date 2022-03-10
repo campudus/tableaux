@@ -135,10 +135,12 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                     |}""".stripMargin)
 
     val controller = createMediaController(roleModel)
-    controller.addFile(MultiLanguageValue("de" -> "file"),
-                       MultiLanguageValue.empty(),
-                       MultiLanguageValue("de" -> "file.pdf"),
-                       None)
+    controller.addFile(
+      MultiLanguageValue("de" -> "file"),
+      MultiLanguageValue.empty(),
+      MultiLanguageValue("de" -> "file.pdf"),
+      None
+    )
   }
 
   @Test
@@ -146,10 +148,12 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
     exceptionTest("error.request.unauthorized") {
 
       val controller = createMediaController()
-      controller.addFile(MultiLanguageValue("de" -> "file"),
-                         MultiLanguageValue.empty(),
-                         MultiLanguageValue("de" -> "file.pdf"),
-                         None)
+      controller.addFile(
+        MultiLanguageValue("de" -> "file"),
+        MultiLanguageValue.empty(),
+        MultiLanguageValue("de" -> "file.pdf"),
+        None
+      )
     }
 
   @Test
@@ -342,8 +346,10 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
       val file = s"/com/campudus/tableaux/uploads/$fileName"
       val mimetype = "application/pdf"
 
-      val putFile1 = Json.obj("title" -> Json.obj("de" -> "Test PDF 1"),
-                              "description" -> Json.obj("de" -> "A description about that PDF. 1"))
+      val putFile1 = Json.obj(
+        "title" -> Json.obj("de" -> "Test PDF 1"),
+        "description" -> Json.obj("de" -> "A description about that PDF. 1")
+      )
 
       for {
         fileUuid1 <- createFile("de", file, mimetype, None).map(_.getString("uuid"))

@@ -70,7 +70,7 @@ class StatusValuesTest extends TableauxTestBase {
           Json.obj(
             "column" -> 2,
             "operator" -> "IS",
-            "value" -> "wrong_text_value" //wrong value, should fail
+            "value" -> "wrong_text_value" // wrong value, should fail
           ),
           Json.obj(
             "column" -> 4,

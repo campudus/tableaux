@@ -9,12 +9,15 @@ trait JsonAssertable[T] {
 }
 
 object JsonAssertable {
+
   implicit object String extends JsonAssertable[String] {
     def serialize(t: String) = t
   }
+
   implicit object JsonObject extends JsonAssertable[JsonObject] {
     def serialize(t: JsonObject) = t.toString
   }
+
   implicit object JsonArray extends JsonAssertable[JsonArray] {
     def serialize(t: JsonArray) = t.toString
   }

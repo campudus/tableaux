@@ -28,7 +28,8 @@ class RetrieveHistoryTest extends TableauxTestBase {
           """INSERT INTO
             |  user_table_history_1(row_id, column_id, history_type, value_type, language_type, value)
             |VALUES
-            |  (1, 1, 'cell', 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
+            |  (1, 1, 'cell', 'numeric', 'neutral', '{"value": 42}')""".stripMargin
+        )
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
@@ -56,7 +57,8 @@ class RetrieveHistoryTest extends TableauxTestBase {
           """INSERT INTO
             |  user_table_history_1(row_id, column_id, history_type, value_type, language_type, value)
             |VALUES
-            |  (1, 1, 'cell', 'numeric', 'neutral', null)""".stripMargin)
+            |  (1, 1, 'cell', 'numeric', 'neutral', null)""".stripMargin
+        )
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
@@ -94,7 +96,8 @@ class RetrieveHistoryTest extends TableauxTestBase {
             |  (1, 1, 'cell', 'numeric', 'language', '{"value": {"de": "change1"}}'),
             |  (1, 1, 'cell', 'numeric', 'language', '{"value": {"de": "change2"}}'),
             |  (1, 1, 'cell', 'numeric', 'language', '{"value": {"de": "change3"}}')
-            |  """.stripMargin)
+            |  """.stripMargin
+        )
 
         result <- sendRequest("GET", "/tables/1/columns/1/rows/1/history")
       } yield {
@@ -153,7 +156,8 @@ class RetrieveHistoryTest extends TableauxTestBase {
           """INSERT INTO
             |  user_table_history_1(row_id, column_id, history_type, value_type, language_type, value)
             |VALUES
-            |  (1, 1, 'cell', 'numeric', 'neutral', '{"value": 42}')""".stripMargin)
+            |  (1, 1, 'cell', 'numeric', 'neutral', '{"value": 42}')""".stripMargin
+        )
         _ <- sendRequest("GET", "/tables/1/columns/1/rows/1/history/de")
       } yield ()
     }
@@ -180,7 +184,8 @@ class RetrieveHistoryTest extends TableauxTestBase {
             |  (2, null, 'row_created',  'row',    null,     null,       null),
             |  (2, 1,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change5"}}'),
             |  (2, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change6"}}')
-            |  """.stripMargin)
+            |  """.stripMargin
+        )
 
         allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
         createdRows <- sendRequest("GET", "/tables/1/history?historyType=row").map(_.getJsonArray("rows"))
@@ -219,7 +224,8 @@ class RetrieveHistoryTest extends TableauxTestBase {
             |  (1 ,NULL ,E'annotation_added'   ,E'row_flag'       ,E'final'             ,E'neutral'  , E'{"value": "final"}'                                                                        ),
             |  (1 ,NULL ,E'annotation_removed' ,E'row_flag'       ,E'final'             ,E'neutral'  , E'{"value": "final"}'                                                                        ),
             |  (1 ,1    ,E'annotation_added'   ,E'cell_comment'   ,E'info'              ,E'neutral'  , E'{"value": "This is a comment", "uuid": "12f456aa-cd9e-4c95-964e-99044857714c"}'            )
-            |""".stripMargin)
+            |""".stripMargin
+        )
 
         allLangtagFiltered <- sendRequest("GET", "/tables/1/history/de-DE").map(_.getJsonArray("rows"))
         typeRow <- sendRequest("GET", "/tables/1/history/de-DE").map(_.getJsonArray("rows")).map(filterByType("row"))

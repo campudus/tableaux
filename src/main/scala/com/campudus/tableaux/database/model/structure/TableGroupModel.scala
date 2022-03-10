@@ -123,14 +123,17 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
           case (future, di) =>
             for {
               t <- future
-              (t, select) <- t.query("SELECT COUNT(*) FROM system_tablegroup_lang WHERE id = ? AND langtag = ?",
-                                     Json.arr(tableGroupId, di.langtag))
+              (t, select) <- t.query(
+                "SELECT COUNT(*) FROM system_tablegroup_lang WHERE id = ? AND langtag = ?",
+                Json.arr(tableGroupId, di.langtag)
+              )
               count = select.getJsonArray("results").getJsonArray(0).getLong(0)
-              (statement, binds) = if (count > 0) {
-                dis.updateSql(di.langtag)
-              } else {
-                dis.insertSql(di.langtag)
-              }
+              (statement, binds) =
+                if (count > 0) {
+                  dis.updateSql(di.langtag)
+                } else {
+                  dis.insertSql(di.langtag)
+                }
               (t, _) <- t.query(statement, Json.arr(binds: _*))
             } yield t
         }

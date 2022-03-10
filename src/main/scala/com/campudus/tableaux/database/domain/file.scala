@@ -33,7 +33,8 @@ case class TableauxFile(
   )
 
   /**
-    * @return None if multi-language and Some('de-DE') if single-language
+    * @return
+    *   None if multi-language and Some('de-DE') if single-language
     */
   def isSingleLanguage: Option[String] = {
     internalName.values.toList match {

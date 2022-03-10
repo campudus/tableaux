@@ -31,27 +31,22 @@ case object Enrich extends LoggingMethod
 /**
   * RoleModel is responsible for providing these main functions:
   *
-  * - checkAuthorization:
-  *       A check method for `POST`, `PUT`, `PATCH` und `DELETE` requests.
+  *   - checkAuthorization: A check method for `POST`, `PUT`, `PATCH` und `DELETE` requests.
   *
-  * - filterDomainObjects:
-  *       A filter method for `GET` requests, to only return viewable items.
-  *       If a `GET` requests a specific resource, checkAuthorization should be called instead.
+  *   - filterDomainObjects: A filter method for `GET` requests, to only return viewable items. If a `GET` requests a
+  *     specific resource, checkAuthorization should be called instead.
   *
-  * - enrichDomainObject:
-  *       A enrich method for selected `GET` requests, to extend response items with permissions objects.
+  *   - enrichDomainObject: A enrich method for selected `GET` requests, to extend response items with permissions
+  *     objects.
   *
-  *
-  * History feature and recursive requests like deleteRow with delete cascade could
-  * trigger retrieve* methods that are not allowed for a user. In this case we must mark these
-  * requests as internal so they are always granted (isInternalCall: Boolean).
-  *
+  * History feature and recursive requests like deleteRow with delete cascade could trigger retrieve* methods that are
+  * not allowed for a user. In this case we must mark these requests as internal so they are always granted
+  * (isInternalCall: Boolean).
   */
 class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   /**
-    * Checks if a writing request is allowed to change a resource.
-    * If not a UnauthorizedException is thrown.
+    * Checks if a writing request is allowed to change a resource. If not a UnauthorizedException is thrown.
     */
   def checkAuthorization(
       action: Action,
@@ -78,11 +73,9 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   }
 
   /**
-    * Filters the returning domainObjects of a response of
-    * a `GET` requests to only viewable items.
+    * Filters the returning domainObjects of a response of a `GET` requests to only viewable items.
     *
-    * For example, when filtering columns, it is also possible to
-    * filter them according to their table.
+    * For example, when filtering columns, it is also possible to filter them according to their table.
     */
   def filterDomainObjects[A](
       scope: Scope,
@@ -113,8 +106,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   }
 
   /**
-    * Enriches a domainObject with a permission object to
-    * extend the response item with additional permission info.
+    * Enriches a domainObject with a permission object to extend the response item with additional permission info.
     */
   def enrichDomainObject(
       inputJson: JsonObject,
@@ -204,11 +196,15 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
           editCellValueJson.mergeIn(
             Json.obj(
               lt ->
-                isAllowed(userRoles,
-                          EditCellValue,
-                          ScopeColumn,
-                          _.isMatching(comparisonObjectsWithLangtagCheckValue),
-                          Enrich)))
+                isAllowed(
+                  userRoles,
+                  EditCellValue,
+                  ScopeColumn,
+                  _.isMatching(comparisonObjectsWithLangtagCheckValue),
+                  Enrich
+                )
+            )
+          )
         })
 
         editCellValueJson
@@ -279,8 +275,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   }
 
   /**
-    * Core function that checks whether an action in a scope is allowed or
-    * denied for given set of user roles. The return value is a boolean.
+    * Core function that checks whether an action in a scope is allowed or denied for given set of user roles. The
+    * return value is a boolean.
     */
   private def isAllowed(
       userRoles: Seq[String],
@@ -311,8 +307,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   /**
     * Convenient method that combines two concerns.
-    *   1. Logs a generated message with information which role matched with a permission
-    *   2. And depending on the PermissionType, it returns a Boolean result whether it allows or permits an action.
+    *   1. Logs a generated message with information which role matched with a permission 2. And depending on the
+    *      PermissionType, it returns a Boolean result whether it allows or permits an action.
     */
   private def returnAndLog(permissionType: PermissionType, messageCurry: PermissionType => String): Boolean = {
     logger.debug(messageCurry(permissionType))
@@ -343,12 +339,10 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     jsonObject
       .fieldNames()
       .asScala
-      .map(
-        roleName => {
-          val permissionsJson: Seq[JsonObject] = asSeqOf[JsonObject](jsonObject.getJsonArray(roleName))
-          (roleName, permissionsJson.map(permissionJson => Permission(permissionJson, roleName)))
-        }
-      )
+      .map(roleName => {
+        val permissionsJson: Seq[JsonObject] = asSeqOf[JsonObject](jsonObject.getJsonArray(roleName))
+        (roleName, permissionsJson.map(permissionJson => Permission(permissionJson, roleName)))
+      })
       .toMap
 
   override def toString: String =
@@ -364,16 +358,19 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   def filterPermissions(roleNames: Seq[String], permissionType: PermissionType, scope: Scope): Seq[Permission] =
     filterPermissions(roleNames, Some(permissionType), None, Some(scope))
 
-  def filterPermissions(roleNames: Seq[String],
-                        permissionType: PermissionType,
-                        action: Action,
-                        scope: Scope): Seq[Permission] =
+  def filterPermissions(
+      roleNames: Seq[String],
+      permissionType: PermissionType,
+      action: Action,
+      scope: Scope
+  ): Seq[Permission] =
     filterPermissions(roleNames, Some(permissionType), Some(action), Some(scope))
 
   /**
     * Filters permissions for role name, permissionType, action and scope
     *
-    * @return a subset of permissions
+    * @return
+    *   a subset of permissions
     */
   def filterPermissions(
       roleNames: Seq[String],
@@ -401,25 +398,27 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     langtags.foreach(lt =>
       if (!value.containsKey(lt)) {
         value.mergeIn(Json.obj(lt -> ""))
-    })
+      }
+    )
     value
   }
 }
 
 /**
-  * This class provides a legacy mode for downward compatibility purposes.
-  * If no authorization configuration is specified, the service starts without verifying
-  * access tokens and without authorizing user roles and permissions.
+  * This class provides a legacy mode for downward compatibility purposes. If no authorization configuration is
+  * specified, the service starts without verifying access tokens and without authorizing user roles and permissions.
   */
 class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
 
   override def checkAuthorization(action: Action, scope: Scope, objects: ComparisonObjects, isInternalCall: Boolean)(
-      implicit requestContext: RequestContext): Future[Unit] = {
+      implicit requestContext: RequestContext
+  ): Future[Unit] = {
     Future.successful(())
   }
 
   override def enrichDomainObject(inputJson: JsonObject, scope: Scope, objects: ComparisonObjects)(
-      implicit requestContext: RequestContext): JsonObject = {
+      implicit requestContext: RequestContext
+  ): JsonObject = {
     inputJson
   }
 

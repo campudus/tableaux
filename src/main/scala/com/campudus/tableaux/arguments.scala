@@ -38,7 +38,8 @@ case class FailArg[A](ex: CustomException) extends ArgumentCheck[A] {
 }
 
 /**
-  * @author <a href="http://www.campudus.com">Joern Bernhardt</a>.
+  * @author
+  *   <a href="http://www.campudus.com">Joern Bernhardt</a>.
   */
 object ArgumentChecker {
 

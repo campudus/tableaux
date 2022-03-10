@@ -32,10 +32,14 @@ object LinkDirection {
     * Depending on the point of view, the link may be in different directions (left-to-right or right-to-left). This
     * method retrieves the correct link direction which can be used to get SQL and the correct table ids.
     *
-    * @param fromTableId The table that was used to start from.
-    * @param tableId1 The table we found in the database in column 1.
-    * @param tableId2 The table we found in the database in column 2.
-    * @return The correct link direction with the respective values.
+    * @param fromTableId
+    *   The table that was used to start from.
+    * @param tableId1
+    *   The table we found in the database in column 1.
+    * @param tableId2
+    *   The table we found in the database in column 2.
+    * @return
+    *   The correct link direction with the respective values.
     */
   def apply(
       fromTableId: TableId,
@@ -57,11 +61,9 @@ object LinkDirection {
 }
 
 /**
-  * LinkColumn (created at Table A) points to Table B
-  * Retrieve link values for Table A => LeftToRight
-  * Retrieve link values for Table B => RightToLeft
-  * More less it depends on the point of view.
-  **/
+  * LinkColumn (created at Table A) points to Table B Retrieve link values for Table A => LeftToRight Retrieve link
+  * values for Table B => RightToLeft More less it depends on the point of view.
+  */
 sealed trait LinkDirection {
   val from: TableId
 

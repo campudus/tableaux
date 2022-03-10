@@ -122,10 +122,13 @@ trait TableauxTestBase
     val tokenHelper = TokenHelper(this.vertxAccess())
 
     wildcardAccessToken = tokenHelper.generateToken(
-      Json.obj("aud" -> "grud-backend",
-               "iss" -> "campudus-test",
-               "preferred_username" -> "Test",
-               "realm_access" -> Json.obj("roles" -> Json.arr("dev"))))
+      Json.obj(
+        "aud" -> "grud-backend",
+        "iss" -> "campudus-test",
+        "preferred_username" -> "Test",
+        "realm_access" -> Json.obj("roles" -> Json.arr("dev"))
+      )
+    )
 
     requestContext.resetPrincipal()
   }
@@ -150,11 +153,10 @@ trait TableauxTestBase
   /**
     * Helper method to set up Tests without running into permission problem (UnauthorizedException)
     *
-    *   1. Sets a userRole for requestContext
-    *   2. Invokes a function block with this userRole
-    *   3. Resets the original userRoles defined by the test
+    *   1. Sets a userRole for requestContext 2. Invokes a function block with this userRole 3. Resets the original
+    *      userRoles defined by the test
     *
-    *   For this purpose there is a dummy test role "dev" in `role-permissions-test.json`.
+    * For this purpose there is a dummy test role "dev" in `role-permissions-test.json`.
     */
   protected def asDevUser[A](function: => Future[A]): Future[A] = {
     val userRolesFromTest: Seq[String] = requestContext.getUserRoles
@@ -279,22 +281,29 @@ trait TableauxTestBase
       client.close()
       p.failure(x)
   }
-  private def httpStringRequest(method: String,
-                                path: String,
-                                p: Promise[String],
-                                tokenOpt: Option[String]): HttpClientRequest = {
+
+  private def httpStringRequest(
+      method: String,
+      path: String,
+      p: Promise[String],
+      tokenOpt: Option[String]
+  ): HttpClientRequest = {
     httpRequest(method, path, createResponseHandler[String](p, _.toString), createExceptionHandler[String](p), tokenOpt)
   }
 
-  private def httpJsonRequest(method: String,
-                              path: String,
-                              p: Promise[JsonObject],
-                              tokenOpt: Option[String]): HttpClientRequest = {
-    httpRequest(method,
-                path,
-                createResponseHandler[JsonObject](p, Json.fromObjectString),
-                createExceptionHandler[JsonObject](p),
-                tokenOpt)
+  private def httpJsonRequest(
+      method: String,
+      path: String,
+      p: Promise[JsonObject],
+      tokenOpt: Option[String]
+  ): HttpClientRequest = {
+    httpRequest(
+      method,
+      path,
+      createResponseHandler[JsonObject](p, Json.fromObjectString),
+      createExceptionHandler[JsonObject](p),
+      tokenOpt
+    )
   }
 
   def httpRequest(
@@ -515,7 +524,8 @@ trait TableauxTestBase
                 Json.obj("en-GB" -> s"Hello, $tableName Col 2 Row 1!"),
                 Json.obj("de-DE" -> "2015-01-01"),
                 Json.obj("de-DE" -> "2015-01-01T14:37:47.110+01")
-              )),
+              )
+          ),
           Json.obj(
             "values" ->
               Json.arr(
@@ -529,7 +539,8 @@ trait TableauxTestBase
                 Json.obj("en-GB" -> s"Hello, $tableName Col 2 Row 2!"),
                 Json.obj("de-DE" -> "2015-01-02"),
                 Json.obj("de-DE" -> "2015-01-02T14:37:47.110+01")
-              ))
+              )
+          )
         )
       )
     }
@@ -548,12 +559,15 @@ trait TableauxTestBase
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
-      columns <- sendRequest("POST",
-                             s"/tables/$tableId/columns",
-                             Json.obj(
-                               "columns" -> Json.arr(
-                                 Json.obj("kind" -> "text", "name" -> columnName, "languageType" -> "language")
-                               )))
+      columns <- sendRequest(
+        "POST",
+        s"/tables/$tableId/columns",
+        Json.obj(
+          "columns" -> Json.arr(
+            Json.obj("kind" -> "text", "name" -> columnName, "languageType" -> "language")
+          )
+        )
+      )
       columnId = columns.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
     } yield {
       (tableId, columnId)
@@ -607,7 +621,9 @@ trait TableauxTestBase
             "kind" -> "link",
             "name" -> "column 10 (link)",
             "toTable" -> linkTo
-          )))
+          )
+        )
+      )
     }
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
@@ -644,9 +660,11 @@ trait TableauxTestBase
     for {
       table <- sendRequest("POST", "/tables", Json.obj("name" -> tableName))
       tableId = table.getLong("id").toLong
-      column <- sendRequest("POST",
-                            s"/tables/$tableId/columns",
-                            Json.obj("columns" -> Json.arr(columnTypes.map(_.getJson): _*)))
+      column <- sendRequest(
+        "POST",
+        s"/tables/$tableId/columns",
+        Json.obj("columns" -> Json.arr(columnTypes.map(_.getJson): _*))
+      )
       columnIds = column.getJsonArray("columns").asScala.toStream.map(_.asInstanceOf[JsonObject].getLong("id").toLong)
       columnsPost = Json.arr(columnIds.map(id => Json.obj("id" -> id)): _*)
       rowsPost = Json.arr(rows.map(values => Json.obj("values" -> Json.arr(values: _*))): _*)

@@ -225,7 +225,8 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
             filterScalaCaches(tableId)
               .map(implicit cache => {
                 remove(rowId)
-              }))
+              })
+          )
           .map(_ => {
             val reply = Json.obj("tableId" -> tableId, "rowId" -> rowId)
             message.reply(reply)
@@ -249,7 +250,8 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
             filterScalaCaches(tableId)
               .map(implicit cache => {
                 removeAll()
-              }))
+              })
+          )
           .map(_ => {
             val reply = Json.obj("tableId" -> tableId)
             message.reply(reply)

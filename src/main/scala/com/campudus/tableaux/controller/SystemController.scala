@@ -139,7 +139,7 @@ class SystemController(
       linkToBayern = generateToJson(2)
       linkToHessen = generateToJson(7)
 
-      //Baden-Wuerttemberg 1st row
+      // Baden-Wuerttemberg 1st row
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 8, linkToBadenWuerttemberg)
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 9, linkToBadenWuerttemberg)
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 10, linkToBadenWuerttemberg)
@@ -154,7 +154,7 @@ class SystemController(
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 6, linkToBayern)
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 7, linkToBayern)
 
-      //Hessen 7st row
+      // Hessen 7st row
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 12, linkToHessen)
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 13, linkToHessen)
       _ <- tableauxModel.replaceCellValue(rb, linkColumn.id, 14, linkToHessen)
@@ -285,14 +285,16 @@ class SystemController(
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
     logger.info(
-      s"updateService $serviceId $name $serviceType $ordering $displayName $description $active $config $scope")
+      s"updateService $serviceId $name $serviceType $ordering $displayName $description $active $config $scope"
+    )
 
     for {
-      _ <- if (isAtLeastOneStructureProperty) {
-        roleModel.checkAuthorization(EditStructureProperty, ScopeService)
-      } else {
-        roleModel.checkAuthorization(EditDisplayProperty, ScopeService)
-      }
+      _ <-
+        if (isAtLeastOneStructureProperty) {
+          roleModel.checkAuthorization(EditStructureProperty, ScopeService)
+        } else {
+          roleModel.checkAuthorization(EditDisplayProperty, ScopeService)
+        }
       _ <- serviceModel.update(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
       service <- retrieveService(serviceId)
     } yield service

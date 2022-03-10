@@ -65,11 +65,12 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
   }
 
   private def selectStatement(conditions: Option[String]): String = {
-    val where = if (conditions.isDefined) {
-      s"WHERE ${conditions.get}"
-    } else {
-      ""
-    }
+    val where =
+      if (conditions.isDefined) {
+        s"WHERE ${conditions.get}"
+      } else {
+        ""
+      }
 
     s"""SELECT
        |id,
@@ -100,12 +101,12 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
       })
 
     Folder(
-      arr.get[FolderId](0), //id
-      arr.get[String](1), //name
-      arr.get[String](2), //description
-      parents, //parents
-      convertStringToDateTime(arr.get[String](4)), //created_at
-      convertStringToDateTime(arr.get[String](5)) //updated_at
+      arr.get[FolderId](0), // id
+      arr.get[String](1), // name
+      arr.get[String](2), // description
+      parents, // parents
+      convertStringToDateTime(arr.get[String](4)), // created_at
+      convertStringToDateTime(arr.get[String](5)) // updated_at
     )
   }
 
@@ -171,7 +172,8 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
         case true => Future.successful(())
         case false =>
           Future.failed(
-            new ShouldBeUniqueException(s"Name of folder should be unique ($parent, $folder, $name).", "foldername"))
+            new ShouldBeUniqueException(s"Name of folder should be unique ($parent, $folder, $name).", "foldername")
+          )
       })
   }
 }

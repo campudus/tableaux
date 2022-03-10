@@ -19,7 +19,8 @@ import scala.concurrent.Future
 class PerformanceTest extends TableauxTestBase {
 
   private def createTableWithMultilanguageColumnsAndConcatColumn(
-      tableName: String): Future[(TableId, Seq[ColumnId])] = {
+      tableName: String
+  ): Future[(TableId, Seq[ColumnId])] = {
     val createMultilanguageColumn = Json.obj(
       "columns" ->
         Json.arr(
@@ -66,7 +67,8 @@ class PerformanceTest extends TableauxTestBase {
             "toTable" -> linkTo,
             "toName" -> "Test Column 10"
           )
-        ))
+        )
+      )
     }
 
     def valuesRow = {
@@ -112,7 +114,8 @@ class PerformanceTest extends TableauxTestBase {
                   "de-DE" -> "2015-01-01T13:37:47.110Z",
                   "en-GB" -> "2016-01-01T13:37:47.110Z"
                 )
-              ))
+              )
+          )
         )
       )
     }
@@ -172,7 +175,8 @@ class PerformanceTest extends TableauxTestBase {
                 Json.obj(
                   "values" -> Json.arr(linkRowId)
                 )
-              ))
+              )
+          )
         )
       )
     }
@@ -238,9 +242,11 @@ class PerformanceTest extends TableauxTestBase {
               Future
                 .sequence(group.map({ rowId: Int =>
                   {
-                    sendStringRequest("POST",
-                                      s"/tables/${table1._1}/rows",
-                                      valuesRowWithLink(linkColumnId1, linkColumnId2, linkColumnId3, rowId))
+                    sendStringRequest(
+                      "POST",
+                      s"/tables/${table1._1}/rows",
+                      valuesRowWithLink(linkColumnId1, linkColumnId2, linkColumnId3, rowId)
+                    )
                   }
                 }))
                 .map({ _ =>
@@ -286,11 +292,11 @@ class PerformanceTest extends TableauxTestBase {
       elapsedTimesReadingRows <- Range(1, times + warmUp).foldLeft(Future.successful(Seq.empty[Long]))({
         case (resultsFuture, _) =>
           resultsFuture.flatMap({ results => // Send request and measure round-trip time in ms
-          {
-            for {
-              duration <- sendTimedRequest("GET", "/tables/1/rows")
-            } yield results ++ Seq(duration)
-          }
+            {
+              for {
+                duration <- sendTimedRequest("GET", "/tables/1/rows")
+              } yield results ++ Seq(duration)
+            }
           })
 
       })

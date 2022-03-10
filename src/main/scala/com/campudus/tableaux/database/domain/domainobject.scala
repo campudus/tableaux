@@ -46,16 +46,16 @@ trait DomainObject extends DomainObjectHelper {
   def getJson: JsonObject
 
   /**
-    * Returns an empty JsonObject. It's used
-    * as response for all requests which don't
-    * need a response body.
+    * Returns an empty JsonObject. It's used as response for all requests which don't need a response body.
     *
-    * @return empty JsonObject
+    * @return
+    *   empty JsonObject
     */
   final def emptyJson: JsonObject = Json.obj()
 
   /**
-    * @param returnType get, set or empty
+    * @param returnType
+    *   get, set or empty
     * @return
     */
   final def toJson(returnType: ReturnType): JsonObject = returnType match {
@@ -66,7 +66,8 @@ trait DomainObject extends DomainObjectHelper {
   /**
     * Uses getJson to encode DomainObject as String
     *
-    * @return String representation of DomainObject
+    * @return
+    *   String representation of DomainObject
     */
   override def toString: String = getJson.encode()
 }
@@ -111,8 +112,7 @@ object MultiLanguageValue {
   }
 
   /**
-    * Map Map(column -> Map(langtag -> value))
-    * to Map(langtag -> Map(column -> value))
+    * Map Map(column -> Map(langtag -> value)) to Map(langtag -> Map(column -> value))
     */
   def merge(map: Map[String, Map[String, Any]]): Map[String, Map[String, Any]] = {
     val result = mutable.Map.empty[String, mutable.Map[String, Any]]

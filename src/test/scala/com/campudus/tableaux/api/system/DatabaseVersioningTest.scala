@@ -65,7 +65,8 @@ class DatabaseVersioningTest extends TableauxTestBase {
 
         // Needs to create tables like it did in database version 1
         inserted <- dbConnection.query(
-          "INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id")
+          "INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id"
+        )
 
         tableId1 = inserted.getJsonArray("results").getJsonArray(0).getLong(0)
         _ <- dbConnection.query(sqlUserTable(tableId1))
@@ -112,7 +113,8 @@ class DatabaseVersioningTest extends TableauxTestBase {
 
         // Needs to create tables like it did in database version 1
         inserted <- dbConnection.query(
-          "INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id")
+          "INSERT INTO system_table (user_table_name) VALUES ('table1'),('table2') RETURNING table_id"
+        )
 
         tableId1 = inserted.getJsonArray("results").getJsonArray(0).getLong(0)
         _ <- dbConnection.query(sqlUserTable(tableId1))

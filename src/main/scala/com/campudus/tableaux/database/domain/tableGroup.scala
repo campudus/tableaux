@@ -16,11 +16,13 @@ case class TableGroup(id: TableId, displayInfos: Seq[DisplayInfo]) extends Domai
       {
         di.optionalName.map(name => {
           result.mergeIn(
-            Json.obj("displayName" -> result.getJsonObject("displayName").mergeIn(Json.obj(di.langtag -> name))))
+            Json.obj("displayName" -> result.getJsonObject("displayName").mergeIn(Json.obj(di.langtag -> name)))
+          )
         })
         di.optionalDescription.map(desc => {
           result.mergeIn(
-            Json.obj("description" -> result.getJsonObject("description").mergeIn(Json.obj(di.langtag -> desc))))
+            Json.obj("description" -> result.getJsonObject("description").mergeIn(Json.obj(di.langtag -> desc)))
+          )
         })
       }
     }

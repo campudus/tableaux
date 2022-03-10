@@ -49,8 +49,10 @@ class DomainObjectTest {
     val actual = DomainObject.compatibilityGet(cell)
 
     JSONAssert
-      .assertEquals(s"""{"value": [{"value": 1}, {"value": 2}, {"value": 3}]}""",
-                    actual.toString,
-                    JSONCompareMode.STRICT)
+      .assertEquals(
+        s"""{"value": [{"value": 1}, {"value": 2}, {"value": 3}]}""",
+        actual.toString,
+        JSONCompareMode.STRICT
+      )
   }
 }

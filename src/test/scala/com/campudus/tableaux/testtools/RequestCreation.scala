@@ -72,6 +72,7 @@ object RequestCreation {
   case class StatusCol(name: String) extends ColumnType("status")
 
   sealed abstract class BaseGroupCol(groups: Seq[ColumnId]) extends ColumnType("group") {
+
     override def getJson: JsonObject = {
       super.getJson.mergeIn(
         Json.obj(
@@ -94,7 +95,8 @@ object RequestCreation {
         Json.obj(
           "toTable" -> linkTo,
           "singleDirection" -> !biDirectional
-        ))
+        )
+      )
     }
   }
 

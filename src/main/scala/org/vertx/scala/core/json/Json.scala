@@ -90,49 +90,59 @@ object JsonElemOps {
 /**
   * Helper to construct JsonObjects and JsonArrays.
   *
-  * @author Edgar Chan
-  * @author <a href="http://www.campudus.com/">Joern Bernhardt</a>
+  * @author
+  *   Edgar Chan
+  * @author
+  *   <a href="http://www.campudus.com/">Joern Bernhardt</a>
   */
 object Json {
 
   /**
     * Creates a JsonArray from an encoded JSON string.
     *
-    * @param json The JSON string.
+    * @param json
+    *   The JSON string.
     *
-    * @return The decoded JsonArray.
+    * @return
+    *   The decoded JsonArray.
     */
   def fromArrayString(json: String): core.json.JsonArray = new core.json.JsonArray(json)
 
   /**
     * Creates a JsonObject from an encoded JSON string.
     *
-    * @param json The JSON string.
+    * @param json
+    *   The JSON string.
     *
-    * @return The decoded JsonObject.
+    * @return
+    *   The decoded JsonObject.
     */
   def fromObjectString(json: String): core.json.JsonObject = new core.json.JsonObject(json)
 
   /**
     * Creates an empty JsonArray.
     *
-    * @return An empty JsonArray.
+    * @return
+    *   An empty JsonArray.
     */
   def emptyArr(): core.json.JsonArray = new core.json.JsonArray()
 
   /**
     * Creates an empty JsonObject.
     *
-    * @return An empty JsonObject.
+    * @return
+    *   An empty JsonObject.
     */
   def emptyObj(): core.json.JsonObject = new core.json.JsonObject()
 
   /**
     * Constructs a JsonObject from a fieldName -> value pairs.
     *
-    * @param fields The fieldName -> value pairs
+    * @param fields
+    *   The fieldName -> value pairs
     *
-    * @return A JsonObject containing the name -> value pairs.
+    * @return
+    *   A JsonObject containing the name -> value pairs.
     */
   def obj(fields: (String, Any)*): core.json.JsonObject = {
     val o = new core.json.JsonObject()
@@ -147,9 +157,11 @@ object Json {
   /**
     * Creates a JsonArray from a sequence of values.
     *
-    * @param fields The elements to put into the JsonArray.
+    * @param fields
+    *   The elements to put into the JsonArray.
     *
-    * @return A JsonArray containing the provided elements.
+    * @return
+    *   A JsonArray containing the provided elements.
     */
   def arr(fields: Any*): core.json.JsonArray = {
     val a = new core.json.JsonArray()

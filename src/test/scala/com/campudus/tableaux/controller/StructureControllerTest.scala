@@ -29,13 +29,15 @@ class StructureControllerTest extends TableauxTestBase {
   def checkCreateTableWithNullParameter(implicit c: TestContext): Unit = {
     val controller = createStructureController()
     illegalArgumentTest(
-      controller.createTable(null,
-                             hidden = false,
-                             langtags = None,
-                             displayInfos = null,
-                             tableType = GenericTable,
-                             tableGroupId = None,
-                             attributes = None)
+      controller.createTable(
+        null,
+        hidden = false,
+        langtags = None,
+        displayInfos = null,
+        tableType = GenericTable,
+        tableGroupId = None,
+        attributes = None
+      )
     )
   }
 
@@ -46,7 +48,8 @@ class StructureControllerTest extends TableauxTestBase {
       controller
         .createColumns(
           0,
-          Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List(), false, None)))
+          Seq(CreateSimpleColumn(null, null, null, LanguageNeutral, identifier = false, List(), false, None))
+        )
     )
   }
 
@@ -61,16 +64,21 @@ class StructureControllerTest extends TableauxTestBase {
     val controller = createStructureController()
     illegalArgumentTest(
       controller
-        .createColumns(0,
-                       Seq(
-                         CreateSimpleColumn(null,
-                                            None,
-                                            TextType,
-                                            LanguageNeutral,
-                                            identifier = false,
-                                            List(),
-                                            separator = false,
-                                            None)))
+        .createColumns(
+          0,
+          Seq(
+            CreateSimpleColumn(
+              null,
+              None,
+              TextType,
+              LanguageNeutral,
+              identifier = false,
+              List(),
+              separator = false,
+              None
+            )
+          )
+        )
     )
   }
 
@@ -80,7 +88,8 @@ class StructureControllerTest extends TableauxTestBase {
     illegalArgumentTest(
       controller.createColumns(
         0,
-        Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List(), separator = false, None)))
+        Seq(CreateSimpleColumn("", None, null, LanguageNeutral, identifier = false, List(), separator = false, None))
+      )
     )
   }
 

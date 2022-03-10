@@ -155,13 +155,11 @@ class TableOrderingTest extends TableauxTestBase {
         tableId3 <- createEmptyTable("Third")
         tableId4 <- createEmptyTable("Fourth")
         tableId5 <- createEmptyTable("Fifth")
-        orderResult1 <- sendRequest("POST",
-                                    s"/tables/$tableId1/order",
-                                    Json.obj("location" -> "before", "id" -> tableId3))
+        orderResult1 <-
+          sendRequest("POST", s"/tables/$tableId1/order", Json.obj("location" -> "before", "id" -> tableId3))
         tables1 <- sendRequest("GET", "/tables")
-        orderResult2 <- sendRequest("POST",
-                                    s"/tables/$tableId3/order",
-                                    Json.obj("location" -> "before", "id" -> tableId5))
+        orderResult2 <-
+          sendRequest("POST", s"/tables/$tableId3/order", Json.obj("location" -> "before", "id" -> tableId5))
         tables2 <- sendRequest("GET", "/tables")
       } yield {
 
@@ -212,13 +210,16 @@ class TableOrderingTest extends TableauxTestBase {
 
         assertEquals(
           ("com.campudus.tableaux.ParamNotFoundException: query parameter id not found", "error.param.notfound", 400),
-          orderResult)
+          orderResult
+        )
 
-        val expected1 = Json.obj("status" -> "ok",
-                                 "tables" -> Json.arr(
-                                   regularTableJson(1, "First"),
-                                   regularTableJson(2, "Second")
-                                 ))
+        val expected1 = Json.obj(
+          "status" -> "ok",
+          "tables" -> Json.arr(
+            regularTableJson(1, "First"),
+            regularTableJson(2, "Second")
+          )
+        )
 
         assertJSONEquals(expected1, tables1)
       }
@@ -239,17 +240,21 @@ class TableOrderingTest extends TableauxTestBase {
       } yield {
 
         assertEquals(
-          ("com.campudus.tableaux.InvalidRequestException: 'location' value needs to be one of 'start', 'end', 'before'.",
-           "error.request.invalid",
-           400),
+          (
+            "com.campudus.tableaux.InvalidRequestException: 'location' value needs to be one of 'start', 'end', 'before'.",
+            "error.request.invalid",
+            400
+          ),
           orderResult
         )
 
-        val expected1 = Json.obj("status" -> "ok",
-                                 "tables" -> Json.arr(
-                                   regularTableJson(1, "First"),
-                                   regularTableJson(2, "Second")
-                                 ))
+        val expected1 = Json.obj(
+          "status" -> "ok",
+          "tables" -> Json.arr(
+            regularTableJson(1, "First"),
+            regularTableJson(2, "Second")
+          )
+        )
 
         assertJSONEquals(expected1, tables1)
       }
@@ -269,14 +274,18 @@ class TableOrderingTest extends TableauxTestBase {
         tables1 <- sendRequest("GET", "/tables")
       } yield {
 
-        assertEquals(("com.campudus.tableaux.InvalidJsonException: Warning: location is null", "error.json.null", 400),
-                     orderResult)
+        assertEquals(
+          ("com.campudus.tableaux.InvalidJsonException: Warning: location is null", "error.json.null", 400),
+          orderResult
+        )
 
-        val expected1 = Json.obj("status" -> "ok",
-                                 "tables" -> Json.arr(
-                                   regularTableJson(1, "First"),
-                                   regularTableJson(2, "Second")
-                                 ))
+        val expected1 = Json.obj(
+          "status" -> "ok",
+          "tables" -> Json.arr(
+            regularTableJson(1, "First"),
+            regularTableJson(2, "Second")
+          )
+        )
 
         assertJSONEquals(expected1, tables1)
       }

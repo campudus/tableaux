@@ -84,19 +84,22 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
       file <- getStringParam("file", context)
     } yield sendReply(context, SendEmbeddedFile(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/$file"))
   }
+
   private def retrieveFileWithDirectory(context: RoutingContext): Unit = {
     for {
       directory <- getStringParam("directory", context)
       file <- getStringParam("file", context)
-    } yield
-      sendReply(context, SendEmbeddedFile(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/$directory/$file"))
+    } yield sendReply(
+      context,
+      SendEmbeddedFile(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/$directory/$file")
+    )
   }
 
   private def parseAbsoluteURI(request: HttpServerRequest): (String, String, String) = {
 
     /**
-      * Sometimes we use tableaux behind some weird proxy configurations
-      * If so we use x-forwarded headers to figure out how to point to swagger json
+      * Sometimes we use tableaux behind some weird proxy configurations If so we use x-forwarded headers to figure out
+      * how to point to swagger json
       */
     val forwardedScheme = request
       .getHeader("x-forwarded-proto")

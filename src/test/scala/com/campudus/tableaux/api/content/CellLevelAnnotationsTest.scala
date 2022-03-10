@@ -24,9 +24,11 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                         Json.obj("type" -> "info", "value" -> "this is a comment"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment")
+        )
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -49,13 +51,17 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         rowId = result.getLong("id")
 
         _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations", Json.obj("type" -> "error"))
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                         Json.obj("type" -> "info", "value" -> "this is a comment"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment")
+        )
         _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/$rowId/annotations", Json.obj("type" -> "warning"))
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/2/rows/$rowId/annotations",
-                         Json.obj("type" -> "error", "value" -> "this is another comment"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/2/rows/$rowId/annotations",
+          Json.obj("type" -> "error", "value" -> "this is another comment")
+        )
 
         row <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
@@ -103,22 +109,29 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                         Json.obj("langtags" -> Json.arr("de"), "type" -> "error"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("de"), "type" -> "error")
+        )
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                         Json.obj("langtags" -> Json.arr("gb"), "type" -> "info", "value" -> "this is a comment"))
-
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/2/rows/$rowId/annotations",
-                         Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("gb"), "type" -> "info", "value" -> "this is a comment")
+        )
 
         _ <- sendRequest(
           "POST",
           s"/tables/$tableId/columns/2/rows/$rowId/annotations",
-          Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> "this is another comment"))
+          Json.obj("langtags" -> Json.arr("gb"), "type" -> "warning")
+        )
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/2/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> "this is another comment")
+        )
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -156,9 +169,11 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                         Json.obj("langtags" -> Json.arr("de"), "type" -> "error"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("de"), "type" -> "error")
+        )
 
       } yield ()
     }
@@ -174,8 +189,10 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- sendRequest("DELETE",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations/bb879679-38d5-44ab-980c-e78e7b1b4a7e/en")
+        _ <- sendRequest(
+          "DELETE",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations/bb879679-38d5-44ab-980c-e78e7b1b4a7e/en"
+        )
 
       } yield ()
     }
@@ -209,15 +226,21 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                         Json.obj("langtags" -> Json.arr("de", "gb"), "type" -> "flag", "value" -> "needs_translation"))
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                         Json.obj("langtags" -> Json.arr("fr", "es"), "type" -> "flag", "value" -> "needs_translation"))
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                         Json.obj("langtags" -> Json.arr("cs", "nl"), "type" -> "flag", "value" -> "needs_translation"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("de", "gb"), "type" -> "flag", "value" -> "needs_translation")
+        )
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("fr", "es"), "type" -> "flag", "value" -> "needs_translation")
+        )
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("cs", "nl"), "type" -> "flag", "value" -> "needs_translation")
+        )
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -237,7 +260,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
   @Test
   def addSameCommentAnnotations_annotationsWithTypeErrorInfoWaringShouldBeCreateableMultipleTimes(
-      implicit c: TestContext): Unit = {
+      implicit c: TestContext
+  ): Unit = {
     okTest {
 
       val checkMeFlag = """{"type": "flag", "value": "check-me"}"""
@@ -300,14 +324,18 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        annotation <- sendRequest("POST",
-                                  s"/tables/$tableId/columns/1/rows/$rowId/annotations",
-                                  Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error"))
+        annotation <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error")
+        )
 
         rowJson <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
-        _ <- sendRequest("DELETE",
-                         s"/tables/$tableId/columns/1/rows/$rowId/annotations/${annotation.getString("uuid")}/en")
+        _ <- sendRequest(
+          "DELETE",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations/${annotation.getString("uuid")}/en"
+        )
 
         rowJsonAfterDelete <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -361,7 +389,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
             addLangtag(tableId, 1, rowId, "it"),
             addLangtag(tableId, 1, rowId, "cs"),
             addLangtag(tableId, 1, rowId, "pl")
-          ))
+          )
+        )
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
@@ -376,7 +405,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
             removeLangtag(tableId, 1, rowId, annotationUuid, "it"),
             removeLangtag(tableId, 1, rowId, annotationUuid, "cs"),
             removeLangtag(tableId, 1, rowId, annotationUuid, "pl")
-          ))
+          )
+        )
 
         rowJson2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -393,7 +423,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
               "it",
               "pl"
             )
-          ))
+          )
+        )
 
         assertJSONEquals(exceptedColumn1Flags, rowJson1.getJsonArray("annotations").getJsonArray(0))
         assertNull(rowJson1.getJsonArray("annotations").getJsonArray(1))
@@ -402,7 +433,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           Json.obj(
             "type" -> "flag",
             "value" -> "needs_translation"
-          ))
+          )
+        )
 
         assertJSONEquals(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
         assertFalse(
@@ -411,7 +443,8 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
             .getJsonArray("annotations")
             .getJsonArray(0)
             .getJsonObject(0)
-            .containsKey("langtaga")); // JSON serialization from the server should not include null fields, such as "versionedFlows": null
+            .containsKey("langtaga")
+        ); // JSON serialization from the server should not include null fields, such as "versionedFlows": null
 
         assertNull(rowJson2.getJsonArray("annotations").getJsonArray(1))
       }
@@ -431,9 +464,11 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/0/rows/$rowId/annotations",
-                         Json.obj("type" -> "info", "value" -> "this is a comment"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/0/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment")
+        )
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -462,14 +497,16 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        annotation <- sendRequest("POST",
-                                  s"/tables/$tableId/columns/0/rows/$rowId/annotations",
-                                  Json.obj("type" -> "info", "value" -> "this is a comment"))
+        annotation <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/0/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment")
+        )
 
         rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
 
-        _ <- sendRequest("DELETE",
-                         s"/tables/$tableId/columns/0/rows/$rowId/annotations/${annotation.getString("uuid")}")
+        _ <-
+          sendRequest("DELETE", s"/tables/$tableId/columns/0/rows/$rowId/annotations/${annotation.getString("uuid")}")
 
         rowJson1AfterDelete <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
@@ -496,17 +533,21 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/0/rows/$rowId/annotations",
-                         Json.obj("type" -> "info", "value" -> "this is a comment"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/0/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment")
+        )
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, _, 404) => Future.successful(())
           })
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns/3/rows/$rowId/annotations",
-                         Json.obj("type" -> "info", "value" -> "this is a comment"))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/3/rows/$rowId/annotations",
+          Json.obj("type" -> "info", "value" -> "this is a comment")
+        )
           .flatMap(_ => Future.failed(new Exception("this request should fail")))
           .recoverWith({
             case TestCustomException(_, _, 404) => Future.successful(())

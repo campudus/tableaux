@@ -258,15 +258,18 @@ class RetrieveTest extends TableauxTestBase {
         _ <- sendRequest(
           "POST",
           "/tables/1/rows",
-          Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row1", 1, false)))))
+          Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row1", 1, false))))
+        )
         _ <- sendRequest(
           "POST",
           "/tables/1/rows",
-          Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row2", 2, true)))))
+          Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row2", 2, true))))
+        )
         _ <- sendRequest(
           "POST",
           "/tables/1/rows",
-          Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row3", 3, false)))))
+          Json.obj("columns" -> columns, "rows" -> Json.arr(Json.obj("values" -> Json.arr("table1row3", 3, false))))
+        )
         test <- sendRequest("GET", "/completetable/1")
       } yield {
         assertJSONEquals(expectedJson, test)

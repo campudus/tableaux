@@ -18,9 +18,7 @@ import scala.util.{Failure, Success}
 object MediaController {
 
   /**
-    * Alias for None which represents
-    * the root folder (which doesn't
-    * really exist)
+    * Alias for None which represents the root folder (which doesn't really exist)
     */
   val ROOT_FOLDER = Folder(0, "root", "", Seq.empty[FolderId], None, None)
 
@@ -193,13 +191,15 @@ class MediaController(
     }
   }
 
-  def changeFile(uuid: UUID,
-                 title: MultiLanguageValue[String],
-                 description: MultiLanguageValue[String],
-                 externalName: MultiLanguageValue[String],
-                 internalName: MultiLanguageValue[String],
-                 mimeType: MultiLanguageValue[String],
-                 folder: Option[FolderId]): Future[ExtendedFile] = {
+  def changeFile(
+      uuid: UUID,
+      title: MultiLanguageValue[String],
+      description: MultiLanguageValue[String],
+      externalName: MultiLanguageValue[String],
+      internalName: MultiLanguageValue[String],
+      mimeType: MultiLanguageValue[String],
+      folder: Option[FolderId]
+  ): Future[ExtendedFile] = {
 
     def checkInternalName(internalName: String): Future[Unit] = {
       vertx
@@ -220,11 +220,14 @@ class MediaController(
         case (_, None) =>
           Future.successful(())
         case (_, Some(internalFileName)) =>
-          if (!internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
-              internalFileName.equals("..") ||
-              internalFileName.equals(".")) {
+          if (
+            !internalFileName.split("[/\\\\]")(0).equals(internalFileName) ||
+            internalFileName.equals("..") ||
+            internalFileName.equals(".")
+          ) {
             Future.failed(InvalidRequestException(
-              s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."))
+              s"Internal name '$internalFileName' is not allowed. Must be the name of a uploaded file with the format: <UUID>.<EXTENSION>."
+            ))
           } else {
             checkInternalName(internalFileName)
           }
@@ -304,11 +307,12 @@ class MediaController(
 
       path = paths.get(langtag)
 
-      _ <- if (path.isDefined) {
-        deleteFile(path.get)
-      } else {
-        Future(())
-      }
+      _ <-
+        if (path.isDefined) {
+          deleteFile(path.get)
+        } else {
+          Future(())
+        }
 
       // invalidate cache for cells with this file
       _ <- Future.sequence(cellsForFiles.map({

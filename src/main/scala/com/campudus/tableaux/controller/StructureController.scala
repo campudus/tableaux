@@ -131,7 +131,7 @@ class StructureController(
         next match {
           case (id, columns) => mapAccum + (id -> columns)
           case _ => mapAccum
-      }
+        }
 
     val emptyMap = Map[TableId, ColumnSeq]()
 
@@ -203,14 +203,16 @@ class StructureController(
 
       _ <- columnStruc.createColumn(
         created,
-        CreateSimpleColumn("key",
-                           None,
-                           ShortTextType,
-                           LanguageNeutral,
-                           identifier = true,
-                           Seq.empty,
-                           false,
-                           Option(Json.obj()))
+        CreateSimpleColumn(
+          "key",
+          None,
+          ShortTextType,
+          LanguageNeutral,
+          identifier = true,
+          Seq.empty,
+          false,
+          Option(Json.obj())
+        )
       )
       _ <- columnStruc.createColumn(
         created,
@@ -230,27 +232,33 @@ class StructureController(
       )
       _ <- columnStruc.createColumn(
         created,
-        CreateSimpleColumn("value",
-                           None,
-                           TextType,
-                           MultiLanguage,
-                           identifier = false,
-                           Seq(
-                             NameOnly("de", "Inhalt"),
-                             NameOnly("en", "Value")
-                           ),
-                           false,
-                           Option(Json.obj()))
+        CreateSimpleColumn(
+          "value",
+          None,
+          TextType,
+          MultiLanguage,
+          identifier = false,
+          Seq(
+            NameOnly("de", "Inhalt"),
+            NameOnly("en", "Value")
+          ),
+          false,
+          Option(Json.obj())
+        )
       )
-      _ <- columnStruc.createColumn(created,
-                                    CreateAttachmentColumn("attachment",
-                                                           None,
-                                                           identifier = false,
-                                                           Seq(
-                                                             NameOnly("de", "Anhang"),
-                                                             NameOnly("en", "Attachment")
-                                                           ),
-                                                           attributes))
+      _ <- columnStruc.createColumn(
+        created,
+        CreateAttachmentColumn(
+          "attachment",
+          None,
+          identifier = false,
+          Seq(
+            NameOnly("de", "Anhang"),
+            NameOnly("en", "Attachment")
+          ),
+          attributes
+        )
+      )
 
       retrieved <- tableStruc.retrieve(created.id)
     } yield retrieved
@@ -315,8 +323,10 @@ class StructureController(
   ): Future[Table] = {
     checkArguments(
       greaterZero(tableId),
-      isDefined(Seq(tableName, hidden, langtags, displayInfos, tableGroupId, attributes),
-                "name, hidden, langtags, displayName, description, group")
+      isDefined(
+        Seq(tableName, hidden, langtags, displayInfos, tableGroupId, attributes),
+        "name, hidden, langtags, displayName, description, group"
+      )
     )
 
     val structureProperties: Seq[Option[Any]] = Seq(tableName, hidden, langtags, tableGroupId)
@@ -328,20 +338,22 @@ class StructureController(
 
     for {
       table <- tableStruc.retrieve(tableId)
-      _ <- if (isAtLeastOneStructureProperty) {
-        roleModel.checkAuthorization(EditStructureProperty, ScopeTable, ComparisonObjects(table))
-      } else {
-        roleModel.checkAuthorization(EditDisplayProperty, ScopeTable, ComparisonObjects(table))
-      }
-      _ <- if (attributes.nonEmpty) {
-        validator
-          .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
-          .recover({
-            case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
-          })
-      } else {
-        Future { Unit }
-      }
+      _ <-
+        if (isAtLeastOneStructureProperty) {
+          roleModel.checkAuthorization(EditStructureProperty, ScopeTable, ComparisonObjects(table))
+        } else {
+          roleModel.checkAuthorization(EditDisplayProperty, ScopeTable, ComparisonObjects(table))
+        }
+      _ <-
+        if (attributes.nonEmpty) {
+          validator
+            .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
+            .recover({
+              case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
+            })
+        } else {
+          Future { Unit }
+        }
       _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
       changedTable <- tableStruc.retrieve(tableId)
     } yield {
@@ -395,49 +407,54 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
-      _ <- if (attributes.nonEmpty) {
-        validator
-          .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
-          .recover({
-            case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
-          })
-      } else {
-        Future { Unit }
-      }
-
-      _ <- if (rules.nonEmpty) {
-        for {
-          _ <- validator
-            .validateJson(ValidatorKeys.STATUS, rules.get)
+      _ <-
+        if (attributes.nonEmpty) {
+          validator
+            .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
             .recover({
-              case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
+              case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
             })
-          _ <- columnStruc.retrieveAndValidateDependentStatusColumns(rules.get, table)
-        } yield ()
-      } else {
-        Future { Unit }
-      }
+        } else {
+          Future { Unit }
+        }
 
-      _ <- if (isAtLeastOneStructureProperty) {
-        roleModel.checkAuthorization(EditStructureProperty, ScopeColumn, ComparisonObjects(table, column))
-      } else {
-        roleModel.checkAuthorization(EditDisplayProperty, ScopeColumn, ComparisonObjects(table, column))
-      }
+      _ <-
+        if (rules.nonEmpty) {
+          for {
+            _ <- validator
+              .validateJson(ValidatorKeys.STATUS, rules.get)
+              .recover({
+                case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
+              })
+            _ <- columnStruc.retrieveAndValidateDependentStatusColumns(rules.get, table)
+          } yield ()
+        } else {
+          Future { Unit }
+        }
+
+      _ <-
+        if (isAtLeastOneStructureProperty) {
+          roleModel.checkAuthorization(EditStructureProperty, ScopeColumn, ComparisonObjects(table, column))
+        } else {
+          roleModel.checkAuthorization(EditDisplayProperty, ScopeColumn, ComparisonObjects(table, column))
+        }
 
       changedColumn <- table.tableType match {
         case GenericTable =>
           columnStruc
-            .change(table,
-                    columnId,
-                    columnName,
-                    ordering,
-                    kind,
-                    identifier,
-                    displayInfos,
-                    countryCodes,
-                    separator,
-                    attributes,
-                    rules)
+            .change(
+              table,
+              columnId,
+              columnName,
+              ordering,
+              kind,
+              identifier,
+              displayInfos,
+              countryCodes,
+              separator,
+              attributes,
+              rules
+            )
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
 

@@ -1,4 +1,5 @@
 package com.campudus.tableaux.verticles.JsonSchemaValidator
+
 import com.campudus.tableaux.helper.VertxAccess
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.eventbus._

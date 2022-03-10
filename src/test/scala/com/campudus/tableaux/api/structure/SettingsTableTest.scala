@@ -19,7 +19,8 @@ class SettingsTableTest extends TableauxTestBase {
       result <- sendRequest(
         "POST",
         "/tables",
-        Json.obj("name" -> "settings", "type" -> "settings", "displayName" -> Json.obj("de" -> "Settings Table")))
+        Json.obj("name" -> "settings", "type" -> "settings", "displayName" -> Json.obj("de" -> "Settings Table"))
+      )
     } yield result.getLong("id")
   }
 
@@ -53,7 +54,8 @@ class SettingsTableTest extends TableauxTestBase {
         result <- sendRequest(
           "POST",
           "/tables",
-          Json.obj("name" -> "settings", "type" -> "sgnittes", "displayName" -> Json.obj("de" -> "Settings Table")))
+          Json.obj("name" -> "settings", "type" -> "sgnittes", "displayName" -> Json.obj("de" -> "Settings Table"))
+        )
       } yield ()
     }
   }
@@ -64,9 +66,11 @@ class SettingsTableTest extends TableauxTestBase {
       for {
         tableId <- createSettingsTable()
 
-        _ <- sendRequest("POST",
-                         s"/tables/$tableId/columns",
-                         Json.obj("columns" -> Json.arr(Json.obj("name" -> "test", "kind" -> "text"))))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns",
+          Json.obj("columns" -> Json.arr(Json.obj("name" -> "test", "kind" -> "text")))
+        )
       } yield ()
     }
   }

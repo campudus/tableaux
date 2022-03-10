@@ -79,54 +79,69 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Get the current version
     */
   private def retrieveVersions(context: RoutingContext): Unit = {
-    sendReply(context, asyncGetReply {
-      controller.retrieveVersions()
-    })
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveVersions()
+      }
+    )
   }
 
   /**
     * Resets the database (needs nonce)
     */
   private def reset(context: RoutingContext): Unit = {
-    sendReply(context, asyncGetReply {
-      for {
-        _ <- Future.successful(checkNonce(context))
-        result <- controller.resetDB()
-      } yield result
-    })
+    sendReply(
+      context,
+      asyncGetReply {
+        for {
+          _ <- Future.successful(checkNonce(context))
+          result <- controller.resetDB()
+        } yield result
+      }
+    )
   }
 
   /**
     * Create the demo tables (needs nonce)
     */
   private def resetDemo(context: RoutingContext): Unit = {
-    sendReply(context, asyncGetReply {
-      for {
-        _ <- Future.successful(checkNonce(context))
-        result <- controller.createDemoTables()
-      } yield result
-    })
+    sendReply(
+      context,
+      asyncGetReply {
+        for {
+          _ <- Future.successful(checkNonce(context))
+          result <- controller.createDemoTables()
+        } yield result
+      }
+    )
   }
 
   /**
     * Update the database (needs POST and nonce)
     */
   private def update(context: RoutingContext): Unit = {
-    sendReply(context, asyncGetReply {
-      for {
-        _ <- Future.successful(checkNonce(context))
-        result <- controller.updateDB()
-      } yield result
-    })
+    sendReply(
+      context,
+      asyncGetReply {
+        for {
+          _ <- Future.successful(checkNonce(context))
+          result <- controller.updateDB()
+        } yield result
+      }
+    )
   }
 
   /**
     * Invalidate all caches
     */
   private def invalidateCache(context: RoutingContext): Unit = {
-    sendReply(context, asyncGetReply {
-      controller.invalidateCache()
-    })
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.invalidateCache()
+      }
+    )
   }
 
   /**
