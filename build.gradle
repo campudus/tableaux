@@ -9,13 +9,13 @@ plugins {
 
   id "com.github.ben-manes.versions" version '0.42.0'
 
-  id 'org.scoverage' version '3.2.0'
-  id 'com.github.kt3k.coveralls' version '2.8.4'
+  id 'org.scoverage' version '7.0.0'
+  id 'com.github.kt3k.coveralls' version '2.12.0'
 
-  id 'com.github.johnrengelman.shadow' version '5.1.0'
-  id 'org.ajoberstar.grgit' version '3.1.1'
+  id 'com.github.johnrengelman.shadow' version '7.1.2'
+  id 'org.ajoberstar.grgit' version '4.1.1'
 
-  id 'com.diffplug.gradle.spotless' version '3.25.0'
+  id 'com.diffplug.spotless' version '6.3.0'
 }
 
 project.group = 'com.campudus'
@@ -49,7 +49,7 @@ dependencies {
   implementation "io.vertx:vertx-auth-oauth2-scala_2.12:${vertxVersion}"
 
   implementation 'joda-time:joda-time:2.10.3'
-  implementation 'com.typesafe.scala-logging:scala-logging_2.12:3.9.2'
+  implementation 'com.typesafe.scala-logging:scala-logging_2.12:3.9.4'
   implementation 'org.slf4j:slf4j-jdk14:1.7.28'
 
   implementation 'com.jcabi:jcabi-manifests:1.1'
@@ -214,7 +214,7 @@ assemble.dependsOn shadowJar
  */
 spotless {
   scala {
-    scalafmt('1.5.1').configFile('.scalafmt.conf')
+    scalafmt().configFile('.scalafmt.conf')
   }
 }
 
