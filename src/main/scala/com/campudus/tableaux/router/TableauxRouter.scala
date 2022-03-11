@@ -263,9 +263,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       columnId <- getColumnId(context)
       rowId <- getRowId(context)
     } yield {
-      sendReply(context, asyncGetReply {
-        controller.retrieveCellAnnotations(tableId, columnId, rowId)
-      })
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveCellAnnotations(tableId, columnId, rowId)
+        }
+      )
     }
   }
 
