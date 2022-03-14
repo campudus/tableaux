@@ -61,7 +61,6 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       } yield {
 
         val cellAnnotation = storedAnnotation.getJsonArray("annotations").getJsonArray(0).getJsonObject(0)
-        println(cellAnnotation)
         assertEquals(cellAnnotation.getValue("text"), annotationJson.getValue("text"))
         assertEquals(cellAnnotation.getValue("type"), annotationJson.getValue("type"))
       }
