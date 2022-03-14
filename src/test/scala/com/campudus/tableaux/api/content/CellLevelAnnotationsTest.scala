@@ -41,6 +41,34 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
+  def retrieveCellAnnotation(implicit c: TestContext): Unit = {
+    okTest {
+      val annotationJson = Json.obj("type" -> "info", "value" -> "I am an annotation")
+
+      for {
+        tableId <- createEmptyDefaultTable()
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+        cellAnnotationUrl = s"/tables/$tableId/columns/1/rows/$rowId/annotations"
+
+        _ <- sendRequest(
+          "POST",
+          cellAnnotationUrl,
+          annotationJson
+        )
+
+        storedAnnotation <- sendRequest("GET", cellAnnotationUrl)
+      } yield {
+
+        val cellAnnotation = storedAnnotation.getJsonArray("annotations").getJsonArray(0).getJsonObject(0)
+        println(cellAnnotation)
+        assertEquals(cellAnnotation.getValue("text"), annotationJson.getValue("text"))
+        assertEquals(cellAnnotation.getValue("type"), annotationJson.getValue("type"))
+      }
+    }
+  }
+
+  @Test
   def addAndDeleteMultipleAnnotationsWithoutLangtags(implicit c: TestContext): Unit = {
     okTest {
       for {
