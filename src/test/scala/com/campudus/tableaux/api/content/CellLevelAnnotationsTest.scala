@@ -41,7 +41,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
-  def retrieveCellAnnotation(implicit c: TestContext): Unit = {
+  def retrieveSingleCellAnnotation(implicit c: TestContext): Unit = {
     okTest {
       val annotationJson = Json.obj("type" -> "info", "value" -> "I am an annotation")
 
@@ -60,9 +60,55 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         storedAnnotation <- sendRequest("GET", cellAnnotationUrl)
       } yield {
 
-        val cellAnnotation = storedAnnotation.getJsonArray("annotations").getJsonArray(0).getJsonObject(0)
-        assertEquals(cellAnnotation.getValue("text"), annotationJson.getValue("text"))
-        assertEquals(cellAnnotation.getValue("type"), annotationJson.getValue("type"))
+        val cellAnnotations = storedAnnotation.getJsonArray("annotations").getJsonArray(0)
+        val cellAnnotation = cellAnnotations.getJsonObject(0)
+        assertEquals(1, cellAnnotations.size())
+
+        assertEquals(cellAnnotation.getString("value"), annotationJson.getString("value"))
+        assertEquals(cellAnnotation.getString("type"), annotationJson.getString("type"))
+      }
+    }
+  }
+
+  @Test
+  def retrieveMultipleCellAnnotations(implicit c: TestContext): Unit = {
+    okTest {
+      val annotationJson1 = Json.obj("type" -> "info", "value" -> "I am an annotation")
+      val annotationJson2 = Json.obj("type" -> "error", "value" -> "I am another annotation")
+
+      for {
+        tableId <- createEmptyDefaultTable()
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+        cellAnnotationUrl = s"/tables/$tableId/columns/1/rows/$rowId/annotations"
+
+        _ <- sendRequest(
+          "POST",
+          cellAnnotationUrl,
+          annotationJson1
+        )
+        _ <- sendRequest(
+          "POST",
+          cellAnnotationUrl,
+          annotationJson2
+        )
+
+        storedAnnotation <- sendRequest("GET", cellAnnotationUrl)
+      } yield {
+
+        val cellAnnotations = storedAnnotation.getJsonArray("annotations").getJsonArray(0)
+        assertEquals(2, cellAnnotations.size())
+
+        val storedAnnotation1 = cellAnnotations.getJsonObject(0)
+        assertEquals(storedAnnotation1.getString("value"), annotationJson1.getString("value"))
+        assertEquals(storedAnnotation1.getString("type"), annotationJson1.getString("type"))
+
+        val storedAnnotation2 = cellAnnotations.getJsonObject(1)
+        assertEquals(storedAnnotation2.getString("value"), annotationJson2.getString("value"))
+        assertEquals(storedAnnotation2.getString("type"), annotationJson2.getString("type"))
+      }
+    }
+  }
       }
     }
   }
