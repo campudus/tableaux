@@ -109,6 +109,33 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def retrieveIgnoresRowLevelAnnotations(implicit c: TestContext): Unit = {
+    val setFinal = Json.obj("final" -> true)
+    val cellAnnotation = Json.obj("type" -> "info", "value" -> "some cell annotation")
+
+    okTest {
+      for {
+        tableId <- createEmptyDefaultTable()
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+
+        rowId = result.getLong("id")
+        rowAnnotationUrl = s"/tables/$tableId/rows/$rowId/annotations"
+        cellAnnotationUrl = s"/tables/$tableId/columns/1/rows/$rowId/annotations"
+
+        _ <- sendRequest("PATCH", rowAnnotationUrl, setFinal)
+        _ <- sendRequest("POST", cellAnnotationUrl, cellAnnotation)
+
+        annotations <- sendRequest("GET", cellAnnotationUrl)
+
+      } yield {
+        val storedAnnotations = annotations.getJsonArray("annotations").getJsonArray(0)
+
+        assertEquals(1, storedAnnotations.size())
+        val storedAnnotation = storedAnnotations.getJsonObject(0)
+        assertEquals(storedAnnotation.getString("type"), cellAnnotation.getString("type"))
+        assertEquals(storedAnnotation.getString("value"), cellAnnotation.getString("value"))
       }
     }
   }
