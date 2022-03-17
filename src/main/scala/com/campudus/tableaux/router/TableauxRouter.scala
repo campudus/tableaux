@@ -86,6 +86,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.getWithRegex(tableHistory).handler(retrieveTableHistory)
     router.getWithRegex(tableHistoryWithLangtag).handler(retrieveTableHistoryWithLangtag)
 
+    router.getWithRegex(cellAnnotations).handler(retrieveCellAnnotations)
+
     // DELETE
     router.deleteWithRegex(cellAnnotation).handler(deleteCellAnnotation)
     router.deleteWithRegex(cellAnnotationLangtag).handler(deleteCellAnnotationLangtag)
@@ -250,6 +252,21 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           controller.retrieveCell(tableId, columnId, rowId)
+        }
+      )
+    }
+  }
+
+  private def retrieveCellAnnotations(context: RoutingContext): Unit = {
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      rowId <- getRowId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveCellAnnotations(tableId, columnId, rowId)
         }
       )
     }

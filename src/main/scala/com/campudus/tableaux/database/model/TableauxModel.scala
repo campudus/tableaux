@@ -656,6 +656,19 @@ class TableauxModel(
     } yield ()
   }
 
+  def retrieveCellAnnotations(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      isInternalCall: Boolean = true
+  ): Future[CellLevelAnnotations] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column), isInternalCall)
+      (_, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
+    } yield cellLevelAnnotations
+  }
+
   def retrieveCell(
       table: Table,
       columnId: ColumnId,

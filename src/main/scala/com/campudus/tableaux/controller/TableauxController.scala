@@ -340,6 +340,16 @@ class TableauxController(
     } yield rows
   }
 
+  def retrieveCellAnnotations(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[CellLevelAnnotations] = {
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
+    logger.info(s"retrieveCell $tableId $columnId $rowId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      annotations <- repository.retrieveCellAnnotations(table, columnId, rowId)
+    } yield annotations
+  }
+
   def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCell $tableId $columnId $rowId")
