@@ -44,22 +44,20 @@ class KeycloakAuthHandler(
   }
 
   private def checkAudience(context: RoutingContext, principal: JsonObject): Unit = {
-    if (!shouldVerifyAudience) {
-      return
-    }
+    if (shouldVerifyAudience) {
+      val audiences: Seq[String] = principal.getValue("aud") match {
+        case s: String => Seq(s)
+        case o: JsonArray => o.asScala.map({ case item: String => item }).toSeq
+      }
 
-    val audiences: Seq[String] = principal.getValue("aud") match {
-      case s: String => Seq(s)
-      case o: JsonArray => o.asScala.map({ case item: String => item }).toSeq
-    }
-
-    if (!audiences.contains(getAudience)) {
-      val exception = AuthenticationException(
-        s"Audiences $audiences of the request doesn't contain configured service audience (resource) '$getAudience'"
-      )
-      logger.error(exception.getMessage)
-      context.fail(exception.statusCode, exception)
-      throw exception
+      if (!audiences.contains(getAudience)) {
+        val exception = AuthenticationException(
+          s"Audiences $audiences of the request doesn't contain configured service audience (resource) '$getAudience'"
+        )
+        logger.error(exception.getMessage)
+        context.fail(exception.statusCode, exception)
+        throw exception
+      }
     }
   }
 
