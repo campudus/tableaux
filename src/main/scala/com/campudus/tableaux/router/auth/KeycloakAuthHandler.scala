@@ -44,6 +44,10 @@ class KeycloakAuthHandler(
   }
 
   private def checkAudience(context: RoutingContext, principal: JsonObject): Unit = {
+    if (!shouldVerifyAudience) {
+      return
+    }
+
     val audiences: Seq[String] = principal.getValue("aud") match {
       case s: String => Seq(s)
       case o: JsonArray => o.asScala.map({ case item: String => item }).toSeq
@@ -73,5 +77,6 @@ class KeycloakAuthHandler(
   }
 
   def getAudience: String = tableauxConfig.authConfig.getString("resource")
+  def shouldVerifyAudience: Boolean = tableauxConfig.authConfig.getBoolean("verify-token-audience", false)
   def getIssuer: String = tableauxConfig.authConfig.getString("issuer")
 }
