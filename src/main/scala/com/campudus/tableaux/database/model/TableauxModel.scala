@@ -8,6 +8,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.helper.DisplayValues
 import com.campudus.tableaux.router.auth.permission._
 import org.vertx.scala.core.json._
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
@@ -699,10 +700,12 @@ class TableauxModel(
                   mappedRows <- mapRawRows(column.table, columns, Seq(rawRows))
                 } yield mappedRows
             }
-          } yield {
             // Because we only want a cell's value other
             // potential rows and columns can be ignored.
-            val value = rowSeq.head.values.head
+            value = rowSeq.head.values.head
+            // displayValue = DisplayValues.getDisplayValue(column, value)
+          } yield {
+            // println(displayValue)
 
             // fire-and-forget don't need to wait for this to return
             CacheClient(this.connection).setCellValue(column.table.id, column.id, rowId, value)
@@ -976,8 +979,11 @@ class TableauxModel(
                   case (_, value) => value
                 })
 
-            case (_, value) =>
+            case (c: ColumnType[_], value) =>
               // Post-processing is only needed for ConcatColumn and GroupColumn
+              val displayValues = new DisplayValues(Seq("de", "en"))
+              val displayValue = displayValues.getDisplayValue(c)(value)
+              println("displayValue", displayValue)
               value
           })
         } yield list ++ List(Row(table, rowId, rowLevelFlags, cellLevelFlags, columnsWithPostProcessedValues))
