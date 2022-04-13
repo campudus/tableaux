@@ -983,7 +983,7 @@ class TableauxModel(
               // Post-processing is only needed for ConcatColumn and GroupColumn
               val displayValues = new DisplayValues(Seq("de", "en"))
               val displayValue = displayValues.getDisplayValue(c)(value)
-              println("displayValue", displayValue)
+              // println("displayValue", displayValue)
               value
           })
         } yield list ++ List(Row(table, rowId, rowLevelFlags, cellLevelFlags, columnsWithPostProcessedValues))

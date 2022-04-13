@@ -27,7 +27,7 @@ class DisplayValues(langtags: Seq[String]) {
   }
 
   def getDisplayValue(column: ColumnType[_])(value: Any): Any = {
-    println(column.kind)
+    // println(column.kind)
     val displayValue = column match {
       case col: ConcatColumn => getConcatValue(col)(value)
       case col: LinkColumn => getLinkValue(col)(value)
@@ -63,38 +63,78 @@ class DisplayValues(langtags: Seq[String]) {
     sequence
   }
 
-  private def getConcatValue(column: ColumnType[_])(value: Any): JsonArray = {
+  private def getConcatValue(column: ColumnType[_])(value: Any): JsonObject = {
     // println(value)
     val columns = column match {
       case col: ConcatColumn => col.columns
       case col: GroupColumn => col.columns
       case _ => Seq()
     }
+    //failed bei zipped, evtl wegen null value und JsonArray
     val zipped: Seq[(ColumnType[_], Any)] = columns zip value
       .asInstanceOf[JsonArray]
       .getList()
       .asScala
+    println("üüüüüüüüüüüüüüüüüü")
+    println(zipped)
+    println("üüüüüüüüüüüüüüüüüü")
     // println(zipped)
-    val res = zipped
-      .map({
-        case (col: ColumnType[_], value: Any) => getDisplayValue(col)(value)
-      })
-    // println(res.toString)
-    // println(flatten(res))
-    val returnValue = Json.arr(flatten(res))
-    // println(returnValue)
-    returnValue
+    // println(zipped)
+    // val res: Seq[JsonObject] = zipped
+    //   .map({
+    //     case (col: ColumnType[_], value: Any) => {
+    //       val stuff = getDisplayValue(col)(value)
+    //       println(stuff.isInstanceOf[JsonArray], col.kind)
+    //       stuff.asInstanceOf[JsonObject]
+    //     }
+    //   })
+    // println(
+    //   flatten(zipped.map({
+    //     case (col: ColumnType[_], value: Any) => {
+    //       getDisplayValue(col)(value)
+    //     }
+
+    //   })),
+    //   zipped.map({
+    //     case (col: ColumnType[_], value: Any) => {
+    //       getDisplayValue(col)(value)
+    //     }
+
+    //   })
+    // )
+    println("##############################################")
+    println("################")
+    val stuff: Seq[JsonObject] = flatten(zipped.map({
+      case (col: ColumnType[_], value: Any) => {
+        val bla = getDisplayValue(col)(value)
+        // println(bla, col.kind, value)
+        // println(value)
+        bla
+      }
+
+    })).map(value => {
+      println("value:      ", value)
+      val bla = value.asInstanceOf[JsonObject]
+      println("ääääääääääääääääääääääää:   ", bla)
+      bla
+    })
+    println("################")
+    println("##############################################")
+    val format = (valArray: Seq[String]) => valArray.map(_.trim).mkString(" ").trim()
+    val result = applyToAllLangs(lt => format(stuff.map(obj => obj.getString(lt, ""))))
+
+    // println(result)
+    result
   }
 
   private def getLinkValue(column: LinkColumn)(value: Any): JsonArray = {
+
     val linkValues: Seq[JsonObject] = value match {
       case l: Seq[_] => l.map(obj => obj.asInstanceOf[JsonObject])
       case _ => Seq()
     }
-    // println(column.to)
     val res = linkValues.map(linkValue => getDisplayValue(column.to)(linkValue.getValue("value")))
-    // println(flatten(res))
-    Json.arr(flatten(res))
+    new JsonArray(res.asJava)
   }
 
   private def placeholder(column: ColumnType[_])(value: Any): String = { "placeholder" }
