@@ -214,18 +214,21 @@ class DisplayValues(langtagsString: String) {
     }
     val zipped: Seq[(ColumnType[_], Any)] = columns zip _value
 
-    val stuff: Seq[JsonObject] = flatten(zipped.map({
+    val displayValues: Seq[JsonObject] = flatten(zipped.map({
       case (col: ColumnType[_], value) => {
-        val bla = getDisplayValue(col)(value)
+        val displayValue = getDisplayValue(col)(value)
         col match {
-          case l: LinkColumn => bla.asInstanceOf[JsonArray]
-          case _ => bla.asInstanceOf[JsonObject]
+          case l: LinkColumn => displayValue.asInstanceOf[JsonArray]
+          case _ => displayValue.asInstanceOf[JsonObject]
         }
       }
 
     }))
-    val format = (valArray: Seq[String]) => valArray.map(_.trim).mkString(" ").trim()
-    applyToAllLangs(lt => format(stuff.map(obj => obj.getString(lt, ""))))
+    val format = (valArray: Seq[String]) => {
+      valArray.map(_.trim).filter(str => !str.isEmpty()).mkString(" ").trim()
+    }
+    val obj = applyToAllLangs(lt => format(displayValues.map(obj => obj.getString(lt, ""))))
+    obj
   }
 
   private def jsonArrayToSeq(arr: JsonArray): Seq[JsonObject] = {
