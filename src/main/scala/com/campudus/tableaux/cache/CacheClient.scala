@@ -31,8 +31,11 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
     )
   }
 
-  def setCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId, value: Any): Future[_] = {
-    val obj = key(tableId, columnId, rowId).copy().mergeIn(Json.obj("value" -> DomainObject.compatibilityGet(value)))
+  def setCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId, value: Any, displayValue: Any): Future[_] = {
+    val obj = key(tableId, columnId, rowId)
+      .copy()
+      .mergeIn(
+        Json.obj("value" -> Json.obj("value" -> DomainObject.compatibilityGet(value), "displayValue" -> displayValue)))
 
     val options = DeliveryOptions()
       .setSendTimeout(CacheVerticle.TIMEOUT_AFTER_MILLISECONDS)
@@ -50,9 +53,12 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
     eventBus
       .sendFuture[JsonObject](CacheVerticle.ADDRESS_RETRIEVE, obj, options)
       .map({
-        case v if v.body().containsKey("value") =>
-          Some(v.body().getValue("value"))
-        case _ =>
+        case v if v.body().containsKey("value") => {
+          val value = v.body().getJsonObject("value").getValue("value")
+          val displayValue = v.body().getJsonObject("value").getValue("displayValue")
+          Some((value, displayValue))
+        }
+        case c: Any =>
           None
       })
       .recoverWith({
