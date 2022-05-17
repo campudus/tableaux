@@ -15,13 +15,15 @@ case class Row(
     id: RowId,
     rowLevelAnnotations: RowLevelAnnotations,
     cellLevelAnnotations: CellLevelAnnotations,
-    values: Seq[_]
+    values: Seq[_],
+    displayValues: Seq[_]
 ) extends DomainObject {
 
   override def getJson: JsonObject = {
     val json = Json.obj(
       "id" -> id,
-      "values" -> compatibilityGet(values)
+      "values" -> compatibilityGet(values),
+      "displayValues" -> displayValues
     )
 
     if (rowLevelAnnotations.isDefined) {

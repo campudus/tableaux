@@ -100,6 +100,7 @@ class TableauxModel(
 
   import TableauxModel._
 
+  val systemModel = new SystemModel(connection)
   val retrieveRowModel = new RetrieveRowModel(connection)
   val createRowModel = new CreateRowModel(connection)
   val updateRowModel = new UpdateRowModel(connection)
@@ -107,6 +108,15 @@ class TableauxModel(
   val attachmentModel = AttachmentModel(connection)
   val retrieveHistoryModel = RetrieveHistoryModel(connection)
   val createHistoryModel = CreateHistoryModel(this, connection)
+
+  private def retrieveLangtags(): Future[String] = {
+    for (langtagsOption <- systemModel.retrieveSetting("langtags")) yield {
+      langtagsOption match {
+        case None => ""
+        case Some(langtags) => langtags
+      }
+    }
+  }
 
   def retrieveBacklink(column: LinkColumn): Future[Option[LinkColumn]] = {
     val select =
@@ -676,7 +686,7 @@ class TableauxModel(
     for {
       valueCache <- CacheClient(this.connection).retrieveCellValue(column.table.id, column.id, rowId)
 
-      value <- valueCache match {
+      (value, displayValue) <- valueCache match {
         case Some(obj) => {
           // Cache hit
           Future.successful(obj)
@@ -691,8 +701,18 @@ class TableauxModel(
                 for {
                   (rowLevelAnnotations, cellLevelAnnotations) <- retrieveRowModel
                     .retrieveAnnotations(column.table.id, rowId, Seq(column))
+                  langtags <- retrieveLangtags()
                   attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
-                } yield Seq(Row(column.table, rowId, rowLevelAnnotations, cellLevelAnnotations, Seq(attachments)))
+                } yield {
+                  val displayValue = new DisplayValues(langtags).getDisplayValue(column)(attachments)
+                  Seq(
+                    Row(column.table,
+                        rowId,
+                        rowLevelAnnotations,
+                        cellLevelAnnotations,
+                        Seq(attachments),
+                        Seq(displayValue)))
+                }
 
               case _ =>
                 for {
@@ -703,17 +723,16 @@ class TableauxModel(
             // Because we only want a cell's value other
             // potential rows and columns can be ignored.
             value = rowSeq.head.values.head
-            // displayValue = DisplayValues.getDisplayValue(column, value)
+            displayValue = rowSeq.head.displayValues.head
           } yield {
-            // println(displayValue)
 
             // fire-and-forget don't need to wait for this to return
-            CacheClient(this.connection).setCellValue(column.table.id, column.id, rowId, value)
+            CacheClient(this.connection).setCellValue(column.table.id, column.id, rowId, value, displayValue)
 
-            value
+            (value, displayValue)
           }
       }
-    } yield Cell(column, rowId, value)
+    } yield Cell(column, rowId, value, displayValue)
   }
 
   def retrieveRow(table: Table, rowId: RowId): Future[Row] = {
@@ -965,6 +984,7 @@ class TableauxModel(
               })
           )
 
+          langtags <- retrieveLangtags()
           // Generate values for GroupColumn && ConcatColumn
           columnsWithPostProcessedValues = columnsWithFetchedValues.map({
             case (c: StatusColumn, value) => value
@@ -981,12 +1001,15 @@ class TableauxModel(
 
             case (c: ColumnType[_], value) =>
               // Post-processing is only needed for ConcatColumn and GroupColumn
-              val displayValues = new DisplayValues(Seq("de", "en"))
-              val displayValue = displayValues.getDisplayValue(c)(value)
               // println("displayValue", displayValue)
               value
           })
-        } yield list ++ List(Row(table, rowId, rowLevelFlags, cellLevelFlags, columnsWithPostProcessedValues))
+        } yield {
+          val displayValue = new DisplayValues(langtags)
+          val displayValues =
+            columns.zip(columnsWithPostProcessedValues).map((value) => displayValue.getDisplayValue(value._1)(value._2))
+          list ++ List(Row(table, rowId, rowLevelFlags, cellLevelFlags, columnsWithPostProcessedValues, displayValues))
+        }
     }
   }
 
