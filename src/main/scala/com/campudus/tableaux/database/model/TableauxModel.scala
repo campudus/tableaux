@@ -235,7 +235,15 @@ class TableauxModel(
     } yield result
   }
 
+  def deleteRow(table: Table, rowId: RowId, moveRefsToId: Option[Int]): Future[EmptyObject] = {
+    _deleteRow(table, rowId, moveRefsToId)
+  }
+
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
+    _deleteRow(table, rowId, None)
+  }
+
+  def _deleteRow(table: Table, rowId: RowId, moveRefsToId: Option[Int]): Future[EmptyObject] = {
     for {
       columns <- retrieveColumns(table, isInternalCall = true)
 

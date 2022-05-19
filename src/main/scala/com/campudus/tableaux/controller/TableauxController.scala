@@ -14,6 +14,7 @@ import com.campudus.tableaux.{RequestContext, TableauxConfig, UnprocessableEntit
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
+import scala.util.Try
 
 object TableauxController {
 
@@ -371,13 +372,25 @@ class TableauxController(
     } yield dependentRows
   }
 
-  def deleteRow(tableId: TableId, rowId: RowId): Future[DomainObject] = {
+  def deleteRow(tableId: TableId, rowId: RowId, moveRefsTo: Option[String]): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
+    val moveRefsToId = moveRefsTo match {
+      case None => None
+      case Some(idString) => {
+        Try(idString.toInt).toOption match {
+          case None => None
+          case Some(id) => {
+            checkArguments(greaterZero(id))
+            Some(id)
+          }
+        }
+      }
+    }
     logger.info(s"deleteRow $tableId $rowId")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(DeleteRow, ScopeTable, ComparisonObjects(table))
-      _ <- repository.deleteRow(table, rowId)
+      _ <- repository.deleteRow(table, rowId, moveRefsToId)
     } yield EmptyObject()
   }
 
