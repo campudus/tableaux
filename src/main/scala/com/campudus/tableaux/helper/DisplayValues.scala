@@ -33,6 +33,7 @@ class DisplayValues(langtagsString: String) {
 
   def getDisplayValue(column: ColumnType[_])(value: Any): Any = {
     val displayValue = column match {
+      case col: GroupColumn => getConcatValue(col)(value)
       case col: ConcatColumn => getConcatValue(col)(value)
       case col: LinkColumn => getLinkValue(col)(value)
       case BooleanColumn(_) => getBoolValue(column)(value.asInstanceOf[Boolean])
@@ -147,11 +148,34 @@ class DisplayValues(langtagsString: String) {
     "ZA" -> "ZAR" // South Africa
   )
 
+  val reverseCurrencyCodeMap = (() => {
+    currencyCodeMap.keys.foldLeft(Map[String, Seq[String]]())((acc, value) => {
+      currencyCodeMap get value match {
+        case None => acc
+        case Some(currencyCode) => {
+          acc get currencyCode match {
+            case None => {
+              acc + (currencyCode -> Seq(value))
+            }
+            case Some(currencyCodeArr) => {
+              acc + (currencyCode -> (currencyCodeArr ++ Seq(value)))
+            }
+          }
+        }
+      }
+    })
+  })()
+
   private def getFallbackCurrencyValue(country: String, value: JsonObject): String = {
     val _country = getCountryOfLangtag(country)
-    currencyCodeMap.get(_country) match {
-      case Some(currencyCode) => currencyCode
+    val currency = currencyCodeMap.getOrElse(_country, "")
+    val fallbackEntry = reverseCurrencyCodeMap
+      .getOrElse(currency, Seq())
+      .filter((value) => { value != _country })
+      .find(ctry => !value.getValue(ctry, "").toString.isEmpty || value.getValue(ctry, "").isInstanceOf[Number])
+    fallbackEntry match {
       case None => ""
+      case Some(entry) => value.getValue(entry, "").toString
     }
   }
 
@@ -201,20 +225,36 @@ class DisplayValues(langtagsString: String) {
     })
   }
 
+  private def moustache(n: Number) = {
+    val str = s"\\{\\{${n}\\}\\}"
+    str.r
+  }
+
   private def getConcatValue(column: ColumnType[_])(value: Any): JsonObject = {
-    val columns = column match {
+    val columns: Seq[ColumnType[_]] = column match {
       case col: ConcatColumn => col.columns
       case col: GroupColumn => col.columns
       case _ => Seq()
     }
+
+    def _flatten(something: Seq[_]) = {
+      var stuff: Seq[_] = Seq()
+      something.foreach(anything => {
+        anything match {
+          case j: JsonArray => stuff = stuff ++ j.getList().asScala.asInstanceOf[Seq[_]]
+          case s: Seq[_] => stuff = stuff ++ s
+          case a: Any => stuff = stuff :+ a
+        }
+      })
+      stuff
+    }
     val _value: Seq[_] = value match {
-      case str: Stream[_] => str.toList
       case col: Seq[_] => col
       case jsonArr: JsonArray => jsonArr.getList().asScala
     }
     val zipped: Seq[(ColumnType[_], Any)] = columns zip _value
 
-    val displayValues: Seq[JsonObject] = flatten(zipped.map({
+    val displayValues: Seq[JsonObject] = flatten(zipped.toList.map({
       case (col: ColumnType[_], value) => {
         val displayValue = getDisplayValue(col)(value)
         col match {
@@ -225,7 +265,30 @@ class DisplayValues(langtagsString: String) {
 
     }))
     val format = (valArray: Seq[String]) => {
-      valArray.map(_.trim).filter(str => !str.isEmpty()).mkString(" ").trim()
+      val simpleConcat = () => valArray.map(_.trim).filter(str => !str.isEmpty()).mkString(" ").trim()
+
+      def getColumnIdForIndex(index: Int) = {
+        columns.asInstanceOf[IndexedSeq[ColumnType[_]]](index - 1).id
+      }
+      def applyFormat(result: String, dVal: Seq[String] = valArray, i: Int = 1): String = {
+        dVal.isEmpty match {
+          case true => result
+          case false => {
+            applyFormat(moustache(getColumnIdForIndex(i)).replaceAllIn(result, dVal.head.trim()), dVal.tail, i + 1)
+          }
+        }
+      }
+      column match {
+        case col: GroupColumn => {
+          col.formatPattern match {
+            case None => {
+              simpleConcat()
+            }
+            case Some(formatPattern) => applyFormat(formatPattern)
+          }
+        }
+        case _ => simpleConcat()
+      }
     }
     val obj = applyToAllLangs(lt => format(displayValues.map(obj => obj.getString(lt, ""))))
     obj
@@ -248,7 +311,6 @@ class DisplayValues(langtagsString: String) {
     }
     val res = linkValues.map(linkValue => {
       getDisplayValue(column.to)(linkValue.getValue("value"))
-
     })
     new JsonArray(res.asJava)
   }

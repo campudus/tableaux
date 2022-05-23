@@ -1001,7 +1001,6 @@ class TableauxModel(
 
             case (c: ColumnType[_], value) =>
               // Post-processing is only needed for ConcatColumn and GroupColumn
-              // println("displayValue", displayValue)
               value
           })
         } yield {
