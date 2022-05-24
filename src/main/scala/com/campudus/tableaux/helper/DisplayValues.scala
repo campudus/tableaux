@@ -36,7 +36,7 @@ class DisplayValues(langtagsString: String) {
       case col: GroupColumn => getConcatValue(col)(value)
       case col: ConcatColumn => getConcatValue(col)(value)
       case col: LinkColumn => getLinkValue(col)(value)
-      case BooleanColumn(_) => getBoolValue(column)(value.asInstanceOf[Boolean])
+      case BooleanColumn(_) => getBoolValue(column)(value)
       case NumberColumn(_) => getNumericValue(column)(value)
       case DateColumn(_) => getDateValue(column)(value)
       case DateTimeColumn(_) => getDateValue(column)(value)
@@ -179,14 +179,19 @@ class DisplayValues(langtagsString: String) {
     }
   }
 
-  private def getCurrencyWithCountry(value: JsonObject, country: String): String = {
-    value.getValue(country, getFallbackCurrencyValue(country, value)).toString
+  private def getCurrencyWithCountry(value: Any, country: String): String = {
+    value match {
+      case null => ""
+      case o: JsonObject => o.getValue(country, getFallbackCurrencyValue(country, o)).toString
+      case n: Any => n.toString()
+    }
+
   }
 
   private def getCurrencyValue(col: CurrencyColumn)(value: Any): JsonObject = {
     val getValue = (lt: String) => {
       val country = getCountryOfLangtag(lt)
-      val rawValue: String = getCurrencyWithCountry(value.asInstanceOf[JsonObject], country)
+      val rawValue: String = getCurrencyWithCountry(value, country)
       val currencyCode: String = currencyCodeMap.get(country) match {
         case Some(value) => value
         case None => ""
@@ -257,8 +262,9 @@ class DisplayValues(langtagsString: String) {
     val displayValues: Seq[JsonObject] = flatten(zipped.toList.map({
       case (col: ColumnType[_], value) => {
         val displayValue = getDisplayValue(col)(value)
-        col match {
-          case l: LinkColumn => displayValue.asInstanceOf[JsonArray]
+        displayValue match {
+          case a: JsonArray => a
+          case o: JsonObject => o
           case _ => displayValue.asInstanceOf[JsonObject]
         }
       }
