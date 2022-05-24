@@ -142,7 +142,7 @@ class StatusValuesTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/columns", createStatusColumn)
         statusCellValue <- sendRequest("GET", "/tables/1/columns/5/rows/1")
       } yield {
-        assertEquals(expectedJson, statusCellValue)
+        assertJSONEquals(expectedJson, statusCellValue)
       }
     }
   }

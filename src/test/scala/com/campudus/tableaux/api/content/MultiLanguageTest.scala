@@ -74,7 +74,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
         cell <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
-        assertEquals(exceptedJson, cell)
+        assertJSONEquals(exceptedJson, cell)
       }
     }
   }
@@ -99,7 +99,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
         cell <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
-        assertEquals(exceptedJson, cell)
+        assertJSONEquals(exceptedJson, cell)
       }
     }
   }
@@ -127,7 +127,7 @@ class MultiLanguageTest extends TableauxTestBase {
         )
       )
 
-      assertEquals(expected, cell)
+      assertJSONEquals(expected, cell)
     }
   }
 
@@ -161,11 +161,11 @@ class MultiLanguageTest extends TableauxTestBase {
         cell <- sendRequest("POST", s"/tables/$tableId/columns/$columnId/rows/$rowId", removeEn)
         cellAfterRemoveEn <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
-        assertEquals(
+        assertJSONEquals(
           Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!", "en-GB" -> "Hello, World!")),
           cellAfterCreation)
 
-        assertEquals(Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!")), cellAfterRemoveEn)
+        assertJSONEquals(Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!")), cellAfterRemoveEn)
       }
     }
   }
@@ -200,14 +200,14 @@ class MultiLanguageTest extends TableauxTestBase {
         _ <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", emptyValue)
         cellAfterEmptyPut <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
-        assertEquals(
+        assertJSONEquals(
           Json.obj("status" -> "ok", "value" -> Json.obj("de-DE" -> "Hallo, Welt!", "en-GB" -> "Hello, World!")),
           cellAfterCreation
         )
 
-        assertEquals(cellAfterCreation, cellAfterEmptyPost)
+        assertJSONEquals(cellAfterCreation, cellAfterEmptyPost)
 
-        assertEquals(
+        assertJSONEquals(
           Json.obj("status" -> "ok", "value" -> Json.obj()),
           cellAfterEmptyPut
         )
@@ -264,9 +264,9 @@ class MultiLanguageTest extends TableauxTestBase {
         row2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId2")
         row3 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId3")
       } yield {
-        assertEquals(exceptedJson(rowId1), row1)
-        assertEquals(exceptedJson(rowId2), row2)
-        assertEquals(exceptedJson(rowId3), row3)
+        assertJSONEquals(exceptedJson(rowId1), row1)
+        assertJSONEquals(exceptedJson(rowId2), row2)
+        assertJSONEquals(exceptedJson(rowId3), row3)
       }
     }
   }
@@ -353,7 +353,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
         row <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
-        assertEquals(exceptedJson, row)
+        assertJSONEquals(exceptedJson, row)
       }
     }
   }

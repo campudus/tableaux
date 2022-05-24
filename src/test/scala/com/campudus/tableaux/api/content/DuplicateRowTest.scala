@@ -146,7 +146,6 @@ class DuplicateRowTest extends TableauxTestBase {
       } yield {
         logger.info(s"expected=${expected.encode()}")
         logger.info(s"result=${result.encode()}")
-        assertEquals(result, duplicatedPost)
         assertNotSame(expected.getNumber("id"), result.getNumber("id"))
         expected.remove("id")
         result.remove("id")

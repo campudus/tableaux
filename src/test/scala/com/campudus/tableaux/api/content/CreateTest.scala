@@ -172,8 +172,8 @@ class CreateRowTest extends TableauxTestBase {
       test1 <- sendRequest("POST", "/tables/1/rows")
       test2 <- sendRequest("POST", "/tables/1/rows")
     } yield {
-      assertEquals(expectedJson, test1)
-      assertEquals(expectedJson2, test2)
+      assertJSONEquals(expectedJson, test1)
+      assertJSONEquals(expectedJson2, test2)
     }
   }
 
@@ -293,7 +293,7 @@ class CreateRowTest extends TableauxTestBase {
         assertEquals(fileUuid, resultAttachment.getJsonObject(0).getString("uuid"))
 
         result.getJsonArray("values").remove(8)
-        assertEquals(expect, result)
+        assertJSONEquals(expect, result)
       }
     }
   }

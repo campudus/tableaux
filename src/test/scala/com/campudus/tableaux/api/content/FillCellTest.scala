@@ -41,8 +41,8 @@ class FillCellTest extends TableauxTestBase {
       fillResult <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson)
       cellResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedCell, fillResult)
-      assertEquals(expectedCell, cellResult)
+      assertJSONEquals(expectedCell, fillResult)
+      assertJSONEquals(expectedCell, cellResult)
     }
   }
 
@@ -59,8 +59,8 @@ class FillCellTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedCell, test)
-      assertEquals(expectedCell, getResult)
+      assertJSONEquals(expectedCell, test)
+      assertJSONEquals(expectedCell, getResult)
     }
   }
 
@@ -77,8 +77,8 @@ class FillCellTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillNumberCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedCell, test)
-      assertEquals(expectedCell, getResult)
+      assertJSONEquals(expectedCell, test)
+      assertJSONEquals(expectedCell, getResult)
     }
   }
 
@@ -95,8 +95,8 @@ class FillCellTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillNumberCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedCell, test)
-      assertEquals(expectedCell, getResult)
+      assertJSONEquals(expectedCell, test)
+      assertJSONEquals(expectedCell, getResult)
     }
 
   }
@@ -112,10 +112,10 @@ class FillCellTest extends TableauxTestBase {
       testDouble <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 123.123))
       resultDouble <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
     } yield {
-      assertEquals(Json.obj("status" -> "ok", "value" -> 1234), testInt)
-      assertEquals(Json.obj("status" -> "ok", "value" -> 1234), resultInt)
-      assertEquals(Json.obj("status" -> "ok", "value" -> 123.123), testDouble)
-      assertEquals(Json.obj("status" -> "ok", "value" -> 123.123), resultDouble)
+      assertJSONEquals(Json.obj("status" -> "ok", "value" -> 1234), testInt)
+      assertJSONEquals(Json.obj("status" -> "ok", "value" -> 1234), resultInt)
+      assertJSONEquals(Json.obj("status" -> "ok", "value" -> 123.123), testDouble)
+      assertJSONEquals(Json.obj("status" -> "ok", "value" -> 123.123), resultDouble)
     }
   }
 
@@ -267,8 +267,8 @@ class FillCellTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillBooleanCellJson)
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedCell, test)
-      assertEquals(expectedCell, getResult)
+      assertJSONEquals(expectedCell, test)
+      assertJSONEquals(expectedCell, getResult)
     }
   }
 
@@ -283,8 +283,8 @@ class FillCellTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> "2015-01-01"))
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedCell, test)
-      assertEquals(expectedCell, getResult)
+      assertJSONEquals(expectedCell, test)
+      assertJSONEquals(expectedCell, getResult)
     }
   }
 
@@ -299,8 +299,8 @@ class FillCellTest extends TableauxTestBase {
       test <- sendRequest("POST", "/tables/1/columns/1/rows/1", Json.obj("value" -> "2015-01-01T14:37:47.111+01"))
       getResult <- sendRequest("GET", "/tables/1/columns/1/rows/1")
     } yield {
-      assertEquals(expectedCell, test)
-      assertEquals(expectedCell, getResult)
+      assertJSONEquals(expectedCell, test)
+      assertJSONEquals(expectedCell, getResult)
     }
   }
 
@@ -322,10 +322,10 @@ class FillCellTest extends TableauxTestBase {
       getResult1 <- sendRequest("GET", "/tables/1/columns/1/rows/1")
       getResult2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
     } yield {
-      assertEquals(expectedCell1, test1)
-      assertEquals(expectedCell2, test2)
-      assertEquals(expectedCell1, getResult1)
-      assertEquals(expectedCell2, getResult2)
+      assertJSONEquals(expectedCell1, test1)
+      assertJSONEquals(expectedCell2, test2)
+      assertJSONEquals(expectedCell1, getResult1)
+      assertJSONEquals(expectedCell2, getResult2)
     }
   }
 
@@ -354,8 +354,8 @@ class FillCellTest extends TableauxTestBase {
         test <- sendRequest("PUT", s"/tables/$tableId/columns/$columnId/rows/$rowId", Json.obj("value" -> 2999.99))
         result <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
-        assertEquals(Json.obj("status" -> "ok", "value" -> 2999.99), test)
-        assertEquals(Json.obj("status" -> "ok", "value" -> 2999.99), result)
+        assertJSONEquals(Json.obj("status" -> "ok", "value" -> 2999.99), test)
+        assertJSONEquals(Json.obj("status" -> "ok", "value" -> 2999.99), result)
       }
     }
   }
@@ -388,11 +388,11 @@ class FillCellTest extends TableauxTestBase {
 
         resultInt <- sendRequest("GET", s"/tables/$tableId/columns/$columnId/rows/$rowId")
       } yield {
-        assertEquals(testInt, resultInt)
-        assertEquals(testFloat, resultFloat)
+        assertJSONEquals(testInt, resultInt)
+        assertJSONEquals(testFloat, resultFloat)
 
-        assertEquals(Json.obj("DE" -> 2999, "GB" -> 3999), resultInt.getJsonObject("value"))
-        assertEquals(Json.obj("DE" -> 2999.99, "GB" -> 3999.99), resultFloat.getJsonObject("value"))
+        assertJSONEquals(Json.obj("DE" -> 2999, "GB" -> 3999), resultInt.getJsonObject("value"))
+        assertJSONEquals(Json.obj("DE" -> 2999.99, "GB" -> 3999.99), resultFloat.getJsonObject("value"))
       }
     }
   }

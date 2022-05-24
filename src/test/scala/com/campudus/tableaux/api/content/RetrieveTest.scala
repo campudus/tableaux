@@ -287,7 +287,7 @@ class RetrieveRowsTest extends TableauxTestBase {
       _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertJSONEquals(expectedJson, test)
     }
   }
 
@@ -310,7 +310,7 @@ class RetrieveRowsTest extends TableauxTestBase {
       _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/rows")
     } yield {
-      assertEquals(expectedJson, test)
+      assertJSONEquals(expectedJson, test)
     }
   }
 
@@ -332,7 +332,7 @@ class RetrieveRowsTest extends TableauxTestBase {
       _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/rows?offset=1&limit=1")
     } yield {
-      assertEquals(expectedJson, test)
+      assertJSONEquals(expectedJson, test)
     }
   }
 
@@ -375,7 +375,7 @@ class RetrieveRowsTest extends TableauxTestBase {
       _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/columns/2/rows")
     } yield {
-      assertEquals(expectedJson, test)
+      assertJSONEquals(expectedJson, test)
     }
   }
 
@@ -392,7 +392,7 @@ class RetrieveRowsTest extends TableauxTestBase {
 
       test <- sendRequest("GET", "/tables/1/columns/0/rows")
     } yield {
-      assertEquals(expectedJson, test.getJsonArray("rows"))
+      assertJSONEquals(expectedJson, test.getJsonArray("rows"))
     }
   }
 
@@ -407,7 +407,7 @@ class RetrieveRowsTest extends TableauxTestBase {
       _ <- createDefaultTable()
       test <- sendRequest("GET", "/tables/1/columns/first/rows")
     } yield {
-      assertEquals(expectedJson, test.getJsonArray("rows"))
+      assertJSONEquals(expectedJson, test.getJsonArray("rows"))
     }
   }
 
@@ -424,7 +424,7 @@ class RetrieveRowsTest extends TableauxTestBase {
 
       test <- sendRequest("GET", "/tables/1/columns/first/rows")
     } yield {
-      assertEquals(expectedJson, test.getJsonArray("rows"))
+      assertJSONEquals(expectedJson, test.getJsonArray("rows"))
     }
   }
 }
@@ -442,8 +442,8 @@ class RetrieveCellTest extends TableauxTestBase {
       test <- sendRequest("GET", "/tables/1/columns/1/rows/1")
       test2 <- sendRequest("GET", "/tables/1/columns/2/rows/1")
     } yield {
-      assertEquals(expectedJson, test)
-      assertEquals(expectedJson2, test2)
+      assertJSONEquals(expectedJson, test)
+      assertJSONEquals(expectedJson2, test2)
     }
   }
 }
