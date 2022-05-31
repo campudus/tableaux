@@ -16,7 +16,8 @@ import scala.concurrent.Future
 trait DatabaseQuery extends JsonCompatible with LazyLogging {
   protected[this] val connection: DatabaseConnection
 
-  implicit val executionContext: VertxExecutionContext = connection.executionContext
+  implicit val executionContext: VertxExecutionContext =
+    connection.executionContext
 
   protected[this] def checkUpdateResults(seq: JsonObject*): Unit = {
     seq.map(json => if (json.containsKey("message")) updateNotNull(json))
@@ -29,7 +30,7 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
   ): Future[(B, JsonObject)] = {
     opt match {
       case Some(x) => someCase(x)
-      case None => Future.successful(trans, Json.obj())
+      case None    => Future.successful(trans, Json.obj())
     }
   }
 
@@ -37,7 +38,10 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
     Option(str).map(DateTime.parse)
   }
 
-  protected[this] def convertJsonArrayToSeq[A](arr: JsonArray, converter: AnyRef => A): Seq[A] = {
+  protected[this] def convertJsonArrayToSeq[A](
+      arr: JsonArray,
+      converter: AnyRef => A
+  ): Seq[A] = {
     import scala.collection.JavaConverters._
 
     Option(arr).getOrElse(Json.emptyArr()).asScala.toSeq.map(converter)
@@ -47,12 +51,24 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
 object DatabaseConnection {
   type ScalaTransaction = io.vertx.scala.Transaction
 
-  def apply(vertxAccess: VertxAccess, connection: SQLConnection): DatabaseConnection = {
+  def apply(
+      vertxAccess: VertxAccess,
+      connection: SQLConnection
+  ): DatabaseConnection = {
     new DatabaseConnection(vertxAccess, connection)
   }
 }
 
-class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnection) extends VertxAccess {
+trait Query {
+  def query(stmt: String): Future[JsonObject]
+  def query(stmt: String, values: JsonArray): Future[JsonObject]
+}
+
+class DatabaseConnection(
+    val vertxAccess: VertxAccess,
+    val connection: SQLConnection
+) extends VertxAccess
+    with Query {
 
   import DatabaseConnection._
 
@@ -60,6 +76,84 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
   type TransFunc[+A] = Transaction => Future[(Transaction, A)]
 
+  case class TransactionAlt(transaction: ScalaTransaction) extends Query {
+
+    def query(stmt: String): Future[JsonObject] = {
+      println("query")
+      doMagicQuery(stmt, None, transaction)
+        .map(result => (copy(transaction), result))
+        .recoverWith(rollbackAndFail())
+        .map(res => res._2)
+    }
+
+    def query(
+        stmt: String,
+        values: JsonArray
+    ): Future[JsonObject] = {
+      println("query")
+      doMagicQuery(stmt, Some(values), transaction)
+        .map(result => (copy(transaction), result))
+        .recoverWith(rollbackAndFail())
+        .map(res => res._2)
+    }
+
+    def selectSingleValue[A](select: String): Future[(TransactionAlt, A)] =
+      selectSingleValue(select, None)
+
+    def selectSingleValue[A](
+        select: String,
+        parameter: JsonArray
+    ): Future[A] =
+      selectSingleValue(select, Some(parameter))
+
+    private def selectSingleValue[A](
+        select: String,
+        parameter: Option[JsonArray]
+    ): Future[A] = {
+      for {
+        resultJson <- parameter match {
+          case None    => query(select)
+          case Some(p) => query(select, p)
+        }
+      } yield {
+        selectNotNull(resultJson).head.getValue(0).asInstanceOf[A]
+      }
+    }
+
+    def commit(): Future[Unit] = transaction.commit()
+
+    def rollback(): Future[Unit] = transaction.rollback()
+
+    def rollbackAndFail()
+        : PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
+      case ex: Throwable =>
+        logger.error(s"Rollback and fail.", ex)
+        rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
+    }
+
+    def transactionalFoldLeft[A](values: Seq[A])(
+        fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]
+    ): Future[JsonObject] = {
+      transactionalFoldLeft(values, Json.emptyObj())(fn)
+    }
+
+    def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(
+        fn: (Transaction, B, A) => Future[(Transaction, B)]
+    ): Future[B] = {
+      transactional[B]({ transaction: Transaction =>
+        {
+          values.foldLeft(Future(transaction, fnStartValue)) {
+            (result, value) =>
+              {
+                result.flatMap { case (newTransaction, lastResult) =>
+                  fn(newTransaction, lastResult, value)
+                }
+              }
+          }
+        }
+      })
+    }
+  }
   case class Transaction(transaction: ScalaTransaction) {
 
     def query(stmt: String): Future[(Transaction, JsonObject)] = {
@@ -68,21 +162,31 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
         .recoverWith(rollbackAndFail())
     }
 
-    def query(stmt: String, values: JsonArray): Future[(Transaction, JsonObject)] = {
+    def query(
+        stmt: String,
+        values: JsonArray
+    ): Future[(Transaction, JsonObject)] = {
       doMagicQuery(stmt, Some(values), transaction)
         .map(result => (copy(transaction), result))
         .recoverWith(rollbackAndFail())
     }
 
-    def selectSingleValue[A](select: String): Future[(Transaction, A)] = selectSingleValue(select, None)
+    def selectSingleValue[A](select: String): Future[(Transaction, A)] =
+      selectSingleValue(select, None)
 
-    def selectSingleValue[A](select: String, parameter: JsonArray): Future[(Transaction, A)] =
+    def selectSingleValue[A](
+        select: String,
+        parameter: JsonArray
+    ): Future[(Transaction, A)] =
       selectSingleValue(select, Some(parameter))
 
-    private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[(Transaction, A)] = {
+    private def selectSingleValue[A](
+        select: String,
+        parameter: Option[JsonArray]
+    ): Future[(Transaction, A)] = {
       for {
         (t, resultJson) <- parameter match {
-          case None => query(select)
+          case None    => query(select)
           case Some(p) => query(select, p)
         }
       } yield {
@@ -94,29 +198,34 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
     def rollback(): Future[Unit] = transaction.rollback()
 
-    def rollbackAndFail(): PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
+    def rollbackAndFail()
+        : PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
       case ex: Throwable =>
         logger.error(s"Rollback and fail.", ex)
         rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
     }
   }
 
-  def query(stmt: String): Future[JsonObject] = doMagicQuery(stmt, None, connection)
+  def query(stmt: String): Future[JsonObject] =
+    doMagicQuery(stmt, None, connection)
 
-  def query(stmt: String, parameter: JsonArray): Future[JsonObject] = doMagicQuery(stmt, Some(parameter), connection)
+  def query(stmt: String, parameter: JsonArray): Future[JsonObject] =
+    doMagicQuery(stmt, Some(parameter), connection)
 
   def begin(): Future[Transaction] = connection.transaction().map(Transaction)
+
+  def beginAlt(): Future[TransactionAlt] =
+    connection.transaction().map(TransactionAlt)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
     for {
       transaction <- begin()
 
       (transaction, result) <- {
-        fn(transaction) recoverWith {
-          case e: Throwable =>
-            logger.error("Failed executing transactional. Rollback and fail.", e)
-            transaction.rollback()
-            Future.failed(e)
+        fn(transaction) recoverWith { case e: Throwable =>
+          logger.error("Failed executing transactional. Rollback and fail.", e)
+          transaction.rollback()
+          Future.failed(e)
         }
       }
 
@@ -141,9 +250,8 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
       {
         values.foldLeft(Future(transaction, fnStartValue)) { (result, value) =>
           {
-            result.flatMap {
-              case (newTransaction, lastResult) =>
-                fn(newTransaction, lastResult, value)
+            result.flatMap { case (newTransaction, lastResult) =>
+              fn(newTransaction, lastResult, value)
             }
           }
         }
@@ -151,15 +259,19 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     })
   }
 
-  def selectSingleValue[A](select: String): Future[A] = selectSingleValue(select, None)
+  def selectSingleValue[A](select: String): Future[A] =
+    selectSingleValue(select, None)
 
   def selectSingleValue[A](select: String, parameter: JsonArray): Future[A] =
     selectSingleValue(select, Some(parameter))
 
-  private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[A] = {
+  private def selectSingleValue[A](
+      select: String,
+      parameter: Option[JsonArray]
+  ): Future[A] = {
     for {
       resultJson <- parameter match {
-        case None => query(select)
+        case None    => query(select)
         case Some(p) => query(select, p)
       }
     } yield {
@@ -167,7 +279,11 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
     }
   }
 
-  private def doMagicQuery(stmt: String, values: Option[JsonArray], connection: DatabaseAction): Future[JsonObject] = {
+  private def doMagicQuery(
+      stmt: String,
+      values: Option[JsonArray],
+      connection: DatabaseAction
+  ): Future[JsonObject] = {
     val command = stmt.trim().split("\\s+").head.toUpperCase
     val returning = stmt.trim().toUpperCase.contains("RETURNING")
 
@@ -177,22 +293,22 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
       case ("UPDATE", true) =>
         values match {
           case Some(s) => connection.query(stmt + ";--", s)
-          case None => connection.query(stmt + ";--")
+          case None    => connection.query(stmt + ";--")
         }
       case ("INSERT", true) | ("SELECT", _) =>
         values match {
           case Some(s) => connection.query(stmt, s)
-          case None => connection.query(stmt)
+          case None    => connection.query(stmt)
         }
       case ("DELETE", true) =>
         values match {
           case Some(s) => connection.update(stmt + ";--", s)
-          case None => connection.update(stmt + ";--")
+          case None    => connection.update(stmt + ";--")
         }
       case ("DELETE", false) | ("INSERT", false) | ("UPDATE", false) =>
         values match {
           case Some(s) => connection.update(stmt, s)
-          case None => connection.update(stmt)
+          case None    => connection.update(stmt)
         }
       case (_, _) =>
         throw DatabaseException(
@@ -203,8 +319,8 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
     future.map({
       case r: UpdateResult => mapUpdateResult(command, r.asJava.toJson)
-      case r: ResultSet => mapResultSet(r.asJava.toJson)
-      case _ => createExecuteResult(command)
+      case r: ResultSet    => mapResultSet(r.asJava.toJson)
+      case _               => createExecuteResult(command)
     })
   }
 
