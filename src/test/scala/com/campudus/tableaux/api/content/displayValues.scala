@@ -76,6 +76,11 @@ class DisplayValueTest extends LinkTestBase {
     "en-GB" -> ""
   )
 
+  val expectedLink = Json.arr(Json.obj(
+    "de-DE" -> "table2RowId1",
+    "en-GB" -> "table2RowId1"
+    ))
+
   def getLinksValue(arr: JsonArray, pos: Int): JsonArray = {
     arr.getJsonObject(pos).getJsonArray("value")
   }
@@ -86,6 +91,10 @@ class DisplayValueTest extends LinkTestBase {
 
   def getDisplayValue(obj: JsonObject): JsonObject = {
     obj.getJsonObject("displayValue")
+  }
+
+  def getDisplayValueArray(obj: JsonObject): JsonArray = {
+    obj.getJsonArray("displayValue")
   }
 
   def getColumnId(obj: JsonObject): String = {
@@ -122,6 +131,7 @@ class DisplayValueTest extends LinkTestBase {
       _ <- sendRequest("POST", s"/tables/1/columns/${getColumnId(dateTimeCol)}/rows/1", putDateTimeValue)
       _ <- sendRequest("POST", s"/tables/1/columns/${getColumnId(numberCol)}/rows/1", putNumberValue)
 
+      linkRes <- sendRequest("GET", s"/tables/1/columns/${linkColumnId}/rows/1")
       textRes <- sendRequest("GET", s"/tables/1/columns/${getColumnId(textCol)}/rows/1")
       currencyRes <- sendRequest("GET", s"/tables/1/columns/${getColumnId(currencyCol)}/rows/1")
       boolRes <- sendRequest("GET", s"/tables/1/columns/${getColumnId(boolCol)}/rows/1")
@@ -136,6 +146,7 @@ class DisplayValueTest extends LinkTestBase {
       assertJSONEquals(expectedDate, getDisplayValue(dateRes))
       assertJSONEquals(expectedDateTime, getDisplayValue(dateTimeRes))
       assertJSONEquals(expectedNumber, getDisplayValue(numberRes))
+      assertJSONEquals(expectedLink, getDisplayValueArray(linkRes))
     }
   }
 
