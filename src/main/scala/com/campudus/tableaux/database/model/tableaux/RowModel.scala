@@ -4,9 +4,17 @@ import java.util.UUID
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
-import com.campudus.tableaux.database.domain.{MultiLanguageColumn, RowLevelAnnotations, _}
+import com.campudus.tableaux.database.domain.{
+  MultiLanguageColumn,
+  RowLevelAnnotations,
+  _
+}
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
+import com.campudus.tableaux.database.model.{
+  Attachment,
+  AttachmentFile,
+  AttachmentModel
+}
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.{
@@ -20,6 +28,8 @@ import org.vertx.scala.core.json.{Json, _}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import io.vertx.scala.Transaction
+import io.vertx.scala.DatabaseAction
 
 private object ModelHelper {
 
@@ -41,14 +51,20 @@ sealed trait UpdateCreateRowModelHelper {
   def rowExists(t: connection.Transaction, tableId: TableId, rowId: RowId)(
       implicit ec: ExecutionContext
   ): Future[connection.Transaction] = {
-    t.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
-      .flatMap({
-        case (t, true) => Future.successful(t)
-        case (_, false) => Future.failed(RowNotFoundException(tableId, rowId))
-      })
+    t.selectSingleValue[Boolean](
+      s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?",
+      Json.arr(rowId)
+    ).flatMap({
+      case (t, true)  => Future.successful(t)
+      case (_, false) => Future.failed(RowNotFoundException(tableId, rowId))
+    })
   }
 
-  private def generateUnionSelectAndBinds(rowId: RowId, column: LinkColumn, toIds: Seq[RowId]): (String, Seq[Long]) = {
+  private def generateUnionSelectAndBinds(
+      rowId: RowId,
+      column: LinkColumn,
+      toIds: Seq[RowId]
+  ): (String, Seq[Long]) = {
     val linkId = column.linkId
     val direction = column.linkDirection
 
@@ -65,65 +81,76 @@ sealed trait UpdateCreateRowModelHelper {
       .mkString(" UNION ")
 
     val binds = toIds.zipWithIndex
-      .flatMap({
-        case (to, index) => List(rowId, to, rowId, to, rowId, index.toLong + 1, linkId, to, linkId)
+      .flatMap({ case (to, index) =>
+        List(rowId, to, rowId, to, rowId, index.toLong + 1, linkId, to, linkId)
       })
 
     (union, binds)
   }
 
-  def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])])(
-      implicit ec: ExecutionContext
+  def updateLinks(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(LinkColumn, Seq[RowId])]
+  )(implicit
+      ec: ExecutionContext
   ): Future[Unit] = {
-    val futureSequence = values.map({
-      case (column: LinkColumn, toIds) =>
-        val linkId = column.linkId
-        val direction = column.linkDirection
+    val futureSequence = values.map({ case (column: LinkColumn, toIds) =>
+      val linkId = column.linkId
+      val direction = column.linkDirection
 
-        val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
+      val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
 
-        connection.transactional(t => {
-          for {
-            // check if row (where we want to add the links) really exists
-            t <- rowExists(t, column.table.id, rowId)
+      connection.transactional(t => {
+        for {
+          // check if row (where we want to add the links) really exists
+          t <- rowExists(t, column.table.id, rowId)
 
-            // check if "to-be-linked" rows really exist
-            t <- toIds
-              .foldLeft(Future(t))((futureT, toId) => {
-                futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
+          // check if "to-be-linked" rows really exist
+          t <- toIds
+            .foldLeft(Future(t))((futureT, toId) => {
+              futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
+            })
+            .recoverWith({ case ex: Throwable =>
+              Future.failed(UnprocessableEntityException(ex.getMessage))
+            })
+
+          (t, _) <-
+            if (toIds.nonEmpty) {
+              t.query(
+                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
+                Json.arr(binds: _*)
+              ).map({
+                // if size doesn't match we hit the cardinality limit
+                case (t, result) => (t, insertCheckSize(result, toIds.size))
               })
-              .recoverWith({
-                case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
-              })
-
-            (t, _) <-
-              if (toIds.nonEmpty) {
-                t.query(
-                  s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
-                  Json.arr(binds: _*)
-                )
-                  .map({
-                    // if size doesn't match we hit the cardinality limit
-                    case (t, result) => (t, insertCheckSize(result, toIds.size))
-                  })
-              } else {
-                Future.successful((t, Json.emptyArr()))
-              }
-          } yield (t, ())
-        })
+            } else {
+              Future.successful((t, Json.emptyArr()))
+            }
+        } yield (t, ())
+      })
     })
 
     Future.sequence(futureSequence).map(_ => ())
   }
 }
 
-class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with UpdateCreateRowModelHelper {
+class UpdateRowModel(val connection: DatabaseConnection)
+    extends DatabaseQuery
+    with UpdateCreateRowModelHelper {
 
   val attachmentModel = AttachmentModel(connection)
 
-  def deleteRow(tableId: TableId, rowId: RowId): Future[Unit] = {
+  def deleteRow(
+      tableId: TableId,
+      rowId: RowId,
+      con: Query = connection
+  ): Future[Unit] = {
     for {
-      result <- connection.query(s"DELETE FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+      result <- con.query(
+        s"DELETE FROM user_table_$tableId WHERE id = ?",
+        Json.arr(rowId)
+      )
     } yield {
       deleteNotNull(result)
     }
@@ -133,15 +160,30 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       columns: Seq[ColumnType[_]],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      con: Query = connection
   ): Future[Unit] = {
-    val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
+
+    val (simple, multis, links, attachments) =
+      ColumnType.splitIntoTypes(columns)
+    println("######################################")
+    println("clearRow")
+    println(simple.isEmpty, multis.isEmpty, links.isEmpty, attachments.isEmpty)
+    println("######################################")
 
     for {
-      _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.map((_, None)))
-      _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis)
-      _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links, deleteRowFn)
-      _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
+      _ <-
+        if (simple.isEmpty) Future.successful(())
+        else updateSimple(table, rowId, simple.map((_, None)), con)
+      _ <-
+        if (multis.isEmpty) Future.successful(())
+        else clearTranslation(table, rowId, multis, con)
+      _ <-
+        if (links.isEmpty) Future.successful(())
+        else clearLinks(table, rowId, links, deleteRowFn, con)
+      _ <-
+        if (attachments.isEmpty) Future.successful(())
+        else clearAttachments(table, rowId, attachments)
     } yield ()
   }
 
@@ -161,23 +203,42 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         for {
           _ <-
             if (simple.isEmpty) Future.successful(())
-            else updateSimple(table, rowId, simple.map({ case (c, _) => (c, None) }))
-          _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis.map(_._1))
-          _ <- if (links.isEmpty) Future.successful(()) else clearLinksWithValues(table, rowId, links, deleteRowFn)
-          _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments.map(_._1))
+            else
+              updateSimple(
+                table,
+                rowId,
+                simple.map({ case (c, _) => (c, None) })
+              )
+          _ <-
+            if (multis.isEmpty) Future.successful(())
+            else clearTranslation(table, rowId, multis.map(_._1))
+          _ <-
+            if (links.isEmpty) Future.successful(())
+            else clearLinksWithValues(table, rowId, links, deleteRowFn)
+          _ <-
+            if (attachments.isEmpty) Future.successful(())
+            else clearAttachments(table, rowId, attachments.map(_._1))
         } yield ()
     }
   }
 
-  private def clearTranslation(table: Table, rowId: RowId, columns: Seq[SimpleValueColumn[_]]): Future[_] = {
+  private def clearTranslation(
+      table: Table,
+      rowId: RowId,
+      columns: Seq[SimpleValueColumn[_]],
+      con: Query = connection
+  ): Future[_] = {
     val setExpression = columns
-      .map({
-        case MultiLanguageColumn(column) => s"column_${column.id} = NULL"
+      .map({ case MultiLanguageColumn(column) =>
+        s"column_${column.id} = NULL"
       })
       .mkString(", ")
 
     for {
-      _ <- connection.query(s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ?", Json.arr(rowId))
+      _ <- con.query(
+        s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ?",
+        Json.arr(rowId)
+      )
     } yield ()
   }
 
@@ -185,8 +246,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       columnsWithValues: Seq[(LinkColumn, Seq[RowId])],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      con: Query = connection
   ): Future[_] = {
+    println("######################################")
+    println("clearLinksWithValues")
+    println("######################################")
     val futureSequence = columnsWithValues.map({
       case (column, values) => {
         val fromIdColumn = column.linkDirection.fromSql
@@ -196,9 +261,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         for {
           _ <-
             if (column.linkDirection.constraint.deleteCascade) {
-              deleteLinkedRows(table, rowId, column, deleteRowFn, values)
+              deleteLinkedRows(table, rowId, column, deleteRowFn, values, con)
             } else {
-              connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ?", Json.arr(rowId))
+              con.query(
+                s"DELETE FROM $linkTable WHERE $fromIdColumn = ?",
+                Json.arr(rowId)
+              )
             }
         } yield ()
       }
@@ -211,11 +279,25 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       columns: Seq[LinkColumn],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject]
-  ): Future[_] = clearLinksWithValues(table, rowId, columns.map((_, Seq.empty)), deleteRowFn)
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      con: Query = connection
+  ): Future[_] =
+    clearLinksWithValues(
+      table,
+      rowId,
+      columns.map((_, Seq.empty)),
+      deleteRowFn,
+      con
+    )
 
-  private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
-    val cleared = columns.map((c: AttachmentColumn) => attachmentModel.deleteAll(table.id, c.id, rowId))
+  private def clearAttachments(
+      table: Table,
+      rowId: RowId,
+      columns: Seq[AttachmentColumn]
+  ): Future[_] = {
+    val cleared = columns.map((c: AttachmentColumn) =>
+      attachmentModel.deleteAll(table.id, c.id, rowId)
+    )
     Future.sequence(cleared)
   }
 
@@ -224,7 +306,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       rowId: RowId,
       column: LinkColumn,
       deleteRowFn: (Table, RowId) => Future[EmptyObject],
-      newForeignRowIds: Seq[RowId] = Seq.empty
+      newForeignRowIds: Seq[RowId] = Seq.empty,
+      con: Query = connection
   ): Future[_] = {
     val linkTable = s"link_table_${column.linkId}"
     val fromIdColumn = column.linkDirection.fromSql
@@ -239,7 +322,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
             // only delete foreign row if it's not part of new values...
             // ... otherwise delete link
             if (newForeignRowIds.contains(foreignRowId)) {
-              connection.query(
+              con.query(
                 s"DELETE FROM $linkTable WHERE $fromIdColumn = ? AND $toIdColumn = ?",
                 Json.arr(rowId, foreignRowId)
               )
@@ -290,7 +373,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     val toIdColumn = column.linkDirection.toSql
     val linkTable = s"link_table_${column.linkId}"
 
-    val sql = s"DELETE FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?"
+    val sql =
+      s"DELETE FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?"
 
     for {
       _ <-
@@ -356,11 +440,17 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       t <- connection.begin()
 
       // Check if row exists
-      (t, result) <- t.query(s"SELECT id FROM user_table_${table.id} WHERE id = ?", Json.arr(rowId))
+      (t, result) <- t.query(
+        s"SELECT id FROM user_table_${table.id} WHERE id = ?",
+        Json.arr(rowId)
+      )
       _ = selectNotNull(result)
 
       // Check if row exists
-      (t, result) <- t.query(s"SELECT id FROM user_table_${column.to.table.id} WHERE id = ?", Json.arr(toId))
+      (t, result) <- t.query(
+        s"SELECT id FROM user_table_${column.to.table.id} WHERE id = ?",
+        Json.arr(toId)
+      )
       _ = selectNotNull(result)
 
       t <- locationType match {
@@ -369,40 +459,51 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           t.query(
             s"SELECT $toIdColumn FROM $linkTable WHERE $rowIdColumn = ? AND $toIdColumn = ?",
             Json.arr(rowId, relativeTo)
-          )
-            .map({
-              case (t, result) =>
-                selectNotNull(result)
-                t
-            })
+          ).map({ case (t, result) =>
+            selectNotNull(result)
+            t
+          })
 
         case _ =>
           Future.successful(t)
       }
 
-      (t, _) <- (listOfStatements :+ normalize).foldLeft(Future.successful((t, Vector[JsonObject]()))) {
-        case (fTuple, (query, bindParams)) =>
-          for {
-            (latestTransaction, results) <- fTuple
-            (lastT, result) <- latestTransaction.query(query, bindParams)
-          } yield (lastT, results :+ result)
+      (t, _) <- (listOfStatements :+ normalize).foldLeft(
+        Future.successful((t, Vector[JsonObject]()))
+      ) { case (fTuple, (query, bindParams)) =>
+        for {
+          (latestTransaction, results) <- fTuple
+          (lastT, result) <- latestTransaction.query(query, bindParams)
+        } yield (lastT, results :+ result)
       }
 
       _ <- t.commit()
     } yield ()
   }
 
-  def updateRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  def updateRow(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(ColumnType[_], _)]
+  ): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
 
       case Success((simple, multis, links, attachments)) =>
         for {
-          _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple)
-          _ <- if (multis.isEmpty) Future.successful(()) else updateTranslations(table, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links)
-          _ <- if (attachments.isEmpty) Future.successful(()) else updateAttachments(table, rowId, attachments)
+          _ <-
+            if (simple.isEmpty) Future.successful(())
+            else updateSimple(table, rowId, simple)
+          _ <-
+            if (multis.isEmpty) Future.successful(())
+            else updateTranslations(table, rowId, multis)
+          _ <-
+            if (links.isEmpty) Future.successful(())
+            else updateLinks(table, rowId, links)
+          _ <-
+            if (attachments.isEmpty) Future.successful(())
+            else updateAttachments(table, rowId, attachments)
         } yield ()
     }
   }
@@ -410,20 +511,24 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   private def updateSimple(
       table: Table,
       rowId: RowId,
-      simple: List[(SimpleValueColumn[_], Option[Any])]
+      simple: List[(SimpleValueColumn[_], Option[Any])],
+      con: Query = connection
   ): Future[Unit] = {
     val setExpression = simple
-      .map({
-        case (column: SimpleValueColumn[_], _) => s"column_${column.id} = ?"
+      .map({ case (column: SimpleValueColumn[_], _) =>
+        s"column_${column.id} = ?"
       })
       .mkString(", ")
 
-    val binds = simple.map({
-      case (_, valueOpt) => valueOpt.orNull
+    val binds = simple.map({ case (_, valueOpt) =>
+      valueOpt.orNull
     }) ++ List(rowId)
 
     for {
-      update <- connection.query(s"UPDATE user_table_${table.id} SET $setExpression WHERE id = ?", Json.arr(binds: _*))
+      update <- con.query(
+        s"UPDATE user_table_${table.id} SET $setExpression WHERE id = ?",
+        Json.arr(binds: _*)
+      )
       _ = updateNotNull(update)
     } yield ()
   }
@@ -446,12 +551,14 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       connection.transactionalFoldLeft(columnsForLang.toSeq) {
         case (t, _, (langtag, columnValueOptSeq)) =>
           val setExpression = columnValueOptSeq
-            .map({
-              case (column, _) => s"column_${column.id} = ?"
+            .map({ case (column, _) =>
+              s"column_${column.id} = ?"
             })
             .mkString(", ")
 
-          val binds = columnValueOptSeq.map({ case (_, valueOpt) => valueOpt.orNull }).toList ++ List(rowId, langtag)
+          val binds = columnValueOptSeq
+            .map({ case (_, valueOpt) => valueOpt.orNull })
+            .toList ++ List(rowId, langtag)
 
           for {
             (t, _) <- t.query(
@@ -475,44 +582,65 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       rowId: RowId,
       values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
   ): Future[Seq[Seq[AttachmentFile]]] = {
-    val futureSequence = values.map({
-      case (column, attachments) =>
-        for {
-          currentAttachments <- attachmentModel.retrieveAll(table.id, column.id, rowId)
-          attachmentFiles <- attachments.foldLeft(Future.successful(List[AttachmentFile]())) {
-            case (future, (uuid, ordering)) =>
-              for {
-                list <- future
-                addedOrUpdatedAttachment <-
-                  if (currentAttachments.exists(_.file.file.uuid.equals(uuid))) {
-                    attachmentModel.update(Attachment(table.id, column.id, rowId, uuid, ordering))
-                  } else {
-                    attachmentModel.add(Attachment(table.id, column.id, rowId, uuid, ordering))
-                  }
-              } yield addedOrUpdatedAttachment :: list
-          }
-        } yield attachmentFiles
+    val futureSequence = values.map({ case (column, attachments) =>
+      for {
+        currentAttachments <- attachmentModel.retrieveAll(
+          table.id,
+          column.id,
+          rowId
+        )
+        attachmentFiles <- attachments.foldLeft(
+          Future.successful(List[AttachmentFile]())
+        ) { case (future, (uuid, ordering)) =>
+          for {
+            list <- future
+            addedOrUpdatedAttachment <-
+              if (currentAttachments.exists(_.file.file.uuid.equals(uuid))) {
+                attachmentModel.update(
+                  Attachment(table.id, column.id, rowId, uuid, ordering)
+                )
+              } else {
+                attachmentModel.add(
+                  Attachment(table.id, column.id, rowId, uuid, ordering)
+                )
+              }
+          } yield addedOrUpdatedAttachment :: list
+        }
+      } yield attachmentFiles
     })
 
     Future.sequence(futureSequence)
   }
 
-  def updateRowsAnnotations(tableId: TableId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
+  def updateRowsAnnotations(
+      tableId: TableId,
+      finalFlagOpt: Option[Boolean]
+  ): Future[Unit] = {
     for {
       _ <- finalFlagOpt match {
         case None => Future.successful(())
         case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_$tableId SET final = ?", Json.arr(finalFlag))
+          connection.query(
+            s"UPDATE user_table_$tableId SET final = ?",
+            Json.arr(finalFlag)
+          )
       }
     } yield ()
   }
 
-  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
+  def updateRowAnnotations(
+      tableId: TableId,
+      rowId: RowId,
+      finalFlagOpt: Option[Boolean]
+  ): Future[Unit] = {
     for {
       _ <- finalFlagOpt match {
         case None => Future.successful(())
         case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_$tableId SET final = ? WHERE id = ?", Json.arr(finalFlag, rowId))
+          connection.query(
+            s"UPDATE user_table_$tableId SET final = ? WHERE id = ?",
+            Json.arr(finalFlag, rowId)
+          )
       }
     } yield ()
   }
@@ -581,7 +709,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
          |RETURNING
          |  user_table_annotations_$tableId.uuid,
          |  array_to_json(user_table_annotations_$tableId.langtags),
-         |  ${parseDateTimeSql(s"user_table_annotations_$tableId.created_at")}""".stripMargin
+         |  ${parseDateTimeSql(
+          s"user_table_annotations_$tableId.created_at"
+        )}""".stripMargin
 
     val updateBinds = Json.arr(
       langtags.mkString("{", ",", "}"),
@@ -593,22 +723,30 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
     connection.transactional(t => {
       for {
-        (t, _) <- t.query(s"LOCK TABLE user_table_annotations_$tableId IN EXCLUSIVE MODE")
+        (t, _) <- t.query(
+          s"LOCK TABLE user_table_annotations_$tableId IN EXCLUSIVE MODE"
+        )
 
         // first, try to update possible existing annotations...
         (t, rawRow) <- t
           .query(updateStatement, updateBinds)
-          .map({
-            case (t, result) => (t, resultObjectToJsonArray(result).map(jsonArrayToSeq).headOption)
+          .map({ case (t, result) =>
+            (t, resultObjectToJsonArray(result).map(jsonArrayToSeq).headOption)
           })
 
         updateResult = rawRow match {
-          case Some(Seq(uuidStr: String, langtagsStr: String, createdAt: String)) =>
+          case Some(
+                Seq(uuidStr: String, langtagsStr: String, createdAt: String)
+              ) =>
             import scala.collection.JavaConverters._
 
             Some(
               UUID.fromString(uuidStr),
-              Json.fromArrayString(langtagsStr).asScala.map(_.asInstanceOf[String]).toList,
+              Json
+                .fromArrayString(langtagsStr)
+                .asScala
+                .map(_.asInstanceOf[String])
+                .toList,
               DateTime.parse(createdAt)
             )
           case _ => None
@@ -620,11 +758,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           case Some(s) => Future.successful((t, s))
           case _ =>
             t.query(insertStatement, insertBinds)
-              .map({
-                case (t, result) => (t, DateTime.parse(insertNotNull(result).head.getString(0)))
+              .map({ case (t, result) =>
+                (t, DateTime.parse(insertNotNull(result).head.getString(0)))
               })
-              .map({
-                case (t, createdAt) => (t, (newUuid, langtags, createdAt))
+              .map({ case (t, createdAt) =>
+                (t, (newUuid, langtags, createdAt))
               })
         }
 
@@ -633,7 +771,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     })
   }
 
-  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID): Future[_] = {
+  def deleteCellAnnotation(
+      column: ColumnType[_],
+      rowId: RowId,
+      uuid: UUID
+  ): Future[_] = {
     val delete =
       s"DELETE FROM user_table_annotations_${column.table.id} WHERE row_id = ? AND column_id = ? AND uuid = ?"
     val binds = Json.arr(rowId, column.id, uuid.toString)
@@ -641,7 +783,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     connection.query(delete, binds)
   }
 
-  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String): Future[_] = {
+  def deleteCellAnnotation(
+      column: ColumnType[_],
+      rowId: RowId,
+      uuid: UUID,
+      langtag: String
+  ): Future[_] = {
     val delete =
       s"UPDATE user_table_annotations_${column.table.id} SET langtags = ARRAY_REMOVE(langtags, ?) WHERE row_id = ? AND column_id = ? AND uuid = ?"
     val binds = Json.arr(langtag, rowId, column.id, uuid.toString)
@@ -650,10 +797,15 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   }
 }
 
-class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with UpdateCreateRowModelHelper {
+class CreateRowModel(val connection: DatabaseConnection)
+    extends DatabaseQuery
+    with UpdateCreateRowModelHelper {
   val attachmentModel = AttachmentModel(connection)
 
-  def createRow(table: Table, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+  def createRow(
+      table: Table,
+      values: Seq[(ColumnType[_], _)]
+  ): Future[RowId] = {
     val tableId = table.id
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -661,30 +813,48 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
       case Success((simple, multis, links, attachments)) =>
         for {
-          rowId <- if (simple.isEmpty) createEmpty(tableId) else createSimple(tableId, simple)
-          _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links)
-          _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(tableId, rowId, attachments)
+          rowId <-
+            if (simple.isEmpty) createEmpty(tableId)
+            else createSimple(tableId, simple)
+          _ <-
+            if (multis.isEmpty) Future.successful(())
+            else createTranslations(tableId, rowId, multis)
+          _ <-
+            if (links.isEmpty) Future.successful(())
+            else updateLinks(table, rowId, links)
+          _ <-
+            if (attachments.isEmpty) Future.successful(())
+            else createAttachments(tableId, rowId, attachments)
         } yield rowId
     }
   }
 
   private def createEmpty(tableId: TableId): Future[RowId] = {
     for {
-      result <- connection.query(s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id")
+      result <- connection.query(
+        s"INSERT INTO user_table_$tableId DEFAULT VALUES RETURNING id"
+      )
     } yield {
       insertNotNull(result).head.get[RowId](0)
     }
   }
 
-  private def createSimple(tableId: TableId, values: Seq[(SimpleValueColumn[_], Option[Any])]): Future[RowId] = {
+  private def createSimple(
+      tableId: TableId,
+      values: Seq[(SimpleValueColumn[_], Option[Any])]
+  ): Future[RowId] = {
     val placeholder = values.map(_ => "?").mkString(", ")
-    val columns = values.map({ case (column: ColumnType[_], _) => s"column_${column.id}" }).mkString(", ")
+    val columns = values
+      .map({ case (column: ColumnType[_], _) => s"column_${column.id}" })
+      .mkString(", ")
     val binds = values.map({ case (_, value) => value.orNull })
 
     for {
       result <- connection
-        .query(s"INSERT INTO user_table_$tableId ($columns) VALUES ($placeholder) RETURNING id", Json.arr(binds: _*))
+        .query(
+          s"INSERT INTO user_table_$tableId ($columns) VALUES ($placeholder) RETURNING id",
+          Json.arr(binds: _*)
+        )
     } yield {
       insertNotNull(result).head.get[RowId](0)
     }
@@ -707,11 +877,16 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     if (columnsForLang.nonEmpty) {
       connection.transactionalFoldLeft(columnsForLang.toSeq) {
         case (t, _, (langtag, columnValueOptSeq)) =>
-          val columns = columnValueOptSeq.map({ case (column, _) => s"column_${column.id}" }).mkString(", ")
+          val columns = columnValueOptSeq
+            .map({ case (column, _) => s"column_${column.id}" })
+            .mkString(", ")
           val placeholder = columnValueOptSeq.map(_ => "?").mkString(", ")
 
-          val insert = s"INSERT INTO user_table_lang_$tableId (id, langtag, $columns) VALUES (?, ?, $placeholder)"
-          val binds = List(rowId, langtag) ::: columnValueOptSeq.map({ case (_, valueOpt) => valueOpt.orNull }).toList
+          val insert =
+            s"INSERT INTO user_table_lang_$tableId (id, langtag, $columns) VALUES (?, ?, $placeholder)"
+          val binds = List(rowId, langtag) ::: columnValueOptSeq
+            .map({ case (_, valueOpt) => valueOpt.orNull })
+            .toList
 
           t.query(insert, Json.arr(binds: _*))
       }
@@ -728,9 +903,8 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   ): Future[_] = {
     val futureSequence = for {
       (column: AttachmentColumn, attachmentValue) <- values
-      attachments = attachmentValue.map({
-        case (uuid, ordering) =>
-          Attachment(tableId, column.id, rowId, uuid, ordering)
+      attachments = attachmentValue.map({ case (uuid, ordering) =>
+        Attachment(tableId, column.id, rowId, uuid, ordering)
       })
     } yield {
       attachmentModel.replace(tableId, column.id, rowId, attachments)
@@ -740,22 +914,30 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   }
 }
 
-class RetrieveRowModel(val connection: DatabaseConnection)(
-    implicit requestContext: RequestContext,
+class RetrieveRowModel(val connection: DatabaseConnection)(implicit
+    requestContext: RequestContext,
     roleModel: RoleModel
 ) extends DatabaseQuery {
 
   import ModelHelper._
 
-  def rowExists(tableId: TableId, rowId: RowId)(implicit ec: ExecutionContext): Future[Boolean] = {
-    connection.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+  def rowExists(tableId: TableId, rowId: RowId)(implicit
+      ec: ExecutionContext
+  ): Future[Boolean] = {
+    connection.selectSingleValue[Boolean](
+      s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?",
+      Json.arr(rowId)
+    )
   }
 
-  def retrieveColumnValues(column: ShortTextColumn, langtagOpt: Option[Langtag]): Future[Seq[String]] = {
+  def retrieveColumnValues(
+      column: ShortTextColumn,
+      langtagOpt: Option[Langtag]
+  ): Future[Seq[String]] = {
     val tableId = column.table.id
 
     val projection = column.languageType match {
-      case LanguageNeutral => s"ut.column_${column.id}"
+      case LanguageNeutral                 => s"ut.column_${column.id}"
       case MultiLanguage | MultiCountry(_) => s"utl.column_${column.id}"
     }
 
@@ -763,7 +945,10 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       case (LanguageNeutral, None) =>
         (s"(COALESCE(TRIM($projection), '') = '') IS FALSE", Json.arr())
       case (MultiLanguage, Some(langtag)) =>
-        (s"langtag = ? AND (COALESCE(TRIM($projection), '') = '') IS FALSE", Json.arr(langtag))
+        (
+          s"langtag = ? AND (COALESCE(TRIM($projection), '') = '') IS FALSE",
+          Json.arr(langtag)
+        )
       case (MultiLanguage, None) =>
         throw new IllegalArgumentException(
           "Column values from multi-language column can only be retrieved with a langtag"
@@ -786,11 +971,12 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     }
   }
 
-  def retrieveTablesWithCellAnnotations(tables: Seq[Table]): Future[Seq[TableWithCellAnnotations]] = {
+  def retrieveTablesWithCellAnnotations(
+      tables: Seq[Table]
+  ): Future[Seq[TableWithCellAnnotations]] = {
     val query = tables
-      .map({
-        case Table(id, _, _, _, _, _, _, _) =>
-          s"""SELECT
+      .map({ case Table(id, _, _, _, _, _, _, _) =>
+        s"""SELECT
              |$id::bigint as table_id,
              |ua.row_id,
              |ua.column_id,
@@ -801,7 +987,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
              |${parseDateTimeSql("ua.created_at")} AS created_at
              |FROM user_table_$id ut JOIN user_table_annotations_$id ua ON (ut.id = ua.row_id)""".stripMargin
       })
-      .mkString("", " UNION ALL ", " ORDER BY table_id, row_id, column_id, created_at")
+      .mkString(
+        "",
+        " UNION ALL ",
+        " ORDER BY table_id, row_id, column_id, created_at"
+      )
 
     for {
       result <- connection.query(query)
@@ -822,7 +1012,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
             import scala.collection.JavaConverters._
 
             (
-              tables.find(table => table.id == tableId).getOrElse(Table(tableId)),
+              tables
+                .find(table => table.id == tableId)
+                .getOrElse(Table(tableId)),
               rowId,
               columnId,
               CellLevelAnnotation(
@@ -838,50 +1030,52 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
             )
 
           case invalidAnnotation =>
-            throw UnknownServerException(s"Invalid annotation ($invalidAnnotation) stored in database.")
+            throw UnknownServerException(
+              s"Invalid annotation ($invalidAnnotation) stored in database."
+            )
         })
-        .groupBy({
-          case (table: Table, _, _, _) => table.id
+        .groupBy({ case (table: Table, _, _, _) =>
+          table.id
         })
         .toSeq
-        .map({
-          case (tableId: TableId, annotationsByTable) =>
-            // take Table instance from first annotation
-            // ... all Table objects are same b/c we grouped by table
-            val table = annotationsByTable.headOption
-              .map({
-                case (table: Table, _, _, _) => table
-              })
-              // better safe than sorry
-              .getOrElse(Table(tableId))
+        .map({ case (tableId: TableId, annotationsByTable) =>
+          // take Table instance from first annotation
+          // ... all Table objects are same b/c we grouped by table
+          val table = annotationsByTable.headOption
+            .map({ case (table: Table, _, _, _) =>
+              table
+            })
+            // better safe than sorry
+            .getOrElse(Table(tableId))
 
-            val groupedAnnotations = annotationsByTable
-              .groupBy({
-                case (_, rowId: RowId, _, _) => rowId
-              })
-              .map({
-                case (rowId: RowId, annotationsByRow) =>
-                  rowId ->
-                    annotationsByRow
-                      .groupBy({
-                        case (_, _, columnId: ColumnId, _) => columnId
-                      })
-                      .mapValues(_.map({
-                        case (_, _, _, annotation) => annotation
-                      }))
-              })
+          val groupedAnnotations = annotationsByTable
+            .groupBy({ case (_, rowId: RowId, _, _) =>
+              rowId
+            })
+            .map({ case (rowId: RowId, annotationsByRow) =>
+              rowId ->
+                annotationsByRow
+                  .groupBy({ case (_, _, columnId: ColumnId, _) =>
+                    columnId
+                  })
+                  .mapValues(_.map({ case (_, _, _, annotation) =>
+                    annotation
+                  }))
+            })
 
-            TableWithCellAnnotations(table, groupedAnnotations)
+          TableWithCellAnnotations(table, groupedAnnotations)
         })
     }
   }
 
-  def retrieveCellAnnotationCount(tables: Seq[TableId]): Future[Map[TableId, Seq[CellAnnotationCount]]] = {
+  def retrieveCellAnnotationCount(
+      tables: Seq[TableId]
+  ): Future[Map[TableId, Seq[CellAnnotationCount]]] = {
 
-    /**
-      * If type is not flag we ignore the value. Other types (info, warning, error) are comment annotations. Their
-      * values are always different. The value of flag annotations is important because it describes what sort of flag
-      * annotation it is (needs_translation, important, check-me, later).
+    /** If type is not flag we ignore the value. Other types (info, warning,
+      * error) are comment annotations. Their values are always different. The
+      * value of flag annotations is important because it describes what sort of
+      * flag annotation it is (needs_translation, important, check-me, later).
       */
     val query = tables
       .map({ tableId =>
@@ -897,7 +1091,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
             |WHERE NOT (type = 'flag' AND value = 'needs_translation' AND (langtags = '{}' OR langtags IS NULL))
             |GROUP BY type, type_value, langtag""".stripMargin
       })
-      .mkString("", " UNION ALL ", " ORDER BY table_id, type, type_value, last_created_at DESC")
+      .mkString(
+        "",
+        " UNION ALL ",
+        " ORDER BY table_id, type, type_value, last_created_at DESC"
+      )
 
     for {
       result <- connection.query(query)
@@ -905,7 +1103,14 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       resultObjectToJsonArray(result)
         .map(jsonArrayToSeq)
         .map({
-          case Seq(tableId: TableId, annotationType: String, value, langtag, count: Long, lastCreatedAtStr: String) =>
+          case Seq(
+                tableId: TableId,
+                annotationType: String,
+                value,
+                langtag,
+                count: Long,
+                lastCreatedAtStr: String
+              ) =>
             (
               tableId,
               CellAnnotationCount(
@@ -918,13 +1123,15 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
             )
 
           case invalidRow =>
-            throw UnknownServerException(s"Invalid aggregated annotation count ($invalidRow) stored in database.")
+            throw UnknownServerException(
+              s"Invalid aggregated annotation count ($invalidRow) stored in database."
+            )
         })
-        .groupBy({
-          case (tableId: TableId, _) => tableId
+        .groupBy({ case (tableId: TableId, _) =>
+          tableId
         })
-        .mapValues(_.map({
-          case (_, annotationTypeCount: CellAnnotationCount) => annotationTypeCount
+        .mapValues(_.map({ case (_, annotationTypeCount: CellAnnotationCount) =>
+          annotationTypeCount
         }))
     }
   }
@@ -940,7 +1147,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         Json.arr(rowId)
       )
     } yield {
-      val rawRow = mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
+      val rawRow =
+        mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
       (rawRow.rowLevelAnnotations, rawRow.cellLevelAnnotations)
     }
   }
@@ -952,19 +1160,32 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       uuid: UUID
   ): Future[Option[CellLevelAnnotation]] = {
     for {
-      (_, cellLevelAnnotations) <- retrieveAnnotations(tableId, rowId, Seq(column))
-      annotations = cellLevelAnnotations.annotations.get(column.id).getOrElse(Seq.empty[CellLevelAnnotation])
+      (_, cellLevelAnnotations) <- retrieveAnnotations(
+        tableId,
+        rowId,
+        Seq(column)
+      )
+      annotations = cellLevelAnnotations.annotations
+        .get(column.id)
+        .getOrElse(Seq.empty[CellLevelAnnotation])
     } yield annotations.find(_.uuid == uuid)
 
   }
 
-  def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {
+  def retrieve(
+      tableId: TableId,
+      rowId: RowId,
+      columns: Seq[ColumnType[_]]
+  ): Future[RawRow] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
 
     for {
       result <- connection
-        .query(s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id", Json.arr(rowId))
+        .query(
+          s"SELECT $projection FROM $fromClause WHERE ut.id = ? GROUP BY ut.id",
+          Json.arr(rowId)
+        )
     } yield {
       mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
     }
@@ -988,29 +1209,45 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
       )
     } yield {
-      resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(foreignColumns))
+      resultObjectToJsonArray(result)
+        .map(jsonArrayToSeq)
+        .map(mapRowToRawRow(foreignColumns))
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[RawRow]] = {
+  def retrieveAll(
+      tableId: TableId,
+      columns: Seq[ColumnType[_]],
+      pagination: Pagination
+  ): Future[Seq[RawRow]] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
 
     for {
-      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
+      result <- connection.query(
+        s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination"
+      )
     } yield {
-      resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
+      resultObjectToJsonArray(result)
+        .map(jsonArrayToSeq)
+        .map(mapRowToRawRow(columns))
     }
   }
 
-  private def mapRowToRawRow(columns: Seq[ColumnType[_]])(row: Seq[Any]): RawRow = {
+  private def mapRowToRawRow(
+      columns: Seq[ColumnType[_]]
+  )(row: Seq[Any]): RawRow = {
 
     // Row should have at least = row_id, final_flag, cell_annotations
     assert(row.size >= 3)
     val liftedRow = row.lift
 
     (row.headOption, liftedRow(1), liftedRow(2)) match {
-      case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr)) =>
+      case (
+            Some(rowId: RowId),
+            Some(finalFlag: Boolean),
+            Some(cellAnnotationsStr)
+          ) =>
         val cellAnnotations = Option(cellAnnotationsStr)
           .map(_.asInstanceOf[String])
           .map(Json.fromArrayString)
@@ -1048,7 +1285,10 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
     (column, Option(value)) match {
-      case (MultiLanguageColumn(_: NumberColumn | _: CurrencyColumn), Some(obj)) =>
+      case (
+            MultiLanguageColumn(_: NumberColumn | _: CurrencyColumn),
+            Some(obj)
+          ) =>
         val castedMap = Json
           .fromObjectString(obj.toString)
           .asMap
@@ -1059,9 +1299,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
             case Some(v: String) =>
               Try(v.toInt)
                 .orElse(Try(v.toDouble))
-                .getOrElse(throw UnknownServerException(
-                  s"invalid value in database, should be numeric string (column: $column)"
-                ))
+                .getOrElse(
+                  throw UnknownServerException(
+                    s"invalid value in database, should be numeric string (column: $column)"
+                  )
+                )
             case Some(v) =>
               v
           })
@@ -1084,7 +1326,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         Try(v.toInt)
           .orElse(Try(v.toDouble))
           .getOrElse(
-            throw UnknownServerException(s"invalid value in database, should be a numeric string (column: $column)")
+            throw UnknownServerException(
+              s"invalid value in database, should be a numeric string (column: $column)"
+            )
           )
 
       case _ =>
@@ -1096,7 +1340,10 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     s"user_table_$tableId ut LEFT JOIN user_table_lang_$tableId utl ON (ut.id = utl.id)"
   }
 
-  private def generateProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
+  private def generateProjection(
+      tableId: TableId,
+      columns: Seq[ColumnType[_]]
+  ): String = {
     val projection = columns map {
       case _: ConcatColumn | _: AttachmentColumn | _: GroupColumn =>
         // Values will be generated/fetched while post-processing raw rows
@@ -1131,11 +1378,18 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         "NULL"
     }
 
-    Seq(Seq("ut.id"), Seq(generateFlagsAndAnnotationsProjection(tableId)), projection).flatten
+    Seq(
+      Seq("ut.id"),
+      Seq(generateFlagsAndAnnotationsProjection(tableId)),
+      projection
+    ).flatten
       .mkString(",")
   }
 
-  private def generateLinkProjection(tableId: TableId, c: LinkColumn): String = {
+  private def generateLinkProjection(
+      tableId: TableId,
+      c: LinkColumn
+  ): String = {
     val linkId = c.linkId
     val direction = c.linkDirection
     val toTableId = c.to.table.id
@@ -1157,10 +1411,18 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         }
 
         // No distinct needed, just one rawValues
-        (s"column_${c.to.id}", s"json_object_agg(utl$toTableId.langtag, $linkedColumn)")
+        (
+          s"column_${c.to.id}",
+          s"json_object_agg(utl$toTableId.langtag, $linkedColumn)"
+        )
 
       case _: DateTimeColumn =>
-        (s"column_${c.to.id}", parseDateTimeSql(s"ut$toTableId.column_${c.id}") + s" AS column_${c.id}")
+        (
+          s"column_${c.to.id}",
+          parseDateTimeSql(
+            s"ut$toTableId.column_${c.id}"
+          ) + s" AS column_${c.id}"
+        )
 
       case _: DateColumn =>
         (s"column_${c.to.id}", parseDateSql(s"ut$toTableId.column_${c.id}"))
@@ -1190,7 +1452,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
        |GROUP BY sub.${direction.fromSql}) AS column_${c.id}""".stripMargin
   }
 
-  private def generateFlagsAndAnnotationsProjection(tableId: TableId): String = {
+  private def generateFlagsAndAnnotationsProjection(
+      tableId: TableId
+  ): String = {
     s"""|ut.final AS final_flag,
         |(SELECT json_agg(
         |  json_build_object(
