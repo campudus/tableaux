@@ -76,9 +76,10 @@ class DisplayValueTest extends LinkTestBase {
     "en-GB" -> ""
   )
 
-  val expectedLink = Json.arr(Json.obj(
-    "de-DE" -> "table2RowId1",
-    "en-GB" -> "table2RowId1"
+  val expectedLink = Json.arr(
+    Json.obj(
+      "de-DE" -> "table2RowId1",
+      "en-GB" -> "table2RowId1"
     ))
 
   def getLinksValue(arr: JsonArray, pos: Int): JsonArray = {
