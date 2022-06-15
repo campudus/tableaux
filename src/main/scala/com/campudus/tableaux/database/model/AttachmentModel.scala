@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.campudus.tableaux.database.domain.{DomainObject, ExtendedFile}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, RowId, TableId}
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
+import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery, DbTransaction}
 import com.campudus.tableaux.helper.ResultChecker._
 import org.vertx.scala.core.json._
 
@@ -109,7 +109,7 @@ class AttachmentModel(protected[this] val connection: DatabaseConnection, protec
     })
   }
 
-  private def retrieveOrdering(t: connection.Transaction, a: Attachment): Future[(connection.Transaction, Ordering)] = {
+  private def retrieveOrdering(t: DbTransaction, a: Attachment): Future[(DbTransaction, Ordering)] = {
     for {
       (t, ordering: Ordering) <- a.ordering match {
         case Some(i: Ordering) => Future((t, i: Ordering))
