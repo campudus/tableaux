@@ -6,11 +6,7 @@ import com.campudus.tableaux._
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.tableaux.{
-  CreateRowModel,
-  RetrieveRowModel,
-  UpdateRowModel
-}
+import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission._
 import org.vertx.scala.core.json._
@@ -30,17 +26,16 @@ object TableauxModel {
   type Ordering = Long
 
   def apply(connection: DatabaseConnection, structureModel: StructureModel)(
-      implicit
-      requestContext: RequestContext,
+      implicit requestContext: RequestContext,
       roleModel: RoleModel
   ): TableauxModel = {
     new TableauxModel(connection, structureModel)
   }
 }
 
-/** Needed because e.g. `TableauxController#createCompleteTable` and
-  * `TableauxController#retrieveCompleteTable` need to call method from
-  * `StructureModel`.
+/**
+  * Needed because e.g. `TableauxController#createCompleteTable` and `TableauxController#retrieveCompleteTable` need to
+  * call method from `StructureModel`.
   */
 sealed trait StructureDelegateModel extends DatabaseQuery {
 
@@ -257,8 +252,8 @@ class TableauxModel(
     }
   }
 
-  /** Retrieves all dependent cells information for a given {@code table} and
-    * {@code rowId}.
+  /**
+    * Retrieves all dependent cells information for a given {@code table} and {@code rowId}.
     *
     * @param table
     * @param rowId
@@ -308,69 +303,81 @@ class TableauxModel(
       moveRefsToId: Option[Int]
   ): Future[EmptyObject] = {
 
-    println("######################################")
-    println("deleteRow")
-    println("######################################")
-    for {
-      columns <- retrieveColumns(table, isInternalCall = true)
+    connection.transactional(t => {
 
-      specialColumns = columns.filter({
-        case _: AttachmentColumn                                       => true
-        case c: LinkColumn if c.linkDirection.constraint.deleteCascade => true
-        case _                                                         => false
-      })
+      for {
+        columns <- retrieveColumns(table, isInternalCall = true)
 
-      // enrich with dummy value, is necessary for validity checks but thrown away afterward
-      columnValueLinks = columns
-        .collect({
-          case c: LinkColumn if !c.linkDirection.constraint.deleteCascade => c
+        specialColumns = columns.filter({
+          case _: AttachmentColumn => true
+          case c: LinkColumn if c.linkDirection.constraint.deleteCascade => true
+          case _ => false
         })
-        .map(col => (col, 0))
 
-      _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
+        // enrich with dummy value, is necessary for validity checks but thrown away afterward
+        columnValueLinks = columns
+          .collect({
+            case c: LinkColumn if !c.linkDirection.constraint.deleteCascade => c
+          })
+          .map(col => (col, 0))
 
-      linkList <- retrieveDependentCells(table, rowId)
-      _ = println(linkList)
+        _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
 
-      // dependentRows <- retrieveDependentRows(table, rowId)
+        linkList <- retrieveDependentCells(table, rowId)
+        // dependentRows <- retrieveDependentRows(table, rowId)
+        // connection.transactional(t => )
+        // transaction <- connection.begin()
+        // Clear special cells before delete.
+        // For example AttachmentColumns will
+        // not be deleted by DELETE CASCADE.
+        // clearing LinkColumn will eventually trigger delete cascade
+        _ <- updateRowModel.clearRow(
+          table,
+          rowId,
+          specialColumns,
+          deleteRow,
+          Some(t)
+        )
 
-      transaction <- connection.beginAlt()
-      // Clear special cells before delete.
-      // For example AttachmentColumns will
-      // not be deleted by DELETE CASCADE.
-      // clearing LinkColumn will eventually trigger delete cascade
-      _ <- updateRowModel.clearRow(
-        table,
-        rowId,
-        specialColumns,
-        deleteRow,
-        transaction
-      )
+        _ <- updateRowModel.deleteRow(table.id, rowId, Some(t))
 
-      _ <- updateRowModel.deleteRow(table.id, rowId, transaction)
+        // invalidate row
+        _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
 
-      _ <- transaction.commit()
-      // invalidate row
-      _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
+        _ <- Future.sequence(
+          linkList.map({
+            case (dependentTable, dependentLinkColumn, dependentRows) =>
+              for {
+                _ <- invalidateCellAndDependentColumns(
+                  dependentLinkColumn,
+                  dependentRows
+                )
+                _ <- createHistoryModel.updateLinks(
+                  dependentTable,
+                  dependentLinkColumn,
+                  dependentRows
+                )
+              } yield ()
+          })
+        )
+        _ <-
+          if (moveRefsToId.isDefined) {
+            // link dependent Rows to new row
+            // use foldLeft and flatMap to execute queries sequentially, as a transaction doesn't allow
+            // multiple queries at the same time
+            linkList.map({
+              case (table, column, rowIds) => {
+                rowIds.map(id => (table, column, id))
+              }
+            }).flatten.foldLeft(Future(())) { (x, y) =>
+              x.flatMap(_ => updateOrReplaceValue(y._1, y._2.id, y._3, moveRefsToId.get, Some(t))).map(_ => ())
+            }
+          } else {
+            Future.successful(())
+          }
 
-      _ <- Future.sequence(
-        linkList.map({
-          case (dependentTable, dependentLinkColumn, dependentRows) =>
-            for {
-              _ <- invalidateCellAndDependentColumns(
-                dependentLinkColumn,
-                dependentRows
-              )
-              _ <- createHistoryModel.updateLinks(
-                dependentTable,
-                dependentLinkColumn,
-                dependentRows
-              )
-            } yield ()
-        })
-      )
-
-    } yield EmptyObject()
+      } yield (t, EmptyObject())
+    })
   }
 
   def createRow(table: Table): Future[Row] = {
@@ -683,7 +690,7 @@ class TableauxModel(
         MultiLanguageColumn.checkValidValue(c, value)
       case c => c.checkValidValue(value)
     }) match {
-      case Success(_)  => Future.successful(())
+      case Success(_) => Future.successful(())
       case Failure(ex) => Future.failed(ex)
     }
   }
@@ -693,6 +700,7 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       value: A,
+      maybeTransaction: Option[DbTransaction] = None,
       replace: Boolean = false
   ): Future[Cell[_]] = {
     for {
@@ -709,7 +717,7 @@ class TableauxModel(
         if (replace && column.languageType == MultiLanguage) {
           val valueJson: JsonObject = value match {
             case j: JsonObject => j
-            case _             => Json.emptyObj()
+            case _ => Json.emptyObj()
           }
 
           val enrichedValue =
@@ -751,8 +759,7 @@ class TableauxModel(
         } else {
           Future.successful(())
         }
-
-      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
+      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), maybeTransaction)
       _ <- invalidateCellAndDependentColumns(column, rowId)
       _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
 
@@ -1021,9 +1028,9 @@ class TableauxModel(
     // other values too, so the ConcatColumn can be build.
     val columns = column match {
       case c: ConcatColumn => c.columns.+:(c)
-      case c: GroupColumn  => c.columns.+:(c)
+      case c: GroupColumn => c.columns.+:(c)
       case c: StatusColumn => c.columns.+:(c)
-      case _               => Seq(column)
+      case _ => Seq(column)
     }
 
     for {
@@ -1201,7 +1208,7 @@ class TableauxModel(
       // other values too, so the ConcatColumn can be build.
       columns = column match {
         case c: ConcatenateColumn => c.columns.+:(c)
-        case _                    => Seq(column)
+        case _ => Seq(column)
       }
 
       rowsSeq <- retrieveRows(table, columns, pagination)
@@ -1266,7 +1273,8 @@ class TableauxModel(
       rawRows: Seq[RawRow]
   ): Future[Seq[Row]] = {
 
-    /** Fetches ConcatColumn values for linked rows
+    /**
+      * Fetches ConcatColumn values for linked rows
       */
     def fetchConcatValuesForLinkedRows(
         concatenateColumn: ConcatenateColumn,
