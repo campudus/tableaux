@@ -30,7 +30,7 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
   ): Future[(B, JsonObject)] = {
     opt match {
       case Some(x) => someCase(x)
-      case None    => Future.successful(trans, Json.obj())
+      case None => Future.successful(trans, Json.obj())
     }
   }
 
@@ -59,104 +59,39 @@ object DatabaseConnection {
   }
 }
 
-trait Query {
-  def query(stmt: String): Future[JsonObject]
-  def query(stmt: String, values: JsonArray): Future[JsonObject]
+trait DbTransaction {
+
+  def query(stmt: String): Future[(DbTransaction, JsonObject)]
+
+  def query(
+      stmt: String,
+      values: JsonArray
+  ): Future[(DbTransaction, JsonObject)]
+
+  def selectSingleValue[A](
+      select: String,
+      parameter: JsonArray
+  ): Future[(DbTransaction, A)]
+
+  def commit(): Future[Unit]
+  def rollbackAndFail(): PartialFunction[Throwable, Future[(DbTransaction, JsonObject)]]
+  def rollback(): Future[Unit]
 }
 
 class DatabaseConnection(
     val vertxAccess: VertxAccess,
     val connection: SQLConnection
-) extends VertxAccess
-    with Query {
+) extends VertxAccess {
 
   import DatabaseConnection._
 
   override val vertx: Vertx = vertxAccess.vertx
 
-  type TransFunc[+A] = Transaction => Future[(Transaction, A)]
+  type TransFunc[+A] = DbTransaction => Future[(DbTransaction, A)]
 
-  case class TransactionAlt(transaction: ScalaTransaction) extends Query {
+  case class Transaction(transaction: ScalaTransaction) extends DbTransaction {
 
-    def query(stmt: String): Future[JsonObject] = {
-      println("query")
-      doMagicQuery(stmt, None, transaction)
-        .map(result => (copy(transaction), result))
-        .recoverWith(rollbackAndFail())
-        .map(res => res._2)
-    }
-
-    def query(
-        stmt: String,
-        values: JsonArray
-    ): Future[JsonObject] = {
-      println("query")
-      doMagicQuery(stmt, Some(values), transaction)
-        .map(result => (copy(transaction), result))
-        .recoverWith(rollbackAndFail())
-        .map(res => res._2)
-    }
-
-    def selectSingleValue[A](select: String): Future[(TransactionAlt, A)] =
-      selectSingleValue(select, None)
-
-    def selectSingleValue[A](
-        select: String,
-        parameter: JsonArray
-    ): Future[A] =
-      selectSingleValue(select, Some(parameter))
-
-    private def selectSingleValue[A](
-        select: String,
-        parameter: Option[JsonArray]
-    ): Future[A] = {
-      for {
-        resultJson <- parameter match {
-          case None    => query(select)
-          case Some(p) => query(select, p)
-        }
-      } yield {
-        selectNotNull(resultJson).head.getValue(0).asInstanceOf[A]
-      }
-    }
-
-    def commit(): Future[Unit] = transaction.commit()
-
-    def rollback(): Future[Unit] = transaction.rollback()
-
-    def rollbackAndFail()
-        : PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
-      case ex: Throwable =>
-        logger.error(s"Rollback and fail.", ex)
-        rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
-    }
-
-    def transactionalFoldLeft[A](values: Seq[A])(
-        fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]
-    ): Future[JsonObject] = {
-      transactionalFoldLeft(values, Json.emptyObj())(fn)
-    }
-
-    def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(
-        fn: (Transaction, B, A) => Future[(Transaction, B)]
-    ): Future[B] = {
-      transactional[B]({ transaction: Transaction =>
-        {
-          values.foldLeft(Future(transaction, fnStartValue)) {
-            (result, value) =>
-              {
-                result.flatMap { case (newTransaction, lastResult) =>
-                  fn(newTransaction, lastResult, value)
-                }
-              }
-          }
-        }
-      })
-    }
-  }
-  case class Transaction(transaction: ScalaTransaction) {
-
-    def query(stmt: String): Future[(Transaction, JsonObject)] = {
+    def query(stmt: String): Future[(DbTransaction, JsonObject)] = {
       doMagicQuery(stmt, None, transaction)
         .map(result => (copy(transaction), result))
         .recoverWith(rollbackAndFail())
@@ -165,28 +100,28 @@ class DatabaseConnection(
     def query(
         stmt: String,
         values: JsonArray
-    ): Future[(Transaction, JsonObject)] = {
+    ): Future[(DbTransaction, JsonObject)] = {
       doMagicQuery(stmt, Some(values), transaction)
         .map(result => (copy(transaction), result))
         .recoverWith(rollbackAndFail())
     }
 
-    def selectSingleValue[A](select: String): Future[(Transaction, A)] =
+    def selectSingleValue[A](select: String): Future[(DbTransaction, A)] =
       selectSingleValue(select, None)
 
     def selectSingleValue[A](
         select: String,
         parameter: JsonArray
-    ): Future[(Transaction, A)] =
+    ): Future[(DbTransaction, A)] =
       selectSingleValue(select, Some(parameter))
 
     private def selectSingleValue[A](
         select: String,
         parameter: Option[JsonArray]
-    ): Future[(Transaction, A)] = {
+    ): Future[(DbTransaction, A)] = {
       for {
         (t, resultJson) <- parameter match {
-          case None    => query(select)
+          case None => query(select)
           case Some(p) => query(select, p)
         }
       } yield {
@@ -198,11 +133,10 @@ class DatabaseConnection(
 
     def rollback(): Future[Unit] = transaction.rollback()
 
-    def rollbackAndFail()
-        : PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
+    def rollbackAndFail(): PartialFunction[Throwable, Future[(DbTransaction, JsonObject)]] = {
       case ex: Throwable =>
         logger.error(s"Rollback and fail.", ex)
-        rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
+        rollback() flatMap (_ => Future.failed[(DbTransaction, JsonObject)](ex))
     }
   }
 
@@ -212,10 +146,7 @@ class DatabaseConnection(
   def query(stmt: String, parameter: JsonArray): Future[JsonObject] =
     doMagicQuery(stmt, Some(parameter), connection)
 
-  def begin(): Future[Transaction] = connection.transaction().map(Transaction)
-
-  def beginAlt(): Future[TransactionAlt] =
-    connection.transaction().map(TransactionAlt)
+  def begin(): Future[DbTransaction] = connection.transaction().map(Transaction)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
     for {
@@ -238,15 +169,15 @@ class DatabaseConnection(
   }
 
   def transactionalFoldLeft[A](values: Seq[A])(
-      fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]
+      fn: (DbTransaction, JsonObject, A) => Future[(DbTransaction, JsonObject)]
   ): Future[JsonObject] = {
     transactionalFoldLeft(values, Json.emptyObj())(fn)
   }
 
   def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(
-      fn: (Transaction, B, A) => Future[(Transaction, B)]
+      fn: (DbTransaction, B, A) => Future[(DbTransaction, B)]
   ): Future[B] = {
-    transactional[B]({ transaction: Transaction =>
+    transactional[B]({ transaction: DbTransaction =>
       {
         values.foldLeft(Future(transaction, fnStartValue)) { (result, value) =>
           {
@@ -271,7 +202,7 @@ class DatabaseConnection(
   ): Future[A] = {
     for {
       resultJson <- parameter match {
-        case None    => query(select)
+        case None => query(select)
         case Some(p) => query(select, p)
       }
     } yield {
@@ -293,22 +224,22 @@ class DatabaseConnection(
       case ("UPDATE", true) =>
         values match {
           case Some(s) => connection.query(stmt + ";--", s)
-          case None    => connection.query(stmt + ";--")
+          case None => connection.query(stmt + ";--")
         }
       case ("INSERT", true) | ("SELECT", _) =>
         values match {
           case Some(s) => connection.query(stmt, s)
-          case None    => connection.query(stmt)
+          case None => connection.query(stmt)
         }
       case ("DELETE", true) =>
         values match {
           case Some(s) => connection.update(stmt + ";--", s)
-          case None    => connection.update(stmt + ";--")
+          case None => connection.update(stmt + ";--")
         }
       case ("DELETE", false) | ("INSERT", false) | ("UPDATE", false) =>
         values match {
           case Some(s) => connection.update(stmt, s)
-          case None    => connection.update(stmt)
+          case None => connection.update(stmt)
         }
       case (_, _) =>
         throw DatabaseException(
@@ -319,8 +250,8 @@ class DatabaseConnection(
 
     future.map({
       case r: UpdateResult => mapUpdateResult(command, r.asJava.toJson)
-      case r: ResultSet    => mapResultSet(r.asJava.toJson)
-      case _               => createExecuteResult(command)
+      case r: ResultSet => mapResultSet(r.asJava.toJson)
+      case _ => createExecuteResult(command)
     })
   }
 
