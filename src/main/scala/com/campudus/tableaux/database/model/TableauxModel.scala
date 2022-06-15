@@ -324,6 +324,11 @@ class TableauxModel(
         _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
 
         linkList <- retrieveDependentCells(table, rowId)
+        newRowIdsSeq <- Future.sequence(linkList.map({
+          case (table, column, idSeq) => {
+            idSeq.map(id => updateRowModel.getPreviousRowIds(rowId, id, column).map(arr => arr.add(rowId)))
+          }
+        }).flatten)
         // dependentRows <- retrieveDependentRows(table, rowId)
         // connection.transactional(t => )
         // transaction <- connection.begin()
@@ -369,8 +374,24 @@ class TableauxModel(
               case (table, column, rowIds) => {
                 rowIds.map(id => (table, column, id))
               }
-            }).flatten.foldLeft(Future(())) { (x, y) =>
-              x.flatMap(_ => updateOrReplaceValue(y._1, y._2.id, y._3, moveRefsToId.get, Some(t))).map(_ => ())
+            }).flatten.zip(newRowIdsSeq).foldLeft(Future(())) {
+              {
+                case (x, ((table, column, id), newRowIds)) => {
+                  x.flatMap(_ =>
+                    updateOrReplaceValue(
+                      table,
+                      column.id,
+                      id,
+                      moveRefsToId.get,
+                      false,
+                      Some(newRowIds),
+                      Some(t)
+                    )
+                  ).map(_ =>
+                    ()
+                  )
+                }
+              }
             }
           } else {
             Future.successful(())
@@ -700,8 +721,9 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       value: A,
-      maybeTransaction: Option[DbTransaction] = None,
-      replace: Boolean = false
+      replace: Boolean = false,
+      maybeNewRowIds: Option[JsonArray] = None,
+      maybeTransaction: Option[DbTransaction] = None
   ): Future[Cell[_]] = {
     for {
       _ <- checkForSettingsTable(
@@ -759,7 +781,7 @@ class TableauxModel(
         } else {
           Future.successful(())
         }
-      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), maybeTransaction)
+      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), maybeTransaction, maybeNewRowIds)
       _ <- invalidateCellAndDependentColumns(column, rowId)
       _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
 

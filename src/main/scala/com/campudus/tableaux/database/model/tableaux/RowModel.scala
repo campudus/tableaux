@@ -23,6 +23,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import io.vertx.scala.DatabaseAction
 
+import scala.collection.JavaConverters._
+
 private object ModelHelper {
 
   val dateTimeFormat = "YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\""
@@ -80,12 +82,47 @@ sealed trait UpdateCreateRowModelHelper {
     (union, binds)
   }
 
+  def getPreviousRowIds(firstId: RowId, secondId: RowId, column: LinkColumn)(implicit
+  ec: ExecutionContext): Future[JsonArray] = {
+    val linkId = column.linkId
+    val query = s"SELECT links_from FROM link_table_$linkId WHERE id_1 = ? AND id_2 = ?"
+    connection.query(query, Json.arr(firstId, secondId)).map(res => {
+      val prev = res.getJsonArray("results").getJsonArray(0)
+      prev.contains(null) match {
+        case true => new JsonArray()
+        case false => new JsonArray(prev.getString(0))
+      }
+    })
+  }
+
+  def updatePreviousRowIdsForLatestLink(
+      column: LinkColumn,
+      newRowIds: JsonArray,
+      maybeTransaction: Option[DbTransaction] = None
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    val linkId = column.linkId
+
+    val updatePreviousRowIdsQuery =
+      s"UPDATE link_table_$linkId SET links_from = ? WHERE ordering_1 = (SELECT ordering_1 FROM link_table_$linkId ORDER BY ordering_1 DESC LIMIT 1)"
+
+    val doUpdate = (t: DbTransaction) => {
+      for {
+        _ <- t.query(updatePreviousRowIdsQuery, Json.arr(newRowIds.encode()))
+      } yield (t, Unit)
+    }
+    maybeTransaction match {
+      case None => connection.transactional(doUpdate).map(_ => ())
+      case Some(t) => doUpdate(t).map(_ => ())
+    }
+
+  }
+
   def updateLinks(
       table: Table,
       rowId: RowId,
       values: Seq[(LinkColumn, Seq[RowId])],
       maybeTransaction: Option[DbTransaction] = None,
-      previousRowIds: JsonArray = null
+      maybeNewRowIds: Option[JsonArray] = None
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val func = (value: (LinkColumn, Seq[RowId])) => {
       val (column, toIds) = value
@@ -96,6 +133,9 @@ sealed trait UpdateCreateRowModelHelper {
       val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
       val updateFromLinkString =
         s"UPDATE link_table_$linkId SET links_from = ? WHERE ordering_1 = (SELECT ordering_1 FROM link_table_$linkId ORDER BY ordering_1 DESC LIMIT 1)"
+
+      val getPreviousRowIdsQuery = s"SELECT links_from FROM link_table_$linkId ORDER BY ordering_1 DESC limit 1"
+
       val fnc = (t: DbTransaction) => {
         for {
           // check if row (where we want to add the links) really exists
@@ -125,14 +165,10 @@ sealed trait UpdateCreateRowModelHelper {
               Future.successful((t, Json.emptyArr()))
             }
           (t, _) <-
-            if (toIds.nonEmpty) {
-              t.query(
-                updateFromLinkString,
-                Json.arr(previousRowIds match {
-                  case null => null
-                  case j: JsonArray => j.encode()
-                })
-              )
+            if (toIds.nonEmpty && maybeNewRowIds.isDefined) {
+              for {
+                _ <- updatePreviousRowIdsForLatestLink(column, maybeNewRowIds.get, Some(t))
+              } yield (t, Unit)
             } else {
               Future.successful((t, Json.emptyArr()))
             }
@@ -506,7 +542,8 @@ class UpdateRowModel(val connection: DatabaseConnection)
       table: Table,
       rowId: RowId,
       values: Seq[(ColumnType[_], _)],
-      maybeTransaction: Option[DbTransaction] = None
+      maybeTransaction: Option[DbTransaction] = None,
+      maybeNewRowIds: Option[JsonArray] = None
   ): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -522,7 +559,7 @@ class UpdateRowModel(val connection: DatabaseConnection)
             else updateTranslations(table, rowId, multis)
           _ <-
             if (links.isEmpty) Future.successful(())
-            else updateLinks(table, rowId, links, maybeTransaction)
+            else updateLinks(table, rowId, links, maybeTransaction, maybeNewRowIds)
           _ <-
             if (attachments.isEmpty) Future.successful(())
             else updateAttachments(table, rowId, attachments)
