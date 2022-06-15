@@ -7,6 +7,7 @@ import org.vertx.scala.core.json._
 import scala.concurrent.Future
 import scala.io.Source
 import scala.util.Try
+import com.campudus.tableaux.database.DbTransaction
 
 object SystemModel {
 
@@ -102,7 +103,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     } yield version
   }
 
-  private def retrieveCurrentVersion(t: connection.Transaction): Future[(connection.Transaction, Int)] = {
+  private def retrieveCurrentVersion(t: DbTransaction): Future[(DbTransaction, Int)] = {
     for {
       (t, _) <- t.query(s"""
                            |CREATE TABLE IF NOT EXISTS system_version(
@@ -124,7 +125,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     } yield (t, version)
   }
 
-  private val setupFunctions: Seq[connection.Transaction => Future[connection.Transaction]] = Seq(
+  private val setupFunctions: Seq[DbTransaction => Future[DbTransaction]] = Seq(
     setupVersion(readSchemaFile("schema_v1"), 1),
     setupVersion(readSchemaFile("schema_v2"), 2),
     setupVersion(readSchemaFile("schema_v3"), 3),
@@ -161,7 +162,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     Source.fromInputStream(getClass.getResourceAsStream(s"/schema/$name.sql"), "UTF-8").mkString
   }
 
-  private def setupVersion(stmt: String, versionId: Int)(t: connection.Transaction): Future[connection.Transaction] = {
+  private def setupVersion(stmt: String, versionId: Int)(t: DbTransaction): Future[DbTransaction] = {
     logger.debug(s"Setup schema version $versionId")
 
     for {
@@ -174,7 +175,7 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     } yield t
   }
 
-  private def saveVersion(t: connection.Transaction, versionId: Int): Future[connection.Transaction] = {
+  private def saveVersion(t: DbTransaction, versionId: Int): Future[DbTransaction] = {
     t.query(
       s"""
          |INSERT INTO system_version (version)
