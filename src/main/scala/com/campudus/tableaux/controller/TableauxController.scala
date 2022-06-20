@@ -372,7 +372,7 @@ class TableauxController(
     } yield dependentRows
   }
 
-  def deleteRow(tableId: TableId, rowId: RowId, moveRefsTo: Option[String]): Future[DomainObject] = {
+  def deleteRow(tableId: TableId, rowId: RowId, moveRefsTo: Option[String] = None): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     val moveRefsToId = moveRefsTo match {
       case None => None

@@ -288,7 +288,7 @@ class TableauxModel(
   def deleteRow(
       table: Table,
       rowId: RowId,
-      moveRefsToId: Option[Int]
+      moveRefsToId: Option[Int] = None
   ): Future[EmptyObject] = {
     _deleteRow(table, rowId, moveRefsToId)
   }
@@ -300,10 +300,10 @@ class TableauxModel(
   def _deleteRow(
       table: Table,
       rowId: RowId,
-      moveRefsToId: Option[Int]
+      moveRefsToId: Option[Int] = None
   ): Future[EmptyObject] = {
 
-    connection.transactional(t => {
+    val fnc = (t: Option[DbTransaction]) => {
 
       for {
         columns <- retrieveColumns(table, isInternalCall = true)
@@ -324,11 +324,16 @@ class TableauxModel(
         _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
 
         linkList <- retrieveDependentCells(table, rowId)
-        newRowIdsSeq <- Future.sequence(linkList.map({
-          case (table, column, idSeq) => {
-            idSeq.map(id => updateRowModel.getPreviousRowIds(rowId, id, column).map(arr => arr.add(rowId)))
+        newRowIdsSeq <-
+          if (moveRefsToId.isDefined) {
+            Future.sequence(linkList.map({
+              case (table, column, idSeq) => {
+                idSeq.map(id => updateRowModel.getPreviousRowIds(rowId, id, column).map(arr => arr.add(rowId)))
+              }
+            }).flatten)
+          } else {
+            Future.successful(Seq())
           }
-        }).flatten)
         // dependentRows <- retrieveDependentRows(table, rowId)
         // connection.transactional(t => )
         // transaction <- connection.begin()
@@ -341,10 +346,10 @@ class TableauxModel(
           rowId,
           specialColumns,
           deleteRow,
-          Some(t)
+          t
         )
 
-        _ <- updateRowModel.deleteRow(table.id, rowId, Some(t))
+        _ <- updateRowModel.deleteRow(table.id, rowId, t)
 
         // invalidate row
         _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
@@ -385,7 +390,7 @@ class TableauxModel(
                       moveRefsToId.get,
                       false,
                       Some(newRowIds),
-                      Some(t)
+                      t
                     )
                   ).map(_ =>
                     ()
@@ -398,7 +403,12 @@ class TableauxModel(
           }
 
       } yield (t, EmptyObject())
-    })
+    }
+    moveRefsToId.isDefined match {
+      case true => connection.transactional(t => fnc(Some(t)).map({ case (t, obj) => (t.get, obj) }))
+      case false => fnc(None).map({ case (_, emptyObj) => emptyObj })
+    }
+
   }
 
   def createRow(table: Table): Future[Row] = {
