@@ -1,0 +1,27 @@
+{
+  "host": "127.0.0.1",
+  "port": 8080,
+  "uploadsDirectory": "uploads/",
+  "workingDirectory": "./",
+  "rolePermissionsPath": "./role-permissions-test.json",
+  "realm-public-key":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhfGzwFKrI5rl+zVIil/SSO/N15xbzYnt6RwYOOig86SbRnXkyB87LPnQdFa3p3M7+CCPgU34rAaf/uaJpv1BX+ufAnjiJJ7EDkjiZ+gx9qyEuPxAPhCwvK0bgeW83dtML2IfTM2qePF05zh20p+RayjFTlux+Ahf2lgM+00aXC52LggfxBC0TohHgLqNycJSfEjgq42ewszSlKnxAVMhGMlbNRup4N23cJr7CyxT4QOycXKLfls+lpBQOHKZLSZXVimcMPLK9374x9V3CF5tLVapSt7qX72An6cKisKKH345h44wk1/AwsK6D7QIxnfZEp/PppgPrcKwHSPpFFCrJwIDAQAB",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "username": "postgres",
+    "password": "secret",
+    "database": "bikeparts_test"
+  },
+  "auth": {
+  "realm-public-key":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhfGzwFKrI5rl+zVIil/SSO/N15xbzYnt6RwYOOig86SbRnXkyB87LPnQdFa3p3M7+CCPgU34rAaf/uaJpv1BX+ufAnjiJJ7EDkjiZ+gx9qyEuPxAPhCwvK0bgeW83dtML2IfTM2qePF05zh20p+RayjFTlux+Ahf2lgM+00aXC52LggfxBC0TohHgLqNycJSfEjgq42ewszSlKnxAVMhGMlbNRup4N23cJr7CyxT4QOycXKLfls+lpBQOHKZLSZXVimcMPLK9374x9V3CF5tLVapSt7qX72An6cKisKKH345h44wk1/AwsK6D7QIxnfZEp/PppgPrcKwHSPpFFCrJwIDAQAB",
+    "realm": "GRUD",
+    "bearer-only": true,
+    "auth-server-url": "http://localhost:9999/auth",
+    "ssl-required": "external",
+    "resource": "grud-backend",
+    "verify-token-audience": true,
+    "use-resource-role-mappings": true,
+    "confidential-port": 0,
+    "issuer": "test"
+  }
+}
