@@ -1,5 +1,13 @@
 # ignore all files and folders for Docker build context ...
 **
 
-# ...except binaries from gradle build
-!build/libs/*
+# ...except wanted files
+!src/
+!build.gradle
+!gradle.properties
+!gradlew
+!gradle/
+!settings.gradle
+
+# get build infos from git
+!.git 
