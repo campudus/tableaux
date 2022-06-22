@@ -55,7 +55,7 @@ pipeline {
               --target=builder .
             """
           } finally {
-              sh "docker cp ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}:${DOCKER_WORKDIR}/${DEPLOY_DIR} ${DEPLOY_DIR}"
+            sh "docker cp $(docker create --name temp-container ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${DEPLOY_DIR} ${DEPLOY_DIR} && docker rm temp-container"
           }
         }
       }
@@ -73,7 +73,7 @@ pipeline {
               """
             }
           } finally {
-            sh "docker cp ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}:${DOCKER_WORKDIR}/${TEST_RESULTS_DIR} ${TEST_RESULTS_DIR}"
+            sh "docker cp $(docker create --name temp-container ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${TEST_RESULTS_DIR} ${TEST_RESULTS_DIR} && docker rm temp-container"
             junit '**/build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
           }
         }
