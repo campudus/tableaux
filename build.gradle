@@ -13,7 +13,6 @@ plugins {
   id 'com.github.kt3k.coveralls' version '2.12.0'
 
   id 'com.github.johnrengelman.shadow' version '7.1.2'
-  id 'org.ajoberstar.grgit' version '4.1.1'
 
   id 'com.diffplug.spotless' version '6.3.0'
 }
@@ -24,7 +23,7 @@ project.version = '0.1.0'
 def vertxVersion = '3.8.0'
 def scalaVersion = '2.12.8'
 
-sourceCompatibility = '1.8'
+sourceCompatibility = '17'
 
 repositories {
   mavenCentral()
@@ -171,13 +170,6 @@ coveralls {
 /**
  * Jar stuff
  */
-def df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX") // you can change it
-
-def gitBranch = grgit.branch.current().fullName
-def gitCommit = grgit.log(maxCommits: 1).get(0).id
-def gitComitterDate = df.format(grgit.log(maxCommits: 1).get(0).date)
-
-def buildTime = df.format(new Date())
 def buildJavaVersion = JavaVersion.current().toString()
 
 jar {
@@ -187,10 +179,10 @@ jar {
     attributes 'Implementation-Vendor': project.group
     attributes 'Implementation-Title': project.name
     attributes 'Implementation-Version': project.version
-    attributes 'Git-Branch': gitBranch
-    attributes 'Git-Commit': gitCommit
-    attributes 'Git-Committer-Date': gitComitterDate
-    attributes 'Build-Date': buildTime
+    attributes 'Git-Branch': GIT_BRANCH // passed by jenkins
+    attributes 'Git-Commit': GIT_COMMIT // passed by jenkins
+    attributes 'Git-Committer-Date': GIT_COMMIT_DATE // passed by jenkins
+    attributes 'Build-Date': BUILD_DATE // passed by jenkins
     attributes 'Build-Java-Version': buildJavaVersion
   }
 }
