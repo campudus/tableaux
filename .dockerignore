@@ -8,6 +8,8 @@
 !gradlew
 !gradle/
 !settings.gradle
+!conf-test.json
+!role-permissions-test.json
 
 # get build infos from git
 !.git 
