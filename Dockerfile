@@ -1,7 +1,7 @@
 FROM gradle:7.4.1-jdk17 as builder
 WORKDIR /home/gradle/
 COPY --chown=gradle:gradle build.gradle gradle.properties settings.gradle ./
-COPY --chown=gradle:gradle ./src ./
+COPY --chown=gradle:gradle ./src ./src
 ARG GIT_BRANCH
 ARG GIT_COMMIT
 ARG GIT_COMMIT_DATE
@@ -16,10 +16,12 @@ RUN echo "GIT_BRANCH: $GIT_BRANCH" \
 FROM gradle:7.4.1-jdk17 as tester
 WORKDIR /home/gradle/
 COPY --from=builder --chown=gradle:gradle /home/gradle /home/gradle
-COPY --from=builder --chown=gradle:gradle build.gradle gradle.properties settings.gradle ./
+# RUN ls -rtl
+# RUN ls -rtl /home/gradle
+# COPY --from=builder --chown=gradle:gradle build.gradle gradle.properties settings.gradle ./
 COPY --chown=gradle:gradle conf-test.json ./
 COPY --chown=gradle:gradle role-permissions-test.json ./
-RUN gradle --no-daemon test --info
+RUN gradle --no-daemon test -PGIT_BRANCH=$GIT_BRANCH -PGIT_COMMIT=$GIT_COMMIT -PGIT_COMMIT_DATE=$GIT_COMMIT_DATE -PBUILD_DATE=$BUILD_DATE
 
 FROM openjdk:17-jdk-alpine as prod
 WORKDIR /usr/src/app/

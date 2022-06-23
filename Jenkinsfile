@@ -16,8 +16,8 @@ pipeline {
   environment {
     GIT_HASH = sh (script: 'git log -1 --pretty=%H', returnStdout: true).trim()
     BUILD_DATE = sh(script: 'date \"+%Y-%m-%dT%H:%M:%S\"', returnStdout: true).trim()
-    GIT_COMMIT_DATE = sh(script: "git show -s --format=%cI", returnStdout: true).trim()
-    GIT_COMMIT_DATE2 = sh(script: "git show -s --format=%ci", returnStdout: true).trim()
+    // `git show -s --format=%cI` doesn't work because of very old git version
+    GIT_COMMIT_DATE = sh(script: "date -d @\$(git log -n1 --format='%at') +%Y-%m-%dT%H:%M:%S", returnStdout: true).trim()
     CLEAN_GIT_BRANCH = sh(script: "echo $GIT_BRANCH | sed 's/[\\.\\/\\_\\#]/-/g'", returnStdout: true).trim()
   }
 
@@ -47,9 +47,8 @@ pipeline {
         sh 'docker rmi $(docker images -f "dangling=true" -q) || true'
         sh "docker rmi -f \$(docker images -qa --filter=reference='${IMAGE_NAME}') || true"
 
-        // create folders
-        sh "mkdir -p ${DEPLOY_DIR}"
-        sh "mkdir -p ${TEST_RESULTS_DIR}"
+        // create folder
+        sh "mkdir -p ./build"
       }
     }
 
@@ -65,7 +64,7 @@ pipeline {
               --target=builder .
             """
           } finally {
-            sh "docker cp \$(docker create --name temp-container ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${DEPLOY_DIR} ${DEPLOY_DIR} && docker rm temp-container"
+            sh "docker cp \$(docker create --name temp-builder ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${DEPLOY_DIR} ./build && docker rm temp-builder"
           }
         }
       }
@@ -83,7 +82,7 @@ pipeline {
               """
             }
           } finally {
-            sh "docker cp \$(docker create --name temp-container ${IMAGE_NAME}:tester-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${TEST_RESULTS_DIR} ${TEST_RESULTS_DIR} && docker rm temp-container"
+            sh "docker cp \$(docker create --name temp-tester ${IMAGE_NAME}:tester-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${TEST_RESULTS_DIR} ./build && docker rm temp-tester"
             junit '**/build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
           }
         }
