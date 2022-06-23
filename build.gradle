@@ -172,6 +172,12 @@ coveralls {
  */
 def buildJavaVersion = JavaVersion.current().toString()
 
+def GIT_BRANCH = System.properties['GIT_BRANCH'] ?: ''
+def GIT_COMMIT = System.properties['GIT_COMMIT'] ?: ''
+def GIT_COMMIT_DATE = System.properties['GIT_COMMIT_DATE'] ?: ''
+def BUILD_DATE = System.properties['BUILD_DATE'] ?: ''
+
+
 jar {
   manifest {
     attributes 'Main-Class': mainClassName
