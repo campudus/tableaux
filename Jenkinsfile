@@ -1,7 +1,7 @@
 @Library('campudus-jenkins-shared-lib') _
 
 IMAGE_NAME = "campudus/grud-backend"
-DOCKER_WORKDIR = "/home/gradle"
+DOCKER_WORKDIR = "/usr/src/app"
 DEPLOY_DIR = 'build/libs'
 TEST_RESULTS_DIR = 'build/test-results'
 LEGACY_ARCHIVE_FILENAME="grud-backend-docker.tar.gz"
@@ -46,7 +46,8 @@ pipeline {
 
         // cleanup docker
         sh 'docker rmi $(docker images -f "dangling=true" -q) || true'
-        sh "docker rmi -f \$(docker images -qa --filter=reference='${IMAGE_NAME}') || true"
+        sh "docker rmi -f \$(docker images -qa --filter=reference='${IMAGE_NAME}-builder') || true"
+        sh "docker rmi -f \$(docker images -qa --filter=reference='${IMAGE_NAME}-tester') || true"
 
         // create folder
         sh "mkdir -p ./build"
