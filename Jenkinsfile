@@ -61,11 +61,11 @@ pipeline {
               docker build \
               --build-arg GIT_BRANCH --build-arg GIT_COMMIT \
               --build-arg GIT_COMMIT_DATE --build-arg BUILD_DATE \
-              -t ${IMAGE_NAME}:builder-build-${BUILD_NUMBER} \
+              -t ${IMAGE_NAME}-builder:build-${BUILD_NUMBER} \
               --target=builder .
             """
           } finally {
-            sh "docker cp \$(docker create --name temp-builder ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${DEPLOY_DIR} ./build && docker rm temp-builder"
+            sh "docker cp \$(docker create --name temp-builder ${IMAGE_NAME}-builder:build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${DEPLOY_DIR} ./build && docker rm temp-builder"
           }
         }
       }
@@ -78,12 +78,12 @@ pipeline {
             configFileProvider([configFile(fileId: 'grud-backend-build-dockerized', targetLocation: 'conf-test.json')]) {
               sh """
                 docker build \
-                -t ${IMAGE_NAME}:tester-build-${BUILD_NUMBER} \
+                -t ${IMAGE_NAME}-tester:build-${BUILD_NUMBER} \
                 --target=tester .
               """
             }
           } finally {
-            sh "docker cp \$(docker create --name temp-tester ${IMAGE_NAME}:tester-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${TEST_RESULTS_DIR} ./build && docker rm temp-tester"
+            sh "docker cp \$(docker create --name temp-tester ${IMAGE_NAME}-tester:build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${TEST_RESULTS_DIR} ./build && docker rm temp-tester"
             junit '**/build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
           }
         }
