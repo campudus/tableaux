@@ -54,6 +54,20 @@ pipeline {
       }
     }
 
+    stage('Cache build dependencies') {
+      steps {
+        script {
+          sh """
+            docker build \
+            --build-arg GIT_BRANCH --build-arg GIT_COMMIT \
+            --build-arg GIT_COMMIT_DATE --build-arg BUILD_DATE \
+            -t ${IMAGE_NAME}-cache \
+            --target=gradle-cache .
+          """
+        }
+      }
+    }
+
     stage('Assemble') {
       steps {
         script {
