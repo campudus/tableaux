@@ -16,6 +16,7 @@ RUN echo "GIT_BRANCH: $GIT_BRANCH" \
 FROM gradle:7.4.1-jdk17 as tester
 WORKDIR /home/gradle/
 COPY --from=builder --chown=gradle:gradle /home/gradle /home/gradle
+COPY --from=builder --chown=gradle:gradle build.gradle gradle.properties settings.gradle ./
 COPY --chown=gradle:gradle conf-test.json ./
 COPY --chown=gradle:gradle role-permissions-test.json ./
 RUN gradle --no-daemon test --info

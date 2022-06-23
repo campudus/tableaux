@@ -15,9 +15,10 @@ pipeline {
 
   environment {
     GIT_HASH = sh (script: 'git log -1 --pretty=%H', returnStdout: true).trim()
-    BUILD_DATE = sh(returnStdout: true, script: 'date \"+%Y-%m-%dT%H:%M:%S\"').trim()
-    GIT_COMMIT_DATE = sh(returnStdout: true, script: "git show -s --format=%cI").trim()
-    CLEAN_GIT_BRANCH = sh(returnStdout: true, script: "echo $GIT_BRANCH | sed 's/[\\.\\/\\_\\#]/-/g'").trim()
+    BUILD_DATE = sh(script: 'date \"+%Y-%m-%dT%H:%M:%S\"', returnStdout: true).trim()
+    GIT_COMMIT_DATE = sh(script: "git show -s --format=%cI", returnStdout: true).trim()
+    GIT_COMMIT_DATE2 = sh(script: "git show -s --format=%ci", returnStdout: true).trim()
+    CLEAN_GIT_BRANCH = sh(script: "echo $GIT_BRANCH | sed 's/[\\.\\/\\_\\#]/-/g'", returnStdout: true).trim()
   }
 
   triggers {
@@ -32,6 +33,15 @@ pipeline {
     stage('Cleanup') {
       steps {
         // sh './gradlew clean'
+
+        echo "Environment variables are:"
+        sh "printenv | sort"
+        echo ""
+        echo "Groovy/Pipeline variables are:"
+        script {
+            groovyVars = [:] << getBinding().getVariables()
+            groovyVars.each  {k,v -> print "$k = $v"}
+        }
 
         // cleanup docker
         sh 'docker rmi $(docker images -f "dangling=true" -q) || true'
@@ -55,7 +65,7 @@ pipeline {
               --target=builder .
             """
           } finally {
-            sh "docker cp $(docker create --name temp-container ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${DEPLOY_DIR} ${DEPLOY_DIR} && docker rm temp-container"
+            sh "docker cp \$(docker create --name temp-container ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${DEPLOY_DIR} ${DEPLOY_DIR} && docker rm temp-container"
           }
         }
       }
@@ -73,7 +83,7 @@ pipeline {
               """
             }
           } finally {
-            sh "docker cp $(docker create --name temp-container ${IMAGE_NAME}:builder-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${TEST_RESULTS_DIR} ${TEST_RESULTS_DIR} && docker rm temp-container"
+            sh "docker cp \$(docker create --name temp-container ${IMAGE_NAME}:tester-build-${BUILD_NUMBER}):${DOCKER_WORKDIR}/${TEST_RESULTS_DIR} ${TEST_RESULTS_DIR} && docker rm temp-container"
             junit '**/build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
           }
         }
