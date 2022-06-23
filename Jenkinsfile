@@ -32,7 +32,8 @@ pipeline {
   stages {
     stage('Cleanup') {
       steps {
-        // sh './gradlew clean'
+        // clean up build folder
+        sh 'rm -rf ./build'
 
         echo "Environment variables are:"
         sh "printenv | sort"
