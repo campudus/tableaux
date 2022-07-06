@@ -766,7 +766,8 @@ class TableauxModel(
       foreignTable = linkColumn.to.table
 
       representingColumns <- retrieveColumns(foreignTable, isInternalCall = true)
-        .map({ foreignColumns =>
+        .map({
+          foreignColumns
           // we only need the first/representing column
           val firstForeignColumn = foreignColumns.head
 

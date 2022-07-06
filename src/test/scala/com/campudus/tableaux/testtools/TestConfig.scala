@@ -16,6 +16,7 @@ trait TestConfig {
     "../conf-test.json",
     "../conf-travis.json"
   )
+  println(fileConfig)
 
   var host: String
 

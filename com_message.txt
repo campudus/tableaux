@@ -1,0 +1,3 @@
+A request to deleteRow now accepts a parameter "moveRefsTo=id", where id is a rowId of the same table to which references of the to be deleted row should be linked. Also introduces a new db-column in link-tables where we track the previously linked rowIds.
+
+AC-Task: https://app.activecollab.com/116706/projects/2?modal=Task-36888-2

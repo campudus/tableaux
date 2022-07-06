@@ -14,6 +14,7 @@ import com.campudus.tableaux.{RequestContext, TableauxConfig, UnprocessableEntit
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 object TableauxController {
 
@@ -30,6 +31,8 @@ class TableauxController(
     implicit protected val roleModel: RoleModel
 )(implicit requestContext: RequestContext)
     extends Controller[TableauxModel] {
+
+  val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def addCellAnnotation(
       tableId: TableId,
@@ -422,6 +425,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       updated <- repository.updateCellValue(table, columnId, rowId, value)
+      _ <- messagingClient.cellChanged(tableId, rowId)
     } yield updated
   }
 

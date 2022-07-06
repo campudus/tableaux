@@ -9,7 +9,7 @@ import scala.reflect.io.Path
 class TableauxConfig(
     override val vertx: Vertx,
     val authConfig: JsonObject,
-    databaseConfig: JsonObject,
+    val databaseConfig: JsonObject,
     workingDirectory: String,
     uploadsDirectory: String,
     val rolePermissions: JsonObject
