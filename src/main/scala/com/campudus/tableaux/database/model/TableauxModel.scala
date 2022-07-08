@@ -887,7 +887,6 @@ class TableauxModel(
           // ConcatColumn's value is always a
           // json array with the linked row ids
           val rowId = linkedRow.getLong("id").longValue()
-
           for {
             list <- futureList
             cell <- retrieveCell(concatenateColumn, rowId)
@@ -955,39 +954,38 @@ class TableauxModel(
 
     }
 
-    // post-process RawRows and transform them to Rows
-    rawRows.foldLeft(Future.successful(List.empty[Row])) {
-      case (rawRowsFuture, RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues)) =>
+    Future.sequence(rawRows.map({
+      case RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues) => {
         for {
           // Chain post-processing RawRows
-          list <- rawRowsFuture
 
           // Fetch values for RawRow which couldn't be fetched by SQL
-          columnsWithFetchedValues <- Future.sequence(
-            columns
-              .zip(rawValues)
-              .map({
-                case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatenateColumn] =>
-                  // Fetch linked values of each linked row
-                  fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatenateColumn], array)
-                    .map(cellValue => (c, cellValue))
+          columnsWithFetchedValues <-
+            Future.sequence(
+              columns
+                .zip(rawValues)
+                .map({
+                  case (c: LinkColumn, array: JsonArray) if c.to.isInstanceOf[ConcatenateColumn] =>
+                    // Fetch linked values of each linked row
+                    fetchConcatValuesForLinkedRows(c.to.asInstanceOf[ConcatenateColumn], array)
+                      .map(cellValue => (c, cellValue))
 
-                case (c: StatusColumn, value) =>
-                  for {
-                    dependentColumnValues <- fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
-                    statusValue = calcStatusValue(c.rules, dependentColumnValues)
-                  } yield { (c, statusValue) }
+                  case (c: StatusColumn, value) =>
+                    for {
+                      dependentColumnValues <- fetchValuesForStatusColumn(c.asInstanceOf[ConcatenateColumn], rowId)
+                      statusValue = calcStatusValue(c.rules, dependentColumnValues)
+                    } yield { (c, statusValue) }
 
-                case (c: AttachmentColumn, _) =>
-                  // AttachmentColumns are fetched via AttachmentModel
-                  retrieveCell(c, rowId)
-                    .map(cell => (c, cell.value))
+                  case (c: AttachmentColumn, _) =>
+                    // AttachmentColumns are fetched via AttachmentModel
+                    retrieveCell(c, rowId)
+                      .map(cell => (c, cell.value))
 
-                case (c, value) =>
-                  // All other column types were already fetched by RetrieveRowModel
-                  Future.successful((c, value))
-              })
-          )
+                  case (c, value) =>
+                    // All other column types were already fetched by RetrieveRowModel
+                    Future.successful((c, value))
+                })
+            )
 
           // Generate values for GroupColumn && ConcatColumn
           columnsWithPostProcessedValues = columnsWithFetchedValues.map({
@@ -1007,8 +1005,13 @@ class TableauxModel(
               // Post-processing is only needed for ConcatColumn and GroupColumn
               value
           })
-        } yield list ++ List(Row(table, rowId, rowLevelFlags, cellLevelFlags, columnsWithPostProcessedValues))
-    }
+        } yield {
+          Row(table, rowId, rowLevelFlags, cellLevelFlags, columnsWithPostProcessedValues)
+        }
+
+      }
+    }))
+
   }
 
   def retrieveColumnValues(table: Table, columnId: ColumnId, langtagOpt: Option[String]): Future[Seq[String]] = {
