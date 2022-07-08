@@ -983,9 +983,19 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     val cardinalityFilter = generateCardinalityFilter(linkColumn)
 
     for {
+      shouldNotCheckCardinality <- hasNToMCardinality(linkColumn.id)
+      maybeCardinalityFilter <-
+        if (shouldNotCheckCardinality) {
+          Future.successful("")
+        } else {
+          Future.successful(s"WHERE $cardinalityFilter")
+        }
       result <- connection.query(
-        s"SELECT $projection FROM $fromClause WHERE $cardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
-        Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+        s"SELECT $projection FROM $fromClause $maybeCardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
+        shouldNotCheckCardinality match {
+          case false => Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+          case true => Json.arr()
+        }
       )
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(foreignColumns))
@@ -1040,10 +1050,22 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     val cardinalityFilter = generateCardinalityFilter(linkColumn)
 
-    connection.selectSingleValue(
-      s"SELECT COUNT(*) FROM user_table_$foreignTableId ut WHERE $cardinalityFilter",
-      Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
-    )
+    for {
+      shouldNotCheckCardinality <- hasNToMCardinality(linkColumn.id)
+      maybeCardinalityFilter <-
+        if (shouldNotCheckCardinality) {
+          Future.successful("")
+        } else {
+          Future.successful(s"ut WHERE $cardinalityFilter")
+        }
+      result <- connection.selectSingleValue[Long](
+        s"SELECT COUNT(*) FROM user_table_$foreignTableId $maybeCardinalityFilter",
+        shouldNotCheckCardinality match {
+          case false => Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+          case true => Json.arr()
+        }
+      )
+    } yield { result }
   }
 
   private def mapValueByColumnType(column: ColumnType[_], value: Any): Any = {
@@ -1202,6 +1224,17 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
         |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
+  }
+
+  private def hasNToMCardinality(linkId: LinkId): Future[Boolean] = {
+    val query = s"SELECT cardinality_1, cardinality_2 FROM system_link_table WHERE link_id = ?"
+    connection.query(query, Json.arr(linkId)).map(result => {
+      val resultSeq = resultObjectToJsonArray(result).map(jsonArrayToSeq)
+      resultSeq.size match {
+        case 1 => resultSeq.head.forall(cardi => cardi == 0)
+        case _ => false
+      }
+    })
   }
 
   private def generateCardinalityFilter(linkColumn: LinkColumn): String = {
