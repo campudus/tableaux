@@ -555,6 +555,33 @@
         }
       }
     },
+    "/system/update": {
+      "post": {
+        "summary": "Update system tables",
+        "description": "Updates schema of system tables. To get the nonce, take a look at the backend logs.",
+        "tags": ["system"],
+        "operationId": "update-system-tables",
+        "parameters": [
+          {
+            "$ref": "#/parameters/nonce"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The versions of the installation",
+            "schema": {
+              "$ref": "#/definitions/Response: Versions"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
+    },
     "/completetable": {
       "post": {
         "summary": "Create a complete table with columns and rows",
