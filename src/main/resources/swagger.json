@@ -968,10 +968,10 @@
         }
       ],
       "get": {
-        "summary": "Retrieves the history entries of a cell",
-        "description": "Returns the history values of a specified cell.",
+        "summary": "Retrieves the history entries of a table",
+        "description": "Returns the history entries of a table.",
         "tags": ["content"],
-        "operationId": "retrieve-history-cell",
+        "operationId": "retrieve-table-history-cell",
         "responses": {
           "200": {
             "$ref": "#/responses/history-cell"
@@ -998,10 +998,10 @@
         }
       ],
       "get": {
-        "summary": "Retrieves the history entries of a cell",
-        "description": "Returns the history values of a specified cell.",
+        "summary": "Retrieves the history entries of a row",
+        "description": "Returns the history entries of a row.",
         "tags": ["content"],
-        "operationId": "retrieve-history-cell",
+        "operationId": "retrieve-row-history-cell",
         "responses": {
           "200": {
             "$ref": "#/responses/history-cell"
@@ -1032,9 +1032,9 @@
       ],
       "get": {
         "summary": "Retrieves the history entries of a cell",
-        "description": "Returns the history values of a specified cell.",
+        "description": "Returns the history entries of a specified cell.",
         "tags": ["content"],
-        "operationId": "retrieve-history-cell",
+        "operationId": "retrieve-cell-history-cell",
         "responses": {
           "200": {
             "$ref": "#/responses/history-cell"
