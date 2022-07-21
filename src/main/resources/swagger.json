@@ -1422,6 +1422,20 @@
             "$ref": "#/responses/not-found-in-database"
           }
         }
+      },
+      "get": {
+        "summary": "Get annotations of this cell.",
+        "description": "Get annotations of this cell",
+        "tags": ["content"],
+        "operationId": "get-cell-annotation",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/cell-annotations"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
       }
     },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/annotations/{annotationId}": {
@@ -1567,6 +1581,32 @@
         "de": "Hallo"
       },
       "description": "New cell value, depending on the type of the column."
+    },
+    "CellAnnotation": {
+      "type": "object",
+      "required": ["uuid", "type", "value", "createdAt"],
+      "properties": {
+        "uuid": {
+          "description": "uuid of the annotation",
+          "type": "string",
+          "example": "3c32cd06-f27e-4f5e-86a9-d70f7058f7c7"
+        },
+        "type": {
+          "description": "type of the annotation",
+          "type": "string",
+          "example": "flag"
+        },
+        "value": {
+          "description": "value of the annotation",
+          "type": "string",
+          "example": "important"
+        },
+        "createdAt": {
+          "description": "timestamp of creation",
+          "type": "string",
+          "example": "2022-07-21T19:11:36.499Z"
+        }
+      }
     },
     "LanguageTag": {
       "description": "A language tag in RFC 5646 format.",
@@ -1874,7 +1914,19 @@
       }
     },
     "Response:CellAnnotation": {
-      "description": "TODO The annotation of a cell.",
+      "description": "The annotation of a cell.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        },
+        {
+          "$ref": "#/definitions/CellAnnotation"
+        }
+      ]
+    },
+    "Response:CellAnnotations": {
+      "description": "A List of annotations of a cell.",
       "type": "object",
       "allOf": [
         {
@@ -1882,15 +1934,14 @@
         }
       ],
       "properties": {
-        "value": {
-          "type": "any",
-          "example": {
-            "de": "Bayern",
-            "en": "Bavaria"
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CellAnnotation"
           }
         }
       },
-      "required": ["value"]
+      "required": ["annotations"]
     },
     "Response:Row": {
       "description": "The complete row containing the values of the cells.",
@@ -2055,7 +2106,7 @@
           {
             "id": 1,
             "name": "Subfolder 123",
-            "description": "Subolder 123 is awesome",
+            "description": "Subfolder 123 is awesome",
             "createdAt": "2016-01-13T17:23:18.402+01:00",
             "updatedAt": "2016-01-14T10:57:29.845+01:00"
           }
@@ -2868,7 +2919,7 @@
           "example": "ok"
         }
       },
-      "description": "File meta informations"
+      "description": "File meta information"
     },
     "Multi-language object": {
       "type": "object",
@@ -2985,7 +3036,7 @@
         },
         "description": {
           "type": "string",
-          "example": "Subolder 123 is awesome"
+          "example": "Subfolder 123 is awesome"
         },
         "id": {
           "type": "integer",
@@ -3073,7 +3124,7 @@
         },
         {
           "kind": "group",
-          "name": "capital city with poplation",
+          "name": "capital city with population",
           "description": {
             "en": "a group example, the column ids in groups array must be absolute"
           },
@@ -3222,6 +3273,12 @@
   "responses": {
     "cell-annotation": {
       "description": "An annotation of a cell.",
+      "schema": {
+        "$ref": "#/definitions/Response:CellAnnotation"
+      }
+    },
+    "cell-annotations": {
+      "description": "A list of annotations",
       "schema": {
         "$ref": "#/definitions/Response:CellAnnotation"
       }
