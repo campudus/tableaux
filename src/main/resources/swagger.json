@@ -1476,6 +1476,35 @@
         ]
       }
     },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/foreignRows": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
+      "get": {
+        "summary": "Get a list of foreign rows that can be linked to this cell.",
+        "description": "Get a list of foreign rows that can be linked to this cell.",
+        "tags": [
+          "content"
+        ],
+        "operationId": "get-foreign-rows",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/foreignRows"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/annotations": {
       "parameters": [
         {
@@ -1739,6 +1768,32 @@
           "description": "timestamp of creation",
           "type": "string",
           "example": "2022-07-21T19:11:36.499Z"
+        }
+      }
+    },
+    "Pagination": {
+      "type": "object",
+      "required": [
+        "page"
+      ],
+      "properties": {
+        "page": {
+          "description": "Pagination",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "example": 100
+            },
+            "offset": {
+              "type": "integer",
+              "example": 100
+            },
+            "totalSize": {
+              "type": "integer",
+              "example": 315
+            }
+          }
         }
       }
     },
@@ -2224,6 +2279,30 @@
       },
       "required": [
         "dependentRows"
+      ]
+    },
+    "Response:ForeignRows": {
+      "description": "An array with all linkable rows to the specified cell",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        },
+        {
+          "$ref": "#/definitions/Pagination"
+        }
+      ],
+      "properties": {
+        "rows": {
+          "description": "An array with all rows depending on the selected row",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Shared Response: Row"
+          }
+        }
+      },
+      "required": [
+        "rows"
       ]
     },
     "Request:Folder": {
@@ -3524,7 +3603,7 @@
     "cell-annotations": {
       "description": "A list of annotations",
       "schema": {
-        "$ref": "#/definitions/Response:CellAnnotation"
+        "$ref": "#/definitions/Response:CellAnnotations"
       }
     },
     "cell-value": {
@@ -3543,6 +3622,12 @@
       "description": "A list of rows that depend on a selected row",
       "schema": {
         "$ref": "#/definitions/Response:DependentRows"
+      }
+    },
+    "foreignRows": {
+      "description": "A list of rows that can be linked to the specified row. If the cardinality check set is reached, the array is empty.",
+      "schema": {
+        "$ref": "#/definitions/Response:ForeignRows"
       }
     },
     "table-with-id": {
