@@ -10,11 +10,17 @@
     },
     "version": "1.0.0"
   },
-  "schemes": ["$SCHEME$"],
+  "schemes": [
+    "$SCHEME$"
+  ],
   "host": "$HOST$",
   "basePath": "$BASEPATH$",
-  "consumes": ["application/json"],
-  "produces": ["application/json"],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
   "externalDocs": {
     "description": "GitHub project",
     "url": "https://github.com/campudus/tableaux"
@@ -38,7 +44,9 @@
       "post": {
         "summary": "Create file handle",
         "description": "Creates a new temporary file handle.",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "create-file-handle",
         "parameters": [
           {
@@ -48,7 +56,11 @@
             "required": true,
             "schema": {
               "type": "object",
-              "required": ["folder", "description", "title"],
+              "required": [
+                "folder",
+                "description",
+                "title"
+              ],
               "properties": {
                 "folder": {
                   "type": "integer",
@@ -155,7 +167,9 @@
       "get": {
         "summary": "Get file meta-information",
         "description": "Returns meta-information about a file.",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "get-file-meta-information",
         "responses": {
           "200": {
@@ -169,7 +183,9 @@
       "put": {
         "summary": "Change file meta-information",
         "description": "Changes meta information of file.",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "change-file-meta-information",
         "parameters": [
           {
@@ -212,7 +228,9 @@
       "delete": {
         "summary": "Delete file",
         "description": "",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "delete-file",
         "responses": {
           "200": {
@@ -236,7 +254,9 @@
       "put": {
         "summary": "Upload file",
         "description": "Uploads/replaces a language specific file for this file handle.",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "upload-file",
         "responses": {
           "200": {
@@ -247,7 +267,9 @@
       "delete": {
         "summary": "Delete file (language specific)",
         "description": "",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "delete-file-language-specific",
         "responses": {
           "200": {
@@ -260,7 +282,9 @@
       "get": {
         "summary": "Get root folder",
         "description": "Returns the root folder. Has no ID because it can't be changed or deleted.",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "get-root-folder",
         "parameters": [
           {
@@ -289,7 +313,9 @@
       "post": {
         "summary": "Create folder",
         "description": "Creates a new folder.",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "create-folder",
         "parameters": [
           {
@@ -297,7 +323,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref":"#/definitions/Request:Folder"
+              "$ref": "#/definitions/Request:Folder"
             }
           }
         ],
@@ -317,7 +343,9 @@
       "get": {
         "summary": "Get folder",
         "description": "Returns a specific folder. Hierarchy is not relevant.",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "get-folder",
         "parameters": [
           {
@@ -340,7 +368,9 @@
       "put": {
         "summary": "Change folder",
         "description": "Changes folder.",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "change-folder",
         "parameters": [
           {
@@ -348,7 +378,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref":"#/definitions/Request:Folder"
+              "$ref": "#/definitions/Request:Folder"
             }
           }
         ],
@@ -361,7 +391,9 @@
       "delete": {
         "summary": "Delete folder",
         "description": "",
-        "tags": ["media"],
+        "tags": [
+          "media"
+        ],
         "operationId": "delete-folder",
         "responses": {
           "200": {
@@ -374,7 +406,9 @@
       "post": {
         "summary": "Reset system tables",
         "description": "Resets whole schema and re-initialize system tables",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "reset-system-tables",
         "parameters": [
           {
@@ -392,7 +426,9 @@
       "post": {
         "summary": "Create demo tables",
         "description": "Creates two demo tables (Bundesländer, Regierungsbezirke) with links.",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "create-demo-tables",
         "parameters": [
           {
@@ -410,7 +446,9 @@
       "get": {
         "summary": "Get current version",
         "description": "",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "get-version",
         "consumes": [],
         "produces": [
@@ -437,7 +475,9 @@
       "get": {
         "summary": "Get all services",
         "description": "Returns an array containing all available services with their metadata.",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "get-all-services",
         "consumes": [],
         "produces": [
@@ -462,7 +502,9 @@
       "post": {
         "summary": "Create a new service",
         "description": "Creates the service.",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "create-new-service",
         "parameters": [
           {
@@ -499,7 +541,9 @@
       "get": {
         "summary": "Get service",
         "description": "Returns the metadata of a service.",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "get-service",
         "responses": {
           "200": {
@@ -516,7 +560,9 @@
       "patch": {
         "summary": "Change service",
         "description": "Changes the service and returns its current metadata.",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "change-service",
         "parameters": [
           {
@@ -543,7 +589,9 @@
       "delete": {
         "summary": "Delete a service",
         "description": "Drops the complete service and deletes its definition.",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "delete-service",
         "responses": {
           "200": {
@@ -559,7 +607,9 @@
       "post": {
         "summary": "Update system tables",
         "description": "Updates schema of system tables. To get the nonce, take a look at the backend logs.",
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "operationId": "update-system-tables",
         "parameters": [
           {
@@ -586,7 +636,9 @@
       "post": {
         "summary": "Create a complete table with columns and rows",
         "description": "Adds the table structure.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "create-new-complete-table",
         "parameters": [
           {
@@ -618,7 +670,9 @@
       "get": {
         "summary": "Get all tables",
         "description": "Returns an array containing all available tables with their metadata.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "get-all-tables",
         "consumes": [],
         "produces": [
@@ -643,7 +697,9 @@
       "post": {
         "summary": "Create a new empty table",
         "description": "Adds the table structure.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "create-new-empty-table",
         "parameters": [
           {
@@ -680,7 +736,9 @@
       "get": {
         "summary": "Get table",
         "description": "Returns the metadata of a table.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "get-table",
         "parameters": [
           {
@@ -699,7 +757,9 @@
       "post": {
         "summary": "Change table",
         "description": "Changes the table",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "change-table",
         "parameters": [
           {
@@ -720,7 +780,9 @@
       "delete": {
         "summary": "Delete a table",
         "description": "Drops the complete table and deletes its definition.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "delete-table",
         "responses": {
           "200": {
@@ -741,7 +803,9 @@
       "get": {
         "summary": "Get columns definition",
         "description": "Returns all columns of specific table",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "get-columns-definition",
         "responses": {
           "200": {
@@ -755,7 +819,9 @@
       "post": {
         "summary": "Create new column(s)",
         "description": "Alters the user table and add the column definition to the system table.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "create-new-column",
         "parameters": [
           {
@@ -826,7 +892,9 @@
       "get": {
         "summary": "Get column definition",
         "description": "Returns information about a specific column.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "get-column-definition",
         "responses": {
           "200": {
@@ -840,7 +908,9 @@
       "post": {
         "summary": "Change column",
         "description": "Alters the column definition.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "change-column",
         "parameters": [
           {
@@ -875,7 +945,9 @@
       "delete": {
         "summary": "Delete column",
         "description": "Deletes column from user table and table definition.",
-        "tags": ["structure"],
+        "tags": [
+          "structure"
+        ],
         "operationId": "delete-column",
         "responses": {
           "200": {
@@ -899,7 +971,9 @@
       "get": {
         "summary": "Get specific cell value",
         "description": "Returns the value of a specified cell.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "retrieve-cell",
         "responses": {
           "200": {
@@ -913,7 +987,9 @@
       "post": {
         "summary": "DEPRECATED - Update cell or add link/attachment",
         "description": "DEPRECATED: Use same route with PATCH instead. Updates the value of specified cell. This can add links, attachments, multi-language contents and replaces simple values such as numbers, booleans or strings.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "update-cell-deprecated",
         "parameters": [
           {
@@ -932,7 +1008,9 @@
       "patch": {
         "summary": "Update cell or add link/attachment",
         "description": "Updates the value of specified cell. This can add links, attachments, multi-language contents and replaces simple values such as numbers, booleans or strings.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "update-cell",
         "parameters": [
           {
@@ -951,7 +1029,9 @@
       "put": {
         "summary": "Replace cell value",
         "description": "Replace the current value of the specified cell. This overwrites all languages in a multi-language cell or deletes all links and replaces the data with the provided value.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "replace-cell",
         "parameters": [
           {
@@ -970,7 +1050,9 @@
       "delete": {
         "summary": "Remove a cell value.",
         "description": "Clears the set cell value and reset it to its default value.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "clear-cell-value",
         "responses": {
           "200": {
@@ -997,7 +1079,9 @@
       "get": {
         "summary": "Retrieves the history entries of a table",
         "description": "Returns the history entries of a table.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "retrieve-table-history-cell",
         "responses": {
           "200": {
@@ -1027,7 +1111,9 @@
       "get": {
         "summary": "Retrieves the history entries of a row",
         "description": "Returns the history entries of a row.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "retrieve-row-history-cell",
         "responses": {
           "200": {
@@ -1060,7 +1146,9 @@
       "get": {
         "summary": "Retrieves the history entries of a cell",
         "description": "Returns the history entries of a specified cell.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "retrieve-cell-history-cell",
         "responses": {
           "200": {
@@ -1072,7 +1160,6 @@
         }
       }
     },
-
     "/tables/{tableId}/rows": {
       "parameters": [
         {
@@ -1082,7 +1169,9 @@
       "get": {
         "summary": "Get all rows",
         "description": "Returns just the rows of the table",
-        "tags": ["data"],
+        "tags": [
+          "data"
+        ],
         "operationId": "get-all-rows",
         "responses": {
           "200": {
@@ -1102,7 +1191,9 @@
       "post": {
         "summary": "Create new row",
         "description": "Adds new row to user table.",
-        "tags": ["data"],
+        "tags": [
+          "data"
+        ],
         "operationId": "create-new-row",
         "parameters": [
           {
@@ -1139,14 +1230,20 @@
                 }
               },
               "example": {
-                "columns": [{
-                  "id": 1
-                }],
-                "rows": [{
-                  "values": [
-                    {"de": "Column 1 multi language value"}
-                  ]
-                }]
+                "columns": [
+                  {
+                    "id": 1
+                  }
+                ],
+                "rows": [
+                  {
+                    "values": [
+                      {
+                        "de": "Column 1 multi language value"
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }
@@ -1170,7 +1267,9 @@
       "get": {
         "summary": "Get single row",
         "description": "Returns a single row and its values.",
-        "tags": ["data"],
+        "tags": [
+          "data"
+        ],
         "operationId": "get-single-row",
         "responses": {
           "200": {
@@ -1184,7 +1283,9 @@
       "delete": {
         "summary": "Delete row",
         "description": "Deletes row from user table.",
-        "tags": ["data"],
+        "tags": [
+          "data"
+        ],
         "operationId": "delete-row",
         "responses": {
           "200": {
@@ -1205,7 +1306,9 @@
       "post": {
         "summary": "Duplicate a row.",
         "description": "Duplicates a row with the same values and returns the duplicated row.",
-        "tags": ["data"],
+        "tags": [
+          "data"
+        ],
         "operationId": "duplicate-row",
         "responses": {
           "200": {
@@ -1229,7 +1332,9 @@
       "get": {
         "summary": "Retrieve all dependent rows.",
         "description": "Retrieve all rows of tables that link to this row.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "retrieve-dependent-rows",
         "responses": {
           "200": {
@@ -1253,7 +1358,9 @@
       "patch": {
         "summary": "Add annotations to this row.",
         "description": "Adds new annotations to this row.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "update-row-annotations",
         "parameters": [
           {
@@ -1270,7 +1377,6 @@
         }
       }
     },
-
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/attachment/{attachmentId}": {
       "parameters": [
         {
@@ -1289,7 +1395,10 @@
       "delete": {
         "summary": "Remove single attachment from cell.",
         "description": "Removes a specified attachment from a cell.",
-        "tags": ["content", "media"],
+        "tags": [
+          "content",
+          "media"
+        ],
         "operationId": "delete-attachment",
         "responses": {
           "200": {
@@ -1319,7 +1428,9 @@
       "delete": {
         "summary": "Delete a link in a cell",
         "description": "Removes a link from a cell.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "delete-link",
         "responses": {
           "200": {
@@ -1349,7 +1460,9 @@
       "put": {
         "summary": "Changes the order of the link.",
         "description": "Changes the order of the links by reordering the specified link to the beginning, end or in front of another relative link.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "update-cell-link-order",
         "parameters": [
           {
@@ -1363,7 +1476,6 @@
         ]
       }
     },
-
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/annotations": {
       "parameters": [
         {
@@ -1379,7 +1491,9 @@
       "post": {
         "summary": "Add an new annotation to a cell.",
         "description": "Adds an annotation to a cell. Annotations with the same type and value will be merged.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "add-cell-annotation",
         "parameters": [
           {
@@ -1426,7 +1540,9 @@
       "get": {
         "summary": "Get annotations of this cell.",
         "description": "Get annotations of this cell",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "get-cell-annotation",
         "responses": {
           "200": {
@@ -1456,7 +1572,9 @@
       "delete": {
         "summary": "Remove an annotation from a cell.",
         "description": "Removes an annotation for all language tags from a cell.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "clear-cell-annotation",
         "responses": {
           "200": {
@@ -1489,7 +1607,9 @@
       "delete": {
         "summary": "Remove annotation for a language from a cell.",
         "description": "Removes an annotation for a specific language tag from a cell.",
-        "tags": ["content"],
+        "tags": [
+          "content"
+        ],
         "operationId": "clear-cell-annotation-language-tag",
         "responses": {
           "200": {
@@ -1514,7 +1634,9 @@
           }
         }
       },
-      "required": ["description"]
+      "required": [
+        "description"
+      ]
     },
     "Property:DisplayName": {
       "type": "object",
@@ -1527,7 +1649,9 @@
           }
         }
       },
-      "required": ["displayName"]
+      "required": [
+        "displayName"
+      ]
     },
     "Property:TableGroup": {
       "type": "object",
@@ -1551,7 +1675,9 @@
           }
         }
       },
-      "required": ["displayName"]
+      "required": [
+        "displayName"
+      ]
     },
     "Property:Status": {
       "type": "object",
@@ -1561,7 +1687,9 @@
           "example": "ok"
         }
       },
-      "required": ["status"]
+      "required": [
+        "status"
+      ]
     },
     "Property:Id": {
       "type": "object",
@@ -1571,9 +1699,10 @@
           "example": 423
         }
       },
-      "required": ["id"]
+      "required": [
+        "id"
+      ]
     },
-
     "CellValue": {
       "type": "any",
       "example": {
@@ -1584,7 +1713,12 @@
     },
     "CellAnnotation": {
       "type": "object",
-      "required": ["uuid", "type", "value", "createdAt"],
+      "required": [
+        "uuid",
+        "type",
+        "value",
+        "createdAt"
+      ],
       "properties": {
         "uuid": {
           "description": "uuid of the annotation",
@@ -1649,7 +1783,10 @@
           "$ref": "#/definitions/Property:TableGroup"
         }
       ],
-      "required": ["name", "hidden"],
+      "required": [
+        "name",
+        "hidden"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -1682,7 +1819,13 @@
           "$ref": "#/definitions/Property:DisplayName"
         }
       ],
-      "required": ["name", "multilanguage", "ordering", "identifier", "kind"],
+      "required": [
+        "name",
+        "multilanguage",
+        "ordering",
+        "identifier",
+        "kind"
+      ],
       "properties": {
         "name": {
           "description": "An internal name that can be used in the Aggregator, for example.",
@@ -1697,7 +1840,17 @@
         "kind": {
           "description": "The type of the column.",
           "type": "string",
-          "enum": ["attachment", "boolean", "concat", "currency", "datetime", "link", "numeric", "shorttext", "text"]
+          "enum": [
+            "attachment",
+            "boolean",
+            "concat",
+            "currency",
+            "datetime",
+            "link",
+            "numeric",
+            "shorttext",
+            "text"
+          ]
         },
         "multilanguage": {
           "description": "If the values of the cells are translatable or not, this is set to true. You need to check the languageType setting, whether to check for language or for country specific values.",
@@ -1756,9 +1909,11 @@
           }
         }
       },
-      "required": ["id", "value"]
+      "required": [
+        "id",
+        "value"
+      ]
     },
-
     "Response:Status": {
       "type": "object",
       "allOf": [
@@ -1793,7 +1948,9 @@
           }
         }
       },
-      "required": ["tables"]
+      "required": [
+        "tables"
+      ]
     },
     "Response: Services": {
       "type": "object",
@@ -1810,7 +1967,9 @@
           }
         }
       },
-      "required": ["services"]
+      "required": [
+        "services"
+      ]
     },
     "Response:Cell": {
       "description": "The cell value.",
@@ -1829,7 +1988,9 @@
           }
         }
       },
-      "required": ["value"]
+      "required": [
+        "value"
+      ]
     },
     "Response:HistoryRows": {
       "description": "All history entries that belongs to the request (filtered based on cell, row or table).",
@@ -1848,7 +2009,9 @@
           }
         }
       },
-      "required": ["rows"]
+      "required": [
+        "rows"
+      ]
     },
     "HistoryRow": {
       "description": "Cell history.",
@@ -1858,7 +2021,13 @@
           "$ref": "#/definitions/Property:Status"
         }
       ],
-      "required": ["revision", "event", "historyType", "author", "timestamp"],
+      "required": [
+        "revision",
+        "event",
+        "historyType",
+        "author",
+        "timestamp"
+      ],
       "properties": {
         "author": {
           "description": "Name of the user who has triggered a change",
@@ -1873,17 +2042,32 @@
         "event": {
           "description": "The event of the change",
           "type": "string",
-          "enum": ["cell_changed", "row_created", "annotation_added", "annotation_removed"]
+          "enum": [
+            "cell_changed",
+            "row_created",
+            "annotation_added",
+            "annotation_removed"
+          ]
         },
         "historyType": {
           "description": "The type of the history entry",
           "type": "string",
-          "enum": ["row", "cell", "comment", "cell_flag", "row_flag"]
+          "enum": [
+            "row",
+            "cell",
+            "comment",
+            "cell_flag",
+            "row_flag"
+          ]
         },
         "languageType": {
           "description": "Name of the user who has triggered a change",
           "type": "string",
-          "enum": ["neutral", "language", "country"]
+          "enum": [
+            "neutral",
+            "language",
+            "country"
+          ]
         },
         "revision": {
           "description": "Identifier sequence of a history entry",
@@ -1909,7 +2093,20 @@
         "valueType": {
           "description": "The type of the value. For cell changes this is the column type. In case of annotations it's the type of the flag or of the comment",
           "type": "string",
-          "enum": ["text", "richtext", "shorttext", "numeric", "link", "attachment", "boolean", "date", "datetime", "concat", "currency", "group"]
+          "enum": [
+            "text",
+            "richtext",
+            "shorttext",
+            "numeric",
+            "link",
+            "attachment",
+            "boolean",
+            "date",
+            "datetime",
+            "concat",
+            "currency",
+            "group"
+          ]
         }
       }
     },
@@ -1941,7 +2138,9 @@
           }
         }
       },
-      "required": ["annotations"]
+      "required": [
+        "annotations"
+      ]
     },
     "Response:Row": {
       "description": "The complete row containing the values of the cells.",
@@ -1967,7 +2166,10 @@
           "type": "boolean"
         }
       },
-      "required": ["values", "final"]
+      "required": [
+        "values",
+        "final"
+      ]
     },
     "Response:DependentRow": {
       "description": "A row that links to a specified row.",
@@ -1998,7 +2200,10 @@
           "type": "boolean"
         }
       },
-      "required": ["values", "final"]
+      "required": [
+        "values",
+        "final"
+      ]
     },
     "Response:DependentRows": {
       "description": "All rows that link to the specified row.",
@@ -2017,7 +2222,9 @@
           }
         }
       },
-      "required": ["dependentRows"]
+      "required": [
+        "dependentRows"
+      ]
     },
     "Request:Folder": {
       "type": "object",
@@ -2040,9 +2247,9 @@
       },
       "description": "Creates a new folder. If parent is empty the folder will be created in the root folder.",
       "example": {
-         "name": "Folder 1",
-         "description": "This is a folder description",
-         "parent": 1
+        "name": "Folder 1",
+        "description": "This is a folder description",
+        "parent": 1
       }
     },
     "Response: Folder": {
@@ -2210,10 +2417,16 @@
         ],
         "rows": [
           {
-            "values": ["Baden-Württemberg", "Stuttgart"]
+            "values": [
+              "Baden-Württemberg",
+              "Stuttgart"
+            ]
           },
           {
-            "values": ["Bayern", "München"]
+            "values": [
+              "Bayern",
+              "München"
+            ]
           }
         ]
       }
@@ -2427,12 +2640,21 @@
       "properties": {
         "versions": {
           "type": "object",
-          "required": ["implementation", "git", "build", "database"],
+          "required": [
+            "implementation",
+            "git",
+            "build",
+            "database"
+          ],
           "properties": {
             "implementation": {
               "type": "object",
               "description": "The underlying backend (usually the JVM)",
-              "required": ["vendor", "title", "version"],
+              "required": [
+                "vendor",
+                "title",
+                "version"
+              ],
               "properties": {
                 "vendor": {
                   "type": "string",
@@ -2454,7 +2676,11 @@
             "git": {
               "type": "object",
               "description": "The underlying git versions",
-              "required": ["branch", "commit", "date"],
+              "required": [
+                "branch",
+                "commit",
+                "date"
+              ],
               "properties": {
                 "branch": {
                   "type": "string",
@@ -2475,7 +2701,10 @@
             },
             "build": {
               "type": "object",
-              "required": ["date", "jdk"],
+              "required": [
+                "date",
+                "jdk"
+              ],
               "properties": {
                 "date": {
                   "type": "string",
@@ -2491,7 +2720,10 @@
             },
             "database": {
               "type": "object",
-              "required": ["current", "specification"],
+              "required": [
+                "current",
+                "specification"
+              ],
               "properties": {
                 "current": {
                   "type": "integer",
@@ -2667,7 +2899,10 @@
       "description": "A row contains all column values of this specific table.",
       "example": {
         "id": 1,
-        "values": ["Baden-Württemberg", 35751]
+        "values": [
+          "Baden-Württemberg",
+          35751
+        ]
       }
     },
     "Shared Response: Service": {
@@ -2771,7 +3006,10 @@
       },
       "description": "A row object, which is used to add a new row to a table, has only an array of values.",
       "example": {
-        "values": ["Column 1 Value", "Column 2 Value"]
+        "values": [
+          "Column 1 Value",
+          "Column 2 Value"
+        ]
       }
     },
     "Response: Columns": {
@@ -3090,7 +3328,11 @@
         "groups": {
           "type": "array",
           "description": "A list of column ids that should build a group column",
-          "example": [1, 2, 3]
+          "example": [
+            1,
+            2,
+            3
+          ]
         },
         "formatPattern": {
           "type": "string",
@@ -3129,13 +3371,15 @@
             "en": "a group example, the column ids in groups array must be absolute"
           },
           "ordering": "3",
-          "groups": [1, 2],
+          "groups": [
+            1,
+            2
+          ],
           "formatPattern": "city {{1}} has {{2}} inhabitants"
         }
       ]
     }
   },
-
   "parameters": {
     "tableId": {
       "name": "tableId",
@@ -3307,14 +3551,12 @@
         "$ref": "#/definitions/Response:Table"
       }
     },
-
     "ok-empty-body": {
       "description": "An empty body.",
       "schema": {
         "$ref": "#/definitions/Response:Status"
       }
     },
-
     "not-found-in-database": {
       "description": "If the specified entity does not exist in the database, this error is thrown. For example a table, column or row with the specified id could not be found."
     },
