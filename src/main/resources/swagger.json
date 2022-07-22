@@ -981,6 +981,29 @@
         }
       }
     },
+    "/groups/{groupId}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/groupId"
+        }
+      ],
+      "delete": {
+        "summary": "Delete table group",
+        "description": "Deletes a table group.",
+        "tags": [
+          "structure"
+        ],
+        "operationId": "delete-table-group",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}": {
       "parameters": [
         {
@@ -3658,6 +3681,14 @@
       "type": "string",
       "format": "string",
       "required": false
+    },
+    "groupId": {
+      "name": "groupId",
+      "description": "The id of the group to select.",
+      "in": "path",
+      "required": true,
+      "type": "integer",
+      "format": "int64"
     }
   },
   "responses": {
