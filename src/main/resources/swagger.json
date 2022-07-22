@@ -987,6 +987,29 @@
           "$ref": "#/parameters/groupId"
         }
       ],
+      "post": {
+        "summary": "Change table group",
+        "description": "Changes a table group.",
+        "tags": [
+          "structure"
+        ],
+        "operationId": "change-table-group",
+        "parameters": [
+          {
+            "name": "group",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/Request: create update table group"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/tableGroup"
+          }
+        }
+      },
       "delete": {
         "summary": "Delete table group",
         "description": "Deletes a table group.",
