@@ -887,6 +887,7 @@ class TableauxModel(
           // ConcatColumn's value is always a
           // json array with the linked row ids
           val rowId = linkedRow.getLong("id").longValue()
+
           for {
             list <- futureList
             cell <- retrieveCell(concatenateColumn, rowId)
