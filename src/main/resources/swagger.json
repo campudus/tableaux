@@ -956,6 +956,31 @@
         }
       }
     },
+    "/groups": {
+      "post": {
+        "summary": "Create table group",
+        "description": "Creates a table group.",
+        "tags": [
+          "structure"
+        ],
+        "operationId": "create-table-group",
+        "parameters": [
+          {
+            "name": "group",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/Request: create update table group"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/tableGroup"
+          }
+        }
+      }
+    },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}": {
       "parameters": [
         {
@@ -1689,23 +1714,27 @@
           "type": "object",
           "allOf": [
             {
-              "$ref": "#/definitions/Property:Id"
-            },
-            {
               "$ref": "#/definitions/Property:DisplayName"
             },
             {
               "$ref": "#/definitions/Property:Description"
             }
-          ],
-          "example": {
-            "de": "Künstler",
-            "en": "Artist"
-          }
+          ]
         }
       },
       "required": [
         "displayName"
+      ]
+    },
+    "Property:TableGroupWithId": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Id"
+        },
+        {
+          "$ref": "#/definitions/Property:TableGroup"
+        }
       ]
     },
     "Property:Status": {
@@ -1835,7 +1864,7 @@
           "$ref": "#/definitions/Property:DisplayName"
         },
         {
-          "$ref": "#/definitions/Property:TableGroup"
+          "$ref": "#/definitions/Property:TableGroupWithId"
         }
       ],
       "required": [
@@ -2543,6 +2572,44 @@
         },
         "hidden": false
       }
+    },
+    "Request: create update table group": {
+      "type": "object",
+      "required": [
+        "displayName"
+      ],
+      "properties": {
+        "displayName": {
+          "$ref": "#/definitions/Multi-language object"
+        },
+        "description": {
+          "$ref": "#/definitions/Multi-language object"
+        }
+      },
+      "example": {
+        "displayName": {
+          "en": "Common",
+          "de": "Allgemein"
+        },
+        "description": {
+          "en": "Groups all common tables",
+          "de": "Gruppiert alle allgemeinen Tabellen"
+        }
+      }
+    },
+    "Response:TableGroup": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        },
+        {
+          "$ref": "#/definitions/Property:TableGroupWithId"
+        }
+      ],
+      "required": [
+        "tables"
+      ]
     },
     "Request: Create service": {
       "type": "object",
@@ -3664,6 +3731,12 @@
       "description": "The complete history of changes.",
       "schema": {
         "$ref": "#/definitions/Response:HistoryRows"
+      }
+    },
+    "tableGroup": {
+      "description": "The table group",
+      "schema": {
+        "$ref": "#/definitions/Response:TableGroup"
       }
     }
   }
