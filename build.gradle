@@ -56,7 +56,7 @@ dependencies {
 
   implementation 'com.github.cb372:scalacache-guava_2.12:0.28.0'
 
-  implementation 'org.webjars:swagger-ui:3.17.6'
+  implementation 'org.webjars:swagger-ui:4.11.1'
 
   compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 

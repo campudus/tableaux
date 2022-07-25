@@ -18,7 +18,7 @@ object DocumentationRouter {
 
 class DocumentationRouter(override val config: TableauxConfig) extends BaseRouter {
 
-  private val swaggerUiVersion = "3.17.6"
+  private val swaggerUiVersion = "4.11.1"
   private val directory = """(?<directory>[A-Za-z0-9-_\\.]{1,60}){1}"""
   private val file = s"""(?<file>[A-Za-z0-9-_\\.]{1,60}){1}"""
 
@@ -27,6 +27,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
 
     router.get("/index.html").handler(index)
     router.get("/").handler(indexRedirect)
+    router.get("/swagger-initializer.js").handler(retrieveInitializer)
     router.get("/swagger.json").handler(retrieveSwagger)
     router.getWithRegex(s"/$file").handler(retrieveFile)
     router.getWithRegex(s"/$directory/$file").handler(retrieveFileWithDirectory)
@@ -37,18 +38,29 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
   private def index(context: RoutingContext): Unit = {
     val (scheme, host, basePath) = parseAbsoluteURI(context.request())
 
+    logger.info(s"Headers ${context.request().headers().asJava.asInstanceOf[io.vertx.core.MultiMap].entries()}")
+
+    sendReply(
+      context,
+      SendEmbeddedFile(
+        s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/index.html"
+      )
+    )
+  }
+
+  private def retrieveInitializer(context: RoutingContext): Unit = {
+    val (scheme, host, basePath) = parseAbsoluteURI(context.request())
+
     val inputStream =
-      getClass.getResourceAsStream(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/index.html")
+      getClass.getResourceAsStream(s"/META-INF/resources/webjars/swagger-ui/$swaggerUiVersion/swagger-initializer.js")
 
     val swaggerURL = new URL(new URL(s"$scheme://$host"), basePath + "/docs/swagger.json")
+    logger.info(s"Swagger ${context.request().absoluteURI()} => ($scheme, $host, $basePath) => $swaggerURL")
 
     val file = Source
       .fromInputStream(inputStream, "UTF-8")
       .mkString
       .replace("https://petstore.swagger.io/v2/swagger.json", swaggerURL.toString)
-
-    logger.info(s"Headers ${context.request().headers().asJava.asInstanceOf[io.vertx.core.MultiMap].entries()}")
-    logger.info(s"Swagger ${context.request().absoluteURI()} => ($scheme, $host, $basePath) => $swaggerURL")
 
     sendReply(context, OkString(file, "text/html; charset=UTF-8"))
   }
