@@ -503,6 +503,7 @@ class ColumnModel(val connection: DatabaseConnection)(
                               | id_2 bigint,
                               | ordering_1 serial,
                               | ordering_2 serial,
+                              | links_from jsonb DEFAULT NULL,
                               |
                               | PRIMARY KEY(id_1, id_2),
                               |
