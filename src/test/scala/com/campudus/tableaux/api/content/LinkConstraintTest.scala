@@ -13,6 +13,8 @@ import org.junit.{Ignore, Test}
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
+import io.vertx.scala.SQLConnection
+import com.campudus.tableaux.database.DatabaseConnection
 
 sealed trait Helper {
 
@@ -517,6 +519,49 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
       .map(_.getJsonArray("columns"))
       .map(_.getJsonObject(0))
       .map(_.getLong("id"))
+  }
+
+  @Test
+  def deleteRowWithPassedRefShouldDeleteTheRowAndUpdateTheForeignLink(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId1/columns",
+          Columns(
+            LinkBiDirectionalCol("deleteCascade", tableId2, Constraint(DefaultCardinality, deleteCascade = false))
+          )
+        )
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId1/rows",
+          Rows(columns, Json.obj("Test Column 1" -> "table1row3", "Test Column 2" -> 3, "deleteCascade" -> Json.arr(1)))
+        )
+
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?moveRefsTo=2")
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        linksFrom <-
+          dbConnection.query("SELECT links_from FROM link_table_1 WHERE id_1 = ? AND id_2 = ?", Json.arr(3, 2)).map(
+            _.getJsonArray("results").getJsonArray(0).getString(0)
+          )
+      } yield {
+        assertEquals(3, rowsTable1.size())
+        assertEquals(1, rowsTable2.size())
+        logger.info(s"deleteRow ${linksFrom}")
+        assertEquals("[1]", linksFrom)
+      }
+    }
   }
 }
 
