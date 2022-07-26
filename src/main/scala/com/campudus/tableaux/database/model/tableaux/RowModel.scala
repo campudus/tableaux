@@ -36,7 +36,7 @@ private object ModelHelper {
   }
 }
 
-sealed trait UpdateCreateRowModelHelper {
+sealed trait UpdateCreateRowModelHelper extends LazyLogging {
   protected[this] val connection: DatabaseConnection
 
   def rowExists(t: DbTransaction, tableId: TableId, rowId: RowId)(
@@ -95,8 +95,16 @@ sealed trait UpdateCreateRowModelHelper {
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val linkId = column.linkId
 
-    val updatePreviousRowIdsQuery =
-      s"UPDATE link_table_$linkId SET links_from = ? WHERE ordering_1 = (SELECT ordering_1 FROM link_table_$linkId ORDER BY ordering_1 DESC LIMIT 1)"
+    // WHERE stmt is strange
+    // TODO merge links_from from new and old row
+    // TODO do we consider link directions when we query the linked rows?
+    val updatePreviousRowIdsQuery = s"""
+                                       |UPDATE link_table_$linkId 
+                                       |SET links_from = COALESCE(links_from, '[]'::jsonb) || ?::jsonb
+                                       |WHERE ordering_1 = (SELECT ordering_1 FROM link_table_$linkId ORDER BY ordering_1 DESC LIMIT 1)
+                                       |""".stripMargin
+
+    logger.info(s"deleteRow $updatePreviousRowIdsQuery")
 
     val doUpdate = (t: DbTransaction) => {
       for {

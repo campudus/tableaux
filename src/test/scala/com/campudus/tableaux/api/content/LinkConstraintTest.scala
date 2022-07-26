@@ -520,49 +520,6 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
       .map(_.getJsonObject(0))
       .map(_.getLong("id"))
   }
-
-  @Test
-  def deleteRowWithPassedRefShouldDeleteTheRowAndUpdateTheForeignLink(implicit c: TestContext): Unit = {
-    okTest {
-      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-
-      for {
-        tableId1 <- createDefaultTable(name = "table1")
-        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
-
-        _ <- sendRequest(
-          "POST",
-          s"/tables/$tableId1/columns",
-          Columns(
-            LinkBiDirectionalCol("deleteCascade", tableId2, Constraint(DefaultCardinality, deleteCascade = false))
-          )
-        )
-
-        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
-
-        _ <- sendRequest(
-          "POST",
-          s"/tables/$tableId1/rows",
-          Rows(columns, Json.obj("Test Column 1" -> "table1row3", "Test Column 2" -> 3, "deleteCascade" -> Json.arr(1)))
-        )
-
-        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?moveRefsTo=2")
-
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
-        linksFrom <-
-          dbConnection.query("SELECT links_from FROM link_table_1 WHERE id_1 = ? AND id_2 = ?", Json.arr(3, 2)).map(
-            _.getJsonArray("results").getJsonArray(0).getString(0)
-          )
-      } yield {
-        assertEquals(3, rowsTable1.size())
-        assertEquals(1, rowsTable2.size())
-        logger.info(s"deleteRow ${linksFrom}")
-        assertEquals("[1]", linksFrom)
-      }
-    }
-  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -966,5 +923,150 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
       .map(_.getJsonArray("columns"))
       .map(_.getJsonObject(0))
       .map(_.getLong("id"))
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class LinkDeleteMoveRefTest extends LinkTestBase with Helper {
+
+  @Test
+  def deleteRowShouldDeleteRowAndUpdateForeignLink(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId1/columns",
+          Columns(
+            LinkBiDirectionalCol("deleteCascade", tableId2, Constraint(DefaultCardinality, deleteCascade = false))
+          )
+        )
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId1/rows",
+          Rows(columns, Json.obj("Test Column 1" -> "table1row3", "Test Column 2" -> 3, "deleteCascade" -> Json.arr(1)))
+        )
+
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?moveRefsTo=2")
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        linksFrom <-
+          dbConnection.query("SELECT links_from FROM link_table_1 WHERE id_1 = ? AND id_2 = ?", Json.arr(3, 2)).map(
+            _.getJsonArray("results").getJsonArray(0).getString(0)
+          )
+      } yield {
+        assertEquals(3, rowsTable1.size())
+        assertEquals(1, rowsTable2.size())
+        logger.info(s"deleteRow ${linksFrom}")
+        assertEquals("[1]", linksFrom)
+      }
+    }
+  }
+
+  @Test
+  def deleteRowShouldAddRefToLinksFrom(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+      for {
+        (tableId1, tableId2) <- createDefaultLinkTables()
+
+        // pretending that references have moved several times in the old and the new row
+        _ <-
+          dbConnection.query(
+            "UPDATE link_table_1 set links_from = ?::jsonb WHERE id_1 = ? AND id_2 = ?",
+            Json.arr("[22,33]", 3, 1)
+          )
+        _ <-
+          dbConnection.query(
+            "UPDATE link_table_1 set links_from = ?::jsonb WHERE id_1 = ? AND id_2 = ?",
+            Json.arr("[44,55]", 3, 2)
+          )
+
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?moveRefsTo=3")
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        linksFrom <-
+          dbConnection.query("SELECT links_from FROM link_table_1 WHERE id_1 = ? AND id_2 = ?", Json.arr(3, 3)).map(
+            _.getJsonArray("results").getJsonArray(0).getString(0)
+          )
+      } yield {
+        assertEquals(4, rowsTable1.size())
+        assertEquals(3, rowsTable2.size())
+        logger.info(s"deleteRow ${linksFrom}")
+        assertEquals("[22,33,44,55,1]", linksFrom)
+      }
+    }
+  }
+
+  // format: off
+  /**
+    * Creates two tables with four rows each and a links two rows two times.
+    *
+    * |----------------------------|           |----------------------------|
+    * |           table1           |           |           table2           |
+    * |----------------------------|           |----------------------------|
+    * | id | Test Column 1 | links |           | id | Test Column 1 | links |
+    * |----|---------------|-------|    ==>    |----|---------------|-------|
+    * | 1  | table1row1    |       |           | 1  | table2row1    | 3,4   |
+    * | 2  | table1row2    |       |           | 2  | table2row2    | 3,4   |
+    * | 3  | table1row3    | 1,2   |           | 3  | table2row3    |       |
+    * | 4  | table1row4    | 1,2   |           | 4  | table2row4    |       |
+    */
+  private def createDefaultLinkTables(): Future[(TableId, TableId)] = {
+  // format: on
+    for {
+      tableId1 <- createDefaultTable(name = "table1")
+      tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/columns",
+        Columns(
+          LinkBiDirectionalCol("links", tableId2, Constraint(DefaultCardinality, deleteCascade = false))
+        )
+      )
+
+      columns1 <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+      columns2 <- sendRequest("GET", s"/tables/$tableId2/columns").map(_.getJsonArray("columns"))
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId2/rows",
+        Rows(columns2, Json.obj("Test Column 1" -> "table2row3"))
+      )
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId2/rows",
+        Rows(columns2, Json.obj("Test Column 1" -> "table2row4"))
+      )
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/rows",
+        Rows(
+          columns1,
+          Json.obj("Test Column 1" -> "table1row3", "links" -> Json.arr(1, 2))
+        )
+      )
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/rows",
+        Rows(
+          columns1,
+          Json.obj("Test Column 1" -> "table1row4", "links" -> Json.arr(1, 2))
+        )
+      )
+    } yield (tableId1, tableId2)
   }
 }
