@@ -38,9 +38,9 @@ private object ModelHelper {
 sealed trait UpdateCreateRowModelHelper {
   protected[this] val connection: DatabaseConnection
 
-  def rowExists(t: connection.Transaction, tableId: TableId, rowId: RowId)(
+  def rowExists(t: DbTransaction, tableId: TableId, rowId: RowId)(
       implicit ec: ExecutionContext
-  ): Future[connection.Transaction] = {
+  ): Future[DbTransaction] = {
     t.selectSingleValue[Boolean](s"SELECT COUNT(*) = 1 FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
       .flatMap({
         case (t, true) => Future.successful(t)
@@ -72,48 +72,105 @@ sealed trait UpdateCreateRowModelHelper {
     (union, binds)
   }
 
-  def updateLinks(table: Table, rowId: RowId, values: Seq[(LinkColumn, Seq[RowId])])(
-      implicit ec: ExecutionContext
-  ): Future[Unit] = {
-    val futureSequence = values.map({
-      case (column: LinkColumn, toIds) =>
-        val linkId = column.linkId
-        val direction = column.linkDirection
-
-        val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
-
-        connection.transactional(t => {
-          for {
-            // check if row (where we want to add the links) really exists
-            t <- rowExists(t, column.table.id, rowId)
-
-            // check if "to-be-linked" rows really exist
-            t <- toIds
-              .foldLeft(Future(t))((futureT, toId) => {
-                futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
-              })
-              .recoverWith({
-                case ex: Throwable => Future.failed(UnprocessableEntityException(ex.getMessage))
-              })
-
-            (t, _) <-
-              if (toIds.nonEmpty) {
-                t.query(
-                  s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
-                  Json.arr(binds: _*)
-                )
-                  .map({
-                    // if size doesn't match we hit the cardinality limit
-                    case (t, result) => (t, insertCheckSize(result, toIds.size))
-                  })
-              } else {
-                Future.successful((t, Json.emptyArr()))
-              }
-          } yield (t, ())
-        })
+  def getPreviousRowIds(firstId: RowId, secondId: RowId, column: LinkColumn)(implicit
+  ec: ExecutionContext): Future[JsonArray] = {
+    val linkId = column.linkId
+    val query = s"SELECT links_from FROM link_table_$linkId WHERE id_1 = ? AND id_2 = ?"
+    connection.query(query, Json.arr(firstId, secondId)).map(res => {
+      val prev = res.getJsonArray("results").getJsonArray(0)
+      prev.contains(null) match {
+        case true => new JsonArray()
+        case false => new JsonArray(prev.getString(0))
+      }
     })
+  }
 
-    Future.sequence(futureSequence).map(_ => ())
+  def updatePreviousRowIdsForLatestLink(
+      column: LinkColumn,
+      newRowIds: JsonArray,
+      maybeTransaction: Option[DbTransaction] = None
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    val linkId = column.linkId
+
+    val updatePreviousRowIdsQuery =
+      s"UPDATE link_table_$linkId SET links_from = ? WHERE ordering_1 = (SELECT ordering_1 FROM link_table_$linkId ORDER BY ordering_1 DESC LIMIT 1)"
+
+    val doUpdate = (t: DbTransaction) => {
+      for {
+        _ <- t.query(updatePreviousRowIdsQuery, Json.arr(newRowIds.encode()))
+      } yield (t, Unit)
+    }
+    maybeTransaction match {
+      case None => connection.transactional(doUpdate).map(_ => ())
+      case Some(t) => doUpdate(t).map(_ => ())
+    }
+
+  }
+
+  def updateLinks(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(LinkColumn, Seq[RowId])],
+      maybeTransaction: Option[DbTransaction] = None,
+      maybeNewRowIds: Option[JsonArray] = None
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    val func = (value: (LinkColumn, Seq[RowId])) => {
+      val (column, toIds) = value
+
+      val linkId = column.linkId
+      val direction = column.linkDirection
+
+      val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
+      val updateFromLinkString =
+        s"UPDATE link_table_$linkId SET links_from = ? WHERE ordering_1 = (SELECT ordering_1 FROM link_table_$linkId ORDER BY ordering_1 DESC LIMIT 1)"
+
+      val getPreviousRowIdsQuery = s"SELECT links_from FROM link_table_$linkId ORDER BY ordering_1 DESC limit 1"
+
+      val fnc = (t: DbTransaction) => {
+        for {
+          // check if row (where we want to add the links) really exists
+          t <- rowExists(t, column.table.id, rowId)
+
+          // check if "to-be-linked" rows really exist
+          t <- toIds
+            .foldLeft(Future(t))((futureT, toId) => {
+              futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
+            })
+            .recoverWith({ case ex: Throwable =>
+              Future.failed(UnprocessableEntityException(ex.getMessage))
+            })
+
+          (t, _) <-
+            if (toIds.nonEmpty) {
+              t.query(
+                s"INSERT INTO link_table_$linkId(${direction.fromSql}, ${direction.toSql}, ${direction.orderingSql}) $union RETURNING *",
+                Json.arr(binds: _*)
+              ).map({
+                // if size doesn't match we hit the cardinality limit
+                case (t, result) => {
+                  (t, insertCheckSize(result, toIds.size))
+                }
+              })
+            } else {
+              Future.successful((t, Json.emptyArr()))
+            }
+          (t, _) <-
+            if (toIds.nonEmpty && maybeNewRowIds.isDefined) {
+              for {
+                _ <- updatePreviousRowIdsForLatestLink(column, maybeNewRowIds.get, Some(t))
+              } yield (t, Unit)
+            } else {
+              Future.successful((t, Json.emptyArr()))
+            }
+        } yield (t, ())
+      }
+      maybeTransaction match {
+        case None => connection.transactional(fnc)
+        case Some(transaction) => fnc(transaction)
+      }
+    }
+
+    values.foldLeft(Future(())) { (x, y) => x.flatMap(_ => func(y).map(_ => ())) }
   }
 }
 
@@ -121,9 +178,28 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
   val attachmentModel = AttachmentModel(connection)
 
-  def deleteRow(tableId: TableId, rowId: RowId): Future[Unit] = {
+  def doQuery[A](
+      transaction: Option[DbTransaction],
+      queryString: String,
+      args: JsonArray
+  ): Future[JsonObject] = {
+    transaction match {
+      case Some(transaction) => transaction.query(queryString, args).map(res => res._2)
+      case None => connection.query(queryString, args)
+    }
+  }
+
+  def deleteRow(
+      tableId: TableId,
+      rowId: RowId,
+      transaction: Option[DbTransaction] = None
+  ): Future[Unit] = {
     for {
-      result <- connection.query(s"DELETE FROM user_table_$tableId WHERE id = ?", Json.arr(rowId))
+      result <- doQuery(
+        transaction,
+        s"DELETE FROM user_table_$tableId WHERE id = ?",
+        Json.arr(rowId)
+      )
     } yield {
       deleteNotNull(result)
     }
@@ -133,14 +209,17 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       columns: Seq[ColumnType[_]],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      transaction: Option[DbTransaction] = None
   ): Future[Unit] = {
-    val (simple, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
+
+    val (simple, multis, links, attachments) =
+      ColumnType.splitIntoTypes(columns)
 
     for {
-      _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.map((_, None)))
-      _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis)
-      _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links, deleteRowFn)
+      _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple.map((_, None)), transaction)
+      _ <- if (multis.isEmpty) Future.successful(()) else clearTranslation(table, rowId, multis, transaction)
+      _ <- if (links.isEmpty) Future.successful(()) else clearLinks(table, rowId, links, deleteRowFn, transaction)
       _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
     } yield ()
   }
@@ -169,7 +248,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def clearTranslation(table: Table, rowId: RowId, columns: Seq[SimpleValueColumn[_]]): Future[_] = {
+  private def clearTranslation(
+      table: Table,
+      rowId: RowId,
+      columns: Seq[SimpleValueColumn[_]],
+      transaction: Option[DbTransaction] = None
+  ): Future[_] = {
     val setExpression = columns
       .map({
         case MultiLanguageColumn(column) => s"column_${column.id} = NULL"
@@ -177,7 +261,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       .mkString(", ")
 
     for {
-      _ <- connection.query(s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ?", Json.arr(rowId))
+      _ <- doQuery(
+        transaction,
+        s"UPDATE user_table_lang_${table.id} SET $setExpression WHERE id = ?",
+        Json.arr(rowId)
+      )
     } yield ()
   }
 
@@ -185,7 +273,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       columnsWithValues: Seq[(LinkColumn, Seq[RowId])],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject]
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      transaction: Option[DbTransaction] = None
   ): Future[_] = {
     val futureSequence = columnsWithValues.map({
       case (column, values) => {
@@ -196,9 +285,13 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         for {
           _ <-
             if (column.linkDirection.constraint.deleteCascade) {
-              deleteLinkedRows(table, rowId, column, deleteRowFn, values)
+              deleteLinkedRows(table, rowId, column, deleteRowFn, values, transaction)
             } else {
-              connection.query(s"DELETE FROM $linkTable WHERE $fromIdColumn = ?", Json.arr(rowId))
+              doQuery(
+                transaction,
+                s"DELETE FROM $linkTable WHERE $fromIdColumn = ?",
+                Json.arr(rowId)
+              )
             }
         } yield ()
       }
@@ -211,8 +304,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       columns: Seq[LinkColumn],
-      deleteRowFn: (Table, RowId) => Future[EmptyObject]
-  ): Future[_] = clearLinksWithValues(table, rowId, columns.map((_, Seq.empty)), deleteRowFn)
+      deleteRowFn: (Table, RowId) => Future[EmptyObject],
+      transaction: Option[DbTransaction] = None
+  ): Future[_] = clearLinksWithValues(table, rowId, columns.map((_, Seq.empty)), deleteRowFn, transaction)
 
   private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
     val cleared = columns.map((c: AttachmentColumn) => attachmentModel.deleteAll(table.id, c.id, rowId))
@@ -224,7 +318,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       rowId: RowId,
       column: LinkColumn,
       deleteRowFn: (Table, RowId) => Future[EmptyObject],
-      newForeignRowIds: Seq[RowId] = Seq.empty
+      newForeignRowIds: Seq[RowId] = Seq.empty,
+      transaction: Option[DbTransaction] = None
   ): Future[_] = {
     val linkTable = s"link_table_${column.linkId}"
     val fromIdColumn = column.linkDirection.fromSql
@@ -239,7 +334,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
             // only delete foreign row if it's not part of new values...
             // ... otherwise delete link
             if (newForeignRowIds.contains(foreignRowId)) {
-              connection.query(
+              doQuery(
+                transaction,
                 s"DELETE FROM $linkTable WHERE $fromIdColumn = ? AND $toIdColumn = ?",
                 Json.arr(rowId, foreignRowId)
               )
@@ -392,7 +488,13 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     } yield ()
   }
 
-  def updateRow(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  def updateRow(
+      table: Table,
+      rowId: RowId,
+      values: Seq[(ColumnType[_], _)],
+      maybeTransaction: Option[DbTransaction] = None,
+      maybeNewRowIds: Option[JsonArray] = None
+  ): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -401,7 +503,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         for {
           _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple)
           _ <- if (multis.isEmpty) Future.successful(()) else updateTranslations(table, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links)
+          _ <-
+            if (links.isEmpty) Future.successful(())
+            else updateLinks(table, rowId, links, maybeTransaction, maybeNewRowIds)
           _ <- if (attachments.isEmpty) Future.successful(()) else updateAttachments(table, rowId, attachments)
         } yield ()
     }
@@ -410,7 +514,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   private def updateSimple(
       table: Table,
       rowId: RowId,
-      simple: List[(SimpleValueColumn[_], Option[Any])]
+      simple: List[(SimpleValueColumn[_], Option[Any])],
+      transaction: Option[DbTransaction] = None
   ): Future[Unit] = {
     val setExpression = simple
       .map({
@@ -423,7 +528,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }) ++ List(rowId)
 
     for {
-      update <- connection.query(s"UPDATE user_table_${table.id} SET $setExpression WHERE id = ?", Json.arr(binds: _*))
+      update <- doQuery(
+        transaction,
+        s"UPDATE user_table_${table.id} SET $setExpression WHERE id = ?",
+        Json.arr(binds: _*)
+      )
       _ = updateNotNull(update)
     } yield ()
   }
