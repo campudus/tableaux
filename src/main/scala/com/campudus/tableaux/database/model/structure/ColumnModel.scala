@@ -518,12 +518,12 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def insertSystemColumn(
-      t: connection.Transaction,
+      t: DbTransaction,
       tableId: TableId,
       createColumn: CreateColumn,
       linkId: Option[LinkId],
       formatPattern: Option[String]
-  ): Future[(connection.Transaction, CreatedColumnInformation)] = {
+  ): Future[(DbTransaction, CreatedColumnInformation)] = {
 
     def insertStatement(tableId: TableId, ordering: String) = {
       s"""|INSERT INTO system_columns (
@@ -558,7 +558,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
     val attributes = createColumn.attributes.map(atts => atts.encode()).getOrElse("{}")
 
-    def insertColumn(t: connection.Transaction): Future[(connection.Transaction, CreatedColumnInformation)] = {
+    def insertColumn(t: DbTransaction): Future[(DbTransaction, CreatedColumnInformation)] = {
       for {
         t <- t
           .selectSingleValue[Long](
@@ -618,9 +618,9 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
 
     def insertColumnLang(
-        t: connection.Transaction,
+        t: DbTransaction,
         displayInfos: ColumnDisplayInfos
-    ): Future[(connection.Transaction, Seq[DisplayInfo])] = {
+    ): Future[(DbTransaction, Seq[DisplayInfo])] = {
       if (displayInfos.nonEmpty) {
         val (statement, binds) = displayInfos.createSql
         for {
@@ -1360,10 +1360,10 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def deleteSystemColumn(
-      t: connection.Transaction,
+      t: DbTransaction,
       tableId: TableId,
       columnId: ColumnId
-  ): Future[connection.Transaction] = {
+  ): Future[DbTransaction] = {
     for {
       (t, _) <- t
         .query("DELETE FROM system_columns WHERE column_id = ? AND table_id = ?", Json.arr(columnId, tableId))
@@ -1372,10 +1372,10 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def deleteAnnotations(
-      t: connection.Transaction,
+      t: DbTransaction,
       tableId: TableId,
       columnId: ColumnId
-  ): Future[connection.Transaction] = {
+  ): Future[DbTransaction] = {
     for {
       (t, _) <- t.query(s"DELETE FROM user_table_annotations_$tableId WHERE column_id = ?", Json.arr(columnId))
     } yield t
@@ -1534,11 +1534,11 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def insertOrUpdateColumnLangInfo(
-      t: connection.Transaction,
+      t: DbTransaction,
       tableId: TableId,
       columnId: ColumnId,
       optDisplayInfos: Option[Seq[DisplayInfo]]
-  ): Future[connection.Transaction] = {
+  ): Future[DbTransaction] = {
 
     optDisplayInfos match {
       case Some(displayInfos) =>

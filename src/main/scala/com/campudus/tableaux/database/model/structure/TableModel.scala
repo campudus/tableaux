@@ -100,9 +100,9 @@ class TableModel(val connection: DatabaseConnection)(
   }
 
   private def createTableDisplayInfos(
-      t: connection.Transaction,
+      t: DbTransaction,
       displayInfos: TableDisplayInfos
-  ): Future[(connection.Transaction, JsonObject)] = {
+  ): Future[(DbTransaction, JsonObject)] = {
     if (displayInfos.nonEmpty) {
       val (statement, binds) = displayInfos.createSql
       for {
@@ -113,7 +113,7 @@ class TableModel(val connection: DatabaseConnection)(
     }
   }
 
-  private def createLanguageTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+  private def createLanguageTable(t: DbTransaction, id: TableId): Future[DbTransaction] = {
     for {
       (t, _) <- t.query(s"""
                            | CREATE TABLE user_table_lang_$id (
@@ -130,7 +130,7 @@ class TableModel(val connection: DatabaseConnection)(
     } yield t
   }
 
-  private def createCellAnnotationsTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+  private def createCellAnnotationsTable(t: DbTransaction, id: TableId): Future[DbTransaction] = {
     for {
       (t, _) <- t.query(s"""
                            | CREATE TABLE user_table_annotations_$id (
@@ -149,7 +149,7 @@ class TableModel(val connection: DatabaseConnection)(
     } yield t
   }
 
-  private def createHistoryTable(t: connection.Transaction, id: TableId): Future[connection.Transaction] = {
+  private def createHistoryTable(t: DbTransaction, id: TableId): Future[DbTransaction] = {
     for {
       (t, _) <- t.query(s"""
                            | CREATE TABLE user_table_history_$id (
@@ -397,10 +397,10 @@ class TableModel(val connection: DatabaseConnection)(
   }
 
   private def insertOrUpdateTableDisplayInfo(
-      t: connection.Transaction,
+      t: DbTransaction,
       tableId: TableId,
       optDisplayInfos: Option[Seq[DisplayInfo]]
-  ): Future[connection.Transaction] = {
+  ): Future[DbTransaction] = {
     optDisplayInfos match {
       case Some(displayInfos) =>
         val dis = TableDisplayInfos(tableId, displayInfos)

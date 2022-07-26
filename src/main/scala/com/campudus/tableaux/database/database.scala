@@ -44,6 +44,25 @@ trait DatabaseQuery extends JsonCompatible with LazyLogging {
   }
 }
 
+trait DbTransaction {
+
+  def query(stmt: String): Future[(DbTransaction, JsonObject)]
+
+  def query(
+      stmt: String,
+      values: JsonArray
+  ): Future[(DbTransaction, JsonObject)]
+
+  def selectSingleValue[A](
+      select: String,
+      parameter: JsonArray
+  ): Future[(DbTransaction, A)]
+
+  def commit(): Future[Unit]
+  def rollbackAndFail(): PartialFunction[Throwable, Future[(DbTransaction, JsonObject)]]
+  def rollback(): Future[Unit]
+}
+
 object DatabaseConnection {
   type ScalaTransaction = io.vertx.scala.Transaction
 
@@ -58,28 +77,28 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
   override val vertx: Vertx = vertxAccess.vertx
 
-  type TransFunc[+A] = Transaction => Future[(Transaction, A)]
+  type TransFunc[+A] = DbTransaction => Future[(DbTransaction, A)]
 
-  case class Transaction(transaction: ScalaTransaction) {
+  case class Transaction(transaction: ScalaTransaction) extends DbTransaction {
 
-    def query(stmt: String): Future[(Transaction, JsonObject)] = {
+    def query(stmt: String): Future[(DbTransaction, JsonObject)] = {
       doMagicQuery(stmt, None, transaction)
         .map(result => (copy(transaction), result))
         .recoverWith(rollbackAndFail())
     }
 
-    def query(stmt: String, values: JsonArray): Future[(Transaction, JsonObject)] = {
+    def query(stmt: String, values: JsonArray): Future[(DbTransaction, JsonObject)] = {
       doMagicQuery(stmt, Some(values), transaction)
         .map(result => (copy(transaction), result))
         .recoverWith(rollbackAndFail())
     }
 
-    def selectSingleValue[A](select: String): Future[(Transaction, A)] = selectSingleValue(select, None)
+    def selectSingleValue[A](select: String): Future[(DbTransaction, A)] = selectSingleValue(select, None)
 
-    def selectSingleValue[A](select: String, parameter: JsonArray): Future[(Transaction, A)] =
+    def selectSingleValue[A](select: String, parameter: JsonArray): Future[(DbTransaction, A)] =
       selectSingleValue(select, Some(parameter))
 
-    private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[(Transaction, A)] = {
+    private def selectSingleValue[A](select: String, parameter: Option[JsonArray]): Future[(DbTransaction, A)] = {
       for {
         (t, resultJson) <- parameter match {
           case None => query(select)
@@ -94,10 +113,10 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
     def rollback(): Future[Unit] = transaction.rollback()
 
-    def rollbackAndFail(): PartialFunction[Throwable, Future[(Transaction, JsonObject)]] = {
+    def rollbackAndFail(): PartialFunction[Throwable, Future[(DbTransaction, JsonObject)]] = {
       case ex: Throwable =>
         logger.error(s"Rollback and fail.", ex)
-        rollback() flatMap (_ => Future.failed[(Transaction, JsonObject)](ex))
+        rollback() flatMap (_ => Future.failed[(DbTransaction, JsonObject)](ex))
     }
   }
 
@@ -105,7 +124,7 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
 
   def query(stmt: String, parameter: JsonArray): Future[JsonObject] = doMagicQuery(stmt, Some(parameter), connection)
 
-  def begin(): Future[Transaction] = connection.transaction().map(Transaction)
+  def begin(): Future[DbTransaction] = connection.transaction().map(Transaction)
 
   def transactional[A](fn: TransFunc[A]): Future[A] = {
     for {
@@ -129,15 +148,15 @@ class DatabaseConnection(val vertxAccess: VertxAccess, val connection: SQLConnec
   }
 
   def transactionalFoldLeft[A](values: Seq[A])(
-      fn: (Transaction, JsonObject, A) => Future[(Transaction, JsonObject)]
+      fn: (DbTransaction, JsonObject, A) => Future[(DbTransaction, JsonObject)]
   ): Future[JsonObject] = {
     transactionalFoldLeft(values, Json.emptyObj())(fn)
   }
 
   def transactionalFoldLeft[A, B](values: Seq[A], fnStartValue: B)(
-      fn: (Transaction, B, A) => Future[(Transaction, B)]
+      fn: (DbTransaction, B, A) => Future[(DbTransaction, B)]
   ): Future[B] = {
-    transactional[B]({ transaction: Transaction =>
+    transactional[B]({ transaction: DbTransaction =>
       {
         values.foldLeft(Future(transaction, fnStartValue)) { (result, value) =>
           {
