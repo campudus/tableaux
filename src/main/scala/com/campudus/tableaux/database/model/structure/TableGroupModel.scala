@@ -29,10 +29,10 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
   }
 
   private def createTableDisplayInfos(
-      t: connection.Transaction,
+      t: DbTransaction,
       tableGroupId: TableGroupId,
       displayInfos: Seq[DisplayInfo]
-  ): Future[(connection.Transaction, JsonObject)] = {
+  ): Future[(DbTransaction, JsonObject)] = {
     if (displayInfos.nonEmpty) {
       val (statement, binds) = TableGroupDisplayInfos(tableGroupId, displayInfos).createSql
 
@@ -112,10 +112,10 @@ class TableGroupModel(val connection: DatabaseConnection) extends DatabaseQuery 
   }
 
   private def insertOrUpdateTableDisplayInfo(
-      t: connection.Transaction,
+      t: DbTransaction,
       tableGroupId: TableGroupId,
       optDisplayInfos: Option[Seq[DisplayInfo]]
-  ): Future[connection.Transaction] = {
+  ): Future[DbTransaction] = {
     optDisplayInfos match {
       case Some(displayInfos) =>
         val dis = TableGroupDisplayInfos(tableGroupId, displayInfos)
