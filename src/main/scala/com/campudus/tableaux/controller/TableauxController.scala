@@ -386,7 +386,7 @@ class TableauxController(
         }
       }
     }
-    logger.info(s"deleteRow $tableId $rowId")
+    logger.info(s"deleteRow $tableId $rowId $moveRefsToId")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(DeleteRow, ScopeTable, ComparisonObjects(table))

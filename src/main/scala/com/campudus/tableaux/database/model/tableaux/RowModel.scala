@@ -20,6 +20,7 @@ import org.vertx.scala.core.json.{Json, _}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import com.typesafe.scalalogging.LazyLogging
 
 private object ModelHelper {
 
@@ -75,13 +76,15 @@ sealed trait UpdateCreateRowModelHelper {
   def getPreviousRowIds(firstId: RowId, secondId: RowId, column: LinkColumn)(implicit
   ec: ExecutionContext): Future[JsonArray] = {
     val linkId = column.linkId
-    val query = s"SELECT links_from FROM link_table_$linkId WHERE id_1 = ? AND id_2 = ?"
+    val query = s"""
+                   |SELECT COALESCE(
+                   |  (SELECT links_from FROM link_table_$linkId WHERE id_1 = ? AND id_2 = ?),
+                   |'[]')
+                   |""".stripMargin
+
     connection.query(query, Json.arr(firstId, secondId)).map(res => {
       val prev = res.getJsonArray("results").getJsonArray(0)
-      prev.contains(null) match {
-        case true => new JsonArray()
-        case false => new JsonArray(prev.getString(0))
-      }
+      new JsonArray(prev.getString(0))
     })
   }
 
@@ -121,10 +124,6 @@ sealed trait UpdateCreateRowModelHelper {
       val direction = column.linkDirection
 
       val (union, binds) = generateUnionSelectAndBinds(rowId, column, toIds)
-      val updateFromLinkString =
-        s"UPDATE link_table_$linkId SET links_from = ? WHERE ordering_1 = (SELECT ordering_1 FROM link_table_$linkId ORDER BY ordering_1 DESC LIMIT 1)"
-
-      val getPreviousRowIdsQuery = s"SELECT links_from FROM link_table_$linkId ORDER BY ordering_1 DESC limit 1"
 
       val fnc = (t: DbTransaction) => {
         for {

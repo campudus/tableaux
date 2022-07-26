@@ -270,11 +270,11 @@ class TableauxModel(
         linkList <- retrieveDependentCells(table, rowId)
         newRowIdsSeq <-
           if (moveRefsToId.isDefined) {
-            Future.sequence(linkList.map({
+            Future.sequence(linkList.flatMap({
               case (table, column, idSeq) => {
                 idSeq.map(id => updateRowModel.getPreviousRowIds(rowId, id, column).map(arr => arr.add(rowId)))
               }
-            }).flatten)
+            }))
           } else {
             Future.successful(Seq())
           }
