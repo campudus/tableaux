@@ -235,47 +235,96 @@ class TableauxModel(
     } yield result
   }
 
+  def deleteRow(table: Table, rowId: RowId, moveRefsToId: Option[Int] = None): Future[EmptyObject] = {
+    doDeleteRow(table, rowId, moveRefsToId)
+  }
+
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
-    for {
-      columns <- retrieveColumns(table, isInternalCall = true)
+    doDeleteRow(table, rowId, None)
+  }
 
-      specialColumns = columns.filter({
-        case _: AttachmentColumn => true
-        case c: LinkColumn if c.linkDirection.constraint.deleteCascade => true
-        case _ => false
-      })
+  def doDeleteRow(
+      table: Table,
+      rowId: RowId,
+      moveRefsToId: Option[Int] = None
+  ): Future[EmptyObject] = {
 
-      // enrich with dummy value, is necessary for validity checks but thrown away afterward
-      columnValueLinks = columns
-        .collect({ case c: LinkColumn if !c.linkDirection.constraint.deleteCascade => c })
-        .map(col => (col, 0))
+    val fnc = (t: Option[DbTransaction]) => {
 
-      _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
+      for {
+        columns <- retrieveColumns(table, isInternalCall = true)
 
-      linkList <- retrieveDependentCells(table, rowId)
-
-      // Clear special cells before delete.
-      // For example AttachmentColumns will
-      // not be deleted by DELETE CASCADE.
-      // clearing LinkColumn will eventually trigger delete cascade
-      _ <- updateRowModel.clearRow(table, rowId, specialColumns, deleteRow)
-
-      _ <- updateRowModel.deleteRow(table.id, rowId)
-
-      // invalidate row
-      _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
-
-      _ <- Future.sequence(
-        linkList.map({
-          case (dependentTable, dependentLinkColumn, dependentRows) =>
-            for {
-              _ <- invalidateCellAndDependentColumns(dependentLinkColumn, dependentRows)
-              _ <- createHistoryModel.updateLinks(dependentTable, dependentLinkColumn, dependentRows)
-            } yield ()
+        specialColumns = columns.filter({
+          case _: AttachmentColumn => true
+          case c: LinkColumn if c.linkDirection.constraint.deleteCascade => true
+          case _ => false
         })
-      )
 
-    } yield EmptyObject()
+        // enrich with dummy value, is necessary for validity checks but thrown away afterward
+        columnValueLinks = columns
+          .collect({ case c: LinkColumn if !c.linkDirection.constraint.deleteCascade => c })
+          .map(col => (col, 0))
+
+        _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
+
+        linkList <- retrieveDependentCells(table, rowId)
+        newRowIdsSeq <-
+          if (moveRefsToId.isDefined) {
+            Future.sequence(linkList.map({
+              case (table, column, idSeq) => {
+                idSeq.map(id => updateRowModel.getPreviousRowIds(rowId, id, column).map(arr => arr.add(rowId)))
+              }
+            }).flatten)
+          } else {
+            Future.successful(Seq())
+          }
+        // Clear special cells before delete.
+        // For example AttachmentColumns will
+        // not be deleted by DELETE CASCADE.
+        // clearing LinkColumn will eventually trigger delete cascade
+        _ <- updateRowModel.clearRow(table, rowId, specialColumns, deleteRow, t)
+        _ <- updateRowModel.deleteRow(table.id, rowId, t)
+
+        // invalidate row
+        _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
+
+        _ <- Future.sequence(
+          linkList.map({
+            case (dependentTable, dependentLinkColumn, dependentRows) =>
+              for {
+                _ <- invalidateCellAndDependentColumns(dependentLinkColumn, dependentRows)
+                _ <- createHistoryModel.updateLinks(dependentTable, dependentLinkColumn, dependentRows)
+              } yield ()
+          })
+        )
+        _ <-
+          if (moveRefsToId.isDefined) {
+            // link dependent Rows to new row
+            // use foldLeft and flatMap to execute queries sequentially, as a transaction doesn't allow
+            // multiple queries at the same time
+            linkList.map({
+              case (table, column, rowIds) => {
+                rowIds.map(id => (table, column, id))
+              }
+            }).flatten.zip(newRowIdsSeq).foldLeft(Future(())) {
+              {
+                case (x, ((table, column, id), newRowIds)) => {
+                  x.flatMap(_ =>
+                    updateOrReplaceValue(table, column.id, id, moveRefsToId.get, false, Some(newRowIds), t)
+                  ).map(_ => ())
+                }
+              }
+            }
+          } else {
+            Future.successful(())
+          }
+
+      } yield (t, EmptyObject())
+    }
+    moveRefsToId.isDefined match {
+      case true => connection.transactional(t => fnc(Some(t)).map({ case (t, obj) => (t.get, obj) }))
+      case false => fnc(None).map({ case (_, emptyObj) => emptyObj })
+    }
   }
 
   def createRow(table: Table): Future[Row] = {
@@ -474,7 +523,9 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       value: A,
-      replace: Boolean = false
+      replace: Boolean = false,
+      maybeNewRowIds: Option[JsonArray] = None,
+      maybeTransaction: Option[DbTransaction] = None
   ): Future[Cell[_]] = {
     for {
       _ <- checkForSettingsTable(table, columnId, "can't update key cell of a settings table")
@@ -507,7 +558,7 @@ class TableauxModel(
           Future.successful(())
         }
 
-      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)))
+      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), maybeTransaction, maybeNewRowIds)
       _ <- invalidateCellAndDependentColumns(column, rowId)
       _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
 
