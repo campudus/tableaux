@@ -73,50 +73,37 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     (union, binds)
   }
 
-  def getPreviousRowIds(firstId: RowId, secondId: RowId, column: LinkColumn)(implicit
-  ec: ExecutionContext): Future[JsonArray] = {
-    val linkId = column.linkId
-    val query = s"""
-                   |SELECT COALESCE(
-                   |  (SELECT links_from FROM link_table_$linkId WHERE id_1 = ? AND id_2 = ?),
-                   |'[]')
-                   |""".stripMargin
+  // def updatePreviousRowIds(
+  //     column: LinkColumn,
+  //     newRowIds: JsonArray,
+  //     transaction: DbTransaction
+  // )(implicit ec: ExecutionContext): Future[DbTransaction] = {
+  //   val linkId = column.linkId
+  //   val direction = column.linkDirection
 
-    connection.query(query, Json.arr(firstId, secondId)).map(res => {
-      val prev = res.getJsonArray("results").getJsonArray(0)
-      new JsonArray(prev.getString(0))
-    })
-  }
+  //   // s"""
+  //   //    |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
+  //   //    |WHERE
+  //   //    |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
+  //   //    |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + ? <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
+  //   //    |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
+  //   //    |""".stripMargin
 
-  def updatePreviousRowIdsForLatestLink(
-      column: LinkColumn,
-      newRowIds: JsonArray,
-      maybeTransaction: Option[DbTransaction] = None
-  )(implicit ec: ExecutionContext): Future[Unit] = {
-    val linkId = column.linkId
+  //   // WHERE stmt is strange
+  //   // TODO merge links_from from new and old row
+  //   // TODO do we consider link directions when we query the linked rows?
+  //   val updatePreviousRowIdsQuery = s"""
+  //                                      |UPDATE link_table_$linkId
+  //                                      |SET links_from = COALESCE(links_from, '[]'::jsonb) || ?::jsonb
+  //                                      |WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?
+  //                                      |""".stripMargin
 
-    // WHERE stmt is strange
-    // TODO merge links_from from new and old row
-    // TODO do we consider link directions when we query the linked rows?
-    val updatePreviousRowIdsQuery = s"""
-                                       |UPDATE link_table_$linkId 
-                                       |SET links_from = COALESCE(links_from, '[]'::jsonb) || ?::jsonb
-                                       |WHERE ordering_1 = (SELECT ordering_1 FROM link_table_$linkId ORDER BY ordering_1 DESC LIMIT 1)
-                                       |""".stripMargin
+  //   logger.info(s"deleteRow $updatePreviousRowIdsQuery")
 
-    logger.info(s"deleteRow $updatePreviousRowIdsQuery")
-
-    val doUpdate = (t: DbTransaction) => {
-      for {
-        _ <- t.query(updatePreviousRowIdsQuery, Json.arr(newRowIds.encode()))
-      } yield (t, Unit)
-    }
-    maybeTransaction match {
-      case None => connection.transactional(doUpdate).map(_ => ())
-      case Some(t) => doUpdate(t).map(_ => ())
-    }
-
-  }
+  //   for {
+  //     _ <- transaction.query(updatePreviousRowIdsQuery, Json.arr(newRowIds.encode()))
+  //   } yield transaction
+  // }
 
   def updateLinks(
       table: Table,
@@ -161,14 +148,21 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
             } else {
               Future.successful((t, Json.emptyArr()))
             }
-          (t, _) <-
-            if (toIds.nonEmpty && maybeNewRowIds.isDefined) {
-              for {
-                _ <- updatePreviousRowIdsForLatestLink(column, maybeNewRowIds.get, Some(t))
-              } yield (t, Unit)
-            } else {
-              Future.successful((t, Json.emptyArr()))
-            }
+          // (t, _) <-
+          //   if (toIds.nonEmpty && maybeNewRowIds.isDefined) {
+          //     // _ <-toIds
+          //     // .foldLeft(Future(t))((futureT, toId) => {
+          //     //   futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
+          //     // })
+          //     // .recoverWith({ case ex: Throwable =>
+          //     //   Future.failed(UnprocessableEntityException(ex.getMessage))
+          //     // })
+          //     // for {
+          //     //   _ <- updatePreviousRowIds(column, maybeNewRowIds.get, t)
+          //     // } yield (t, Unit)
+          //   } else {
+          //     Future.successful((t, Json.emptyArr()))
+          //   }
         } yield (t, ())
       }
       maybeTransaction match {

@@ -235,8 +235,8 @@ class TableauxModel(
     } yield result
   }
 
-  def deleteRow(table: Table, rowId: RowId, moveRefsToId: Option[Int] = None): Future[EmptyObject] = {
-    doDeleteRow(table, rowId, moveRefsToId)
+  def deleteRow(table: Table, rowId: RowId, moveRefsToIdOpt: Option[Int] = None): Future[EmptyObject] = {
+    doDeleteRow(table, rowId, moveRefsToIdOpt)
   }
 
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
@@ -246,7 +246,7 @@ class TableauxModel(
   def doDeleteRow(
       table: Table,
       rowId: RowId,
-      moveRefsToId: Option[Int] = None
+      moveRefsToIdOpt: Option[Int] = None
   ): Future[EmptyObject] = {
 
     val fnc = (t: Option[DbTransaction]) => {
@@ -268,16 +268,6 @@ class TableauxModel(
         _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
 
         linkList <- retrieveDependentCells(table, rowId)
-        newRowIdsSeq <-
-          if (moveRefsToId.isDefined) {
-            Future.sequence(linkList.flatMap({
-              case (table, column, idSeq) => {
-                idSeq.map(id => updateRowModel.getPreviousRowIds(rowId, id, column).map(arr => arr.add(rowId)))
-              }
-            }))
-          } else {
-            Future.successful(Seq())
-          }
         // Clear special cells before delete.
         // For example AttachmentColumns will
         // not be deleted by DELETE CASCADE.
@@ -297,33 +287,34 @@ class TableauxModel(
               } yield ()
           })
         )
-        _ <-
-          if (moveRefsToId.isDefined) {
+
+        _ <- moveRefsToIdOpt match {
+          case Some(moveRefsToId) => {
             // link dependent Rows to new row
             // use foldLeft and flatMap to execute queries sequentially, as a transaction doesn't allow
             // multiple queries at the same time
-            linkList.map({
+            linkList.flatMap({
               case (table, column, rowIds) => {
                 rowIds.map(id => (table, column, id))
               }
-            }).flatten.zip(newRowIdsSeq).foldLeft(Future(())) {
+            }).foldLeft(Future(())) {
               {
-                case (x, ((table, column, id), newRowIds)) => {
-                  x.flatMap(_ =>
-                    updateOrReplaceValue(table, column.id, id, moveRefsToId.get, false, Some(newRowIds), t)
-                  ).map(_ => ())
+                case (x, (table, column, id)) => {
+                  x.flatMap(_ => {
+                    updateOrReplaceValue(table, column.id, id, moveRefsToId, false, None, t)
+                  }).map(_ => ())
                 }
               }
             }
-          } else {
-            Future.successful(())
           }
-
+          case None => Future.successful(())
+        }
       } yield (t, EmptyObject())
-    }
-    moveRefsToId.isDefined match {
-      case true => connection.transactional(t => fnc(Some(t)).map({ case (t, obj) => (t.get, obj) }))
-      case false => fnc(None).map({ case (_, emptyObj) => emptyObj })
+    };
+
+    moveRefsToIdOpt match {
+      case Some(_) => connection.transactional(t => fnc(Some(t)).map({ case (t, obj) => (t.get, obj) }))
+      case None => fnc(None).map({ case (_, emptyObj) => emptyObj })
     }
   }
 
