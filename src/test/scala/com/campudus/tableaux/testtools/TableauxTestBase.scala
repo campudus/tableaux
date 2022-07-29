@@ -147,7 +147,7 @@ trait TableauxTestBase
   }
 
   protected def setRequestRoles(roles: String*): Unit = {
-    requestContext.principal = Json.obj("realm_access" -> Json.obj("roles" -> roles))
+    requestContext.principal = Json.obj("realm_access" -> Json.obj("roles" -> roles), "preferred_username" -> "Test")
   }
 
   /**

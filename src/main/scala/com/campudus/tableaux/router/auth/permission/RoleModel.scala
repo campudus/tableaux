@@ -67,6 +67,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition), Check)) {
         Future.successful(())
       } else {
+        val userName = requestContext.getPrincipleString("preferred_username")
+        logger.info(s"User ${userName} is not allowed to do action '$action' in scope '$scope'")
         Future.failed(UnauthorizedException(action, scope, userRoles))
       }
     }
