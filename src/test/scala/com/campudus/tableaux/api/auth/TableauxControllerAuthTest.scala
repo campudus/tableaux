@@ -135,7 +135,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       _ <- controller.retrieveCell(modelTableId, 1, 1)
       ex <- controller.retrieveCell(variantTableId, 1, 1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-cells")), ex)
     }
   }
 
@@ -176,9 +176,9 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       ex2 <- controller.retrieveCell(variantTableId, 1, 1).recover({ case ex => ex })
       ex3 <- controller.retrieveCell(variantTableId, 2, 1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex1)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex2)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex3)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-cells")), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-cells")), ex2)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-cells")), ex3)
     }
   }
 
@@ -191,7 +191,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
         tableId <- createDefaultTable()
         ex <- controller.retrieveCell(tableId, 1, 1).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+        assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-tables")), ex)
       }
     }
 
@@ -274,8 +274,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
 
         _ <- controller.updateCellValue(1, 3, 1, 42)
       } yield {
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex2)
       }
     }
 
@@ -382,8 +382,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
         ex1 <- controller.replaceCellValue(1, 2, 1, Json.obj("en-GB" -> "value-en")).recover({ case ex => ex })
         ex2 <- controller.replaceCellValue(1, 4, 1, Json.obj("de-DE" -> 1)).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex2)
       }
     }
 
@@ -490,8 +490,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
         ex1 <- controller.clearCellValue(1, 2, 1).recover({ case ex => ex })
         ex2 <- controller.clearCellValue(1, 4, 1).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex2)
       }
     }
 
@@ -595,7 +595,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
         _ <- createTestTable()
         ex <- controller.createRow(1, None).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(CreateRow, ScopeTable), ex)
+        assertEquals(UnauthorizedException(CreateRow, ScopeTable, Seq("view-all-tables")), ex)
       }
     }
 
@@ -847,8 +847,8 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
         ex1 <- controller.deleteRow(1, 1).recover({ case ex => ex })
         ex2 <- controller.deleteRow(1, 2).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(DeleteRow, ScopeTable), ex1)
-        assertEquals(UnauthorizedException(DeleteRow, ScopeTable), ex2)
+        assertEquals(UnauthorizedException(DeleteRow, ScopeTable, Seq("view-all-tables")), ex1)
+        assertEquals(UnauthorizedException(DeleteRow, ScopeTable, Seq("view-all-tables")), ex2)
       }
     }
 
@@ -950,10 +950,10 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       ex3 <- controller.retrieveRowsOfColumn(1, 3, Pagination(None, None)).recover({ case ex => ex })
       ex4 <- controller.retrieveRowsOfColumn(1, 4, Pagination(None, None)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex1)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex2)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex3)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex4)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex2)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex3)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex4)
     }
   }
 
@@ -1014,7 +1014,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.retrieveRowsOfFirstColumn(1, Pagination(None, None)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex)
     }
   }
 
@@ -1092,7 +1092,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
   def duplicateRow_createRowNotAuthorized_throwsException(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
-                                    |  "duplicate-columns": [
+                                    |  "duplicate-rows": [
                                     |    {
                                     |      "type": "grant",
                                     |      "action": ["view", "viewCellValue", "editCellValue"],
@@ -1112,7 +1112,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.duplicateRow(1, 1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(CreateRow, ScopeTable), ex)
+      assertEquals(UnauthorizedException(CreateRow, ScopeTable, Seq("duplicate-rows")), ex)
     }
   }
 }
@@ -1154,7 +1154,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.retrieveCellHistory(1, 1, 1, None, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-tables")), ex)
     }
   }
 
@@ -1232,7 +1232,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.retrieveRowHistory(1, 1, None, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+      assertEquals(UnauthorizedException(View, ScopeTable, Seq()), ex)
     }
   }
 
@@ -1316,7 +1316,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.retrieveTableHistory(1, None, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+      assertEquals(UnauthorizedException(View, ScopeTable, Seq()), ex)
     }
   }
 
@@ -1383,8 +1383,8 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
         .addCellAnnotation(1, 2, 1, Seq("de"), InfoAnnotationType, "my info annotation-de")
         .recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex1)
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex2)
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex1)
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex2)
     }
   }
 
@@ -1454,8 +1454,8 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
       ex1 <- controller.deleteCellAnnotation(1, 1, 1, UUID.fromString(uuid1)).recover({ case ex => ex })
       ex2 <- controller.deleteCellAnnotation(1, 2, 1, UUID.fromString(uuid2)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex1)
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex2)
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex1)
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex2)
     }
   }
 
@@ -1519,7 +1519,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
       ex <- controller.deleteCellAnnotation(1, 2, 1, UUID.fromString(uuid1), "en").recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable), ex)
+      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex)
     }
   }
 
@@ -1573,7 +1573,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.updateRowAnnotations(1, 1, Some(true)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditRowAnnotation, ScopeTable), ex)
+      assertEquals(UnauthorizedException(EditRowAnnotation, ScopeTable, Seq("view-cells")), ex)
     }
   }
 
@@ -1627,7 +1627,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.updateRowsAnnotations(1, Some(true)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditRowAnnotation, ScopeTable), ex)
+      assertEquals(UnauthorizedException(EditRowAnnotation, ScopeTable, Seq("view-cells")), ex)
     }
   }
 
@@ -1670,7 +1670,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
       ex <- controller.retrieveTableWithCellAnnotations(1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+      assertEquals(UnauthorizedException(View, ScopeTable, Seq()), ex)
     }
   }
 
@@ -1776,8 +1776,8 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
       ex1 <- controller.retrieveColumnValues(1, 1, None).recover({ case ex => ex })
       ex2 <- controller.retrieveColumnValues(1, 2, Some("de")).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex1)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex2)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-tables")), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-tables")), ex2)
     }
   }
 
@@ -1800,7 +1800,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
       _ <- createTestTableWithShortTextColumns()
       ex <- controller.retrieveColumnValues(1, 1, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+      assertEquals(UnauthorizedException(View, ScopeTable, Seq("view-all-cells")), ex)
     }
   }
 
@@ -1835,7 +1835,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
       _ <- controller.retrieveColumnValues(1, 2, Some("de"))
       _ <- controller.retrieveColumnValues(1, 2, Some("en"))
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-cells")), ex)
     }
   }
 
@@ -1884,7 +1884,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
 
       ex <- controller.updateCellLinkOrder(1, 3, 1, 1, LocationEnd).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex)
+      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("view-all-tables")), ex)
     }
   }
 
@@ -1968,8 +1968,8 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
       ex1 <- controller.deleteLink(1, 3, 1, 1).recover({ case ex => ex })
       ex2 <- controller.deleteLink(1, 3, 1, 2).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex1)
-      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex2)
+      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("view-all-tables")), ex1)
+      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("view-all-tables")), ex2)
     }
   }
 
@@ -2032,8 +2032,8 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
         ex1 <- controller.retrieveDependentRows(2, 1).recover({ case ex => ex })
         ex2 <- controller.retrieveDependentRows(2, 2).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(View, ScopeTable), ex1)
-        assertEquals(UnauthorizedException(View, ScopeTable), ex2)
+        assertEquals(UnauthorizedException(View, ScopeTable, Seq("view-all-cells")), ex1)
+        assertEquals(UnauthorizedException(View, ScopeTable, Seq("view-all-cells")), ex2)
       }
     }
 
@@ -2066,7 +2066,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
       _ <- controller.retrieveForeignRows(1, linkColumnId, 1, Pagination(None, None))
       ex <- controller.retrieveForeignRows(2, linkColumnId, 1, Pagination(None, None)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+      assertEquals(UnauthorizedException(View, ScopeTable, Seq("view-table-1")), ex)
     }
   }
 }
@@ -2140,7 +2140,7 @@ class TableauxControllerAuthTest_attachmentCell extends MediaTestBase with Table
 
       ex <- controller.deleteAttachment(1, columnId, 1, fileUuid).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn), ex)
+      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("view-all-tables")), ex)
     }
   }
 
@@ -2260,7 +2260,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
 
       ex <- controller.retrieveCompleteTable(1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable), ex)
+      assertEquals(UnauthorizedException(View, ScopeTable, Seq()), ex)
     }
   }
 
@@ -2327,7 +2327,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
     for {
       ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Create, ScopeTable), ex)
+      assertEquals(UnauthorizedException(Create, ScopeTable, Seq("view-all-tables")), ex)
     }
   }
 
@@ -2350,7 +2350,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
     for {
       ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Create, ScopeColumn), ex)
+      assertEquals(UnauthorizedException(Create, ScopeColumn, Seq("complete-table")), ex)
     }
   }
 
@@ -2402,7 +2402,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
     for {
       ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(CreateRow, ScopeTable), ex)
+      assertEquals(UnauthorizedException(CreateRow, ScopeTable, Seq("complete-table")), ex)
     }
   }
 

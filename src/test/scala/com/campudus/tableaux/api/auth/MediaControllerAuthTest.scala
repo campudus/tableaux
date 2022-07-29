@@ -117,7 +117,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
         folderId <- insertTestFolder()
         ex <- controller.deleteFolder(folderId).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Delete, ScopeMedia), ex)
+        assertEquals(UnauthorizedException(Delete, ScopeMedia, Seq()), ex)
       }
     }
 
@@ -287,7 +287,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
           )
           .recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Edit, ScopeMedia), ex)
+        assertEquals(UnauthorizedException(Edit, ScopeMedia, Seq()), ex)
       }
     }
 
@@ -322,7 +322,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
         folderId <- insertTestFolder()
         ex <- controller.changeFolder(folderId, "newName", "newDescription", None).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Edit, ScopeMedia), ex)
+        assertEquals(UnauthorizedException(Edit, ScopeMedia, Seq()), ex)
       }
     }
 
@@ -378,7 +378,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
         file2 <- insertTestFile()
         ex <- controller.mergeFile(file1.uuid, "de", file2.uuid).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Edit, ScopeMedia), ex)
+        assertEquals(UnauthorizedException(Edit, ScopeMedia, Seq()), ex)
       }
     }
 }
