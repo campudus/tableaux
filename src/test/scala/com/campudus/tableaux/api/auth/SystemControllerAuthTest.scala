@@ -227,7 +227,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
         .recover({ case ex => ex })
 
     } yield {
-      assertEquals(UnauthorizedException(Create, ScopeService), ex)
+      assertEquals(UnauthorizedException(Create, ScopeService, Seq("create-services")), ex)
     }
   }
 
@@ -271,7 +271,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
       serviceId <- createDefaultService()
       ex <- controller.deleteService(serviceId).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Delete, ScopeService), ex)
+      assertEquals(UnauthorizedException(Delete, ScopeService, Seq("create-services")), ex)
     }
   }
 
@@ -304,7 +304,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
       serviceId <- createDefaultService()
       ex <- controller.retrieveService(serviceId).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeService), ex)
+      assertEquals(UnauthorizedException(View, ScopeService, Seq()), ex)
     }
   }
 
@@ -352,7 +352,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
         .updateService(serviceId, Some("changed name"), None, None, None, None, None, None, None)
         .recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditStructureProperty, ScopeService), ex)
+      assertEquals(UnauthorizedException(EditStructureProperty, ScopeService, Seq("edit-services")), ex)
     }
   }
 
@@ -407,7 +407,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
     for {
       ex <- controller.resetDB().recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex)
+      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex)
     }
   }
 
@@ -450,7 +450,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
     for {
       ex <- controller.createDemoTables().recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex)
+      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex)
     }
   }
 
@@ -488,7 +488,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
     for {
       ex <- controller.updateDB().recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex)
+      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex)
     }
   }
 
@@ -523,8 +523,8 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
       ex1 <- controller.updateLangtags(Seq("de", "en")).recover({ case ex => ex })
       ex2 <- controller.updateSentryUrl("new_url").recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex1)
-      assertEquals(UnauthorizedException(Edit, ScopeSystem), ex2)
+      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex1)
+      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex2)
     }
   }
 }

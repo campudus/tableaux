@@ -114,7 +114,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
       // before deletion, retrieve table is called
       // so UnauthorizedException for Deletion is only thrown if we can view this table
       // otherwise we even get an UnauthorizedException for action View
-      assertEquals(UnauthorizedException(Delete, ScopeTable), ex)
+      assertEquals(UnauthorizedException(Delete, ScopeTable, Seq("delete-tables")), ex)
     }
   }
 
@@ -494,7 +494,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
         ex <- controller.createColumns(variantTableId, Seq(col)).recover({ case ex => ex })
       } yield {
         assertEquals("TestColumn", createdColumns.head.name)
-        assertEquals(UnauthorizedException(Create, ScopeColumn), ex)
+        assertEquals(UnauthorizedException(Create, ScopeColumn, Seq("create-columns-in-model-tables")), ex)
       }
     }
   }
@@ -654,7 +654,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
           .changeColumn(variantTableId, 1, Some("newName"), None, None, None, None, None, None, None, None)
           .recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(EditStructureProperty, ScopeColumn), ex)
+        assertEquals(UnauthorizedException(EditStructureProperty, ScopeColumn, Seq("edit-columns-in-model-tables")), ex)
       }
     }
   }
@@ -693,7 +693,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
         _ <- controller.deleteColumn(modelTableId, 1)
         ex <- controller.deleteColumn(variantTableId, 1).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Delete, ScopeColumn), ex)
+        assertEquals(UnauthorizedException(Delete, ScopeColumn, Seq("delete-columns-in-model-tables")), ex)
       }
     }
   }
@@ -731,7 +731,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
         _ <- controller.deleteColumn(tableId, 1) // "identifier" == true
         ex <- controller.deleteColumn(tableId, 2).recover({ case ex => ex }) // "identifier" != true
       } yield {
-        assertEquals(UnauthorizedException(Delete, ScopeColumn), ex)
+        assertEquals(UnauthorizedException(Delete, ScopeColumn, Seq("delete-columns-in-model-tables")), ex)
       }
     }
   }
@@ -975,9 +975,9 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
 
       } yield {
         assertEquals(1, columnId1)
-        assertEquals(UnauthorizedException(View, ScopeColumn), ex1)
+        assertEquals(UnauthorizedException(View, ScopeColumn, Seq("view-column-id1")), ex1)
         assertEquals(1, columnId2)
-        assertEquals(UnauthorizedException(View, ScopeColumn), ex2)
+        assertEquals(UnauthorizedException(View, ScopeColumn, Seq("view-column-id1")), ex2)
       }
     }
   }
@@ -1021,8 +1021,8 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
       } yield {
         assertEquals(1, columnId1)
         assertEquals(2, columnId2)
-        assertEquals(UnauthorizedException(View, ScopeColumn), ex1)
-        assertEquals(UnauthorizedException(View, ScopeColumn), ex2)
+        assertEquals(UnauthorizedException(View, ScopeColumn, Seq("view-columns-of-table-1")), ex1)
+        assertEquals(UnauthorizedException(View, ScopeColumn, Seq("view-columns-of-table-1")), ex2)
       }
     }
   }
@@ -1068,9 +1068,9 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
 
       } yield {
         assertEquals(1, columnId1)
-        assertEquals(UnauthorizedException(View, ScopeColumn), ex1)
-        assertEquals(UnauthorizedException(View, ScopeColumn), ex2)
-        assertEquals(UnauthorizedException(View, ScopeColumn), ex3)
+        assertEquals(UnauthorizedException(View, ScopeColumn, Seq("view-columns-of-table-1")), ex1)
+        assertEquals(UnauthorizedException(View, ScopeColumn, Seq("view-columns-of-table-1")), ex2)
+        assertEquals(UnauthorizedException(View, ScopeColumn, Seq("view-columns-of-table-1")), ex3)
       }
     }
   }
