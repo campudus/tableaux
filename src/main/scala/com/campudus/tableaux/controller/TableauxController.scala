@@ -372,9 +372,9 @@ class TableauxController(
     } yield dependentRows
   }
 
-  def deleteRow(tableId: TableId, rowId: RowId, moveRefsTo: Option[String] = None): Future[DomainObject] = {
+  def deleteRow(tableId: TableId, rowId: RowId, moveRefsToOpt: Option[String] = None): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    val moveRefsToId = moveRefsTo match {
+    val moveRefsToIdOpt = moveRefsToOpt match {
       case None => None
       case Some(idString) => {
         Try(idString.toInt).toOption match {
@@ -386,11 +386,11 @@ class TableauxController(
         }
       }
     }
-    logger.info(s"deleteRow $tableId $rowId $moveRefsToId")
+    logger.info(s"deleteRow $tableId $rowId $moveRefsToIdOpt")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(DeleteRow, ScopeTable, ComparisonObjects(table))
-      _ <- repository.deleteRow(table, rowId, moveRefsToId)
+      _ <- repository.deleteRow(table, rowId, moveRefsToIdOpt)
     } yield EmptyObject()
   }
 
