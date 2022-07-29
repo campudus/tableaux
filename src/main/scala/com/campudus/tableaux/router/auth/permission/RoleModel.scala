@@ -67,7 +67,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition), Check)) {
         Future.successful(())
       } else {
-        Future.failed(UnauthorizedException(action, scope))
+        Future.failed(UnauthorizedException(action, scope, userRoles))
       }
     }
   }
