@@ -945,6 +945,14 @@ class LinkDeleteMoveRefTest extends LinkTestBase with Helper {
       } yield {
         assertEquals(4, rowsTable1.size())
         assertEquals(3, rowsTable2.size())
+
+        val expected = Json.arr(
+          Json.obj("id" -> 2, "value" -> "table2row2"),
+          Json.obj("id" -> 3, "value" -> "table2row3") // link must be moved from row 1 to 3
+        )
+
+        assertJSONEquals(expected, rowsTable1.getJsonObject(2).getJsonArray("values").getJsonArray(2))
+        assertJSONEquals(expected, rowsTable1.getJsonObject(3).getJsonArray("values").getJsonArray(2))
       }
     }
   }
