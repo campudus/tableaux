@@ -275,19 +275,6 @@ class TableauxModel(
         _ <- updateRowModel.clearRow(table, rowId, specialColumns, deleteRow, t)
         _ <- updateRowModel.deleteRow(table.id, rowId, t)
 
-        // invalidate row
-        _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
-
-        _ <- Future.sequence(
-          linkList.map({
-            case (dependentTable, dependentLinkColumn, dependentRows) =>
-              for {
-                _ <- invalidateCellAndDependentColumns(dependentLinkColumn, dependentRows)
-                _ <- createHistoryModel.updateLinks(dependentTable, dependentLinkColumn, dependentRows)
-              } yield ()
-          })
-        )
-
         _ <- moveRefsToIdOpt match {
           case Some(moveRefsToId) => {
             // link dependent Rows to new row
@@ -309,6 +296,20 @@ class TableauxModel(
           }
           case None => Future.successful(())
         }
+
+        // invalidate row
+        _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
+
+        _ <- Future.sequence(
+          linkList.map({
+            case (dependentTable, dependentLinkColumn, dependentRows) =>
+              for {
+                _ <- invalidateCellAndDependentColumns(dependentLinkColumn, dependentRows)
+                _ <- createHistoryModel.updateLinks(dependentTable, dependentLinkColumn, dependentRows)
+              } yield ()
+          })
+        )
+
       } yield (t, EmptyObject())
     };
 
