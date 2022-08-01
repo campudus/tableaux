@@ -965,30 +965,31 @@ class LinkDeleteMoveRefTest extends LinkTestBase with Helper {
       for {
         (tableId1, tableId2) <- createDefaultLinkTables()
 
-        // pretending that references have moved several times in the old and the new row
+        // pretending that references have moved several times
         _ <-
           dbConnection.query(
-            "UPDATE link_table_1 set links_from = ?::jsonb WHERE id_1 = ? AND id_2 = ?",
-            Json.arr("[22,33]", 3, 1)
+            "UPDATE user_table_2 set links_from = ?::jsonb WHERE id = ?",
+            Json.arr("[11,22]", 3)
           )
         _ <-
           dbConnection.query(
-            "UPDATE link_table_1 set links_from = ?::jsonb WHERE id_1 = ? AND id_2 = ?",
-            Json.arr("[44,55]", 3, 2)
+            "UPDATE user_table_2 set links_from = ?::jsonb WHERE id = ?",
+            Json.arr("[33,44]", 1)
           )
 
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?moveRefsTo=3")
         rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
-        // linksFrom <-
-        //   dbConnection.query("SELECT links_from FROM link_table_1 WHERE id_1 = ? AND id_2 = ?", Json.arr(3, 3)).map(
-        //     _.getJsonArray("results").getJsonArray(0).getString(0)
-        //   )
+
+        linksFrom <-
+          dbConnection.query("SELECT links_from FROM user_table_2 WHERE id = ?", Json.arr(3))
+            .map(
+              _.getJsonArray("results").getJsonArray(0).getString(0)
+            )
       } yield {
-        // assertEquals(4, rowsTable1.size())
-        // assertEquals(3, rowsTable2.size())
-        // logger.info(s"deleteRow ${linksFrom}")
-        // assertEquals("[22,33,44,55,1]", linksFrom)
+        assertEquals(4, rowsTable1.size())
+        assertEquals(3, rowsTable2.size())
+        assertEquals("[11,22,33,44,1]", linksFrom)
       }
     }
   }
