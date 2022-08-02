@@ -1353,11 +1353,16 @@
       },
       "delete": {
         "summary": "Delete row",
-        "description": "Deletes row from user table.",
+        "description": "Deletes a row from user table. Optionally, all rows associated with this row can be replaced by a another rowId provided via query parameter `replacingRowId`",
         "tags": [
           "data"
         ],
         "operationId": "delete-row",
+        "parameters": [
+          {
+            "$ref": "#/parameters/replacingRowId"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -3712,6 +3717,14 @@
       "required": true,
       "type": "integer",
       "format": "int64"
+    },
+    "replacingRowId": {
+      "name": "replacingRowId",
+      "description": "The id of the row that should replace another row.",
+      "in": "query",
+      "type": "integer",
+      "format": "int64",
+      "required": false
     }
   },
   "responses": {
