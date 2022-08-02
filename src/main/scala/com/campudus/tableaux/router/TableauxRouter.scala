@@ -724,7 +724,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Delete row
     */
   private def deleteRow(context: RoutingContext): Unit = {
-    val moveRefsToIdOpt = context.queryParams().get("moveRefsTo")
+    val replacingRowIdStringOpt = context.queryParams().get("replacingRowId")
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -732,7 +732,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncEmptyReply {
-          controller.deleteRow(tableId, rowId, moveRefsToIdOpt)
+          controller.deleteRow(tableId, rowId, replacingRowIdStringOpt)
         }
       )
     }

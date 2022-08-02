@@ -235,8 +235,8 @@ class TableauxModel(
     } yield result
   }
 
-  def deleteRow(table: Table, rowId: RowId, moveRefsToIdOpt: Option[Int] = None): Future[EmptyObject] = {
-    doDeleteRow(table, rowId, moveRefsToIdOpt)
+  def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int] = None): Future[EmptyObject] = {
+    doDeleteRow(table, rowId, replacingRowIdOpt)
   }
 
   def deleteRow(table: Table, rowId: RowId): Future[EmptyObject] = {
@@ -246,7 +246,7 @@ class TableauxModel(
   def doDeleteRow(
       table: Table,
       rowId: RowId,
-      moveRefsToIdOpt: Option[Int] = None
+      replacingRowIdOpt: Option[Int] = None
   ): Future[EmptyObject] = {
 
     val fnc = (t: Option[DbTransaction]) => {
@@ -267,40 +267,30 @@ class TableauxModel(
 
         _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
 
-        // newMovedRowIds <- moveRefsToIdOpt match {
-        //   case Some(moveRefsToId) => {
-        //     updateRowModel.getMovedRowIds(table.id, rowId).map(arr => arr.add(rowId))
-        //   }
-        //   case None => Future.successful(Json.arr(rowId))
-        // }
-
-        newMovedRowIds = Json.arr()
-
-        _ <- moveRefsToIdOpt match {
-          case Some(moveRefsToId) => updateRowModel.updateMovedRows(table.id, rowId, moveRefsToId, t.get)
-          case None => Future.successful(())
-        }
-
         linkList <- retrieveDependentCells(table, rowId)
 
-        _ <- moveRefsToIdOpt match {
-          case Some(moveRefsToId) => {
-            // link dependent Rows to new row
-            // use foldLeft and flatMap to execute queries sequentially, as a transaction doesn't allow
-            // multiple queries at the same time
-            linkList.flatMap({
-              case (table, column, rowIds) => {
-                rowIds.map(id => (table, column, id))
-              }
-            }).foldLeft(Future(())) {
-              {
-                case (x, (table, column, id)) => {
-                  x.flatMap(_ => {
-                    updateOrReplaceValue(table, column.id, id, moveRefsToId, false, Some(newMovedRowIds), t)
-                  }).map(_ => ())
+        _ <- replacingRowIdOpt match {
+          case Some(replacingRowId) => {
+            for {
+              _ <- updateRowModel.updateReplacedIds(table.id, rowId, replacingRowId, t)
+
+              // link dependent Rows to new row
+              // use foldLeft and flatMap to execute queries sequentially, as a transaction doesn't allow
+              // multiple queries at the same time
+              _ <- linkList.flatMap({
+                case (table, column, rowIds) => {
+                  rowIds.map(id => (table, column, id))
+                }
+              }).foldLeft(Future(())) {
+                {
+                  case (future, (table, column, id)) => {
+                    future.flatMap(_ => {
+                      updateOrReplaceValue(table, column.id, id, replacingRowId, false, t)
+                    }).map(_ => ())
+                  }
                 }
               }
-            }
+            } yield ()
           }
           case None => Future.successful(())
         }
@@ -328,7 +318,7 @@ class TableauxModel(
       } yield (t, EmptyObject())
     };
 
-    moveRefsToIdOpt match {
+    replacingRowIdOpt match {
       case Some(_) => connection.transactional(t => fnc(Some(t)).map({ case (t, obj) => (t.get, obj) }))
       case None => fnc(None).map({ case (_, emptyObj) => emptyObj })
     }
@@ -531,7 +521,6 @@ class TableauxModel(
       rowId: RowId,
       value: A,
       replace: Boolean = false,
-      newMovedRowIdsOpt: Option[JsonArray] = None,
       maybeTransaction: Option[DbTransaction] = None
   ): Future[Cell[_]] = {
     for {
@@ -565,7 +554,7 @@ class TableauxModel(
           Future.successful(())
         }
 
-      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), newMovedRowIdsOpt, maybeTransaction)
+      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), maybeTransaction)
       _ <- invalidateCellAndDependentColumns(column, rowId)
       _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
 

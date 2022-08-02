@@ -2,7 +2,7 @@ CREATE OR REPLACE FUNCTION update_user_tables(tableid BIGINT)
 RETURNS TEXT AS $$
 BEGIN
 
-EXECUTE 'ALTER TABLE public.user_table_' || tableid || ' ADD COLUMN links_from jsonb DEFAULT NULL;';
+EXECUTE 'ALTER TABLE public.user_table_' || tableid || ' ADD COLUMN replaced_ids jsonb DEFAULT NULL;';
 RETURN 'user_table_' || tableid :: TEXT;
 END
 $$ LANGUAGE plpgsql;

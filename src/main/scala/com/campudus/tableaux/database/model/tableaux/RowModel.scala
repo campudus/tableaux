@@ -73,60 +73,33 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     (union, binds)
   }
 
-  def getMovedRowIds(tableId: TableId, rowId: RowId)(implicit ec: ExecutionContext): Future[JsonArray] = {
-    val query = s"SELECT COALESCE(links_from, '[]') FROM user_table_$tableId WHERE id = ?"
-
-    connection.query(query, Json.arr(rowId)).map(res => {
-      val movedRowsRaw = res.getJsonArray("results").getJsonArray(0)
-      new JsonArray(movedRowsRaw.getString(0))
-    })
-  }
-
-  // def updateMovedRows(
-  //     tableId: TableId,
-  //     rowId: RowId,
-  //     newRowIds: JsonArray,
-  //     transaction: DbTransaction
-  // )(implicit ec: ExecutionContext): Future[DbTransaction] = {
-  //   val updateQuery = s"""
-  //                        |UPDATE user_table_${tableId}
-  //                        |SET links_from = COALESCE(links_from, '[]'::jsonb) || ?::jsonb
-  //                        |WHERE id = ?
-  //                        |""".stripMargin
-
-  //   logger.info(s"updateMovedRows $updateQuery ${Json.arr(rowId, newRowIds)}")
-
-  //   for {
-  //     _ <- transaction.query(updateQuery, Json.arr(newRowIds.encode(), rowId))
-  //   } yield transaction
-  // }
-
-  def updateMovedRows(
+  def updateReplacedIds(
       tableId: TableId,
       oldRowId: RowId,
       newRowId: Int,
-      transaction: DbTransaction
-  )(implicit ec: ExecutionContext): Future[DbTransaction] = {
+      maybeTransaction: Option[DbTransaction]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     val updateQuery = s"""
                          |UPDATE user_table_${tableId}
-                         |SET links_from = COALESCE(links_from, '[]'::jsonb) 
-                         ||| (SELECT COALESCE(links_from, '[]') FROM user_table_${tableId} WHERE id = ?)
-                         ||| ?::jsonb
+                         |SET replaced_ids = COALESCE(replaced_ids, '[]'::jsonb) ||
+                         |(SELECT COALESCE(replaced_ids, '[]') FROM user_table_${tableId} WHERE id = ?) ||
+                         |?::jsonb
                          |WHERE id = ?
                          |""".stripMargin
-
-    logger.info(s"updateMovedRows $updateQuery ${Json.arr(oldRowId, oldRowId, newRowId)}")
+    val binds = Json.arr(oldRowId, Json.arr(oldRowId).encode(), newRowId)
 
     for {
-      _ <- transaction.query(updateQuery, Json.arr(oldRowId, Json.arr(oldRowId).encode(), newRowId))
-    } yield transaction
+      _ <- maybeTransaction match {
+        case Some(transaction) => transaction.query(updateQuery, binds)
+        case None => connection.transactional(t => t.query(updateQuery, binds))
+      }
+    } yield ()
   }
 
   def updateLinks(
       table: Table,
       rowId: RowId,
       values: Seq[(LinkColumn, Seq[RowId])],
-      newMovedRowIdsOpt: Option[JsonArray] = None,
       maybeTransaction: Option[DbTransaction] = None
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val func = (value: (LinkColumn, Seq[RowId])) => {
@@ -165,13 +138,6 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
             } else {
               Future.successful((t, Unit))
             }
-          // (t, _) <- newMovedRowIdsOpt match {
-          //   case Some(newMovedRowIds) =>
-          //     for {
-          //       _ <- updateMovedRows(table.id, rowId, newMovedRowIds, t)
-          //     } yield (t, Unit)
-          //   case None => Future.successful((t, Unit))
-          // }
         } yield (t, ())
       }
       maybeTransaction match {
@@ -504,7 +470,6 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       values: Seq[(ColumnType[_], _)],
-      newMovedRowIdsOpt: Option[JsonArray] = None,
       maybeTransaction: Option[DbTransaction] = None
   ): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
@@ -515,9 +480,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         for {
           _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple)
           _ <- if (multis.isEmpty) Future.successful(()) else updateTranslations(table, rowId, multis)
-          _ <-
-            if (links.isEmpty) Future.successful(())
-            else updateLinks(table, rowId, links, newMovedRowIdsOpt, maybeTransaction)
+          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links, maybeTransaction)
           _ <- if (attachments.isEmpty) Future.successful(()) else updateAttachments(table, rowId, attachments)
         } yield ()
     }
