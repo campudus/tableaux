@@ -267,13 +267,21 @@ class TableauxModel(
 
         _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
 
+        // newMovedRowIds <- moveRefsToIdOpt match {
+        //   case Some(moveRefsToId) => {
+        //     updateRowModel.getMovedRowIds(table.id, rowId).map(arr => arr.add(rowId))
+        //   }
+        //   case None => Future.successful(Json.arr(rowId))
+        // }
+
+        newMovedRowIds = Json.arr()
+
+        _ <- moveRefsToIdOpt match {
+          case Some(moveRefsToId) => updateRowModel.updateMovedRows(table.id, rowId, moveRefsToId, t.get)
+          case None => Future.successful(())
+        }
+
         linkList <- retrieveDependentCells(table, rowId)
-        // Clear special cells before delete.
-        // For example AttachmentColumns will
-        // not be deleted by DELETE CASCADE.
-        // clearing LinkColumn will eventually trigger delete cascade
-        _ <- updateRowModel.clearRow(table, rowId, specialColumns, deleteRow, t)
-        _ <- updateRowModel.deleteRow(table.id, rowId, t)
 
         _ <- moveRefsToIdOpt match {
           case Some(moveRefsToId) => {
@@ -288,7 +296,7 @@ class TableauxModel(
               {
                 case (x, (table, column, id)) => {
                   x.flatMap(_ => {
-                    updateOrReplaceValue(table, column.id, id, moveRefsToId, false, None, t)
+                    updateOrReplaceValue(table, column.id, id, moveRefsToId, false, Some(newMovedRowIds), t)
                   }).map(_ => ())
                 }
               }
@@ -296,6 +304,13 @@ class TableauxModel(
           }
           case None => Future.successful(())
         }
+
+        // Clear special cells before delete.
+        // For example AttachmentColumns will
+        // not be deleted by DELETE CASCADE.
+        // clearing LinkColumn will eventually trigger delete cascade
+        _ <- updateRowModel.clearRow(table, rowId, specialColumns, deleteRow, t)
+        _ <- updateRowModel.deleteRow(table.id, rowId, t)
 
         // invalidate row
         _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
@@ -516,7 +531,7 @@ class TableauxModel(
       rowId: RowId,
       value: A,
       replace: Boolean = false,
-      maybeNewRowIds: Option[JsonArray] = None,
+      newMovedRowIdsOpt: Option[JsonArray] = None,
       maybeTransaction: Option[DbTransaction] = None
   ): Future[Cell[_]] = {
     for {
@@ -550,7 +565,7 @@ class TableauxModel(
           Future.successful(())
         }
 
-      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), maybeTransaction, maybeNewRowIds)
+      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), newMovedRowIdsOpt, maybeTransaction)
       _ <- invalidateCellAndDependentColumns(column, rowId)
       _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
 
