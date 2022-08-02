@@ -989,7 +989,7 @@ class LinkDeleteMoveRefTest extends LinkTestBase with Helper {
       } yield {
         assertEquals(4, rowsTable1.size())
         assertEquals(3, rowsTable2.size())
-        assertEquals("[11,22,33,44,1]", linksFrom)
+        assertEquals("[11, 22, 33, 44, 1]", linksFrom)
       }
     }
   }

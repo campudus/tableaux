@@ -73,44 +73,61 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     (union, binds)
   }
 
-  // def updatePreviousRowIds(
-  //     column: LinkColumn,
+  def getMovedRowIds(tableId: TableId, rowId: RowId)(implicit ec: ExecutionContext): Future[JsonArray] = {
+    val query = s"SELECT COALESCE(links_from, '[]') FROM user_table_$tableId WHERE id = ?"
+
+    connection.query(query, Json.arr(rowId)).map(res => {
+      val movedRowsRaw = res.getJsonArray("results").getJsonArray(0)
+      new JsonArray(movedRowsRaw.getString(0))
+    })
+  }
+
+  // def updateMovedRows(
+  //     tableId: TableId,
+  //     rowId: RowId,
   //     newRowIds: JsonArray,
   //     transaction: DbTransaction
   // )(implicit ec: ExecutionContext): Future[DbTransaction] = {
-  //   val linkId = column.linkId
-  //   val direction = column.linkDirection
+  //   val updateQuery = s"""
+  //                        |UPDATE user_table_${tableId}
+  //                        |SET links_from = COALESCE(links_from, '[]'::jsonb) || ?::jsonb
+  //                        |WHERE id = ?
+  //                        |""".stripMargin
 
-  //   // s"""
-  //   //    |SELECT ?, ?, nextval('link_table_${linkId}_${direction.orderingSql}_seq')
-  //   //    |WHERE
-  //   //    |NOT EXISTS (SELECT ${direction.fromSql}, ${direction.toSql} FROM link_table_$linkId WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?) AND
-  //   //    |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.fromSql} = ?) + ? <= (SELECT ${direction.toCardinality} FROM system_link_table WHERE link_id = ?) AND
-  //   //    |(SELECT COUNT(*) FROM link_table_$linkId WHERE ${direction.toSql} = ?) + 1 <= (SELECT ${direction.fromCardinality} FROM system_link_table WHERE link_id = ?)
-  //   //    |""".stripMargin
-
-  //   // WHERE stmt is strange
-  //   // TODO merge links_from from new and old row
-  //   // TODO do we consider link directions when we query the linked rows?
-  //   val updatePreviousRowIdsQuery = s"""
-  //                                      |UPDATE link_table_$linkId
-  //                                      |SET links_from = COALESCE(links_from, '[]'::jsonb) || ?::jsonb
-  //                                      |WHERE ${direction.fromSql} = ? AND ${direction.toSql} = ?
-  //                                      |""".stripMargin
-
-  //   logger.info(s"deleteRow $updatePreviousRowIdsQuery")
+  //   logger.info(s"updateMovedRows $updateQuery ${Json.arr(rowId, newRowIds)}")
 
   //   for {
-  //     _ <- transaction.query(updatePreviousRowIdsQuery, Json.arr(newRowIds.encode()))
+  //     _ <- transaction.query(updateQuery, Json.arr(newRowIds.encode(), rowId))
   //   } yield transaction
   // }
+
+  def updateMovedRows(
+      tableId: TableId,
+      oldRowId: RowId,
+      newRowId: Int,
+      transaction: DbTransaction
+  )(implicit ec: ExecutionContext): Future[DbTransaction] = {
+    val updateQuery = s"""
+                         |UPDATE user_table_${tableId}
+                         |SET links_from = COALESCE(links_from, '[]'::jsonb) 
+                         ||| (SELECT COALESCE(links_from, '[]') FROM user_table_${tableId} WHERE id = ?)
+                         ||| ?::jsonb
+                         |WHERE id = ?
+                         |""".stripMargin
+
+    logger.info(s"updateMovedRows $updateQuery ${Json.arr(oldRowId, oldRowId, newRowId)}")
+
+    for {
+      _ <- transaction.query(updateQuery, Json.arr(oldRowId, Json.arr(oldRowId).encode(), newRowId))
+    } yield transaction
+  }
 
   def updateLinks(
       table: Table,
       rowId: RowId,
       values: Seq[(LinkColumn, Seq[RowId])],
-      maybeTransaction: Option[DbTransaction] = None,
-      maybeNewRowIds: Option[JsonArray] = None
+      newMovedRowIdsOpt: Option[JsonArray] = None,
+      maybeTransaction: Option[DbTransaction] = None
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val func = (value: (LinkColumn, Seq[RowId])) => {
       val (column, toIds) = value
@@ -146,23 +163,15 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
                 }
               })
             } else {
-              Future.successful((t, Json.emptyArr()))
+              Future.successful((t, Unit))
             }
-          // (t, _) <-
-          //   if (toIds.nonEmpty && maybeNewRowIds.isDefined) {
-          //     // _ <-toIds
-          //     // .foldLeft(Future(t))((futureT, toId) => {
-          //     //   futureT.flatMap(t => rowExists(t, column.to.table.id, toId))
-          //     // })
-          //     // .recoverWith({ case ex: Throwable =>
-          //     //   Future.failed(UnprocessableEntityException(ex.getMessage))
-          //     // })
-          //     // for {
-          //     //   _ <- updatePreviousRowIds(column, maybeNewRowIds.get, t)
-          //     // } yield (t, Unit)
-          //   } else {
-          //     Future.successful((t, Json.emptyArr()))
-          //   }
+          // (t, _) <- newMovedRowIdsOpt match {
+          //   case Some(newMovedRowIds) =>
+          //     for {
+          //       _ <- updateMovedRows(table.id, rowId, newMovedRowIds, t)
+          //     } yield (t, Unit)
+          //   case None => Future.successful((t, Unit))
+          // }
         } yield (t, ())
       }
       maybeTransaction match {
@@ -171,7 +180,9 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
       }
     }
 
-    values.foldLeft(Future(())) { (x, y) => x.flatMap(_ => func(y).map(_ => ())) }
+    values.foldLeft(Future(())) {
+      (future, value) => future.flatMap(_ => func(value).map(_ => ()))
+    }
   }
 }
 
@@ -493,8 +504,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       table: Table,
       rowId: RowId,
       values: Seq[(ColumnType[_], _)],
-      maybeTransaction: Option[DbTransaction] = None,
-      maybeNewRowIds: Option[JsonArray] = None
+      newMovedRowIdsOpt: Option[JsonArray] = None,
+      maybeTransaction: Option[DbTransaction] = None
   ): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -506,7 +517,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           _ <- if (multis.isEmpty) Future.successful(()) else updateTranslations(table, rowId, multis)
           _ <-
             if (links.isEmpty) Future.successful(())
-            else updateLinks(table, rowId, links, maybeTransaction, maybeNewRowIds)
+            else updateLinks(table, rowId, links, newMovedRowIdsOpt, maybeTransaction)
           _ <- if (attachments.isEmpty) Future.successful(()) else updateAttachments(table, rowId, attachments)
         } yield ()
     }
