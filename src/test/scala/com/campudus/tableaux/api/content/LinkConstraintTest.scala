@@ -927,10 +927,10 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class LinkDeleteMoveRefTest extends LinkTestBase with Helper {
+class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
 
   @Test
-  def deleteRowShouldDeleteRowAndUpdateForeignLink(implicit c: TestContext): Unit = {
+  def deleteRow_withReplacingRowId_updateForeignLinks(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
@@ -938,7 +938,7 @@ class LinkDeleteMoveRefTest extends LinkTestBase with Helper {
       for {
         (tableId1, tableId2) <- createDefaultLinkTables()
 
-        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?moveRefsTo=3")
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
 
         rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
@@ -958,38 +958,72 @@ class LinkDeleteMoveRefTest extends LinkTestBase with Helper {
   }
 
   @Test
-  def deleteRowShouldAddRefToLinksFrom(implicit c: TestContext): Unit = {
+  def deleteRow_withReplacingRowId_mergesAllReplacedRowIds(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
       for {
         (tableId1, tableId2) <- createDefaultLinkTables()
 
-        // pretending that references have moved several times
+        // pretending that the row ids have been replaced several times
         _ <-
           dbConnection.query(
-            "UPDATE user_table_2 set links_from = ?::jsonb WHERE id = ?",
+            "UPDATE user_table_2 set replaced_ids = ?::jsonb WHERE id = ?",
             Json.arr("[11,22]", 3)
           )
         _ <-
           dbConnection.query(
-            "UPDATE user_table_2 set links_from = ?::jsonb WHERE id = ?",
+            "UPDATE user_table_2 set replaced_ids = ?::jsonb WHERE id = ?",
             Json.arr("[33,44]", 1)
           )
 
-        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?moveRefsTo=3")
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
         rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
 
-        linksFrom <-
-          dbConnection.query("SELECT links_from FROM user_table_2 WHERE id = ?", Json.arr(3))
+        replacedRowIds <-
+          dbConnection.query("SELECT replaced_ids FROM user_table_2 WHERE id = ?", Json.arr(3))
             .map(
               _.getJsonArray("results").getJsonArray(0).getString(0)
             )
       } yield {
         assertEquals(4, rowsTable1.size())
         assertEquals(3, rowsTable2.size())
-        assertEquals("[11, 22, 33, 44, 1]", linksFrom)
+        assertEquals("[11, 22, 33, 44, 1]", replacedRowIds)
+      }
+    }
+  }
+
+  @Test
+  def deleteRow_withUnknownValidReplacingRowId_throwsException(implicit c: TestContext): Unit = {
+    exceptionTest("unprocessable.entity") {
+      for {
+        (tableId1, tableId2) <- createDefaultLinkTables()
+
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=9999")
+      } yield ()
+    }
+  }
+
+  @Test
+  def deleteRow_withInvalidReplacingRowId_throwsException(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        (tableId1, tableId2) <- createDefaultLinkTables()
+
+        deleteResult <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=invalidId") recover {
+          case TestCustomException(message, id, statusCode) =>
+            (message, id, statusCode)
+        }
+      } yield {
+        assertEquals(
+          (
+            "com.campudus.tableaux.UnprocessableEntityException: Invalid replacing row id: invalidId",
+            "unprocessable.entity",
+            422
+          ),
+          deleteResult
+        )
       }
     }
   }

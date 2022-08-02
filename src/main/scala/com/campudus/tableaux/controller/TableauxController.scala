@@ -372,13 +372,17 @@ class TableauxController(
     } yield dependentRows
   }
 
-  def deleteRow(tableId: TableId, rowId: RowId, moveRefsToOpt: Option[String] = None): Future[DomainObject] = {
+  def deleteRow(
+      tableId: TableId,
+      rowId: RowId,
+      replacingRowIdStringOpt: Option[String] = None
+  ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    val moveRefsToIdOpt = moveRefsToOpt match {
+    val replacingRowIdOpt = replacingRowIdStringOpt match {
       case None => None
       case Some(idString) => {
         Try(idString.toInt).toOption match {
-          case None => None
+          case None => throw new UnprocessableEntityException(s"Invalid replacing row id: $idString")
           case Some(id) => {
             checkArguments(greaterZero(id))
             Some(id)
@@ -386,11 +390,11 @@ class TableauxController(
         }
       }
     }
-    logger.info(s"deleteRow $tableId $rowId $moveRefsToIdOpt")
+    logger.info(s"deleteRow $tableId $rowId $replacingRowIdOpt")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(DeleteRow, ScopeTable, ComparisonObjects(table))
-      _ <- repository.deleteRow(table, rowId, moveRefsToIdOpt)
+      _ <- repository.deleteRow(table, rowId, replacingRowIdOpt)
     } yield EmptyObject()
   }
 
