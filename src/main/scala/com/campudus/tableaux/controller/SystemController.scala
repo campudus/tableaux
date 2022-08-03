@@ -8,11 +8,12 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{RequestContext, TableauxConfig}
+import com.campudus.tableaux.TableauxConfig
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 import scala.io.Source
+import io.vertx.scala.ext.web.RoutingContext
 
 object SystemController {
   val SETTING_LANGTAGS = "langtags"
@@ -25,7 +26,7 @@ object SystemController {
       structureModel: StructureModel,
       serviceModel: ServiceModel,
       roleModel: RoleModel
-  )(implicit requestContext: RequestContext): SystemController = {
+  ): SystemController = {
     new SystemController(config, repository, tableauxModel, structureModel, serviceModel, roleModel)
   }
 }
@@ -39,8 +40,7 @@ class SystemController(
     protected val structureModel: StructureModel,
     protected val serviceModel: ServiceModel,
     implicit protected val roleModel: RoleModel
-)(implicit requestContext: RequestContext)
-    extends Controller[SystemModel] {
+) extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
     for {
@@ -84,7 +84,7 @@ class SystemController(
     }
   }
 
-  def updateDB(): Future[DomainObject] = {
+  def updateDB()(implicit routingContext: RoutingContext): Future[DomainObject] = {
     logger.info("Update system structure")
 
     for {
@@ -94,7 +94,7 @@ class SystemController(
     } yield PlainDomainObject(Json.obj("updated" -> true).mergeIn(version.getJson))
   }
 
-  def resetDB(): Future[DomainObject] = {
+  def resetDB()(implicit routingContext: RoutingContext): Future[DomainObject] = {
     logger.info("Reset system structure")
 
     for {
@@ -106,7 +106,7 @@ class SystemController(
     } yield EmptyObject()
   }
 
-  def createDemoTables(): Future[DomainObject] = {
+  def createDemoTables()(implicit routingContext: RoutingContext): Future[DomainObject] = {
     logger.info("Create demo tables")
 
     def generateToJson(to: Int): JsonObject = {
@@ -162,7 +162,7 @@ class SystemController(
     } yield TableSeq(Seq(bl, rb))
   }
 
-  private def writeDemoData(json: JsonObject): Future[Table] = {
+  private def writeDemoData(json: JsonObject)(implicit routingContext: RoutingContext): Future[Table] = {
     createTable(json.getString("name"), JsonUtils.toCreateColumnSeq(json), JsonUtils.toRowValueSeq(json))
   }
 
@@ -171,7 +171,9 @@ class SystemController(
     Json.fromObjectString(file)
   }
 
-  private def createTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]]): Future[Table] = {
+  private def createTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
+      implicit routingContext: RoutingContext
+  ): Future[Table] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     logger.info(s"createTable $tableName columns $rows")
 
@@ -208,7 +210,7 @@ class SystemController(
       .map(valueOpt => PlainDomainObject(Json.obj("value" -> valueOpt.orNull)))
   }
 
-  def updateLangtags(langtags: Seq[String]): Future[DomainObject] = {
+  def updateLangtags(langtags: Seq[String])(implicit routingContext: RoutingContext): Future[DomainObject] = {
     for {
       _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.updateSetting(SystemController.SETTING_LANGTAGS, Json.arr(langtags: _*).toString)
@@ -216,7 +218,7 @@ class SystemController(
     } yield updatedLangtags
   }
 
-  def updateSentryUrl(sentryUrl: String): Future[DomainObject] = {
+  def updateSentryUrl(sentryUrl: String)(implicit routingContext: RoutingContext): Future[DomainObject] = {
     for {
       _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.updateSetting(SystemController.SETTING_SENTRY_URL, sentryUrl)
@@ -245,7 +247,7 @@ class SystemController(
       active: Boolean,
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  ): Future[DomainObject] = {
+  )(implicit routingContext: RoutingContext): Future[DomainObject] = {
 
     checkArguments(
       notNull(name, "name"),
@@ -271,7 +273,7 @@ class SystemController(
       active: Option[Boolean],
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  ): Future[DomainObject] = {
+  )(implicit routingContext: RoutingContext): Future[DomainObject] = {
 
     checkArguments(
       greaterZero(serviceId),
@@ -300,7 +302,7 @@ class SystemController(
     } yield service
   }
 
-  def retrieveServices(): Future[ServiceSeq] = {
+  def retrieveServices()(implicit routingContext: RoutingContext): Future[ServiceSeq] = {
     logger.info(s"retrieveServices")
     for {
       serviceSeq <- serviceModel.retrieveAll()
@@ -311,7 +313,7 @@ class SystemController(
     }
   }
 
-  def retrieveService(serviceId: ServiceId): Future[Service] = {
+  def retrieveService(serviceId: ServiceId)(implicit routingContext: RoutingContext): Future[Service] = {
     logger.info(s"retrieveService $serviceId")
     for {
       _ <- roleModel.checkAuthorization(View, ScopeService)
@@ -319,7 +321,7 @@ class SystemController(
     } yield service
   }
 
-  def deleteService(serviceId: ServiceId): Future[DomainObject] = {
+  def deleteService(serviceId: ServiceId)(implicit routingContext: RoutingContext): Future[DomainObject] = {
     logger.info(s"deleteService $serviceId")
 
     for {

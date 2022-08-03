@@ -1,6 +1,5 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.router.auth.permission.RoleModel
@@ -9,16 +8,14 @@ import org.vertx.scala.core.json.Json
 object StructureModel {
 
   def apply(connection: DatabaseConnection)(
-      implicit requestContext: RequestContext,
-      roleModel: RoleModel
+      implicit roleModel: RoleModel
   ): StructureModel = {
     new StructureModel(connection)
   }
 }
 
 class StructureModel(override protected[this] val connection: DatabaseConnection)(
-    implicit requestContext: RequestContext,
-    roleModel: RoleModel
+    implicit roleModel: RoleModel
 ) extends DatabaseQuery {
   val tableStruc = new TableModel(connection)
 

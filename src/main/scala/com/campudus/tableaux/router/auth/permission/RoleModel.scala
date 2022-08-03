@@ -3,12 +3,14 @@ package com.campudus.tableaux.router.auth.permission
 import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
 import com.campudus.tableaux.database.{MultiCountry, MultiLanguage}
 import com.campudus.tableaux.helper.JsonUtils._
-import com.campudus.tableaux.{RequestContext, UnauthorizedException}
+import com.campudus.tableaux.UnauthorizedException
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import io.vertx.scala.ext.web.RoutingContext
+import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
 object RoleModel {
 
@@ -53,12 +55,12 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       scope: Scope,
       objects: ComparisonObjects = ComparisonObjects(),
       isInternalCall: Boolean = false
-  )(implicit requestContext: RequestContext): Future[Unit] = {
+  )(implicit rc: RoutingContext): Future[Unit] = {
 
     if (isInternalCall) {
       Future.successful(())
     } else {
-      val userRoles: Seq[String] = requestContext.getUserRoles
+      val userRoles: Seq[String] = KeycloakAuthHandler.getRealmRoles(rc)
 
       // In case action == ViewCellValue we must not check langtag conditions,
       //  because we can not retrieve cell values for one language.
@@ -67,7 +69,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition), Check)) {
         Future.successful(())
       } else {
-        val userName = requestContext.getPrincipleString("preferred_username")
+        val userName = KeycloakAuthHandler.getUserName(rc)
         logger.info(s"User ${userName} is not allowed to do action '$action' in scope '$scope'")
         Future.failed(UnauthorizedException(action, scope, userRoles))
       }
@@ -85,12 +87,12 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       parentObjects: ComparisonObjects = ComparisonObjects(),
       isInternalCall: Boolean,
       action: Action = View
-  )(implicit requestContext: RequestContext): Seq[A] = {
+  )(implicit rc: RoutingContext): Seq[A] = {
 
     if (isInternalCall) {
       domainObjects
     } else {
-      val userRoles: Seq[String] = requestContext.getUserRoles
+      val userRoles: Seq[String] = KeycloakAuthHandler.getRealmRoles(rc)
 
       domainObjects.filter({ obj: A =>
         // for each domainObject generate objects to compare with
@@ -114,9 +116,9 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       inputJson: JsonObject,
       scope: Scope,
       objects: ComparisonObjects = ComparisonObjects()
-  )(implicit requestContext: RequestContext): JsonObject = {
+  )(implicit rc: RoutingContext): JsonObject = {
 
-    val userRoles: Seq[String] = requestContext.getUserRoles
+    val userRoles: Seq[String] = rc.get(KeycloakAuthHandler.USER_ROLES)
 
     scope match {
       case ScopeMedia => enrichMedia(inputJson, userRoles)
@@ -413,13 +415,13 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
 
   override def checkAuthorization(action: Action, scope: Scope, objects: ComparisonObjects, isInternalCall: Boolean)(
-      implicit requestContext: RequestContext
+      implicit rc: RoutingContext
   ): Future[Unit] = {
     Future.successful(())
   }
 
   override def enrichDomainObject(inputJson: JsonObject, scope: Scope, objects: ComparisonObjects)(
-      implicit requestContext: RequestContext
+      implicit rc: RoutingContext
   ): JsonObject = {
     inputJson
   }
@@ -430,7 +432,7 @@ class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
       parentObjects: ComparisonObjects,
       isInternalCall: Boolean,
       action: Action = View
-  )(implicit requestContext: RequestContext): Seq[A] = {
+  )(implicit rc: RoutingContext): Seq[A] = {
     domainObjects
   }
 }

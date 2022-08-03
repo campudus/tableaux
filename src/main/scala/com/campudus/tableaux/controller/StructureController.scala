@@ -17,7 +17,7 @@ import com.campudus.tableaux.database.model.structure.ColumnModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{ForbiddenException, RequestContext, TableauxConfig, InvalidJsonException}
+import com.campudus.tableaux.{ForbiddenException, TableauxConfig, InvalidJsonException}
 import org.vertx.scala.core.json._
 import io.vertx.scala.core.eventbus.EventBus
 import io.vertx.scala.core.Vertx
@@ -29,12 +29,11 @@ import scala.collection.JavaConverters._
 import io.vertx.scala.core.eventbus.Message
 
 import scala.concurrent.Future
+import io.vertx.scala.ext.web.RoutingContext
 
 object StructureController {
 
-  def apply(config: TableauxConfig, repository: StructureModel, roleModel: RoleModel)(
-      implicit requestContext: RequestContext
-  ): StructureController = {
+  def apply(config: TableauxConfig, repository: StructureModel, roleModel: RoleModel)(): StructureController = {
     new StructureController(config, repository, roleModel)
   }
 }
@@ -43,14 +42,13 @@ class StructureController(
     override val config: TableauxConfig,
     override protected val repository: StructureModel,
     implicit protected val roleModel: RoleModel
-)(implicit requestContext: RequestContext)
-    extends Controller[StructureModel] {
+) extends Controller[StructureModel] {
 
   val tableStruc: TableModel = repository.tableStruc
   val columnStruc: CachedColumnModel = repository.columnStruc
   val tableGroupStruc: TableGroupModel = repository.tableGroupStruc
 
-  def retrieveTable(tableId: TableId): Future[Table] = {
+  def retrieveTable(tableId: TableId)(implicit routingContext: RoutingContext): Future[Table] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveTable $tableId")
 
@@ -59,7 +57,7 @@ class StructureController(
     } yield table
   }
 
-  def retrieveTables(): Future[TableSeq] = {
+  def retrieveTables()(implicit routingContext: RoutingContext): Future[TableSeq] = {
     logger.info(s"retrieveTables")
 
     for {
@@ -69,7 +67,9 @@ class StructureController(
     }
   }
 
-  def createColumns(tableId: TableId, columns: Seq[CreateColumn]): Future[ColumnSeq] = {
+  def createColumns(tableId: TableId, columns: Seq[CreateColumn])(
+      implicit routingContext: RoutingContext
+  ): Future[ColumnSeq] = {
     checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
     logger.info(s"createColumns $tableId columns $columns")
 
@@ -88,7 +88,9 @@ class StructureController(
     }
   }
 
-  def retrieveColumn(tableId: TableId, columnId: ColumnId): Future[ColumnType[_]] = {
+  def retrieveColumn(tableId: TableId, columnId: ColumnId)(
+      implicit routingContext: RoutingContext
+  ): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"))
     logger.info(s"retrieveColumn $tableId $columnId")
 
@@ -99,7 +101,9 @@ class StructureController(
     } yield column
   }
 
-  def retrieveColumns(tableId: TableId, isInternalCall: Boolean = false): Future[ColumnSeq] = {
+  def retrieveColumns(tableId: TableId, isInternalCall: Boolean = false)(
+      implicit routingContext: RoutingContext
+  ): Future[ColumnSeq] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveColumns $tableId")
 
@@ -113,7 +117,7 @@ class StructureController(
     }
   }
 
-  def retrieveStructure(): Future[TablesStructure] = {
+  def retrieveStructure()(implicit routingContext: RoutingContext): Future[TablesStructure] = {
     type ColumnSeq = Seq[ColumnType[_]]
     type IdColumnTuple = (TableId, ColumnSeq)
 
@@ -152,7 +156,7 @@ class StructureController(
       tableType: TableType,
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject]
-  ): Future[Table] = {
+  )(implicit routingContext: RoutingContext): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
     logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
 
@@ -181,7 +185,7 @@ class StructureController(
       displayInfos: Seq[DisplayInfo],
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject]
-  ): Future[Table] = {
+  )(implicit routingContext: RoutingContext): Future[Table] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId, attributes)
@@ -196,7 +200,7 @@ class StructureController(
       displayInfos: Seq[DisplayInfo],
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject]
-  ): Future[Table] = {
+  )(implicit routingContext: RoutingContext): Future[Table] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId, attributes)
@@ -264,7 +268,7 @@ class StructureController(
     } yield retrieved
   }
 
-  def deleteTable(tableId: TableId): Future[EmptyObject] = {
+  def deleteTable(tableId: TableId)(implicit routingContext: RoutingContext): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"deleteTable $tableId")
 
@@ -294,7 +298,9 @@ class StructureController(
     } yield EmptyObject()
   }
 
-  def deleteColumn(tableId: TableId, columnId: ColumnId): Future[EmptyObject] = {
+  def deleteColumn(tableId: TableId, columnId: ColumnId)(
+      implicit routingContext: RoutingContext
+  ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     logger.info(s"deleteColumn $tableId $columnId")
 
@@ -320,7 +326,7 @@ class StructureController(
       displayInfos: Option[Seq[DisplayInfo]],
       tableGroupId: Option[Option[TableGroupId]],
       attributes: Option[JsonObject]
-  ): Future[Table] = {
+  )(implicit routingContext: RoutingContext): Future[Table] = {
     checkArguments(
       greaterZero(tableId),
       isDefined(
@@ -362,7 +368,9 @@ class StructureController(
     }
   }
 
-  def changeTableOrder(tableId: TableId, locationType: LocationType): Future[EmptyObject] = {
+  def changeTableOrder(tableId: TableId, locationType: LocationType)(
+      implicit routingContext: RoutingContext
+  ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"changeTableOrder $tableId $locationType")
 
@@ -385,7 +393,7 @@ class StructureController(
       separator: Option[Boolean],
       attributes: Option[JsonObject],
       rules: Option[JsonArray]
-  ): Future[ColumnType[_]] = {
+  )(implicit routingContext: RoutingContext): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
@@ -462,7 +470,7 @@ class StructureController(
     } yield changedColumn
   }
 
-  def createTableGroup(displayInfos: Seq[DisplayInfo]): Future[TableGroup] = {
+  def createTableGroup(displayInfos: Seq[DisplayInfo])(implicit routingContext: RoutingContext): Future[TableGroup] = {
     checkArguments(nonEmpty(displayInfos, "displayName or description"))
     logger.info(s"createTableGroup $displayInfos")
 
@@ -472,7 +480,9 @@ class StructureController(
     } yield tableGroup
   }
 
-  def changeTableGroup(tableGroupId: TableGroupId, displayInfos: Option[Seq[DisplayInfo]]): Future[TableGroup] = {
+  def changeTableGroup(tableGroupId: TableGroupId, displayInfos: Option[Seq[DisplayInfo]])(
+      implicit routingContext: RoutingContext
+  ): Future[TableGroup] = {
     checkArguments(greaterZero(tableGroupId), isDefined(displayInfos, "displayName or description"))
     logger.info(s"changeTableGroup $tableGroupId $displayInfos")
 
@@ -483,7 +493,7 @@ class StructureController(
     } yield tableGroup
   }
 
-  def deleteTableGroup(tableGroupId: TableGroupId): Future[EmptyObject] = {
+  def deleteTableGroup(tableGroupId: TableGroupId)(implicit routingContext: RoutingContext): Future[EmptyObject] = {
     checkArguments(greaterZero(tableGroupId))
     logger.info(s"deleteTableGroup $tableGroupId")
 

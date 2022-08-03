@@ -10,17 +10,16 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{RequestContext, TableauxConfig, UnprocessableEntityException}
+import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 import scala.util.Try
+import io.vertx.scala.ext.web.RoutingContext
 
 object TableauxController {
 
-  def apply(config: TableauxConfig, repository: TableauxModel, roleModel: RoleModel)(
-      implicit requestContext: RequestContext
-  ): TableauxController = {
+  def apply(config: TableauxConfig, repository: TableauxModel, roleModel: RoleModel): TableauxController = {
     new TableauxController(config, repository, roleModel)
   }
 }
@@ -29,8 +28,7 @@ class TableauxController(
     override val config: TableauxConfig,
     override protected val repository: TableauxModel,
     implicit protected val roleModel: RoleModel
-)(implicit requestContext: RequestContext)
-    extends Controller[TableauxModel] {
+) extends Controller[TableauxModel] {
 
   def addCellAnnotation(
       tableId: TableId,
@@ -39,7 +37,7 @@ class TableauxController(
       langtags: Seq[String],
       annotationType: CellAnnotationType,
       value: String
-  ): Future[CellLevelAnnotation] = {
+  )(implicit routingContext: RoutingContext): Future[CellLevelAnnotation] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"addCellAnnotation $tableId $columnId $rowId $langtags $annotationType $value")
 
@@ -57,7 +55,9 @@ class TableauxController(
     } yield cellAnnotation
   }
 
-  def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID): Future[EmptyObject] = {
+  def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID)(
+      implicit routingContext: RoutingContext
+  ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"deleteCellAnnotation $tableId $columnId $rowId $uuid")
 
@@ -75,7 +75,7 @@ class TableauxController(
       rowId: RowId,
       uuid: UUID,
       langtag: String
-  ): Future[EmptyObject] = {
+  )(implicit routingContext: RoutingContext): Future[EmptyObject] = {
     checkArguments(
       greaterZero(tableId),
       greaterThan(columnId, -1, "columnId"),
@@ -98,7 +98,9 @@ class TableauxController(
     } yield EmptyObject()
   }
 
-  def retrieveTableWithCellAnnotations(tableId: TableId): Future[DomainObject] = {
+  def retrieveTableWithCellAnnotations(tableId: TableId)(
+      implicit routingContext: RoutingContext
+  ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveTableWithCellAnnotations $tableId")
 
@@ -110,7 +112,7 @@ class TableauxController(
     } yield annotations
   }
 
-  def retrieveTablesWithCellAnnotationCount(): Future[DomainObject] = {
+  def retrieveTablesWithCellAnnotationCount()(implicit routingContext: RoutingContext): Future[DomainObject] = {
     logger.info(s"retrieveTablesWithCellAnnotationCount")
 
     for {
@@ -127,7 +129,7 @@ class TableauxController(
     }
   }
 
-  def retrieveTranslationStatus(): Future[DomainObject] = {
+  def retrieveTranslationStatus()(implicit routingContext: RoutingContext): Future[DomainObject] = {
     logger.info(s"retrieveTranslationStatus")
 
     for {
@@ -239,7 +241,9 @@ class TableauxController(
     }
   }
 
-  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]]): Future[DomainObject] = {
+  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]])(
+      implicit routingContext: RoutingContext
+  ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
 
     for {
@@ -257,7 +261,9 @@ class TableauxController(
     } yield row
   }
 
-  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean]): Future[Row] = {
+  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean])(
+      implicit routingContext: RoutingContext
+  ): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"updateRowAnnotations $tableId $rowId $finalFlag")
     for {
@@ -267,7 +273,9 @@ class TableauxController(
     } yield updatedRow
   }
 
-  def updateRowsAnnotations(tableId: TableId, finalFlag: Option[Boolean]): Future[DomainObject] = {
+  def updateRowsAnnotations(tableId: TableId, finalFlag: Option[Boolean])(
+      implicit routingContext: RoutingContext
+  ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"updateRowsAnnotations $tableId $finalFlag")
     for {
@@ -277,7 +285,7 @@ class TableauxController(
     } yield EmptyObject()
   }
 
-  def duplicateRow(tableId: TableId, rowId: RowId): Future[Row] = {
+  def duplicateRow(tableId: TableId, rowId: RowId)(implicit routingContext: RoutingContext): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")
     for {
@@ -286,7 +294,7 @@ class TableauxController(
     } yield duplicated
   }
 
-  def retrieveRow(tableId: TableId, rowId: RowId): Future[Row] = {
+  def retrieveRow(tableId: TableId, rowId: RowId)(implicit routingContext: RoutingContext): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"retrieveRow $tableId $rowId")
     for {
@@ -295,7 +303,8 @@ class TableauxController(
     } yield row
   }
 
-  def retrieveRows(tableId: TableId, pagination: Pagination): Future[RowSeq] = {
+  def retrieveRows(tableId: TableId, pagination: Pagination)(implicit
+  routingContext: RoutingContext): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), pagination.check)
     logger.info(s"retrieveRows $tableId for all columns")
 
@@ -305,7 +314,8 @@ class TableauxController(
     } yield rows
   }
 
-  def retrieveRowsOfFirstColumn(tableId: TableId, pagination: Pagination): Future[RowSeq] = {
+  def retrieveRowsOfFirstColumn(tableId: TableId, pagination: Pagination)(implicit
+  routingContext: RoutingContext): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), pagination.check)
     logger.info(s"retrieveRowsOfFirstColumn $tableId for first column")
 
@@ -316,7 +326,8 @@ class TableauxController(
     } yield rows
   }
 
-  def retrieveRowsOfColumn(tableId: TableId, columnId: ColumnId, pagination: Pagination): Future[RowSeq] = {
+  def retrieveRowsOfColumn(tableId: TableId, columnId: ColumnId, pagination: Pagination)(implicit
+  routingContext: RoutingContext): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), pagination.check)
     logger.info(s"retrieveRows $tableId for column $columnId")
 
@@ -331,7 +342,7 @@ class TableauxController(
       columnId: ColumnId,
       rowId: RowId,
       pagination: Pagination
-  ): Future[RowSeq] = {
+  )(implicit routingContext: RoutingContext): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId), pagination.check)
     logger.info(s"retrieveForeignRows $tableId $columnId $rowId")
 
@@ -341,7 +352,8 @@ class TableauxController(
     } yield rows
   }
 
-  def retrieveCellAnnotations(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[CellLevelAnnotations] = {
+  def retrieveCellAnnotations(tableId: TableId, columnId: ColumnId, rowId: RowId)(implicit
+  routingContext: RoutingContext): Future[CellLevelAnnotations] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCell $tableId $columnId $rowId")
 
@@ -351,7 +363,8 @@ class TableauxController(
     } yield annotations
   }
 
-  def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
+  def retrieveCell(tableId: TableId, columnId: ColumnId, rowId: RowId)(implicit
+  routingContext: RoutingContext): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCell $tableId $columnId $rowId")
 
@@ -361,7 +374,9 @@ class TableauxController(
     } yield cell
   }
 
-  def retrieveDependentRows(tableId: TableId, rowId: RowId): Future[DependentRowsSeq] = {
+  def retrieveDependentRows(tableId: TableId, rowId: RowId)(
+      implicit routingContext: RoutingContext
+  ): Future[DependentRowsSeq] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"retrieveDependentRows $tableId $rowId")
 
@@ -376,7 +391,7 @@ class TableauxController(
       tableId: TableId,
       rowId: RowId,
       replacingRowIdStringOpt: Option[String] = None
-  ): Future[DomainObject] = {
+  )(implicit routingContext: RoutingContext): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     val replacingRowIdOpt = replacingRowIdStringOpt match {
       case None => None
@@ -398,7 +413,8 @@ class TableauxController(
     } yield EmptyObject()
   }
 
-  def deleteLink(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId): Future[Cell[_]] = {
+  def deleteLink(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId)(implicit
+  routingContext: RoutingContext): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
     logger.info(s"deleteLink $tableId $columnId $rowId $toId")
 
@@ -414,7 +430,7 @@ class TableauxController(
       rowId: RowId,
       toId: RowId,
       locationType: LocationType
-  ): Future[Cell[_]] = {
+  )(implicit routingContext: RoutingContext): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), greaterZero(toId))
     logger.info(s"updateCellLinkOrder $tableId $columnId $rowId $toId $locationType")
     for {
@@ -423,7 +439,8 @@ class TableauxController(
     } yield filled
   }
 
-  def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
+  def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A)(implicit
+  routingContext: RoutingContext): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"replaceCellValue $tableId $columnId $rowId $value")
     for {
@@ -432,7 +449,8 @@ class TableauxController(
     } yield filled
   }
 
-  def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A): Future[Cell[_]] = {
+  def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A)(implicit
+  routingContext: RoutingContext): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"updateCellValue $tableId $columnId $rowId $value")
 
@@ -442,7 +460,8 @@ class TableauxController(
     } yield updated
   }
 
-  def clearCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId): Future[Cell[_]] = {
+  def clearCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId)(implicit
+  routingContext: RoutingContext): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"clearCellValue $tableId $columnId $rowId")
 
@@ -452,7 +471,9 @@ class TableauxController(
     } yield cleared
   }
 
-  def deleteAttachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: String): Future[EmptyObject] = {
+  def deleteAttachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: String)(
+      implicit routingContext: RoutingContext
+  ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId), notNull(uuid, "uuid"))
     logger.info(s"deleteAttachment $tableId $columnId $rowId $uuid")
 
@@ -470,7 +491,7 @@ class TableauxController(
     } yield EmptyObject()
   }
 
-  def retrieveCompleteTable(tableId: TableId): Future[CompleteTable] = {
+  def retrieveCompleteTable(tableId: TableId)(implicit routingContext: RoutingContext): Future[CompleteTable] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveCompleteTable $tableId")
 
@@ -481,7 +502,9 @@ class TableauxController(
     } yield CompleteTable(table, colList, rowList)
   }
 
-  def createCompleteTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]]): Future[CompleteTable] = {
+  def createCompleteTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
+      implicit routingContext: RoutingContext
+  ): Future[CompleteTable] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     logger.info(s"createTable $tableName columns $columns rows $rows")
 
@@ -501,7 +524,8 @@ class TableauxController(
     } yield completeTable
   }
 
-  def retrieveColumnValues(tableId: TableId, columnId: ColumnId, langtagOpt: Option[Langtag]): Future[DomainObject] = {
+  def retrieveColumnValues(tableId: TableId, columnId: ColumnId, langtagOpt: Option[Langtag])(implicit
+  routingContext: RoutingContext): Future[DomainObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     logger.info(s"retrieveColumnValues $tableId $columnId $langtagOpt")
 
@@ -517,7 +541,7 @@ class TableauxController(
       rowId: RowId,
       langtagOpt: Option[Langtag],
       typeOpt: Option[String]
-  ): Future[SeqHistory] = {
+  )(implicit routingContext: RoutingContext): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt $typeOpt")
 
@@ -532,7 +556,7 @@ class TableauxController(
       rowId: RowId,
       langtagOpt: Option[Langtag],
       typeOpt: Option[String]
-  ): Future[SeqHistory] = {
+  )(implicit routingContext: RoutingContext): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"retrieveRowHistory $tableId $rowId $langtagOpt $typeOpt")
 
@@ -548,7 +572,7 @@ class TableauxController(
       tableId: TableId,
       langtagOpt: Option[Langtag],
       typeOpt: Option[String]
-  ): Future[SeqHistory] = {
+  )(implicit routingContext: RoutingContext): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveTableHistory $tableId $typeOpt")
 
