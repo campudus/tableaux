@@ -7,26 +7,25 @@ import com.campudus.tableaux.database.model.TableauxModel.Ordering
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux.{RequestContext, ShouldBeUniqueException}
+import com.campudus.tableaux.{ShouldBeUniqueException}
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
+import io.vertx.scala.ext.web.RoutingContext
 
 object ServiceModel {
   type ServiceId = Long
   type Ordering = Long
 
   def apply(connection: DatabaseConnection)(
-      implicit requestContext: RequestContext,
-      roleModel: RoleModel
+      implicit roleModel: RoleModel
   ): ServiceModel = {
     new ServiceModel(connection)
   }
 }
 
 class ServiceModel(override protected[this] val connection: DatabaseConnection)(
-    implicit requestContext: RequestContext,
-    roleModel: RoleModel
+    implicit roleModel: RoleModel
 ) extends DatabaseQuery {
   val table: String = "system_services"
 
@@ -40,7 +39,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
       active: Option[Boolean],
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  ): Future[Unit] = {
+  )(implicit routingContext: RoutingContext): Future[Unit] = {
 
     val updateParamOpts = Map(
       "name" -> name,
@@ -127,7 +126,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
       active: Boolean,
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  ): Future[ServiceId] = {
+  )(implicit routingContext: RoutingContext): Future[ServiceId] = {
 
     val insert = s"""INSERT INTO $table (
                     |  name,

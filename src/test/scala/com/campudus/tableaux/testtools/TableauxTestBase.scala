@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, Tabl
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
-import com.campudus.tableaux.{CustomException, RequestContext, Starter, TableauxConfig}
+import com.campudus.tableaux.{CustomException, , Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod

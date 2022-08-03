@@ -5,16 +5,18 @@ import org.vertx.scala.core.json._
 
 import scala.collection.mutable
 import scala.util.Try
+import io.vertx.scala.ext.web.RoutingContext
 
 object DomainObject extends DomainObject {
-  override def getJson: JsonObject = Json.emptyObj()
+  override def getJson(implicit routingContext: RoutingContext): JsonObject = Json.emptyObj()
 }
 
 trait DomainObjectHelper {
 
-  def compatibilityGet[A]: A => Any = compatibility(GetReturn)(_)
+  // def compatibilityGet[A]: (A => Any) = compatibility(GetReturn)(_)
+  def compatibilityGet[A](value: A)(implicit routingContext: RoutingContext): A => Any = compatibility(GetReturn)(_)
 
-  private def compatibility[A](returnType: ReturnType)(value: A): Any = {
+  private def compatibility[A](returnType: ReturnType)(value: A)(implicit routingContext: RoutingContext): Any = {
     value match {
       case Some(a) => compatibility(returnType)(a)
       case None => None.orNull
@@ -24,7 +26,9 @@ trait DomainObjectHelper {
     }
   }
 
-  private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A]): java.util.List[_] = {
+  private def compatibilitySeq[A](returnType: ReturnType)(values: Seq[A])(
+      implicit routingContext: RoutingContext
+  ): java.util.List[_] = {
     import scala.collection.JavaConverters._
 
     values
@@ -43,7 +47,7 @@ trait DomainObjectHelper {
 
 trait DomainObject extends DomainObjectHelper {
 
-  def getJson: JsonObject
+  def getJson(implicit routingContext: RoutingContext): JsonObject
 
   /**
     * Returns an empty JsonObject. It's used as response for all requests which don't need a response body.
@@ -58,7 +62,7 @@ trait DomainObject extends DomainObjectHelper {
     *   get, set or empty
     * @return
     */
-  final def toJson(returnType: ReturnType): JsonObject = returnType match {
+  final def toJson(returnType: ReturnType)(implicit routingContext: RoutingContext): JsonObject = returnType match {
     case GetReturn => getJson
     case EmptyReturn => emptyJson
   }
@@ -69,17 +73,17 @@ trait DomainObject extends DomainObjectHelper {
     * @return
     *   String representation of DomainObject
     */
-  override def toString: String = getJson.encode()
+  def toString(implicit routingContext: RoutingContext): String = getJson.encode()
 }
 
 case class EmptyObject() extends DomainObject {
 
-  override def getJson: JsonObject = Json.emptyObj()
+  override def getJson(implicit routingContext: RoutingContext): JsonObject = Json.emptyObj()
 }
 
 case class PlainDomainObject(json: JsonObject) extends DomainObject {
 
-  override def getJson: JsonObject = json
+  override def getJson(implicit routingContext: RoutingContext): JsonObject = json
 }
 
 object MultiLanguageValue {
@@ -151,20 +155,20 @@ object MultiLanguageValue {
   */
 case class MultiLanguageValue[A](values: Map[String, A]) extends DomainObject {
 
-  override def getJson: JsonObject = {
+  override def getJson(implicit routingContext: RoutingContext): JsonObject = {
     values.foldLeft(Json.emptyObj()) {
       case (obj, (langtag, value)) =>
         obj.mergeIn(Json.obj(langtag -> value))
     }
   }
 
-  def langtags: Seq[String] = values.keys.toSeq
+  def langtags(implicit routingContext: RoutingContext): Seq[String] = values.keys.toSeq
 
-  def get(langtag: String): Option[A] = values.get(langtag)
+  def get(langtag: String)(implicit routingContext: RoutingContext): Option[A] = values.get(langtag)
 
-  def size: Int = values.size
+  def size(implicit routingContext: RoutingContext): Int = values.size
 
-  def add(langtag: String, value: A): MultiLanguageValue[A] = {
+  def add(langtag: String, value: A)(implicit routingContext: RoutingContext): MultiLanguageValue[A] = {
     val newValues = values + (langtag -> value)
     MultiLanguageValue[A](newValues)
   }

@@ -1,10 +1,10 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, ScopeTableSeq}
 import org.vertx.scala.core.json._
 import io.vertx.core.json.JsonObject
+import io.vertx.scala.ext.web.RoutingContext
 
 object TableType {
 
@@ -32,8 +32,7 @@ case object SettingsTable extends TableType {
 object Table {
 
   def apply(id: TableId)(
-      implicit requestContext: RequestContext,
-      roleModel: RoleModel
+      implicit roleModel: RoleModel
   ): Table = {
     Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None)
   }
@@ -49,11 +48,10 @@ case class Table(
     tableGroup: Option[TableGroup],
     attributes: Option[JsonObject]
 )(
-    implicit requestContext: RequestContext,
-    roleModel: RoleModel = RoleModel()
+    implicit roleModel: RoleModel = RoleModel()
 ) extends DomainObject {
 
-  override def getJson: JsonObject = {
+  override def getJson(implicit routingContext: RoutingContext): JsonObject = {
     val tableJson = Json.obj(
       "id" -> id,
       "name" -> name,
@@ -91,11 +89,10 @@ case class Table(
 }
 
 case class TableSeq(tables: Seq[Table])(
-    implicit requestContext: RequestContext,
-    roleModel: RoleModel
+    implicit roleModel: RoleModel
 ) extends DomainObject {
 
-  override def getJson: JsonObject = {
+  override def getJson(implicit routingContext: RoutingContext): JsonObject = {
     val tableSeqJson = Json.obj("tables" -> compatibilityGet(tables))
     roleModel.enrichDomainObject(tableSeqJson, ScopeTableSeq)
   }
@@ -103,7 +100,7 @@ case class TableSeq(tables: Seq[Table])(
 
 case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: RowSeq) extends DomainObject {
 
-  override def getJson: JsonObject = {
+  override def getJson(implicit routingContext: RoutingContext): JsonObject = {
     table.getJson
       .mergeIn(Json.obj("columns" -> columns.map {
         _.getJson
@@ -114,7 +111,7 @@ case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: Row
 
 case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[ColumnType[_]]]) extends DomainObject {
 
-  override def getJson: JsonObject = {
+  override def getJson(implicit routingContext: RoutingContext): JsonObject = {
     Json.obj("tables" -> tables.map(tbl => {
       tbl.getJson.mergeIn(
         Json.obj("columns" -> {

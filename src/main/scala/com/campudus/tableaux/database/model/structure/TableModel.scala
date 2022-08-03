@@ -7,15 +7,15 @@ import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, View}
-import com.campudus.tableaux.{RequestContext, ShouldBeUniqueException}
+import com.campudus.tableaux.{ShouldBeUniqueException}
 import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import io.vertx.scala.ext.web.RoutingContext
 
 class TableModel(val connection: DatabaseConnection)(
-    implicit requestContext: RequestContext,
-    roleModel: RoleModel
+    implicit roleModel: RoleModel
 ) extends DatabaseQuery {
 
   val systemModel = SystemModel(connection)
@@ -177,7 +177,7 @@ class TableModel(val connection: DatabaseConnection)(
       )
   }
 
-  def retrieveAll(isInternalCall: Boolean): Future[Seq[Table]] = {
+  def retrieveAll(isInternalCall: Boolean)(implicit routingContext: RoutingContext): Future[Seq[Table]] = {
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       tables <- getTablesWithDisplayInfos(defaultLangtags)
@@ -186,7 +186,9 @@ class TableModel(val connection: DatabaseConnection)(
     } yield filteredTables
   }
 
-  def retrieve(tableId: TableId, isInternalCall: Boolean = false): Future[Table] = {
+  def retrieve(tableId: TableId, isInternalCall: Boolean = false)(
+      implicit routingContext: RoutingContext
+  ): Future[Table] = {
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       table <- getTableWithDisplayInfos(tableId, defaultLangtags)

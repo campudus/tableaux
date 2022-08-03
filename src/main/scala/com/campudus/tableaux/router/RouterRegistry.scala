@@ -5,7 +5,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux.{RequestContext, TableauxConfig}
+import com.campudus.tableaux.TableauxConfig
 import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.core.Vertx
@@ -28,9 +28,8 @@ object RouterRegistry extends LazyLogging {
 
     val mainRouter: Router = Router.router(vertx)
 
-    implicit val requestContext: RequestContext = RequestContext()
     mainRouter.route().handler(CookieHandler.create())
-    mainRouter.route().handler(retrieveCookies)
+    // mainRouter.route().handler(retrieveCookies)
 
     if (isAuthorization) {
       val keycloakAuthProvider = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
@@ -79,10 +78,4 @@ object RouterRegistry extends LazyLogging {
 
     mainRouter
   }
-
-  private def retrieveCookies(context: RoutingContext)(implicit requestContext: RequestContext): Unit = {
-    requestContext.cookies = context.cookies().toSet
-    context.next()
-  }
-
 }

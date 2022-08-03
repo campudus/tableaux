@@ -2,7 +2,6 @@ package com.campudus.tableaux.database.model
 
 import java.util.UUID
 
-import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
@@ -15,6 +14,7 @@ import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+import io.vertx.scala.ext.web.RoutingContext
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
@@ -134,19 +134,22 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
 }
 
 case class CreateHistoryModel(tableauxModel: TableauxModel, connection: DatabaseConnection)(
-    implicit requestContext: RequestContext,
-    roleModel: RoleModel
+    implicit roleModel: RoleModel
 ) extends DatabaseQuery {
 
   val tableModel = new TableModel(connection)
   val attachmentModel = AttachmentModel(connection)
 
+  // TODO
   private def getUserName: String = {
-    Option(requestContext.getPrincipleString("preferred_username"))
-      .getOrElse(requestContext.getCookieValue("userName", "unknown"))
+    "Hans"
+    // Option(requestContext.getPrincipleString("preferred_username"))
+    //   .getOrElse(requestContext.getCookieValue("userName", "unknown"))
   }
 
-  private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId): Future[Seq[RowId]] = {
+  private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId)(
+      implicit routingContext: RoutingContext
+  ): Future[Seq[RowId]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
     } yield {
@@ -193,7 +196,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       rowId: RowId,
       links: Seq[(LinkColumn, Seq[RowId])],
       allowRecursion: Boolean
-  ): Future[Seq[Any]] = {
+  )(implicit routingContext: RoutingContext): Future[Seq[Any]] = {
 
     def createLinksRecursive(column: LinkColumn, changedLinkIds: Seq[RowId]): Future[Unit] = {
       for {
@@ -254,7 +257,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * @param linkColumn
     * @param rowIds
     */
-  def updateLinks(table: Table, linkColumn: LinkColumn, rowIds: Seq[RowId]): Future[Seq[Unit]] = {
+  def updateLinks(table: Table, linkColumn: LinkColumn, rowIds: Seq[RowId])(
+      implicit routingContext: RoutingContext
+  ): Future[Seq[Unit]] = {
     Future.sequence(
       rowIds.map(rowId =>
         for {
@@ -271,7 +276,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId, rowExists: Boolean): Future[Unit] = {
+  private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId, rowExists: Boolean)(
+      implicit routingContext: RoutingContext
+  ): Future[Unit] = {
     for {
       linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
       identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)
@@ -285,7 +292,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     table.langtags.map(Future.successful).getOrElse(tableModel.retrieveGlobalLangtags())
   }
 
-  private def retrieveForeignIdentifierCells(column: LinkColumn, linkIds: Seq[RowId]): Future[Seq[Cell[Any]]] = {
+  private def retrieveForeignIdentifierCells(column: LinkColumn, linkIds: Seq[RowId])(
+      implicit routingContext: RoutingContext
+  ): Future[Seq[Cell[Any]]] = {
     val linkedCellSeq = linkIds.map(linkId =>
       for {
         foreignIdentifier <- tableauxModel.retrieveCell(column.to.table, column.to.id, linkId, isInternalCall = true)
@@ -475,7 +484,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * If we didn't call this method on any cell change/deletion the previously valid value wouldn't be logged in a
     * history table.
     */
-  def createCellsInit(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  def createCellsInit(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
+      implicit routingContext: RoutingContext
+  ): Future[Unit] = {
     val columns = values.map({ case (col: ColumnType[_], _) => col })
     val (simples, _, links, attachments) = ColumnType.splitIntoTypes(columns)
 
@@ -505,7 +516,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * If we didn't call this method on any cell change/deletion the previously valid value wouldn't be logged in a
     * history table.
     */
-  def createClearCellInit(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
+  def createClearCellInit(table: Table, rowId: RowId, columns: Seq[ColumnType[_]])(
+      implicit routingContext: RoutingContext
+  ): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
     // for clearing of multi language cells create init values for all langtags
@@ -543,7 +556,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }))
   }
 
-  def createLinksInit(table: Table, rowId: RowId, links: Seq[LinkColumn]): Future[Seq[Unit]] = {
+  def createLinksInit(table: Table, rowId: RowId, links: Seq[LinkColumn])(
+      implicit routingContext: RoutingContext
+  ): Future[Seq[Unit]] = {
 
     def createIfNotEmpty(linkColumn: LinkColumn): Future[Unit] = {
       for {
@@ -565,7 +580,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }))
   }
 
-  private def createSimpleInit(table: Table, rowId: RowId, simples: Seq[SimpleValueColumn[_]]): Future[Seq[Unit]] = {
+  private def createSimpleInit(table: Table, rowId: RowId, simples: Seq[SimpleValueColumn[_]])(
+      implicit routingContext: RoutingContext
+  ): Future[Seq[Unit]] = {
 
     def createIfNotEmpty(column: SimpleValueColumn[_]): Future[Unit] = {
       for {
@@ -589,7 +606,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       table: Table,
       rowId: RowId,
       langtagColumns: Seq[(Seq[String], SimpleValueColumn[_])]
-  ): Future[Seq[Unit]] = {
+  )(implicit routingContext: RoutingContext): Future[Seq[Unit]] = {
 
     val entries = for {
       (langtags, column) <- langtagColumns
@@ -647,7 +664,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       column: ColumnType[_],
       rowId: RowId,
       langtagCountryOpt: Option[String] = None
-  ): Future[Option[Any]] = {
+  )(implicit routingContext: RoutingContext): Future[Option[Any]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
     } yield {
@@ -678,7 +695,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * @param values
     *   Seq of columns an the new linked foreign row IDs
     */
-  def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[_] = {
+  def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
+      implicit routingContext: RoutingContext
+  ): Future[_] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
@@ -822,7 +841,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(futureSequence)
   }
 
-  def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]]): Future[Unit] = {
+  def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]])(
+      implicit routingContext: RoutingContext
+  ): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
     val simplesWithEmptyValues = simples.map(column => (column, None))
@@ -848,7 +869,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(futureSequence)
   }
 
-  def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)]): Future[Unit] = {
+  def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
+      implicit routingContext: RoutingContext
+  ): Future[Unit] = {
     val columns = values.map({ case (col: ColumnType[_], _) => col })
     val (_, _, _, attachments) = ColumnType.splitIntoTypes(columns)
 
@@ -883,7 +906,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     } yield ()
   }
 
-  def createClearLink(table: Table, rowId: RowId, columns: Seq[LinkColumn]): Future[Unit] = {
+  def createClearLink(table: Table, rowId: RowId, columns: Seq[LinkColumn])(
+      implicit routingContext: RoutingContext
+  ): Future[Unit] = {
     for {
       _ <- createLinks(table, rowId, columns.map(column => (column, Seq.empty[RowId])), allowRecursion = false)
       _ <- Future.sequence(
@@ -905,7 +930,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * @param table
     * @param foreignIds
     */
-  def createClearBackLinks(table: Table, foreignIds: Seq[RowId]): Future[Unit] = {
+  def createClearBackLinks(table: Table, foreignIds: Seq[RowId])(
+      implicit routingContext: RoutingContext
+  ): Future[Unit] = {
     for {
       dependentColumns <- tableauxModel.retrieveDependencies(table)
       _ <- Future.sequence(dependentColumns.map({
@@ -930,7 +957,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     } yield ()
   }
 
-  def deleteLink(table: Table, linkColumn: LinkColumn, rowId: RowId, toId: RowId): Future[_] = {
+  def deleteLink(table: Table, linkColumn: LinkColumn, rowId: RowId, toId: RowId)(
+      implicit routingContext: RoutingContext
+  ): Future[_] = {
     if (linkColumn.linkDirection.constraint.deleteCascade) {
       createLinks(table, rowId, Seq((linkColumn, Seq(toId))), allowRecursion = false)
     } else {

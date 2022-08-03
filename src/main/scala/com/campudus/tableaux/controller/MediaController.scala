@@ -8,12 +8,13 @@ import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{InvalidRequestException, RequestContext, TableauxConfig, UnknownServerException}
+import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
 import io.vertx.scala.FutureHelper._
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
 import scala.util.{Failure, Success}
+import io.vertx.scala.ext.web.RoutingContext
 
 object MediaController {
 
@@ -28,7 +29,7 @@ object MediaController {
       fileModel: FileModel,
       attachmentModel: AttachmentModel,
       roleModel: RoleModel
-  )(implicit requestContext: RequestContext): MediaController = {
+  ): MediaController = {
     new MediaController(config, folderModel, fileModel, attachmentModel, roleModel: RoleModel)
   }
 }
@@ -39,46 +40,53 @@ class MediaController(
     protected val fileModel: FileModel,
     protected val attachmentModel: AttachmentModel,
     implicit protected val roleModel: RoleModel
-)(implicit requestContext: RequestContext)
-    extends Controller[FolderModel] {
+) extends Controller[FolderModel] {
 
   import MediaController.ROOT_FOLDER
 
   lazy val uploadsDirectory: Path = config.uploadsDirectoryPath()
 
-  def retrieveFolder(id: FolderId, sortByLangtag: String): Future[ExtendedFolder] = {
+  def retrieveFolder(id: FolderId, sortByLangtag: String)(
+      implicit routingContext: RoutingContext
+  ): Future[ExtendedFolder] = {
     for {
       folder <- repository.retrieve(id)
       extended <- retrieveExtendedFolder(folder, sortByLangtag)
     } yield extended
   }
 
-  def retrieveRootFolder(sortByLangtag: String): Future[ExtendedFolder] = {
+  def retrieveRootFolder(sortByLangtag: String)(implicit routingContext: RoutingContext): Future[ExtendedFolder] = {
     retrieveExtendedFolder(ROOT_FOLDER, sortByLangtag)
   }
 
-  private def retrieveExtendedFolder(folder: Folder, sortByLangtag: String): Future[ExtendedFolder] = {
+  private def retrieveExtendedFolder(folder: Folder, sortByLangtag: String)(
+      implicit routingContext: RoutingContext
+  ): Future[ExtendedFolder] = {
     for {
       subfolders <- repository.retrieveSubfolders(folder)
       files <- fileModel.retrieveFromFolder(folder, sortByLangtag)
     } yield ExtendedFolder(folder, subfolders, files.map(ExtendedFile))
   }
 
-  def addNewFolder(name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
+  def addNewFolder(name: String, description: String, parent: Option[FolderId])(
+      implicit routingContext: RoutingContext
+  ): Future[Folder] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeMedia)
       folder <- repository.add(name, description, parent)
     } yield folder
   }
 
-  def changeFolder(id: FolderId, name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
+  def changeFolder(id: FolderId, name: String, description: String, parent: Option[FolderId])(
+      implicit routingContext: RoutingContext
+  ): Future[Folder] = {
     for {
       _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
       folder <- repository.update(id, name, description, parent)
     } yield folder
   }
 
-  def deleteFolder(id: FolderId): Future[Folder] = {
+  def deleteFolder(id: FolderId)(implicit routingContext: RoutingContext): Future[Folder] = {
     for {
       _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
       folder <- repository.retrieve(id)
@@ -101,14 +109,16 @@ class MediaController(
       description: MultiLanguageValue[String],
       externalName: MultiLanguageValue[String],
       folder: Option[FolderId]
-  ): Future[TemporaryFile] = {
+  )(implicit routingContext: RoutingContext): Future[TemporaryFile] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeMedia)
       file <- fileModel.add(title, description, externalName, folder).map(TemporaryFile)
     } yield file
   }
 
-  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction): Future[ExtendedFile] = {
+  def replaceFile(uuid: UUID, langtag: String, upload: UploadAction)(
+      implicit routingContext: RoutingContext
+  ): Future[ExtendedFile] = {
     futurify { p: Promise[ExtendedFile] =>
       {
         val ext = Path(upload.fileName).extension
@@ -199,7 +209,7 @@ class MediaController(
       internalName: MultiLanguageValue[String],
       mimeType: MultiLanguageValue[String],
       folder: Option[FolderId]
-  ): Future[ExtendedFile] = {
+  )(implicit routingContext: RoutingContext): Future[ExtendedFile] = {
 
     def checkInternalName(internalName: String): Future[Unit] = {
       vertx
@@ -266,7 +276,7 @@ class MediaController(
     }
   }
 
-  def deleteFile(uuid: UUID): Future[TableauxFile] = {
+  def deleteFile(uuid: UUID)(implicit routingContext: RoutingContext): Future[TableauxFile] = {
     for {
       _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
 
@@ -294,7 +304,7 @@ class MediaController(
     }
   }
 
-  def deleteFile(uuid: UUID, langtag: String): Future[TableauxFile] = {
+  def deleteFile(uuid: UUID, langtag: String)(implicit routingContext: RoutingContext): Future[TableauxFile] = {
     for {
       _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
 
@@ -347,7 +357,9 @@ class MediaController(
       })
   }
 
-  def mergeFile(uuid: UUID, langtag: String, mergeWith: UUID): Future[ExtendedFile] = {
+  def mergeFile(uuid: UUID, langtag: String, mergeWith: UUID)(
+      implicit routingContext: RoutingContext
+  ): Future[ExtendedFile] = {
     for {
       _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
       toMerge <- fileModel.retrieve(mergeWith)
