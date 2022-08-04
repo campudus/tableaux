@@ -77,10 +77,12 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def getFolderId(context: RoutingContext): Option[Long] = {
+    implicit val rc = implicitly(context)
     getLongParam("folderId", context)
   }
 
   private def createFolder(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -94,6 +96,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def retrieveRootFolder(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -104,6 +107,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def retrieveFolder(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       folderId <- getFolderId(context)
     } yield {
@@ -118,6 +122,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def updateFolder(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       folderId <- getFolderId(context)
     } yield {
@@ -138,6 +143,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     * Delete folder and its files
     */
   private def deleteFolder(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       folderId <- getFolderId(context)
     } yield {
@@ -154,6 +160,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     * Create file handle
     */
   private def createFile(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -210,6 +217,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     * Update file meta information
     */
   private def updateFile(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       fileUuid <- getUUID(context)
     } yield {
@@ -236,6 +244,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     * Replace/upload language specific file and its meta information
     */
   private def uploadFile(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       fileUuid <- getUUID(context)
       langtag <- getLangtag(context)
@@ -253,6 +262,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def mergeFile(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       fileUuid <- getUUID(context)
     } yield {
@@ -270,6 +280,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def deleteFile(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       fileUuid <- getUUID(context)
     } yield {
@@ -283,6 +294,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def deleteFileLang(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       fileUuid <- getUUID(context)
       langtag <- getLangtag(context)

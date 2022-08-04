@@ -38,6 +38,7 @@ case object Enrich extends LoggingMethod
   *   - filterDomainObjects: A filter method for `GET` requests, to only return viewable items. If a `GET` requests a
   *     specific resource, checkAuthorization should be called instead.
   *
+  * TODO
   *   - enrichDomainObject: A enrich method for selected `GET` requests, to extend response items with permissions
   *     objects.
   *
@@ -55,12 +56,12 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       scope: Scope,
       objects: ComparisonObjects = ComparisonObjects(),
       isInternalCall: Boolean = false
-  )(implicit rc: RoutingContext): Future[Unit] = {
+  )(implicit user: TableauxUser): Future[Unit] = {
 
     if (isInternalCall) {
       Future.successful(())
     } else {
-      val userRoles: Seq[String] = KeycloakAuthHandler.getRealmRoles(rc)
+      val userRoles: Seq[String] = user.roles
 
       // In case action == ViewCellValue we must not check langtag conditions,
       //  because we can not retrieve cell values for one language.
@@ -69,7 +70,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition), Check)) {
         Future.successful(())
       } else {
-        val userName = KeycloakAuthHandler.getUserName(rc)
+        val userName = user.name
         logger.info(s"User ${userName} is not allowed to do action '$action' in scope '$scope'")
         Future.failed(UnauthorizedException(action, scope, userRoles))
       }
@@ -87,12 +88,12 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       parentObjects: ComparisonObjects = ComparisonObjects(),
       isInternalCall: Boolean,
       action: Action = View
-  )(implicit rc: RoutingContext): Seq[A] = {
+  )(implicit user: TableauxUser): Seq[A] = {
 
     if (isInternalCall) {
       domainObjects
     } else {
-      val userRoles: Seq[String] = KeycloakAuthHandler.getRealmRoles(rc)
+      val userRoles: Seq[String] = user.roles
 
       domainObjects.filter({ obj: A =>
         // for each domainObject generate objects to compare with
@@ -116,9 +117,9 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       inputJson: JsonObject,
       scope: Scope,
       objects: ComparisonObjects = ComparisonObjects()
-  )(implicit rc: RoutingContext): JsonObject = {
+  )(implicit user: TableauxUser): JsonObject = {
 
-    val userRoles: Seq[String] = rc.get(KeycloakAuthHandler.USER_ROLES)
+    val userRoles = user.roles
 
     scope match {
       case ScopeMedia => enrichMedia(inputJson, userRoles)
@@ -415,13 +416,13 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
 
   override def checkAuthorization(action: Action, scope: Scope, objects: ComparisonObjects, isInternalCall: Boolean)(
-      implicit rc: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     Future.successful(())
   }
 
   override def enrichDomainObject(inputJson: JsonObject, scope: Scope, objects: ComparisonObjects)(
-      implicit rc: RoutingContext
+      implicit user: TableauxUser
   ): JsonObject = {
     inputJson
   }
@@ -432,7 +433,7 @@ class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
       parentObjects: ComparisonObjects,
       isInternalCall: Boolean,
       action: Action = View
-  )(implicit rc: RoutingContext): Seq[A] = {
+  )(implicit user: TableauxUser): Seq[A] = {
     domainObjects
   }
 }
