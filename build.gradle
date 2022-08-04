@@ -16,6 +16,8 @@ plugins {
   id 'org.ajoberstar.grgit' version '4.1.1'
 
   id 'com.diffplug.spotless' version '6.3.0'
+
+  id 'com.adarshr.test-logger' version '3.2.0'
 }
 
 project.group = 'com.campudus'
@@ -216,6 +218,26 @@ spotless {
   scala {
     scalafmt("3.4.0").configFile('.scalafmt.conf')
   }
+}
+
+testlogger {
+    theme 'mocha'
+    showExceptions true
+    showStackTraces true
+    showFullStackTraces false
+    showCauses true
+    slowThreshold 2000
+    showSummary true
+    showSimpleNames false
+    showPassed true
+    showSkipped true
+    showFailed true
+    showOnlySlow false
+    showStandardStreams false
+    showPassedStandardStreams true
+    showSkippedStandardStreams true
+    showFailedStandardStreams true
+    logLevel 'lifecycle'
 }
 
 /**

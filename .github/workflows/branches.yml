@@ -63,7 +63,7 @@ jobs:
       - name: Test
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: testClasses assemble reportScoverage --info
+          arguments: testClasses assemble reportScoverage
 
       - name: Archive test report
         if: always()
