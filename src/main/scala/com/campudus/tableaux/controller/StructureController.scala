@@ -48,7 +48,7 @@ class StructureController(
   val columnStruc: CachedColumnModel = repository.columnStruc
   val tableGroupStruc: TableGroupModel = repository.tableGroupStruc
 
-  def retrieveTable(tableId: TableId)(implicit routingContext: RoutingContext): Future[Table] = {
+  def retrieveTable(tableId: TableId)(implicit user: TableauxUser): Future[Table] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveTable $tableId")
 
@@ -57,7 +57,7 @@ class StructureController(
     } yield table
   }
 
-  def retrieveTables()(implicit routingContext: RoutingContext): Future[TableSeq] = {
+  def retrieveTables()(implicit user: TableauxUser): Future[TableSeq] = {
     logger.info(s"retrieveTables")
 
     for {
@@ -68,7 +68,7 @@ class StructureController(
   }
 
   def createColumns(tableId: TableId, columns: Seq[CreateColumn])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnSeq] = {
     checkArguments(greaterZero(tableId), nonEmpty(columns, "columns"))
     logger.info(s"createColumns $tableId columns $columns")
@@ -89,7 +89,7 @@ class StructureController(
   }
 
   def retrieveColumn(tableId: TableId, columnId: ColumnId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"))
     logger.info(s"retrieveColumn $tableId $columnId")
@@ -102,7 +102,7 @@ class StructureController(
   }
 
   def retrieveColumns(tableId: TableId, isInternalCall: Boolean = false)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnSeq] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveColumns $tableId")
@@ -117,7 +117,7 @@ class StructureController(
     }
   }
 
-  def retrieveStructure()(implicit routingContext: RoutingContext): Future[TablesStructure] = {
+  def retrieveStructure()(implicit user: TableauxUser): Future[TablesStructure] = {
     type ColumnSeq = Seq[ColumnType[_]]
     type IdColumnTuple = (TableId, ColumnSeq)
 
@@ -156,7 +156,7 @@ class StructureController(
       tableType: TableType,
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject]
-  )(implicit routingContext: RoutingContext): Future[Table] = {
+  )(implicit user: TableauxUser): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
     logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
 
@@ -185,7 +185,7 @@ class StructureController(
       displayInfos: Seq[DisplayInfo],
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject]
-  )(implicit routingContext: RoutingContext): Future[Table] = {
+  )(implicit user: TableauxUser): Future[Table] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId, attributes)
@@ -200,7 +200,7 @@ class StructureController(
       displayInfos: Seq[DisplayInfo],
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject]
-  )(implicit routingContext: RoutingContext): Future[Table] = {
+  )(implicit user: TableauxUser): Future[Table] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeTable)
       created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId, attributes)
@@ -268,7 +268,7 @@ class StructureController(
     } yield retrieved
   }
 
-  def deleteTable(tableId: TableId)(implicit routingContext: RoutingContext): Future[EmptyObject] = {
+  def deleteTable(tableId: TableId)(implicit user: TableauxUser): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"deleteTable $tableId")
 
@@ -299,7 +299,7 @@ class StructureController(
   }
 
   def deleteColumn(tableId: TableId, columnId: ColumnId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId))
     logger.info(s"deleteColumn $tableId $columnId")
@@ -326,7 +326,7 @@ class StructureController(
       displayInfos: Option[Seq[DisplayInfo]],
       tableGroupId: Option[Option[TableGroupId]],
       attributes: Option[JsonObject]
-  )(implicit routingContext: RoutingContext): Future[Table] = {
+  )(implicit user: TableauxUser): Future[Table] = {
     checkArguments(
       greaterZero(tableId),
       isDefined(
@@ -369,7 +369,7 @@ class StructureController(
   }
 
   def changeTableOrder(tableId: TableId, locationType: LocationType)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"changeTableOrder $tableId $locationType")
@@ -393,7 +393,7 @@ class StructureController(
       separator: Option[Boolean],
       attributes: Option[JsonObject],
       rules: Option[JsonArray]
-  )(implicit routingContext: RoutingContext): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
@@ -470,7 +470,7 @@ class StructureController(
     } yield changedColumn
   }
 
-  def createTableGroup(displayInfos: Seq[DisplayInfo])(implicit routingContext: RoutingContext): Future[TableGroup] = {
+  def createTableGroup(displayInfos: Seq[DisplayInfo])(implicit user: TableauxUser): Future[TableGroup] = {
     checkArguments(nonEmpty(displayInfos, "displayName or description"))
     logger.info(s"createTableGroup $displayInfos")
 
@@ -481,7 +481,7 @@ class StructureController(
   }
 
   def changeTableGroup(tableGroupId: TableGroupId, displayInfos: Option[Seq[DisplayInfo]])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[TableGroup] = {
     checkArguments(greaterZero(tableGroupId), isDefined(displayInfos, "displayName or description"))
     logger.info(s"changeTableGroup $tableGroupId $displayInfos")
@@ -493,7 +493,7 @@ class StructureController(
     } yield tableGroup
   }
 
-  def deleteTableGroup(tableGroupId: TableGroupId)(implicit routingContext: RoutingContext): Future[EmptyObject] = {
+  def deleteTableGroup(tableGroupId: TableGroupId)(implicit user: TableauxUser): Future[EmptyObject] = {
     checkArguments(greaterZero(tableGroupId))
     logger.info(s"deleteTableGroup $tableGroupId")
 

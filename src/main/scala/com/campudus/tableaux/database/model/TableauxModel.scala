@@ -52,29 +52,29 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   }
 
   def retrieveTable(tableId: TableId, isInternalCall: Boolean = false)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Table] = {
     structureModel.tableStruc.retrieve(tableId, isInternalCall)
   }
 
-  def retrieveTables(isInternalCall: Boolean = false)(implicit routingContext: RoutingContext): Future[Seq[Table]] = {
+  def retrieveTables(isInternalCall: Boolean = false)(implicit user: TableauxUser): Future[Seq[Table]] = {
     structureModel.tableStruc.retrieveAll(isInternalCall)
   }
 
   def createColumns(table: Table, columns: Seq[CreateColumn])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     structureModel.columnStruc.createColumns(table, columns)
   }
 
   def retrieveColumn(table: Table, columnId: ColumnId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
     structureModel.columnStruc.retrieve(table, columnId)
   }
 
   def retrieveColumns(table: Table, isInternalCall: Boolean = false)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     for {
       allColumns <- structureModel.columnStruc.retrieveAll(table)
@@ -114,7 +114,7 @@ class TableauxModel(
   val retrieveHistoryModel = RetrieveHistoryModel(connection)
   val createHistoryModel = CreateHistoryModel(this, connection)
 
-  def retrieveBacklink(column: LinkColumn)(implicit routingContext: RoutingContext): Future[Option[LinkColumn]] = {
+  def retrieveBacklink(column: LinkColumn)(implicit user: TableauxUser): Future[Option[LinkColumn]] = {
     val select =
       s"""
          |SELECT
@@ -154,7 +154,7 @@ class TableauxModel(
   }
 
   def retrieveDependentRows(table: Table, rowId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[DependentRowsSeq] = {
 
     for {
@@ -220,7 +220,7 @@ class TableauxModel(
     * @return
     */
   def retrieveDependentCells(table: Table, rowId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[(Table, LinkColumn, Seq[RowId])]] = {
     for {
       links <- retrieveDependentLinks(table)
@@ -247,12 +247,12 @@ class TableauxModel(
   }
 
   def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int] = None)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[EmptyObject] = {
     doDeleteRow(table, rowId, replacingRowIdOpt)
   }
 
-  def deleteRow(table: Table, rowId: RowId)(implicit routingContext: RoutingContext): Future[EmptyObject] = {
+  def deleteRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[EmptyObject] = {
     doDeleteRow(table, rowId, None)
   }
 
@@ -260,7 +260,7 @@ class TableauxModel(
       table: Table,
       rowId: RowId,
       replacingRowIdOpt: Option[Int] = None
-  )(implicit routingContext: RoutingContext): Future[EmptyObject] = {
+  )(implicit user: TableauxUser): Future[EmptyObject] = {
 
     val fnc = (t: Option[DbTransaction]) => {
 
@@ -337,7 +337,7 @@ class TableauxModel(
     }
   }
 
-  def createRow(table: Table)(implicit routingContext: RoutingContext): Future[Row] = {
+  def createRow(table: Table)(implicit user: TableauxUser): Future[Row] = {
     for {
       rowId <- createRowModel.createRow(table, Seq.empty)
       _ <- createHistoryModel.createRow(table, rowId)
@@ -346,7 +346,7 @@ class TableauxModel(
   }
 
   def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
       allColumns <- retrieveColumns(table)
@@ -396,7 +396,7 @@ class TableauxModel(
       langtags: Seq[String],
       annotationType: CellAnnotationType,
       value: String
-  )(implicit routingContext: RoutingContext): Future[CellLevelAnnotation] = {
+  )(implicit user: TableauxUser): Future[CellLevelAnnotation] = {
     for {
       (uuid, mergedLangtags, createdAt) <- updateRowModel.addOrMergeCellAnnotation(
         column,
@@ -410,7 +410,7 @@ class TableauxModel(
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     for {
       annotationOpt <- retrieveRowModel.retrieveAnnotation(column.table.id, rowId, column, uuid)
@@ -434,7 +434,7 @@ class TableauxModel(
   }
 
   def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Row] = {
     for {
       _ <- updateRowModel.updateRowAnnotations(table.id, rowId, finalFlag)
@@ -444,7 +444,7 @@ class TableauxModel(
   }
 
   def updateRowsAnnotations(table: Table, finalFlag: Option[Boolean])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     for {
       _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
@@ -479,7 +479,7 @@ class TableauxModel(
   }
 
   def deleteLink(table: Table, columnId: ColumnId, rowId: RowId, toId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
@@ -507,7 +507,7 @@ class TableauxModel(
       rowId: RowId,
       toId: RowId,
       locationType: LocationType
-  )(implicit routingContext: RoutingContext): Future[Cell[_]] = {
+  )(implicit user: TableauxUser): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
@@ -545,7 +545,7 @@ class TableauxModel(
       value: A,
       replace: Boolean = false,
       maybeTransaction: Option[DbTransaction] = None
-  )(implicit routingContext: RoutingContext): Future[Cell[_]] = {
+  )(implicit user: TableauxUser): Future[Cell[_]] = {
     for {
       _ <- checkForSettingsTable(table, columnId, "can't update key cell of a settings table")
 
@@ -586,17 +586,17 @@ class TableauxModel(
   }
 
   def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Cell[_]] =
     updateOrReplaceValue(table, columnId, rowId, value)
 
   def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Cell[_]] =
     updateOrReplaceValue(table, columnId, rowId, value, replace = true)
 
   def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Cell[_]] = {
     for {
       _ <- checkForSettingsTable(table, columnId, "can't clear key cell of a settings table")
@@ -629,7 +629,7 @@ class TableauxModel(
   }
 
   private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[_], keyName: Option[Any])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ) = {
     retrieveRows(table, Seq(keyColumn), Pagination(None, None))
       .map(_.rows.map(_.values.head))
@@ -651,7 +651,7 @@ class TableauxModel(
   }
 
   def invalidateCellAndDependentColumns(column: ColumnType[_], rowIds: Seq[RowId])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[Unit]] = {
     Future.sequence(
       rowIds.map(rowId =>
@@ -663,7 +663,7 @@ class TableauxModel(
   }
 
   def retrieveAllStatusColumnsForTable(table: Table)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[StatusColumn]] = {
     for {
       allColumns <- structureModel.columnStruc.retrieveAll(table)
@@ -671,7 +671,7 @@ class TableauxModel(
   }
 
   def maybeInvalidateStatusCells(column: ColumnType[_], rowId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     for {
       statusColumns <- retrieveAllStatusColumnsForTable(column.table)
@@ -684,7 +684,7 @@ class TableauxModel(
   }
 
   def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     def invalidateColumn: (TableId, ColumnId) => Future[_] = CacheClient(this.connection).invalidateColumn
 
@@ -747,7 +747,7 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       isInternalCall: Boolean = true
-  )(implicit routingContext: RoutingContext): Future[CellLevelAnnotations] = {
+  )(implicit user: TableauxUser): Future[CellLevelAnnotations] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column), isInternalCall)
@@ -760,7 +760,7 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       isInternalCall: Boolean = false
-  )(implicit routingContext: RoutingContext): Future[Cell[Any]] = {
+  )(implicit user: TableauxUser): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column), isInternalCall)
@@ -769,7 +769,7 @@ class TableauxModel(
   }
 
   private def retrieveCell(column: ColumnType[_], rowId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Cell[Any]] = {
 
     // In case of a ConcatColumn we need to retrieve the
@@ -822,7 +822,7 @@ class TableauxModel(
     } yield Cell(column, rowId, value)
   }
 
-  def retrieveRow(table: Table, rowId: RowId)(implicit routingContext: RoutingContext): Future[Row] = {
+  def retrieveRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
     for {
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
@@ -837,8 +837,9 @@ class TableauxModel(
     } yield row
   }
 
-  private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId)(implicit
-  routingContext: RoutingContext): Future[Row] = {
+  private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId)(
+      implicit user: TableauxUser
+  ): Future[Row] = {
     for {
       rawRow <- retrieveRowModel.retrieve(table.id, rowId, columns)
       rowSeq <- mapRawRows(table, columns, Seq(rawRow))
@@ -846,7 +847,7 @@ class TableauxModel(
   }
 
   def retrieveForeignRows(table: Table, columnId: ColumnId, rowId: RowId, pagination: Pagination)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
       linkColumn <- retrieveColumn(table, columnId).flatMap({
@@ -884,7 +885,7 @@ class TableauxModel(
     rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
   }
 
-  def retrieveRows(table: Table, pagination: Pagination)(implicit routingContext: RoutingContext): Future[RowSeq] = {
+  def retrieveRows(table: Table, pagination: Pagination)(implicit user: TableauxUser): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
@@ -900,7 +901,7 @@ class TableauxModel(
   }
 
   def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
       column <- retrieveColumn(table, columnId)
@@ -920,7 +921,7 @@ class TableauxModel(
   }
 
   private def retrieveRows(table: Table, columns: Seq[ColumnType[_]], pagination: Pagination)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
       totalSize <- retrieveRowModel.size(table.id)
@@ -929,7 +930,7 @@ class TableauxModel(
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }
 
-  def duplicateRow(table: Table, rowId: RowId)(implicit routingContext: RoutingContext): Future[Row] = {
+  def duplicateRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
     for {
       _ <- roleModel.checkAuthorization(CreateRow, ScopeTable, ComparisonObjects(table))
       columns <- retrieveColumns(table).map(_.filter({
@@ -965,7 +966,7 @@ class TableauxModel(
   }
 
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[RawRow])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[Row]] = {
 
     /**
@@ -1008,7 +1009,7 @@ class TableauxModel(
 
     def calcStatusValue(rules: JsonArray, columnsWithValues: Map[ColumnId, (ColumnType[_], Any)]): Seq[Boolean] = {
 
-      def calcValue(condition: JsonObject)(implicit routingContext: RoutingContext): Boolean = {
+      def calcValue(condition: JsonObject)(implicit user: TableauxUser): Boolean = {
 
         val compositionFunction = condition.getString("composition") match {
           case "OR" =>
@@ -1113,7 +1114,7 @@ class TableauxModel(
   }
 
   def retrieveColumnValues(table: Table, columnId: ColumnId, langtagOpt: Option[String])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[String]] = {
     for {
       shortTextColumn <- retrieveColumn(table, columnId).flatMap({
@@ -1136,7 +1137,7 @@ class TableauxModel(
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String]
-  )(implicit routingContext: RoutingContext): Future[Seq[History]] = {
+  )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
@@ -1150,7 +1151,7 @@ class TableauxModel(
       rowId: RowId,
       langtagOpt: Option[String],
       typeOpt: Option[String]
-  )(implicit routingContext: RoutingContext): Future[Seq[History]] = {
+  )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
       columns <- retrieveColumns(table)
       cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
@@ -1159,7 +1160,7 @@ class TableauxModel(
   }
 
   def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[History]] = {
     for {
       columns <- retrieveColumns(table)

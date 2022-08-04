@@ -15,6 +15,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 import io.vertx.scala.ext.web.RoutingContext
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
@@ -140,15 +141,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   val tableModel = new TableModel(connection)
   val attachmentModel = AttachmentModel(connection)
 
-  // TODO
-  private def getUserName: String = {
-    "Hans"
-    // Option(requestContext.getPrincipleString("preferred_username"))
-    //   .getOrElse(requestContext.getCookieValue("userName", "unknown"))
-  }
-
   private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[RowId]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
@@ -196,7 +190,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       rowId: RowId,
       links: Seq[(LinkColumn, Seq[RowId])],
       allowRecursion: Boolean
-  )(implicit routingContext: RoutingContext): Future[Seq[Any]] = {
+  )(implicit user: TableauxUser): Future[Seq[Any]] = {
 
     def createLinksRecursive(column: LinkColumn, changedLinkIds: Seq[RowId]): Future[Unit] = {
       for {
@@ -258,7 +252,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * @param rowIds
     */
   def updateLinks(table: Table, linkColumn: LinkColumn, rowIds: Seq[RowId])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[Unit]] = {
     Future.sequence(
       rowIds.map(rowId =>
@@ -277,7 +271,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   private def updateLinks(table: Table, linkColumn: LinkColumn, rowId: RowId, rowExists: Boolean)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     for {
       linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
@@ -293,7 +287,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   private def retrieveForeignIdentifierCells(column: LinkColumn, linkIds: Seq[RowId])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[Cell[Any]]] = {
     val linkedCellSeq = linkIds.map(linkId =>
       for {
@@ -307,7 +301,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       table: Table,
       rowId: RowId,
       values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
-  ): Future[Seq[RowId]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowId]] = {
 
     def wrapLanguageValue(langtag: String, value: Any): JsonObject = Json.obj("value" -> Json.obj(langtag -> value))
 
@@ -345,7 +339,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       table: Table,
       rowId: RowId,
       simples: Seq[(SimpleValueColumn[_], Option[Any])]
-  ): Future[Seq[RowId]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowId]] = {
 
     def wrapValue(value: Any): JsonObject = Json.obj("value" -> value)
 
@@ -362,7 +356,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       table: Table,
       rowId: RowId,
       columns: Seq[AttachmentColumn]
-  ): Future[_] = {
+  )(implicit user: TableauxUser): Future[_] = {
 
     def wrapValue(attachments: Seq[AttachmentFile]): JsonObject = {
       Json.obj("value" -> attachments.map(_.getJson))
@@ -387,7 +381,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       valueTypeOpt: Option[String],
       languageTypeOpt: Option[String],
       jsonStringOpt: Option[String]
-  ): Future[RowId] = {
+  )(implicit user: TableauxUser): Future[RowId] = {
     for {
       result <- connection.query(
         s"""INSERT INTO
@@ -404,7 +398,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
           valueTypeOpt.orNull,
           languageTypeOpt.orNull,
           jsonStringOpt.orNull,
-          getUserName
+          user.name
         )
       )
     } yield {
@@ -419,8 +413,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       columnType: TableauxDbType,
       languageType: LanguageType,
       json: JsonObject
-  ): Future[RowId] = {
-    logger.info(s"createCellHistory ${table.id} $columnId $rowId $json $getUserName")
+  )(implicit user: TableauxUser): Future[RowId] = {
+    logger.info(s"createCellHistory ${table.id} $columnId $rowId $json ${user.name}")
     insertHistory(
       table.id,
       rowId,
@@ -436,8 +430,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   private def insertRowHistory(
       table: Table,
       rowId: RowId
-  ): Future[RowId] = {
-    logger.info(s"createRowHistory ${table.id} $rowId $getUserName")
+  )(implicit user: TableauxUser): Future[RowId] = {
+    logger.info(s"createRowHistory ${table.id} $rowId ${user.name}")
     insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None)
   }
 
@@ -445,8 +439,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       tableId: TableId,
       rowId: RowId,
       value: String
-  ): Future[RowId] = {
-    logger.info(s"createAddRowAnnotationHistory $tableId $rowId $getUserName")
+  )(implicit user: TableauxUser): Future[RowId] = {
+    logger.info(s"createAddRowAnnotationHistory $tableId $rowId ${user.name}")
     addOrRemoveAnnotationHistory(tableId, rowId, AnnotationAddedEvent, value)
   }
 
@@ -454,8 +448,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       tableId: TableId,
       rowId: RowId,
       value: String
-  ): Future[RowId] = {
-    logger.info(s"createRemoveRowAnnotationHistory $tableId $rowId $getUserName")
+  )(implicit user: TableauxUser): Future[RowId] = {
+    logger.info(s"createRemoveRowAnnotationHistory $tableId $rowId ${user.name}")
     addOrRemoveAnnotationHistory(tableId, rowId, AnnotationRemovedEvent, value)
   }
 
@@ -464,7 +458,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       rowId: RowId,
       eventType: HistoryEventType,
       value: String
-  ): Future[RowId] = {
+  )(implicit user: TableauxUser): Future[RowId] = {
     val json = Json.obj("value" -> value)
     insertHistory(
       tableId,
@@ -485,7 +479,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * history table.
     */
   def createCellsInit(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     val columns = values.map({ case (col: ColumnType[_], _) => col })
     val (simples, _, links, attachments) = ColumnType.splitIntoTypes(columns)
@@ -517,7 +511,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * history table.
     */
   def createClearCellInit(table: Table, rowId: RowId, columns: Seq[ColumnType[_]])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
@@ -535,7 +529,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     } yield ()
   }
 
-  def createAttachmentsInit(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[Seq[Unit]] = {
+  def createAttachmentsInit(table: Table, rowId: RowId, columns: Seq[AttachmentColumn])(
+      implicit user: TableauxUser
+  ): Future[Seq[Unit]] = {
     Future.sequence(columns.map({ column =>
       for {
         historyEntryExists <- historyExists(table.id, column.id, rowId, None)
@@ -557,7 +553,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def createLinksInit(table: Table, rowId: RowId, links: Seq[LinkColumn])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[Unit]] = {
 
     def createIfNotEmpty(linkColumn: LinkColumn): Future[Unit] = {
@@ -581,7 +577,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   private def createSimpleInit(table: Table, rowId: RowId, simples: Seq[SimpleValueColumn[_]])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[Unit]] = {
 
     def createIfNotEmpty(column: SimpleValueColumn[_]): Future[Unit] = {
@@ -606,7 +602,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       table: Table,
       rowId: RowId,
       langtagColumns: Seq[(Seq[String], SimpleValueColumn[_])]
-  )(implicit routingContext: RoutingContext): Future[Seq[Unit]] = {
+  )(implicit user: TableauxUser): Future[Seq[Unit]] = {
 
     val entries = for {
       (langtags, column) <- langtagColumns
@@ -664,7 +660,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       column: ColumnType[_],
       rowId: RowId,
       langtagCountryOpt: Option[String] = None
-  )(implicit routingContext: RoutingContext): Future[Option[Any]] = {
+  )(implicit user: TableauxUser): Future[Option[Any]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
     } yield {
@@ -696,7 +692,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     *   Seq of columns an the new linked foreign row IDs
     */
   def clearBackLinksWhichWillBeDeleted(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[_] = {
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -732,12 +728,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       uuid: UUID,
       annotation: CellLevelAnnotation,
       langtagOpt: Option[String] = None
-  ): Future[Seq[RowId]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowId]] = {
     val languageType = if (annotation.langtags.isEmpty) LanguageNeutral else MultiLanguage
     val annotationsToBeRemoved = langtagOpt.map(Seq(_)).getOrElse(annotation.langtags)
 
     logger.info(
-      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} $getUserName"
+      s"createRemoveAnnotationHistory ${column.table.id} $rowId ${annotation.annotationType} ${annotation.value} ${user.name}"
     )
 
     insertAnnotationHistory(
@@ -750,7 +746,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       annotation.annotationType,
       annotation.value,
       languageType,
-      getUserName
+      user.name
     )
   }
 
@@ -761,10 +757,10 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       langtags: Seq[String],
       annotationType: CellAnnotationType,
       value: String
-  ): Future[Seq[RowId]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowId]] = {
     val languageType = if (langtags.isEmpty) LanguageNeutral else MultiLanguage
 
-    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value $getUserName")
+    logger.info(s"createAddAnnotationHistory ${column.table.id} $rowId $langtags $value ${user.name}")
 
     insertAnnotationHistory(
       column.table,
@@ -776,7 +772,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       annotationType,
       value,
       languageType,
-      getUserName
+      user.name
     )
   }
 
@@ -791,7 +787,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       value: String,
       languageType: LanguageType,
       userName: String
-  ): Future[Seq[RowId]] = {
+  )(implicit user: TableauxUser): Future[Seq[RowId]] = {
     val futureSequence: Seq[Future[RowId]] = (annotationType, languageType) match {
       // All comment annotation types are of languageType LanguageNeutral
       case (InfoAnnotationType | WarningAnnotationType | ErrorAnnotationType, _) =>
@@ -842,7 +838,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
@@ -861,7 +857,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     } yield ()
   }
 
-  private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
+  private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn])(
+      implicit user: TableauxUser
+  ): Future[_] = {
     val futureSequence = columns.map(column =>
       insertCellHistory(table, rowId, column.id, column.kind, column.languageType, Json.obj("value" -> Json.emptyArr()))
     )
@@ -870,7 +868,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     val columns = values.map({ case (col: ColumnType[_], _) => col })
     val (_, _, _, attachments) = ColumnType.splitIntoTypes(columns)
@@ -889,11 +887,13 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }
   }
 
-  def createRow(table: Table, rowId: RowId): Future[RowId] = {
+  def createRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[RowId] = {
     insertRowHistory(table, rowId)
   }
 
-  def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], finalFlagOpt: Option[Boolean]): Future[Unit] = {
+  def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], finalFlagOpt: Option[Boolean])(
+      implicit user: TableauxUser
+  ): Future[Unit] = {
     for {
       _ <- finalFlagOpt match {
         case None => Future.successful(())
@@ -907,7 +907,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def createClearLink(table: Table, rowId: RowId, columns: Seq[LinkColumn])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     for {
       _ <- createLinks(table, rowId, columns.map(column => (column, Seq.empty[RowId])), allowRecursion = false)
@@ -931,7 +931,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     * @param foreignIds
     */
   def createClearBackLinks(table: Table, foreignIds: Seq[RowId])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     for {
       dependentColumns <- tableauxModel.retrieveDependencies(table)
@@ -958,7 +958,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def deleteLink(table: Table, linkColumn: LinkColumn, rowId: RowId, toId: RowId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[_] = {
     if (linkColumn.linkDirection.constraint.deleteCascade) {
       createLinks(table, rowId, Seq((linkColumn, Seq(toId))), allowRecursion = false)

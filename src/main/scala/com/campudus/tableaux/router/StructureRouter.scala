@@ -9,6 +9,7 @@ import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
 import scala.util.{Try, Success, Failure}
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 object StructureRouter {
 
@@ -75,7 +76,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def retrieveStructure(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     sendReply(
       context,
       asyncGetReply {
@@ -85,7 +86,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def retrieveTables(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     sendReply(
       context,
       asyncGetReply {
@@ -95,7 +96,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def retrieveTable(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -109,7 +110,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def retrieveColumns(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -123,7 +124,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def retrieveColumn(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -138,7 +139,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def createTable(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     sendReply(
       context,
       asyncGetReply {
@@ -174,7 +175,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def createColumn(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -189,7 +190,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def updateTable(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -235,7 +236,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def updateTableOrdering(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -250,7 +251,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def updateColumn(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -291,7 +292,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def createGroup(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     sendReply(
       context,
       asyncGetReply {
@@ -308,7 +309,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def updateGroup(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       groupId <- getGroupId(context)
     } yield {
@@ -328,7 +329,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def deleteGroup(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       groupId <- getGroupId(context)
     } yield {
@@ -342,7 +343,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def deleteTable(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -356,7 +357,7 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
   }
 
   private def deleteColumn(context: RoutingContext): Unit = {
-    implicit val rc = implicitly(context)
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)

@@ -38,7 +38,7 @@ class FileModelTest extends TableauxTestBase {
 
   private def createMediaController(): MediaController = {
     val roleModel = RoleModel(tableauxConfig.rolePermissions)
-    setRequestRoles("dev")
+    setRequestRoles(Seq("dev"))
     MediaController(tableauxConfig, createFolderModel(), createFileModel(), createAttachmentModel(), roleModel)
   }
 
