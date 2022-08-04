@@ -950,7 +950,9 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
-  private def prependConcatColumnIfNecessary(table: Table, columns: Seq[ColumnType[_]]): Seq[ColumnType[_]] = {
+  private def prependConcatColumnIfNecessary(table: Table, columns: Seq[ColumnType[_]])(
+      implicit user: TableauxUser
+  ): Seq[ColumnType[_]] = {
     val identifierColumns = columns.filter(_.identifier)
 
     identifierColumns.size match {

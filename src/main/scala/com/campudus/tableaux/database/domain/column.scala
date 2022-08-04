@@ -6,7 +6,13 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.{LanguageNeutral, _}
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, ScopeColumn, ScopeColumnSeq}
+import com.campudus.tableaux.router.auth.permission.{
+  ComparisonObjects,
+  RoleModel,
+  ScopeColumn,
+  ScopeColumnSeq,
+  TableauxUser
+}
 import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException, OkArg}
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.{DateTime, LocalDate}
@@ -234,6 +240,9 @@ sealed trait ColumnType[+A] extends DomainObject {
   val separator: Boolean = columnInformation.separator
   val attributes: JsonObject = columnInformation.attributes
 
+  protected[this] implicit def roleModel: RoleModel
+  protected[this] implicit def user: TableauxUser
+
   override def getJson: JsonObject = {
 
     // backward compatibility
@@ -286,7 +295,7 @@ sealed trait ColumnType[+A] extends DomainObject {
       })
     })
 
-    json
+    roleModel.enrichDomainObject(json, ScopeColumn, ComparisonObjects(this.table, this))
   }
 
   def checkValidValue[B](value: B): Try[Option[A]]
@@ -345,7 +354,7 @@ object SimpleValueColumn {
       kind: TableauxDbType,
       languageType: LanguageType,
       columnInformation: ColumnInformation
-  ): SimpleValueColumn[_] = {
+  )(implicit roleModel: RoleModel = RoleModel(), user: TableauxUser): SimpleValueColumn[_] = {
     val applyFn: LanguageType => ColumnInformation => SimpleValueColumn[_] = kind match {
       case TextType => TextColumn.apply
       case RichTextType => RichTextColumn.apply
@@ -367,8 +376,10 @@ object SimpleValueColumn {
 /**
   * Base class for all primitive column types
   */
-sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(override val languageType: LanguageType)
-    extends ColumnType[A] {
+sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(override val languageType: LanguageType)(
+    implicit val roleModel: RoleModel,
+    user: TableauxUser
+) extends ColumnType[A] {
 
   override def checkValidValue[B](value: B): Try[Option[A]] = {
     Option(value) match {
@@ -380,58 +391,76 @@ sealed abstract class SimpleValueColumn[+A](override val kind: TableauxDbType)(o
   protected[this] def checkValidSingleValue[B](value: B): Try[A]
 }
 
-case class TextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[String](TextType)(languageType) {
+case class TextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[String](TextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
-case class ShortTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[String](ShortTextType)(languageType) {
+case class ShortTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[String](ShortTextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
-case class RichTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[String](RichTextType)(languageType) {
+case class RichTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[String](RichTextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 }
 
-case class NumberColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[Number](NumericType)(languageType) {
+case class NumberColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[Number](NumericType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
-case class IntegerColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[Number](IntegerType)(languageType) {
+case class IntegerColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[Number](IntegerType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Integer])
 }
 
-case class CurrencyColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[Number](CurrencyType)(languageType) {
+case class CurrencyColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[Number](CurrencyType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
-case class BooleanColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
+case class BooleanColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[Boolean](BooleanType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[Boolean] = Try(value.asInstanceOf[Boolean])
 }
 
-case class DateColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[String](DateType)(languageType) {
+case class DateColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[String](DateType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = {
     Try(LocalDate.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
   }
 }
 
-case class DateTimeColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)
-    extends SimpleValueColumn[String](DateTimeType)(languageType) {
+case class DateTimeColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[String](DateTimeType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = {
     Try(DateTime.parse(value.asInstanceOf[String])).flatMap(_ => Try(value.asInstanceOf[String]))
@@ -446,7 +475,7 @@ case class LinkColumn(
     to: ColumnType[_],
     linkId: LinkId,
     linkDirection: LinkDirection
-) extends ColumnType[Seq[RowId]]
+)(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ColumnType[Seq[RowId]]
     with LazyLogging {
   override val kind: LinkType.type = LinkType
   override val languageType: LanguageType = to.languageType
@@ -533,7 +562,7 @@ case class StatusColumn(
     override val columnInformation: ColumnInformation,
     rules: JsonArray,
     override val columns: Seq[ColumnType[_]]
-) extends ConcatenateColumn
+)(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ConcatenateColumn
     with LazyLogging {
 
   override val languageType: LanguageNeutral.type = LanguageNeutral
@@ -553,8 +582,10 @@ object StatusColumn {
   val validColumnTypes: Seq[TableauxDbType] = Seq(BooleanType, RichTextType, ShortTextType, TextType, NumericType)
 }
 
-case class AttachmentColumn(override val columnInformation: ColumnInformation)
-    extends ColumnType[Seq[(UUID, Option[Ordering])]] {
+case class AttachmentColumn(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends ColumnType[Seq[(UUID, Option[Ordering])]] {
   override val kind: AttachmentType.type = AttachmentType
   override val languageType: LanguageNeutral.type = LanguageNeutral
 
@@ -624,7 +655,7 @@ sealed trait ConcatenateColumn extends ColumnType[JsonArray] {
 case class ConcatColumn(
     override val columnInformation: ConcatColumnInformation,
     override val columns: Seq[ColumnType[_]]
-) extends ConcatenateColumn {
+)(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ConcatenateColumn {
   override val kind: ConcatType.type = ConcatType
 
   override def getJson: JsonObject =
@@ -636,7 +667,7 @@ case class GroupColumn(
     override val columnInformation: ColumnInformation,
     override val columns: Seq[ColumnType[_]],
     formatPattern: Option[String]
-) extends ConcatenateColumn {
+)(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ConcatenateColumn {
   override val kind: GroupType.type = GroupType
 
   override def getJson: JsonObject = {
@@ -660,7 +691,11 @@ case class GroupColumn(
   * @param columns
   *   The sequence of columns.
   */
-case class ColumnSeq(columns: Seq[ColumnType[_]]) extends DomainObject {
+case class ColumnSeq(columns: Seq[ColumnType[_]])(implicit roleModel: RoleModel, val user: TableauxUser)
+    extends DomainObject {
 
-  override def getJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
+  override def getJson: JsonObject = {
+    val columnSeqJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
+    roleModel.enrichDomainObject(columnSeqJson, ScopeColumnSeq)
+  }
 }

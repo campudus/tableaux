@@ -6,6 +6,8 @@ import io.vertx.core.json.JsonObject
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 import io.vertx.scala.ext.web.RoutingContext
+import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 case class Folder(
     id: FolderId,
@@ -34,7 +36,7 @@ case class ExtendedFolder(
     folder: Folder,
     subfolders: Seq[Folder],
     files: Seq[ExtendedFile]
-) extends DomainObject {
+)(implicit roleModel: RoleModel, user: TableauxUser) extends DomainObject {
 
   override def getJson: JsonObject = {
     val folderJson = folder.getJson
@@ -47,6 +49,6 @@ case class ExtendedFolder(
         )
       )
 
-    extendedFolderJson
+    roleModel.enrichDomainObject(extendedFolderJson, ScopeMedia)
   }
 }

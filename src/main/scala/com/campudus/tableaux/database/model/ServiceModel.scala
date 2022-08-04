@@ -100,7 +100,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
        |ORDER BY ordering""".stripMargin
   }
 
-  def retrieve(id: ServiceId): Future[Service] = {
+  def retrieve(id: ServiceId)(implicit user: TableauxUser): Future[Service] = {
     for {
       result <- connection.query(selectStatement(Some("id = ?")), Json.arr(id.toString))
       resultArr <- Future(selectNotNull(result))
@@ -164,7 +164,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
 
   }
 
-  def retrieveAll(): Future[Seq[Service]] = {
+  def retrieveAll()(implicit user: TableauxUser): Future[Seq[Service]] = {
     for {
       result <- connection.query(selectStatement(None))
       resultArr <- Future(resultObjectToJsonArray(result))
@@ -173,7 +173,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
-  private def convertJsonArrayToService(arr: JsonArray): Service = {
+  private def convertJsonArrayToService(arr: JsonArray)(implicit user: TableauxUser): Service = {
     val config = JsonUtils.parseJson(arr.get[String](7))
     val scope = JsonUtils.parseJson(arr.get[String](8))
 

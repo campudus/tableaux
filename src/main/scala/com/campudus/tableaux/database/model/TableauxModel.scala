@@ -47,7 +47,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
   protected[this] implicit def roleModel: RoleModel
 
-  def createTable(name: String, hidden: Boolean): Future[Table] = {
+  def createTable(name: String, hidden: Boolean)(implicit user: TableauxUser): Future[Table] = {
     structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None, None)
   }
 
@@ -422,7 +422,9 @@ class TableauxModel(
     } yield ()
   }
 
-  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String): Future[Unit] = {
+  def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String)(
+      implicit user: TableauxUser
+  ): Future[Unit] = {
     for {
       annotationOpt <- retrieveRowModel.retrieveAnnotation(column.table.id, rowId, column, uuid)
       _ <- annotationOpt match {
@@ -453,13 +455,15 @@ class TableauxModel(
     } yield ()
   }
 
-  def retrieveTableWithCellAnnotations(table: Table): Future[TableWithCellAnnotations] = {
+  def retrieveTableWithCellAnnotations(table: Table)(implicit user: TableauxUser): Future[TableWithCellAnnotations] = {
     retrieveTablesWithCellAnnotations(Seq(table)).map({ annotations =>
       annotations.headOption.getOrElse(TableWithCellAnnotations(table, Map.empty))
     })
   }
 
-  def retrieveTablesWithCellAnnotations(tables: Seq[Table]): Future[Seq[TableWithCellAnnotations]] = {
+  def retrieveTablesWithCellAnnotations(tables: Seq[Table])(
+      implicit user: TableauxUser
+  ): Future[Seq[TableWithCellAnnotations]] = {
     retrieveRowModel.retrieveTablesWithCellAnnotations(tables)
   }
 
