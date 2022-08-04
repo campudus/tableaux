@@ -47,7 +47,7 @@ class MediaController(
   lazy val uploadsDirectory: Path = config.uploadsDirectoryPath()
 
   def retrieveFolder(id: FolderId, sortByLangtag: String)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ExtendedFolder] = {
     for {
       folder <- repository.retrieve(id)
@@ -55,12 +55,12 @@ class MediaController(
     } yield extended
   }
 
-  def retrieveRootFolder(sortByLangtag: String)(implicit routingContext: RoutingContext): Future[ExtendedFolder] = {
+  def retrieveRootFolder(sortByLangtag: String)(implicit user: TableauxUser): Future[ExtendedFolder] = {
     retrieveExtendedFolder(ROOT_FOLDER, sortByLangtag)
   }
 
   private def retrieveExtendedFolder(folder: Folder, sortByLangtag: String)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ExtendedFolder] = {
     for {
       subfolders <- repository.retrieveSubfolders(folder)
@@ -69,7 +69,7 @@ class MediaController(
   }
 
   def addNewFolder(name: String, description: String, parent: Option[FolderId])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Folder] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeMedia)
@@ -78,7 +78,7 @@ class MediaController(
   }
 
   def changeFolder(id: FolderId, name: String, description: String, parent: Option[FolderId])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Folder] = {
     for {
       _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
@@ -86,7 +86,7 @@ class MediaController(
     } yield folder
   }
 
-  def deleteFolder(id: FolderId)(implicit routingContext: RoutingContext): Future[Folder] = {
+  def deleteFolder(id: FolderId)(implicit user: TableauxUser): Future[Folder] = {
     for {
       _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
       folder <- repository.retrieve(id)
@@ -109,7 +109,7 @@ class MediaController(
       description: MultiLanguageValue[String],
       externalName: MultiLanguageValue[String],
       folder: Option[FolderId]
-  )(implicit routingContext: RoutingContext): Future[TemporaryFile] = {
+  )(implicit user: TableauxUser): Future[TemporaryFile] = {
     for {
       _ <- roleModel.checkAuthorization(Create, ScopeMedia)
       file <- fileModel.add(title, description, externalName, folder).map(TemporaryFile)
@@ -117,7 +117,7 @@ class MediaController(
   }
 
   def replaceFile(uuid: UUID, langtag: String, upload: UploadAction)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ExtendedFile] = {
     futurify { p: Promise[ExtendedFile] =>
       {
@@ -209,7 +209,7 @@ class MediaController(
       internalName: MultiLanguageValue[String],
       mimeType: MultiLanguageValue[String],
       folder: Option[FolderId]
-  )(implicit routingContext: RoutingContext): Future[ExtendedFile] = {
+  )(implicit user: TableauxUser): Future[ExtendedFile] = {
 
     def checkInternalName(internalName: String): Future[Unit] = {
       vertx
@@ -276,7 +276,7 @@ class MediaController(
     }
   }
 
-  def deleteFile(uuid: UUID)(implicit routingContext: RoutingContext): Future[TableauxFile] = {
+  def deleteFile(uuid: UUID)(implicit user: TableauxUser): Future[TableauxFile] = {
     for {
       _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
 
@@ -304,7 +304,7 @@ class MediaController(
     }
   }
 
-  def deleteFile(uuid: UUID, langtag: String)(implicit routingContext: RoutingContext): Future[TableauxFile] = {
+  def deleteFile(uuid: UUID, langtag: String)(implicit user: TableauxUser): Future[TableauxFile] = {
     for {
       _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
 
@@ -358,7 +358,7 @@ class MediaController(
   }
 
   def mergeFile(uuid: UUID, langtag: String, mergeWith: UUID)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ExtendedFile] = {
     for {
       _ <- roleModel.checkAuthorization(Edit, ScopeMedia)

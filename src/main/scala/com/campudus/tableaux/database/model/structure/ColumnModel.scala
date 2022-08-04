@@ -32,6 +32,7 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
 import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
 import io.vertx.scala.ext.web.RoutingContext
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 object CachedColumnModel {
 
@@ -123,21 +124,21 @@ class CachedColumnModel(
   }
 
   override def retrieve(table: Table, columnId: ColumnId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
     cachingF[Future, Object]("retrieve", table.id, columnId)(None)(
       super.retrieve(table, columnId)
     ).asInstanceOf[Future[ColumnType[_]]]
   }
 
-  override def retrieveAll(table: Table)(implicit routingContext: RoutingContext): Future[Seq[ColumnType[_]]] = {
+  override def retrieveAll(table: Table)(implicit user: TableauxUser): Future[Seq[ColumnType[_]]] = {
     cachingF[Future, Object]("retrieveAll", table.id)(None)(
       super.retrieveAll(table)
     ).asInstanceOf[Future[Seq[ColumnType[_]]]]
   }
 
   override def createColumns(table: Table, createColumns: Seq[CreateColumn])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     for {
       r <- super.createColumns(table, createColumns)
@@ -146,7 +147,7 @@ class CachedColumnModel(
   }
 
   override def createColumn(table: Table, createColumn: CreateColumn)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
     for {
       r <- super.createColumn(table, createColumn)
@@ -159,7 +160,7 @@ class CachedColumnModel(
       columnId: ColumnId,
       bothDirections: Boolean,
       checkForLastColumn: Boolean = true
-  )(implicit routingContext: RoutingContext): Future[Unit] = {
+  )(implicit user: TableauxUser): Future[Unit] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super.delete(table, columnId, bothDirections, checkForLastColumn)
@@ -179,7 +180,7 @@ class CachedColumnModel(
       separator: Option[Boolean],
       attributes: Option[JsonObject],
       rules: Option[JsonArray]
-  )(implicit routingContext: RoutingContext): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
       r <- super
@@ -200,7 +201,7 @@ class CachedColumnModel(
   }
 
   override def retrieveAndValidateDependentStatusColumns(rules: JsonArray, table: Table)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     super.retrieveAndValidateDependentStatusColumns(rules, table)
   }
@@ -248,7 +249,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   private val MAX_DEPTH = 5
 
   def createColumns(table: Table, createColumns: Seq[CreateColumn])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
       case (future, next) =>
@@ -262,7 +263,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   def createColumn(table: Table, createColumn: CreateColumn)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
 
     val attributes = createColumn.attributes
@@ -349,7 +350,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def createStatusColumn(
       table: Table,
       statusColumnInfo: CreateStatusColumn
-  )(implicit routingContext: RoutingContext): Future[(Seq[ColumnType[_]], CreatedColumnInformation)] = {
+  )(implicit user: TableauxUser): Future[(Seq[ColumnType[_]], CreatedColumnInformation)] = {
     connection.transactional { t =>
       for {
         dependentColumns <- retrieveAndValidateDependentStatusColumns(statusColumnInfo.rules, table)
@@ -363,7 +364,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def createGroupColumn(
       table: Table,
       groupColumnInfo: CreateGroupColumn
-  )(implicit routingContext: RoutingContext): Future[CreatedColumnInformation] = {
+  )(implicit user: TableauxUser): Future[CreatedColumnInformation] = {
     val tableId = table.id
 
     connection.transactional { t =>
@@ -444,7 +445,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def createLinkColumn(
       table: Table,
       linkColumnInfo: CreateLinkColumn
-  )(implicit routingContext: RoutingContext): Future[(LinkId, ColumnType[_], CreatedColumnInformation)] = {
+  )(implicit user: TableauxUser): Future[(LinkId, ColumnType[_], CreatedColumnInformation)] = {
     val tableId = table.id
 
     connection.transactional { t =>
@@ -790,7 +791,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
-  def retrieve(table: Table, columnId: ColumnId)(implicit routingContext: RoutingContext): Future[ColumnType[_]] = {
+  def retrieve(table: Table, columnId: ColumnId)(implicit user: TableauxUser): Future[ColumnType[_]] = {
     columnId match {
       case 0 =>
         // Column zero could only be a concat column.
@@ -813,7 +814,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
     val select =
       s"""
@@ -855,11 +856,11 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield mappedColumn
   }
 
-  def retrieveAll(table: Table)(implicit routingContext: RoutingContext): Future[Seq[ColumnType[_]]] =
+  def retrieveAll(table: Table)(implicit user: TableauxUser): Future[Seq[ColumnType[_]]] =
     retrieveColumns(table, MAX_DEPTH, identifiersOnly = false)
 
   private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
@@ -932,7 +933,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def retrieveIdentifiers(table: Table, depth: Int)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     for {
       // we need to retrieve identifiers only...
@@ -974,7 +975,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       columnInformation: ColumnInformation,
       formatPattern: Option[String],
       rules: JsonArray
-  )(implicit routingContext: RoutingContext): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     kind match {
       case AttachmentType =>
         Future(AttachmentColumn(columnInformation))
@@ -995,7 +996,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def mapStatusColumn(columnInformation: ColumnInformation, rules: JsonArray)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[StatusColumn] = {
     for {
       columns <- retrieveAndValidateDependentStatusColumns(rules, columnInformation.table)
@@ -1004,7 +1005,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   def retrieveAndValidateDependentStatusColumns(rules: JsonArray, table: Table)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
 
     var valueTypeMap: Map[ColumnId, Seq[_]] = Map()
@@ -1069,7 +1070,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def mapLinkColumn(depth: Int, columnInformation: ColumnInformation)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[LinkColumn] = {
     for {
       (linkId, linkDirection, toTable) <- retrieveLinkInformation(columnInformation.table, columnInformation.id)
@@ -1097,7 +1098,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def mapRowResultToColumnType(table: Table, row: JsonArray, depth: Int)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
     val columnId = row.get[ColumnId](0)
     val columnName = row.get[String](1)
@@ -1167,7 +1168,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   private def retrieveLinkInformation(fromTable: Table, columnId: ColumnId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[(LinkId, LinkDirection, Table)] = {
     for {
       result <- connection.query(
@@ -1217,12 +1218,12 @@ class ColumnModel(val connection: DatabaseConnection)(
   }
 
   def deleteLinkBothDirections(table: Table, columnId: ColumnId)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Unit] = {
     delete(table, columnId, bothDirections = true, checkForLastColumn = false)
   }
 
-  def delete(table: Table, columnId: ColumnId)(implicit routingContext: RoutingContext): Future[Unit] =
+  def delete(table: Table, columnId: ColumnId)(implicit user: TableauxUser): Future[Unit] =
     delete(table, columnId, bothDirections = false, checkForLastColumn = true)
 
   protected def delete(
@@ -1230,7 +1231,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       columnId: ColumnId,
       bothDirections: Boolean,
       checkForLastColumn: Boolean = true
-  )(implicit routingContext: RoutingContext): Future[Unit] = {
+  )(implicit user: TableauxUser): Future[Unit] = {
 
     // Retrieve all filter for columnId and check if columns is not empty
     // If columns is empty last column would be deleted => error
@@ -1422,7 +1423,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       separator: Option[Boolean],
       attributes: Option[JsonObject],
       rules: Option[JsonArray]
-  )(implicit routingContext: RoutingContext): Future[ColumnType[_]] = {
+  )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 
     for {

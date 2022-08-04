@@ -12,6 +12,7 @@ import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 import io.vertx.scala.ext.web.RoutingContext
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 object ServiceModel {
   type ServiceId = Long
@@ -39,7 +40,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
       active: Option[Boolean],
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  )(implicit routingContext: RoutingContext): Future[Unit] = {
+  )(implicit user: TableauxUser): Future[Unit] = {
 
     val updateParamOpts = Map(
       "name" -> name,
@@ -126,7 +127,7 @@ class ServiceModel(override protected[this] val connection: DatabaseConnection)(
       active: Boolean,
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  )(implicit routingContext: RoutingContext): Future[ServiceId] = {
+  )(implicit user: TableauxUser): Future[ServiceId] = {
 
     val insert = s"""INSERT INTO $table (
                     |  name,

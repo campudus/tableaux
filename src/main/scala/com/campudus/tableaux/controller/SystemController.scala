@@ -84,7 +84,7 @@ class SystemController(
     }
   }
 
-  def updateDB()(implicit routingContext: RoutingContext): Future[DomainObject] = {
+  def updateDB()(implicit user: TableauxUser): Future[DomainObject] = {
     logger.info("Update system structure")
 
     for {
@@ -94,7 +94,7 @@ class SystemController(
     } yield PlainDomainObject(Json.obj("updated" -> true).mergeIn(version.getJson))
   }
 
-  def resetDB()(implicit routingContext: RoutingContext): Future[DomainObject] = {
+  def resetDB()(implicit user: TableauxUser): Future[DomainObject] = {
     logger.info("Reset system structure")
 
     for {
@@ -106,7 +106,7 @@ class SystemController(
     } yield EmptyObject()
   }
 
-  def createDemoTables()(implicit routingContext: RoutingContext): Future[DomainObject] = {
+  def createDemoTables()(implicit user: TableauxUser): Future[DomainObject] = {
     logger.info("Create demo tables")
 
     def generateToJson(to: Int): JsonObject = {
@@ -162,7 +162,7 @@ class SystemController(
     } yield TableSeq(Seq(bl, rb))
   }
 
-  private def writeDemoData(json: JsonObject)(implicit routingContext: RoutingContext): Future[Table] = {
+  private def writeDemoData(json: JsonObject)(implicit user: TableauxUser): Future[Table] = {
     createTable(json.getString("name"), JsonUtils.toCreateColumnSeq(json), JsonUtils.toRowValueSeq(json))
   }
 
@@ -172,7 +172,7 @@ class SystemController(
   }
 
   private def createTable(tableName: String, columns: Seq[CreateColumn], rows: Seq[Seq[_]])(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Table] = {
     checkArguments(notNull(tableName, "TableName"), nonEmpty(columns, "columns"))
     logger.info(s"createTable $tableName columns $rows")
@@ -210,7 +210,7 @@ class SystemController(
       .map(valueOpt => PlainDomainObject(Json.obj("value" -> valueOpt.orNull)))
   }
 
-  def updateLangtags(langtags: Seq[String])(implicit routingContext: RoutingContext): Future[DomainObject] = {
+  def updateLangtags(langtags: Seq[String])(implicit user: TableauxUser): Future[DomainObject] = {
     for {
       _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.updateSetting(SystemController.SETTING_LANGTAGS, Json.arr(langtags: _*).toString)
@@ -218,7 +218,7 @@ class SystemController(
     } yield updatedLangtags
   }
 
-  def updateSentryUrl(sentryUrl: String)(implicit routingContext: RoutingContext): Future[DomainObject] = {
+  def updateSentryUrl(sentryUrl: String)(implicit user: TableauxUser): Future[DomainObject] = {
     for {
       _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
       _ <- repository.updateSetting(SystemController.SETTING_SENTRY_URL, sentryUrl)
@@ -247,7 +247,7 @@ class SystemController(
       active: Boolean,
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  )(implicit routingContext: RoutingContext): Future[DomainObject] = {
+  )(implicit user: TableauxUser): Future[DomainObject] = {
 
     checkArguments(
       notNull(name, "name"),
@@ -273,7 +273,7 @@ class SystemController(
       active: Option[Boolean],
       config: Option[JsonObject],
       scope: Option[JsonObject]
-  )(implicit routingContext: RoutingContext): Future[DomainObject] = {
+  )(implicit user: TableauxUser): Future[DomainObject] = {
 
     checkArguments(
       greaterZero(serviceId),
@@ -302,7 +302,7 @@ class SystemController(
     } yield service
   }
 
-  def retrieveServices()(implicit routingContext: RoutingContext): Future[ServiceSeq] = {
+  def retrieveServices()(implicit user: TableauxUser): Future[ServiceSeq] = {
     logger.info(s"retrieveServices")
     for {
       serviceSeq <- serviceModel.retrieveAll()
@@ -313,7 +313,7 @@ class SystemController(
     }
   }
 
-  def retrieveService(serviceId: ServiceId)(implicit routingContext: RoutingContext): Future[Service] = {
+  def retrieveService(serviceId: ServiceId)(implicit user: TableauxUser): Future[Service] = {
     logger.info(s"retrieveService $serviceId")
     for {
       _ <- roleModel.checkAuthorization(View, ScopeService)
@@ -321,7 +321,7 @@ class SystemController(
     } yield service
   }
 
-  def deleteService(serviceId: ServiceId)(implicit routingContext: RoutingContext): Future[DomainObject] = {
+  def deleteService(serviceId: ServiceId)(implicit user: TableauxUser): Future[DomainObject] = {
     logger.info(s"deleteService $serviceId")
 
     for {

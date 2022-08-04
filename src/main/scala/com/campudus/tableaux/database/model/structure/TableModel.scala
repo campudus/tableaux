@@ -13,6 +13,7 @@ import org.vertx.scala.core.json._
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import io.vertx.scala.ext.web.RoutingContext
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 class TableModel(val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
@@ -177,7 +178,7 @@ class TableModel(val connection: DatabaseConnection)(
       )
   }
 
-  def retrieveAll(isInternalCall: Boolean)(implicit routingContext: RoutingContext): Future[Seq[Table]] = {
+  def retrieveAll(isInternalCall: Boolean)(implicit user: TableauxUser): Future[Seq[Table]] = {
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       tables <- getTablesWithDisplayInfos(defaultLangtags)
@@ -187,7 +188,7 @@ class TableModel(val connection: DatabaseConnection)(
   }
 
   def retrieve(tableId: TableId, isInternalCall: Boolean = false)(
-      implicit routingContext: RoutingContext
+      implicit user: TableauxUser
   ): Future[Table] = {
     for {
       defaultLangtags <- retrieveGlobalLangtags()

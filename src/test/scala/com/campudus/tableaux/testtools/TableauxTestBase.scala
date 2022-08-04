@@ -30,6 +30,7 @@ import scala.util.{Failure, Success, Try}
 import io.vertx.scala.ext.web.RoutingContext
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import scala.collection.mutable.HashMap
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable {
 
@@ -61,50 +62,7 @@ trait TableauxTestBase
   // default access token used for all integration tests if no explicit token is provided
   var wildcardAccessToken: String = _
 
-  // implicit val requestContext: RequestContext = RequestContext()
-  // implicit val rc = new RoutingContext(RoutingContextMock)
-
-  // object RoutingContextMock {
-
-  //   def apply(): RoutingContextMock = {
-  //     val rc = new RoutingContextMock()
-  //     rc
-  //   }
-  // }
-
-  // class RoutingContextMock() {
-
-  //   val ooo = HashMap[String, AnyRef]()
-
-  //   def put(key: String, obj: AnyRef): RoutingContextMock = {
-  //     ooo.put(key.asInstanceOf[java.lang.String], obj)
-  //     this
-  //   }
-
-  //   def get[T](key: String): T = {
-  //     ooo.get(key) match {
-  //       case Some(value) => value.asInstanceOf[T]
-  //       case None => null.asInstanceOf[T]
-  //     }
-  //   }
-  // }
-
-  // class RoutingContextMock(_asJava: Object) extends RoutingContext(_asJava: Object) {
-
-  //   val ooo = HashMap[String, AnyRef]()
-
-  //   override def put(key: String, obj: AnyRef): RoutingContext = {
-  //     ooo.put(key.asInstanceOf[java.lang.String], obj)
-  //     this
-  //   }
-
-  //   override def get[T](key: String): T = {
-  //     ooo.get(key) match {
-  //       case Some(value) => value.asInstanceOf[T]
-  //       case None => null.asInstanceOf[T]
-  //     }
-  //   }
-  // }
+  implicit var user: TableauxUser = _
 
   @Before
   def before(context: TestContext): Unit = {
@@ -175,6 +133,8 @@ trait TableauxTestBase
         "realm_access" -> Json.obj("roles" -> Json.arr("dev"))
       )
     )
+
+    user = TableauxUser("", Seq())
   }
 
   @After
@@ -186,33 +146,33 @@ trait TableauxTestBase
   def initRoleModel(roleConfig: String): RoleModel = {
     val roleModel: RoleModel = RoleModel(Json.fromObjectString(roleConfig.stripMargin))
 
-    setRequestRoles(roleModel.role2permissions.keySet.toSeq: _*)
+    setRequestRoles(roleModel.role2permissions.keySet.toSeq)
     roleModel
   }
 
-  protected def setRequestRoles(roles: String*): Unit = {
-    rc.put(KeycloakAuthHandler.USER_NAME, "Test")
-    rc.put(KeycloakAuthHandler.USER_ROLES, roles.toSeq)
-    // requestContext.principal = Json.obj("realm_access" -> Json.obj("roles" -> roles), "preferred_username" -> "Test")
+  protected def setRequestRoles(roles: Seq[String]): Unit = {
+    user = TableauxUser("Test", roles)
   }
 
+ // format: off
   /**
     * Helper method to set up Tests without running into permission problem (UnauthorizedException)
     *
-    *   1. Sets a userRole for requestContext 2. Invokes a function block with this userRole 3. Resets the original
-    *      userRoles defined by the test
+    * 1. Sets a userRole for requestContext 
+    * 2. Invokes a function block with this userRole 
+    * 3. Resets the original userRoles defined by the test
     *
     * For this purpose there is a dummy test role "dev" in `role-permissions-test.json`.
     */
   protected def asDevUser[A](function: => Future[A]): Future[A] = {
-    // val userRolesFromTest: Seq[String] = requestContext.getUserRoles
-    val userRolesFromTest: Seq[String] = KeycloakAuthHandler.getRealmRoles(rc)
+    // format: on
+    val userRolesFromTest: Seq[String] = user.roles
 
-    setRequestRoles("dev")
+    setRequestRoles(Seq("dev"))
 
     val result: Future[A] = function
 
-    setRequestRoles(userRolesFromTest: _*)
+    setRequestRoles(userRolesFromTest)
 
     result
   }
