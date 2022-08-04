@@ -5,10 +5,11 @@ import com.campudus.tableaux.database.domain.{BasicColumnInformation, CreateSimp
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import org.junit.Assert._
 import org.junit.{Before, Test}
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 class ColumnModelTest {
 
-  // implicit val requestContext = RequestContext()
+  implicit val user = TableauxUser("Test", Seq.empty[String])
 
   var col1: SimpleValueColumn[_] = _
   var col2: SimpleValueColumn[_] = _

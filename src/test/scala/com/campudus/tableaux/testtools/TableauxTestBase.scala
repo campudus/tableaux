@@ -37,6 +37,10 @@ case class TestCustomException(message: String, id: String, statusCode: Int) ext
   override def toString: String = s"TestCustomException(status=$statusCode,id=$id,message=$message)"
 }
 
+case class TestTableauxUser() {
+  TableauxUser("Test", Seq.empty[String])
+}
+
 @RunWith(classOf[VertxUnitRunner])
 trait TableauxTestBase
     extends TestConfig
@@ -134,7 +138,7 @@ trait TableauxTestBase
       )
     )
 
-    user = TableauxUser("", Seq())
+    user = TableauxUser("", Seq.empty[String])
   }
 
   @After

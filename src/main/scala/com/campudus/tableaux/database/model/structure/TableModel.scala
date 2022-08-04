@@ -30,7 +30,7 @@ class TableModel(val connection: DatabaseConnection)(
       tableType: TableType,
       tableGroupIdOpt: Option[TableGroupId],
       attributes: Option[JsonObject]
-  ): Future[Table] = {
+  )(implicit user: TableauxUser): Future[Table] = {
     connection.transactional { t =>
       {
         for {
@@ -197,7 +197,9 @@ class TableModel(val connection: DatabaseConnection)(
     } yield table
   }
 
-  private def getTableWithDisplayInfos(tableId: TableId, defaultLangtags: Seq[String]): Future[Table] = {
+  private def getTableWithDisplayInfos(tableId: TableId, defaultLangtags: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[Table] = {
     for {
       t <- connection.begin()
 
@@ -226,7 +228,8 @@ class TableModel(val connection: DatabaseConnection)(
     }
   }
 
-  private def getTablesWithDisplayInfos(defaultLangtags: Seq[String]): Future[Seq[Table]] = {
+  private def getTablesWithDisplayInfos(defaultLangtags: Seq[String])(implicit
+  user: TableauxUser): Future[Seq[Table]] = {
     for {
       t <- connection.begin()
 
@@ -256,7 +259,9 @@ class TableModel(val connection: DatabaseConnection)(
     }
   }
 
-  private def mapDisplayInfosIntoTable(tables: Seq[Table], result: JsonObject): Seq[Table] = {
+  private def mapDisplayInfosIntoTable(tables: Seq[Table], result: JsonObject)(
+      implicit user: TableauxUser
+  ): Seq[Table] = {
     val displayInfoTable = resultObjectToJsonArray(result)
       .groupBy(_.getLong(0).longValue())
       .mapValues(
@@ -275,7 +280,7 @@ class TableModel(val connection: DatabaseConnection)(
       row: JsonArray,
       defaultLangtags: Seq[String],
       tableGroups: Map[TableGroupId, TableGroup]
-  ): Table = {
+  )(implicit user: TableauxUser): Table = {
     Table(
       row.getLong(0),
       row.getString(1),

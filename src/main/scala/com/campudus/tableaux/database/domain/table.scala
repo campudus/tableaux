@@ -5,6 +5,8 @@ import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, ScopeTab
 import org.vertx.scala.core.json._
 import io.vertx.core.json.JsonObject
 import io.vertx.scala.ext.web.RoutingContext
+import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 object TableType {
 
@@ -31,7 +33,7 @@ case object SettingsTable extends TableType {
 
 object Table {
 
-  def apply(id: TableId): Table = {
+  def apply(id: TableId)(implicit roleModel: RoleModel, user: TableauxUser): Table = {
     Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None)
   }
 }
@@ -45,7 +47,7 @@ case class Table(
     tableType: TableType,
     tableGroup: Option[TableGroup],
     attributes: Option[JsonObject]
-) extends DomainObject {
+)(implicit roleModel: RoleModel = RoleModel(), user: TableauxUser) extends DomainObject {
 
   override def getJson: JsonObject = {
     val tableJson = Json.obj(
@@ -80,16 +82,23 @@ case class Table(
 
     tableGroup.foreach(tg => tableJson.put("group", tg.getJson))
 
-    tableJson
+    roleModel.enrichDomainObject(tableJson, ScopeTable, ComparisonObjects(this))
   }
 }
 
-case class TableSeq(tables: Seq[Table]) extends DomainObject {
+case class TableSeq(tables: Seq[Table])(
+    implicit roleModel: RoleModel = RoleModel(),
+    user: TableauxUser
+) extends DomainObject {
 
-  override def getJson: JsonObject = Json.obj("tables" -> compatibilityGet(tables))
+  override def getJson: JsonObject = {
+    val tableSeqJson = Json.obj("tables" -> compatibilityGet(tables))
+    roleModel.enrichDomainObject(tableSeqJson, ScopeTableSeq)
+  }
 }
 
-case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: RowSeq) extends DomainObject {
+case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: RowSeq)(implicit user: TableauxUser)
+    extends DomainObject {
 
   override def getJson: JsonObject = {
     table.getJson
@@ -100,7 +109,8 @@ case class CompleteTable(table: Table, columns: Seq[ColumnType[_]], rowList: Row
   }
 }
 
-case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[ColumnType[_]]]) extends DomainObject {
+case class TablesStructure(tables: Seq[Table], columnMap: Map[TableId, Seq[ColumnType[_]]])(implicit user: TableauxUser)
+    extends DomainObject {
 
   override def getJson: JsonObject = {
     Json.obj("tables" -> tables.map(tbl => {

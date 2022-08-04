@@ -4,6 +4,7 @@ import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeService, Sc
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 import io.vertx.scala.ext.web.RoutingContext
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 case class Service(
     id: Long,
@@ -17,28 +18,32 @@ case class Service(
     scope: JsonObject,
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime]
-)(
-    implicit roleModel: RoleModel
-) extends DomainObject {
+)(implicit roleModel: RoleModel, user: TableauxUser) extends DomainObject {
 
-  override def getJson: JsonObject = Json.obj(
-    "id" -> id,
-    "type" -> serviceType.toString,
-    "name" -> name,
-    "ordering" -> ordering,
-    "displayName" -> displayName.getJson,
-    "description" -> description.getJson,
-    "active" -> active,
-    "config" -> config,
-    "scope" -> scope,
-    "createdAt" -> optionToString(createdAt),
-    "updatedAt" -> optionToString(updatedAt)
-  )
+  override def getJson: JsonObject = {
+    val serviceJson: JsonObject = Json.obj(
+      "id" -> id,
+      "type" -> serviceType.toString,
+      "name" -> name,
+      "ordering" -> ordering,
+      "displayName" -> displayName.getJson,
+      "description" -> description.getJson,
+      "active" -> active,
+      "config" -> config,
+      "scope" -> scope,
+      "createdAt" -> optionToString(createdAt),
+      "updatedAt" -> optionToString(updatedAt)
+    )
+    roleModel.enrichDomainObject(serviceJson, ScopeService)
+  }
 }
 
-case class ServiceSeq(services: Seq[Service]) extends DomainObject {
+case class ServiceSeq(services: Seq[Service])(implicit roleModel: RoleModel, user: TableauxUser) extends DomainObject {
 
-  override def getJson: JsonObject = Json.obj("services" -> services.map(_.getJson))
+  override def getJson: JsonObject = {
+    val serviceSeqJson: JsonObject = Json.obj("services" -> services.map(_.getJson))
+    roleModel.enrichDomainObject(serviceSeqJson, ScopeServiceSeq)
+  }
 }
 
 trait ServiceType

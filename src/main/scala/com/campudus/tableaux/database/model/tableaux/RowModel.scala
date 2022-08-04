@@ -16,6 +16,7 @@ import org.vertx.scala.core.json.{Json, _}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import com.typesafe.scalalogging.LazyLogging
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 private object ModelHelper {
 
@@ -864,7 +865,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     }
   }
 
-  def retrieveTablesWithCellAnnotations(tables: Seq[Table]): Future[Seq[TableWithCellAnnotations]] = {
+  def retrieveTablesWithCellAnnotations(tables: Seq[Table])(
+      implicit user: TableauxUser
+  ): Future[Seq[TableWithCellAnnotations]] = {
     val query = tables
       .map({
         case Table(id, _, _, _, _, _, _, _) =>
