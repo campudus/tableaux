@@ -15,80 +15,15 @@ import com.campudus.tableaux.helper.JsonUtils
 import scala.util.Try
 
 object KeycloakAuthHandler {
-  val USER_ROLES: String = "userRoles"
-  val USER_NAME: String = "userName"
-
-  // var principal: JsonObject = Json.emptyObj() // scalastyle:ignore
-
-  // // for testing purposes, unit tests must reset the principal in setUp method
-  // def resetPrincipal(): Unit = principal = Json.emptyObj()
-
-  // def getPrincipleString(name: String): String = {
-  //   principal.getString(name)
-  // }
-
-  // // field has to be mutable and is only set from RouterRegistry::routes
-  // var cookies: Set[Cookie] = Set.empty[Cookie] // scalastyle:ignore
-
-  // def getCookieValue(name: String, defaultValue: String): String = {
-  //   cookies.find(_.getName() == name).map(_.getValue()).getOrElse(defaultValue)
-  // }
+  val TOKEN_PAYLOAD: String = "tokenPayload"
 
   def apply(vertx: Vertx, config: TableauxConfig): KeycloakAuthHandler = {
     new KeycloakAuthHandler(vertx, config)
   }
-
-  // gets realm roles from RoutingContext
-  def getRealmRoles(rc: RoutingContext): Seq[String] = {
-    rc.get(USER_ROLES).asInstanceOf[Seq[String]]
-  }
-
-  private def extractRealmRoles(tokenPayload: JsonObject): Seq[String] = {
-    val roles: JsonArray =
-      tokenPayload
-        .getJsonObject("realm_access", Json.emptyObj())
-        .getJsonArray("roles", Json.emptyArr())
-
-    JsonUtils.asSeqOf[String](roles)
-  }
-
-  def getCookieValue(defaultValue: String, name: String, rc: RoutingContext): String =
-    rc.cookies().toSet
-      .find(_.getName() == name)
-      .map(_.getValue())
-      .getOrElse(defaultValue)
-
-  private def extractUserName(tokenPayload: JsonObject, rc: RoutingContext): String =
-    Option(tokenPayload
-      .getString("preferred_username"))
-      .getOrElse(getCookieValue("unknown", "userName", rc))
-
-  def getUserName(rc: RoutingContext): String =
-    rc.get(USER_NAME).asInstanceOf[String]
 }
 
 class KeycloakAuthHandler(override val vertx: Vertx, tableauxConfig: TableauxConfig)
     extends Handler[RoutingContext] with VertxAccess {
-
-  // private def extractRealmRoles(tokenPayload: JsonObject): Seq[String] = {
-  //   val roles: JsonArray =
-  //     tokenPayload
-  //       .getJsonObject("realm_access", Json.emptyObj())
-  //       .getJsonArray("roles", Json.emptyArr())
-
-  //   JsonUtils.asSeqOf[String](roles)
-  // }
-
-  // private def getCookieValue(defaultValue: String, name: String, rc: RoutingContext): String =
-  //   rc.cookies().toSet
-  //     .find(_.getName() == name)
-  //     .map(_.getValue())
-  //     .getOrElse(defaultValue)
-
-  // private def extractUserName(tokenPayload: JsonObject, rc: RoutingContext): Seq[String] =
-  //   Option(tokenPayload
-  //     .getString("preferred_username"))
-  //     .getOrElse(getCookieValue("unknown", "userName", context))
 
   /**
     * Validates Access Token's "aud" and "iss" claims (https://tools.ietf.org/html/rfc7519). If successful it stores the
@@ -111,12 +46,7 @@ class KeycloakAuthHandler(override val vertx: Vertx, tableauxConfig: TableauxCon
     checkAudience(rc, tokenPayload)
     checkIssuer(rc, tokenPayload)
 
-    // TODO remove requestContext
-    // requestContext.principal = tokenPayload
-
-    rc.put(KeycloakAuthHandler.USER_ROLES, KeycloakAuthHandler.extractRealmRoles(tokenPayload))
-    rc.put(KeycloakAuthHandler.USER_NAME, KeycloakAuthHandler.extractUserName(tokenPayload, rc))
-
+    rc.put(KeycloakAuthHandler.TOKEN_PAYLOAD, tokenPayload)
     rc.next()
   }
 

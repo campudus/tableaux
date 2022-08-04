@@ -21,32 +21,24 @@ case class Service(
     implicit roleModel: RoleModel
 ) extends DomainObject {
 
-  override def getJson(implicit routingContext: RoutingContext): JsonObject = {
-    val serviceJson: JsonObject = Json.obj(
-      "id" -> id,
-      "type" -> serviceType.toString,
-      "name" -> name,
-      "ordering" -> ordering,
-      "displayName" -> displayName.getJson,
-      "description" -> description.getJson,
-      "active" -> active,
-      "config" -> config,
-      "scope" -> scope,
-      "createdAt" -> optionToString(createdAt),
-      "updatedAt" -> optionToString(updatedAt)
-    )
-    roleModel.enrichDomainObject(serviceJson, ScopeService)
-  }
+  override def getJson: JsonObject = Json.obj(
+    "id" -> id,
+    "type" -> serviceType.toString,
+    "name" -> name,
+    "ordering" -> ordering,
+    "displayName" -> displayName.getJson,
+    "description" -> description.getJson,
+    "active" -> active,
+    "config" -> config,
+    "scope" -> scope,
+    "createdAt" -> optionToString(createdAt),
+    "updatedAt" -> optionToString(updatedAt)
+  )
 }
 
-case class ServiceSeq(services: Seq[Service])(
-    implicit roleModel: RoleModel
-) extends DomainObject {
+case class ServiceSeq(services: Seq[Service]) extends DomainObject {
 
-  override def getJson(implicit routingContext: RoutingContext): JsonObject = {
-    val serviceSeqJson: JsonObject = Json.obj("services" -> services.map(_.getJson))
-    roleModel.enrichDomainObject(serviceSeqJson, ScopeServiceSeq)
-  }
+  override def getJson: JsonObject = Json.obj("services" -> services.map(_.getJson))
 }
 
 trait ServiceType

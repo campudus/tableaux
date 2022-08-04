@@ -17,6 +17,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.{Json, JsonObject}
+import io.vertx.scala.ext.web.RoutingContext
 
 trait MediaControllerAuthTestBase extends MediaTestBase {
 
@@ -63,6 +64,8 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
 
   @Test
   def createFolder_authorized_ok(implicit c: TestContext): Unit = okTest {
+    implicit val rc = new RoutingContext(null)
+
     val roleModel = initRoleModel("""
                                     |{
                                     |  "create-media": [

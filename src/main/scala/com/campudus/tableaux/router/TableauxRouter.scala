@@ -124,6 +124,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get rows
     */
   private def retrieveRows(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -145,6 +146,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get foreign rows from a link cell point of view e.g. cardinality in both direction will be considered
     */
   private def retrieveRowsOfLinkCell(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -166,6 +168,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get rows of column
     */
   private def retrieveRowsOfColumn(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -188,6 +191,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get rows of first column
     */
   private def retrieveRowsOfFirstColumn(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -209,6 +213,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get row
     */
   private def retrieveRow(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -226,6 +231,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get dependent rows
     */
   private def retrieveDependentRows(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -243,6 +249,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get Cell
     */
   private def retrieveCell(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -258,6 +265,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   private def retrieveCellAnnotations(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -276,6 +284,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Get complete table
     */
   private def retrieveCompleteTable(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -292,6 +301,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve all Cell Annotations for a specific table
     */
   private def retrieveAnnotations(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -308,6 +318,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve Cell Annotation count for all tables
     */
   private def retrieveAnnotationCount(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -320,6 +331,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve translation status for all tables
     */
   private def retrieveTranslationStatus(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -332,6 +344,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve unique values of a shorttext column
     */
   private def retrieveUniqueColumnValues(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -349,6 +362,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve unique values of a multi-language shorttext column
     */
   private def retrieveUniqueColumnValuesWithLangtag(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -367,6 +381,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve Cell History
     */
   private def retrieveCellHistory(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -386,6 +401,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve Cell History with langtag
     */
   private def retrieveCellHistoryWithLangtag(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -406,6 +422,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve row History
     */
   private def retrieveRowHistory(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -424,6 +441,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve row History with langtag
     */
   private def retrieveRowHistoryWithLangtag(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -443,6 +461,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve Table History
     */
   private def retrieveTableHistory(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       typeOpt = getStringParam("historyType", context)
@@ -460,6 +479,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Retrieve Table History with langtag
     */
   private def retrieveTableHistoryWithLangtag(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       langtag <- getLangtag(context)
@@ -478,6 +498,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Create table with columns and rows
     */
   private def createCompleteTable(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -498,6 +519,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Create row
     */
   private def createRow(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
 
     def getOptionalValues = {
       val json = getJson(context)
@@ -531,6 +553,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Duplicate row
     */
   private def duplicateRow(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -548,6 +571,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Update row Annotations
     */
   private def updateRowAnnotations(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -570,6 +594,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Update all row Annotations of a table
     */
   private def updateRowsAnnotations(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
     } yield {
@@ -591,6 +616,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Add Cell Annotation (will possibly be merged with an existing annotation)
     */
   private def createCellAnnotation(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -616,6 +642,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Update Cell or add Link/Attachment
     */
   private def updateCell(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -637,6 +664,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Replace Cell value
     */
   private def replaceCell(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -663,6 +691,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Change order of link
     */
   private def changeLinkOrder(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -685,6 +714,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Delete Cell Annotation
     */
   private def deleteCellAnnotation(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -704,6 +734,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Delete Langtag from Cell Annotation
     */
   private def deleteCellAnnotationLangtag(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -724,6 +755,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Delete row
     */
   private def deleteRow(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     val replacingRowIdStringOpt = context.queryParams().get("replacingRowId")
     for {
       tableId <- getTableId(context)
@@ -742,6 +774,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Clear Cell value
     */
   private def clearCell(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -760,6 +793,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Delete Attachment from Cell
     */
   private def deleteAttachmentOfCell(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -779,6 +813,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     * Delete Link from Cell
     */
   private def deleteLinkOfCell(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)

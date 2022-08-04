@@ -79,6 +79,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Get the current version
     */
   private def retrieveVersions(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -91,6 +92,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Resets the database (needs nonce)
     */
   private def reset(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -106,6 +108,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Create the demo tables (needs nonce)
     */
   private def resetDemo(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -121,6 +124,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Update the database (needs POST and nonce)
     */
   private def update(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -188,6 +192,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Update system settings
     */
   private def updateSettings(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       key <- getStringParam("settings", context)
     } yield {
@@ -213,6 +218,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Retrieve all services
     */
   private def retrieveServices(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -225,6 +231,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Retrieve single service
     */
   private def retrieveService(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       serviceId <- getServiceId(context)
     } yield {
@@ -241,6 +248,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Create a new service
     */
   private def createService(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     sendReply(
       context,
       asyncGetReply {
@@ -267,6 +275,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Update a service
     */
   private def updateService(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       serviceId <- getServiceId(context)
     } yield {
@@ -296,6 +305,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Delete a service
     */
   private def deleteService(context: RoutingContext): Unit = {
+    implicit val rc = implicitly(context)
     for {
       serviceId <- getServiceId(context)
     } yield {
