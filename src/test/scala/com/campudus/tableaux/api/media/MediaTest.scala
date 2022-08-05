@@ -2,18 +2,20 @@ package com.campudus.tableaux.api.media
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase, TestCustomException}
+
 import io.vertx.core.buffer.Buffer
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.core.http.{HttpClient, HttpClientResponse}
-import org.junit.Assert._
-import org.junit.Test
-import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
+
+import org.junit.Assert._
+import org.junit.Test
+import org.junit.runner.RunWith
 
 trait MediaTestBase extends TableauxTestBase {
 

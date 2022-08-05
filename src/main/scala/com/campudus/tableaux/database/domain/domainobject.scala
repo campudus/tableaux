@@ -1,6 +1,7 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
+
 import org.vertx.scala.core.json._
 
 import scala.collection.mutable

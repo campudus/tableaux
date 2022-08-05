@@ -1,15 +1,14 @@
 package com.campudus.tableaux.testtools
 
+import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
+import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
-import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
-import com.typesafe.scalalogging.LazyLogging
-import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod
@@ -18,19 +17,21 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.SQLConnection
+import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
 import io.vertx.scala.core.http._
 import io.vertx.scala.core.streams.Pump
-import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import org.junit.runner.RunWith
-import org.junit.{After, Before}
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.HashMap
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
-import io.vertx.scala.ext.web.RoutingContext
-import scala.collection.mutable.HashMap
+
+import com.typesafe.scalalogging.LazyLogging
+import org.junit.{After, Before}
+import org.junit.runner.RunWith
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable {
 

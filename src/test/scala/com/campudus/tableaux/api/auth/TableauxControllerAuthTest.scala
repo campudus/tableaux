@@ -1,26 +1,27 @@
 package com.campudus.tableaux.api.auth
 
-import java.util.{NoSuchElementException, UUID}
-
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.api.content.LinkTestBase
 import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
-import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
+import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.helper.JsonUtils.{toCreateColumnSeq, toRowValueSeq}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
+import com.campudus.tableaux.testtools.RequestCreation._
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+
+import java.util.{NoSuchElementException, UUID}
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 trait TableauxControllerAuthTest extends TableauxTestBase {
 

@@ -1,13 +1,14 @@
 package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
+import com.campudus.tableaux.database.DbTransaction
 import com.campudus.tableaux.helper.ResultChecker._
+
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 import scala.io.Source
 import scala.util.Try
-import com.campudus.tableaux.database.DbTransaction
 
 object SystemModel {
 

@@ -1,8 +1,9 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
+import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.router.auth.permission.RoleModel
+
 import org.vertx.scala.core.json.Json
 
 object StructureModel {

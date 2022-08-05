@@ -1,6 +1,7 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux._
+
 import org.junit.Assert._
 import org.junit.Test
 import org.scalatest.Matchers._

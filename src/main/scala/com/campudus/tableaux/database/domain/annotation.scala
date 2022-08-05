@@ -1,12 +1,13 @@
 package com.campudus.tableaux.database.domain
 
-import java.util.UUID
-
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
-import org.joda.time.DateTime
+
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
+
+import java.util.UUID
+import org.joda.time.DateTime
 
 case class RowLevelAnnotations(finalFlag: Boolean) extends DomainObject {
 

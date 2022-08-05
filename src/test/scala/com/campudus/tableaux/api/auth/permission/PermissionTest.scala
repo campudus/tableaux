@@ -3,10 +3,12 @@ package com.campudus.tableaux.api.auth.permission
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, Permission, TableauxUser}
-import org.junit.{Assert, Test}
-import org.vertx.scala.core.json.{Json, JsonObject}
-import io.vertx.scala.ext.web.RoutingContext
 import com.campudus.tableaux.testtools.TableauxTestBase
+
+import io.vertx.scala.ext.web.RoutingContext
+import org.vertx.scala.core.json.{Json, JsonObject}
+
+import org.junit.{Assert, Test}
 
 class PermissionTest {
 

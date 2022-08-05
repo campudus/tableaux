@@ -1,21 +1,22 @@
 package com.campudus.tableaux.controller
 
-import java.util.UUID
-
+import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.cache.CacheClient
-import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
-import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
+import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
+import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
+import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
+
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
 import scala.util.Try
-import io.vertx.scala.ext.web.RoutingContext
+
+import java.util.UUID
 
 object TableauxController {
 

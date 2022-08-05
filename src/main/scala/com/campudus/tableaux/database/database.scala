@@ -3,15 +3,17 @@ package com.campudus.tableaux.database
 import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.VertxAccess
-import com.typesafe.scalalogging.LazyLogging
+
 import io.vertx.lang.scala.VertxExecutionContext
+import io.vertx.scala.{DatabaseAction, SQLConnection}
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.sql.{ResultSet, UpdateResult}
-import io.vertx.scala.{DatabaseAction, SQLConnection}
-import org.joda.time.DateTime
 import org.vertx.scala.core.json.{Json, JsonArray, JsonCompatible, JsonObject}
 
 import scala.concurrent.Future
+
+import com.typesafe.scalalogging.LazyLogging
+import org.joda.time.DateTime
 
 trait DatabaseQuery extends JsonCompatible with LazyLogging {
   protected[this] val connection: DatabaseConnection

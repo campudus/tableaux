@@ -2,9 +2,11 @@ package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.testtools.TestAssertionHelper
+
+import org.vertx.scala.core.json.Json
+
 import org.junit.Assert._
 import org.junit.Test
-import org.vertx.scala.core.json.Json
 
 abstract class AbstractTableDisplayInfosTest extends TestAssertionHelper {
 

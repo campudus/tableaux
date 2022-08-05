@@ -3,8 +3,10 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.History.RevisionId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
-import org.joda.time.DateTime
+
 import org.vertx.scala.core.json._
+
+import org.joda.time.DateTime
 
 sealed trait History extends DomainObject {
   val columnIdOpt: Option[ColumnId]

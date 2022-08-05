@@ -1,13 +1,15 @@
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.Test
-import org.junit.runner.RunWith
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.util.Random
+
+import org.junit.Test
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class CreateTableTest extends TableauxTestBase {

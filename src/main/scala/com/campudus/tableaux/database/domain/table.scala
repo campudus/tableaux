@@ -8,9 +8,10 @@ import com.campudus.tableaux.router.auth.permission.{
   ScopeTableSeq,
   TableauxUser
 }
-import org.vertx.scala.core.json._
+
 import io.vertx.core.json.JsonObject
 import io.vertx.scala.ext.web.RoutingContext
+import org.vertx.scala.core.json._
 
 object TableType {
 

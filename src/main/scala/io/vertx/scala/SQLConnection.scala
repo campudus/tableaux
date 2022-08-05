@@ -2,6 +2,7 @@ package io.vertx.scala
 
 import com.campudus.tableaux.DatabaseException
 import com.campudus.tableaux.helper.VertxAccess
+
 import io.vertx.scala.SQLConnection.JSQLConnection
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.asyncsql.PostgreSQLClient

@@ -1,12 +1,10 @@
 package com.campudus.tableaux.router
 
-import java.io.{File, FileNotFoundException}
-import java.net.URLEncoder
-
 import com.campudus.tableaux._
-import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.helper._
+
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
 import io.vertx.scala.core.Vertx
@@ -16,8 +14,11 @@ import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 import scala.io.Source
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
+import scala.util.control.NonFatal
+
+import java.io.{File, FileNotFoundException}
+import java.net.URLEncoder
 
 trait BaseRouter extends VertxAccess {
 

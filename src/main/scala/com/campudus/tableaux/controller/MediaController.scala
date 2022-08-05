@@ -1,20 +1,21 @@
 package com.campudus.tableaux.controller
 
-import java.util.UUID
-
+import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
+import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
+
 import io.vertx.scala.FutureHelper._
+import io.vertx.scala.ext.web.RoutingContext
 
 import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
 import scala.util.{Failure, Success}
-import io.vertx.scala.ext.web.RoutingContext
+
+import java.util.UUID
 
 object MediaController {
 

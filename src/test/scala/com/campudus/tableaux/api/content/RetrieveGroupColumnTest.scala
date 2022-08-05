@@ -4,14 +4,16 @@ import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.Assert._
-import org.junit.Test
-import org.junit.runner.RunWith
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+
+import org.junit.Assert._
+import org.junit.Test
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveGroupColumnTest extends TableauxTestBase {

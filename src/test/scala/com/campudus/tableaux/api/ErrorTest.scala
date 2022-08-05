@@ -3,12 +3,14 @@ package com.campudus.tableaux.api
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.vertx.scala.core.json.{Json, JsonObject}
+
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 @RunWith(classOf[VertxUnitRunner])
 class ErrorTest extends TableauxTestBase {

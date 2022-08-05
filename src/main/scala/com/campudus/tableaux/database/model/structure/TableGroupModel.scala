@@ -4,6 +4,7 @@ import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
+
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future

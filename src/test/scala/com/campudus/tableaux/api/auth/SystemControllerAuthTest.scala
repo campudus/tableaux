@@ -7,16 +7,18 @@ import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue, 
 import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.vertx.scala.core.json.{Json, JsonObject}
+
+import scala.concurrent.Future
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
-import org.vertx.scala.core.json.{Json, JsonObject}
-
-import scala.concurrent.Future
 
 trait SystemControllerAuthTest extends TableauxTestBase {
 

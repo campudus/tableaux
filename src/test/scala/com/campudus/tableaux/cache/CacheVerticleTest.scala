@@ -2,17 +2,19 @@ package com.campudus.tableaux.cache
 
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestCustomException}
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import org.junit.Assert._
-import org.junit.runner.RunWith
-import org.junit.{After, Before, Test}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
+
+import org.junit.{After, Before, Test}
+import org.junit.Assert._
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class CacheVerticleTest extends VertxAccess with TestAssertionHelper {

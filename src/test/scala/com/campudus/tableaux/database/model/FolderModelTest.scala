@@ -2,14 +2,16 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+
+import scala.concurrent.Future
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-
-import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class FolderModelTest extends TableauxTestBase {

@@ -1,15 +1,17 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.testtools.RequestCreation.{Identifier, TextCol}
 import com.campudus.tableaux.testtools.{RequestCreation, TableauxTestBase}
+import com.campudus.tableaux.testtools.RequestCreation.{Identifier, TextCol}
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.Assert._
-import org.junit.Test
-import org.junit.runner.RunWith
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
+
+import org.junit.Assert._
+import org.junit.Test
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class CreateCompleteTableTest extends TableauxTestBase {

@@ -1,6 +1,7 @@
 package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.helper.VertxAccess
+
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.auth.jwt.{JWTAuth, JWTAuthOptions, JWTOptions}
 import org.vertx.scala.core.json.{Json, JsonObject}

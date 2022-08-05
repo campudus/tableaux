@@ -1,21 +1,22 @@
 package com.campudus.tableaux.database.model
 
-import java.util.UUID
-
 import com.campudus.tableaux._
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
+import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission._
+
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
-import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 
 import scala.concurrent.Future
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
-import io.vertx.scala.ext.web.RoutingContext
+import scala.util.control.NonFatal
+
+import java.util.UUID
 
 object TableauxModel {
   type LinkId = Long

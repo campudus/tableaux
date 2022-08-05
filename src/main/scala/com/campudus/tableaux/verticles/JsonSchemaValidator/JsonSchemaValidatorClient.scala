@@ -1,11 +1,13 @@
 package com.campudus.tableaux.verticles.JsonSchemaValidator
 
 import com.campudus.tableaux.helper.VertxAccess
+
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.eventbus._
-import org.vertx.scala.core.json._
-import scala.concurrent.Future
 import io.vertx.scala.core.eventbus.Message
+import org.vertx.scala.core.json._
+
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 object JsonSchemaValidatorClient {

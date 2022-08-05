@@ -4,15 +4,17 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.junit.runner.RunWith
-import org.junit.{Ignore, Test}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
+
+import org.junit.{Ignore, Test}
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 @Ignore

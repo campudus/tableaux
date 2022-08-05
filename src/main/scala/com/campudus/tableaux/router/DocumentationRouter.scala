@@ -1,13 +1,14 @@
 package com.campudus.tableaux.router
 
-import java.net.URL
-
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper._
+
 import io.vertx.scala.core.http.HttpServerRequest
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.io.Source
+
+import java.net.URL
 
 object DocumentationRouter {
 

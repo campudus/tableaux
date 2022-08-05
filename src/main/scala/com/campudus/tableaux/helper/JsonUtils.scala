@@ -1,18 +1,20 @@
 package com.campudus.tableaux.helper
 
+import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
+import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
-import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
-import com.typesafe.scalalogging.LazyLogging
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
-import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
 import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorClient
+
 import io.vertx.scala.core.Vertx
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
+
+import com.typesafe.scalalogging.LazyLogging
 
 object JsonUtils extends LazyLogging {
 

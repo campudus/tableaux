@@ -1,17 +1,18 @@
 package com.campudus.tableaux.router.auth
 
-import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.{AuthenticationException, TableauxConfig}
+import com.campudus.tableaux.helper.JsonUtils
+import com.campudus.tableaux.helper.VertxAccess
+
 import io.vertx.core.Handler
 import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.auth.User
 import io.vertx.scala.ext.auth.oauth2.KeycloakHelper
 import io.vertx.scala.ext.web.RoutingContext
+import org.vertx.scala.core.json.Json
 
 import scala.collection.JavaConverters._
-import org.vertx.scala.core.json.Json
-import com.campudus.tableaux.helper.JsonUtils
 import scala.util.Try
 
 object KeycloakAuthHandler {

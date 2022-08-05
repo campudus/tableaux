@@ -2,16 +2,18 @@ package com.campudus.tableaux.api
 
 import com.campudus.tableaux.Starter
 import com.campudus.tableaux.testtools.TestAssertionHelper
-import com.typesafe.scalalogging.LazyLogging
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.{ScalaVerticle, VertxExecutionContext}
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import org.junit.Test
-import org.junit.runner.RunWith
 import org.vertx.scala.core.json._
 
 import scala.util.{Failure, Success, Try}
+
+import com.typesafe.scalalogging.LazyLogging
+import org.junit.Test
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class StarterTest extends LazyLogging with TestAssertionHelper {

@@ -1,16 +1,16 @@
 package com.campudus.tableaux.helper
 
-import java.nio.file.FileAlreadyExistsException
-
 import io.vertx.scala.core.Vertx
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.io.Source
+import scala.reflect.io.File
 import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
-import scala.reflect.io.File
-import scala.collection.JavaConverters._
+
+import java.nio.file.FileAlreadyExistsException
 
 object FileUtils {
 

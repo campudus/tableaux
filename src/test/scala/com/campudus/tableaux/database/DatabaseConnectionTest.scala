@@ -3,17 +3,19 @@ package com.campudus.tableaux.database
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestConfig}
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.Vertx
-import org.junit.Assert._
-import org.junit.runner.RunWith
-import org.junit.{Ignore, Test}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+
+import org.junit.{Ignore, Test}
+import org.junit.Assert._
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 @Ignore

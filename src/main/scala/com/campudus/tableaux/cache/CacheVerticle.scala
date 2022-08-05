@@ -1,20 +1,21 @@
 package com.campudus.tableaux.cache
 
-import java.util.concurrent.TimeUnit
-
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import com.typesafe.scalalogging.LazyLogging
+
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.json.{Json, JsonObject}
-import com.google.common.cache.CacheBuilder
-import scalacache._
-import scalacache.guava._
-import scalacache.modes.scalaFuture._
 
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.language.implicitConversions
+
+import com.google.common.cache.CacheBuilder
+import com.typesafe.scalalogging.LazyLogging
+import java.util.concurrent.TimeUnit
+import scalacache._
+import scalacache.guava._
+import scalacache.modes.scalaFuture._
 
 object CacheVerticle {
 

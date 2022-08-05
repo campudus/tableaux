@@ -1,8 +1,9 @@
 package com.campudus.tableaux.helper
 
-import com.typesafe.scalalogging.LazyLogging
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.core.Vertx
+
+import com.typesafe.scalalogging.LazyLogging
 
 trait VertxAccess extends LazyLogging {
 

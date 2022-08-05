@@ -1,11 +1,13 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.ArgumentChecker._
+
+import org.vertx.scala.core.json.Json
+
 import org.junit.Assert
 import org.junit.Assert._
 import org.junit.Ignore
 import org.junit.Test
-import org.vertx.scala.core.json.Json
 
 class ArgumentCheckerTest {
 

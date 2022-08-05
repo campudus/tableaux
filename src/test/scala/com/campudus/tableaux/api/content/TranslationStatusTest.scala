@@ -1,11 +1,13 @@
 package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.vertx.scala.core.json.Json
+
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.Json
 
 @RunWith(classOf[VertxUnitRunner])
 class TranslationStatusTest extends TableauxTestBase {

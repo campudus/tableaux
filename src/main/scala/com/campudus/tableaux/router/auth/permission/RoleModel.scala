@@ -1,16 +1,18 @@
 package com.campudus.tableaux.router.auth.permission
 
-import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
-import com.campudus.tableaux.database.{MultiCountry, MultiLanguage}
-import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.UnauthorizedException
-import com.typesafe.scalalogging.LazyLogging
+import com.campudus.tableaux.database.{MultiCountry, MultiLanguage}
+import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
+import com.campudus.tableaux.helper.JsonUtils._
+import com.campudus.tableaux.router.auth.KeycloakAuthHandler
+
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
-import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.KeycloakAuthHandler
+
+import com.typesafe.scalalogging.LazyLogging
 
 object RoleModel {
 

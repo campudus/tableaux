@@ -1,21 +1,22 @@
 package com.campudus.tableaux.database.model.tableaux
 
-import java.util.UUID
-
+import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.domain.{MultiLanguageColumn, RowLevelAnnotations, _}
-import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
+import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
-import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
-import org.joda.time.DateTime
+
 import org.vertx.scala.core.json.{Json, _}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+
 import com.typesafe.scalalogging.LazyLogging
+import java.util.UUID
+import org.joda.time.DateTime
 
 private object ModelHelper {
 

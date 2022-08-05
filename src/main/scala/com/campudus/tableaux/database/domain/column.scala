@@ -1,11 +1,10 @@
 package com.campudus.tableaux.database.domain
 
-import java.util.UUID
-
+import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException, OkArg}
 import com.campudus.tableaux.ArgumentChecker._
+import com.campudus.tableaux.database.{LanguageNeutral, _}
 import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.{LanguageNeutral, _}
 import com.campudus.tableaux.router.auth.permission.{
   ComparisonObjects,
   RoleModel,
@@ -13,13 +12,15 @@ import com.campudus.tableaux.router.auth.permission.{
   ScopeColumnSeq,
   TableauxUser
 }
-import com.campudus.tableaux.{ArgumentChecker, InvalidJsonException, OkArg}
-import com.typesafe.scalalogging.LazyLogging
-import org.joda.time.{DateTime, LocalDate}
+
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
 import scala.util.{Failure, Success, Try}
-import io.vertx.scala.ext.web.RoutingContext
+
+import com.typesafe.scalalogging.LazyLogging
+import java.util.UUID
+import org.joda.time.{DateTime, LocalDate}
 
 case class DependentColumnInformation(
     tableId: TableId,

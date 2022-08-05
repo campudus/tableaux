@@ -1,10 +1,12 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.helper.IdentifierFlattener._
+
+import org.vertx.scala.core.json.Json
+
 import org.junit.Assert._
 import org.junit.Test
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
-import org.vertx.scala.core.json.Json
 
 class IsMultiLanguageValueTest {
 

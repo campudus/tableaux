@@ -4,17 +4,19 @@ import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.testtools.RequestCreation.{CurrencyCol, MultiCountry, Rows}
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.vertx.scala.core.json.{Json, JsonObject}
+
+import scala.concurrent.Future
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
-import org.vertx.scala.core.json.{Json, JsonObject}
-
-import scala.concurrent.Future
 
 trait TestHelper extends MediaTestBase {
 

@@ -2,10 +2,11 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.ShouldBeUniqueException
 import com.campudus.tableaux.controller.MediaController
+import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.domain.Folder
 import com.campudus.tableaux.database.model.FolderModel.FolderId
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
+
 import org.vertx.scala.core.json.{Json, JsonArray}
 
 import scala.concurrent.Future

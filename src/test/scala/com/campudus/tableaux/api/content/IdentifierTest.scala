@@ -3,13 +3,15 @@ package com.campudus.tableaux.api.content
 import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.vertx.scala.core.json._
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json._
 
 @RunWith(classOf[VertxUnitRunner])
 class IdentifierTest extends TableauxTestBase {

@@ -1,11 +1,12 @@
 package com.campudus.tableaux.database.domain
 
+import com.campudus.tableaux.database.model.FolderModel.FolderId
+
+import org.vertx.scala.core.json._
+
 import java.net.URLEncoder
 import java.util.UUID
-
-import com.campudus.tableaux.database.model.FolderModel.FolderId
 import org.joda.time.DateTime
-import org.vertx.scala.core.json._
 
 case class TableauxFile(
     uuid: UUID,

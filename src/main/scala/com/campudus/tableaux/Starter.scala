@@ -1,19 +1,21 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.cache.CacheVerticle
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, JsonSchemaValidatorVerticle}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
-import com.typesafe.scalalogging.LazyLogging
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, JsonSchemaValidatorVerticle}
+
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
-import io.vertx.scala.core.http.HttpServer
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
+import io.vertx.scala.core.http.HttpServer
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+
+import com.typesafe.scalalogging.LazyLogging
 
 object Starter {
   val DEFAULT_HOST = "127.0.0.1"

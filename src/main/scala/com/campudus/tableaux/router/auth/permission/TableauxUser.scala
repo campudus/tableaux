@@ -1,10 +1,11 @@
 package com.campudus.tableaux.router.auth.permission
 
-import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.KeycloakAuthHandler
-import io.vertx.core.json.{JsonArray, JsonObject}
 import com.campudus.tableaux.helper.JsonUtils
+import com.campudus.tableaux.router.auth.KeycloakAuthHandler
+
+import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.lang.scala.json.Json
+import io.vertx.scala.ext.web.RoutingContext
 
 object TableauxUser {
 

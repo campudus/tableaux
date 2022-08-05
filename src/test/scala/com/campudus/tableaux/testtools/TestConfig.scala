@@ -1,12 +1,13 @@
 package com.campudus.tableaux.testtools
 
-import java.net.ServerSocket
-
 import com.campudus.tableaux.TableauxConfig
+
 import org.vertx.scala.core.json._
 
 import scala.io.Source
 import scala.reflect.io.Path
+
+import java.net.ServerSocket
 
 trait TestConfig {
 

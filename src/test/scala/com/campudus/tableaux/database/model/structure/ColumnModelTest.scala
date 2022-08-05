@@ -3,9 +3,10 @@ package com.campudus.tableaux.database.model.structure
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{BasicColumnInformation, CreateSimpleColumn, SimpleValueColumn, Table}
 import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
-import org.junit.Assert._
-import org.junit.{Before, Test}
 import com.campudus.tableaux.router.auth.permission.TableauxUser
+
+import org.junit.{Before, Test}
+import org.junit.Assert._
 
 class ColumnModelTest {
 
