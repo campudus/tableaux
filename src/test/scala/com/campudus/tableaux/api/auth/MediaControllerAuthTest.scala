@@ -8,7 +8,7 @@ import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
-import com.campudus.tableaux.router.auth.permission.{Delete, Edit, RoleModel, ScopeMedia}
+import com.campudus.tableaux.router.auth.permission.{Delete, Edit, RoleModel, ScopeMedia, TableauxUser}
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
@@ -18,7 +18,6 @@ import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
 import org.vertx.scala.core.json.{Json, JsonObject}
 import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 trait MediaControllerAuthTestBase extends MediaTestBase {
 

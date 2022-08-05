@@ -38,7 +38,6 @@ case object Enrich extends LoggingMethod
   *   - filterDomainObjects: A filter method for `GET` requests, to only return viewable items. If a `GET` requests a
   *     specific resource, checkAuthorization should be called instead.
   *
-  * TODO
   *   - enrichDomainObject: A enrich method for selected `GET` requests, to extend response items with permissions
   *     objects.
   *

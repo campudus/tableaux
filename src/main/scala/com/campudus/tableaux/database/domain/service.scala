@@ -1,10 +1,10 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeService, ScopeServiceSeq}
+import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeService, ScopeServiceSeq, TableauxUser}
+
+import io.vertx.scala.ext.web.RoutingContext
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
-import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 case class Service(
     id: Long,

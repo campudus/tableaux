@@ -6,7 +6,7 @@ import io.vertx.scala.core.eventbus._
 import org.vertx.scala.core.json._
 import scala.concurrent.Future
 import io.vertx.scala.core.eventbus.Message
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 
 object JsonSchemaValidatorClient {
 

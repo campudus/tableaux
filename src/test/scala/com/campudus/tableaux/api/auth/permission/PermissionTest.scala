@@ -1,19 +1,15 @@
 package com.campudus.tableaux.api.auth.permission
 
-// import com.campudus.tableaux.RequestContext
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, Permission}
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, Permission, TableauxUser}
 import org.junit.{Assert, Test}
 import org.vertx.scala.core.json.{Json, JsonObject}
 import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 class PermissionTest {
 
-  // implicit val requestContext = RequestContext()
-  // implicit val rc = new RoutingContext(null)
   implicit val user = TableauxUser("Test", Seq.empty[String])
 
   private def createTable(

@@ -12,7 +12,6 @@ object DomainObject extends DomainObject {
 
 trait DomainObjectHelper {
 
-  // def compatibilityGet[A]: (A => Any) = compatibility(GetReturn)(_)
   def compatibilityGet[A]: A => Any = compatibility(GetReturn)(_)
 
   private def compatibility[A](returnType: ReturnType)(value: A): Any = {

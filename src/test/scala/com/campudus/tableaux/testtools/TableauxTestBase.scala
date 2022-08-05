@@ -5,10 +5,12 @@ import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
-import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
 import com.typesafe.scalalogging.LazyLogging
+import com.campudus.tableaux.router.auth.KeycloakAuthHandler
+
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod
 import io.vertx.ext.unit.TestContext
@@ -28,9 +30,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import scala.collection.mutable.HashMap
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 case class TestCustomException(message: String, id: String, statusCode: Int) extends Throwable {
 

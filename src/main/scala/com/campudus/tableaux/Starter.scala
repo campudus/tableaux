@@ -1,7 +1,7 @@
 package com.campudus.tableaux
 
 import com.campudus.tableaux.cache.CacheVerticle
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorVerticle, JsonSchemaValidatorClient}
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, JsonSchemaValidatorVerticle}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._

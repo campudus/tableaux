@@ -6,13 +6,12 @@ import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.Ordering
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux.{ShouldBeUniqueException}
+import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
+import com.campudus.tableaux.ShouldBeUniqueException
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 object ServiceModel {
   type ServiceId = Long

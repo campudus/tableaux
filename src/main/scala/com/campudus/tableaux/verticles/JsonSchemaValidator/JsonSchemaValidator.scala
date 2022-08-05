@@ -3,10 +3,10 @@ package com.campudus.tableaux.verticles.JsonSchemaValidator
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.eventbus.Message
 import scala.concurrent.Future
-import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 import com.typesafe.scalalogging.LazyLogging
 import scala.language.implicitConversions
-import org.json.{JSONObject, JSONArray};
+import org.json.{JSONArray, JSONObject};
 import scala.util.{Failure, Success, Try}
 import org.everit.json.schema.ValidationException;
 

@@ -6,14 +6,13 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, View}
-import com.campudus.tableaux.{ShouldBeUniqueException}
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, TableauxUser, View}
+import com.campudus.tableaux.ShouldBeUniqueException
 import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 class TableModel(val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
@@ -30,7 +29,9 @@ class TableModel(val connection: DatabaseConnection)(
       tableType: TableType,
       tableGroupIdOpt: Option[TableGroupId],
       attributes: Option[JsonObject]
-  )(implicit user: TableauxUser): Future[Table] = {
+  )(
+      implicit user: TableauxUser
+  ): Future[Table] = {
     connection.transactional { t =>
       {
         for {
@@ -178,7 +179,9 @@ class TableModel(val connection: DatabaseConnection)(
       )
   }
 
-  def retrieveAll(isInternalCall: Boolean)(implicit user: TableauxUser): Future[Seq[Table]] = {
+  def retrieveAll(isInternalCall: Boolean)(
+      implicit user: TableauxUser
+  ): Future[Seq[Table]] = {
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       tables <- getTablesWithDisplayInfos(defaultLangtags)
@@ -228,8 +231,9 @@ class TableModel(val connection: DatabaseConnection)(
     }
   }
 
-  private def getTablesWithDisplayInfos(defaultLangtags: Seq[String])(implicit
-  user: TableauxUser): Future[Seq[Table]] = {
+  private def getTablesWithDisplayInfos(defaultLangtags: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[Seq[Table]] = {
     for {
       t <- connection.begin()
 
@@ -280,7 +284,9 @@ class TableModel(val connection: DatabaseConnection)(
       row: JsonArray,
       defaultLangtags: Seq[String],
       tableGroups: Map[TableGroupId, TableGroup]
-  )(implicit user: TableauxUser): Table = {
+  )(
+      implicit user: TableauxUser
+  ): Table = {
     Table(
       row.getLong(0),
       row.getString(1),

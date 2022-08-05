@@ -3,13 +3,13 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.database.domain.{DisplayInfos, GenericTable, TableType}
 import com.campudus.tableaux.helper.JsonUtils._
-import com.campudus.tableaux.{InvalidJsonException, WrongJsonTypeException, TableauxConfig}
+import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.collection.JavaConverters._
-import scala.util.{Try, Success, Failure}
-import com.campudus.tableaux.router.auth.permission.TableauxUser
+import scala.util.{Failure, Success, Try}
 
 object StructureRouter {
 

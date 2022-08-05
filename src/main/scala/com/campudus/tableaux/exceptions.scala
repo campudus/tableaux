@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.domain.ColumnType
 import com.campudus.tableaux.database.model.TableauxModel.{RowId, TableId}
 import com.campudus.tableaux.router.RouterException
 import com.campudus.tableaux.router.auth.permission.{Action, Scope}
-import com.campudus.tableaux.database.{TableauxDbType, LanguageType}
+import com.campudus.tableaux.database.{LanguageType, TableauxDbType}
 
 sealed trait CustomException extends Throwable {
   val message: String

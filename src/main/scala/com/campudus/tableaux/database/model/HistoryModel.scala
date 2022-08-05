@@ -8,14 +8,13 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, Tabl
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
-import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
