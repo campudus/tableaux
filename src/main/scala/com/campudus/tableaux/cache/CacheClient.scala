@@ -3,6 +3,7 @@ package com.campudus.tableaux.cache
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.VertxAccess
+
 import io.vertx.core.eventbus.ReplyException
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.eventbus._

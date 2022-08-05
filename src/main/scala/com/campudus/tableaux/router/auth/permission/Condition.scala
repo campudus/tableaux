@@ -1,10 +1,12 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.{LanguageNeutral, MultiCountry, MultiLanguage}
-import com.typesafe.scalalogging.LazyLogging
+
 import org.vertx.scala.core.json.{Json, JsonObject, _}
 
 import scala.collection.JavaConverters._
+
+import com.typesafe.scalalogging.LazyLogging
 
 object ConditionContainer {
 

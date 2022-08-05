@@ -2,11 +2,13 @@ package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.testtools.TestAssertionHelper
-import org.junit.Assert._
-import org.junit.Test
+
 import org.vertx.scala.core.json.Json
 
 import scala.util.{Failure, Success, Try}
+
+import org.junit.Assert._
+import org.junit.Test
 
 abstract class AbstractColumnDisplayInfosTest extends TestAssertionHelper {
 

@@ -1,9 +1,9 @@
 package com.campudus.tableaux.database.domain
 
-import org.vertx.scala.core.json._
-
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.model.TableauxModel._
+
+import org.vertx.scala.core.json._
 
 sealed trait CreateColumn {
   val name: String

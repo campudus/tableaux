@@ -1,12 +1,14 @@
 package com.campudus.tableaux.api.auth
 
 import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.vertx.scala.core.json.{Json, JsonObject}
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 @RunWith(classOf[VertxUnitRunner])
 class AuthorizationTest extends TableauxTestBase {

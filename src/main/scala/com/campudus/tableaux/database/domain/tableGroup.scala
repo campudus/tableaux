@@ -1,6 +1,7 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 case class TableGroup(id: TableId, displayInfos: Seq[DisplayInfo]) extends DomainObject {

@@ -1,18 +1,20 @@
 package com.campudus.tableaux.router
 
+import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux.TableauxConfig
-import com.typesafe.scalalogging.LazyLogging
+
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
 import io.vertx.scala.ext.web.{Router, RoutingContext}
-import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
 import io.vertx.scala.ext.web.handler.CookieHandler
+import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
+
+import com.typesafe.scalalogging.LazyLogging
 
 object RouterRegistry extends LazyLogging {
 

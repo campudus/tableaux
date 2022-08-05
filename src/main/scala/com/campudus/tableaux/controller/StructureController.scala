@@ -1,5 +1,6 @@
 package com.campudus.tableaux.controller
 
+import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
@@ -11,25 +12,25 @@ import com.campudus.tableaux.database.domain.{
   NameOnly,
   _
 }
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
 import com.campudus.tableaux.database.model.StructureModel
-import com.campudus.tableaux.database.model.structure.ColumnModel
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
-import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig}
-import org.vertx.scala.core.json._
-import io.vertx.scala.core.eventbus.EventBus
-import io.vertx.scala.core.Vertx
+import com.campudus.tableaux.database.model.structure.{CachedColumnModel, ColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.helper.JsonUtils
-import org.json.JSONObject;
-import scala.util.{Failure, Success, Try}
-import org.everit.json.schema.ValidationException;
-import scala.collection.JavaConverters._
-import io.vertx.scala.core.eventbus.Message
+import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
 
-import scala.concurrent.Future
+import io.vertx.scala.core.Vertx
+import io.vertx.scala.core.eventbus.EventBus
+import io.vertx.scala.core.eventbus.Message
 import io.vertx.scala.ext.web.RoutingContext
+import org.vertx.scala.core.json._
+
+import scala.collection.JavaConverters._
+import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
+
+import org.everit.json.schema.ValidationException
+import org.json.JSONObject
 
 object StructureController {
 

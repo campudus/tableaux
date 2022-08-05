@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database
 
-import org.junit.Assert.assertEquals
 import org.junit.{Assert, Test}
+import org.junit.Assert.assertEquals
 
 class LocationTypeTest {
 

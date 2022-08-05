@@ -1,6 +1,7 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.router.RouterException
+
 import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future

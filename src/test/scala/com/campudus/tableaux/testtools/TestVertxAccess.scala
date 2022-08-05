@@ -1,9 +1,11 @@
 package com.campudus.tableaux.testtools
 
 import com.campudus.tableaux.helper.VertxAccess
-import com.typesafe.scalalogging.LazyLogging
+
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.core.Vertx
+
+import com.typesafe.scalalogging.LazyLogging
 
 trait TestVertxAccess extends LazyLogging {
 

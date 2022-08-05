@@ -1,17 +1,18 @@
 package com.campudus.tableaux.router
 
-import java.util.UUID
-
+import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database.domain.{MultiLanguageValue, ServiceType}
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
-import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
 import com.campudus.tableaux.router.auth.permission.TableauxUser
-import io.vertx.scala.ext.web.handler.BodyHandler
+
 import io.vertx.scala.ext.web.{Router, RoutingContext}
+import io.vertx.scala.ext.web.handler.BodyHandler
 
 import scala.concurrent.Future
 import scala.util.Try
+
+import java.util.UUID
 
 object SystemRouter {
   private var nonce: Option[String] = None

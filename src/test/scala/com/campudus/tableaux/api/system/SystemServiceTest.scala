@@ -1,17 +1,19 @@
 package com.campudus.tableaux.api.system
 
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.vertx.scala.core.json.Json
+
+import scala.concurrent.Future
+
 import org.joda.time.DateTime
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
-import org.vertx.scala.core.json.Json
-
-import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class SystemServiceTest extends TableauxTestBase {

@@ -1,15 +1,16 @@
 package com.campudus.tableaux.helper
 
-import java.io.FileNotFoundException
-
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+
+import scala.reflect.io.Path
+
+import java.io.FileNotFoundException
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-
-import scala.reflect.io.Path
 
 @RunWith(classOf[VertxUnitRunner])
 class FileUtilsTest extends TableauxTestBase {

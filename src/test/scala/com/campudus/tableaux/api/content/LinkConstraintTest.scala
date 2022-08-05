@@ -1,20 +1,22 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{Cardinality, Constraint, DefaultCardinality}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.testtools.RequestCreation.{Columns, LinkBiDirectionalCol, Rows}
 import com.campudus.tableaux.testtools.TestCustomException
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.Assert._
-import org.junit.runner.RunWith
-import org.junit.{Ignore, Test}
+import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
-import io.vertx.scala.SQLConnection
-import com.campudus.tableaux.database.DatabaseConnection
+
+import org.junit.{Ignore, Test}
+import org.junit.Assert._
+import org.junit.runner.RunWith
 
 sealed trait Helper {
 

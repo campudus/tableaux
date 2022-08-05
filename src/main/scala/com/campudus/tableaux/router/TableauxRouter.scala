@@ -1,18 +1,19 @@
 package com.campudus.tableaux.router
 
-import java.util.UUID
-
+import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.helper.JsonUtils._
-import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import com.campudus.tableaux.router.auth.permission.TableauxUser
-import io.vertx.scala.ext.web.handler.BodyHandler
+
 import io.vertx.scala.ext.web.{Router, RoutingContext}
+import io.vertx.scala.ext.web.handler.BodyHandler
 import org.vertx.scala.core.json.JsonArray
 
 import scala.concurrent.Future
 import scala.util.Try
+
+import java.util.UUID
 
 object TableauxRouter {
 

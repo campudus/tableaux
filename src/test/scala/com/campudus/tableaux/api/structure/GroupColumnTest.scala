@@ -2,17 +2,19 @@ package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
-import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.{TableauxTestBase, TestCustomException}
+import com.campudus.tableaux.testtools.RequestCreation._
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import org.vertx.scala.core.json.{Json, JsonObject}
+
+import scala.concurrent.Future
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
-import org.vertx.scala.core.json.{Json, JsonObject}
-
-import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class GroupColumnTest extends TableauxTestBase {

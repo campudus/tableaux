@@ -9,14 +9,16 @@ import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
+import org.vertx.scala.core.json.{Json, JsonObject}
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
-import org.vertx.scala.core.json.{Json, JsonObject}
 
 trait StructureControllerAuthTest extends TableauxTestBase {
 

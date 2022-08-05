@@ -1,18 +1,19 @@
 package com.campudus.tableaux.router
 
-import java.util.UUID
-
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.helper.{AsyncReply, Header, SendFile}
 import com.campudus.tableaux.router.auth.permission.TableauxUser
+
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
-import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
+import io.vertx.scala.ext.web.handler.BodyHandler
 
 import scala.concurrent.{Future, Promise}
+
+import java.util.UUID
 
 sealed trait FileAction
 

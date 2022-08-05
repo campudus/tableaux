@@ -1,14 +1,15 @@
 package com.campudus.tableaux.database.model
 
-import java.util.UUID
-
+import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery, DbTransaction}
 import com.campudus.tableaux.database.domain.{DomainObject, ExtendedFile}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering, RowId, TableId}
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery, DbTransaction}
 import com.campudus.tableaux.helper.ResultChecker._
+
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+
+import java.util.UUID
 
 case class Attachment(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID, ordering: Option[Ordering])
 

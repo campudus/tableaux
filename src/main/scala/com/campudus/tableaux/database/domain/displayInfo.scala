@@ -2,6 +2,7 @@ package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.domain.DisplayInfos._
 import com.campudus.tableaux.database.model.TableauxModel._
+
 import org.vertx.scala.core.json._
 
 object DisplayInfo {

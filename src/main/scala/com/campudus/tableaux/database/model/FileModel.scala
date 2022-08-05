@@ -1,15 +1,16 @@
 package com.campudus.tableaux.database.model
 
-import java.util.UUID
-
 import com.campudus.tableaux.controller.MediaController
+import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.domain.{Folder, MultiLanguageValue, TableauxFile}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
-import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.helper.ResultChecker._
+
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
+
+import java.util.UUID
 
 object FileModel {
 

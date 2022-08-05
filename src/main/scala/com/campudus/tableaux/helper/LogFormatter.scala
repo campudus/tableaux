@@ -1,8 +1,8 @@
 package com.campudus.tableaux.helper
 
 import java.io.{PrintWriter, StringWriter}
-import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
+import java.time.format.DateTimeFormatter
 import java.util.logging.{Formatter, LogRecord}
 
 object LogFormatter {

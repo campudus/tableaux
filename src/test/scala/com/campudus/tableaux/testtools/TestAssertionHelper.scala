@@ -1,8 +1,9 @@
 package com.campudus.tableaux.testtools
 
+import org.vertx.scala.core.json.{JsonArray, JsonObject}
+
 import org.junit.Assert._
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
-import org.vertx.scala.core.json.{JsonArray, JsonObject}
 
 trait JsonAssertable[T] {
   def serialize(t: T): String

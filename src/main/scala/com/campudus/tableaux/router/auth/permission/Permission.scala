@@ -1,8 +1,10 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
-import com.typesafe.scalalogging.LazyLogging
+
 import org.vertx.scala.core.json.JsonObject
+
+import com.typesafe.scalalogging.LazyLogging
 
 case class Permission(
     roleName: String,

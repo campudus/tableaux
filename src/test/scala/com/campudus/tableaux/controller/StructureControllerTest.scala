@@ -1,17 +1,19 @@
 package com.campudus.tableaux.controller
 
+import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
 import com.campudus.tableaux.database.domain.{CreateSimpleColumn, GenericTable}
 import com.campudus.tableaux.database.model.StructureModel
-import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
+
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
-import org.junit.Test
-import org.junit.runner.RunWith
 
 import scala.concurrent.Future
+
+import org.junit.Test
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class StructureControllerTest extends TableauxTestBase {

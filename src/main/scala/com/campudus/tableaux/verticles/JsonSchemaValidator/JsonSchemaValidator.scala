@@ -2,16 +2,17 @@ package com.campudus.tableaux.verticles.JsonSchemaValidator
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.eventbus.Message
-import scala.concurrent.Future
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
-import com.typesafe.scalalogging.LazyLogging
-import scala.language.implicitConversions
-import org.json.{JSONArray, JSONObject};
-import scala.util.{Failure, Success, Try}
-import org.everit.json.schema.ValidationException;
 
-import org.everit.json.schema.Schema;
-import org.everit.json.schema.loader.SchemaLoader;
+import scala.concurrent.Future
+import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
+
+import com.typesafe.scalalogging.LazyLogging
+import org.everit.json.schema.Schema
+import org.everit.json.schema.ValidationException
+import org.everit.json.schema.loader.SchemaLoader
+import org.json.{JSONArray, JSONObject};
 
 class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
 

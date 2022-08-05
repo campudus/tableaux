@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.ShouldBeUniqueException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
@@ -7,11 +8,11 @@ import com.campudus.tableaux.database.model.TableauxModel.Ordering
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
-import com.campudus.tableaux.ShouldBeUniqueException
+
+import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
-import io.vertx.scala.ext.web.RoutingContext
 
 object ServiceModel {
   type ServiceId = Long

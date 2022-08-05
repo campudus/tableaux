@@ -1,10 +1,12 @@
 package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
+
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.junit.runner.RunWith
-import org.junit.{Assert, Test}
 import org.vertx.scala.core.json.Json
+
+import org.junit.{Assert, Test}
+import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
 class TokenHelperTest extends TableauxTestBase {

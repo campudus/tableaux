@@ -1,38 +1,39 @@
 package com.campudus.tableaux.database.model.structure
 
-import java.util.NoSuchElementException
-import java.util.concurrent.TimeUnit
-
 import com.campudus.tableaux._
-import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.database.model.structure.CachedColumnModel._
-import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
-import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.{
   HasStatusColumnDependencyException,
   WrongLanguageTypeException,
   WrongStatusColumnKindException,
   WrongStatusConditionTypeException
 }
-import com.google.common.cache.CacheBuilder
-import com.typesafe.scalalogging.LazyLogging
-import org.vertx.scala.core.json._
-import scalacache._
-import scalacache.guava._
-import scalacache.modes.scalaFuture._
-import io.vertx.scala.core.Vertx
+import com.campudus.tableaux.database._
+import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.database.model.structure.CachedColumnModel._
+import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
-import scala.util.{Failure, Success, Try}
+import com.campudus.tableaux.helper.ResultChecker._
+import com.campudus.tableaux.router.auth.permission.RoleModel
+import com.campudus.tableaux.router.auth.permission.TableauxUser
+import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
+
+import io.vertx.scala.core.Vertx
+import io.vertx.scala.ext.web.RoutingContext
+import org.vertx.scala.core.json._
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet
 import scala.concurrent.Future
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
-import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.permission.TableauxUser
+import scala.util.{Failure, Success, Try}
+
+import com.google.common.cache.CacheBuilder
+import com.typesafe.scalalogging.LazyLogging
+import java.util.NoSuchElementException
+import java.util.concurrent.TimeUnit
+import scalacache._
+import scalacache.guava._
+import scalacache.modes.scalaFuture._
 
 object CachedColumnModel {
 

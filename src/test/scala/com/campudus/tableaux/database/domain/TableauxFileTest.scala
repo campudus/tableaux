@@ -1,11 +1,11 @@
 package com.campudus.tableaux.database.domain
 
-import java.util.UUID
+import org.vertx.scala.core.json.Json
 
+import java.util.UUID
 import org.joda.time.DateTime
 import org.junit.Assert._
 import org.junit.Test
-import org.vertx.scala.core.json.Json
 
 class TableauxFileTest {
 
