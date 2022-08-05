@@ -32,8 +32,6 @@ class KeycloakAuthHandler(override val vertx: Vertx, tableauxConfig: TableauxCon
   override def handle(rc: RoutingContext): Unit = {
     val user: Option[User] = rc.user()
 
-    // logger.info(s"User11 ${contextUser.get.principal()}")
-
     val tokenPayload = user match {
       case Some(u) => KeycloakHelper.accessToken(u.principal())
       case _ =>

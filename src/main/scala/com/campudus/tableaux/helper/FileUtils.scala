@@ -3,7 +3,7 @@ package com.campudus.tableaux.helper
 import java.nio.file.FileAlreadyExistsException
 
 import io.vertx.scala.core.Vertx
-import org.vertx.scala.core.json.{Json, JsonObject, JsonArray}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 import scala.io.Source

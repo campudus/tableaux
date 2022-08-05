@@ -1,13 +1,11 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
-import com.campudus.tableaux.router.auth.permission.ScopeMedia
+import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeMedia, TableauxUser}
 import io.vertx.core.json.JsonObject
 import org.joda.time.DateTime
 import org.vertx.scala.core.json._
 import io.vertx.scala.ext.web.RoutingContext
-import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 case class Folder(
     id: FolderId,

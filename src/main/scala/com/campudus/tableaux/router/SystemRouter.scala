@@ -6,12 +6,12 @@ import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database.domain.{MultiLanguageValue, ServiceType}
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.{InvalidNonceException, InvalidRequestException, NoNonceException, TableauxConfig}
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 import io.vertx.scala.ext.web.handler.BodyHandler
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 
 import scala.concurrent.Future
 import scala.util.Try
-import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 object SystemRouter {
   private var nonce: Option[String] = None

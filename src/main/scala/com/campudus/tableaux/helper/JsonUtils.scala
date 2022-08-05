@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import com.typesafe.scalalogging.LazyLogging
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
-import com.campudus.tableaux.{InvalidJsonException, WrongJsonTypeException, TableauxConfig}
+import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
 import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorClient
 import io.vertx.scala.core.Vertx
 

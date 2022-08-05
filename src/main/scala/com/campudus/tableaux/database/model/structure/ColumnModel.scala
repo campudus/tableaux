@@ -12,10 +12,10 @@ import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupM
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.{
-  WrongStatusColumnKindException,
+  HasStatusColumnDependencyException,
   WrongLanguageTypeException,
-  WrongStatusConditionTypeException,
-  HasStatusColumnDependencyException
+  WrongStatusColumnKindException,
+  WrongStatusConditionTypeException
 }
 import com.google.common.cache.CacheBuilder
 import com.typesafe.scalalogging.LazyLogging
@@ -25,7 +25,7 @@ import scalacache.guava._
 import scalacache.modes.scalaFuture._
 import io.vertx.scala.core.Vertx
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedSet

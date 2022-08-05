@@ -28,8 +28,8 @@ object RouterRegistry extends LazyLogging {
 
     val mainRouter: Router = Router.router(vertx)
 
+    // needed cookies will be extracted by route handlers and stored in `TableauxUser` instances
     mainRouter.route().handler(CookieHandler.create())
-    // mainRouter.route().handler(retrieveCookies)
 
     if (isAuthorization) {
       val keycloakAuthProvider = KeycloakAuth.create(vertx, tableauxConfig.authConfig)

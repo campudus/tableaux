@@ -17,7 +17,7 @@ import com.campudus.tableaux.database.model.structure.ColumnModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.{ForbiddenException, TableauxConfig, InvalidJsonException}
+import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig}
 import org.vertx.scala.core.json._
 import io.vertx.scala.core.eventbus.EventBus
 import io.vertx.scala.core.Vertx
