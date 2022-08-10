@@ -7,26 +7,30 @@ import io.vertx.core.json.{JsonArray, JsonObject}
 import io.vertx.lang.scala.json.Json
 import io.vertx.scala.ext.web.RoutingContext
 
-object TableauxUser {
+import com.typesafe.scalalogging.LazyLogging
+
+object TableauxUser extends LazyLogging {
 
   def apply(name: String, roles: Seq[String]): TableauxUser = {
     new TableauxUser(name, roles)
   }
 
   def apply(rc: RoutingContext): TableauxUser = {
-    val tokenPayload = getTokenPayload(rc)
-    val name = extractUserName(tokenPayload, rc)
-    val roles = extractUserRoles(tokenPayload)
+    val tokenPayloadOpt = getTokenPayload(rc)
+    val name = extractUserName(tokenPayloadOpt, rc)
+    val roles = extractUserRoles(tokenPayloadOpt)
 
+    logger.debug(s"Create TableauxUser '$name' with roles '$roles'")
     new TableauxUser(name, roles)
   }
 
-  private def extractUserRoles(tokenPayload: JsonObject): Seq[String] = {
+  private def extractUserRoles(tokenPayloadOpt: Option[JsonObject]): Seq[String] = {
     val roles: JsonArray =
-      tokenPayload
-        .getJsonObject("realm_access", Json.emptyObj())
-        .getJsonArray("roles", Json.emptyArr())
-
+      tokenPayloadOpt match {
+        case Some(tokenPayload) =>
+          tokenPayload.getJsonObject("realm_access", Json.emptyObj()).getJsonArray("roles", Json.emptyArr())
+        case None => Json.emptyArr()
+      }
     JsonUtils.asSeqOf[String](roles)
   }
 
@@ -36,13 +40,15 @@ object TableauxUser {
       .map(_.getValue())
       .getOrElse(defaultValue)
 
-  private def extractUserName(tokenPayload: JsonObject, rc: RoutingContext): String =
-    Option(tokenPayload
-      .getString("preferred_username"))
-      .getOrElse(getCookieValue("unknown", "userName", rc))
+  private def extractUserName(tokenPayloadOpt: Option[JsonObject], rc: RoutingContext): String =
+    tokenPayloadOpt match {
+      case Some(tokenPayload) =>
+        tokenPayload.getString("preferred_username", "unknown")
+      case None => getCookieValue("unknown", "userName", rc)
+    }
 
-  private def getTokenPayload(rc: RoutingContext): JsonObject = rc.get(KeycloakAuthHandler.TOKEN_PAYLOAD)
-
+  private def getTokenPayload(rc: RoutingContext): Option[JsonObject] =
+    Option(rc.get(KeycloakAuthHandler.TOKEN_PAYLOAD))
 }
 
 case class TableauxUser(name: String, roles: Seq[String])
