@@ -65,12 +65,21 @@ Run tests:
 ./gradlew test -Pconf='custom.json'
 ```
 
-## Run as fat jar
-
-To execute the **fat jar** call it like this:
+To run a single test use the following command:
 
 ```bash
-java -jar tableaux-fat-0.1.0.jar -conf ../../conf.json
+# full package and test name or wildcard with *, e.g.:
+./gradlew test --rerun-tasks --tests="*deleteTable_validRole*" --info"
+```
+
+## Run as fat jar
+
+To execute the **fat jar** call it like this from project root:
+
+```bash
+java -jar ./build/libs/grud-backend-0.1.0-fat.jar -conf ../../conf.json
+# with custom logging properties
+java -jar -Djava.util.logging.config.file=./local_logging.properties ./build/libs/grud-backend-0.1.0-fat.jar -conf ./conf.json
 ```
 
 ## Run in development
