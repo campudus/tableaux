@@ -53,3 +53,6 @@ project/plugins/project/
 /file-uploads
 /.bloop
 /.metals
+
+# local log properties
+local_logging.properties
