@@ -877,8 +877,9 @@ class TableauxModel(
           }
         })
 
-      totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId)
-      rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, representingColumns, pagination)
+      (_, linkDirection, _) <- structureModel.columnStruc.retrieveLinkInformation(table, linkColumn.id)
+      totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId, linkDirection)
+      rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, representingColumns, pagination, linkDirection)
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
     } yield {
       val rowsSeq = RowSeq(rowSeq, Page(pagination, Some(totalSize)))

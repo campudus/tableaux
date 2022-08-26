@@ -81,6 +81,8 @@ sealed trait LinkDirection {
   def fromCardinality: String
 
   def toCardinality: String
+
+  def isManyToMany: Boolean = constraint.cardinality.from == 0 && constraint.cardinality.to == 0
 }
 
 case class LeftToRight(from: TableId, to: TableId, constraint: Constraint) extends LinkDirection {

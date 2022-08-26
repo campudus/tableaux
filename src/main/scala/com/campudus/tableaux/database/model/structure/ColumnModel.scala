@@ -1170,7 +1170,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield displayInfos
   }
 
-  private def retrieveLinkInformation(fromTable: Table, columnId: ColumnId)(
+  def retrieveLinkInformation(fromTable: Table, columnId: ColumnId)(
       implicit user: TableauxUser
   ): Future[(LinkId, LinkDirection, Table)] = {
     for {
