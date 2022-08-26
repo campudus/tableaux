@@ -1055,16 +1055,17 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       linkColumn: LinkColumn,
       rowId: RowId,
       foreignColumns: Seq[ColumnType[_]],
-      pagination: Pagination
+      pagination: Pagination,
+      linkDirection: LinkDirection
   ): Future[Seq[RawRow]] = {
     val foreignTableId = linkColumn.to.table.id
 
     val projection = generateProjection(foreignTableId, foreignColumns)
     val fromClause = generateFromClause(foreignTableId)
     val cardinalityFilter = generateCardinalityFilter(linkColumn)
+    val shouldNotCheckCardinality = hasManyToManyCardinality(linkDirection)
 
     for {
-      shouldNotCheckCardinality <- hasManyToManyCardinality(linkColumn.id)
       maybeCardinalityFilter <-
         if (shouldNotCheckCardinality) {
           Future.successful("")
@@ -1073,9 +1074,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         }
       result <- connection.query(
         s"SELECT $projection FROM $fromClause $maybeCardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
-        shouldNotCheckCardinality match {
-          case false => Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
-          case true => Json.arr()
+
+        if (shouldNotCheckCardinality) {
+          Json.arr()
+        } else {
+          Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
         }
       )
     } yield {
@@ -1126,13 +1129,12 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     connection.selectSingleValue(select)
   }
 
-  def sizeForeign(linkColumn: LinkColumn, rowId: RowId): Future[Long] = {
+  def sizeForeign(linkColumn: LinkColumn, rowId: RowId, linkDirection: LinkDirection): Future[Long] = {
     val foreignTableId = linkColumn.to.table.id
-
     val cardinalityFilter = generateCardinalityFilter(linkColumn)
+    val shouldNotCheckCardinality = hasManyToManyCardinality(linkDirection)
 
     for {
-      shouldNotCheckCardinality <- hasManyToManyCardinality(linkColumn.id)
       maybeCardinalityFilter <-
         if (shouldNotCheckCardinality) {
           Future.successful("")
@@ -1141,9 +1143,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         }
       result <- connection.selectSingleValue[Long](
         s"SELECT COUNT(*) FROM user_table_$foreignTableId ut $maybeCardinalityFilter",
-        shouldNotCheckCardinality match {
-          case false => Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
-          case true => Json.arr()
+
+        if (shouldNotCheckCardinality) {
+          Json.arr()
+        } else {
+          Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
         }
       )
     } yield { result }
@@ -1307,15 +1311,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
   }
 
-  private def hasManyToManyCardinality(linkId: LinkId): Future[Boolean] = {
-    val query = s"SELECT cardinality_1, cardinality_2 FROM system_link_table WHERE link_id = ?"
-    connection.query(query, Json.arr(linkId)).map(result => {
-      val resultSeq = resultObjectToJsonArray(result).map(jsonArrayToSeq)
-      resultSeq.size match {
-        case 1 => resultSeq.head.forall(cardinality => cardinality == 0)
-        case _ => false
-      }
-    })
+  private def hasManyToManyCardinality(linkDirection: LinkDirection): Boolean = {
+    linkDirection.fromCardinality.toInt == 0 && linkDirection.toCardinality.toInt == 0
   }
 
   private def generateCardinalityFilter(linkColumn: LinkColumn): String = {
