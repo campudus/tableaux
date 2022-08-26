@@ -1063,7 +1063,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     val projection = generateProjection(foreignTableId, foreignColumns)
     val fromClause = generateFromClause(foreignTableId)
     val cardinalityFilter = generateCardinalityFilter(linkColumn)
-    val shouldNotCheckCardinality = hasManyToManyCardinality(linkDirection)
+    val shouldNotCheckCardinality = linkDirection.isManyToMany
 
     for {
       maybeCardinalityFilter <-
@@ -1132,7 +1132,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   def sizeForeign(linkColumn: LinkColumn, rowId: RowId, linkDirection: LinkDirection): Future[Long] = {
     val foreignTableId = linkColumn.to.table.id
     val cardinalityFilter = generateCardinalityFilter(linkColumn)
-    val shouldNotCheckCardinality = hasManyToManyCardinality(linkDirection)
+    val shouldNotCheckCardinality = linkDirection.isManyToMany
 
     for {
       maybeCardinalityFilter <-
@@ -1309,14 +1309,6 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
         |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
-  }
-
-  private def hasManyToManyCardinality(linkDirection: LinkDirection): Boolean = {
-    try {
-      linkDirection.fromCardinality.toInt == 0 && linkDirection.toCardinality.toInt == 0
-    } catch {
-      case e: Exception => false
-    }
   }
 
   private def generateCardinalityFilter(linkColumn: LinkColumn): String = {
