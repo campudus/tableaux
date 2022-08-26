@@ -1074,7 +1074,6 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         }
       result <- connection.query(
         s"SELECT $projection FROM $fromClause $maybeCardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
-
         if (shouldNotCheckCardinality) {
           Json.arr()
         } else {
@@ -1143,7 +1142,6 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         }
       result <- connection.selectSingleValue[Long](
         s"SELECT COUNT(*) FROM user_table_$foreignTableId ut $maybeCardinalityFilter",
-
         if (shouldNotCheckCardinality) {
           Json.arr()
         } else {
