@@ -1312,7 +1312,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   }
 
   private def hasManyToManyCardinality(linkDirection: LinkDirection): Boolean = {
-    linkDirection.fromCardinality.toInt == 0 && linkDirection.toCardinality.toInt == 0
+    try {
+      linkDirection.fromCardinality.toInt == 0 && linkDirection.toCardinality.toInt == 0
+    } catch {
+      case e: Exception => false
+    }
   }
 
   private def generateCardinalityFilter(linkColumn: LinkColumn): String = {
