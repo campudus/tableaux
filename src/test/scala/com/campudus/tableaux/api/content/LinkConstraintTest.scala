@@ -578,7 +578,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
+        linkColumnId <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
 
         columns <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
@@ -609,7 +609,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
+        linkColumnId <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
 
         columns <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
@@ -645,7 +645,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId1 <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
+        linkColumnId1 <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
 
         linkColumnId2 <- sendRequest("GET", s"/tables/$tableId2/columns")
           .map(_.getJsonArray("columns"))
@@ -701,7 +701,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
+        linkColumnId <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
 
         rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
           .map(_.getLong("id"))
@@ -725,7 +725,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
+        linkColumnId <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
 
         rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
           .map(_.getLong("id"))
@@ -755,7 +755,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
+        linkColumnId <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 1, 2)
 
         rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows")
           .map(_.getLong("id"))
@@ -788,8 +788,8 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
         tableId3 <- createDefaultTable(name = "table3", tableNum = 3)
 
-        linkColumnId1 <- createCardinaltyLinkColumn(tableId2, tableId1, "cardinality1", 0, 0)
-        linkColumnId2 <- createCardinaltyLinkColumn(tableId3, tableId2, "cardinality2", 1, 1)
+        linkColumnId1 <- createCardinalityLinkColumn(tableId2, tableId1, "cardinality1", 0, 0)
+        linkColumnId2 <- createCardinalityLinkColumn(tableId3, tableId2, "cardinality2", 1, 1)
 
         rowId1 <- sendRequest("POST", s"/tables/$tableId2/rows").map(_.getLong("id"))
         rowId2 <- sendRequest("POST", s"/tables/$tableId3/rows").map(_.getLong("id"))
@@ -830,7 +830,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
         tableId1 <- createEmptyDefaultTable(name = "table1")
         tableId2 <- createEmptyDefaultTable(name = "table2", tableNum = 2)
 
-        linkColumnId1 <- createCardinaltyLinkColumn(tableId1, tableId2, "cardinality", 2, 3)
+        linkColumnId1 <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 2, 3)
 
         columns1 <- sendRequest("GET", s"/tables/$tableId1/columns")
           .map(_.getJsonArray("columns"))
@@ -953,7 +953,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
     }
   }
 
-  private def createCardinaltyLinkColumn(
+  private def createCardinalityLinkColumn(
       tableId: TableId,
       toTableId: TableId,
       columnName: String,
