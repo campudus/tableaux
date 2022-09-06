@@ -779,6 +779,49 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
   }
 
   @Test
+  def retrieveForeignRowsOfLinkCellWhichAlreadyHitTheLimitButAddedAnotherLinkColumnBefore(implicit
+  c: TestContext): Unit = {
+    okTest {
+      for {
+        // create additional table and links so that system_link_table -> link_id and link_table -> ids are not identical
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+        tableId3 <- createDefaultTable(name = "table3", tableNum = 3)
+
+        linkColumnId1 <- createCardinaltyLinkColumn(tableId2, tableId1, "cardinality1", 0, 0)
+        linkColumnId2 <- createCardinaltyLinkColumn(tableId3, tableId2, "cardinality2", 1, 1)
+
+        rowId1 <- sendRequest("POST", s"/tables/$tableId2/rows").map(_.getLong("id"))
+        rowId2 <- sendRequest("POST", s"/tables/$tableId3/rows").map(_.getLong("id"))
+
+        // create additional links before
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId2/columns/$linkColumnId1/rows/$rowId1",
+          Json.obj("value" -> Json.arr(1, 2))
+        )
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId3/columns/$linkColumnId2/rows/$rowId2",
+          Json.obj("value" -> Json.arr(1))
+        )
+
+        resultForeignRows1 <- sendRequest("GET", s"/tables/$tableId2/columns/$linkColumnId1/rows/$rowId1/foreignRows")
+        resultForeignRowsTotalSize1 = resultForeignRows1.getJsonObject("page").getLong("totalSize").longValue()
+
+        resultForeignRows2 <- sendRequest("GET", s"/tables/$tableId3/columns/$linkColumnId2/rows/$rowId2/foreignRows")
+        resultForeignRowsTotalSize2 = resultForeignRows2.getJsonObject("page").getLong("totalSize").longValue()
+      } yield {
+        assertEquals("Size must be 2 because of no limit", 2, resultForeignRowsTotalSize1)
+        assertEquals("Size must be 2 because of no limit", 2, resultForeignRows1.getJsonArray("rows").size())
+
+        assertEquals("Size must be 0 because the limit is hit", 0, resultForeignRowsTotalSize2)
+        assertEquals("Size must be 0 because the limit is hit", 0, resultForeignRows2.getJsonArray("rows").size())
+      }
+    }
+  }
+
+  @Test
   def patchAndRetrieveWithHigherCardinality(implicit c: TestContext): Unit = {
     import scala.collection.JavaConverters._
 
