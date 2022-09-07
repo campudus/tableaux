@@ -4,6 +4,14 @@ import com.campudus.tableaux._
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.helper._
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeColumn}
+import com.campudus.tableaux.router.auth.permission.ScopeColumnSeq
+import com.campudus.tableaux.router.auth.permission.ScopeMedia
+import com.campudus.tableaux.router.auth.permission.ScopeService
+import com.campudus.tableaux.router.auth.permission.ScopeServiceSeq
+import com.campudus.tableaux.router.auth.permission.ScopeTable
+import com.campudus.tableaux.router.auth.permission.ScopeTableSeq
+import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
@@ -41,6 +49,8 @@ trait BaseRouter extends VertxAccess {
 
   val config: TableauxConfig
 
+  val roleModel: RoleModel = RoleModel(config.rolePermissions)
+
   override val vertx: Vertx = config.vertx
 
   /**
@@ -48,13 +58,39 @@ trait BaseRouter extends VertxAccess {
     */
   val baseResult: JsonObject = Json.obj("status" -> "ok")
 
-  type AsyncReplyFunction = (=> Future[DomainObject]) => AsyncReply
+  def asyncGetReply(replFunc: => Future[DomainObject])(implicit user: TableauxUser): AsyncReply = {
+    asyncReply(GetReturn)(replFunc)
+  }
 
-  def asyncGetReply: AsyncReplyFunction = asyncReply(GetReturn)(_)
+  def asyncEmptyReply(replFunc: => Future[DomainObject])(implicit user: TableauxUser): AsyncReply = {
+    asyncReply(EmptyReturn)(replFunc)
+  }
 
-  def asyncEmptyReply: AsyncReplyFunction = asyncReply(EmptyReturn)(_)
+  private def enrich(obj: DomainObject, returnType: ReturnType)(implicit user: TableauxUser): JsonObject = {
+    val resultJson = obj.toJson(returnType)
+    obj match {
+      case col: ColumnType[_] =>
+        roleModel.enrichDomainObject(resultJson, ScopeColumn, ComparisonObjects(col.table, col))
+      case colSeq: ColumnSeq => {
+        val seqJson = roleModel.enrichDomainObject(resultJson, ScopeColumnSeq)
+        val columns = colSeq.columns.map(col => enrich(col, returnType))
+        seqJson.mergeIn(Json.obj("columns" -> columns))
+      }
+      case _: ExtendedFolder => roleModel.enrichDomainObject(resultJson, ScopeMedia)
+      case _: Service => roleModel.enrichDomainObject(resultJson, ScopeService)
+      case _: ServiceSeq => roleModel.enrichDomainObject(resultJson, ScopeServiceSeq)
+      case table: Table => roleModel.enrichDomainObject(resultJson, ScopeTable, ComparisonObjects(table))
+      case tableSeq: TableSeq => {
+        val seqJson = roleModel.enrichDomainObject(resultJson, ScopeTableSeq)
+        val tables = tableSeq.tables.map(table => enrich(table, returnType))
+        seqJson.mergeIn(Json.obj("tables" -> tables))
+      }
+      case _ => roleModel.enrichDomainObject(resultJson, null)(user)
+    }
+  }
 
-  private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject]): AsyncReply = {
+  private def asyncReply(returnType: ReturnType)(replyFunction: => Future[DomainObject])(implicit
+  user: TableauxUser): AsyncReply = {
     AsyncReply {
       val catchedReplyFunction = Try(replyFunction) match {
         case Success(future) => future
@@ -63,7 +99,7 @@ trait BaseRouter extends VertxAccess {
 
       catchedReplyFunction
         .map({ result =>
-          Ok(result.toJson(returnType).mergeIn(baseResult))
+          Ok(enrich(result, returnType)(user).mergeIn(baseResult))
         })
         .map({ reply =>
           Header("Expires", "-1", Header("Cache-Control", "no-cache", reply))

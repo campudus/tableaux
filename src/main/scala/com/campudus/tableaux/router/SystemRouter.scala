@@ -142,6 +142,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Invalidate all caches
     */
   private def invalidateCache(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
     sendReply(
       context,
       asyncGetReply {
@@ -154,6 +155,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Invalidate column cache
     */
   private def invalidateColumnCache(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -171,6 +173,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     * Retrieve system settings
     */
   private def retrieveSettings(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
     for {
       key <- getStringParam("settings", context)
     } yield {
