@@ -242,7 +242,6 @@ sealed trait ColumnType[+A] extends DomainObject {
   val attributes: JsonObject = columnInformation.attributes
 
   protected[this] implicit def roleModel: RoleModel
-  protected[this] implicit def user: TableauxUser
 
   override def getJson: JsonObject = {
 
@@ -295,8 +294,7 @@ sealed trait ColumnType[+A] extends DomainObject {
           )
       })
     })
-
-    roleModel.enrichDomainObject(json, ScopeColumn, ComparisonObjects(this.table, this))
+    json
   }
 
   def checkValidValue[B](value: B): Try[Option[A]]
@@ -696,7 +694,6 @@ case class ColumnSeq(columns: Seq[ColumnType[_]])(implicit roleModel: RoleModel,
     extends DomainObject {
 
   override def getJson: JsonObject = {
-    val columnSeqJson: JsonObject = Json.obj("columns" -> columns.map(_.getJson))
-    roleModel.enrichDomainObject(columnSeqJson, ScopeColumnSeq)
+    Json.obj("columns" -> columns.map(_.getJson))
   }
 }

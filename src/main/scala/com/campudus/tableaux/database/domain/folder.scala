@@ -49,6 +49,6 @@ case class ExtendedFolder(
         )
       )
 
-    roleModel.enrichDomainObject(extendedFolderJson, ScopeMedia)
+    extendedFolderJson
   }
 }

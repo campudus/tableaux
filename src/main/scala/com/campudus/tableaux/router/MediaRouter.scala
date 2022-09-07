@@ -180,6 +180,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     * Retrieve file meta information
     */
   private def retrieveFile(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
     for {
       fileUuid <- getUUID(context)
     } yield {

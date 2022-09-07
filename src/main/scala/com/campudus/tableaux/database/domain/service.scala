@@ -35,15 +35,14 @@ case class Service(
       "createdAt" -> optionToString(createdAt),
       "updatedAt" -> optionToString(updatedAt)
     )
-    roleModel.enrichDomainObject(serviceJson, ScopeService)
+    serviceJson
   }
 }
 
 case class ServiceSeq(services: Seq[Service])(implicit roleModel: RoleModel, user: TableauxUser) extends DomainObject {
 
   override def getJson: JsonObject = {
-    val serviceSeqJson: JsonObject = Json.obj("services" -> services.map(_.getJson))
-    roleModel.enrichDomainObject(serviceSeqJson, ScopeServiceSeq)
+    Json.obj("services" -> services.map(_.getJson))
   }
 }
 

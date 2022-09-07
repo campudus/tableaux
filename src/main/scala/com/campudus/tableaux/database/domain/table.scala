@@ -87,7 +87,7 @@ case class Table(
 
     tableGroup.foreach(tg => tableJson.put("group", tg.getJson))
 
-    roleModel.enrichDomainObject(tableJson, ScopeTable, ComparisonObjects(this))
+    tableJson
   }
 }
 
@@ -97,8 +97,7 @@ case class TableSeq(tables: Seq[Table])(
 ) extends DomainObject {
 
   override def getJson: JsonObject = {
-    val tableSeqJson = Json.obj("tables" -> compatibilityGet(tables))
-    roleModel.enrichDomainObject(tableSeqJson, ScopeTableSeq)
+    Json.obj("tables" -> compatibilityGet(tables))
   }
 }
 
