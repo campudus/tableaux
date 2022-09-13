@@ -40,103 +40,103 @@
       "scope": "table"
     }
   ],
-    "edit-model-tables": [
-      {
-        "type": "grant",
-        "action": ["view", "editDisplayProperty"],
-        "scope": "table"
-      },
-      {
-        "type": "grant",
-        "action": ["editStructureProperty"],
-        "scope": "table",
-        "condition": {
-          "table": {
-            "name": ".*_model"
-          }
-        }
+ "edit-model-tables": [
+   {
+     "type": "grant",
+     "action": ["view", "editDisplayProperty"],
+     "scope": "table"
+   },
+   {
+     "type": "grant",
+     "action": ["editStructureProperty"],
+     "scope": "table",
+     "condition": {
+       "table": {
+         "name": ".*_model"
+       }
+     }
+   }
+ ],
+"edit-tables-all-allowed": [
+  {
+    "type": "grant",
+    "action": ["view", "editDisplayProperty", "editStructureProperty", "delete",
+      "createRow", "deleteRow", "editCellAnnotation", "editRowAnnotation"],
+    "scope": "table"
+  },
+  {
+    "type": "grant",
+    "action": ["view", "create"],
+    "scope": "column"
+  }
+],
+"create-columns": [
+  {
+    "type": "grant",
+    "action": ["view"],
+    "scope": "table"
+  },
+  {
+    "type": "grant",
+    "action": ["view", "create"],
+    "scope": "column"
+  }
+],
+  "edit-columns-all-allowed": [
+  {
+    "type": "grant",
+    "action": ["view"],
+    "scope": "table"
+  },
+  {
+    "type": "grant",
+    "action": ["view", "editDisplayProperty", "editStructureProperty", "delete",
+      "editCellValue"],
+    "scope": "column"
+  }
+],
+  "can-edit-de-en-cell-values": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "table"
+    },
+    {
+      "type": "grant",
+      "action": ["view", "editCellValue"],
+      "scope": "column",
+      "condition": {
+        "langtag": "en|es"
       }
-    ],
-      "edit-tables-all-allowed": [
-        {
-          "type": "grant",
-          "action": ["view", "editDisplayProperty", "editStructureProperty", "delete",
-            "createRow", "deleteRow", "editCellAnnotation", "editRowAnnotation"],
-          "scope": "table"
-        },
-        {
-          "type": "grant",
-          "action": ["view", "create"],
-          "scope": "column"
-        }
-      ],
-        "create-columns": [
-          {
-            "type": "grant",
-            "action": ["view"],
-            "scope": "table"
-          },
-          {
-            "type": "grant",
-            "action": ["view", "create"],
-            "scope": "column"
-          }
-        ],
-          "edit-columns-all-allowed": [
-            {
-              "type": "grant",
-              "action": ["view"],
-              "scope": "table"
-            },
-            {
-              "type": "grant",
-              "action": ["view", "editDisplayProperty", "editStructureProperty", "delete",
-                "editCellValue"],
-              "scope": "column"
-            }
-          ],
-            "can-edit-de-en-cell-values": [
-              {
-                "type": "grant",
-                "action": ["view"],
-                "scope": "table"
-              },
-              {
-                "type": "grant",
-                "action": ["view", "editCellValue"],
-                "scope": "column",
-                "condition": {
-                  "langtag": "en|es"
-                }
-              }
-            ],
-            "can-edit-cell-values": [
-              {
-                "type": "grant",
-                "action": ["view"],
-                "scope": "table"
-              },
-              {
-                "type": "grant",
-                "action": ["view", "editCellValue"],
-                "scope": "column"
-              }
-            ],
-             "can-edit-cell-values-AT-GB": [
-               {
-                 "type": "grant",
-                 "action": ["view"],
-                 "scope": "table"
-               },
-               {
-                 "type": "grant",
-                 "action": ["view", "editCellValue"],
-                 "scope": "column",
-                 "condition": {
-                   "langtag": "AT|GB"
-                 }
-               }
-             ],
+    }
+  ],
+  "can-edit-cell-values": [
+    {
+      "type": "grant",
+      "action": ["view"],
+      "scope": "table"
+    },
+    {
+      "type": "grant",
+      "action": ["view", "editCellValue"],
+      "scope": "column"
+    }
+  ],
+   "can-edit-cell-values-AT-GB": [
+     {
+       "type": "grant",
+       "action": ["view"],
+       "scope": "table"
+     },
+     {
+       "type": "grant",
+       "action": ["view", "editCellValue"],
+       "scope": "column",
+       "condition": {
+         "langtag": "AT|GB"
+       }
+     }
+   ],
   "create-media": [
     {
       "type": "grant",
