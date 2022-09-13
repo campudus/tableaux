@@ -85,6 +85,11 @@ trait BaseRouter extends VertxAccess {
         val tables = tableSeq.tables.map(table => enrich(table, returnType))
         seqJson.mergeIn(Json.obj("tables" -> tables))
       }
+      case compTable: CompleteTable => {
+        val tableWithPermissions = enrich(compTable.table, returnType)
+        val columnsWithPermissions = compTable.columns.map(col => enrich(col, returnType))
+        resultJson.mergeIn(tableWithPermissions).mergeIn(Json.obj("columns"->columnsWithPermissions))
+      }
       case _ => roleModel.enrichDomainObject(resultJson, null)(user)
     }
   }
