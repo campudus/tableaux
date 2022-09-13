@@ -1174,4 +1174,3 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
     }
   }
 }
-

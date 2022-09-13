@@ -48,7 +48,6 @@ trait SystemControllerAuthTest extends TableauxTestBase {
   }
 }
 
-
 @RunWith(classOf[VertxUnitRunner])
 class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTest {
 

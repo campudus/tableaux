@@ -84,7 +84,6 @@ trait MediaTestBase extends TableauxTestBase {
 //                                     |  ]
 //                                     |}""".stripMargin)
 
-
 //     okTest {
 //       for {
 //         permission <- controller.retrieveRootFolder("de").map(getPermission)
@@ -109,7 +108,6 @@ trait MediaTestBase extends TableauxTestBase {
 //                                     |    }
 //                                     |  ]
 //                                     |}""".stripMargin)
-
 
 //     okTest {
 //       for {
@@ -147,7 +145,6 @@ trait MediaTestBase extends TableauxTestBase {
 //                                     |  ]
 //                                     |}""".stripMargin)
 
-
 //     okTest {
 //       for {
 //         permission <- controller.retrieveRootFolder("de").map(getPermission)
@@ -163,7 +160,6 @@ trait MediaTestBase extends TableauxTestBase {
 //       }
 //     }
 //   }
-
 
 // }
 

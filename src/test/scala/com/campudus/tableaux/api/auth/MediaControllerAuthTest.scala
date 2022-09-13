@@ -384,4 +384,3 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
       }
     }
 }
-

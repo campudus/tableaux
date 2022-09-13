@@ -6,11 +6,11 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.vertx.scala.core.json.{Json, JsonObject}
 
+import scala.concurrent.Future
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import scala.concurrent.Future
-
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 
 @RunWith(classOf[VertxUnitRunner])
@@ -37,7 +37,6 @@ class AuthorizationTest extends TableauxTestBase {
 
   val expectedOkJson: JsonObject = Json.obj("status" -> "ok")
 
-
   def getPermission(json: JsonObject): JsonObject = {
     json.getJsonObject("permission")
   }
@@ -52,10 +51,9 @@ class AuthorizationTest extends TableauxTestBase {
       serviceId <- sendRequest("POST", "/system/services", simpleDefaultService).map(_.getLong("id"))
     } yield serviceId
 
-
-      def createTableJson(name: String = "Test Table"): JsonObject = {
-        Json.obj("name" -> name)
-      }
+  def createTableJson(name: String = "Test Table"): JsonObject = {
+    Json.obj("name" -> name)
+  }
 
   @Test
   def testAuthorization_tokenSignedWithDifferentKey_unauthorized(implicit c: TestContext): Unit = {
@@ -166,13 +164,13 @@ class AuthorizationTest extends TableauxTestBase {
     }
   }
 
-  //Structure Auth Tests
+  // Structure Auth Tests
 
   @Test
   def enrichTableSeq_createIsAllowed(implicit c: TestContext): Unit = okTest {
 
     for {
-      permission <- sendRequest("GET","/tables", tokenWithRoles("create-tables")).map(getPermission)
+      permission <- sendRequest("GET", "/tables", tokenWithRoles("create-tables")).map(getPermission)
     } yield {
 
       val expected = Json.obj(
@@ -187,7 +185,7 @@ class AuthorizationTest extends TableauxTestBase {
   def enrichTableSeq_createIsNotAllowed(implicit c: TestContext): Unit = okTest {
 
     for {
-      permission <- sendRequest("GET","/tables", tokenWithRoles()).map(getPermission)
+      permission <- sendRequest("GET", "/tables", tokenWithRoles()).map(getPermission)
     } yield {
 
       val expected = Json.obj(
@@ -202,7 +200,7 @@ class AuthorizationTest extends TableauxTestBase {
   def enrichTable_editPropertiesAreAllowed(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- sendRequest("POST", "/tables", createTableJson())
-      permission <- sendRequest("GET","/tables/1", tokenWithRoles("edit-tables")).map(getPermission)
+      permission <- sendRequest("GET", "/tables/1", tokenWithRoles("edit-tables")).map(getPermission)
     } yield {
 
       val expected = Json.obj(
@@ -220,8 +218,8 @@ class AuthorizationTest extends TableauxTestBase {
     for {
       tableId1 <- sendRequest("POST", "/tables", createTableJson("test_model"))
       tableId2 <- sendRequest("POST", "/tables", createTableJson("test_variant"))
-      modelTablePermissions <- sendRequest("GET","/tables/1", tokenWithRoles("edit-model-tables")).map(getPermission)
-      variantTablePermissions <- sendRequest("GET","/tables/2", tokenWithRoles("edit-model-tables")).map(getPermission)
+      modelTablePermissions <- sendRequest("GET", "/tables/1", tokenWithRoles("edit-model-tables")).map(getPermission)
+      variantTablePermissions <- sendRequest("GET", "/tables/2", tokenWithRoles("edit-model-tables")).map(getPermission)
     } yield {
 
       val modelTableExpected = Json.obj(
@@ -243,7 +241,7 @@ class AuthorizationTest extends TableauxTestBase {
   def enrichTable_noActionIsAllowed(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- sendRequest("POST", "/tables", createTableJson())
-      permission <- sendRequest("GET","/tables/1", tokenWithRoles("view-tables")).map(getPermission)
+      permission <- sendRequest("GET", "/tables/1", tokenWithRoles("view-tables")).map(getPermission)
     } yield {
 
       val expected = Json.obj(
@@ -265,7 +263,7 @@ class AuthorizationTest extends TableauxTestBase {
 
     for {
       tableId <- sendRequest("POST", "/tables", createTableJson())
-      permission <- sendRequest("GET","/tables/1", tokenWithRoles("edit-tables-all-allowed")).map(getPermission)
+      permission <- sendRequest("GET", "/tables/1", tokenWithRoles("edit-tables-all-allowed")).map(getPermission)
     } yield {
 
       val expected = Json.obj(
@@ -286,7 +284,7 @@ class AuthorizationTest extends TableauxTestBase {
   def enrichColumnSeq_createIsAllowed(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- sendRequest("POST", "/tables", createTableJson())
-      permission <- sendRequest("GET","/tables/1/columns", tokenWithRoles("create-columns")).map(getPermission)
+      permission <- sendRequest("GET", "/tables/1/columns", tokenWithRoles("create-columns")).map(getPermission)
     } yield {
       val expected = Json.obj(
         "create" -> true
@@ -301,7 +299,7 @@ class AuthorizationTest extends TableauxTestBase {
 
     for {
       tableId <- sendRequest("POST", "/tables", createTableJson())
-      permission <- sendRequest("GET","/tables/1/columns", tokenWithRoles("view-tables")).map(getPermission)
+      permission <- sendRequest("GET", "/tables/1/columns", tokenWithRoles("view-tables")).map(getPermission)
     } yield {
       val expected = Json.obj(
         "create" -> false
@@ -316,7 +314,8 @@ class AuthorizationTest extends TableauxTestBase {
 
     for {
       tableId <- createDefaultTable()
-      permission <- sendRequest("GET","/tables/1/columns/1", tokenWithRoles("view-columns","view-tables")).map(getPermission)
+      permission <-
+        sendRequest("GET", "/tables/1/columns/1", tokenWithRoles("view-columns", "view-tables")).map(getPermission)
     } yield {
       val expected = Json.obj(
         "editDisplayProperty" -> false,
@@ -333,7 +332,8 @@ class AuthorizationTest extends TableauxTestBase {
   def enrichColumn_allActionsAreAllowed(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createDefaultTable()
-      permission <- sendRequest("GET","/tables/1/columns/1", tokenWithRoles("edit-columns-all-allowed")).map(getPermission)
+      permission <-
+        sendRequest("GET", "/tables/1/columns/1", tokenWithRoles("edit-columns-all-allowed")).map(getPermission)
     } yield {
       val expected = Json.obj(
         "editDisplayProperty" -> true,
@@ -352,8 +352,10 @@ class AuthorizationTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/system/settings/langtags", Json.obj("value" -> Json.arr("de", "en", "fr", "es")))
 
       _ <- createFullTableWithMultilanguageColumns("Test Table")
-      permission1 <- sendRequest("GET","/tables/1/columns/1", tokenWithRoles("can-edit-de-en-cell-values")).map(getPermission)
-      permission2 <- sendRequest("GET","/tables/1/columns/2", tokenWithRoles("can-edit-de-en-cell-values")).map(getPermission)
+      permission1 <-
+        sendRequest("GET", "/tables/1/columns/1", tokenWithRoles("can-edit-de-en-cell-values")).map(getPermission)
+      permission2 <-
+        sendRequest("GET", "/tables/1/columns/2", tokenWithRoles("can-edit-de-en-cell-values")).map(getPermission)
     } yield {
       val expected = Json.obj("de" -> false, "en" -> true, "fr" -> false, "es" -> true)
 
@@ -368,7 +370,7 @@ class AuthorizationTest extends TableauxTestBase {
       _ <- sendRequest("POST", "/system/settings/langtags", Json.obj("value" -> Json.arr("de", "en", "fr", "es")))
 
       _ <- createFullTableWithMultilanguageColumns("Test Table")
-      permission <- sendRequest("GET","/tables/1/columns/1", tokenWithRoles("can-edit-cell-values")).map(getPermission)
+      permission <- sendRequest("GET", "/tables/1/columns/1", tokenWithRoles("can-edit-cell-values")).map(getPermission)
     } yield {
       val expected = Json.obj("de" -> true, "en" -> true, "fr" -> true, "es" -> true)
 
@@ -393,7 +395,8 @@ class AuthorizationTest extends TableauxTestBase {
         _ <- createEmptyDefaultTable()
         _ <- sendRequest("POST", s"/tables/1/columns", columns)
 
-      permission <- sendRequest("GET","/tables/1/columns/3", tokenWithRoles("can-edit-cell-values")).map(getPermission)
+        permission <-
+          sendRequest("GET", "/tables/1/columns/3", tokenWithRoles("can-edit-cell-values")).map(getPermission)
       } yield {
         val expected = Json.obj("DE" -> true, "AT" -> true, "GB" -> true)
         assertJSONEquals(expected, permission.getJsonObject("editCellValue"), JSONCompareMode.LENIENT)
@@ -415,22 +418,23 @@ class AuthorizationTest extends TableauxTestBase {
       _ <- createEmptyDefaultTable()
       _ <- sendRequest("POST", s"/tables/1/columns", columns)
 
-      permission <- sendRequest("GET","/tables/1/columns/3", tokenWithRoles("can-edit-cell-values-AT-GB")).map(getPermission)
+      permission <-
+        sendRequest("GET", "/tables/1/columns/3", tokenWithRoles("can-edit-cell-values-AT-GB")).map(getPermission)
     } yield {
       val expected = Json.obj("DE" -> false, "AT" -> true, "GB" -> true)
       assertJSONEquals(expected, permission.getJsonObject("editCellValue"), JSONCompareMode.LENIENT)
     }
   }
+
   @Test
   def enrich_createGranted_onlyCreateIsAllowed(implicit c: TestContext): Unit = {
 
-  def getPermission(json: JsonObject): JsonObject = {
-    json.getJsonObject("permission")
-  }
-      def createTableJson: JsonObject = {
-        Json.obj("name" -> s"Test Table")
-      }
-
+    def getPermission(json: JsonObject): JsonObject = {
+      json.getJsonObject("permission")
+    }
+    def createTableJson: JsonObject = {
+      Json.obj("name" -> s"Test Table")
+    }
 
     okTest {
       for {
@@ -450,7 +454,7 @@ class AuthorizationTest extends TableauxTestBase {
     okTest {
 
       for {
-        permission <- sendRequest("GET", "/folders?langtag=de",tokenWithRoles()).map(getPermission)
+        permission <- sendRequest("GET", "/folders?langtag=de", tokenWithRoles()).map(getPermission)
       } yield {
 
         val expected = Json.obj(
@@ -487,7 +491,11 @@ class AuthorizationTest extends TableauxTestBase {
 
     okTest {
       for {
-        permission <- sendRequest("GET", "/folders?langtag=de", tokenWithRoles("edit-delete-media", "NOT-delete-media")).map(getPermission)
+        permission <- sendRequest(
+          "GET",
+          "/folders?langtag=de",
+          tokenWithRoles("edit-delete-media", "NOT-delete-media")
+        ).map(getPermission)
       } yield {
 
         val expected = Json.obj(
@@ -500,6 +508,7 @@ class AuthorizationTest extends TableauxTestBase {
       }
     }
   }
+
   @Test
   def retrieveServices_createIsAllowed(implicit c: TestContext): Unit = okTest {
     for {
@@ -534,7 +543,8 @@ class AuthorizationTest extends TableauxTestBase {
 
     for {
       serviceId <- createDefaultService
-      permission <- sendRequest("GET", "/system/services/1", tokenWithRoles("edit-and-delete-services")).map(getPermission)
+      permission <-
+        sendRequest("GET", "/system/services/1", tokenWithRoles("edit-and-delete-services")).map(getPermission)
     } yield {
       val expected = Json.obj(
         "editDisplayProperty" -> true,
