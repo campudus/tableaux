@@ -165,7 +165,8 @@ class AuthorizationTest extends TableauxTestBase {
   }
 }
 
-  class TableAuthEnrichTests extends AuthorizationTest {
+class TableAuthEnrichTests extends AuthorizationTest {
+
   @Test
   def enrichTableSeq_createIsAllowed(implicit c: TestContext): Unit = okTest {
 
@@ -302,8 +303,10 @@ class AuthorizationTest extends TableauxTestBase {
       }
     }
   }
-  }
- class ColumnEnrichAuthTests extends AuthorizationTest {
+}
+
+class ColumnEnrichAuthTests extends AuthorizationTest {
+
   @Test
   def enrichColumnSeq_createIsAllowed(implicit c: TestContext): Unit = okTest {
     for {
@@ -449,9 +452,10 @@ class AuthorizationTest extends TableauxTestBase {
       assertJSONEquals(expected, permission.getJsonObject("editCellValue"), JSONCompareMode.LENIENT)
     }
   }
- }
+}
 
- class MediaEnrichAuthTests extends AuthorizationTest{ 
+class MediaEnrichAuthTests extends AuthorizationTest {
+
   @Test
   def enrich_noPermission_noActionIsAllowed(implicit c: TestContext): Unit =
     okTest {
@@ -511,8 +515,10 @@ class AuthorizationTest extends TableauxTestBase {
       }
     }
   }
- }
+}
+
 class ServiceEnrichAuthTests extends AuthorizationTest {
+
   @Test
   def retrieveService_noActionIsAllowed(implicit c: TestContext): Unit = okTest {
 

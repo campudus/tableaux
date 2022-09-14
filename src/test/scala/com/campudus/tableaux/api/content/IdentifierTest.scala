@@ -33,7 +33,7 @@ class IdentifierTest extends TableauxTestBase {
     }
   }
 
-   @Test
+  @Test
   def retrieveColumnsWithTwoIdentifierColumn(implicit c: TestContext): Unit = okTest {
     val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3")))
 
