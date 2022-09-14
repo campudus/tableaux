@@ -510,6 +510,24 @@ class AuthorizationTest extends TableauxTestBase {
   }
 
   @Test
+  def retrieveService_noActionIsAllowed(implicit c: TestContext): Unit = okTest {
+
+    for {
+      serviceId <- createDefaultService
+      permission <- sendRequest("GET", "/system/services/1", tokenWithRoles("view-services")).map(getPermission)
+    } yield {
+
+      val expected = Json.obj(
+        "editDisplayProperty" -> false,
+        "editStructureProperty" -> false,
+        "delete" -> false
+      )
+
+      assertJSONEquals(expected, permission, JSONCompareMode.STRICT)
+    }
+  }
+
+  @Test
   def retrieveServices_createIsAllowed(implicit c: TestContext): Unit = okTest {
     for {
       serviceId <- createDefaultService
