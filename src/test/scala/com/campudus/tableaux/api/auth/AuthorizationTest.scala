@@ -46,7 +46,7 @@ class AuthorizationTest extends TableauxTestBase {
                                                |  "type": "action"
                                                |}""".stripMargin
 
-  private def createDefaultService: Future[Long] =
+  def createDefaultService: Future[Long] =
     for {
       serviceId <- sendRequest("POST", "/system/services", simpleDefaultService).map(_.getLong("id"))
     } yield serviceId
@@ -163,9 +163,9 @@ class AuthorizationTest extends TableauxTestBase {
       }
     }
   }
+}
 
-  // Structure Auth Tests
-
+  class TableAuthEnrichTests extends AuthorizationTest {
   @Test
   def enrichTableSeq_createIsAllowed(implicit c: TestContext): Unit = okTest {
 
@@ -280,6 +280,30 @@ class AuthorizationTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def enrich_createGranted_onlyCreateIsAllowed(implicit c: TestContext): Unit = {
+
+    def getPermission(json: JsonObject): JsonObject = {
+      json.getJsonObject("permission")
+    }
+    def createTableJson: JsonObject = {
+      Json.obj("name" -> s"Test Table")
+    }
+
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        permission <- sendRequest("GET", "/tables", tokenWithRoles("create-tables")).map(getPermission)
+      } yield {
+
+        val expected = Json.obj("create" -> true)
+
+        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+  }
+ class ColumnEnrichAuthTests extends AuthorizationTest {
   @Test
   def enrichColumnSeq_createIsAllowed(implicit c: TestContext): Unit = okTest {
     for {
@@ -425,30 +449,9 @@ class AuthorizationTest extends TableauxTestBase {
       assertJSONEquals(expected, permission.getJsonObject("editCellValue"), JSONCompareMode.LENIENT)
     }
   }
+ }
 
-  @Test
-  def enrich_createGranted_onlyCreateIsAllowed(implicit c: TestContext): Unit = {
-
-    def getPermission(json: JsonObject): JsonObject = {
-      json.getJsonObject("permission")
-    }
-    def createTableJson: JsonObject = {
-      Json.obj("name" -> s"Test Table")
-    }
-
-    okTest {
-      for {
-        _ <- sendRequest("POST", "/tables", createTableJson)
-        permission <- sendRequest("GET", "/tables", tokenWithRoles("create-tables")).map(getPermission)
-      } yield {
-
-        val expected = Json.obj("create" -> true)
-
-        assertJSONEquals(expected, permission, JSONCompareMode.LENIENT)
-      }
-    }
-  }
-
+ class MediaEnrichAuthTests extends AuthorizationTest{ 
   @Test
   def enrich_noPermission_noActionIsAllowed(implicit c: TestContext): Unit =
     okTest {
@@ -508,7 +511,8 @@ class AuthorizationTest extends TableauxTestBase {
       }
     }
   }
-
+ }
+class ServiceEnrichAuthTests extends AuthorizationTest {
   @Test
   def retrieveService_noActionIsAllowed(implicit c: TestContext): Unit = okTest {
 
