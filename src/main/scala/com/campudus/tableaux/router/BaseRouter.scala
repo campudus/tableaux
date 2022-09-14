@@ -69,6 +69,10 @@ trait BaseRouter extends VertxAccess {
   private def enrich(obj: DomainObject, returnType: ReturnType)(implicit user: TableauxUser): JsonObject = {
     val resultJson = obj.toJson(returnType)
     obj match {
+      case col: ConcatenateColumn => {
+        val concatsWithPermissions = col.columns.map(concatCol => enrich(concatCol, returnType))
+        resultJson.mergeIn(Json.obj("concats" -> concatsWithPermissions))
+      }
       case col: ColumnType[_] =>
         roleModel.enrichDomainObject(resultJson, ScopeColumn, ComparisonObjects(col.table, col))
       case colSeq: ColumnSeq => {
@@ -90,7 +94,7 @@ trait BaseRouter extends VertxAccess {
         val columnsWithPermissions = compTable.columns.map(col => enrich(col, returnType))
         resultJson.mergeIn(tableWithPermissions).mergeIn(Json.obj("columns" -> columnsWithPermissions))
       }
-      case _ => roleModel.enrichDomainObject(resultJson, null)(user)
+      case _ => resultJson
     }
   }
 
