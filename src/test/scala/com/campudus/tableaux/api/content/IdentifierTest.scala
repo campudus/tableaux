@@ -12,7 +12,6 @@ import org.vertx.scala.core.json._
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.skyscreamer.jsonassert.JSONCompareMode
 
 @RunWith(classOf[VertxUnitRunner])
 class IdentifierTest extends TableauxTestBase {
@@ -31,6 +30,35 @@ class IdentifierTest extends TableauxTestBase {
       // in case of one identifier column we don't get a concat column
       // but the identifier column will be the first
       assertEquals(2, test.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+    }
+  }
+
+   @Test
+  def retrieveColumnsWithTwoIdentifierColumn(implicit c: TestContext): Unit = okTest {
+    val createStringColumnJson = Json.obj("columns" -> Json.arr(Json.obj("kind" -> "text", "name" -> "Test Column 3")))
+
+    for {
+      _ <- createDefaultTable()
+
+      // create a third column
+      _ <- sendRequest("POST", s"/tables/1/columns", createStringColumnJson)
+
+      // make the first and the last an identifier column
+      _ <- sendRequest("POST", "/tables/1/columns/1", Json.obj("identifier" -> true))
+      _ <- sendRequest("POST", "/tables/1/columns/3", Json.obj("identifier" -> true))
+
+      test <- sendRequest("GET", "/tables/1/columns")
+    } yield {
+      // in case of two or more identifier columns we preserve the order of column
+      // and a concatcolumn in front of all columns
+      val concats = test.getJsonArray("columns").get[JsonObject](0).getJsonArray("concats")
+      assertEquals(1L, concats.getJsonObject(0).getLong("id"))
+      assertEquals(3L, concats.getJsonObject(1).getLong("id"))
+
+      val columns = test.getJsonArray("columns")
+      // actually we have 4 columns because of the ConcatColumn
+      assertEquals(columns.getJsonObject(1), concats.getJsonObject(0))
+      assertEquals(columns.getJsonObject(3), concats.getJsonObject(1))
     }
   }
 
