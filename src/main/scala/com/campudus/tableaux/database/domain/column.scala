@@ -268,7 +268,6 @@ sealed trait ColumnType[+A] extends DomainObject {
       "attributes" -> attributes,
       "hidden" -> hidden
     )
-    println(json)
 
     languageType match {
       case MultiLanguage =>
