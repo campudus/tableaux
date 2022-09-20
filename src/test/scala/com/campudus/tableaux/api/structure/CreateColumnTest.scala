@@ -8,6 +8,8 @@ import org.vertx.scala.core.json.Json
 
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.Assert._
+import org.skyscreamer.jsonassert.JSONCompareMode
 
 @RunWith(classOf[VertxUnitRunner])
 class CreateColumnTest extends TableauxTestBase {
@@ -452,4 +454,170 @@ class CreateColumnTest extends TableauxTestBase {
     }
   }
 
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class ColumnHiddenTest extends CreateColumnTest {
+
+  @Test
+  def createMultipleHiddenColumns(implicit c: TestContext): Unit = {
+    okTest {
+      val jsonObj = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 1","hidden" -> true),
+          Json.obj("kind" -> "text", "name" -> "Test Column 2","hidden" -> true)
+        )
+      )
+
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj(
+            "id" -> 1,
+            "ordering" -> 1,
+            "kind" -> "numeric",
+            "name" -> "Test Column 1",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj(),
+            "hidden" -> true
+          ),
+          Json.obj(
+            "id" -> 2,
+            "ordering" -> 2,
+            "kind" -> "text",
+            "name" -> "Test Column 2",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj(),
+            "hidden" -> true
+          )
+        )
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test <- sendRequest("POST", "/tables/1/columns", jsonObj)
+      } yield {
+        assertJSONEquals(expectedJson, test)
+      }
+    }
+  }
+  @Test
+  def createMultipleColumnsWithoutHiddenFlag(implicit c: TestContext): Unit = {
+    okTest {
+      val jsonObj = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 1"),
+          Json.obj("kind" -> "text", "name" -> "Test Column 2")
+        )
+      )
+
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj(
+            "id" -> 1,
+            "ordering" -> 1,
+            "kind" -> "numeric",
+            "name" -> "Test Column 1",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj(),
+            "hidden" -> false
+          ),
+          Json.obj(
+            "id" -> 2,
+            "ordering" -> 2,
+            "kind" -> "text",
+            "name" -> "Test Column 2",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj(),
+            "hidden" -> false
+          )
+        )
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test <- sendRequest("POST", "/tables/1/columns", jsonObj)
+      } yield {
+        assertJSONEquals(expectedJson, test)
+      }
+    }
+  }
+  @Test
+  def createMultipleVisibleColumns(implicit c: TestContext): Unit = {
+    okTest {
+      val jsonObj = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "hidden"-> false),
+          Json.obj("kind" -> "text", "name" -> "Test Column 2", "hidden"->false)
+        )
+      )
+
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json.obj(
+            "id" -> 1,
+            "ordering" -> 1,
+            "kind" -> "numeric",
+            "name" -> "Test Column 1",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj(),
+            "hidden" -> false
+          ),
+          Json.obj(
+            "id" -> 2,
+            "ordering" -> 2,
+            "kind" -> "text",
+            "name" -> "Test Column 2",
+            "multilanguage" -> false,
+            "identifier" -> false,
+            "displayName" -> Json.obj(),
+            "description" -> Json.obj(),
+            "hidden" -> false
+          )
+        )
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test <- sendRequest("POST", "/tables/1/columns", jsonObj)
+      } yield {
+        assertJSONEquals(expectedJson, test)
+      }
+    }
+  }
+  @Test
+  def changeColumnHiddenFlag(implicit c: TestContext): Unit = okTest {
+      val jsonObj = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "hidden"-> true)
+        )
+      )
+
+      val changeObj = Json.obj(
+        "hidden" -> false
+        )
+
+      val expectedHidden = false
+
+    for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+      resultPost <- sendRequest("POST", "/tables/1/columns", jsonObj)
+      resultChange <- sendRequest("POST", "/tables/1/columns/1", changeObj)
+      resultGet <- sendRequest("GET", "/tables/1/columns/1")
+    } yield {
+      assertEquals(expectedHidden, resultGet.getBoolean("hidden"))
+    }
+  }
 }
