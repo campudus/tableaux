@@ -393,14 +393,15 @@ class StructureController(
       countryCodes: Option[Seq[String]],
       separator: Option[Boolean],
       attributes: Option[JsonObject],
-      rules: Option[JsonArray]
+      rules: Option[JsonArray],
+      hidden: Option[Boolean]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
       isDefined(
-        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules),
-        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules"
+        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden),
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden"
       )
     )
 
@@ -462,7 +463,8 @@ class StructureController(
               countryCodes,
               separator,
               attributes,
-              rules
+              rules,
+              hidden
             )
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
       }
