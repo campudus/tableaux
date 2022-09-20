@@ -40,6 +40,7 @@ sealed trait ColumnInformation {
   val groupColumnIds: Seq[ColumnId]
   val separator: Boolean
   val attributes: JsonObject
+  val hidden: Boolean
 }
 
 object BasicColumnInformation {
@@ -64,7 +65,8 @@ object BasicColumnInformation {
       displayInfos,
       Seq.empty,
       createColumn.separator,
-      attributes
+      attributes,
+      createColumn.hidden
     )
   }
 }
@@ -92,7 +94,8 @@ object StatusColumnInformation {
       Seq.empty,
       createColumn.separator,
       attributes,
-      createColumn.rules
+      createColumn.rules,
+      createColumn.hidden
     )
   }
 }
@@ -106,7 +109,8 @@ case class BasicColumnInformation(
     override val displayInfos: Seq[DisplayInfo],
     override val groupColumnIds: Seq[ColumnId],
     override val separator: Boolean,
-    override val attributes: JsonObject
+    override val attributes: JsonObject,
+    override val hidden: Boolean,
 ) extends ColumnInformation
 
 case class StatusColumnInformation(
@@ -119,7 +123,8 @@ case class StatusColumnInformation(
     override val groupColumnIds: Seq[ColumnId],
     override val separator: Boolean,
     override val attributes: JsonObject,
-    val rules: JsonArray
+    val rules: JsonArray,
+    override val hidden: Boolean
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -136,6 +141,7 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   // ConcatColumn can't be grouped
   override val groupColumnIds: Seq[ColumnId] = Seq.empty
   override val separator: Boolean = false
+  override val hidden: Boolean = false
   override val attributes: JsonObject = Json.obj()
 }
 
@@ -240,6 +246,7 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   val separator: Boolean = columnInformation.separator
   val attributes: JsonObject = columnInformation.attributes
+    val hidden: Boolean = columnInformation.hidden
 
   protected[this] implicit def roleModel: RoleModel
 
@@ -258,8 +265,10 @@ sealed trait ColumnType[+A] extends DomainObject {
       "displayName" -> Json.obj(),
       "description" -> Json.obj(),
       "separator" -> separator,
-      "attributes" -> attributes
+      "attributes" -> attributes,
+      "hidden" -> hidden
     )
+    println(json)
 
     languageType match {
       case MultiLanguage =>
