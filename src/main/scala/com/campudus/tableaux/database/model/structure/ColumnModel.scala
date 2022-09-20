@@ -51,7 +51,6 @@ object CachedColumnModel {
 class CachedColumnModel(
     val config: JsonObject,
     override val connection: DatabaseConnection
-
 )(
     implicit roleModel: RoleModel
 ) extends ColumnModel(connection) {
@@ -138,8 +137,6 @@ class CachedColumnModel(
       super.retrieveAll(table)
     ).asInstanceOf[Future[Seq[ColumnType[_]]]]
   }
-
-
 
   override def createColumns(table: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
@@ -1438,7 +1435,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       separator: Option[Boolean],
       attributes: Option[JsonObject],
       rules: Option[JsonArray],
-      hidden: Option[Boolean],
+      hidden: Option[Boolean]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 

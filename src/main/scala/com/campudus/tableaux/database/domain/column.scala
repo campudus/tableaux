@@ -110,7 +110,7 @@ case class BasicColumnInformation(
     override val groupColumnIds: Seq[ColumnId],
     override val separator: Boolean,
     override val attributes: JsonObject,
-    override val hidden: Boolean,
+    override val hidden: Boolean
 ) extends ColumnInformation
 
 case class StatusColumnInformation(
@@ -246,7 +246,7 @@ sealed trait ColumnType[+A] extends DomainObject {
 
   val separator: Boolean = columnInformation.separator
   val attributes: JsonObject = columnInformation.attributes
-    val hidden: Boolean = columnInformation.hidden
+  val hidden: Boolean = columnInformation.hidden
 
   protected[this] implicit def roleModel: RoleModel
 

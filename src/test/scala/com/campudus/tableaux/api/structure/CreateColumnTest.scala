@@ -6,9 +6,9 @@ import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.vertx.scala.core.json.Json
 
+import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.Assert._
 import org.skyscreamer.jsonassert.JSONCompareMode
 
 @RunWith(classOf[VertxUnitRunner])
@@ -464,8 +464,8 @@ class ColumnHiddenTest extends CreateColumnTest {
     okTest {
       val jsonObj = Json.obj(
         "columns" -> Json.arr(
-          Json.obj("kind" -> "numeric", "name" -> "Test Column 1","hidden" -> true),
-          Json.obj("kind" -> "text", "name" -> "Test Column 2","hidden" -> true)
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "hidden" -> true),
+          Json.obj("kind" -> "text", "name" -> "Test Column 2", "hidden" -> true)
         )
       )
 
@@ -505,6 +505,7 @@ class ColumnHiddenTest extends CreateColumnTest {
       }
     }
   }
+
   @Test
   def createMultipleColumnsWithoutHiddenFlag(implicit c: TestContext): Unit = {
     okTest {
@@ -551,13 +552,14 @@ class ColumnHiddenTest extends CreateColumnTest {
       }
     }
   }
+
   @Test
   def createMultipleVisibleColumns(implicit c: TestContext): Unit = {
     okTest {
       val jsonObj = Json.obj(
         "columns" -> Json.arr(
-          Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "hidden"-> false),
-          Json.obj("kind" -> "text", "name" -> "Test Column 2", "hidden"->false)
+          Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "hidden" -> false),
+          Json.obj("kind" -> "text", "name" -> "Test Column 2", "hidden" -> false)
         )
       )
 
@@ -597,22 +599,23 @@ class ColumnHiddenTest extends CreateColumnTest {
       }
     }
   }
+
   @Test
   def changeColumnHiddenFlag(implicit c: TestContext): Unit = okTest {
-      val jsonObj = Json.obj(
-        "columns" -> Json.arr(
-          Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "hidden"-> true)
-        )
+    val jsonObj = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj("kind" -> "numeric", "name" -> "Test Column 1", "hidden" -> true)
       )
+    )
 
-      val changeObj = Json.obj(
-        "hidden" -> false
-        )
+    val changeObj = Json.obj(
+      "hidden" -> false
+    )
 
-      val expectedHidden = false
+    val expectedHidden = false
 
     for {
-        _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables", createTableJson)
       resultPost <- sendRequest("POST", "/tables/1/columns", jsonObj)
       resultChange <- sendRequest("POST", "/tables/1/columns/1", changeObj)
       resultGet <- sendRequest("GET", "/tables/1/columns/1")
