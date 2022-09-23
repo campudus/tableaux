@@ -96,6 +96,7 @@ object JsonUtils extends LazyLogging {
             val ordering = Try(json.getInteger("ordering").longValue()).toOption
             val identifier = json.getBoolean("identifier", false)
             val separator = json.getBoolean("separator", true)
+            val hidden = json.getBoolean("hidden", false)
             val attributes = Try(json.getJsonObject("attributes")) match {
               case Success(value) => Option(value)
               case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
@@ -110,7 +111,7 @@ object JsonUtils extends LazyLogging {
 
             dbType match {
               case AttachmentType =>
-                CreateAttachmentColumn(name, ordering, identifier, displayInfos, attributes)
+                CreateAttachmentColumn(name, ordering, identifier, displayInfos, attributes, hidden)
 
               case LinkType =>
                 // link specific fields
@@ -155,7 +156,8 @@ object JsonUtils extends LazyLogging {
                   displayInfos,
                   constraint.getOrElse(DefaultConstraint),
                   createBackLinkColumn,
-                  attributes
+                  attributes,
+                  hidden
                 )
 
               case GroupType =>
@@ -179,7 +181,8 @@ object JsonUtils extends LazyLogging {
                   dbType,
                   displayInfos,
                   attributes,
-                  rules
+                  rules,
+                  hidden
                 )
 
               case _ =>
@@ -191,7 +194,8 @@ object JsonUtils extends LazyLogging {
                   identifier,
                   displayInfos,
                   separator,
-                  attributes
+                  attributes,
+                  hidden
                 )
             }
           }
@@ -286,7 +290,8 @@ object JsonUtils extends LazyLogging {
       Option[Seq[String]],
       Option[Boolean],
       Option[JsonObject],
-      Option[JsonArray]
+      Option[JsonArray],
+      Option[Boolean]
   ) = {
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
@@ -306,6 +311,7 @@ object JsonUtils extends LazyLogging {
       case list if list.isEmpty => None
       case list => Some(list)
     }
+    val hidden = Try(json.getBoolean("hidden").booleanValue()).toOption
 
     val countryCodes = booleanToValueOption(
       json.containsKey("countryCodes"), {
@@ -317,7 +323,7 @@ object JsonUtils extends LazyLogging {
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 
-    (name, ord, kind, identifier, displayInfos, countryCodes, separator, attributes, rules)
+    (name, ord, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden)
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {

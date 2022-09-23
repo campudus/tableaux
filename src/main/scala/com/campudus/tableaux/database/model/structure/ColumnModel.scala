@@ -180,7 +180,8 @@ class CachedColumnModel(
       countryCodes: Option[Seq[String]],
       separator: Option[Boolean],
       attributes: Option[JsonObject],
-      rules: Option[JsonArray]
+      rules: Option[JsonArray],
+      hidden: Option[Boolean]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -196,7 +197,8 @@ class CachedColumnModel(
           countryCodes,
           separator,
           attributes,
-          rules
+          rules,
+          hidden
         )
     } yield r
   }
@@ -552,9 +554,10 @@ class ColumnModel(val connection: DatabaseConnection)(
           | country_codes,
           | separator,
           | attributes,
-          | rules
+          | rules,
+          | hidden
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -602,7 +605,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 countryCodes.map(f => Json.arr(f: _*)).orNull,
                 createColumn.separator,
                 attributes,
-                rules
+                rules,
+                createColumn.hidden
               )
             )
           case Some(ord) =>
@@ -620,7 +624,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 countryCodes.map(f => Json.arr(f: _*)).orNull,
                 createColumn.separator,
                 attributes,
-                rules
+                rules,
+                createColumn.hidden
               )
             )
         }
@@ -834,7 +839,8 @@ class ColumnModel(val connection: DatabaseConnection)(
          |    SELECT json_agg(group_column_id) FROM system_column_groups
          |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
          |  ) AS group_column_ids,
-         |  format_pattern
+         |  format_pattern,
+         |  hidden
          |FROM system_columns c
          |WHERE
          |  table_id = ? AND
@@ -925,7 +931,8 @@ class ColumnModel(val connection: DatabaseConnection)(
        |    SELECT json_agg(group_column_id) FROM system_column_groups
        |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
        |  ) AS group_column_ids,
-       |  format_pattern
+       |  format_pattern,
+       |  hidden
        |FROM system_columns c
        |WHERE
        |  table_id = ?
@@ -1128,6 +1135,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       .getOrElse(Seq.empty[ColumnId])
 
     val formatPattern = Option(row.get[String](11))
+    val hidden = row.get[Boolean](12)
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
@@ -1141,7 +1149,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         displayInfoSeq,
         groupColumnIds,
         separator,
-        attributes
+        attributes,
+        hidden
       )
 
       column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules)
@@ -1425,7 +1434,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       countryCodes: Option[Seq[String]],
       separator: Option[Boolean],
       attributes: Option[JsonObject],
-      rules: Option[JsonArray]
+      rules: Option[JsonArray],
+      hidden: Option[Boolean]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 
@@ -1525,6 +1535,18 @@ class ColumnModel(val connection: DatabaseConnection)(
             t.query(
               s"UPDATE system_columns SET country_codes = ? WHERE table_id = ? AND column_id = ?",
               Json.arr(Json.arr(codes: _*), tableId, columnId)
+            )
+          }
+        }
+      )
+      (t, resultHidden) <- optionToValidFuture(
+        hidden,
+        t,
+        { hid: Boolean =>
+          {
+            t.query(
+              s"UPDATE system_columns SET hidden = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(hid, tableId, columnId)
             )
           }
         }

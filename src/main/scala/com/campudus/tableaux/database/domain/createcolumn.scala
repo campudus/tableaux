@@ -14,6 +14,7 @@ sealed trait CreateColumn {
   val displayInfos: Seq[DisplayInfo]
   val separator: Boolean
   val attributes: Option[JsonObject]
+  val hidden: Boolean
 }
 
 case class CreateSimpleColumn(
@@ -24,7 +25,8 @@ case class CreateSimpleColumn(
     override val identifier: Boolean,
     override val displayInfos: Seq[DisplayInfo],
     override val separator: Boolean,
-    override val attributes: Option[JsonObject]
+    override val attributes: Option[JsonObject],
+    override val hidden: Boolean = false
 ) extends CreateColumn
 
 case class CreateBackLinkColumn(
@@ -45,7 +47,8 @@ object CreateLinkColumn {
       identifier: Boolean,
       displayInfos: Seq[DisplayInfo],
       constraint: Constraint,
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      hidden: Boolean = false
   ): CreateLinkColumn = {
     val createBackLinkColumn = CreateBackLinkColumn(
       name = toName,
@@ -62,7 +65,8 @@ object CreateLinkColumn {
       displayInfos,
       constraint,
       createBackLinkColumn,
-      attributes
+      attributes,
+      hidden
     )
   }
 }
@@ -76,7 +80,8 @@ case class CreateLinkColumn(
     override val displayInfos: Seq[DisplayInfo],
     constraint: Constraint,
     foreignLinkColumn: CreateBackLinkColumn,
-    override val attributes: Option[JsonObject]
+    override val attributes: Option[JsonObject],
+    override val hidden: Boolean
 ) extends CreateColumn {
   override val kind: LinkType.type = LinkType
   override val languageType: LanguageNeutral.type = LanguageNeutral
@@ -88,7 +93,8 @@ case class CreateAttachmentColumn(
     override val ordering: Option[Ordering],
     override val identifier: Boolean,
     override val displayInfos: Seq[DisplayInfo],
-    override val attributes: Option[JsonObject]
+    override val attributes: Option[JsonObject],
+    override val hidden: Boolean = false
 ) extends CreateColumn {
   override val kind: AttachmentType.type = AttachmentType
   override val languageType: LanguageNeutral.type = LanguageNeutral
@@ -102,7 +108,8 @@ case class CreateGroupColumn(
     formatPattern: Option[String],
     override val displayInfos: Seq[DisplayInfo],
     groups: Seq[ColumnId],
-    override val attributes: Option[JsonObject]
+    override val attributes: Option[JsonObject],
+    override val hidden: Boolean = false
 ) extends CreateColumn {
   override val kind: TableauxDbType = GroupType
   override val languageType: LanguageType = LanguageNeutral
@@ -115,7 +122,8 @@ case class CreateStatusColumn(
     override val kind: TableauxDbType,
     override val displayInfos: Seq[DisplayInfo],
     override val attributes: Option[JsonObject],
-    rules: JsonArray
+    rules: JsonArray,
+    override val hidden: Boolean = false
 ) extends CreateColumn {
   override val separator: Boolean = false
   override val identifier: Boolean = false

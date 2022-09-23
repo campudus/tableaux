@@ -270,7 +270,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             optCountryCodes,
             optSeparator,
             optAttributes,
-            optRules
+            optRules,
+            optHidden
           ) =
             toColumnChanges(json)
 
@@ -285,7 +286,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             optCountryCodes,
             optSeparator,
             optAttributes,
-            optRules
+            optRules,
+            optHidden
           )
         }
       )
