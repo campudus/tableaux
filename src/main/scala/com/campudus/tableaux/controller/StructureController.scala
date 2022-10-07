@@ -78,8 +78,8 @@ class StructureController(
       table <- retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(Create, ScopeColumn, ComparisonObjects(table))
       created <- table.tableType match {
-        case GenericTable => columnStruc.createColumns(table, columns)
         case SettingsTable => Future.failed(ForbiddenException("can't add a column to a settings table", "column"))
+        case _ => columnStruc.createColumns(table, columns)
       }
 
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
@@ -161,11 +161,14 @@ class StructureController(
     checkArguments(notNull(tableName, "name"))
     logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
 
-    def createTable(anything: Unit): Future[Table] =
-      tableType match {
-        case SettingsTable => createSettingsTable(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
-        case _ => createGenericTable(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+    def createTable(anything: Unit): Future[Table] = {
+      val builder = tableType match {
+        case SettingsTable => createSettingsTable
+        case TaxonomyTable => createTaxonomyTable
+        case _ => createGenericTable
       }
+      builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+    }
 
     val validator = JsonSchemaValidatorClient(vertx)
     attributes match {
@@ -179,94 +182,146 @@ class StructureController(
 
   }
 
-  def createGenericTable(
+  private def buildTable(tableType: TableType, columns: Option[Seq[CreateColumn]])(implicit user: TableauxUser) =
+    (
+        tableName: String,
+        hidden: Boolean,
+        langtags: Option[Option[Seq[String]]],
+        displayInfos: Seq[DisplayInfo],
+        tableGroupId: Option[TableGroupId],
+        attributes: Option[JsonObject]
+    ) => {
+      for {
+        _ <- roleModel.checkAuthorization(Create, ScopeTable)
+        tableStub <- tableStruc.create(tableName, hidden, langtags, displayInfos, tableType, tableGroupId, attributes)
+        _ <- columns match {
+          case None => Future.successful(())
+          case Some(cols) => columnStruc.createColumns(tableStub, cols)
+        }
+        table <- tableStruc.retrieve(tableStub.id)
+      } yield table
+    }
+
+  def createGenericTable(implicit user: TableauxUser) = buildTable(GenericTable, columns = None)
+
+  def createSettingsTable(implicit user: TableauxUser) = buildTable(
+    SettingsTable,
+    Some(Seq(
+      CreateSimpleColumn(
+        "key",
+        None,
+        ShortTextType,
+        LanguageNeutral,
+        identifier = true,
+        Seq.empty,
+        false,
+        Option(Json.obj())
+      ),
+      CreateSimpleColumn(
+        "displayKey",
+        None,
+        ShortTextType,
+        MultiLanguage,
+        identifier = false,
+        Seq(
+          NameOnly("de", "Bezeichnung"),
+          NameOnly("en", "Identifier")
+        ),
+        false,
+        Option(Json.obj())
+      ),
+      CreateSimpleColumn(
+        "value",
+        None,
+        TextType,
+        MultiLanguage,
+        identifier = false,
+        Seq(
+          NameOnly("de", "Inhalt"),
+          NameOnly("en", "Value")
+        ),
+        false,
+        Option(Json.obj())
+      ),
+      CreateAttachmentColumn(
+        "attachment",
+        None,
+        identifier = false,
+        Seq(
+          NameOnly("de", "Anhang"),
+          NameOnly("en", "Attachment")
+        ),
+        None,
+        hidden = false
+      )
+    ))
+  )
+
+  def createTaxonomyTable(implicit user: TableauxUser) = (
       tableName: String,
       hidden: Boolean,
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject]
-  )(implicit user: TableauxUser): Future[Table] = {
+  ) => {
     for {
-      _ <- roleModel.checkAuthorization(Create, ScopeTable)
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, GenericTable, tableGroupId, attributes)
-      retrieved <- tableStruc.retrieve(created.id)
-    } yield retrieved
-  }
 
-  def createSettingsTable(
-      tableName: String,
-      hidden: Boolean,
-      langtags: Option[Option[Seq[String]]],
-      displayInfos: Seq[DisplayInfo],
-      tableGroupId: Option[TableGroupId],
-      attributes: Option[JsonObject]
-  )(implicit user: TableauxUser): Future[Table] = {
-    for {
-      _ <- roleModel.checkAuthorization(Create, ScopeTable)
-      created <- tableStruc.create(tableName, hidden, langtags, displayInfos, SettingsTable, tableGroupId, attributes)
-
-      _ <- columnStruc.createColumn(
-        created,
-        CreateSimpleColumn(
-          "key",
-          None,
-          ShortTextType,
-          LanguageNeutral,
-          identifier = true,
-          Seq.empty,
-          false,
-          Option(Json.obj())
-        )
-      )
-      _ <- columnStruc.createColumn(
-        created,
-        CreateSimpleColumn(
-          "displayKey",
-          None,
-          ShortTextType,
-          MultiLanguage,
-          identifier = false,
+      tableStub <- buildTable(
+        TaxonomyTable,
+        Some(
           Seq(
-            NameOnly("de", "Bezeichnung"),
-            NameOnly("en", "Identifier")
-          ),
-          false,
-          Option(Json.obj())
+            CreateSimpleColumn(
+              "title",
+              None,
+              ShortTextType,
+              MultiLanguage,
+              identifier = true,
+              Seq(NameOnly("de", "Name"), NameOnly("en", "Name")),
+              false,
+              Option(Json.obj())
+            ),
+            CreateSimpleColumn(
+              "ordering",
+              None,
+              NumericType,
+              LanguageNeutral,
+              identifier = false,
+              Seq(NameOnly("de", "Reihenfolge"), NameOnly("en", "Ordering")),
+              false,
+              Option(Json.obj())
+            ),
+            CreateSimpleColumn(
+              "code",
+              None,
+              ShortTextType,
+              LanguageNeutral,
+              identifier = false,
+              Seq(NameOnly("de", "Eindeutige Bezeichnung"), NameOnly("en", "Unique identifier")),
+              false,
+              Option(Json.obj())
+            )
+          )
         )
-      )
+      ).apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
       _ <- columnStruc.createColumn(
-        created,
-        CreateSimpleColumn(
-          "value",
+        tableStub,
+        CreateLinkColumn(
+          "parent",
           None,
-          TextType,
-          MultiLanguage,
+          tableStub.id,
+          Some("parent"),
+          None,
+          singleDirection = false,
           identifier = false,
-          Seq(
-            NameOnly("de", "Inhalt"),
-            NameOnly("en", "Value")
-          ),
-          false,
-          Option(Json.obj())
+          Seq(NameOnly("de", "Oberkategorie"), NameOnly("en", "Parent category")),
+          Constraint(Cardinality(1, 1), false),
+          attributes,
+          hidden = false
         )
       )
-      _ <- columnStruc.createColumn(
-        created,
-        CreateAttachmentColumn(
-          "attachment",
-          None,
-          identifier = false,
-          Seq(
-            NameOnly("de", "Anhang"),
-            NameOnly("en", "Attachment")
-          ),
-          attributes
-        )
-      )
-
-      retrieved <- tableStruc.retrieve(created.id)
-    } yield retrieved
+      table <- tableStruc.retrieve(tableStub.id)
+    } yield table
   }
 
   def deleteTable(tableId: TableId)(implicit user: TableauxUser): Future[EmptyObject] = {
@@ -311,6 +366,7 @@ class StructureController(
       _ <- roleModel.checkAuthorization(Delete, ScopeColumn, ComparisonObjects(table, column))
       _ <- table.tableType match {
         case GenericTable => columnStruc.delete(table, columnId)
+        case TaxonomyTable => columnStruc.delete(table, columnId)
         case SettingsTable =>
           Future.failed(ForbiddenException("can't delete a column from a settings table", "column"))
       }
@@ -414,6 +470,23 @@ class StructureController(
     )
     val validator = JsonSchemaValidatorClient(vertx)
 
+    val performChangeFx = (table: Table) =>
+      columnStruc
+        .change(
+          table,
+          columnId,
+          columnName,
+          ordering,
+          kind,
+          identifier,
+          displayInfos,
+          countryCodes,
+          separator,
+          attributes,
+          rules,
+          hidden
+        )
+
     for {
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
@@ -450,23 +523,11 @@ class StructureController(
         }
 
       changedColumn <- table.tableType match {
-        case GenericTable =>
-          columnStruc
-            .change(
-              table,
-              columnId,
-              columnName,
-              ordering,
-              kind,
-              identifier,
-              displayInfos,
-              countryCodes,
-              separator,
-              attributes,
-              rules,
-              hidden
-            )
+        case GenericTable => performChangeFx(table)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
+        case TaxonomyTable =>
+          if (columnId > 3) performChangeFx(table)
+          else Future.failed(ForbiddenException("can't change a default column of a taxonmy table", "column"))
       }
 
       _ <- CacheClient(this).invalidateColumn(tableId, columnId)
