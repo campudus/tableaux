@@ -19,6 +19,7 @@ object TableType {
     string match {
       case GenericTable.NAME => GenericTable
       case SettingsTable.NAME => SettingsTable
+      case TaxonomyTable.NAME => TaxonomyTable
       case _ => throw new IllegalArgumentException("Unknown table type")
     }
   }
@@ -34,6 +35,10 @@ case object GenericTable extends TableType {
 
 case object SettingsTable extends TableType {
   override val NAME = "settings"
+}
+
+case object TaxonomyTable extends TableType {
+  override val NAME = "taxonomy"
 }
 
 object Table {
