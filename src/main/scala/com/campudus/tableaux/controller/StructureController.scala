@@ -526,7 +526,7 @@ class StructureController(
         case GenericTable => performChangeFx(table)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
         case TaxonomyTable =>
-          if (columnId > 3) performChangeFx(table)
+          if (columnId > 4) performChangeFx(table)
           else Future.failed(ForbiddenException("can't change a default column of a taxonmy table", "column"))
       }
 
