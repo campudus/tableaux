@@ -368,7 +368,7 @@ class StructureController(
         case GenericTable => columnStruc.delete(table, columnId)
         case TaxonomyTable =>
           if (columnId > 4) columnStruc.delete(table, columnId)
-          else Future.failed(ForbiddenException("can't delete a default columnd from a taxonomy table", "column"))
+          else Future.failed(ForbiddenException("can't delete a default column from a taxonomy table", "column"))
         case SettingsTable =>
           Future.failed(ForbiddenException("can't delete a column from a settings table", "column"))
       }
