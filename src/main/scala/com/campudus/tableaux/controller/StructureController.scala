@@ -315,7 +315,7 @@ class StructureController(
           singleDirection = false,
           identifier = false,
           Seq(NameOnly("de", "Oberkategorie"), NameOnly("en", "Parent category")),
-          Constraint(Cardinality(1, 1), false),
+          Constraint(Cardinality(0, 1), false),
           attributes,
           hidden = false
         )
