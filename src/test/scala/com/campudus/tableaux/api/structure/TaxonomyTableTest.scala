@@ -35,12 +35,12 @@ class TaxonomyTableTest extends TableauxTestBase {
       "type" -> "taxonomy",
       "displayName" -> Json.obj("de" -> "Tax"),
       "columns" -> Json.arr(
-          Json.obj("name" -> "title", "kind" -> "shorttext"),
-          Json.obj("name" -> "ordering", "kind" -> "numeric"),
-          Json.obj("name" -> "code", "kind" -> "shorttext"),
-          Json.obj("name" -> "parent", "kind" -> "link")
-        ),
-        "rows" -> Json.emptyArr()
+        Json.obj("name" -> "title", "kind" -> "shorttext"),
+        Json.obj("name" -> "ordering", "kind" -> "numeric"),
+        Json.obj("name" -> "code", "kind" -> "shorttext"),
+        Json.obj("name" -> "parent", "kind" -> "link")
+      ),
+      "rows" -> Json.emptyArr()
     )
     for {
       tableId <- initTable()
@@ -51,57 +51,63 @@ class TaxonomyTableTest extends TableauxTestBase {
   }
 
   @Test
-  def changeTitleColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+  def changeTitleColumn(implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
     for {
       tableId <- initTable()
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/1", Json.obj ("name" -> "anything"))
-    } yield ()
-  }
-  @Test
-  def changeOrderingColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
-    for {
-      tableId <- initTable()
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/2", Json.obj ("name" -> "anything"))
-    } yield ()
-  }
-  @Test
-  def changeCodeColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
-    for {
-      tableId <- initTable()
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/3", Json.obj ("name" -> "anything"))
-    } yield ()
-  }
-  @Test
-  def changeParentColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
-    for {
-      tableId <- initTable()
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/4", Json.obj ("name" -> "anything"))
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/1", Json.obj("name" -> "anything"))
     } yield ()
   }
 
   @Test
-  def deleteTitleColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+  def changeOrderingColumn(implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+    for {
+      tableId <- initTable()
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/2", Json.obj("name" -> "anything"))
+    } yield ()
+  }
+
+  @Test
+  def changeCodeColumn(implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+    for {
+      tableId <- initTable()
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/3", Json.obj("name" -> "anything"))
+    } yield ()
+  }
+
+  @Test
+  def changeParentColumn(implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+    for {
+      tableId <- initTable()
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/4", Json.obj("name" -> "anything"))
+    } yield ()
+  }
+
+  @Test
+  def deleteTitleColumn(implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
     for {
       tableId <- initTable()
       _ <- sendRequest("DELETE", s"/tables/$tableId/columns/1")
     } yield ()
   }
+
   @Test
-  def deleteOrderingColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+  def deleteOrderingColumn(implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
     for {
       tableId <- initTable()
       _ <- sendRequest("DELETE", s"/tables/$tableId/columns/2")
     } yield ()
   }
+
   @Test
-  def deleteCodeColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+  def deleteCodeColumn(implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
     for {
       tableId <- initTable()
       _ <- sendRequest("DELETE", s"/tables/$tableId/columns/3")
     } yield ()
   }
+
   @Test
-  def deleteParentColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+  def deleteParentColumn(implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
     for {
       tableId <- initTable()
       _ <- sendRequest("DELETE", s"/tables/$tableId/columns/4")
@@ -115,17 +121,17 @@ class TaxonomyTableTest extends TableauxTestBase {
       "type" -> "taxonomy",
       "displayName" -> Json.obj("de" -> "Tax"),
       "columns" -> Json.arr(
-          Json.obj("name" -> "title", "kind" -> "shorttext"),
-          Json.obj("name" -> "ordering", "kind" -> "numeric"),
-          Json.obj("name" -> "code", "kind" -> "shorttext"),
-          Json.obj("name" -> "parent", "kind" -> "link"),
-          Json.obj ("name" -> "fifth-column", "kind" -> "text")
-        ),
-        "rows" -> Json.emptyArr()
+        Json.obj("name" -> "title", "kind" -> "shorttext"),
+        Json.obj("name" -> "ordering", "kind" -> "numeric"),
+        Json.obj("name" -> "code", "kind" -> "shorttext"),
+        Json.obj("name" -> "parent", "kind" -> "link"),
+        Json.obj("name" -> "fifth-column", "kind" -> "text")
+      ),
+      "rows" -> Json.emptyArr()
     )
     for {
       tableId <- initTable()
-      _ <- sendRequest("POST",  s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
       table <- fetchTable(tableId)
     } yield {
       assertJSONEquals(expectedTable, table)
@@ -139,18 +145,18 @@ class TaxonomyTableTest extends TableauxTestBase {
       "type" -> "taxonomy",
       "displayName" -> Json.obj("de" -> "Tax"),
       "columns" -> Json.arr(
-          Json.obj("name" -> "title", "kind" -> "shorttext"),
-          Json.obj("name" -> "ordering", "kind" -> "numeric"),
-          Json.obj("name" -> "code", "kind" -> "shorttext"),
-          Json.obj("name" -> "parent", "kind" -> "link"),
-          Json.obj ("name" -> "fifth-columbia", "kind" -> "text")
-        ),
-        "rows" -> Json.emptyArr()
+        Json.obj("name" -> "title", "kind" -> "shorttext"),
+        Json.obj("name" -> "ordering", "kind" -> "numeric"),
+        Json.obj("name" -> "code", "kind" -> "shorttext"),
+        Json.obj("name" -> "parent", "kind" -> "link"),
+        Json.obj("name" -> "fifth-columbia", "kind" -> "text")
+      ),
+      "rows" -> Json.emptyArr()
     )
     for {
       tableId <- initTable()
-      _ <- sendRequest("POST",  s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
-      _ <- sendRequest("POST",  s"/tables/$tableId/columns/5", Json.obj("name" -> "fifth-columbia"))
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/5", Json.obj("name" -> "fifth-columbia"))
       table <- fetchTable(tableId)
     } yield {
       assertJSONEquals(expectedTable, table)
@@ -164,17 +170,17 @@ class TaxonomyTableTest extends TableauxTestBase {
       "type" -> "taxonomy",
       "displayName" -> Json.obj("de" -> "Tax"),
       "columns" -> Json.arr(
-          Json.obj("name" -> "title", "kind" -> "shorttext"),
-          Json.obj("name" -> "ordering", "kind" -> "numeric"),
-          Json.obj("name" -> "code", "kind" -> "shorttext"),
-          Json.obj("name" -> "parent", "kind" -> "link"),
-        ),
-        "rows" -> Json.emptyArr()
+        Json.obj("name" -> "title", "kind" -> "shorttext"),
+        Json.obj("name" -> "ordering", "kind" -> "numeric"),
+        Json.obj("name" -> "code", "kind" -> "shorttext"),
+        Json.obj("name" -> "parent", "kind" -> "link")
+      ),
+      "rows" -> Json.emptyArr()
     )
     for {
       tableId <- initTable()
-      _ <- sendRequest("POST",  s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
-      _ <- sendRequest("DELETE",  s"/tables/$tableId/columns/5")
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
+      _ <- sendRequest("DELETE", s"/tables/$tableId/columns/5")
       table <- fetchTable(tableId)
     } yield {
       assertJSONEquals(expectedTable, table)
