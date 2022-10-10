@@ -202,9 +202,9 @@ class StructureController(
       } yield table
     }
 
-  def createGenericTable(implicit user: TableauxUser) = buildTable(GenericTable, columns = None)
+  private def createGenericTable(implicit user: TableauxUser) = buildTable(GenericTable, columns = None)
 
-  def createSettingsTable(implicit user: TableauxUser) = buildTable(
+  private def createSettingsTable(implicit user: TableauxUser) = buildTable(
     SettingsTable,
     Some(Seq(
       CreateSimpleColumn(
@@ -257,7 +257,7 @@ class StructureController(
     ))
   )
 
-  def createTaxonomyTable(implicit user: TableauxUser) = (
+  private def createTaxonomyTable(implicit user: TableauxUser) = (
       tableName: String,
       hidden: Boolean,
       langtags: Option[Option[Seq[String]]],
