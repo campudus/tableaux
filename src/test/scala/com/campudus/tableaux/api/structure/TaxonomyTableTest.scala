@@ -72,7 +72,7 @@ class TaxonomyTableTest extends TableauxTestBase {
     } yield ()
   }
   @Test
-  def changeLinkColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+  def changeParentColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
     for {
       tableId <- initTable()
       _ <- sendRequest("POST", s"/tables/$tableId/columns/4", Json.obj ("name" -> "anything"))
@@ -101,7 +101,7 @@ class TaxonomyTableTest extends TableauxTestBase {
     } yield ()
   }
   @Test
-  def deleteLinkColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
+  def deleteParentColumn (implicit c: TestContext) = exceptionTest("error.request.forbidden.column") {
     for {
       tableId <- initTable()
       _ <- sendRequest("DELETE", s"/tables/$tableId/columns/4")
