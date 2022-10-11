@@ -42,7 +42,7 @@ If you upgrade from an older schema version you need to call `POST /system/updat
 
 ## Build & Test
 
-Tableaux uses gradle to build a so called **fat jar** which contains all runtime dependencies. You can find it in `build/libs/tableaux-fat.jar`. The gradle task `build` needs a running PostgreSQL and the `conf-test.json` must be configured correct.
+Tableaux uses gradle to build a so called **fat jar** which contains all runtime dependencies. You can find it in `build/libs/tableaux-fat.jar`. The gradle task `build` needs a running PostgreSQL and the `conf-test.json` must be configured correct. Requests in auth tests must contain an accessToken. For simplicity this accessToken is generated within a test helper with a hardcoded key pair. For the accessToken to match the pub key, the auth configuration for testing must always be the same as configured in `conf-test-example.json`.
 
 ```bash
 ./gradlew clean build
