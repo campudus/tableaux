@@ -2,6 +2,7 @@
 conf.json
 conf-*.json
 !conf-example.json
+!conf-test-example.json
 !conf-github-ci.json
 uploads/
 .vertx/
