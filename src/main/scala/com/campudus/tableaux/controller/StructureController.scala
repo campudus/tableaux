@@ -289,7 +289,8 @@ class StructureController(
               identifier = false,
               Seq(NameOnly("de", "Reihenfolge"), NameOnly("en", "Ordering")),
               false,
-              Option(Json.obj())
+              Option(Json.obj()),
+              hidden = true
             ),
             CreateSimpleColumn(
               "code",
