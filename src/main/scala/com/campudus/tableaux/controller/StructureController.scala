@@ -272,12 +272,12 @@ class StructureController(
         Some(
           Seq(
             CreateSimpleColumn(
-              "title",
+              "name",
               None,
               ShortTextType,
               MultiLanguage,
               identifier = true,
-              Seq(NameOnly("de", "Name"), NameOnly("en", "Name")),
+              Seq(NameOnly("de", "Bezeichnung"), NameOnly("en", "Name")),
               false,
               Option(Json.obj())
             ),
