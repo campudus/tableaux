@@ -1,17 +1,17 @@
 package com.campudus.tableaux.api.structure
 
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.testtools.JsonAssertable
 import com.campudus.tableaux.testtools.TableauxTestBase
-
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
-
-import scala.concurrent.Future
-
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.vertx.scala.core.json.Json
+
+import scala.concurrent.Future
 
 @RunWith(classOf[VertxUnitRunner])
 class TaxonomyTableTest extends TableauxTestBase {
@@ -27,6 +27,7 @@ class TaxonomyTableTest extends TableauxTestBase {
   }
 
   def fetchTable(tableId: TableId) = sendRequest("GET", s"/completetable/$tableId")
+  def createColumnInstruction(column: JsonObject) = Json.obj("columns" -> Json.arr(column))
 
   @Test
   def createTaxonomyTable(implicit c: TestContext) = okTest {
@@ -131,7 +132,11 @@ class TaxonomyTableTest extends TableauxTestBase {
     )
     for {
       tableId <- initTable()
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId/columns",
+        createColumnInstruction(Json.obj("name" -> "fifth-column", "kind" -> "text"))
+      )
       table <- fetchTable(tableId)
     } yield {
       assertJSONEquals(expectedTable, table)
@@ -155,8 +160,14 @@ class TaxonomyTableTest extends TableauxTestBase {
     )
     for {
       tableId <- initTable()
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
-      _ <- sendRequest("POST", s"/tables/$tableId/columns/5", Json.obj("name" -> "fifth-columbia"))
+      newColumn <-
+        sendRequest(
+          "POST",
+          s"/tables/$tableId/columns",
+          createColumnInstruction(Json.obj("name" -> "fifth-column", "kind" -> "text"))
+        )
+      columnId = newColumn.getLong("id")
+      _ <- sendRequest("POST", s"/tables/$tableId/columns/$columnId", Json.obj("name" -> "fifth-columbia"))
       table <- fetchTable(tableId)
     } yield {
       assertJSONEquals(expectedTable, table)
@@ -179,7 +190,13 @@ class TaxonomyTableTest extends TableauxTestBase {
     )
     for {
       tableId <- initTable()
-      _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("name" -> "fifth-column", "kind" -> "text"))
+      newColumn <-
+        sendRequest(
+          "POST",
+          s"/tables/$tableId/columns",
+          createColumnInstruction(Json.obj("name" -> "fifth-column", "kind" -> "text"))
+        )
+      columnId = newColumn.getLong("id")
       _ <- sendRequest("DELETE", s"/tables/$tableId/columns/5")
       table <- fetchTable(tableId)
     } yield {
