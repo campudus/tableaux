@@ -155,7 +155,7 @@ class TaxonomyTableTest extends TableauxTestBase {
       "type" -> "taxonomy",
       "displayName" -> Json.obj("de" -> "Tax"),
       "columns" -> Json.arr(
-        Json.obj("name" -> "title", "kind" -> "shorttext"),
+        Json.obj("name" -> "name", "kind" -> "shorttext"),
         Json.obj("name" -> "ordering", "kind" -> "numeric"),
         Json.obj("name" -> "code", "kind" -> "shorttext"),
         Json.obj("name" -> "parent", "kind" -> "link"),
@@ -186,7 +186,7 @@ class TaxonomyTableTest extends TableauxTestBase {
       "type" -> "taxonomy",
       "displayName" -> Json.obj("de" -> "Tax"),
       "columns" -> Json.arr(
-        Json.obj("name" -> "title", "kind" -> "shorttext"),
+        Json.obj("name" -> "name", "kind" -> "shorttext"),
         Json.obj("name" -> "ordering", "kind" -> "numeric"),
         Json.obj("name" -> "code", "kind" -> "shorttext"),
         Json.obj("name" -> "parent", "kind" -> "link")
