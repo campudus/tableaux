@@ -318,7 +318,7 @@ class StructureController(
           Seq(NameOnly("de", "Oberkategorie"), NameOnly("en", "Parent category")),
           Constraint(Cardinality(0, 1), false),
           attributes,
-          hidden = false
+          hidden = true
         )
       )
       table <- tableStruc.retrieve(tableStub.id)
