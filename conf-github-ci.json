@@ -12,12 +12,12 @@
   },
   "auth": {
     "realm": "keycloak-realm-permission-test",
-    "realm-public-key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuuFUzR6uqEU80fNWA88FInoGtUgeQ7JEm1yzh8ii6zP0u+FzezLveJAhTO63YtbYddiyZZ+oQcA4ONbyBQLTrtC9X9Nbi/dhaygWFkZYLoNhGbOASrOCOIAStsU2pRfcOt/7WTxV6G/RaugO3/fArfvs/8SZ54qS1g2fIHz4jhKepQj/SRxqvhTLSY6cQHEqiToxAVjONV1toLaHWDbVSA1mVZ9hbhdhE07DZaT/YS4EgjgrLTxQohqy7R9pqk6yJ6TsOcbQfbXVZpKv5BoOV+EtDjlvHxAyHH0Dg2pCK8HSmyEqKaNfG/R/HfYb8JC4tIJunEEhm/1fEt1EkxIZqQIDAQAB",
+    "realm-public-key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1A/6yB/swbCdA37JbnlMKioBP7ezbQJwyOklhJ1Ts/Jpn2pogZJhIU+6jI7CAl3OnPoepOsmqf6Fb5lCnPMeS4CcF+CideFga+7w4a3vDmP7fp0ClhZlsKCofzqIh2YSCfqNyXjUGzhzxjlaj27xqT9PL154ArFUW5S8KUga0/XZyEUdYT0bzxJyJiFi64mmYV90NkpuUawBq07dMc2fMJtFGMQwL+oQ0wBaE6sJxEVzbE1/F91Xm3hApC6SVXryBjITQMbGye/IPJGyI+4OzGB1t+3Aht6ac+oU1hQdEh7o1MZyNalvlLKXqe5GV+YC2Q8PXE95cNCzyccB6LPMkwIDAQAB",
     "bearer-only": true,
-    "auth-server-url": "http://localhost:9999/auth",
+    "auth-server-url": "http://localhost:8080/auth",
     "ssl-required": "external",
     "resource": "grud-backend",
-    "verify-token-audience": true,
+    "verify-token-audience": false,
     "use-resource-role-mappings": true,
     "confidential-port": 0,
     "issuer": "campudus-test"

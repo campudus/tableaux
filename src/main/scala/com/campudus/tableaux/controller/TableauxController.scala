@@ -17,6 +17,7 @@ import scala.concurrent.Future
 import scala.util.Try
 
 import java.util.UUID
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 object TableauxController {
 
@@ -30,6 +31,8 @@ class TableauxController(
     override protected val repository: TableauxModel,
     implicit protected val roleModel: RoleModel
 ) extends Controller[TableauxModel] {
+
+  val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def addCellAnnotation(
       tableId: TableId,
@@ -466,6 +469,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       updated <- repository.updateCellValue(table, columnId, rowId, value)
+      _ <- messagingClient.cellChanged(tableId, columnId, rowId)
     } yield updated
   }
 

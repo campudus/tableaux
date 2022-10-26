@@ -18,6 +18,7 @@ import com.campudus.tableaux.database.model.structure.{CachedColumnModel, Column
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.eventbus.EventBus
@@ -48,6 +49,7 @@ class StructureController(
   val tableStruc: TableModel = repository.tableStruc
   val columnStruc: CachedColumnModel = repository.columnStruc
   val tableGroupStruc: TableGroupModel = repository.tableGroupStruc
+  val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def retrieveTable(tableId: TableId)(implicit user: TableauxUser): Future[Table] = {
     checkArguments(greaterZero(tableId))
@@ -85,6 +87,11 @@ class StructureController(
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
       sorted = retrieved.sortBy(_.ordering)
     } yield {
+      println("###################")
+      println("createColumns")
+      println("###################")
+      sorted.foreach(col => messagingClient.columnCreated(tableId, col.id))
+
       ColumnSeq(sorted)
     }
   }

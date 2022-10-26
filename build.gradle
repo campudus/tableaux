@@ -46,6 +46,7 @@ dependencies {
 
   implementation "io.vertx:vertx-core:${vertxVersion}"
   implementation "io.vertx:vertx-web:${vertxVersion}"
+  implementation "io.vertx:vertx-web-client:${vertxVersion}"
   implementation "io.vertx:vertx-mysql-postgresql-client:${vertxVersion}"
   implementation "io.vertx:vertx-auth-oauth2:${vertxVersion}"
   implementation "com.github.erosb:everit-json-schema:1.14.0"
@@ -53,6 +54,7 @@ dependencies {
   // add Vert.x Scala
   implementation "io.vertx:vertx-lang-scala_2.12:${vertxVersion}"
   implementation "io.vertx:vertx-web-scala_2.12:${vertxVersion}"
+  implementation "io.vertx:vertx-web-client-scala_2.12:${vertxVersion}"
   implementation "io.vertx:vertx-mysql-postgresql-client-scala_2.12:${vertxVersion}"
   implementation "io.vertx:vertx-auth-oauth2-scala_2.12:${vertxVersion}"
 

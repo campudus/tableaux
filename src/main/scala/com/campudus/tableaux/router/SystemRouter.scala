@@ -13,6 +13,7 @@ import scala.concurrent.Future
 import scala.util.Try
 
 import java.util.UUID
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 object SystemRouter {
   private var nonce: Option[String] = None
@@ -43,6 +44,7 @@ object SystemRouter {
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
   private val serviceId = """(?<serviceId>[\d]+)"""
+  private val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def route: Router = {
     val router = Router.router(vertx)
@@ -271,7 +273,10 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         val config = getNullableObject("config")(json)
         val scope = getNullableObject("scope")(json)
 
-        controller.createService(name, serviceType, ordering, displayName, description, active, config, scope)
+        for {
+        service <- controller.createService(name, serviceType, ordering, displayName, description, active, config, scope)
+        _ <- messagingClient.servicesChange()
+        } yield service
       }
     )
   }
