@@ -723,9 +723,7 @@ class TableauxModel(
         // We could invalidate less cache if we would know the depending rows
         // ... but this would require us to retrieve them which is definitely more expensive
 
-        case DependentColumnInformation(tableId, columnId, _, true, groupColumnIds) =>
-          // Only invalidate cache if depending link column is an identifier column because only identifier link columns
-
+        case DependentColumnInformation(tableId, columnId, _, _, groupColumnIds) =>
           // Invalidate depending link column...
           val invalidateLinkColumn = invalidateColumn(tableId, columnId)
           // Invalidate the table's concat column - to be sure...
@@ -735,14 +733,6 @@ class TableauxModel(
 
           invalidateLinkColumn.zip(invalidateConcatColumn).zip(invalidateGroupColumns)
 
-        case DependentColumnInformation(tableId, _, _, false, groupColumnIds) =>
-          // If depending link column is no identifier column we only need to invalidate
-          // ... group columns which dependent on link column
-
-          // Invalidate all depending group columns
-          val invalidateGroupColumns = Future.sequence(groupColumnIds.map(invalidateColumn(tableId, _)))
-
-          invalidateGroupColumns
       }))
     } yield ()
   }
