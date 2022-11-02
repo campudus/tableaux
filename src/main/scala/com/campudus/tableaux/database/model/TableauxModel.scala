@@ -778,7 +778,6 @@ class TableauxModel(
 
     for {
       valueCache <- CacheClient(this.connection).retrieveCellValue(column.table.id, column.id, rowId)
-      _ = println(valueCache)
 
       value <- valueCache match {
         case Some(obj) => {
