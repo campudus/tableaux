@@ -52,8 +52,9 @@ object MessagingVerticle {
 
   val ADDRESS_ROW_DELETED = "message.rows.deleted"
   val ADDRESS_ROW_CREATED = "message.rows.created"
+  val ADDRESS_ROW_ANNOTATION_CHANGED = "message.rows.annotation.changed"
 
-  val ADDRESS_CELL_ANNOTATION_CHANGED = "message.cells.annation.changed"
+  val ADDRESS_CELL_ANNOTATION_CHANGED = "message.cells.annotation.changed"
 
   val EVENT_TYPE_TABLE_CREATE = "table_create"
   val EVENT_TYPE_TABLE_CHANGE = "table_change"
@@ -217,14 +218,22 @@ class MessagingVerticle extends ScalaVerticle
   private def registerConsumers(): Future[Unit] = {
     eventBus.consumer(ADDRESS_CELL_CHANGED, errorHandler(messageHandlerCellChange)).completionFuture()
     eventBus.consumer(ADDRESS_SERVICES_CHANGE, messageHandlerUpdateListeners).completionFuture()
-    eventBus.consumer(ADDRESS_COLUMN_CREATED, messageHandlerColumnCreated()).completionFuture()
-    eventBus.consumer(ADDRESS_COLUMN_CHANGED, messageHandlerColumnChanged).completionFuture()
-    eventBus.consumer(ADDRESS_COLUMN_DELETED, messageHandlerColumnDeleted).completionFuture()
-    eventBus.consumer(ADDRESS_TABLE_CREATED, messageHandlerTableCreated()).completionFuture()
-    eventBus.consumer(ADDRESS_TABLE_CHANGED, messageHandlerTableChanged).completionFuture()
-    eventBus.consumer(ADDRESS_TABLE_DELETED, messageHandlerTableDeleted).completionFuture()
-    eventBus.consumer(ADDRESS_ROW_CREATED, messageHandlerRowCreated).completionFuture()
-    eventBus.consumer(ADDRESS_ROW_DELETED, messageHandlerRowDeleted).completionFuture()
+    eventBus.consumer(ADDRESS_COLUMN_CREATED, errorHandler(messageHandlerColumnCreated())).completionFuture()
+    eventBus.consumer(ADDRESS_COLUMN_CHANGED, errorHandler(messageHandlerColumnChanged)).completionFuture()
+    eventBus.consumer(ADDRESS_COLUMN_DELETED, errorHandler(messageHandlerColumnDeleted)).completionFuture()
+    eventBus.consumer(ADDRESS_TABLE_CREATED, errorHandler(messageHandlerTableCreated())).completionFuture()
+    eventBus.consumer(ADDRESS_TABLE_CHANGED, errorHandler(messageHandlerTableChanged)).completionFuture()
+    eventBus.consumer(ADDRESS_TABLE_DELETED, errorHandler(messageHandlerTableDeleted)).completionFuture()
+    eventBus.consumer(ADDRESS_ROW_CREATED, errorHandler(messageHandlerRowCreated)).completionFuture()
+    eventBus.consumer(ADDRESS_ROW_DELETED, errorHandler(messageHandlerRowDeleted)).completionFuture()
+    eventBus.consumer(
+      ADDRESS_ROW_ANNOTATION_CHANGED,
+      errorHandler(messageHandlerRowAnnotationChanged)
+    ).completionFuture()
+    eventBus.consumer(
+      ADDRESS_CELL_ANNOTATION_CHANGED,
+      errorHandler(messageHandlerCellAnnotationChanged)
+    ).completionFuture()
   }
 
   private def messageHandlerUpdateListeners(message: Message[JsonObject]): Unit = {
@@ -232,7 +241,7 @@ class MessagingVerticle extends ScalaVerticle
       listenersMap <- retrieveListeners()
     } yield {
       listeners = listenersMap
-      message.reply("")
+      message.reply("ok")
     }
   }
 
@@ -278,7 +287,7 @@ class MessagingVerticle extends ScalaVerticle
       val headers = config.getJsonObject("headers", Json.obj())
 
       webClient.post(port, host, route).sendJsonObjectFuture(payLoad).recover { case err: Throwable =>
-        logger.error(err.getMessage)
+        logger.error(s"Service Name: $name, Reason: ${err.getMessage}")
       }
     }))
   }
