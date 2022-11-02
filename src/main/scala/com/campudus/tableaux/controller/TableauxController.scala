@@ -57,7 +57,7 @@ class TableauxController(
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
     } yield {
-
+      messagingClient.cellAnnotationChanged(tableId, columnId, rowId)
       cellAnnotation
     }
   }
@@ -73,7 +73,10 @@ class TableauxController(
       column <- repository.retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
       _ <- repository.deleteCellAnnotation(column, rowId, uuid)
-    } yield EmptyObject()
+    } yield {
+      messagingClient.cellAnnotationChanged(tableId, columnId, rowId)
+      EmptyObject()
+    }
   }
 
   def deleteCellAnnotation(
@@ -287,7 +290,10 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ScopeTable, ComparisonObjects(table))
       updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlag)
-    } yield updatedRow
+    } yield {
+      messagingClient.rowAnnotationChanged(tableId, rowId)
+      updatedRow
+    }
   }
 
   def updateRowsAnnotations(tableId: TableId, finalFlag: Option[Boolean])(
