@@ -360,7 +360,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
       }
     })
 
-
     p.future
   }
 }

@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
 import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, JsonSchemaValidatorVerticle}
+import com.campudus.tableaux.verticles.Messaging.MessagingVerticle
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
@@ -16,7 +17,6 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 import com.typesafe.scalalogging.LazyLogging
-import com.campudus.tableaux.verticles.Messaging.MessagingVerticle
 
 object Starter {
   val DEFAULT_HOST = "127.0.0.1"
@@ -129,7 +129,6 @@ class Starter extends ScalaVerticle with LazyLogging {
 
     deployFuture
   }
-
 
   private def deployMessagingVerticle(tableauxConfig: TableauxConfig): Future[String] = {
 
