@@ -459,7 +459,6 @@ class MessagingVerticle extends ScalaVerticle
         message.reply("ok")
       }
       case Failure(exception) => {
-        println("errror")
         logger.error(exception.getMessage)
         message.fail(500, exception.getMessage)
       }
