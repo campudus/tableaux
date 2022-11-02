@@ -9,6 +9,7 @@ import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
@@ -17,7 +18,6 @@ import scala.concurrent.Future
 import scala.util.Try
 
 import java.util.UUID
-import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 object TableauxController {
 
@@ -56,7 +56,10 @@ class TableauxController(
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
-    } yield cellAnnotation
+    } yield {
+
+      cellAnnotation
+    }
   }
 
   def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID)(
@@ -257,10 +260,20 @@ class TableauxController(
         case Some(seq) =>
           checkArguments(nonEmpty(seq, "rows"))
           logger.info(s"createRows ${table.id} $values")
-          repository.createRows(table, seq)
+          for {
+            createdRows <- repository.createRows(table, seq)
+          } yield {
+            createdRows.rows.foreach(singleCreatedRow => messagingClient.rowCreated(tableId, singleCreatedRow.id))
+            createdRows
+          }
         case None =>
           logger.info(s"createRow ${table.id}")
-          repository.createRow(table)
+          for {
+            createdRow <- repository.createRow(table)
+          } yield {
+            messagingClient.rowCreated(tableId, createdRow.id)
+            createdRow
+          }
       }
     } yield row
   }
@@ -419,7 +432,10 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(DeleteRow, ScopeTable, ComparisonObjects(table))
       _ <- repository.deleteRow(table, rowId, replacingRowIdOpt)
-    } yield EmptyObject()
+    } yield {
+      messagingClient.rowDeleted(tableId, rowId)
+      EmptyObject()
+    }
   }
 
   def deleteLink(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId)(
