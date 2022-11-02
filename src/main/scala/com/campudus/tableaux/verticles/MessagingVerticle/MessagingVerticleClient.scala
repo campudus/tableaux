@@ -87,4 +87,9 @@ class MessagingVerticleClient(val vertx: Vertx) extends VertxAccess {
     val message = Json.obj(KEY_TABLE_ID -> tableId, KEY_ROW_ID -> rowId, KEY_COLUMN_ID -> columnId)
     sendMessage(MessagingVerticle.ADDRESS_CELL_ANNOTATION_CHANGED, message)
   }
+
+  def rowAnnotationChanged(tableId: TableId, rowId: RowId): Future[Unit] = {
+    val message = Json.obj(KEY_TABLE_ID -> tableId, KEY_ROW_ID -> rowId)
+    sendMessage(MessagingVerticle.ADDRESS_ROW_ANNOTATION_CHANGED, message)
+  }
 }
