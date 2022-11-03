@@ -108,15 +108,7 @@ trait TableauxTestBase
     val completionHandler = {
       case Success(id) =>
         logger.info(s"Verticle deployed with ID $id")
-
-        val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-        val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-        val system = SystemModel(dbConnection)
-
-        for {
-          _ <- system.uninstall()
-          _ <- system.install()
-        } yield async.complete()
+        async.complete()
 
       case Failure(e) =>
         logger.error("Verticle couldn't be deployed.", e)
@@ -124,9 +116,16 @@ trait TableauxTestBase
         async.complete()
     }: Try[String] => Unit
 
-    vertx
-      .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
-      .onComplete(completionHandler)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val system = SystemModel(dbConnection)
+    for {
+      _ <- system.uninstall()
+      _ <- system.install()
+    } yield {
+      vertx
+        .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+    }.onComplete(completionHandler)
 
     val tokenHelper = TokenHelper(this.vertxAccess())
 
