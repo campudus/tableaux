@@ -196,6 +196,7 @@ class MessagingVerticle extends ScalaVerticle
   }
 
   override def startFuture(): Future[_] = {
+    logger.info("start future")
     val isAuthorization: Boolean = !config.getJsonObject("authConfig").isEmpty
     val roles = config.getJsonObject("rolePermissions")
     implicit val roleModel: RoleModel = RoleModel(roles, isAuthorization)
@@ -274,7 +275,7 @@ class MessagingVerticle extends ScalaVerticle
     }
   }
 
-  private def sendMessage(
+  def sendMessage(
       listeners: Seq[Service],
       payLoad: JsonObject
   ): Future[Seq[Any]] = {
@@ -462,8 +463,8 @@ class MessagingVerticle extends ScalaVerticle
   private def errorHandler(
       messageHandler: Message[JsonObject] => Future[Seq[Any]]
   )(message: Message[JsonObject]): Unit = {
-    val messageHandlerResult = Try(messageHandler(message))
-    messageHandlerResult match {
+
+    messageHandler(message).onComplete {
       case Success(_) => {
         message.reply("ok")
       }
