@@ -43,6 +43,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 import org.junit.{After, Before}
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.any
@@ -526,7 +527,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       None,
       TextType,
       LanguageNeutral,
-      false,
+      true,
       Seq(),
       false,
       None,
@@ -559,10 +560,6 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       createdRow <- tableauxModel.createRow(table)
       res <- messagingClient.rowCreated(table.id, createdRow.id)
     } yield {
-      println("###############")
-      println(createdRow)
-      println(answers)
-      println("###############")
       val expected = createExpectedJson(listenerName, event, createdRow.getJson, Some(table.id))
       assertJSONEquals(expected, answers.head)
     }
@@ -649,7 +646,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       1,
       None,
       None,
-      false,
+      true,
       true,
       Seq(),
       DefaultConstraint,
@@ -669,11 +666,15 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableGroupIdOpt = None,
         attributes = None
       )
-      linkColumn <- structureModel.columnStruc.createColumn(table, linkColumnToCreate)
+      linkColumn <- structureModel.columnStruc.createColumn(table2, linkColumnToCreate)
       createdRowTable2 <- tableauxModel.createRow(table2)
       updatedCell <- tableauxModel.updateCellValue(table, column.id, createdRowTable1.id, "new_test_value")
-      // TODO: Fix error in updateCellValue
-      updatedLinkCell <- tableauxModel.updateCellValue(table2, linkColumn.id, createdRowTable2.id, createdRowTable1.id)
+      updatedLinkCell <- tableauxModel.updateCellValue(
+        table2,
+        linkColumn.id,
+        createdRowTable2.id,
+        Seq(createdRowTable1.id)
+      )
       dependentCells <- tableauxModel.retrieveDependentCells(table, createdRowTable1.id)
       dependentCellValues <- Future.sequence(dependentCells.map({
         case (table, linkColumn, rowIds) => {
@@ -737,6 +738,113 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
 
       assertJSONEquals(expectedAfterAdd, answers.head)
       assertJSONEquals(expectedAfterDelete, answers.drop(1).head)
+    }
+  }
+
+  @Test
+  def listenerScopeTest(implicit c: TestContext): Unit = okTest {
+    // val listenerName = "cell_annotation_change_listener"
+    // val event = MessagingVerticle.EVENT_TYPE_CELL_ANNOTATION_CHANGED
+    // val listenerConfig = createListenerConfig(Seq(event))
+    val events = Seq(
+      MessagingVerticle.EVENT_TYPE_COLUMN_CREATE
+    )
+    val excludedTableName = "exclude_this_table_settings"
+    val scope = createScope(
+      tableIncludes = Seq(
+        Json.obj("name" -> ".*settings", "hidden" -> false)
+      ),
+      tableExcludes = Seq(
+        Json.obj("name" -> excludedTableName)
+      ),
+      columnIncludes = Seq(
+        Json.obj("name" -> ".*")
+      ),
+      columnExcludes = Seq(
+        Json.obj("identifier" -> true)
+      )
+    )
+    val listenerName =
+      "column_settings_table_listener"
+    val listenerConfig = createListenerConfig(events)
+
+    val nonIdentifierColumnToCreate = CreateSimpleColumn(
+      "test_column_non_identifier_1",
+      None,
+      TextType,
+      LanguageNeutral,
+      false,
+      Seq(),
+      false,
+      None,
+      false
+    )
+
+    val identifierColumnToCreate = CreateSimpleColumn(
+      "test_column_identifier_1",
+      None,
+      TextType,
+      LanguageNeutral,
+      true,
+      Seq(),
+      false,
+      None,
+      false
+    )
+
+    for {
+      listener <- createListener(listenerName, listenerConfig, scope)
+      // listener should not be selected
+      (table, column) <- createDefaultTableWithColumn()
+
+      settingsTableNonHidden <- structureModel.tableStruc.create(
+        "test_table_1_settings",
+        hidden = false,
+        langtags = None,
+        displayInfos = Seq(),
+        tableType = GenericTable,
+        tableGroupIdOpt = None,
+        attributes = None
+      )
+      // listener should be selected
+      nonIdentifierNonHiddenTableColumn <-
+        structureModel.columnStruc.createColumn(settingsTableNonHidden, nonIdentifierColumnToCreate)
+      _ <- messagingClient.columnCreated(settingsTableNonHidden.id, nonIdentifierNonHiddenTableColumn.id)
+      // listener should NOT be selected
+      identifierNonHiddenTableColumn <-
+        structureModel.columnStruc.createColumn(settingsTableNonHidden, identifierColumnToCreate)
+      _ <- messagingClient.columnCreated(settingsTableNonHidden.id, identifierNonHiddenTableColumn.id)
+
+      // table is hidden, listener should NOT be selected for ANY column
+      settingsTableHidden <- structureModel.tableStruc.create(
+        "test_table_1_hidden_settings",
+        hidden = true,
+        langtags = None,
+        displayInfos = Seq(),
+        tableType = GenericTable,
+        tableGroupIdOpt = None,
+        attributes = None
+      )
+      // listener should NOT be selected
+      nonIdentifierHiddenTableColumn <-
+        structureModel.columnStruc.createColumn(settingsTableHidden, nonIdentifierColumnToCreate)
+      _ <- messagingClient.columnCreated(settingsTableHidden.id, nonIdentifierHiddenTableColumn.id)
+      // listener should NOT be selected
+      identifierHiddenTableColumn <-
+        structureModel.columnStruc.createColumn(settingsTableHidden, identifierColumnToCreate)
+      _ <- messagingClient.columnCreated(settingsTableHidden.id, identifierHiddenTableColumn.id)
+    } yield {
+      val expected = createExpectedJson(
+        listenerName,
+        events.head,
+        nonIdentifierNonHiddenTableColumn.getJson,
+        Some(settingsTableNonHidden.id),
+        Some(nonIdentifierNonHiddenTableColumn.id),
+        None
+      )
+      // expect only one answer, as listener only applies one time
+      assertEquals(1, answers.size)
+      assertJSONEquals(expected, answers.head)
     }
   }
 
