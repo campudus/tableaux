@@ -154,10 +154,10 @@ case class AuthenticationException(override val message: String) extends CustomE
   override val statusCode: Int = 401
 }
 
-case class UnauthorizedException(action: Action, scope: Scope, userRoles: Seq[String]) extends CustomException {
+case class UnauthorizedException(action: Action, userRoles: Seq[String]) extends CustomException {
   override val id: String = s"error.request.unauthorized"
   override val statusCode: Int = 403
-  override val message: String = s"Action $action on scope $scope is not allowed. UserRoles are: $userRoles"
+  override val message: String = s"Action $action is not allowed. UserRoles are: $userRoles"
 }
 
 case class HasStatusColumnDependencyException(override val message: String) extends CustomException {

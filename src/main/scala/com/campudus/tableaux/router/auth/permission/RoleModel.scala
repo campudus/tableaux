@@ -54,7 +54,6 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     */
   def checkAuthorization(
       action: Action,
-      scope: Scope,
       objects: ComparisonObjects = ComparisonObjects(),
       isInternalCall: Boolean = false
   )(implicit user: TableauxUser): Future[Unit] = {
@@ -68,12 +67,12 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       //  because we can not retrieve cell values for one language.
       val withLangtagCondition: Boolean = action != ViewCellValue
 
-      if (isAllowed(userRoles, action, scope, _.isMatching(objects, withLangtagCondition), Check)) {
+      if (isAllowed(userRoles, action, _.isMatching(objects, withLangtagCondition), Check)) {
         Future.successful(())
       } else {
         val userName = user.name
-        logger.info(s"User ${userName} is not allowed to do action '$action' in scope '$scope'")
-        Future.failed(UnauthorizedException(action, scope, userRoles))
+        logger.info(s"User ${userName} is not allowed to do action '$action'")
+        Future.failed(UnauthorizedException(action, userRoles))
       }
     }
   }
@@ -84,11 +83,10 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     * For example, when filtering columns, it is also possible to filter them according to their table.
     */
   def filterDomainObjects[A](
-      scope: Scope,
+      action: Action,
       domainObjects: Seq[A],
       parentObjects: ComparisonObjects = ComparisonObjects(),
-      isInternalCall: Boolean,
-      action: Action = View
+      isInternalCall: Boolean
   )(implicit user: TableauxUser): Seq[A] = {
 
     if (isInternalCall) {
@@ -106,7 +104,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
           case _ => ComparisonObjects()
         }
 
-        isAllowed(userRoles, action, scope, _.isMatching(objects), Filter)
+        isAllowed(userRoles, action, _.isMatching(objects), Filter)
       })
     }
   }
@@ -140,13 +138,13 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichService(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeService, _.actions.contains(action), Enrich)
+      isAllowed(userRoles, action, _.actions.contains(action), Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
-      "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
-      "editStructureProperty" -> isActionAllowed(EditStructureProperty),
-      "delete" -> isActionAllowed(Delete)
+      "editDisplayProperty" -> isActionAllowed(EditServiceDisplayProperty),
+      "editStructureProperty" -> isActionAllowed(EditServiceStructureProperty),
+      "delete" -> isActionAllowed(DeleteService)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -155,14 +153,14 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichTable(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeTable, _.isMatching(objects), Enrich)
+      isAllowed(userRoles, action, _.isMatching(objects), Enrich)
     }
 
     val permissionJson: JsonObject =
       Json.obj(
-        "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
-        "editStructureProperty" -> isActionAllowed(EditStructureProperty),
-        "delete" -> isActionAllowed(Delete),
+        "editTableDisplayProperty" -> isActionAllowed(EditTableDisplayProperty),
+        "editTableStructureProperty" -> isActionAllowed(EditTableStructureProperty),
+        "deleteTable" -> isActionAllowed(DeleteTable),
         "createRow" -> isActionAllowed(CreateRow),
         "deleteRow" -> isActionAllowed(DeleteRow),
         "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),
@@ -174,7 +172,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def enrichServiceSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isAllowed(userRoles, Create, ScopeService, _.actions.contains(Create), Enrich)
+      "create" -> isAllowed(userRoles, CreateService, _.actions.contains(CreateService), Enrich)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -182,7 +180,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def enrichColumnSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isAllowed(userRoles, Create, ScopeColumn, _.actions.contains(Create), Enrich)
+      "create" -> isAllowed(userRoles, CreateColumn, _.actions.contains(CreateColumn), Enrich)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -205,7 +203,6 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
                 isAllowed(
                   userRoles,
                   EditCellValue,
-                  ScopeColumn,
                   _.isMatching(comparisonObjectsWithLangtagCheckValue),
                   Enrich
                 )
@@ -239,14 +236,14 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     }
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeColumn, _.isMatching(objects), Enrich)
+      isAllowed(userRoles, action, _.isMatching(objects), Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
-      "editDisplayProperty" -> isActionAllowed(EditDisplayProperty),
-      "editStructureProperty" -> isActionAllowed(EditStructureProperty),
+      "editDisplayProperty" -> isActionAllowed(EditColumnDisplayProperty),
+      "editStructureProperty" -> isActionAllowed(EditColumnStructureProperty),
       "editCellValue" -> getEditCellValuePermission,
-      "delete" -> isActionAllowed(Delete)
+      "delete" -> isActionAllowed(DeleteColumn)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -255,11 +252,11 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichTableSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeTable, _.actions.contains(action), Enrich)
+      isAllowed(userRoles, action, _.actions.contains(action), Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isActionAllowed(Create)
+      "create" -> isActionAllowed(CreateTable)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -268,33 +265,32 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def enrichMedia(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, ScopeMedia, _.actions.contains(action), Enrich)
+      isAllowed(userRoles, action, _.actions.contains(action), Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isActionAllowed(Create),
-      "edit" -> isActionAllowed(Edit),
-      "delete" -> isActionAllowed(Delete)
+      "create" -> isActionAllowed(CreateMedia),
+      "edit" -> isActionAllowed(EditMedia),
+      "delete" -> isActionAllowed(DeleteMedia)
     )
 
     mergePermissionJson(inputJson, permissionJson)
   }
 
   /**
-    * Core function that checks whether an action in a scope is allowed or denied for given set of user roles. The
-    * return value is a boolean.
+    * Core function that checks whether an action is allowed or denied for given set of user roles. The return value is
+    * a boolean.
     */
   private def isAllowed(
       userRoles: Seq[String],
       action: Action,
-      scope: Scope,
       function: Permission => Boolean,
       method: LoggingMethod
   ): Boolean = {
 
-    def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, scope)
+    def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action)
 
-    def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action, scope)
+    def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action)
 
     val grantPermissionOpt: Option[Permission] = grantPermissions.find(function)
 
@@ -303,11 +299,11 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         val denyPermissionOpt: Option[Permission] = denyPermissions.find(function)
 
         denyPermissionOpt match {
-          case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, method, denyPermission, scope, action))
-          case None => returnAndLog(Grant, loggingMessage(_, method, grantPermission, scope, action))
+          case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, method, denyPermission, action))
+          case None => returnAndLog(Grant, loggingMessage(_, method, grantPermission, action))
         }
 
-      case None => returnAndLog(Deny, defaultLoggingMessage(_, method, userRoles, scope, action))
+      case None => returnAndLog(Deny, defaultLoggingMessage(_, method, userRoles, action))
     }
   }
 
@@ -325,20 +321,18 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       permissionType: PermissionType,
       method: LoggingMethod,
       userRoles: Seq[String],
-      scope: Scope,
       action: Action
   ): String =
-    s"${permissionType.toString.toUpperCase}($method): No permission fitting for roles '$userRoles'. Scope: '$scope' Action: '$action'"
+    s"${permissionType.toString.toUpperCase}($method): No permission fitting for roles '$userRoles'. Action: '$action'"
 
   private def loggingMessage(
       permissionType: PermissionType,
       method: LoggingMethod,
       permission: Permission,
-      scope: Scope,
       action: Action
   ): String = {
     s"${permissionType.toString.toUpperCase}($method): A permission is fitting " +
-      s"for role '${permission.roleName}'. Scope: '$scope' Action: '$action'"
+      s"for role '${permission.roleName}'. Action: '$action'"
   }
 
   val role2permissions: Map[String, Seq[Permission]] =
@@ -361,19 +355,18 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
     role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
 
-  def filterPermissions(roleNames: Seq[String], permissionType: PermissionType, scope: Scope): Seq[Permission] =
-    filterPermissions(roleNames, Some(permissionType), None, Some(scope))
+  def filterPermissions(roleNames: Seq[String], permissionType: PermissionType): Seq[Permission] =
+    filterPermissions(roleNames, Some(permissionType), None)
 
   def filterPermissions(
       roleNames: Seq[String],
       permissionType: PermissionType,
-      action: Action,
-      scope: Scope
+      action: Action
   ): Seq[Permission] =
-    filterPermissions(roleNames, Some(permissionType), Some(action), Some(scope))
+    filterPermissions(roleNames, Some(permissionType), Some(action))
 
   /**
-    * Filters permissions for role name, permissionType, action and scope
+    * Filters permissions for role name, permissionType and action
     *
     * @return
     *   a subset of permissions
@@ -381,15 +374,13 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   def filterPermissions(
       roleNames: Seq[String],
       permissionTypeOpt: Option[PermissionType] = None,
-      actionOpt: Option[Action] = None,
-      scopeOpt: Option[Scope] = None
+      actionOpt: Option[Action] = None
   ): Seq[Permission] = {
 
     val permissions: Seq[Permission] = getPermissionsForRoles(roleNames)
 
     permissions
       .filter(permission => permissionTypeOpt.forall(permission.permissionType == _))
-      .filter(permission => scopeOpt.forall(permission.scope == _))
       .filter(permission => actionOpt.forall(permission.actions.contains(_)))
   }
 
@@ -416,7 +407,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   */
 class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
 
-  override def checkAuthorization(action: Action, scope: Scope, objects: ComparisonObjects, isInternalCall: Boolean)(
+  override def checkAuthorization(action: Action, objects: ComparisonObjects, isInternalCall: Boolean)(
       implicit user: TableauxUser
   ): Future[Unit] = {
     Future.successful(())
@@ -429,11 +420,10 @@ class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
   }
 
   override def filterDomainObjects[A](
-      scope: Scope,
+      action: Action,
       domainObjects: Seq[A],
       parentObjects: ComparisonObjects,
-      isInternalCall: Boolean,
-      action: Action = View
+      isInternalCall: Boolean
   )(implicit user: TableauxUser): Seq[A] = {
     domainObjects
   }

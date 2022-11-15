@@ -73,7 +73,7 @@ class MediaController(
       implicit user: TableauxUser
   ): Future[Folder] = {
     for {
-      _ <- roleModel.checkAuthorization(Create, ScopeMedia)
+      _ <- roleModel.checkAuthorization(CreateMedia)
       folder <- repository.add(name, description, parent)
     } yield folder
   }
@@ -82,14 +82,14 @@ class MediaController(
       implicit user: TableauxUser
   ): Future[Folder] = {
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
+      _ <- roleModel.checkAuthorization(EditMedia)
       folder <- repository.update(id, name, description, parent)
     } yield folder
   }
 
   def deleteFolder(id: FolderId)(implicit user: TableauxUser): Future[Folder] = {
     for {
-      _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
+      _ <- roleModel.checkAuthorization(DeleteMedia)
       folder <- repository.retrieve(id)
 
       // delete files
@@ -112,7 +112,7 @@ class MediaController(
       folder: Option[FolderId]
   )(implicit user: TableauxUser): Future[TemporaryFile] = {
     for {
-      _ <- roleModel.checkAuthorization(Create, ScopeMedia)
+      _ <- roleModel.checkAuthorization(CreateMedia)
       file <- fileModel.add(title, description, externalName, folder).map(TemporaryFile)
     } yield file
   }
@@ -144,7 +144,7 @@ class MediaController(
           val mimeType = MultiLanguageValue(Map(langtag -> upload.mimeType))
 
           (for {
-            _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
+            _ <- roleModel.checkAuthorization(EditMedia)
 
             (oldFile, paths) <- {
               logger.info("retrieve file")
@@ -245,7 +245,7 @@ class MediaController(
       })
 
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
+      _ <- roleModel.checkAuthorization(EditMedia)
       _ <- Future.sequence(internalNameChecks)
 
       file <- fileModel.update(uuid, title, description, internalName, externalName, folder, mimeType)
@@ -279,7 +279,7 @@ class MediaController(
 
   def deleteFile(uuid: UUID)(implicit user: TableauxUser): Future[TableauxFile] = {
     for {
-      _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
+      _ <- roleModel.checkAuthorization(DeleteMedia)
 
       (file, paths) <- retrieveFile(uuid, withTmp = true)
 
@@ -307,7 +307,7 @@ class MediaController(
 
   def deleteFile(uuid: UUID, langtag: String)(implicit user: TableauxUser): Future[TableauxFile] = {
     for {
-      _ <- roleModel.checkAuthorization(Delete, ScopeMedia)
+      _ <- roleModel.checkAuthorization(DeleteMedia)
 
       (_, paths) <- retrieveFile(uuid, withTmp = true)
 
@@ -362,7 +362,7 @@ class MediaController(
       implicit user: TableauxUser
   ): Future[ExtendedFile] = {
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeMedia)
+      _ <- roleModel.checkAuthorization(EditMedia)
       toMerge <- fileModel.retrieve(mergeWith)
       file <- fileModel.retrieve(uuid)
 
