@@ -80,7 +80,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
     for {
       allColumns <- structureModel.columnStruc.retrieveAll(table)
       filteredColumns = roleModel
-        .filterDomainObjects[ColumnType[_]](ScopeColumn, allColumns, ComparisonObjects(table), isInternalCall)
+        .filterDomainObjects[ColumnType[_]](ViewColumn, allColumns, ComparisonObjects(table), isInternalCall)
 
     } yield filteredColumns
   }
@@ -351,7 +351,7 @@ class TableauxModel(
   ): Future[RowSeq] = {
     for {
       allColumns <- retrieveColumns(table)
-      columns = roleModel.filterDomainObjects(ScopeColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
+      columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
       rows <- rows.foldLeft(Future.successful(Vector[Row]())) { (futureRows, row) => // replace ColumnId with ColumnType
         // TODO fail nice if columnid doesn't exist
         {
@@ -488,7 +488,7 @@ class TableauxModel(
   ): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
 
       _ <- column match {
         case linkColumn: LinkColumn => {
@@ -515,7 +515,7 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[Cell[_]] = {
     for {
       column <- retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
 
       _ <- column match {
         case linkColumn: LinkColumn => {
@@ -565,9 +565,9 @@ class TableauxModel(
           }
 
           val enrichedValue = roleModel.generateLangtagCheckValue(table, valueJson.copy())
-          roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
+          roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column, enrichedValue))
         } else {
-          roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, value))
+          roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column, value))
         }
 
       _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
@@ -611,9 +611,9 @@ class TableauxModel(
       _ <-
         if (column.languageType == MultiLanguage) {
           val enrichedValue = roleModel.generateLangtagCheckValue(table)
-          roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column, enrichedValue))
+          roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column, enrichedValue))
         } else {
-          roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+          roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
         }
 
       _ <- createHistoryModel.createClearCellInit(table, rowId, Seq(column))
@@ -745,7 +745,7 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[CellLevelAnnotations] = {
     for {
       column <- retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column), isInternalCall)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column), isInternalCall)
       (_, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
     } yield cellLevelAnnotations
   }
@@ -758,7 +758,7 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[Cell[Any]] = {
     for {
       column <- retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column), isInternalCall)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column), isInternalCall)
       cell <- retrieveCell(column, rowId)
     } yield cell
   }
@@ -822,11 +822,10 @@ class TableauxModel(
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
         .filterDomainObjects[ColumnType[_]](
-          ScopeColumn,
+          ViewCellValue,
           columns,
           ComparisonObjects(table),
-          isInternalCall = false,
-          ViewCellValue
+          isInternalCall = false
         )
       row <- retrieveRow(table, filteredColumns, rowId)
     } yield row
@@ -886,11 +885,10 @@ class TableauxModel(
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
         .filterDomainObjects[ColumnType[_]](
-          ScopeColumn,
+          ViewCellValue,
           columns,
           ComparisonObjects(table),
-          isInternalCall = false,
-          ViewCellValue
+          isInternalCall = false
         )
       rows <- retrieveRows(table, filteredColumns, pagination)
     } yield rows
@@ -901,7 +899,7 @@ class TableauxModel(
   ): Future[RowSeq] = {
     for {
       column <- retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
 
       // In case of a ConcatColumn we need to retrieve the
       // other values too, so the ConcatColumn can be build.
@@ -928,7 +926,7 @@ class TableauxModel(
 
   def duplicateRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
     for {
-      _ <- roleModel.checkAuthorization(CreateRow, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(CreateRow, ComparisonObjects(table))
       columns <- retrieveColumns(table).map(_.filter({
         // ConcatColumn && GroupColumn can't be duplicated
         case _: ConcatColumn | _: GroupColumn => false
@@ -1118,7 +1116,7 @@ class TableauxModel(
         case column => Future.failed(WrongColumnKindException(column, classOf[ShortTextColumn]))
       })
 
-      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, shortTextColumn))
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, shortTextColumn))
       values <- retrieveRowModel.retrieveColumnValues(shortTextColumn, langtagOpt)
     } yield values
   }
@@ -1137,7 +1135,7 @@ class TableauxModel(
     for {
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
-      _ <- roleModel.checkAuthorization(ViewCellValue, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
       cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt)
     } yield cellHistorySeq
   }

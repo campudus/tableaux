@@ -50,7 +50,7 @@ class TableauxController(
           s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)"
         )
       }
-      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
     } yield cellAnnotation
@@ -65,7 +65,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
       _ <- repository.deleteCellAnnotation(column, rowId, uuid)
     } yield EmptyObject()
   }
@@ -93,7 +93,7 @@ class TableauxController(
           s"There are no annotations with langtags on a language neutral cell (table: $tableId, column: $columnId)"
         )
       }
-      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
 
       _ <- repository.deleteCellAnnotation(column, rowId, uuid, langtag)
     } yield EmptyObject()
@@ -107,7 +107,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(ViewTable, ComparisonObjects(table))
 
       annotations <- repository.retrieveTableWithCellAnnotations(table)
     } yield annotations
@@ -159,7 +159,7 @@ class TableauxController(
         .map({ case (table, _) => table })
 
       tablesForWhichViewIsGranted = roleModel
-        .filterDomainObjects[Table](ScopeTable, relevantTables, isInternalCall = false)
+        .filterDomainObjects[Table](ViewTable, relevantTables, isInternalCall = false)
 
       tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables)
     } yield {
@@ -249,7 +249,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(CreateRow, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(CreateRow, ComparisonObjects(table))
       row <- values match {
         case Some(seq) =>
           checkArguments(nonEmpty(seq, "rows"))
@@ -269,7 +269,7 @@ class TableauxController(
     logger.info(s"updateRowAnnotations $tableId $rowId $finalFlag")
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(EditRowAnnotation, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
       updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlag)
     } yield updatedRow
   }
@@ -281,7 +281,7 @@ class TableauxController(
     logger.info(s"updateRowsAnnotations $tableId $finalFlag")
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(EditRowAnnotation, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
       _ <- repository.updateRowsAnnotations(table, finalFlag)
     } yield EmptyObject()
   }
@@ -388,7 +388,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(ViewTable, ComparisonObjects(table))
       dependentRows <- repository.retrieveDependentRows(table, rowId)
     } yield dependentRows
   }
@@ -414,7 +414,7 @@ class TableauxController(
     logger.info(s"deleteRow $tableId $rowId $replacingRowIdOpt")
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(DeleteRow, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(DeleteRow, ComparisonObjects(table))
       _ <- repository.deleteRow(table, rowId, replacingRowIdOpt)
     } yield EmptyObject()
   }
@@ -492,7 +492,7 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
 
-      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
 
       _ <- repository.createHistoryModel.createCellsInit(table, rowId, Seq((column, uuid)))
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
@@ -519,11 +519,11 @@ class TableauxController(
     logger.info(s"createTable $tableName columns $columns rows $rows")
 
     for {
-      _ <- roleModel.checkAuthorization(Create, ScopeTable)
-      _ <- roleModel.checkAuthorization(Create, ScopeColumn)
+      _ <- roleModel.checkAuthorization(CreateTable)
+      _ <- roleModel.checkAuthorization(CreateColumn)
       _ <-
         if (!rows.headOption.exists(_.isEmpty)) {
-          roleModel.checkAuthorization(CreateRow, ScopeTable)
+          roleModel.checkAuthorization(CreateRow)
         } else {
           Future.successful(())
         }

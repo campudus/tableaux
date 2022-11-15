@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, TableauxUser, View}
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, TableauxUser, ViewTable}
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
@@ -187,7 +187,7 @@ class TableModel(val connection: DatabaseConnection)(
       defaultLangtags <- retrieveGlobalLangtags()
       tables <- getTablesWithDisplayInfos(defaultLangtags)
       filteredTables: Seq[Table] = roleModel
-        .filterDomainObjects[Table](ScopeTable, tables, isInternalCall = isInternalCall)
+        .filterDomainObjects[Table](ViewTable, tables, isInternalCall = isInternalCall)
     } yield filteredTables
   }
 
@@ -197,7 +197,7 @@ class TableModel(val connection: DatabaseConnection)(
     for {
       defaultLangtags <- retrieveGlobalLangtags()
       table <- getTableWithDisplayInfos(tableId, defaultLangtags)
-      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table), isInternalCall)
+      _ <- roleModel.checkAuthorization(ViewTable, ComparisonObjects(table), isInternalCall)
     } yield table
   }
 
