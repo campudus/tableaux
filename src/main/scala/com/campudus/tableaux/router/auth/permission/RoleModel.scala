@@ -158,9 +158,9 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
     val permissionJson: JsonObject =
       Json.obj(
-        "editTableDisplayProperty" -> isActionAllowed(EditTableDisplayProperty),
-        "editTableStructureProperty" -> isActionAllowed(EditTableStructureProperty),
-        "deleteTable" -> isActionAllowed(DeleteTable),
+        "editDisplayProperty" -> isActionAllowed(EditTableDisplayProperty),
+        "editStructureProperty" -> isActionAllowed(EditTableStructureProperty),
+        "delete" -> isActionAllowed(DeleteTable),
         "createRow" -> isActionAllowed(CreateRow),
         "deleteRow" -> isActionAllowed(DeleteRow),
         "editCellAnnotation" -> isActionAllowed(EditCellAnnotation),

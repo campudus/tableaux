@@ -71,16 +71,16 @@ class RoleModelTest {
 
     val json: JsonObject = Json.fromObjectString("""
                                                    |{
-                                                   |  "view-media": [
+                                                   |  "view-table": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["viewMedia"]
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
     val roleModel: RoleModel = RoleModel(json)
 
-    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-media"))
+    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-table"))
     Assert.assertEquals(1, permissions.size)
   }
 
@@ -159,7 +159,7 @@ class RoleModelTest {
                                                    |  "view-media": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["viewMedia"]
+                                                   |      "action": ["deleteTable"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
@@ -214,7 +214,7 @@ class RoleModelTest {
                                                    |  "view-tables2": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["editTable"]
+                                                   |      "action": ["deleteTable"]
                                                    |    }
                                                    |  ],
                                                    |  "view-tables3": [
