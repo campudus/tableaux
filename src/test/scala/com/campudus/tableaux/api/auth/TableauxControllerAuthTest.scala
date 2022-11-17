@@ -109,12 +109,16 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewCellValue"],
+                                    |      "action": ["viewCellValue"],
                                     |      "condition": {
                                     |        "table": {
                                     |          "name": ".*_model"
                                     |        }
                                     |      }
+                                    |    },
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -883,7 +887,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewColumn"],
+                                    |      "action": ["viewTable", "viewColumn"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -938,11 +942,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewColumn"],
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewColumn"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
