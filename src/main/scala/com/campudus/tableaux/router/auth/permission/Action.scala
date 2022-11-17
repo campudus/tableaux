@@ -38,7 +38,7 @@ object Action {
       case EditServiceDisplayProperty.name => EditServiceDisplayProperty
       case EditServiceStructureProperty.name => EditServiceStructureProperty
       case EditSystem.name => EditSystem
-      case _ => throw new IllegalArgumentException(s"Invalid argument for PermissionType $action")
+      case _ => throw new IllegalArgumentException(s"Invalid argument for Action $action")
     }
   }
 }
