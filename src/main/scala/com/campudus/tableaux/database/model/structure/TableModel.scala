@@ -7,7 +7,7 @@ import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeTable, TableauxUser, ViewTable}
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, TableauxUser, ViewTable}
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._

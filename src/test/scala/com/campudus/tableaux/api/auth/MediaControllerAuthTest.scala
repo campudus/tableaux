@@ -6,7 +6,7 @@ import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
-import com.campudus.tableaux.router.auth.permission.{Delete, Edit, RoleModel, ScopeMedia, TableauxUser}
+import com.campudus.tableaux.router.auth.permission.{DeleteMedia, EditMedia, RoleModel, TableauxUser}
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -70,8 +70,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                     |  "create-media": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["create"],
-                                    |      "scope": "media"
+                                    |      "action": ["createMedia"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -95,8 +94,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                     |  "create-media": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["delete"],
-                                    |      "scope": "media"
+                                    |      "action": ["deleteMedia"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -119,7 +117,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
         folderId <- insertTestFolder()
         ex <- controller.deleteFolder(folderId).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Delete, ScopeMedia, Seq()), ex)
+        assertEquals(UnauthorizedException(DeleteMedia, Seq()), ex)
       }
     }
 
@@ -130,8 +128,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                     |  "create-media": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["create"],
-                                    |      "scope": "media"
+                                    |      "action": ["createMedia"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -166,8 +163,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                       |  "delete-media": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["delete"],
-                                      |      "scope": "media"
+                                      |      "action": ["deleteMedia"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -199,8 +195,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                       |  "delete-media": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["delete"],
-                                      |      "scope": "media"
+                                      |      "action": ["deleteMedia"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -248,8 +243,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                       |  "edit-media": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["edit"],
-                                      |      "scope": "media"
+                                      |      "action": ["editMedia"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -289,7 +283,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
           )
           .recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Edit, ScopeMedia, Seq()), ex)
+        assertEquals(UnauthorizedException(EditMedia, Seq()), ex)
       }
     }
 
@@ -301,8 +295,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                       |  "edit-media": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["edit"],
-                                      |      "scope": "media"
+                                      |      "action": ["editMedia"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -324,7 +317,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
         folderId <- insertTestFolder()
         ex <- controller.changeFolder(folderId, "newName", "newDescription", None).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Edit, ScopeMedia, Seq()), ex)
+        assertEquals(UnauthorizedException(EditMedia, Seq()), ex)
       }
     }
 
@@ -336,8 +329,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
                                       |  "edit-media": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["edit"],
-                                      |      "scope": "media"
+                                      |      "action": ["editMedia"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -380,7 +372,7 @@ class MediaControllerAuthTest_checkAuthorization extends MediaControllerAuthTest
         file2 <- insertTestFile()
         ex <- controller.mergeFile(file1.uuid, "de", file2.uuid).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(Edit, ScopeMedia, Seq()), ex)
+        assertEquals(UnauthorizedException(EditMedia, Seq()), ex)
       }
     }
 }

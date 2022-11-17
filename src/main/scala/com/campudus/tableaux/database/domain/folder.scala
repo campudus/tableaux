@@ -1,7 +1,7 @@
 package com.campudus.tableaux.database.domain
 
 import com.campudus.tableaux.database.model.FolderModel.FolderId
-import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeMedia, TableauxUser}
+import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import io.vertx.core.json.JsonObject
 import io.vertx.scala.ext.web.RoutingContext

@@ -30,8 +30,7 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
                                |  "view-all-tables": [
                                |    {
                                |      "type": "grant",
-                               |      "action": ["view"],
-                               |      "scope": "table"
+                               |      "action": ["viewTable"]
                                |    }
                                |  ]
                                |}""".stripMargin
@@ -86,13 +85,11 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -112,18 +109,12 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column",
+                                    |      "action": ["viewTable", "viewCellValue"],
                                     |      "condition": {
                                     |        "table": {
                                     |          "name": ".*_model"
                                     |        }
                                     |      }
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -136,7 +127,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       _ <- controller.retrieveCell(modelTableId, 1, 1)
       ex <- controller.retrieveCell(variantTableId, 1, 1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-cells")), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-cells")), ex)
     }
   }
 
@@ -148,7 +139,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |    {
                                     |      "type": "grant",
                                     |      "action": ["viewCellValue"],
-                                    |      "scope": "column",
                                     |      "condition": {
                                     |        "table": {
                                     |          "name": ".*_model"
@@ -160,8 +150,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -177,9 +166,9 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
       ex2 <- controller.retrieveCell(variantTableId, 1, 1).recover({ case ex => ex })
       ex3 <- controller.retrieveCell(variantTableId, 2, 1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-cells")), ex1)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-cells")), ex2)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-cells")), ex3)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-cells")), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-cells")), ex2)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-cells")), ex3)
     }
   }
 
@@ -192,7 +181,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
         tableId <- createDefaultTable()
         ex <- controller.retrieveCell(tableId, 1, 1).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-tables")), ex)
+        assertEquals(UnauthorizedException(ViewCellValue, Seq("view-all-tables")), ex)
       }
     }
 
@@ -206,7 +195,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["viewCellValue"],
-                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -216,8 +204,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -244,7 +231,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["editCellValue", "viewCellValue"],
-                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -254,8 +240,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -275,8 +260,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
 
         _ <- controller.updateCellValue(1, 3, 1, 42)
       } yield {
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex1)
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex2)
+        assertEquals(UnauthorizedException(EditCellValue, Seq("edit-cells")), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, Seq("edit-cells")), ex2)
       }
     }
 
@@ -290,7 +275,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["editCellValue", "viewCellValue"],
-                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -300,8 +284,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -325,7 +308,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["editCellValue", "viewCellValue"],
-                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -335,8 +317,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -360,7 +341,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["editCellValue", "viewCellValue"],
-                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -370,8 +350,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -383,8 +362,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
         ex1 <- controller.replaceCellValue(1, 2, 1, Json.obj("en-GB" -> "value-en")).recover({ case ex => ex })
         ex2 <- controller.replaceCellValue(1, 4, 1, Json.obj("de-DE" -> 1)).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex1)
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex2)
+        assertEquals(UnauthorizedException(EditCellValue, Seq("edit-cells")), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, Seq("edit-cells")), ex2)
       }
     }
 
@@ -398,7 +377,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["editCellValue", "viewCellValue"],
-                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -408,8 +386,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -433,7 +410,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["editCellValue", "viewCellValue"],
-                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -443,8 +419,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -468,7 +443,6 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["editCellValue", "viewCellValue"],
-                                      |      "scope": "column",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -478,8 +452,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -491,8 +464,8 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
         ex1 <- controller.clearCellValue(1, 2, 1).recover({ case ex => ex })
         ex2 <- controller.clearCellValue(1, 4, 1).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex1)
-        assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("edit-cells")), ex2)
+        assertEquals(UnauthorizedException(EditCellValue, Seq("edit-cells")), ex1)
+        assertEquals(UnauthorizedException(EditCellValue, Seq("edit-cells")), ex2)
       }
     }
 
@@ -510,8 +483,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |  "view-rows": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view", "viewCellValue"],
-                                      |      "scope": "column",
+                                      |      "action": ["viewColumn", "viewCellValue"],
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -524,8 +496,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -552,8 +523,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |  "view-rows": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view", "viewCellValue"],
-                                      |      "scope": "column",
+                                      |      "action": ["viewColumn", "viewCellValue"],
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -566,8 +536,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -596,7 +565,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
         _ <- createTestTable()
         ex <- controller.createRow(1, None).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(CreateRow, ScopeTable, Seq("view-all-tables")), ex)
+        assertEquals(UnauthorizedException(CreateRow, Seq("view-all-tables")), ex)
       }
     }
 
@@ -609,7 +578,6 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["createRow"],
-                                      |      "scope": "table",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -618,8 +586,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -641,7 +608,6 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["createRow"],
-                                      |      "scope": "table",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -650,8 +616,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -675,7 +640,6 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["createRow"],
-                                      |      "scope": "table",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -684,8 +648,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view", "editCellValue"],
-                                      |      "scope": "column",
+                                      |      "action": ["viewColumn", "editCellValue"],
                                       |      "condition": {
                                       |        "column": {
                                       |          "id": "1|2"
@@ -694,8 +657,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -727,7 +689,6 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["createRow"],
-                                      |      "scope": "table",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -736,8 +697,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view", "editCellValue"],
-                                      |      "scope": "column",
+                                      |      "action": ["viewColumn", "editCellValue"],
                                       |      "condition": {
                                       |        "column": {
                                       |          "id": "3|4"
@@ -746,8 +706,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -779,7 +738,6 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    {
                                       |      "type": "grant",
                                       |      "action": ["createRow"],
-                                      |      "scope": "table",
                                       |      "condition": {
                                       |        "table": {
                                       |          "name": ".*"
@@ -788,8 +746,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view", "editCellValue"],
-                                      |      "scope": "column",
+                                      |      "action": ["viewColumn", "editCellValue"],
                                       |      "condition": {
                                       |        "column": {
                                       |          "id": "3|4"
@@ -798,8 +755,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -848,8 +804,8 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
         ex1 <- controller.deleteRow(1, 1).recover({ case ex => ex })
         ex2 <- controller.deleteRow(1, 2).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(DeleteRow, ScopeTable, Seq("view-all-tables")), ex1)
-        assertEquals(UnauthorizedException(DeleteRow, ScopeTable, Seq("view-all-tables")), ex2)
+        assertEquals(UnauthorizedException(DeleteRow, Seq("view-all-tables")), ex1)
+        assertEquals(UnauthorizedException(DeleteRow, Seq("view-all-tables")), ex2)
       }
     }
 
@@ -861,7 +817,6 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |    {
                                     |      "type": "grant",
                                     |      "action": ["deleteRow"],
-                                    |      "scope": "table",
                                     |      "condition": {
                                     |        "table": {
                                     |          "name": ".*"
@@ -870,8 +825,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -893,13 +847,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewColumn", "viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -931,13 +883,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "viewColumn"],
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -951,10 +897,10 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       ex3 <- controller.retrieveRowsOfColumn(1, 3, Pagination(None, None)).recover({ case ex => ex })
       ex4 <- controller.retrieveRowsOfColumn(1, 4, Pagination(None, None)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex1)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex2)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex3)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex4)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-rows")), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-rows")), ex2)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-rows")), ex3)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-rows")), ex4)
     }
   }
 
@@ -966,13 +912,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "viewColumn", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -998,13 +938,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewColumn"],
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1015,7 +953,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.retrieveRowsOfFirstColumn(1, Pagination(None, None)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-rows")), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-rows")), ex)
     }
   }
 
@@ -1026,13 +964,11 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "duplicate-columns": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue", "editCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewColumn", "viewCellValue", "editCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "createRow"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "createRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1053,8 +989,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |  "duplicate-columns": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view", "viewCellValue", "editCellValue"],
-                                      |      "scope": "column",
+                                      |      "action": ["viewColumn", "viewCellValue", "editCellValue"],
                                       |      "condition": {
                                       |        "column": {
                                       |          "id": "3|4"
@@ -1063,8 +998,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view", "createRow"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable", "createRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -1096,13 +1030,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "duplicate-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue", "editCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "viewColumn", "viewCellValue", "editCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1113,7 +1041,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.duplicateRow(1, 1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(CreateRow, ScopeTable, Seq("duplicate-rows")), ex)
+      assertEquals(UnauthorizedException(CreateRow, Seq("duplicate-rows")), ex)
     }
   }
 }
@@ -1128,13 +1056,11 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1155,7 +1081,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.retrieveCellHistory(1, 1, 1, None, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-tables")), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-all-tables")), ex)
     }
   }
 
@@ -1166,13 +1092,11 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewColumn", "viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1194,8 +1118,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue"],
-                                    |      "scope": "column",
+                                    |      "action": ["viewColumn", "viewCellValue"],
                                     |      "condition": {
                                     |        "column": {
                                     |          "kind": "text"
@@ -1204,8 +1127,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1233,7 +1155,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.retrieveRowHistory(1, 1, None, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable, Seq()), ex)
+      assertEquals(UnauthorizedException(ViewTable, Seq()), ex)
     }
   }
 
@@ -1244,8 +1166,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue"],
-                                    |      "scope": "column",
+                                    |      "action": ["viewColumn", "viewCellValue"],
                                     |      "condition": {
                                     |        "column": {
                                     |          "kind": "text"
@@ -1254,8 +1175,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1282,13 +1202,11 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewColumn", "viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1317,7 +1235,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.retrieveTableHistory(1, None, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable, Seq()), ex)
+      assertEquals(UnauthorizedException(ViewTable, Seq()), ex)
     }
   }
 
@@ -1335,13 +1253,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view", "editCellAnnotation"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewCellValue", "viewTable", "editCellAnnotation"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1362,13 +1274,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1384,8 +1290,8 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
         .addCellAnnotation(1, 2, 1, Seq("de"), InfoAnnotationType, "my info annotation-de")
         .recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex1)
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex2)
+      assertEquals(UnauthorizedException(EditCellAnnotation, Seq("view-cells")), ex1)
+      assertEquals(UnauthorizedException(EditCellAnnotation, Seq("view-cells")), ex2)
     }
   }
 
@@ -1396,13 +1302,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view", "editCellAnnotation"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "editCellAnnotation", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1430,13 +1330,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1455,8 +1349,8 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
       ex1 <- controller.deleteCellAnnotation(1, 1, 1, UUID.fromString(uuid1)).recover({ case ex => ex })
       ex2 <- controller.deleteCellAnnotation(1, 2, 1, UUID.fromString(uuid2)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex1)
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex2)
+      assertEquals(UnauthorizedException(EditCellAnnotation, Seq("view-cells")), ex1)
+      assertEquals(UnauthorizedException(EditCellAnnotation, Seq("view-cells")), ex2)
     }
   }
 
@@ -1467,13 +1361,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view", "editCellAnnotation"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "editCellAnnotation", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1498,13 +1386,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1520,7 +1402,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
       ex <- controller.deleteCellAnnotation(1, 2, 1, UUID.fromString(uuid1), "en").recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellAnnotation, ScopeTable, Seq("view-cells")), ex)
+      assertEquals(UnauthorizedException(EditCellAnnotation, Seq("view-cells")), ex)
     }
   }
 
@@ -1531,13 +1413,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view", "editRowAnnotation"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "editRowAnnotation", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1557,13 +1433,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1574,7 +1444,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.updateRowAnnotations(1, 1, Some(true)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditRowAnnotation, ScopeTable, Seq("view-cells")), ex)
+      assertEquals(UnauthorizedException(EditRowAnnotation, Seq("view-cells")), ex)
     }
   }
 
@@ -1585,13 +1455,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view", "editRowAnnotation"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable", "editRowAnnotation", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1611,13 +1475,11 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1628,7 +1490,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
       _ <- createTestTable()
       ex <- controller.updateRowsAnnotations(1, Some(true)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditRowAnnotation, ScopeTable, Seq("view-cells")), ex)
+      assertEquals(UnauthorizedException(EditRowAnnotation, Seq("view-cells")), ex)
     }
   }
 
@@ -1639,8 +1501,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-table": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1671,7 +1532,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
       ex <- controller.retrieveTableWithCellAnnotations(1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable, Seq()), ex)
+      assertEquals(UnauthorizedException(ViewTable, Seq()), ex)
     }
   }
 
@@ -1682,8 +1543,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |  "view-table-2": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table",
+                                    |      "action": ["viewTable"],
                                     |      "condition": {
                                     |        "table": {
                                     |          "name": ".*2"
@@ -1748,13 +1608,11 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1777,8 +1635,8 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
       ex1 <- controller.retrieveColumnValues(1, 1, None).recover({ case ex => ex })
       ex2 <- controller.retrieveColumnValues(1, 2, Some("de")).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-tables")), ex1)
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-tables")), ex2)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-all-tables")), ex1)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-all-tables")), ex2)
     }
   }
 
@@ -1789,8 +1647,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1801,7 +1658,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
       _ <- createTestTableWithShortTextColumns()
       ex <- controller.retrieveColumnValues(1, 1, None).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable, Seq("view-all-cells")), ex)
+      assertEquals(UnauthorizedException(ViewTable, Seq("view-all-cells")), ex)
     }
   }
 
@@ -1813,7 +1670,6 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
                                     |    {
                                     |      "type": "grant",
                                     |      "action": ["viewCellValue"],
-                                    |      "scope": "column",
                                     |      "condition": {
                                     |        "column": {
                                     |          "id": "2"
@@ -1822,8 +1678,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1836,7 +1691,7 @@ class TableauxControllerAuthTest_uniqueValues extends TableauxControllerAuthTest
       _ <- controller.retrieveColumnValues(1, 2, Some("de"))
       _ <- controller.retrieveColumnValues(1, 2, Some("en"))
     } yield {
-      assertEquals(UnauthorizedException(ViewCellValue, ScopeColumn, Seq("view-all-cells")), ex)
+      assertEquals(UnauthorizedException(ViewCellValue, Seq("view-all-cells")), ex)
     }
   }
 
@@ -1854,13 +1709,11 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["editCellValue", "viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["editCellValue", "viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1885,7 +1738,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
 
       ex <- controller.updateCellLinkOrder(1, 3, 1, 1, LocationEnd).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("view-all-tables")), ex)
+      assertEquals(UnauthorizedException(EditCellValue, Seq("view-all-tables")), ex)
     }
   }
 
@@ -1896,13 +1749,11 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["editCellValue", "viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["editCellValue", "viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1932,7 +1783,6 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |    {
                                     |      "type": "grant",
                                     |      "action": ["editCellValue", "viewCellValue"],
-                                    |      "scope": "column",
                                     |      "condition": {
                                     |        "table": {
                                     |          "id": "1"
@@ -1941,8 +1791,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1969,8 +1818,8 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
       ex1 <- controller.deleteLink(1, 3, 1, 1).recover({ case ex => ex })
       ex2 <- controller.deleteLink(1, 3, 1, 2).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("view-all-tables")), ex1)
-      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("view-all-tables")), ex2)
+      assertEquals(UnauthorizedException(EditCellValue, Seq("view-all-tables")), ex1)
+      assertEquals(UnauthorizedException(EditCellValue, Seq("view-all-tables")), ex2)
     }
   }
 
@@ -1982,8 +1831,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table",
+                                    |      "action": ["viewTable"],
                                     |      "condition": {
                                     |        "table": {
                                     |          "id": "2"
@@ -2013,8 +1861,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                       |  "view-all-cells": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table",
+                                      |      "action": ["viewTable"],
                                       |      "condition": {
                                       |        "table": {
                                       |          "id": "1"
@@ -2033,8 +1880,8 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
         ex1 <- controller.retrieveDependentRows(2, 1).recover({ case ex => ex })
         ex2 <- controller.retrieveDependentRows(2, 2).recover({ case ex => ex })
       } yield {
-        assertEquals(UnauthorizedException(View, ScopeTable, Seq("view-all-cells")), ex1)
-        assertEquals(UnauthorizedException(View, ScopeTable, Seq("view-all-cells")), ex2)
+        assertEquals(UnauthorizedException(ViewTable, Seq("view-all-cells")), ex1)
+        assertEquals(UnauthorizedException(ViewTable, Seq("view-all-cells")), ex2)
       }
     }
 
@@ -2047,8 +1894,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |  "view-table-1": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table",
+                                    |      "action": ["viewTable"],
                                     |      "condition": {
                                     |        "table": {
                                     |          "id": "1"
@@ -2067,7 +1913,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
       _ <- controller.retrieveForeignRows(1, linkColumnId, 1, Pagination(None, None))
       ex <- controller.retrieveForeignRows(2, linkColumnId, 1, Pagination(None, None)).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable, Seq("view-table-1")), ex)
+      assertEquals(UnauthorizedException(ViewTable, Seq("view-table-1")), ex)
     }
   }
 }
@@ -2109,13 +1955,11 @@ class TableauxControllerAuthTest_attachmentCell extends MediaTestBase with Table
                                     |  "view-edit-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["editCellValue", "viewCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": ["editCellValue", "viewCellValue"]
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -2141,7 +1985,7 @@ class TableauxControllerAuthTest_attachmentCell extends MediaTestBase with Table
 
       ex <- controller.deleteAttachment(1, columnId, 1, fileUuid).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditCellValue, ScopeColumn, Seq("view-all-tables")), ex)
+      assertEquals(UnauthorizedException(EditCellValue, Seq("view-all-tables")), ex)
     }
   }
 
@@ -2159,8 +2003,7 @@ class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest 
                                       |  "view-only-table": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table"
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -2207,8 +2050,7 @@ class TableauxControllerAuthTest_translation extends TableauxControllerAuthTest 
                                       |  "view-only-table-2": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["view"],
-                                      |      "scope": "table",
+                                      |      "action": ["viewTable"],
                                       |      "condition": {
                                       |        "table": {
                                       |          "id": "2"
@@ -2261,7 +2103,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
 
       ex <- controller.retrieveCompleteTable(1).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeTable, Seq()), ex)
+      assertEquals(UnauthorizedException(ViewTable, Seq()), ex)
     }
   }
 
@@ -2272,8 +2114,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
                                     |  "view-cells-of-text-columns": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "viewCellValue"],
-                                    |      "scope": "column",
+                                    |      "action": ["viewColumn", "viewCellValue"],
                                     |      "condition": {
                                     |        "column": {
                                     |          "multilanguage": "true"
@@ -2282,8 +2123,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -2328,7 +2168,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
     for {
       ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Create, ScopeTable, Seq("view-all-tables")), ex)
+      assertEquals(UnauthorizedException(CreateTable, Seq("view-all-tables")), ex)
     }
   }
 
@@ -2340,8 +2180,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
                                     |  "complete-table": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["create", "view"],
-                                    |      "scope": "table"
+                                    |      "action": ["createTable", "viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -2351,7 +2190,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
     for {
       ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Create, ScopeColumn, Seq("complete-table")), ex)
+      assertEquals(UnauthorizedException(CreateColumn, Seq("complete-table")), ex)
     }
   }
 
@@ -2362,13 +2201,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
                                     |  "complete-table": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["create", "view"],
-                                    |      "scope": "table"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["create", "view"],
-                                    |      "scope": "column"
+                                    |      "action": ["createTable", "viewTable", "createColumn", "viewColumn"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -2387,13 +2220,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
                                     |  "complete-table": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["create", "view"],
-                                    |      "scope": "table"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["create"],
-                                    |      "scope": "column"
+                                    |      "action": ["createTable", "viewTable","createColumn"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -2403,27 +2230,22 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
     for {
       ex <- controller.createCompleteTable("test table", createColumns, rowValues).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(CreateRow, ScopeTable, Seq("complete-table")), ex)
+      assertEquals(UnauthorizedException(CreateRow, Seq("complete-table")), ex)
     }
   }
 
   @Test
   def createCompleteTable_createRows_ok(implicit c: TestContext): Unit = okTest {
-    val roleModel = initRoleModel("""
-                                    |{
-                                    |  "complete-table": [
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["createRow", "create", "view"],
-                                    |      "scope": "table"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["create", "view"],
-                                    |      "scope": "column"
-                                    |    }
-                                    |  ]
-                                    |}""".stripMargin)
+    val roleModel =
+      initRoleModel("""
+                      |{
+                      |  "complete-table": [
+                      |    {
+                      |      "type": "grant",
+                      |      "action": ["createRow", "createTable", "viewTable", "createColumn", "viewColumn"]
+                      |    }
+                      |  ]
+                      |}""".stripMargin)
 
     val controller = createTableauxController(roleModel)
 

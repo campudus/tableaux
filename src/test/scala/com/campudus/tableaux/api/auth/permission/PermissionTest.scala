@@ -44,8 +44,7 @@ class PermissionTest {
     """
       |{
       |  "type": "grant",
-      |  "action": ["delete"],
-      |  "scope": "table",
+      |  "action": ["deleteTable"],
       |  "condition": {
       |    "table": {
       |      "id": ".*"
@@ -81,8 +80,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "table",
+        |  "action": ["deleteTable"],
         |  "condition": {
         |    "table": {
         |      "id": "[2|3]"
@@ -108,8 +106,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "table",
+        |  "action": ["deleteTable"],
         |  "condition": {
         |    "table": {
         |      "name": ".*_model$"
@@ -134,8 +131,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "table",
+        |  "action": ["deleteTable"],
         |  "condition": {
         |    "table": {
         |      "hidden": "true"
@@ -160,8 +156,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "table",
+        |  "action": ["deleteTable"],
         |  "condition": {
         |    "table": {
         |      "tableType": "settings"
@@ -186,8 +181,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "table",
+        |  "action": ["deleteTable"],
         |  "condition": {
         |    "table": {
         |      "tableGroup": "[1-2]"
@@ -212,8 +206,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "column",
+        |  "action": ["deleteColumn"],
         |  "condition": {
         |    "column": {
         |      "id": "1"
@@ -239,8 +232,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "column",
+        |  "action": ["deleteColumn"],
         |  "condition": {
         |    "column": {
         |      "kind": "numeric"
@@ -268,8 +260,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "column",
+        |  "action": ["deleteColumn"],
         |  "condition": {
         |    "column": {
         |      "identifier": "false"
@@ -298,8 +289,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "column",
+        |  "action": ["deleteColumn"],
         |  "condition": {
         |    "column": {
         |      "name": "^confidential.*"
@@ -333,8 +323,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "column",
+        |  "action": ["deleteColumn"],
         |  "condition": {
         |    "table": {
         |      "name": ".*_model"
@@ -364,8 +353,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "column",
+        |  "action": ["deleteColumn"],
         |  "condition": {
         |    "langtag": "de"
         |  }
@@ -387,8 +375,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "column",
+        |  "action": ["deleteColumn"],
         |  "condition": {
         |    "langtag": "de"
         |  }
@@ -417,8 +404,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["delete"],
-        |  "scope": "column",
+        |  "action": ["deleteColumn"],
         |  "condition": {
         |    "langtag": "de|en|es"
         |  }

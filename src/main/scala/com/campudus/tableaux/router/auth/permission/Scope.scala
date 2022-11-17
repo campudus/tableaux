@@ -15,7 +15,7 @@ object Scope {
       case ScopeTableGroup.name => ScopeTableGroup
       case ScopeService.name => ScopeService
       case ScopeSystem.name => ScopeSystem
-      case _ => throw new IllegalArgumentException(s"Invalid argument for PermissionType $scope")
+      case _ => throw new IllegalArgumentException(s"Invalid argument for Scope $scope")
     }
   }
 }
