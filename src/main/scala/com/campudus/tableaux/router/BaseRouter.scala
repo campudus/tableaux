@@ -4,14 +4,7 @@ import com.campudus.tableaux._
 import com.campudus.tableaux.database.{EmptyReturn, GetReturn, ReturnType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.helper._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, ScopeColumn}
-import com.campudus.tableaux.router.auth.permission.ScopeColumnSeq
-import com.campudus.tableaux.router.auth.permission.ScopeMedia
-import com.campudus.tableaux.router.auth.permission.ScopeService
-import com.campudus.tableaux.router.auth.permission.ScopeServiceSeq
-import com.campudus.tableaux.router.auth.permission.ScopeTable
-import com.campudus.tableaux.router.auth.permission.ScopeTableSeq
-import com.campudus.tableaux.router.auth.permission.TableauxUser
+import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, TableauxUser}
 
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.DecodeException
@@ -74,18 +67,18 @@ trait BaseRouter extends VertxAccess {
         resultJson.mergeIn(Json.obj("concats" -> concatsWithPermissions))
       }
       case col: ColumnType[_] =>
-        roleModel.enrichDomainObject(resultJson, ScopeColumn, ComparisonObjects(col.table, col))
+        roleModel.enrichColumn(resultJson, ComparisonObjects(col.table, col))
       case colSeq: ColumnSeq => {
-        val seqJson = roleModel.enrichDomainObject(resultJson, ScopeColumnSeq)
+        val seqJson = roleModel.enrichColumnSeq(resultJson)
         val columns = colSeq.columns.map(col => enrich(col, returnType))
         seqJson.mergeIn(Json.obj("columns" -> columns))
       }
-      case _: ExtendedFolder => roleModel.enrichDomainObject(resultJson, ScopeMedia)
-      case _: Service => roleModel.enrichDomainObject(resultJson, ScopeService)
-      case _: ServiceSeq => roleModel.enrichDomainObject(resultJson, ScopeServiceSeq)
-      case table: Table => roleModel.enrichDomainObject(resultJson, ScopeTable, ComparisonObjects(table))
+      case _: ExtendedFolder => roleModel.enrichMedia(resultJson)
+      case _: Service => roleModel.enrichService(resultJson)
+      case _: ServiceSeq => roleModel.enrichServiceSeq(resultJson)
+      case table: Table => roleModel.enrichTable(resultJson, ComparisonObjects(table))
       case tableSeq: TableSeq => {
-        val seqJson = roleModel.enrichDomainObject(resultJson, ScopeTableSeq)
+        val seqJson = roleModel.enrichTableSeq(resultJson)
         val tables = tableSeq.tables.map(table => enrich(table, returnType))
         seqJson.mergeIn(Json.obj("tables" -> tables))
       }

@@ -40,8 +40,8 @@ case object Enrich extends LoggingMethod
   *   - filterDomainObjects: A filter method for `GET` requests, to only return viewable items. If a `GET` requests a
   *     specific resource, checkAuthorization should be called instead.
   *
-  *   - enrichDomainObject: A enrich method for selected `GET` requests, to extend response items with permissions
-  *     objects.
+  *   - enrich...: Enrich methods for `GET` requests, to extend response items with permissions objects e.g.
+  *     `enrichServices` or `enrichTableSeq`.
   *
   * History feature and recursive requests like deleteRow with delete cascade could trigger retrieve* methods that are
   * not allowed for a user. In this case we must mark these requests as internal so they are always granted
@@ -109,33 +109,11 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     }
   }
 
-  /**
-    * Enriches a domainObject with a permission object to extend the response item with additional permission info.
-    */
-  def enrichDomainObject(
-      inputJson: JsonObject,
-      scope: Scope,
-      objects: ComparisonObjects = ComparisonObjects()
-  )(implicit user: TableauxUser): JsonObject = {
-
-    val userRoles = user.roles
-
-    scope match {
-      case ScopeMedia => enrichMedia(inputJson, userRoles)
-      case ScopeTableSeq => enrichTableSeq(inputJson, userRoles)
-      case ScopeTable => enrichTable(inputJson, userRoles, objects)
-      case ScopeColumn => enrichColumn(inputJson, userRoles, objects)
-      case ScopeColumnSeq => enrichColumnSeq(inputJson, userRoles)
-      case ScopeService => enrichService(inputJson, userRoles)
-      case ScopeServiceSeq => enrichServiceSeq(inputJson, userRoles)
-      case _ => inputJson
-    }
-  }
-
   private def mergePermissionJson(inputJson: JsonObject, permissionJson: JsonObject): JsonObject =
     inputJson.mergeIn(Json.obj("permission" -> permissionJson))
 
-  private def enrichService(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+  def enrichService(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = {
+    val userRoles: Seq[String] = user.roles
 
     def isActionAllowed(action: Action): Boolean = {
       isAllowed(userRoles, action, _.actions.contains(action), Enrich)
@@ -150,7 +128,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     mergePermissionJson(inputJson, permissionJson)
   }
 
-  private def enrichTable(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
+  def enrichTable(inputJson: JsonObject, objects: ComparisonObjects)(implicit user: TableauxUser): JsonObject = {
+    val userRoles: Seq[String] = user.roles
 
     def isActionAllowed(action: Action): Boolean = {
       isAllowed(userRoles, action, _.isMatching(objects), Enrich)
@@ -170,7 +149,9 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     mergePermissionJson(inputJson, permissionJson)
   }
 
-  private def enrichServiceSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+  def enrichServiceSeq(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = {
+    val userRoles: Seq[String] = user.roles
+
     val permissionJson: JsonObject = Json.obj(
       "create" -> isAllowed(userRoles, CreateService, _.actions.contains(CreateService), Enrich)
     )
@@ -178,7 +159,9 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     mergePermissionJson(inputJson, permissionJson)
   }
 
-  private def enrichColumnSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+  def enrichColumnSeq(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = {
+    val userRoles: Seq[String] = user.roles
+
     val permissionJson: JsonObject = Json.obj(
       "create" -> isAllowed(userRoles, CreateColumn, _.actions.contains(CreateColumn), Enrich)
     )
@@ -186,7 +169,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     mergePermissionJson(inputJson, permissionJson)
   }
 
-  private def enrichColumn(inputJson: JsonObject, userRoles: Seq[String], objects: ComparisonObjects): JsonObject = {
+  def enrichColumn(inputJson: JsonObject, objects: ComparisonObjects)(implicit user: TableauxUser): JsonObject = {
+    val userRoles: Seq[String] = user.roles
 
     def getEditCellValuePermission: Any = {
 
@@ -249,7 +233,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     mergePermissionJson(inputJson, permissionJson)
   }
 
-  private def enrichTableSeq(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+  def enrichTableSeq(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = {
+    val userRoles: Seq[String] = user.roles
 
     def isActionAllowed(action: Action): Boolean = {
       isAllowed(userRoles, action, _.actions.contains(action), Enrich)
@@ -262,7 +247,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     mergePermissionJson(inputJson, permissionJson)
   }
 
-  private def enrichMedia(inputJson: JsonObject, userRoles: Seq[String]): JsonObject = {
+  def enrichMedia(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = {
+    val userRoles: Seq[String] = user.roles
 
     def isActionAllowed(action: Action): Boolean = {
       isAllowed(userRoles, action, _.actions.contains(action), Enrich)
@@ -413,11 +399,21 @@ class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
     Future.successful(())
   }
 
-  override def enrichDomainObject(inputJson: JsonObject, scope: Scope, objects: ComparisonObjects)(
-      implicit user: TableauxUser
-  ): JsonObject = {
-    inputJson
-  }
+  override def enrichService(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = { inputJson }
+  override def enrichServiceSeq(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = { inputJson }
+  override def enrichColumnSeq(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = { inputJson }
+  override def enrichTableSeq(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = { inputJson }
+  override def enrichMedia(inputJson: JsonObject)(implicit user: TableauxUser): JsonObject = { inputJson }
+
+  override def enrichTable(
+      inputJson: JsonObject,
+      objects: ComparisonObjects
+  )(implicit user: TableauxUser): JsonObject = { inputJson }
+
+  override def enrichColumn(
+      inputJson: JsonObject,
+      objects: ComparisonObjects
+  )(implicit user: TableauxUser): JsonObject = { inputJson }
 
   override def filterDomainObjects[A](
       action: Action,
