@@ -823,6 +823,43 @@ class StructureControllerAuthTest_filterAuthorization extends StructureControlle
   }
 
   @Test
+  def retrieveTables_threeTablesTwoViewableWithAdditionalConditions_returnTwo(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-tables": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewTable"],
+                                    |      "condition": {
+                                    |        "table": {
+                                    |          "id": "1|3"
+                                    |        },
+                                    |        "column": {
+                                    |          "name": "foo"
+                                    |        },
+                                    |        "langtag": "de"
+                                    |      }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+
+    val controller = createStructureController(roleModel)
+
+    for {
+      _ <- createDefaultTable("Test1")
+      _ <- createDefaultTable("Test2") // not viewable
+      _ <- createDefaultTable("Test3")
+
+      tables <- controller.retrieveTables().map(_.getJson.getJsonArray("tables", Json.emptyArr()))
+    } yield {
+      assertEquals(2, tables.size())
+
+      val tableIds = asSeqOf[JsonObject](tables).map(_.getInteger("id"))
+      assertEquals(Seq(1, 3), tableIds)
+    }
+  }
+
+  @Test
   def retrieveTables_threeGenericAndOneSettingsTable_returnOnlyThreeGenericTables(implicit c: TestContext): Unit =
     okTest {
       val roleModel = initRoleModel("""
