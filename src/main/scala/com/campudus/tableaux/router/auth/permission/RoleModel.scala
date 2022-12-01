@@ -63,11 +63,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     } else {
       val userRoles: Seq[String] = user.roles
 
-      // In case action == ViewCellValue we must not check langtag conditions,
-      //  because we can not retrieve cell values for one language.
-      val withLangtagCondition: Boolean = action != ViewCellValue
-
-      if (isAllowed(userRoles, action, _.isMatching(objects, withLangtagCondition), Check)) {
+      if (isAllowed(userRoles, action, Check, objects)) {
         Future.successful(())
       } else {
         val userName = user.name
@@ -104,7 +100,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
           case _ => ComparisonObjects()
         }
 
-        isAllowed(userRoles, action, _.isMatching(objects), Filter)
+        isAllowed(userRoles, action, Filter, objects)
       })
     }
   }
@@ -116,7 +112,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = user.roles
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, _.actions.contains(action), Enrich)
+      isAllowed(userRoles, action, Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
@@ -132,7 +128,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = user.roles
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, _.isMatching(objects), Enrich)
+      isAllowed(userRoles, action, Enrich, objects)
     }
 
     val permissionJson: JsonObject =
@@ -153,7 +149,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = user.roles
 
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isAllowed(userRoles, CreateService, _.actions.contains(CreateService), Enrich)
+      "create" -> isAllowed(userRoles, CreateService, Enrich)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -163,7 +159,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = user.roles
 
     val permissionJson: JsonObject = Json.obj(
-      "create" -> isAllowed(userRoles, CreateColumn, _.actions.contains(CreateColumn), Enrich)
+      "create" -> isAllowed(userRoles, CreateColumn, Enrich)
     )
 
     mergePermissionJson(inputJson, permissionJson)
@@ -187,8 +183,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
                 isAllowed(
                   userRoles,
                   EditCellValue,
-                  _.isMatching(comparisonObjectsWithLangtagCheckValue),
-                  Enrich
+                  Enrich,
+                  comparisonObjectsWithLangtagCheckValue
                 )
             )
           )
@@ -220,7 +216,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     }
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, _.isMatching(objects), Enrich)
+      isAllowed(userRoles, action, Enrich, objects)
     }
 
     val permissionJson: JsonObject = Json.obj(
@@ -237,7 +233,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = user.roles
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, _.actions.contains(action), Enrich)
+      isAllowed(userRoles, action, Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
@@ -251,7 +247,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     val userRoles: Seq[String] = user.roles
 
     def isActionAllowed(action: Action): Boolean = {
-      isAllowed(userRoles, action, _.actions.contains(action), Enrich)
+      isAllowed(userRoles, action, Enrich)
     }
 
     val permissionJson: JsonObject = Json.obj(
@@ -270,19 +266,19 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def isAllowed(
       userRoles: Seq[String],
       action: Action,
-      function: Permission => Boolean,
-      method: LoggingMethod
+      method: LoggingMethod,
+      objects: ComparisonObjects = ComparisonObjects()
   ): Boolean = {
 
     def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action)
 
     def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action)
 
-    val grantPermissionOpt: Option[Permission] = grantPermissions.find(function)
+    val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects))
 
     grantPermissionOpt match {
       case Some(grantPermission) =>
-        val denyPermissionOpt: Option[Permission] = denyPermissions.find(function)
+        val denyPermissionOpt: Option[Permission] = denyPermissions.find(_.isMatching(action, objects))
 
         denyPermissionOpt match {
           case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, method, denyPermission, action))

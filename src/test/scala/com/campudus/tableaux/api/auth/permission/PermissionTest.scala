@@ -2,7 +2,7 @@ package com.campudus.tableaux.api.auth.permission
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, Permission, TableauxUser}
+import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.scala.ext.web.RoutingContext
@@ -44,7 +44,7 @@ class PermissionTest {
     """
       |{
       |  "type": "grant",
-      |  "action": ["deleteTable"],
+      |  "action": ["viewTable"],
       |  "condition": {
       |    "table": {
       |      "id": ".*"
@@ -57,7 +57,7 @@ class PermissionTest {
   @Test
   def isMatching_callWithoutTable_returnsFalse(): Unit = {
     val permission: Permission = Permission(defaultPermissionJson)
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects()))
+    Assert.assertEquals(false, permission.isMatching(ViewTable, ComparisonObjects()))
   }
 
   @Test
@@ -66,7 +66,7 @@ class PermissionTest {
     val table = Table(1, "table", hidden = false, null, null, null, null, None)
 
     val permission: Permission = Permission(defaultPermissionJson)
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table)))
+    Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(table)))
   }
 
   @Test
@@ -80,7 +80,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteTable"],
+        |  "action": ["viewTable"],
         |  "condition": {
         |    "table": {
         |      "id": "[2|3]"
@@ -91,9 +91,9 @@ class PermissionTest {
     )
 
     val permission: Permission = Permission(json)
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(table1)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table2)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table3)))
+    Assert.assertEquals(false, permission.isMatching(ViewTable, ComparisonObjects(table1)))
+    Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(table2)))
+    Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(table3)))
   }
 
   @Test
@@ -106,7 +106,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteTable"],
+        |  "action": ["viewTable"],
         |  "condition": {
         |    "table": {
         |      "name": ".*_model$"
@@ -117,8 +117,8 @@ class PermissionTest {
     )
 
     val permission: Permission = Permission(json)
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table1)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(table2)))
+    Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(table1)))
+    Assert.assertEquals(false, permission.isMatching(ViewTable, ComparisonObjects(table2)))
   }
 
   @Test
@@ -131,7 +131,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteTable"],
+        |  "action": ["viewTable"],
         |  "condition": {
         |    "table": {
         |      "hidden": "true"
@@ -142,8 +142,8 @@ class PermissionTest {
     )
 
     val permission: Permission = Permission(json)
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(table1)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table2)))
+    Assert.assertEquals(false, permission.isMatching(ViewTable, ComparisonObjects(table1)))
+    Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(table2)))
   }
 
   @Test
@@ -156,7 +156,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteTable"],
+        |  "action": ["viewTable"],
         |  "condition": {
         |    "table": {
         |      "tableType": "settings"
@@ -167,12 +167,12 @@ class PermissionTest {
     )
 
     val permission: Permission = Permission(json)
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(genericTable)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(settingsTable)))
+    Assert.assertEquals(false, permission.isMatching(ViewTable, ComparisonObjects(genericTable)))
+    Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(settingsTable)))
   }
 
   @Test
-  def isMatching_tableGroup(): Unit = {
+  def isMatching_table_tableGroup(): Unit = {
     val table1 = createTable(tableGroupOpt = Some(TableGroup(1, Seq.empty)))
     val table2 = createTable(tableGroupOpt = Some(TableGroup(2, Seq.empty)))
     val table3 = createTable(tableGroupOpt = Some(TableGroup(3, Seq.empty)))
@@ -181,7 +181,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteTable"],
+        |  "action": ["viewTable"],
         |  "condition": {
         |    "table": {
         |      "tableGroup": "[1-2]"
@@ -193,20 +193,20 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table1)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(table2)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(table3)))
+    Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(table1)))
+    Assert.assertEquals(true, permission.isMatching(ViewTable, ComparisonObjects(table2)))
+    Assert.assertEquals(false, permission.isMatching(ViewTable, ComparisonObjects(table3)))
   }
 
   @Test
-  def isMatching_columnId(): Unit = {
+  def isMatching_table_columnId(): Unit = {
     val column = createSimpleColumn(1)
 
     val json = Json.fromObjectString(
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteColumn"],
+        |  "action": ["viewTable"],
         |  "condition": {
         |    "column": {
         |      "id": "1"
@@ -218,11 +218,11 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column)))
+    Assert.assertEquals(true, permission.isMatching(ViewColumn, ComparisonObjects(column)))
   }
 
   @Test
-  def isMatching_columnTypes(): Unit = {
+  def isMatching_table_columnTypes(): Unit = {
 
     val textColumn = createSimpleColumn(kind = TextType)
     val numericColumn = createSimpleColumn(kind = NumericType)
@@ -232,7 +232,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteColumn"],
+        |  "action": ["viewTable"],
         |  "condition": {
         |    "column": {
         |      "kind": "numeric"
@@ -244,13 +244,13 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(textColumn)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(numericColumn)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(booleanColumn)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(textColumn)))
+    Assert.assertEquals(true, permission.isMatching(ViewColumn, ComparisonObjects(numericColumn)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(booleanColumn)))
   }
 
   @Test
-  def isMatching_identifier(): Unit = {
+  def isMatching_column_identifier(): Unit = {
 
     val column1 = createSimpleColumn(identifier = true)
     val column2 = createSimpleColumn(identifier = true)
@@ -260,7 +260,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteColumn"],
+        |  "action": ["viewColumn"],
         |  "condition": {
         |    "column": {
         |      "identifier": "false"
@@ -272,13 +272,13 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column1)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column2)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column3)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(column1)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(column2)))
+    Assert.assertEquals(true, permission.isMatching(ViewColumn, ComparisonObjects(column3)))
   }
 
   @Test
-  def isMatching_name(): Unit = {
+  def isMatching_column_name(): Unit = {
 
     val column1 = createSimpleColumn(name = "confidential_data_x")
     val column2 = createSimpleColumn(name = "non_confidential_data_x")
@@ -289,7 +289,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteColumn"],
+        |  "action": ["viewColumn"],
         |  "condition": {
         |    "column": {
         |      "name": "^confidential.*"
@@ -301,10 +301,10 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column1)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column2)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column3)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column4)))
+    Assert.assertEquals(true, permission.isMatching(ViewColumn, ComparisonObjects(column1)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(column2)))
+    Assert.assertEquals(true, permission.isMatching(ViewColumn, ComparisonObjects(column3)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(column4)))
   }
 
   @Test
@@ -313,17 +313,17 @@ class PermissionTest {
     val modelTable = createTable(name = "bike_model")
     val variantTable = createTable(name = "bike_variant")
 
-    val modelTable_priority_low = createSimpleColumn(name = "priority_low", table = modelTable)
-    val modelTable_priority_high = createSimpleColumn(name = "priority_high", table = modelTable)
+    val model_column_low = createSimpleColumn(name = "priority_low", table = modelTable)
+    val model_column_high = createSimpleColumn(name = "priority_high", table = modelTable)
 
-    val variantTable_priority_low = createSimpleColumn(name = "priority_low", table = variantTable)
-    val variantTable_priority_high = createSimpleColumn(name = "priority_high", table = variantTable)
+    val variant_column_low = createSimpleColumn(name = "priority_low", table = variantTable)
+    val variant_column_high = createSimpleColumn(name = "priority_high", table = variantTable)
 
     val json = Json.fromObjectString(
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteColumn"],
+        |  "action": ["viewColumn"],
         |  "condition": {
         |    "table": {
         |      "name": ".*_model"
@@ -338,11 +338,11 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(modelTable, modelTable_priority_low)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(modelTable, modelTable_priority_high)))
+    Assert.assertEquals(true, permission.isMatching(ViewColumn, ComparisonObjects(modelTable, model_column_low)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(modelTable, model_column_high)))
 
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(variantTable, variantTable_priority_low)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(variantTable, variantTable_priority_high)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(variantTable, variant_column_low)))
+    Assert.assertEquals(false, permission.isMatching(ViewColumn, ComparisonObjects(variantTable, variant_column_high)))
   }
 
   @Test
@@ -353,7 +353,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteColumn"],
+        |  "action": ["editCellValue"],
         |  "condition": {
         |    "langtag": "de"
         |  }
@@ -363,8 +363,8 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, "any value")))
+    Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column)))
+    Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column, "any value")))
   }
 
   @Test
@@ -375,7 +375,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteColumn"],
+        |  "action": ["editCellValue"],
         |  "condition": {
         |    "langtag": "de"
         |  }
@@ -385,15 +385,18 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, "wrong value for columnType")))
+    Assert.assertEquals(
+      true,
+      permission.isMatching(EditCellValue, ComparisonObjects(column, "wrong value for columnType"))
+    )
 
     val deValue = Json.fromObjectString("""{ "de": "value-de" }""")
     val enValue = Json.fromObjectString("""{ "en": "value-en" }""")
     val deEnValues = Json.fromObjectString("""{ "de": "value-de", "en": "value-en"} """)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, deValue)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, enValue)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, deEnValues)))
+    Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column, deValue)))
+    Assert.assertEquals(false, permission.isMatching(EditCellValue, ComparisonObjects(column, enValue)))
+    Assert.assertEquals(false, permission.isMatching(EditCellValue, ComparisonObjects(column, deEnValues)))
   }
 
   @Test
@@ -404,7 +407,7 @@ class PermissionTest {
       """
         |{
         |  "type": "grant",
-        |  "action": ["deleteColumn"],
+        |  "action": ["editCellValue"],
         |  "condition": {
         |    "langtag": "de|en|es"
         |  }
@@ -414,7 +417,10 @@ class PermissionTest {
 
     val permission: Permission = Permission(json)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, "wrong value for columnType")))
+    Assert.assertEquals(
+      true,
+      permission.isMatching(EditCellValue, ComparisonObjects(column, "wrong value for columnType"))
+    )
 
     val deValue = Json.fromObjectString("""{ "de": "value-de" }""")
     val enValue = Json.fromObjectString("""{ "en": "value-en" }""")
@@ -423,12 +429,12 @@ class PermissionTest {
 
     val deEnFrValues = Json.fromObjectString("""{ "de": "value-de", "en": "value-en", "fr": "value-fr"} """)
 
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, deValue)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, enValue)))
-    Assert.assertEquals(true, permission.isMatching(ComparisonObjects(column, deEnValues)))
+    Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column, deValue)))
+    Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column, enValue)))
+    Assert.assertEquals(true, permission.isMatching(EditCellValue, ComparisonObjects(column, deEnValues)))
 
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, frValue)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, frValue)))
-    Assert.assertEquals(false, permission.isMatching(ComparisonObjects(column, deEnFrValues)))
+    Assert.assertEquals(false, permission.isMatching(EditCellValue, ComparisonObjects(column, frValue)))
+    Assert.assertEquals(false, permission.isMatching(EditCellValue, ComparisonObjects(column, frValue)))
+    Assert.assertEquals(false, permission.isMatching(EditCellValue, ComparisonObjects(column, deEnFrValues)))
   }
 }
