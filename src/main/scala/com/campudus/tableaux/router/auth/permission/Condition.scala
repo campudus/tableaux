@@ -35,17 +35,67 @@ case class ConditionContainer(
     conditionLangtag: ConditionOption
 ) extends LazyLogging {
 
-  def isMatching(objects: ComparisonObjects, withLangtagCondition: Boolean): Boolean = {
-    logger.debug(
-      s"try matching on conditionTable: $conditionTable conditionColumn $conditionColumn conditionLangtag $conditionLangtag"
+  def isMatching(action: Action, objects: ComparisonObjects): Boolean = {
+    def tableActions = Seq(
+      ViewTable,
+      CreateRow,
+      DeleteRow,
+      EditCellAnnotation,
+      EditRowAnnotation,
+      EditTableDisplayProperty,
+      EditTableStructureProperty,
+      ViewHiddenTable,
+      CreateColumn,
+      DeleteColumn
     )
+    def isTableAction(action: Action): Boolean = tableActions.contains(action)
 
-    if (withLangtagCondition) {
+    def columnActions = Seq(
+      ViewColumn,
+      EditColumnDisplayProperty,
+      EditColumnStructureProperty
+    )
+    def isColumnAction(action: Action): Boolean = columnActions.contains(action)
+
+    def isLangtagAction(action: Action): Boolean = action == EditCellValue
+
+    def globalActions = Seq(
+      CreateTable,
+      DeleteTable,
+      CreateMedia,
+      EditMedia,
+      DeleteMedia,
+      CreateTableGroup,
+      EditTableGroup,
+      DeleteTableGroup,
+      CreateService,
+      DeleteService,
+      ViewService,
+      EditServiceDisplayProperty,
+      EditServiceStructureProperty,
+      EditSystem
+    )
+    def isGlobalAction(action: Action): Boolean = globalActions.contains(action)
+
+    if (isLangtagAction(action)) {
+      logger.debug(
+        s"try matching on conditionTable: $conditionTable conditionColumn $conditionColumn conditionLangtag $conditionLangtag"
+      )
       conditionTable.isMatching(objects) &&
       conditionColumn.isMatching(objects) &&
       conditionLangtag.isMatching(objects)
-    } else {
+    } else if (isColumnAction(action)) {
+      logger.debug(
+        s"try matching on conditionTable: $conditionTable conditionColumn $conditionColumn"
+      )
       conditionTable.isMatching(objects) &&
+      conditionColumn.isMatching(objects)
+    } else if (isTableAction(action)) {
+      logger.debug(
+        s"try matching on conditionTable: $conditionTable"
+      )
+      conditionTable.isMatching(objects)
+    } else {
       conditionColumn.isMatching(objects)
     }
   }

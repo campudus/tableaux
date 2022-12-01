@@ -13,8 +13,8 @@ case class Permission(
     conditions: ConditionContainer
 ) extends LazyLogging {
 
-  def isMatching(objects: ComparisonObjects, withLangtagCondition: Boolean = true): Boolean =
-    conditions.isMatching(objects, withLangtagCondition)
+  def isMatching(action: Action, objects: ComparisonObjects = ComparisonObjects()): Boolean =
+    conditions.isMatching(action, objects)
 }
 
 object Permission {
