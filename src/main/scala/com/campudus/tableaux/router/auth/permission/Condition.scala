@@ -36,67 +36,36 @@ case class ConditionContainer(
 ) extends LazyLogging {
 
   def isMatching(action: Action, objects: ComparisonObjects): Boolean = {
-    def tableActions = Seq(
-      ViewTable,
-      CreateRow,
-      DeleteRow,
-      EditCellAnnotation,
-      EditRowAnnotation,
-      EditTableDisplayProperty,
-      EditTableStructureProperty,
-      ViewHiddenTable,
-      CreateColumn,
-      DeleteColumn
-    )
-    def isTableAction(action: Action): Boolean = tableActions.contains(action)
 
-    def columnActions = Seq(
-      ViewColumn,
-      EditColumnDisplayProperty,
-      EditColumnStructureProperty
-    )
-    def isColumnAction(action: Action): Boolean = columnActions.contains(action)
-
-    def isLangtagAction(action: Action): Boolean = action == EditCellValue
-
-    def globalActions = Seq(
-      CreateTable,
-      DeleteTable,
-      CreateMedia,
-      EditMedia,
-      DeleteMedia,
-      CreateTableGroup,
-      EditTableGroup,
-      DeleteTableGroup,
-      CreateService,
-      DeleteService,
-      ViewService,
-      EditServiceDisplayProperty,
-      EditServiceStructureProperty,
-      EditSystem
-    )
-    def isGlobalAction(action: Action): Boolean = globalActions.contains(action)
-
-    if (isLangtagAction(action)) {
-      logger.debug(
-        s"try matching on conditionTable: $conditionTable conditionColumn $conditionColumn conditionLangtag $conditionLangtag"
-      )
-      conditionTable.isMatching(objects) &&
-      conditionColumn.isMatching(objects) &&
-      conditionLangtag.isMatching(objects)
-    } else if (isColumnAction(action)) {
-      logger.debug(
-        s"try matching on conditionTable: $conditionTable conditionColumn $conditionColumn"
-      )
-      conditionTable.isMatching(objects) &&
-      conditionColumn.isMatching(objects)
-    } else if (isTableAction(action)) {
-      logger.debug(
-        s"try matching on conditionTable: $conditionTable"
-      )
-      conditionTable.isMatching(objects)
-    } else {
-      conditionColumn.isMatching(objects)
+    action match {
+      case EditCellValue => {
+        logger.debug(
+          s"matching on action: $action conditionTable: $conditionTable conditionColumn $conditionColumn conditionLangtag $conditionLangtag"
+        )
+        conditionTable.isMatching(objects) &&
+        conditionColumn.isMatching(objects) &&
+        conditionLangtag.isMatching(objects)
+      }
+      case ViewCellValue | DeleteColumn | ViewColumn
+          | EditColumnDisplayProperty | EditColumnStructureProperty => {
+        logger.debug(s"matching on action: $action conditionTable: $conditionTable conditionColumn $conditionColumn")
+        conditionTable.isMatching(objects) &&
+        conditionColumn.isMatching(objects)
+      }
+      case ViewTable | DeleteTable | CreateRow | DeleteRow | EditCellAnnotation
+          | EditRowAnnotation | EditTableDisplayProperty | EditTableStructureProperty
+          | ViewHiddenTable | CreateColumn => {
+        logger.debug(s"matching on action: $action conditionTable: $conditionTable")
+        conditionTable.isMatching(objects)
+      }
+      case CreateTable | CreateMedia | EditMedia
+          | DeleteMedia | CreateTableGroup | EditTableGroup | DeleteTableGroup
+          | CreateService | DeleteService | ViewService | EditServiceDisplayProperty
+          | EditServiceStructureProperty | EditSystem => {
+        // global actions are already filtered by filterPermissions
+        true
+      }
+      case _ => throw new IllegalArgumentException(s"Unknown action")
     }
   }
 }
