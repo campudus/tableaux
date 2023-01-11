@@ -12,8 +12,12 @@ import com.campudus.tableaux.router.auth.permission._
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.concurrent.Future
+import scala.language.implicitConversions
 import scala.util.{Failure, Success}
+import scala.util.Try
 import scala.util.control.NonFatal
 
 import java.util.UUID
@@ -543,6 +547,69 @@ class TableauxModel(
     }
   }
 
+  private def checkValueLengthOfTextCell[A](column: ColumnType[_], value: A): Future[Unit] = {
+
+    val getLengthLimitAttributes: (ColumnType[_]) => (Try[Integer], Try[Integer]) = (column) => {
+      val attributes = column.attributes
+      val minLength = Try(attributes.getJsonObject("minLength").getInteger("value"))
+      val maxLength = Try(attributes.getJsonObject("maxLength").getInteger("value"))
+      (minLength, maxLength)
+    }
+
+    val checkMultiLangLength: (Integer => Boolean, JsonObject) => Boolean = (op, multiLangValue) => {
+      val map: mutable.Map[String, AnyRef] = multiLangValue.getMap.asScala
+      map.values.map(value => value.asInstanceOf[String]).forall(value => value.length() == 0 || op(value.length()))
+    }
+
+    val checkSimpleLangLength: (Integer => Boolean, String) => Boolean =
+      (op, value) => {
+        value.length() == 0 || op(value.length())
+      }
+
+    val checkLength: (Integer => Boolean, Boolean, A) => Boolean = (op, isMultilang, value) => {
+      isMultilang match {
+        case false => checkSimpleLangLength(op, value.asInstanceOf[String])
+        case true => checkMultiLangLength(op, value.asInstanceOf[JsonObject])
+      }
+    }
+
+    val checkValueLength: ((Try[Integer], Try[Integer]), A) => Future[Unit] = (maybeLengthLimits, value) => {
+      val (maybeMinLength, maybeMaxLength) = maybeLengthLimits
+      val columnIsMultilanguage = column.languageType == MultiLanguage
+      val asBool = maybeLengthLimits match {
+        case (Success(minLength), Success(maxLength)) => {
+          checkLength(minLength <= _, columnIsMultilanguage, value) && checkLength(
+            maxLength >= _,
+            columnIsMultilanguage,
+            value
+          )
+        }
+        case (Failure(_), Success(maxLength)) => {
+          checkLength(maxLength >= _, columnIsMultilanguage, value)
+        }
+        case (Success(minLength), Failure(_)) => {
+          checkLength(minLength <= _, columnIsMultilanguage, value)
+        }
+        case (Failure(_), Failure(_)) => {
+          true
+        }
+      }
+      asBool match {
+        case true => Future.successful(())
+        case false => Future.failed(new LengthOutOfRangeException())
+      }
+
+    }
+    val maybeLengthLimits = getLengthLimitAttributes(column)
+
+    column match {
+      case col: TextColumn => checkValueLength(maybeLengthLimits, value)
+      case col: RichTextColumn => checkValueLength(maybeLengthLimits, value)
+      case col: ShortTextColumn => checkValueLength(maybeLengthLimits, value)
+      case _ => Future.successful(())
+    }
+  }
+
   private def updateOrReplaceValue[A](
       table: Table,
       columnId: ColumnId,
@@ -556,6 +623,7 @@ class TableauxModel(
 
       column <- retrieveColumn(table, columnId)
       _ <- checkValueTypeForColumn(column, value)
+      _ <- checkValueLengthOfTextCell(column, value)
 
       _ <-
         if (replace && column.languageType == MultiLanguage) {
