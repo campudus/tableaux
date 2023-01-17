@@ -1,0 +1,3 @@
+ALTER TABLE system_columns
+  ADD COLUMN max_length INTEGER DEFAULT NULL,
+  ADD COLUMN min_length INTEGER DEFAULT NULL
