@@ -3,6 +3,7 @@ package com.campudus.tableaux.helper
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
 import com.campudus.tableaux.ArgumentChecker._
+import com.campudus.tableaux.KeyNotFoundInJsonException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
@@ -102,6 +103,9 @@ object JsonUtils extends LazyLogging {
               case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
             }
 
+            val maxLength = Option(json.getInteger("maxLength")).map(_.toInt)
+            val minLength = Option(json.getInteger("minLength")).map(_.toInt)
+
             // languageType or deprecated multilanguage
             // if languageType == 'country' countryCodes must be specified
             val languageType = parseJsonForLanguageType(json)
@@ -195,7 +199,9 @@ object JsonUtils extends LazyLogging {
                   displayInfos,
                   separator,
                   attributes,
-                  hidden
+                  hidden,
+                  maxLength,
+                  minLength
                 )
             }
           }
@@ -281,6 +287,15 @@ object JsonUtils extends LazyLogging {
     } yield valueList
   }
 
+  private def getNullableJsonIntegerValue(key: String, json: JsonObject): Try[Option[Int]] = {
+    Try({
+      json.containsKey(key) match {
+        case false => throw new KeyNotFoundInJsonException(key)
+        case true => Option(json.getInteger(key)).map(_.toInt)
+      }
+    })
+  }
+
   def toColumnChanges(json: JsonObject): (
       Option[String],
       Option[Ordering],
@@ -291,7 +306,9 @@ object JsonUtils extends LazyLogging {
       Option[Boolean],
       Option[JsonObject],
       Option[JsonArray],
-      Option[Boolean]
+      Option[Boolean],
+      Try[Option[Int]],
+      Try[Option[Int]]
   ) = {
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
@@ -323,7 +340,23 @@ object JsonUtils extends LazyLogging {
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 
-    (name, ord, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden)
+    val maxLength = getNullableJsonIntegerValue("maxLength", json)
+    val minLength = getNullableJsonIntegerValue("minLength", json)
+
+    (
+      name,
+      ord,
+      kind,
+      identifier,
+      displayInfos,
+      countryCodes,
+      separator,
+      attributes,
+      rules,
+      hidden,
+      maxLength,
+      minLength
+    )
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {

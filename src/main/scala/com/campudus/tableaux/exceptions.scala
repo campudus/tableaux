@@ -27,6 +27,12 @@ sealed trait CustomException extends Throwable {
   )
 }
 
+case class KeyNotFoundInJsonException(key: String) extends CustomException {
+  override val id = "error.json.key.notfound"
+  override val statusCode = 400
+  val message = s"Key $key not found"
+}
+
 case class NoJsonFoundException(override val message: String) extends CustomException {
   override val id = "error.json.notfound"
   override val statusCode = 400

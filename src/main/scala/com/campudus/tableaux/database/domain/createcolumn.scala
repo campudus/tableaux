@@ -15,6 +15,8 @@ sealed trait CreateColumn {
   val separator: Boolean
   val attributes: Option[JsonObject]
   val hidden: Boolean
+  val maxLength: Option[Int] = None
+  val minLength: Option[Int] = None
 }
 
 case class CreateSimpleColumn(
@@ -26,7 +28,9 @@ case class CreateSimpleColumn(
     override val displayInfos: Seq[DisplayInfo],
     override val separator: Boolean,
     override val attributes: Option[JsonObject],
-    override val hidden: Boolean = false
+    override val hidden: Boolean = false,
+    override val maxLength: Option[Int] = None,
+    override val minLength: Option[Int] = None
 ) extends CreateColumn
 
 case class CreateBackLinkColumn(

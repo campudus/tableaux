@@ -35,6 +35,8 @@ sealed trait ColumnInformation {
   val separator: Boolean
   val attributes: JsonObject
   val hidden: Boolean
+  val maxLength: Option[Int]
+  val minLength: Option[Int]
 }
 
 object BasicColumnInformation {
@@ -60,7 +62,9 @@ object BasicColumnInformation {
       Seq.empty,
       createColumn.separator,
       attributes,
-      createColumn.hidden
+      createColumn.hidden,
+      createColumn.maxLength,
+      createColumn.minLength
     )
   }
 }
@@ -104,7 +108,9 @@ case class BasicColumnInformation(
     override val groupColumnIds: Seq[ColumnId],
     override val separator: Boolean,
     override val attributes: JsonObject,
-    override val hidden: Boolean
+    override val hidden: Boolean,
+    override val maxLength: Option[Int],
+    override val minLength: Option[Int]
 ) extends ColumnInformation
 
 case class StatusColumnInformation(
@@ -118,7 +124,9 @@ case class StatusColumnInformation(
     override val separator: Boolean,
     override val attributes: JsonObject,
     val rules: JsonArray,
-    override val hidden: Boolean
+    override val hidden: Boolean,
+    override val maxLength: Option[Int] = None,
+    override val minLength: Option[Int] = None
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -137,6 +145,8 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   override val separator: Boolean = false
   override val hidden: Boolean = false
   override val attributes: JsonObject = Json.obj()
+  override val maxLength: Option[Int] = None
+  override val minLength: Option[Int] = None
 }
 
 object ColumnType {
@@ -398,6 +408,18 @@ case class TextColumn(override val languageType: LanguageType)(override val colu
 ) extends SimpleValueColumn[String](TextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
+
+  override def getJson: JsonObject = {
+    val maxLength = columnInformation.maxLength match {
+      case None => null
+      case Some(num) => num
+    }
+    val minLength = columnInformation.minLength match {
+      case None => null
+      case Some(num) => num
+    }
+    super.getJson.mergeIn(Json.obj("maxLength" -> maxLength, "minLength" -> minLength))
+  }
 }
 
 case class ShortTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
@@ -406,6 +428,18 @@ case class ShortTextColumn(override val languageType: LanguageType)(override val
 ) extends SimpleValueColumn[String](ShortTextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
+
+  override def getJson: JsonObject = {
+    val maxLength = columnInformation.maxLength match {
+      case None => null
+      case Some(num) => num
+    }
+    val minLength = columnInformation.minLength match {
+      case None => null
+      case Some(num) => num
+    }
+    super.getJson.mergeIn(Json.obj("maxLength" -> maxLength, "minLength" -> minLength))
+  }
 }
 
 case class RichTextColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
@@ -414,6 +448,18 @@ case class RichTextColumn(override val languageType: LanguageType)(override val 
 ) extends SimpleValueColumn[String](RichTextType)(languageType) {
 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
+
+  override def getJson: JsonObject = {
+    val maxLength = columnInformation.maxLength match {
+      case None => null
+      case Some(num) => num
+    }
+    val minLength = columnInformation.minLength match {
+      case None => null
+      case Some(num) => num
+    }
+    super.getJson.mergeIn(Json.obj("maxLength" -> maxLength, "minLength" -> minLength))
+  }
 }
 
 case class NumberColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(

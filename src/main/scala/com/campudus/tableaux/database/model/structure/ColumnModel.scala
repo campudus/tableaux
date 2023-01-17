@@ -181,7 +181,9 @@ class CachedColumnModel(
       separator: Option[Boolean],
       attributes: Option[JsonObject],
       rules: Option[JsonArray],
-      hidden: Option[Boolean]
+      hidden: Option[Boolean],
+      maxLength: Option[Int],
+      minLength: Option[Int]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -198,7 +200,9 @@ class CachedColumnModel(
           separator,
           attributes,
           rules,
-          hidden
+          hidden,
+          maxLength,
+          minLength
         )
     } yield r
   }
@@ -555,9 +559,11 @@ class ColumnModel(val connection: DatabaseConnection)(
           | separator,
           | attributes,
           | rules,
-          | hidden
+          | hidden,
+          | max_length,
+          | min_length
           | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           | RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -573,6 +579,16 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
 
     val attributes = createColumn.attributes.map(atts => atts.encode()).getOrElse("{}")
+
+    val maxLength = createColumn.maxLength match {
+      case None => null
+      case Some(num) => num
+    }
+
+    val minLength = createColumn.minLength match {
+      case None => null
+      case Some(num) => num
+    }
 
     def insertColumn(t: DbTransaction): Future[(DbTransaction, CreatedColumnInformation)] = {
       for {
@@ -606,7 +622,9 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.separator,
                 attributes,
                 rules,
-                createColumn.hidden
+                createColumn.hidden,
+                maxLength,
+                minLength
               )
             )
           case Some(ord) =>
@@ -625,7 +643,9 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.separator,
                 attributes,
                 rules,
-                createColumn.hidden
+                createColumn.hidden,
+                maxLength,
+                minLength
               )
             )
         }
@@ -840,7 +860,9 @@ class ColumnModel(val connection: DatabaseConnection)(
          |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
          |  ) AS group_column_ids,
          |  format_pattern,
-         |  hidden
+         |  hidden,
+         |  max_length,
+         |  min_length
          |FROM system_columns c
          |WHERE
          |  table_id = ? AND
@@ -932,7 +954,9 @@ class ColumnModel(val connection: DatabaseConnection)(
        |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
        |  ) AS group_column_ids,
        |  format_pattern,
-       |  hidden
+       |  hidden,
+       |  max_length,
+       |  min_length
        |FROM system_columns c
        |WHERE
        |  table_id = ?
@@ -1136,6 +1160,8 @@ class ColumnModel(val connection: DatabaseConnection)(
 
     val formatPattern = Option(row.get[String](11))
     val hidden = row.get[Boolean](12)
+    val maxLength = Option(row.get[Int](13))
+    val minLength = Option(row.get[Int](14))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
@@ -1150,7 +1176,9 @@ class ColumnModel(val connection: DatabaseConnection)(
         groupColumnIds,
         separator,
         attributes,
-        hidden
+        hidden,
+        maxLength,
+        minLength
       )
 
       column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules)
@@ -1435,7 +1463,9 @@ class ColumnModel(val connection: DatabaseConnection)(
       separator: Option[Boolean],
       attributes: Option[JsonObject],
       rules: Option[JsonArray],
-      hidden: Option[Boolean]
+      hidden: Option[Boolean],
+      maxLength: Option[Int],
+      minLength: Option[Int]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 
@@ -1551,6 +1581,31 @@ class ColumnModel(val connection: DatabaseConnection)(
           }
         }
       )
+      // cannot use optionToValidFuture here, we need to be able to set these settings to null
+      (t, resultMaxLength) <- maxLength match {
+        case Some(maxLen) =>
+          t.query(
+            s"UPDATE system_columns SET max_length = ? WHERE table_id = ? AND column_id = ?",
+            Json.arr(maxLen, tableId, columnId)
+          )
+        case None =>
+          t.query(
+            s"UPDATE system_columns SET max_length = ? WHERE table_id = ? AND column_id = ?",
+            Json.arr(null, tableId, columnId)
+          )
+      }
+      (t, resultMinLength) <- minLength match {
+        case Some(minLen) =>
+          t.query(
+            s"UPDATE system_columns SET min_length = ? WHERE table_id = ? AND column_id = ?",
+            Json.arr(minLen, tableId, columnId)
+          )
+        case None =>
+          t.query(
+            s"UPDATE system_columns SET min_length = ? WHERE table_id = ? AND column_id = ?",
+            Json.arr(null, tableId, columnId)
+          )
+      }
 
       // change display information
       t <- insertOrUpdateColumnLangInfo(t, table.id, columnId, displayInfos)
@@ -1577,7 +1632,9 @@ class ColumnModel(val connection: DatabaseConnection)(
           resultCountryCodes,
           resultSeparator,
           resultAttributes,
-          resultRules
+          resultRules,
+          resultMaxLength,
+          resultMinLength
         )
       )
         .recoverWith(t.rollbackAndFail())
