@@ -453,17 +453,38 @@ class StructureController(
       separator: Option[Boolean],
       attributes: Option[JsonObject],
       rules: Option[JsonArray],
-      hidden: Option[Boolean]
+      hidden: Option[Boolean],
+      maxLengthTry: Try[Option[Int]],
+      minLengthTry: Try[Option[Int]]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
       isDefined(
-        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden),
-        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden"
+        Seq(
+          columnName,
+          ordering,
+          kind,
+          identifier,
+          displayInfos,
+          countryCodes,
+          separator,
+          attributes,
+          rules,
+          hidden
+        ),
+        Seq(maxLengthTry, minLengthTry),
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden, maxLength, minLength"
       )
     )
-
+    val maxLength = maxLengthTry match {
+      case Failure(exception) => None
+      case Success(opt) => opt
+    }
+    val minLength = minLengthTry match {
+      case Failure(exception) => None
+      case Success(opt) => opt
+    }
     val structureProperties: Seq[Option[Any]] = Seq(columnName, ordering, kind, identifier, countryCodes)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
@@ -487,7 +508,9 @@ class StructureController(
           separator,
           attributes,
           rules,
-          hidden
+          hidden,
+          maxLength,
+          minLength
         )
 
     for {
