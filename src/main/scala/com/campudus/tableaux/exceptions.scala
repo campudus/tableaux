@@ -173,6 +173,6 @@ case class HasStatusColumnDependencyException(override val message: String) exte
 
 case class LengthOutOfRangeException() extends CustomException {
   override val id: String = s"error.request.value.length"
-  override val statusCode: Int = 500
+  override val statusCode: Int = 400
   override val message: String = "Value length is not in specified range."
 }
