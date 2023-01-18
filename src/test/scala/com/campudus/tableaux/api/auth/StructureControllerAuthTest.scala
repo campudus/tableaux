@@ -15,6 +15,8 @@ import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.{Json, JsonObject}
 
+import scala.util.{Failure, Success, Try}
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -541,7 +543,22 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
 
     for {
       tableId <- createDefaultTable("Test")
-      _ <- controller.changeColumn(tableId, 1, None, None, None, None, Some(displayInfos), None, None, None, None, None)
+      _ <- controller.changeColumn(
+        tableId,
+        1,
+        None,
+        None,
+        None,
+        None,
+        Some(displayInfos),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Try(Option(0)),
+        Try(Option(0))
+      )
     } yield ()
   }
 
@@ -554,7 +571,22 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
       for {
         tableId <- createDefaultTable("Test")
         _ <-
-          controller.changeColumn(tableId, 1, None, None, None, None, Some(displayInfos), None, None, None, None, None)
+          controller.changeColumn(
+            tableId,
+            1,
+            None,
+            None,
+            None,
+            None,
+            Some(displayInfos),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Try(Option(0)),
+            Try(Option(0))
+          )
       } yield ()
     }
 
@@ -580,7 +612,22 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
     for {
       tableId <- createDefaultTable("Test")
       _ <- controller
-        .changeColumn(tableId, 1, Some("newName"), None, None, None, Some(displayInfos), None, None, None, None, None)
+        .changeColumn(
+          tableId,
+          1,
+          Some("newName"),
+          None,
+          None,
+          None,
+          Some(displayInfos),
+          None,
+          None,
+          None,
+          None,
+          None,
+          Try(Option(0)),
+          Try(Option(0))
+        )
     } yield ()
   }
 
@@ -593,7 +640,22 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
       for {
         tableId <- createDefaultTable("Test")
         _ <- controller
-          .changeColumn(tableId, 1, Some("newName"), None, None, None, Some(displayInfos), None, None, None, None, None)
+          .changeColumn(
+            tableId,
+            1,
+            Some("newName"),
+            None,
+            None,
+            None,
+            Some(displayInfos),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Try(Option(0)),
+            Try(Option(0))
+          )
       } yield ()
     }
 
@@ -640,10 +702,27 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
           None,
           None,
           None,
-          None
+          None,
+          Try(Option(0)),
+          Try(Option(0))
         )
         ex <- controller
-          .changeColumn(variantTableId, 1, Some("newName"), None, None, None, None, None, None, None, None, None)
+          .changeColumn(
+            variantTableId,
+            1,
+            Some("newName"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Try(Option(0)),
+            Try(Option(0))
+          )
           .recover({ case ex => ex })
       } yield {
         assertEquals(UnauthorizedException(EditColumnStructureProperty, Seq("edit-columns-in-model-tables")), ex)

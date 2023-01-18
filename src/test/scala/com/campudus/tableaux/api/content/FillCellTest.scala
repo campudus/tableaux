@@ -81,32 +81,16 @@ class FillCellTest extends TableauxTestBase {
     val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "text",
       "name" -> "Test Column 1",
-      "attributes" -> Json.obj(
-        "minLength" -> Json.obj(
-          "value" -> 5,
-          "type" -> "number"
-        ),
-        "maxLength" -> Json.obj(
-          "value" -> 10,
-          "type" -> "number"
-        )
-      )
+      "minLength" -> 5,
+      "maxLength" -> 10
     )))
 
     val createMultilangStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "text",
       "name" -> "Test Column 2",
       "multilanguage" -> true,
-      "attributes" -> Json.obj(
-        "minLength" -> Json.obj(
-          "value" -> 5,
-          "type" -> "number"
-        ),
-        "maxLength" -> Json.obj(
-          "value" -> 10,
-          "type" -> "number"
-        )
-      )
+      "minLength" -> 5,
+      "maxLength" -> 10
     )))
 
     for {
@@ -139,32 +123,16 @@ class FillCellTest extends TableauxTestBase {
     val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "text",
       "name" -> "Test Column 1",
-      "attributes" -> Json.obj(
-        "minLength" -> Json.obj(
-          "value" -> 5,
-          "type" -> "number"
-        ),
-        "maxLength" -> Json.obj(
-          "value" -> 10,
-          "type" -> "number"
-        )
-      )
+      "minLength" -> 5,
+      "maxLength" -> 10
     )))
 
     val createMultilangStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "text",
       "name" -> "Test Column 2",
       "multilanguage" -> true,
-      "attributes" -> Json.obj(
-        "minLength" -> Json.obj(
-          "value" -> 5,
-          "type" -> "number"
-        ),
-        "maxLength" -> Json.obj(
-          "value" -> 10,
-          "type" -> "number"
-        )
-      )
+      "minLength" -> 5,
+      "maxLength" -> 10
     )))
 
     for {
@@ -192,16 +160,8 @@ class FillCellTest extends TableauxTestBase {
       val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
         "kind" -> "text",
         "name" -> "Test Column 1",
-        "attributes" -> Json.obj(
-          "minLength" -> Json.obj(
-            "value" -> 5,
-            "type" -> "number"
-          ),
-          "maxLength" -> Json.obj(
-            "value" -> 10,
-            "type" -> "number"
-          )
-        )
+        "minLength" -> 5,
+        "maxLength" -> 10
       )))
 
       for {
@@ -221,16 +181,8 @@ class FillCellTest extends TableauxTestBase {
         "kind" -> "text",
         "name" -> "Test Column 1",
         "multilanguage" -> true,
-        "attributes" -> Json.obj(
-          "minLength" -> Json.obj(
-            "value" -> 5,
-            "type" -> "number"
-          ),
-          "maxLength" -> Json.obj(
-            "value" -> 10,
-            "type" -> "number"
-          )
-        )
+        "minLength" -> 5,
+        "maxLength" -> 10
       )))
 
       for {
@@ -250,16 +202,8 @@ class FillCellTest extends TableauxTestBase {
         "kind" -> "text",
         "name" -> "Test Column 1",
         "multilanguage" -> true,
-        "attributes" -> Json.obj(
-          "minLength" -> Json.obj(
-            "value" -> 5,
-            "type" -> "number"
-          ),
-          "maxLength" -> Json.obj(
-            "value" -> 10,
-            "type" -> "number"
-          )
-        )
+        "minLength" -> 5,
+        "maxLength" -> 10
       )))
 
       for {
@@ -280,16 +224,8 @@ class FillCellTest extends TableauxTestBase {
       val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
         "kind" -> "text",
         "name" -> "Test Column 1",
-        "attributes" -> Json.obj(
-          "minLength" -> Json.obj(
-            "value" -> 5,
-            "type" -> "number"
-          ),
-          "maxLength" -> Json.obj(
-            "value" -> 10,
-            "type" -> "number"
-          )
-        )
+        "minLength" -> 5,
+        "maxLength" -> 10
       )))
 
       for {
