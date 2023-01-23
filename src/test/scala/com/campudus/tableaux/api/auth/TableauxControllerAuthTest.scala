@@ -6,6 +6,7 @@ import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
+import com.campudus.tableaux.database.domain.FinalFlag
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.helper.JsonUtils.{toCreateColumnSeq, toRowValueSeq}
@@ -1422,7 +1423,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      _ <- controller.updateRowAnnotations(1, 1, Some(true))
+      _ <- controller.updateRowAnnotations(1, 1, Seq(FinalFlag(true)))
     } yield ()
   }
 
@@ -1442,7 +1443,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex <- controller.updateRowAnnotations(1, 1, Some(true)).recover({ case ex => ex })
+      ex <- controller.updateRowAnnotations(1, 1, Seq(FinalFlag(true))).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(EditRowAnnotation, Seq("view-cells")), ex)
     }
@@ -1464,7 +1465,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      _ <- controller.updateRowsAnnotations(1, Some(true))
+      _ <- controller.updateRowsAnnotations(1, Seq(FinalFlag(true)))
     } yield ()
   }
 
@@ -1488,7 +1489,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex <- controller.updateRowsAnnotations(1, Some(true)).recover({ case ex => ex })
+      ex <- controller.updateRowsAnnotations(1, Seq(FinalFlag(true))).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(EditRowAnnotation, Seq("view-cells")), ex)
     }
