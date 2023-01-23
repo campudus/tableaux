@@ -472,23 +472,23 @@ class TableauxModel(
     } yield ()
   }
 
-  def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean])(
+  def updateRowAnnotations(table: Table, rowId: RowId, rowAnnotations: Seq[RowAnnotation])(
       implicit user: TableauxUser
   ): Future[Row] = {
     for {
-      _ <- updateRowModel.updateRowAnnotations(table.id, rowId, finalFlag)
-      _ <- createHistoryModel.updateRowsAnnotation(table.id, Seq(rowId), finalFlag)
+      _ <- updateRowModel.updateRowAnnotations(table.id, rowId, rowAnnotations)
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, Seq(rowId), rowAnnotations)
       row <- retrieveRow(table, rowId)
     } yield row
   }
 
-  def updateRowsAnnotations(table: Table, finalFlag: Option[Boolean])(
+  def updateRowsAnnotations(table: Table, rowAnnotations: Seq[RowAnnotation])(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
+      _ <- updateRowModel.updateRowsAnnotations(table.id, rowAnnotations)
       rowIds <- retrieveRows(table, Pagination(None, None)).map(_.rows.map(_.id))
-      _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, finalFlag)
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, rowAnnotations)
     } yield ()
   }
 

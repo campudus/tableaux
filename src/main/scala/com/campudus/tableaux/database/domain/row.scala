@@ -1,12 +1,13 @@
 package com.campudus.tableaux.database.domain
 
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 
 import org.vertx.scala.core.json._
 
 case class RawRow(
     id: RowId,
-    rowLevelAnnotations: RowLevelAnnotations,
+    rowLevelAnnotations: Seq[RowAnnotation],
     cellLevelAnnotations: CellLevelAnnotations,
     values: Seq[_]
 )
@@ -14,7 +15,7 @@ case class RawRow(
 case class Row(
     table: Table,
     id: RowId,
-    rowLevelAnnotations: RowLevelAnnotations,
+    rowLevelAnnotations: Seq[RowAnnotation],
     cellLevelAnnotations: CellLevelAnnotations,
     values: Seq[_]
 ) extends DomainObject {
@@ -25,9 +26,7 @@ case class Row(
       "values" -> compatibilityGet(values)
     )
 
-    if (rowLevelAnnotations.isDefined) {
-      json.mergeIn(rowLevelAnnotations.getJson)
-    }
+    rowLevelAnnotations.map(_.getJson).foreach(json.mergeIn(_))
 
     if (cellLevelAnnotations.isDefined) {
       json.mergeIn(cellLevelAnnotations.getJson)

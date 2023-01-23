@@ -6,6 +6,7 @@ import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
+import com.campudus.tableaux.database.domain.RowAnnotation
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -263,27 +264,27 @@ class TableauxController(
     } yield row
   }
 
-  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean])(
+  def updateRowAnnotations(tableId: TableId, rowId: RowId, rowAnnotations: Seq[RowAnnotation])(
       implicit user: TableauxUser
   ): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"updateRowAnnotations $tableId $rowId $finalFlag")
+    logger.info(s"updateRowAnnotations $tableId $rowId $rowAnnotations")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
-      updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlag)
+      updatedRow <- repository.updateRowAnnotations(table, rowId, rowAnnotations)
     } yield updatedRow
   }
 
-  def updateRowsAnnotations(tableId: TableId, finalFlag: Option[Boolean])(
+  def updateRowsAnnotations(tableId: TableId, rowAnnotations: Seq[RowAnnotation])(
       implicit user: TableauxUser
   ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
-    logger.info(s"updateRowsAnnotations $tableId $finalFlag")
+    logger.info(s"updateRowsAnnotations $tableId $rowAnnotations")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
-      _ <- repository.updateRowsAnnotations(table, finalFlag)
+      _ <- repository.updateRowsAnnotations(table, rowAnnotations)
     } yield EmptyObject()
   }
 

@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model.tableaux
 
 import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{MultiLanguageColumn, RowLevelAnnotations, _}
+import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -598,24 +598,34 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(futureSequence)
   }
 
-  def updateRowsAnnotations(tableId: TableId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
-    for {
-      _ <- finalFlagOpt match {
-        case None => Future.successful(())
-        case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_$tableId SET final = ?", Json.arr(finalFlag))
+  def updateRowsAnnotations(tableId: TableId, rowAnnotations: Seq[RowAnnotation]): Future[_] = {
+    val rowAnnotationUpdates = rowAnnotations.map(rowAnnotation => {
+      rowAnnotation match {
+        case finalFlag: FinalFlag =>
+          connection.query(s"UPDATE user_table_$tableId SET final = ?", Json.arr(finalFlag.value))
+        case rowPermissions: RowPermissions =>
+          connection.query(
+            s"UPDATE user_table_$tableId SET row_permissions = ?",
+            Json.arr(rowPermissions.value.toString())
+          )
       }
-    } yield ()
+    })
+    Future.sequence(rowAnnotationUpdates)
   }
 
-  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
-    for {
-      _ <- finalFlagOpt match {
-        case None => Future.successful(())
-        case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_$tableId SET final = ? WHERE id = ?", Json.arr(finalFlag, rowId))
+  def updateRowAnnotations(tableId: TableId, rowId: RowId, rowAnnotations: Seq[RowAnnotation]): Future[_] = {
+    val rowAnnotationUpdates = rowAnnotations.map(rowAnnotation => {
+      rowAnnotation match {
+        case finalFlag: FinalFlag =>
+          connection.query(s"UPDATE user_table_$tableId SET final = ? WHERE id = ?", Json.arr(finalFlag.value, rowId))
+        case rowPermissions: RowPermissions =>
+          connection.query(
+            s"UPDATE user_table_$tableId SET row_permissions = ? WHERE id = ?",
+            Json.arr(rowPermissions.value.toString(), rowId)
+          )
       }
-    } yield ()
+    })
+    Future.sequence(rowAnnotationUpdates)
   }
 
   def addOrMergeCellAnnotation(
@@ -1035,7 +1045,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       tableId: TableId,
       rowId: RowId,
       columns: Seq[ColumnType[_]]
-  ): Future[(RowLevelAnnotations, CellLevelAnnotations)] = {
+  ): Future[(Seq[RowAnnotation], CellLevelAnnotations)] = {
     for {
       result <- connection.query(
         s"SELECT ut.id, ${generateFlagsAndAnnotationsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?",
@@ -1119,26 +1129,31 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def mapRowToRawRow(columns: Seq[ColumnType[_]])(row: Seq[Any]): RawRow = {
 
-    // Row should have at least = row_id, final_flag, cell_annotations
-    assert(row.size >= 3)
     val liftedRow = row.lift
 
-    (row.headOption, liftedRow(1), liftedRow(2)) match {
-      case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr)) =>
+    // Row should have at least = row_id, final_flag, cell_annotations, row_permissions
+    (liftedRow(0), liftedRow(1), liftedRow(2), liftedRow(3)) match {
+      // values in case statement are nullable even if they are wrapped in Some, see lift function of Seq
+      case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr), Some(permissions)) =>
         val cellAnnotations = Option(cellAnnotationsStr)
           .map(_.asInstanceOf[String])
           .map(Json.fromArrayString)
           .getOrElse(Json.emptyArr())
-        val rawValues = row.drop(3)
+        val rowPermissions = Option(permissions) match {
+          case Some(permissionsArrayString: String) => new JsonArray(permissionsArrayString)
+          case _ => Json.arr()
+        }
+        // All row annotations, currently final and permissions
+        val rowAnnotations = Seq(FinalFlag(finalFlag), RowPermissions(rowPermissions))
+        val rawValues = row.drop(4)
 
         RawRow(
           rowId,
-          RowLevelAnnotations(finalFlag),
+          rowAnnotations,
           CellLevelAnnotations(columns, cellAnnotations),
           (columns, rawValues).zipped.map(mapValueByColumnType)
         )
       case _ =>
-        // shouldn't happen b/c of assert
         throw UnknownServerException(s"Please check generateProjection!")
     }
   }
@@ -1327,7 +1342,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         |    'value', value,
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
-        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
+        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations,
+        |ut.row_permissions AS rowPermissions""".stripMargin
   }
 
   private def generateCardinalityFilter(linkColumn: LinkColumn): String = {

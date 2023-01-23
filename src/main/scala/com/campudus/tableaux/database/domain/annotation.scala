@@ -9,15 +9,23 @@ import scala.collection.JavaConverters._
 import java.util.UUID
 import org.joda.time.DateTime
 
-case class RowLevelAnnotations(finalFlag: Boolean) extends DomainObject {
+trait RowAnnotation {
+  val value: Any
+  val jsonKey: String
 
-  def isDefined: Boolean = finalFlag
-
-  override def getJson: JsonObject = {
-    Json.obj(
-      "final" -> finalFlag
-    )
+  def getJson: JsonObject = {
+    Json.obj(jsonKey -> value)
   }
+}
+
+case class FinalFlag(finalFlag: Boolean) extends RowAnnotation {
+  override val value: Boolean = finalFlag
+  override val jsonKey = "final"
+}
+
+case class RowPermissions(rowPermissions: JsonArray) extends RowAnnotation {
+  override val value: JsonArray = rowPermissions
+  override val jsonKey = "permissions"
 }
 
 object CellAnnotationType {

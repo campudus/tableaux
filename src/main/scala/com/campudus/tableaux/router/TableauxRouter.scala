@@ -3,11 +3,12 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import com.campudus.tableaux.OkArg
 import com.campudus.tableaux.controller.TableauxController
-import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
+import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination, _}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
+import io.vertx.core.json.JsonObject
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import org.vertx.scala.core.json.JsonArray
@@ -598,10 +599,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          val finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
-            .map(_.booleanValue())
+          val rowAnnotations = getRowAnnotationsFromJson(json)
           for {
-            updated <- controller.updateRowAnnotations(tableId, rowId, finalFlagOpt)
+            updated <- controller.updateRowAnnotations(tableId, rowId, rowAnnotations)
           } yield updated
         }
       )
@@ -620,10 +620,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          val finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
-            .map(_.booleanValue())
+          val rowAnnotations = getRowAnnotationsFromJson(json)
           for {
-            updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt)
+            updated <- controller.updateRowsAnnotations(tableId.toLong, rowAnnotations)
           } yield updated
         }
       )

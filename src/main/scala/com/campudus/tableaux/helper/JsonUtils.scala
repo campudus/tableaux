@@ -374,6 +374,19 @@ object JsonUtils extends LazyLogging {
     }
   }
 
+  def getRowAnnotationsFromJson(json: JsonObject): Seq[RowAnnotation] = {
+    val finalFlagOpt =
+      booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false)).map(_.booleanValue()).map(
+        FinalFlag(_)
+      )
+    val rowPermissionsOpt =
+      booleanToValueOption(json.containsKey("permissions"), json.getJsonArray("permissions", Json.arr())).map(
+        RowPermissions(_)
+      )
+    val rowAnnotationsOpts = Seq(finalFlagOpt, rowPermissionsOpt)
+    rowAnnotationsOpts.filter(_.isDefined).map(_.get)
+  }
+
   def toLocationType(json: JsonObject): LocationType = {
     (for {
       location <- notNull(json.getString("location"), "location")
