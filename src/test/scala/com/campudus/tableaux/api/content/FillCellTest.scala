@@ -155,8 +155,6 @@ class FillCellTest extends TableauxTestBase {
     exceptionTest("error.request.value.length") {
       val fillStringCellJson1 = Json.obj("value" -> "1234")
 
-      val expectedCell1 = Json.obj("status" -> "ok", "value" -> "12345")
-
       val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
         "kind" -> "text",
         "name" -> "Test Column 1",
@@ -218,8 +216,6 @@ class FillCellTest extends TableauxTestBase {
   def fillSingleStringCellWithLengthTooLong(implicit c: TestContext): Unit =
     exceptionTest("error.request.value.length") {
       val fillStringCellJson1 = Json.obj("value" -> "012345678921")
-
-      val expectedCell1 = Json.obj("status" -> "ok", "value" -> "12345")
 
       val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
         "kind" -> "text",
