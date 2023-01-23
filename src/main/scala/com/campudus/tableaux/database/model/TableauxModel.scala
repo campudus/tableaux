@@ -555,9 +555,11 @@ class TableauxModel(
       (minLength, maxLength)
     }
 
-    val checkMultiLangLength: (Int => Boolean, JsonObject) => Boolean = (op, multiLangValue) => {
+    val checkMultiLangLength: (Int => Boolean, JsonObject) => Boolean = (compareFunc, multiLangValue) => {
       val map: mutable.Map[String, AnyRef] = multiLangValue.getMap.asScala
-      map.values.map(value => value.asInstanceOf[String]).forall(value => value.length() == 0 || op(value.length()))
+      map.values.map(value => value.asInstanceOf[String]).forall(value =>
+        value.length() == 0 || compareFunc(value.length())
+      )
     }
 
     val checkSimpleLangLength: (Int => Boolean, String) => Boolean =
@@ -565,17 +567,17 @@ class TableauxModel(
         value.length() == 0 || op(value.length())
       }
 
-    val checkLength: (Int => Boolean, Boolean, A) => Boolean = (op, isMultilang, value) => {
+    val checkLength: (Int => Boolean, Boolean, A) => Boolean = (compareFunc, isMultilang, value) => {
       isMultilang match {
-        case false => checkSimpleLangLength(op, value.asInstanceOf[String])
-        case true => checkMultiLangLength(op, value.asInstanceOf[JsonObject])
+        case false => checkSimpleLangLength(compareFunc, value.asInstanceOf[String])
+        case true => checkMultiLangLength(compareFunc, value.asInstanceOf[JsonObject])
       }
     }
 
     val checkValueLength: ((Option[Int], Option[Int]), A) => Future[Unit] = (maybeLengthLimits, value) => {
       val (maybeMinLength, maybeMaxLength) = maybeLengthLimits
       val columnIsMultilanguage = column.languageType == MultiLanguage
-      val asBool = maybeLengthLimits match {
+      val isValueInRange = maybeLengthLimits match {
         case (Some(minLength), Some(maxLength)) => {
           checkLength(minLength <= _, columnIsMultilanguage, value) && checkLength(
             maxLength >= _,
@@ -593,7 +595,7 @@ class TableauxModel(
           true
         }
       }
-      asBool match {
+      isValueInRange match {
         case true => Future.successful(())
         case false => Future.failed(new LengthOutOfRangeException())
       }
