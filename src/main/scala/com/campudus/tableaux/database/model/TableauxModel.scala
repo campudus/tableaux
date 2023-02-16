@@ -563,8 +563,8 @@ class TableauxModel(
     }
 
     val checkSimpleLangLength: (Int => Boolean, String) => Boolean =
-      (op, value) => {
-        value.length() == 0 || op(value.length())
+      (compareFunc, value) => {
+        value.length() == 0 || compareFunc(value.length())
       }
 
     val checkLength: (Int => Boolean, Boolean, A) => Boolean = (compareFunc, isMultilang, value) => {
