@@ -27,6 +27,12 @@ sealed trait CustomException extends Throwable {
   )
 }
 
+case class KeyNotFoundInJsonException(key: String) extends CustomException {
+  override val id = "error.json.key.notfound"
+  override val statusCode = 400
+  val message = s"Key $key not found"
+}
+
 case class NoJsonFoundException(override val message: String) extends CustomException {
   override val id = "error.json.notfound"
   override val statusCode = 400
@@ -163,4 +169,10 @@ case class UnauthorizedException(action: Action, userRoles: Seq[String]) extends
 case class HasStatusColumnDependencyException(override val message: String) extends CustomException {
   override val id: String = s"error.column.dependency"
   override val statusCode: Int = 409
+}
+
+case class LengthOutOfRangeException() extends CustomException {
+  override val id: String = s"error.request.value.length"
+  override val statusCode: Int = 400
+  override val message: String = "Value length is not in specified range."
 }
