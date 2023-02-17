@@ -42,6 +42,9 @@ pipeline {
       steps {
         sh './gradlew clean'
 
+        // ensure temp folder has write rights for tests otherwise they fail with "java.lang.IllegalStateException: Failed to create cache dir"
+        sh "sudo chmod a+w /tmp/vertx-cache/"
+
         // cleanup docker
         sh 'docker rmi $(docker images -f "dangling=true" -q) || true'
         sh "docker rmi -f \$(docker images -qa --filter=reference='${IMAGE_NAME}') || true"
