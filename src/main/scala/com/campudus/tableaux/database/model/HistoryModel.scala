@@ -919,12 +919,11 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
         annotation match {
           case FinalFlag(finalFlag) => {
             if (finalFlag)
-              Future.sequence(rowIds.map(rowId => addRowAnnotationHistory(tableId, rowId, annotation.jsonKey)))
+              addRowAnnotationHistory(tableId, rowId, annotation.jsonKey)
             else
-              Future.sequence(rowIds.map(rowId => removeRowAnnotationHistory(tableId, rowId, annotation.jsonKey)))
+              removeRowAnnotationHistory(tableId, rowId, annotation.jsonKey)
           }
           case RowPermissions(rowPermissions) => {
-            println(Some(Json.obj("value" -> rowPermissions).toString))
             insertHistory(
               tableId,
               rowId,
