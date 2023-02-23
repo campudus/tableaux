@@ -13,6 +13,7 @@ object Action {
       case EditCellAnnotation.name => EditCellAnnotation
       case CreateRow.name => CreateRow
       case DeleteRow.name => DeleteRow
+      case ViewRow.name => ViewRow
       case EditRowAnnotation.name => EditRowAnnotation
       case EditTableDisplayProperty.name => EditTableDisplayProperty
       case CreateTable.name => CreateTable
@@ -47,6 +48,7 @@ case object ViewTable extends Action { override val name = "viewTable" }
 case object EditCellAnnotation extends Action { override val name = "editCellAnnotation" }
 case object CreateRow extends Action { override val name = "createRow" }
 case object DeleteRow extends Action { override val name = "deleteRow" }
+case object ViewRow extends Action { override val name = "viewRow" }
 case object EditRowAnnotation extends Action { override val name = "editRowAnnotation" }
 case object EditTableDisplayProperty extends Action { override val name = "editTableDisplayProperty" }
 case object CreateTable extends Action { override val name = "createTable" }

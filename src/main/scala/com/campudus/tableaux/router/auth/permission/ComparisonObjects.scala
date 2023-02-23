@@ -1,6 +1,7 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.domain.{ColumnType, Table}
+import com.campudus.tableaux.database.domain.Row
 
 object ComparisonObjects {
 
@@ -27,6 +28,10 @@ object ComparisonObjects {
   def apply(table: Table, column: ColumnType[_], value: Any): ComparisonObjects = {
     new ComparisonObjects(Some(table), Some(column), Option(value))
   }
+
+  def apply(row: Row): ComparisonObjects = {
+    new ComparisonObjects(rowOpt = Some(row))
+  }
 }
 
 /**
@@ -36,7 +41,8 @@ object ComparisonObjects {
 case class ComparisonObjects(
     tableOpt: Option[Table] = None,
     columnOpt: Option[ColumnType[_]] = None,
-    valueOpt: Option[Any] = None
+    valueOpt: Option[Any] = None,
+    rowOpt: Option[Row] = None
 ) {
 
   def merge(column: ColumnType[_]): ComparisonObjects = {

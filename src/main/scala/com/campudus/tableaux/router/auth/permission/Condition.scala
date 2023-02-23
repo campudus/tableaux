@@ -1,6 +1,7 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.{LanguageNeutral, MultiCountry, MultiLanguage}
+import com.campudus.tableaux.database.domain.RowPermissions
 
 import org.vertx.scala.core.json.{Json, JsonObject, _}
 
@@ -20,19 +21,23 @@ object ConditionContainer {
     val conditionColumn: ConditionOption =
       Option(jsonObject.getJsonObject("column")).map(ConditionColumn).getOrElse(NoneCondition)
 
+    val conditionRow: ConditionOption =
+      Option(jsonObject.getJsonObject("row")).map(ConditionRow).getOrElse(NoneCondition)
+
     val conditionLangtag: ConditionOption =
       Option(jsonObject.getString("langtag"))
         .map(langtags => ConditionLangtag(Json.obj("langtag" -> langtags)))
         .getOrElse(NoneCondition)
 
-    new ConditionContainer(conditionTable, conditionColumn, conditionLangtag)
+    new ConditionContainer(conditionTable, conditionColumn, conditionLangtag, conditionRow)
   }
 }
 
 case class ConditionContainer(
     conditionTable: ConditionOption,
     conditionColumn: ConditionOption,
-    conditionLangtag: ConditionOption
+    conditionLangtag: ConditionOption,
+    conditionRow: ConditionOption
 ) extends LazyLogging {
 
   def isMatching(action: Action, objects: ComparisonObjects): Boolean = {
@@ -57,6 +62,10 @@ case class ConditionContainer(
           | ViewHiddenTable | CreateColumn => {
         logger.debug(s"matching on action: $action conditionTable: $conditionTable")
         conditionTable.isMatching(objects)
+      }
+      case ViewRow => {
+        logger.debug(s"matching on action: $action conditionRow: $conditionRow")
+        conditionRow.isMatching(objects)
       }
       case CreateTable | CreateMedia | EditMedia
           | DeleteMedia | CreateTableGroup | EditTableGroup | DeleteTableGroup
@@ -117,6 +126,34 @@ case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonO
               case "multilanguage" => {
                 val isMultilanguage: Boolean = column.languageType != LanguageNeutral
                 isMultilanguage.toString.matches(regex)
+              }
+              case _ => false
+            }
+        })
+      case None => false
+    }
+  }
+}
+
+case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
+
+  override def isMatching(objects: ComparisonObjects): Boolean = {
+    objects.rowOpt match {
+      case Some(row) =>
+        conditionMap.forall({
+          case (property, regex) =>
+            property match {
+              case "permissions" => {
+                val rowPermissionsOpt: Option[Seq[String]] =
+                  row.rowLevelAnnotations.filter(_.isInstanceOf[RowPermissions]).headOption.map(
+                    _.asInstanceOf[RowPermissions].value.asScala.toSeq.map(_.asInstanceOf[String])
+                  )
+                rowPermissionsOpt match {
+                  case Some(rowPermissions) => {
+                    rowPermissions.exists(_.matches(regex))
+                  }
+                  case None => false
+                }
               }
               case _ => false
             }

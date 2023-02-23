@@ -3,6 +3,7 @@ package com.campudus.tableaux.router.auth.permission
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.database.{MultiCountry, MultiLanguage}
 import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
+import com.campudus.tableaux.database.domain.Row
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
@@ -96,6 +97,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         val objects: ComparisonObjects = obj match {
           case table: Table => ComparisonObjects(table)
           case column: ColumnType[_] => parentObjects.merge(column)
+          case row: Row => ComparisonObjects(row)
           case _: Service => ComparisonObjects()
           case _ => ComparisonObjects()
         }
@@ -275,7 +277,6 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action)
 
     val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects))
-
     grantPermissionOpt match {
       case Some(grantPermission) =>
         val denyPermissionOpt: Option[Permission] = denyPermissions.find(_.isMatching(action, objects))
