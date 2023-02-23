@@ -227,6 +227,14 @@
       ]
     }
   ],
+  "view-rows": [
+    {
+      "type": "grant",
+      "action": [
+        "viewRow"
+      ]
+    }
+  ],
   // Developer test role to be able to pass all integration tests
   "dev": [
     {
@@ -238,6 +246,7 @@
         "editTableDisplayProperty",
         "createRow",
         "deleteRow",
+        "viewRow",
         "editTableStructureProperty",
         "editCellAnnotation",
         "editRowAnnotation"
