@@ -1070,6 +1070,16 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   }
 
+  def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[RowPermissions] = {
+    retrieveAnnotations(tableId, rowId, Seq()).map(
+      _._1.filter(_.isInstanceOf[RowPermissions]).map(_.asInstanceOf[RowPermissions]).head
+    )
+  }
+
+  def retrieveRowsPermissions(tableId: TableId, rowIds: Seq[RowId]): Future[Seq[RowPermissions]] = {
+    Future.sequence(rowIds.map(retrieveRowPermissions(tableId, _)))
+  }
+
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
