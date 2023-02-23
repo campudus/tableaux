@@ -915,7 +915,134 @@ class TableauxModel(
             value
           }
       }
-    } yield Cell(column, rowId, value)
+    } yield {
+      Cell(column, rowId, value)
+    }
+  }
+
+  private def removeUnauthorizedForeignValuesFromRows(
+      columns: Seq[ColumnType[_]],
+      rows: Seq[Row],
+      shouldIncludeViewAuthorization: Boolean = true
+  )(implicit user: TableauxUser): Future[Seq[Row]] = {
+    Future.sequence(rows map {
+      case row => removeUnauthorizedLinkAndConcatValuesFromRow(columns, row, shouldIncludeViewAuthorization)
+    })
+  }
+
+  private def removeUnauthorizedLinkAndConcatValuesFromRow(
+      columns: Seq[ColumnType[_]],
+      row: Row,
+      shouldIncludeViewAuthorization: Boolean = true
+  )(implicit user: TableauxUser): Future[Row] = {
+    val rowValues = row.values
+    val rowLevelAnnotations = row.rowLevelAnnotations
+    val cellLevelAnnotations = row.cellLevelAnnotations
+    val table = row.table
+    val id = row.id
+
+    for {
+      newRowValues <-
+        removeUnauthorizedLinkAndConcatValuesFromRowValues(columns, rowValues, shouldIncludeViewAuthorization)
+    } yield {
+      Row(table, id, rowLevelAnnotations, cellLevelAnnotations, newRowValues)
+    }
+  }
+
+  private def removeUnauthorizedLinkAndConcatValuesFromRowValues(
+      columns: Seq[ColumnType[_]],
+      rowValues: Seq[_],
+      shouldIncludeViewAuthorization: Boolean = false
+  )(implicit user: TableauxUser): Future[Seq[_]] = {
+    Future.sequence(columns zip rowValues map {
+      case (column, rowValue) => removeUnauthorizedLinkAndConcatValues(column, rowValue, shouldIncludeViewAuthorization)
+    })
+  }
+
+  // Recursively traverses nested Link and Concat values
+  // to filter out foreign row values which the user is not permitted to view.
+  private def removeUnauthorizedLinkAndConcatValues(
+      column: ColumnType[_],
+      value: Any,
+      shouldIncludeViewAuthorization: Boolean = false
+  )(implicit user: TableauxUser): Future[Any] = {
+    (column, value) match {
+      case (c: LinkColumn, linkSeq) => {
+        val foreignTable = c.to.table
+        val links: Seq[JsonObject] = (linkSeq match {
+          case l: Seq[_] => l
+          case l: JsonArray => l.asScala.toSeq
+          case _ => throw new Exception("Links were not a Sequence or JsonArray")
+        }).map(_.asInstanceOf[JsonObject])
+        val linksRowIds = links.map(_.getLong("id").longValue())
+        val linkedRowsPermissionsFuture: Future[Seq[RowPermissions]] =
+          retrieveRowModel.retrieveRowsPermissions(foreignTable.id, linksRowIds)
+
+        val checkAuthorizationAndMutateValues: (Seq[(JsonObject, RowPermissions)]) => Future[Seq[JsonObject]] =
+          (rowIdsWithPermissions) => {
+            val mutatedValuesFutures = rowIdsWithPermissions.map(tup => {
+              val (link, rowPermissions) = tup
+              val linkRowId = link.getLong("id").longValue()
+              canUserViewRow(foreignTable, linkRowId, rowPermissions) flatMap {
+
+                val buildReturnJson: (Any, Boolean) => JsonObject = (value, viewAuthorization) => {
+                  if (shouldIncludeViewAuthorization) {
+                    Json.obj(
+                      "id" -> linkRowId,
+                      "value" -> value,
+                      "viewAuthorization" -> viewAuthorization
+                    )
+                  } else {
+                    Json.obj(
+                      "id" -> linkRowId,
+                      "value" -> value
+                    )
+                  }
+                }
+
+                _ match {
+                  case true => {
+                    for {
+                      mutatedValues <- c.to match {
+                        case concatColumn: ConcatColumn => {
+                          removeUnauthorizedLinkAndConcatValuesFromRowValues(
+                            concatColumn.columns,
+                            link.getJsonArray("value").asScala.toSeq
+                          )
+                        }
+                        case anyColumn: ColumnType[_] => {
+                          removeUnauthorizedLinkAndConcatValues(anyColumn, link.getValue("value"))
+                        }
+
+                      }
+                    } yield {
+                      buildReturnJson(mutatedValues, true)
+
+                    }
+                  }
+                  case false => {
+                    Future.successful(buildReturnJson(null, false))
+                  }
+                }
+              }
+            })
+            Future.sequence(mutatedValuesFutures)
+          }
+
+        for {
+          linkedRows <- linkedRowsPermissionsFuture
+          mutatedValues <- checkAuthorizationAndMutateValues(links zip linkedRows)
+        } yield {
+          mutatedValues
+        }
+      }
+      case (c: ConcatColumn, concats: Seq[_]) => {
+        removeUnauthorizedLinkAndConcatValuesFromRowValues(c.columns, concats)
+      }
+      case (c, value) => {
+        Future.successful(value)
+      }
+    }
   }
 
   def retrieveRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
@@ -929,7 +1056,9 @@ class TableauxModel(
           isInternalCall = false
         )
       row <- retrieveRow(table, filteredColumns, rowId)
-    } yield row
+      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(row), isInternalCall = false)
+      mutatedRow <- removeUnauthorizedLinkAndConcatValuesFromRow(filteredColumns, row)
+    } yield mutatedRow
   }
 
   private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId)(
@@ -972,7 +1101,8 @@ class TableauxModel(
       rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, representingColumns, pagination, linkDirection)
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
     } yield {
-      val rowsSeq = RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+      val filteredForeignRows = roleModel.filterDomainObjects(ViewRow, rowSeq, ComparisonObjects(), false)
+      val rowsSeq = RowSeq(filteredForeignRows, Page(pagination, Some(totalSize)))
       copyFirstColumnOfRowsSeq(rowsSeq)
     }
   }
@@ -991,8 +1121,12 @@ class TableauxModel(
           ComparisonObjects(table),
           isInternalCall = false
         )
-      rows <- retrieveRows(table, filteredColumns, pagination)
-    } yield rows
+      rowSeq <- retrieveRows(table, filteredColumns, pagination)
+      mutatedRows <- removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
+    } yield {
+      val filteredRows = roleModel.filterDomainObjects(ViewRow, mutatedRows, ComparisonObjects(), false)
+      RowSeq(filteredRows, rowSeq.page)
+    }
   }
 
   def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination)(
@@ -1084,6 +1218,28 @@ class TableauxModel(
           ))
         } else Future.successful(())
     } yield duplicatedRow
+  }
+
+  private def canUserViewRow(
+      table: Table,
+      rowId: RowId,
+      permissions: RowPermissions
+  )(implicit user: TableauxUser): Future[Boolean] = {
+    val mockMap: Map[ColumnId, Seq[CellLevelAnnotation]] = Map()
+    val mockSeq: Seq[ColumnType[_]] = Seq()
+    roleModel.checkAuthorization(
+      ViewRow,
+      ComparisonObjects(Row(
+        table,
+        rowId,
+        Seq(permissions),
+        CellLevelAnnotations(mockSeq, mockMap),
+        Seq()
+      ))
+    ) transform {
+      case Success(_) => Success(true)
+      case Failure(_) => Success(false)
+    }
   }
 
   private def mapRawRows(table: Table, columns: Seq[ColumnType[_]], rawRows: Seq[RawRow])(
