@@ -125,7 +125,7 @@ class IdentifierTest extends TableauxTestBase {
           )
         )
 
-        assertEquals(excepted, testCells.getJsonArray("rows"))
+        assertJSONEquals(excepted, testCells.getJsonArray("rows"))
       }
     }
   }
@@ -534,8 +534,8 @@ class IdentifierTest extends TableauxTestBase {
       testRow <- sendRequest("GET", "/tables/1/rows/1")
       testCell <- sendRequest("GET", "/tables/1/columns/0/rows/1")
     } yield {
-      assertEquals(expectedJson, testRow)
-      assertEquals(expectedCellValue, testCell.getJsonArray("value"))
+      assertJSONEquals(expectedJson, testRow)
+      assertJSONEquals(expectedCellValue, testCell.getJsonArray("value"))
     }
   }
 
@@ -655,8 +655,8 @@ class IdentifierTest extends TableauxTestBase {
         testRow <- sendRequest("GET", "/tables/1/rows/1")
         testCell <- sendRequest("GET", "/tables/1/columns/0/rows/1")
       } yield {
-        assertEquals(expectedJson, testRow)
-        assertEquals(expectedCellValue, testCell.getJsonArray("value"))
+        assertJSONEquals(expectedJson, testRow)
+        assertJSONEquals(expectedCellValue, testCell.getJsonArray("value"))
       }
     }
   }

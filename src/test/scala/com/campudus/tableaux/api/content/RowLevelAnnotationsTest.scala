@@ -41,7 +41,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
           "values" -> Json.arr(null, null)
         )
 
-        assertEquals(expectedRowJson1, rowJson1)
+        assertJSONEquals(expectedRowJson1, rowJson1)
 
         val expectedRowJson2 = Json.obj(
           "status" -> "ok",
@@ -49,7 +49,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
           "values" -> Json.arr(null, null)
         )
 
-        assertEquals(expectedRowJson2, rowJson2)
+        assertJSONEquals(expectedRowJson2, rowJson2)
       }
     }
   }
@@ -90,7 +90,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
           .asScala
           .toList
           .map(_.asInstanceOf[JsonObject])
-          .forall(!_.containsKey("final"))
+          .forall(!_.getBoolean("final"))
 
         assertTrue(rowsAreNotFinal)
       }

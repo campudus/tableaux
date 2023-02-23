@@ -182,8 +182,10 @@ class CreateRowTest extends TableauxTestBase {
 
   @Test
   def createRow(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "values" -> Json.arr())
-    val expectedJson2 = Json.obj("status" -> "ok", "id" -> 2, "values" -> Json.arr())
+    val expectedJson =
+      Json.obj("status" -> "ok", "id" -> 1, "values" -> Json.arr(), "final" -> false, "permissions" -> Json.arr())
+    val expectedJson2 =
+      Json.obj("status" -> "ok", "id" -> 2, "values" -> Json.arr(), "final" -> false, "permissions" -> Json.arr())
 
     for {
       _ <- sendRequest("POST", "/tables", createTableJson)
@@ -270,6 +272,8 @@ class CreateRowTest extends TableauxTestBase {
       def expectedWithoutAttachment(rowId: Long, fileUuid: String, linkToRowId: Long) = Json.obj(
         "status" -> "ok",
         "id" -> rowId,
+        "final" -> false,
+        "permissions" -> Json.arr(),
         "values" ->
           Json.arr(
             "Test Field in first row, column one",
@@ -318,7 +322,7 @@ class CreateRowTest extends TableauxTestBase {
         assertEquals(fileUuid, resultAttachment.getJsonObject(0).getString("uuid"))
 
         result.getJsonArray("values").remove(8)
-        assertEquals(expect, result)
+        assertJSONEquals(expect, result)
       }
     }
   }

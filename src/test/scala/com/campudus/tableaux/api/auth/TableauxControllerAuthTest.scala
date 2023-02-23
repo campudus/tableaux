@@ -501,7 +501,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable", "viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -541,7 +541,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable", "viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -593,7 +593,13 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |      "type": "grant",
                                       |      "action": ["viewTable"]
                                       |    }
-                                      |  ]
+                                      |  ],
+                                      |  "view-rows": [
+                                      |     {
+                                      |       "type": "grant",
+                                      |       "action": ["viewRow"]
+                                      |      }
+                                      |    ]
                                       |}""".stripMargin)
 
       val controller = createTableauxController(roleModel)
@@ -856,7 +862,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -917,7 +923,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewColumn", "viewCellValue"]
+                                    |      "action": ["viewTable", "viewColumn", "viewCellValue", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -971,7 +977,13 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |      "type": "grant",
                                     |      "action": ["viewTable", "createRow"]
                                     |    }
-                                    |  ]
+                                    |  ],
+                                    |  "view-rows": [
+                                    |     {
+                                    |       "type": "grant",
+                                    |       "action": ["viewRow"]
+                                    |      }
+                                    |    ]
                                     |}""".stripMargin)
 
     val controller = createTableauxController(roleModel)
@@ -1001,7 +1013,13 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |      "type": "grant",
                                       |      "action": ["viewTable", "createRow"]
                                       |    }
-                                      |  ]
+                                      |  ],
+                                      |  "view-rows": [
+                                      |     {
+                                      |       "type": "grant",
+                                      |       "action": ["viewRow"]
+                                      |      }
+                                      |    ]
                                       |}""".stripMargin)
 
       val controller = createTableauxController(roleModel)
@@ -1416,7 +1434,13 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |      "type": "grant",
                                     |      "action": ["viewTable", "editRowAnnotation", "viewCellValue"]
                                     |    }
-                                    |  ]
+                                    |  ],
+                                    |  "view-rows": [
+                                    |     {
+                                    |       "type": "grant",
+                                    |       "action": ["viewRow"]
+                                    |      }
+                                    |    ]
                                     |}""".stripMargin)
 
     val controller = createTableauxController(roleModel)
@@ -2124,7 +2148,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)

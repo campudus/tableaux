@@ -623,8 +623,8 @@ class LinkTest extends LinkTestBase {
         val expectedLink1 = Json.arr(Json.obj("id" -> table2RowId2, "value" -> "table2RowId2"))
         val expectedLink2 = Json.arr(Json.obj("id" -> table1RowId2, "value" -> "table1RowId2"))
 
-        assertEquals(Json.obj("status" -> "ok", "value" -> expectedLink1), addLink1)
-        assertEquals(Json.obj("status" -> "ok", "value" -> expectedLink2), addLink2)
+        assertJSONEquals(Json.obj("status" -> "ok", "value" -> expectedLink1), addLink1)
+        assertJSONEquals(Json.obj("status" -> "ok", "value" -> expectedLink2), addLink2)
 
         val expectedJsonForResult1 = Json.obj(
           "status" -> "ok",
@@ -646,9 +646,9 @@ class LinkTest extends LinkTestBase {
           )
         )
 
-        assertEquals(expectedJsonForResult1, linkValueForTable1)
+        assertJSONEquals(expectedJsonForResult1, linkValueForTable1)
 
-        assertEquals(expectedJsonForResult2, linkValueForTable2)
+        assertJSONEquals(expectedJsonForResult2, linkValueForTable2)
       }
     }
   }
@@ -1100,7 +1100,7 @@ class LinkTest extends LinkTestBase {
         "values" -> Json.arr(null, null, Json.arr())
       )
 
-      assertEquals(expectedJson, emptyLinkValue)
+      assertJSONEquals(expectedJson, emptyLinkValue)
     }
   }
 
@@ -1179,7 +1179,7 @@ class LinkTest extends LinkTestBase {
                                                     |}
          """.stripMargin)
 
-        assertEquals(expectedJson, rows)
+        assertJSONEquals(expectedJson, rows)
 
         // text column, and the self-link column
         assertEquals(2, columns.size())

@@ -216,7 +216,8 @@ class RetrieveGroupColumnTest extends TableauxTestBase {
       def expectedLinkCell(s: String) = Json.arr(
         Json.obj(
           "id" -> rowId11,
-          "value" -> Json.arr(s, true)
+          "value" -> Json.arr(s, true),
+          "viewAuthorization" -> true
         )
       )
 

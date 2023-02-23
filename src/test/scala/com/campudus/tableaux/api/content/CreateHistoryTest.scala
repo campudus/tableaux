@@ -2449,7 +2449,6 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
 
         _ <- sendRequest("PATCH", "/tables/1/rows/annotations", Json.obj("final" -> true))
-
         rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(toRowsArray)
 
         row1 = rows.get[JsonObject](0)
