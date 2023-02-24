@@ -517,7 +517,6 @@ class RetrieveRowsTest extends TableauxTestBase {
 
       retrievedRow <- controller.retrieveRow(1, 1)
     } yield {
-      println(retrievedRow)
       assertJSONEquals(expectedJson, retrievedRow.getJson)
     }
   }
@@ -599,7 +598,6 @@ class RetrieveRowsTest extends TableauxTestBase {
 
       retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
     } yield {
-      println(retrievedRows)
       assertJSONEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
     }
   }
@@ -642,7 +640,6 @@ class RetrieveRowsTest extends TableauxTestBase {
 
       retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
     } yield {
-      println(retrievedRows)
       assertJSONEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
     }
   }
