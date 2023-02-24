@@ -196,7 +196,7 @@ class TableauxModel(
                     columns <- retrieveColumns(table, isInternalCall = true)
                     rowObjects <- Future.sequence(rows.map({ rowId =>
                       {
-                        retrieveCell(columns.head, rowId)
+                        retrieveCell(columns.head, rowId, true)
                           .map({ cell =>
                             {
                               Json.obj("id" -> rowId, "value" -> cell.value)
@@ -538,7 +538,7 @@ class TableauxModel(
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
 
-      updatedCell <- retrieveCell(column, rowId)
+      updatedCell <- retrieveCell(column, rowId, true)
     } yield updatedCell
   }
 
@@ -565,7 +565,7 @@ class TableauxModel(
         case _ => Future.failed(WrongColumnKindException(column, classOf[LinkColumn]))
       }
 
-      updatedCell <- retrieveCell(column, rowId)
+      updatedCell <- retrieveCell(column, rowId, true)
     } yield updatedCell
   }
 
@@ -687,7 +687,7 @@ class TableauxModel(
       _ <- invalidateCellAndDependentColumns(column, rowId)
       _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
 
-      changedCell <- retrieveCell(column, rowId)
+      changedCell <- retrieveCell(column, rowId, true)
     } yield changedCell
   }
 
@@ -722,7 +722,7 @@ class TableauxModel(
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
       _ <- invalidateCellAndDependentColumns(column, rowId)
 
-      clearedCell <- retrieveCell(column, rowId)
+      clearedCell <- retrieveCell(column, rowId, true)
     } yield clearedCell
   }
 
@@ -860,11 +860,11 @@ class TableauxModel(
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column), isInternalCall)
-      cell <- retrieveCell(column, rowId)
+      cell <- retrieveCell(column, rowId, isInternalCall)
     } yield cell
   }
 
-  private def retrieveCell(column: ColumnType[_], rowId: RowId)(
+  private def retrieveCell(column: ColumnType[_], rowId: RowId, isInternalCall: Boolean)(
       implicit user: TableauxUser
   ): Future[Cell[Any]] = {
 
@@ -915,8 +915,11 @@ class TableauxModel(
             value
           }
       }
+      rowPermissions <- retrieveRowModel.retrieveRowPermissions(column.table.id, rowId)
+      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions), isInternalCall)
+      filteredValue <- removeUnauthorizedLinkAndConcatValues(column, value, true)
     } yield {
-      Cell(column, rowId, value)
+      Cell(column, rowId, filteredValue)
     }
   }
 
@@ -986,6 +989,7 @@ class TableauxModel(
               canUserViewRow(foreignTable, linkRowId, rowPermissions) flatMap {
 
                 val buildReturnJson: (Any, Boolean) => JsonObject = (value, viewAuthorization) => {
+                  println("shouldIncludeViewAuthorization", shouldIncludeViewAuthorization)
                   if (shouldIncludeViewAuthorization) {
                     Json.obj(
                       "id" -> linkRowId,
@@ -1036,8 +1040,12 @@ class TableauxModel(
           mutatedValues
         }
       }
-      case (c: ConcatColumn, concats: Seq[_]) => {
-        removeUnauthorizedLinkAndConcatValuesFromRowValues(c.columns, concats)
+      case (c: ConcatColumn, concats) => {
+        val concatSeq: Seq[_] = concats match {
+          case c: Seq[_] => c
+          case c: JsonArray => c.asScala.toSeq
+        }
+        removeUnauthorizedLinkAndConcatValuesFromRowValues(c.columns, concatSeq, true)
       }
       case (c, value) => {
         Future.successful(value)
@@ -1100,8 +1108,10 @@ class TableauxModel(
       totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId, linkDirection)
       rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, representingColumns, pagination, linkDirection)
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
+      rowSeqWithoutUnauthorizedValues <- removeUnauthorizedForeignValuesFromRows(representingColumns, rowSeq)
     } yield {
-      val filteredForeignRows = roleModel.filterDomainObjects(ViewRow, rowSeq, ComparisonObjects(), false)
+      val filteredForeignRows =
+        roleModel.filterDomainObjects(ViewRow, rowSeqWithoutUnauthorizedValues, ComparisonObjects(), false)
       val rowsSeq = RowSeq(filteredForeignRows, Page(pagination, Some(totalSize)))
       copyFirstColumnOfRowsSeq(rowsSeq)
     }
@@ -1156,7 +1166,9 @@ class TableauxModel(
       totalSize <- retrieveRowModel.size(table.id)
       rawRows <- retrieveRowModel.retrieveAll(table.id, columns, pagination)
       rowSeq <- mapRawRows(table, columns, rawRows)
-    } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+    } yield {
+      RowSeq(rowSeq, Page(pagination, Some(totalSize)))
+    }
   }
 
   def duplicateRow(table: Table, rowId: RowId, options: Option[DuplicateRowOptions])(implicit
@@ -1229,13 +1241,7 @@ class TableauxModel(
     val mockSeq: Seq[ColumnType[_]] = Seq()
     roleModel.checkAuthorization(
       ViewRow,
-      ComparisonObjects(Row(
-        table,
-        rowId,
-        Seq(permissions),
-        CellLevelAnnotations(mockSeq, mockMap),
-        Seq()
-      ))
+      ComparisonObjects(permissions)
     ) transform {
       case Success(_) => Success(true)
       case Failure(_) => Success(false)
@@ -1265,7 +1271,7 @@ class TableauxModel(
 
           for {
             list <- futureList
-            cell <- retrieveCell(concatenateColumn, rowId)
+            cell <- retrieveCell(concatenateColumn, rowId, true)
           } yield list ++ List(Json.obj("id" -> rowId, "value" -> DomainObject.compatibilityGet(cell.value)))
       }
     }
@@ -1354,7 +1360,7 @@ class TableauxModel(
 
                   case (c: AttachmentColumn, _) =>
                     // AttachmentColumns are fetched via AttachmentModel
-                    retrieveCell(c, rowId)
+                    retrieveCell(c, rowId, true)
                       .map(cell => (c, cell.value))
 
                   case (c, value) =>
@@ -1416,6 +1422,8 @@ class TableauxModel(
       typeOpt: Option[String]
   )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
+      rowPermissions <- retrieveRowModel.retrieveRowPermissions(table.id, rowId)
+      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions))
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
@@ -1430,6 +1438,8 @@ class TableauxModel(
       typeOpt: Option[String]
   )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
+      rowPermissions <- retrieveRowModel.retrieveRowPermissions(table.id, rowId)
+      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions))
       columns <- retrieveColumns(table)
       cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
       filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
