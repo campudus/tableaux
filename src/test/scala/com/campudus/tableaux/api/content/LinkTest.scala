@@ -540,15 +540,18 @@ class LinkTest extends LinkTestBase {
         linkValue <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
       } yield {
         assertEquals(
-          Json.obj("status" -> "ok", "value" -> Json.arr(Json.obj("id" -> rowId1, "value" -> "Lala"))),
+          Json.obj(
+            "status" -> "ok",
+            "value" -> Json.arr(Json.obj("id" -> rowId1, "value" -> "Lala", "viewAuthorization" -> true))
+          ),
           addLink1
         )
         assertEquals(
           Json.obj(
             "status" -> "ok",
             "value" -> Json.arr(
-              Json.obj("id" -> rowId1, "value" -> "Lala"),
-              Json.obj("id" -> rowId2, "value" -> "Lulu")
+              Json.obj("id" -> rowId1, "value" -> "Lala", "viewAuthorization" -> true),
+              Json.obj("id" -> rowId2, "value" -> "Lulu", "viewAuthorization" -> true)
             )
           ),
           addLink2
@@ -557,8 +560,8 @@ class LinkTest extends LinkTestBase {
         val expectedJson2 = Json.obj(
           "status" -> "ok",
           "value" -> Json.arr(
-            Json.obj("id" -> rowId1, "value" -> "Lala"),
-            Json.obj("id" -> rowId2, "value" -> "Lulu")
+            Json.obj("id" -> rowId1, "value" -> "Lala", "viewAuthorization" -> true),
+            Json.obj("id" -> rowId2, "value" -> "Lulu", "viewAuthorization" -> true)
           )
         )
 
@@ -682,21 +685,21 @@ class LinkTest extends LinkTestBase {
         val expected1 = Json.obj(
           "status" -> "ok",
           "value" -> Json.arr(
-            Json.obj("id" -> 1, "value" -> "table2row1"),
-            Json.obj("id" -> 2, "value" -> "table2row2")
+            Json.obj("id" -> 1, "value" -> "table2row1", "viewAuthorization" -> true),
+            Json.obj("id" -> 2, "value" -> "table2row2", "viewAuthorization" -> true)
           )
         )
         val expected2 = Json.obj("status" -> "ok", "value" -> Json.arr())
         val expected3 = Json.obj(
           "status" -> "ok",
           "value" -> Json.arr(
-            Json.obj("id" -> 1, "value" -> "table1row1")
+            Json.obj("id" -> 1, "value" -> "table1row1", "viewAuthorization" -> true)
           )
         )
         val expected4 = Json.obj(
           "status" -> "ok",
           "value" -> Json.arr(
-            Json.obj("id" -> 1, "value" -> "table1row1")
+            Json.obj("id" -> 1, "value" -> "table1row1", "viewAuthorization" -> true)
           )
         )
 
@@ -774,11 +777,19 @@ class LinkTest extends LinkTestBase {
           "value" -> Json.arr(
             Json.obj(
               "id" -> 1,
-              "value" -> Json.obj("en-GB" -> "Hello, Table 2 World!", "de-DE" -> "Hallo, Table 2 Welt!")
+              "value" -> Json.obj(
+                "en-GB" -> "Hello, Table 2 World!",
+                "de-DE" -> "Hallo, Table 2 Welt!"
+              ),
+              "viewAuthorization" -> true
             ),
             Json.obj(
               "id" -> 2,
-              "value" -> Json.obj("en-GB" -> "Hello, Table 2 World2!", "de-DE" -> "Hallo, Table 2 Welt2!")
+              "value" -> Json.obj(
+                "en-GB" -> "Hello, Table 2 World2!",
+                "de-DE" -> "Hallo, Table 2 Welt2!"
+              ),
+              "viewAuthorization" -> true
             )
           )
         )
@@ -792,7 +803,8 @@ class LinkTest extends LinkTestBase {
                 "value" -> Json.obj(
                   "de-DE" -> "Hallo, Table 1 Welt!",
                   "en-GB" -> "Hello, Table 1 World!"
-                )
+                ),
+                "viewAuthorization" -> true
               )
             )
         )
@@ -843,11 +855,19 @@ class LinkTest extends LinkTestBase {
           "value" -> Json.arr(
             Json.obj(
               "id" -> 1,
-              "value" -> Json.obj("en-GB" -> "Hello, Table 2 World!", "de-DE" -> "Hallo, Table 2 Welt!")
+              "value" -> Json.obj(
+                "en-GB" -> "Hello, Table 2 World!",
+                "de-DE" -> "Hallo, Table 2 Welt!"
+              ),
+              "viewAuthorization" -> true
             ),
             Json.obj(
               "id" -> 2,
-              "value" -> Json.obj("en-GB" -> "Hello, Table 2 World2!", "de-DE" -> "Hallo, Table 2 Welt2!")
+              "value" -> Json.obj(
+                "en-GB" -> "Hello, Table 2 World2!",
+                "de-DE" -> "Hallo, Table 2 Welt2!"
+              ),
+              "viewAuthorization" -> true
             )
           )
         )
@@ -861,7 +881,8 @@ class LinkTest extends LinkTestBase {
                 "value" -> Json.obj(
                   "de-DE" -> "Hallo, Table 1 Welt!",
                   "en-GB" -> "Hello, Table 1 World!"
-                )
+                ),
+                "viewAuthorization" -> true
               )
             )
         )
@@ -900,15 +921,15 @@ class LinkTest extends LinkTestBase {
       val expected1 = Json.obj(
         "status" -> "ok",
         "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table2row1"),
-          Json.obj("id" -> 2, "value" -> "table2row2")
+          Json.obj("id" -> 1, "value" -> "table2row1", "viewAuthorization" -> true),
+          Json.obj("id" -> 2, "value" -> "table2row2", "viewAuthorization" -> true)
         )
       )
 
       val expected2 = Json.obj(
         "status" -> "ok",
         "value" -> Json.arr(
-          Json.obj("id" -> 2, "value" -> "table2row2")
+          Json.obj("id" -> 2, "value" -> "table2row2", "viewAuthorization" -> true)
         )
       )
 
@@ -965,22 +986,22 @@ class LinkTest extends LinkTestBase {
       val expected1 = Json.obj(
         "status" -> "ok",
         "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table2row1")
+          Json.obj("id" -> 1, "value" -> "table2row1", "viewAuthorization" -> true)
         )
       )
 
       val expected2 = Json.obj(
         "status" -> "ok",
         "value" -> Json.arr(
-          Json.obj("id" -> 2, "value" -> "table2row2")
+          Json.obj("id" -> 2, "value" -> "table2row2", "viewAuthorization" -> true)
         )
       )
 
       val expected3 = Json.obj(
         "status" -> "ok",
         "value" -> Json.arr(
-          Json.obj("id" -> 2, "value" -> "table2row2"),
-          Json.obj("id" -> 1, "value" -> "table2row1")
+          Json.obj("id" -> 2, "value" -> "table2row2", "viewAuthorization" -> true),
+          Json.obj("id" -> 1, "value" -> "table2row1", "viewAuthorization" -> true)
         )
       )
 
@@ -1016,15 +1037,15 @@ class LinkTest extends LinkTestBase {
       val expected1 = Json.obj(
         "status" -> "ok",
         "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table2row1"),
-          Json.obj("id" -> 2, "value" -> "table2row2")
+          Json.obj("id" -> 1, "value" -> "table2row1", "viewAuthorization" -> true),
+          Json.obj("id" -> 2, "value" -> "table2row2", "viewAuthorization" -> true)
         )
       )
 
       val expected2 = Json.obj(
         "status" -> "ok",
         "value" -> Json.arr(
-          Json.obj("id" -> 1, "value" -> "table2row1")
+          Json.obj("id" -> 1, "value" -> "table2row1", "viewAuthorization" -> true)
         )
       )
 

@@ -312,6 +312,7 @@ class IdentifierTest extends TableauxTestBase {
               // single link into table 3 row 1
               Json.obj(
                 "id" -> rowIds3.head,
+                "viewAuthorization" -> true,
                 "value" -> Json.arr(
                   321,
                   Json.obj("de-DE" -> "table3col3row1-de", "en_GB" -> "table3col3row1-gb"),

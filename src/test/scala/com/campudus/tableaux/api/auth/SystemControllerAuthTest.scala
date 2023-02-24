@@ -300,7 +300,8 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |        "viewColumn",
                                     |        "viewCellValue",
                                     |        "editCellValue",
-                                    |        "viewTable"
+                                    |        "viewTable",
+                                    |        "viewRow"
                                     |      ]
                                     |    }
                                     |  ]

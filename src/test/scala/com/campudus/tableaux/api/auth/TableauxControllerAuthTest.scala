@@ -31,7 +31,7 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
                                |  "view-all-tables": [
                                |    {
                                |      "type": "grant",
-                               |      "action": ["viewTable"]
+                               |      "action": ["viewTable","viewRow"]
                                |    }
                                |  ]
                                |}""".stripMargin
@@ -90,7 +90,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable","viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -119,7 +119,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable","viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -155,7 +155,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable","viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -209,7 +209,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable", "viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -245,7 +245,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable", "viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -289,7 +289,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable", "viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -322,7 +322,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable", "viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -355,7 +355,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable", "viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -391,7 +391,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable","viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -424,7 +424,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable","viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -457,7 +457,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable","viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -627,7 +627,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable","viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -668,7 +668,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable","viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -717,7 +717,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable","viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -766,7 +766,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable"]
+                                      |      "action": ["viewTable","viewRow"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -836,7 +836,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable","viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1079,7 +1079,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1115,7 +1115,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1146,7 +1146,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1194,7 +1194,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1225,7 +1225,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1738,7 +1738,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1778,7 +1778,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1816,7 +1816,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"]
+                                    |      "action": ["viewTable", "viewRow"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1856,7 +1856,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable"],
+                                    |      "action": ["viewTable", "viewRow"],
                                     |      "condition": {
                                     |        "table": {
                                     |          "id": "2"
