@@ -1,9 +1,18 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.database.domain.Pagination
+import com.campudus.tableaux.database.model.StructureModel
+import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
 
+import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.scala.SQLConnection
+import io.vertx.scala.ext.sql
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import org.junit.Assert._
@@ -284,6 +293,27 @@ class RetrieveTest extends TableauxTestBase {
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveRowsTest extends TableauxTestBase {
 
+  val defaultViewTableRole = """
+                               |{
+                               |  "view-all-tables": [
+                               |    {
+                               |      "type": "grant",
+                               |      "action": ["viewTable"]
+                               |    }
+                               |  ]
+                               |}""".stripMargin
+
+  def createTableauxController(
+      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)
+  ): TableauxController = {
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val structureModel = StructureModel(dbConnection)
+    val tableauxModel = TableauxModel(dbConnection, structureModel)
+
+    TableauxController(tableauxConfig, tableauxModel, roleModel)
+  }
+
   @Test
   def retrieveRow(implicit c: TestContext): Unit = okTest {
     val expectedJson =
@@ -457,6 +487,270 @@ class RetrieveRowsTest extends TableauxTestBase {
       test <- sendRequest("GET", "/tables/1/columns/first/rows")
     } yield {
       assertEquals(expectedJson, test.getJsonArray("rows"))
+    }
+  }
+
+  @Test
+  def retrieveRowWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+    val expectedJson: JsonObject = Json.obj(
+      "id" -> 1,
+      "permissions" -> Json.arr("onlyLinemaster"),
+      "final" -> false,
+      "values" -> Json.arr(
+        "table1row1",
+        1
+      )
+    )
+    val controller: TableauxController = createTableauxController(roleModel)
+    for {
+      _ <- createDefaultTable()
+      _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("onlyLinemaster")))
+
+      retrievedRow <- controller.retrieveRow(1, 1)
+    } yield {
+      println(retrievedRow)
+      assertJSONEquals(expectedJson, retrievedRow.getJson)
+    }
+  }
+
+  @Test
+  def retrieveRowWithPermissions_unauthorized(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unauthorized") {
+      val roleModel = initRoleModel("""
+                                      |{
+                                      |  "view-rows": [
+                                      |    {
+                                      |      "type": "grant",
+                                      |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
+                                      |    },
+                                      |     {
+                                      |       "type": "deny",
+                                      |       "action": ["viewRow"],
+                                      |       "condition": {
+                                      |         "row": {
+                                      |           "permissions": "onlyLinemaster"
+                                      |         }
+                                      |       }
+                                      |     }
+                                      |  ]
+                                      |}""".stripMargin)
+      val expectedJson: JsonObject = Json.obj(
+        "id" -> 1,
+        "permissions" -> Json.arr("onlyLinemaster"),
+        "final" -> false,
+        "values" -> Json.arr(
+          "table1row1",
+          1
+        )
+      )
+      val controller: TableauxController = createTableauxController(roleModel)
+      for {
+        _ <- createDefaultTable()
+        _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("onlyLinemaster")))
+
+        retrievedRow <- controller.retrieveRow(1, 1)
+      } yield {}
+    }
+
+  @Test
+  def retrieveRowsWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+    val expectedJson: JsonArray = Json.arr(
+      Json.obj(
+        "id" -> 1,
+        "permissions" -> Json.arr("onlyLinemaster"),
+        "final" -> false,
+        "values" -> Json.arr(
+          "table1row1",
+          1
+        )
+      ),
+      Json.obj(
+        "id" -> 2,
+        "permissions" -> Json.arr(),
+        "final" -> false,
+        "values" -> Json.arr(
+          "table1row2",
+          2
+        )
+      )
+    )
+    val controller: TableauxController = createTableauxController(roleModel)
+    for {
+      _ <- createDefaultTable()
+      _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("onlyLinemaster")))
+
+      retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
+    } yield {
+      println(retrievedRows)
+      assertJSONEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
+    }
+  }
+
+  @Test
+  def retrieveRowsWithPermissions_unauthorized(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
+                                    |    },
+                                    |     {
+                                    |       "type": "deny",
+                                    |       "action": ["viewRow"],
+                                    |       "condition": {
+                                    |         "row": {
+                                    |           "permissions": "onlyLinemaster"
+                                    |         }
+                                    |       }
+                                    |     }
+                                    |  ]
+                                    |}""".stripMargin)
+    val expectedJson: JsonArray = Json.arr(
+      Json.obj(
+        "id" -> 2,
+        "permissions" -> Json.arr(),
+        "final" -> false,
+        "values" -> Json.arr(
+          "table1row2",
+          2
+        )
+      )
+    )
+    val controller: TableauxController = createTableauxController(roleModel)
+    for {
+      _ <- createDefaultTable()
+      _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("onlyLinemaster")))
+
+      retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
+    } yield {
+      println(retrievedRows)
+      assertJSONEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
+    }
+  }
+
+  @Test
+  def retrieveForeignRowsWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+    val expectedJson: JsonArray = Json.arr(
+      Json.obj(
+        "id" -> 1,
+        "permissions" -> Json.arr("onlyLinemaster"),
+        "final" -> false,
+        "values" -> Json.arr(
+          "table1row1"
+        )
+      ),
+      Json.obj(
+        "id" -> 2,
+        "permissions" -> Json.arr(),
+        "final" -> false,
+        "values" -> Json.arr(
+          "table1row2"
+        )
+      )
+    )
+    val createLinkColumn = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "link col",
+          "toTable" -> 1,
+          "kind" -> "link"
+        )
+      )
+    )
+    val controller: TableauxController = createTableauxController(roleModel)
+    for {
+      _ <- createDefaultTable()
+      _ <- createDefaultTable(" link test table", 2)
+      _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("onlyLinemaster")))
+      _ <- sendRequest("POST", "/tables/2/columns", createLinkColumn)
+      _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
+      _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
+      cell <- sendRequest("GET", "/tables/2/columns/3/rows/1")
+      retrievedRows <- controller.retrieveForeignRows(2, 3, 1, Pagination(None, None))
+    } yield {
+      assertEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
+    }
+  }
+
+  @Test
+  def retrieveForeignRowsWithPermissions_unauthorized(implicit c: TestContext): Unit = okTest {
+    val roleModel = initRoleModel("""
+                                    |{
+                                    |  "view-rows": [
+                                    |    {
+                                    |      "type": "grant",
+                                    |      "action": ["viewColumn","viewRow", "viewCellValue", "viewTable"]
+                                    |    },
+                                    |    {
+                                    |      "type": "deny",
+                                    |      "action": ["viewRow"],
+                                    |      "condition": {
+                                    |         "row": {
+                                    |             "permissions": "onlyLinemaster"
+                                    |            }
+                                    |        }
+                                    |    }
+                                    |  ]
+                                    |}""".stripMargin)
+    val expectedJson: JsonArray = Json.arr(
+      Json.obj(
+        "id" -> 2,
+        "permissions" -> Json.arr(),
+        "final" -> false,
+        "values" -> Json.arr(
+          "table1row2"
+        )
+      )
+    )
+    val createLinkColumn = Json.obj(
+      "columns" -> Json.arr(
+        Json.obj(
+          "name" -> "link col",
+          "toTable" -> 1,
+          "kind" -> "link"
+        )
+      )
+    )
+    val controller: TableauxController = createTableauxController(roleModel)
+    for {
+      _ <- createDefaultTable()
+      _ <- createDefaultTable(" link test table", 2)
+      _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("onlyLinemaster")))
+      _ <- sendRequest("POST", "/tables/2/columns", createLinkColumn)
+      _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
+      _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
+      cell <- sendRequest("GET", "/tables/2/columns/3/rows/1")
+      retrievedRows <- controller.retrieveForeignRows(2, 3, 1, Pagination(None, None))
+    } yield {
+      assertEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
     }
   }
 }
