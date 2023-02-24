@@ -11,6 +11,7 @@ import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import org.vertx.scala.core.json.{Json, _}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -621,7 +622,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         case rowPermissions: RowPermissions =>
           connection.query(
             s"UPDATE user_table_$tableId SET row_permissions = ? WHERE id = ?",
-            Json.arr(rowPermissions.value.toString(), rowId)
+            Json.arr(rowPermissions.rowPermissions.toString(), rowId)
           )
       }
     })
@@ -1071,8 +1072,13 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   }
 
   def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[RowPermissions] = {
-    retrieveAnnotations(tableId, rowId, Seq()).map(
-      _._1.filter(_.isInstanceOf[RowPermissions]).map(_.asInstanceOf[RowPermissions]).head
+    retrieveAnnotations(tableId, rowId, Seq()).transform {
+      case Success(result) => Success(result)
+      case Failure(_) => Success((Seq(), Seq()))
+    }.map(
+      _._1.filter(_.isInstanceOf[RowPermissions]).map(
+        _.asInstanceOf[RowPermissions]
+      ).headOption.getOrElse(RowPermissions(Json.arr())) // .asScala.toSeq.map(_.asInstanceOf[String])
     )
   }
 

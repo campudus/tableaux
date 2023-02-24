@@ -1,6 +1,7 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.{LanguageNeutral, MultiCountry, MultiLanguage}
+import com.campudus.tableaux.database.domain.Row
 import com.campudus.tableaux.database.domain.RowPermissions
 
 import org.vertx.scala.core.json.{Json, JsonObject, _}
@@ -137,28 +138,34 @@ case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonO
 
 case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-  override def isMatching(objects: ComparisonObjects): Boolean = {
-    objects.rowOpt match {
-      case Some(row) =>
-        conditionMap.forall({
-          case (property, regex) =>
-            property match {
-              case "permissions" => {
-                val rowPermissionsOpt: Option[Seq[String]] =
-                  row.rowLevelAnnotations.filter(_.isInstanceOf[RowPermissions]).headOption.map(
-                    _.asInstanceOf[RowPermissions].value.asScala.toSeq.map(_.asInstanceOf[String])
-                  )
-                rowPermissionsOpt match {
-                  case Some(rowPermissions) => {
-                    rowPermissions.exists(_.matches(regex))
-                  }
-                  case None => false
-                }
+  def checkCondition(rowPermissionsOpt: Option[RowPermissions]): Boolean = {
+    conditionMap.forall({
+      case (property, regex) =>
+        property match {
+          case "permissions" => {
+            rowPermissionsOpt match {
+              case Some(rowPermissions) => {
+                rowPermissions.value.exists(_.matches(regex))
               }
-              case _ => false
+              case None => false
             }
-        })
-      case None => false
+          }
+          case _ => false
+        }
+    })
+
+  }
+
+  override def isMatching(objects: ComparisonObjects): Boolean = {
+    (objects.rowOpt, objects.rowPermissionsOpt) match {
+      case (Some(row: Row), _) =>
+        val rowPermissionsOpt: Option[RowPermissions] =
+          row.rowLevelAnnotations.filter(_.isInstanceOf[RowPermissions]).headOption.map(
+            _.asInstanceOf[RowPermissions]
+          )
+        checkCondition(rowPermissionsOpt)
+      case (_, Some(rowPermissions: RowPermissions)) => checkCondition(Some(rowPermissions))
+      case (_, _) => false
     }
   }
 }

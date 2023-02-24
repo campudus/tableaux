@@ -24,7 +24,7 @@ case class FinalFlag(finalFlag: Boolean) extends RowAnnotation {
 }
 
 case class RowPermissions(rowPermissions: JsonArray) extends RowAnnotation {
-  override val value: JsonArray = rowPermissions
+  override val value: Seq[String] = rowPermissions.asScala.toSeq.map(_.asInstanceOf[String])
   override val jsonKey = "permissions"
 }
 

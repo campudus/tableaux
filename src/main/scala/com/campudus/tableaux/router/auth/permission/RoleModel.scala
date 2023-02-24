@@ -4,6 +4,7 @@ import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.database.{MultiCountry, MultiLanguage}
 import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
 import com.campudus.tableaux.database.domain.Row
+import com.campudus.tableaux.database.domain.RowPermissions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
@@ -98,6 +99,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
           case table: Table => ComparisonObjects(table)
           case column: ColumnType[_] => parentObjects.merge(column)
           case row: Row => ComparisonObjects(row)
+          case rowPermissions: RowPermissions => ComparisonObjects(rowPermissions = rowPermissions)
           case _: Service => ComparisonObjects()
           case _ => ComparisonObjects()
         }
