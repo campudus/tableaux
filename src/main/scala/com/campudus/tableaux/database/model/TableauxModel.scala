@@ -144,7 +144,11 @@ class TableauxModel(
   }
 
   private def selectDependentRows(linkId: LinkId, linkDirection: LinkDirection) = {
-    s"SELECT ${linkDirection.toSql} FROM link_table_$linkId WHERE ${linkDirection.fromSql} = ?"
+    if (linkDirection.from == linkDirection.to) {
+      s"SELECT ${linkDirection.fromSql} FROM link_table_$linkId WHERE ${linkDirection.toSql} = ?"
+    } else {
+      s"SELECT ${linkDirection.toSql} FROM link_table_$linkId WHERE ${linkDirection.fromSql} = ?"
+    }
   }
 
   private def retrieveDependentTableAndRowIds(
