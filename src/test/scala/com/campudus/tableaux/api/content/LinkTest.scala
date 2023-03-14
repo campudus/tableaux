@@ -1494,8 +1494,8 @@ class LinkTest extends LinkTestBase {
     } yield {
       val expectedDependentRows11 = Json.arr(
         Json.obj(
-          "id" -> 2,
-          "value" -> "Row 2 in Table 1"
+          "id" -> 3,
+          "value" -> "Row 3 in Table 1"
         )
       )
 
@@ -1503,8 +1503,8 @@ class LinkTest extends LinkTestBase {
 
       val expectedDependentRows12 = Json.arr(
         Json.obj(
-          "id" -> 3,
-          "value" -> "Row 3 in Table 1"
+          "id" -> 1,
+          "value" -> "Row 1 in Table 1"
         )
       )
 
@@ -1512,8 +1512,8 @@ class LinkTest extends LinkTestBase {
 
       val expectedDependentRows13 = Json.arr(
         Json.obj(
-          "id" -> 1,
-          "value" -> "Row 1 in Table 1"
+          "id" -> 2,
+          "value" -> "Row 2 in Table 1"
         )
       )
 
