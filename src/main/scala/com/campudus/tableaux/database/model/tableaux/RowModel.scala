@@ -82,9 +82,13 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
         case Some(transaction) => transaction.query(query, binds).map({ case (_, obj) => obj })
         case None => connection.transactional(t => t.query(query, binds))
       }
-    } yield (
-      Json.fromArrayString(res.getJsonArray("results").getJsonArray(0).getString(0))
-    )
+
+      replacedIds = Try(res.getJsonArray("results").getJsonArray(0).getString(0)) match {
+        case Success(value) => Json.fromArrayString(value)
+        case Failure(s) => Json.arr()
+      }
+
+    } yield (replacedIds)
   }
 
   def updateReplacedIds(
