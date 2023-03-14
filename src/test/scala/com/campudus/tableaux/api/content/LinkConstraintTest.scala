@@ -1003,6 +1003,40 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
   }
 
   @Test
+  def deleteRow_withReplacingRowId_updateForeignLinksWithCardinalityOne(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        (tableId1, tableId2) <- createLinkTablesWithCardinality()
+
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+
+        replacedRowIds <-
+          dbConnection.query("SELECT replaced_ids FROM user_table_2 WHERE id = 3")
+            .map(
+              _.getJsonArray("results").getJsonArray(0).getString(0)
+            )
+      } yield {
+        assertEquals(4, rowsTable1.size())
+        assertEquals(3, rowsTable2.size())
+
+        val expected = Json.arr(
+          Json.obj("id" -> 3, "value" -> "table2row3") // link must be moved from row 1 to 3
+        )
+
+        assertJSONEquals(expected, rowsTable1.getJsonObject(2).getJsonArray("values").getJsonArray(2))
+        assertJSONEquals(expected, rowsTable1.getJsonObject(3).getJsonArray("values").getJsonArray(2))
+        assertEquals("[1]", replacedRowIds)
+      }
+    }
+  }
+
+  @Test
   def deleteRow_withReplacingRowId_mergesAllReplacedRowIds(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
@@ -1075,13 +1109,13 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
 
   // format: off
   /**
-    * Creates two tables with four rows each and a links two rows two times.
+    * Creates two tables with four rows each and link two rows two times.
     *
     * |----------------------------|           |----------------------------|
     * |           table1           |           |           table2           |
     * |----------------------------|           |----------------------------|
     * | id | Test Column 1 | links |           | id | Test Column 1 | links |
-    * |----|---------------|-------|    ==>    |----|---------------|-------|
+    * |----|---------------|-------|  * ==> *  |----|---------------|-------|
     * | 1  | table1row1    |       |           | 1  | table2row1    | 3,4   |
     * | 2  | table1row2    |       |           | 2  | table2row2    | 3,4   |
     * | 3  | table1row3    | 1,2   |           | 3  | table2row3    |       |
@@ -1129,6 +1163,68 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
         Rows(
           columns1,
           Json.obj("Test Column 1" -> "table1row4", "links" -> Json.arr(1, 2))
+        )
+      )
+    } yield (tableId1, tableId2)
+  }
+
+  // format: off
+  /**
+    * Creates two tables with four rows each and link two rows.
+    *
+    * |----------------------------|           |----------------------------|
+    * |           table1           |           |           table2           |
+    * |----------------------------|           |----------------------------|
+    * | id | Test Column 1 | links |           | id | Test Column 1 | links |
+    * |----|---------------|-------|  * ==> 1  |----|---------------|-------|
+    * | 1  | table1row1    |       |           | 1  | table2row1    | 3,4   |
+    * | 2  | table1row2    |       |           | 2  | table2row2    |       |
+    * | 3  | table1row3    | 1     |           | 3  | table2row3    |       |
+    * | 4  | table1row4    | 1     |           | 4  | table2row4    |       |
+    */
+  private def createLinkTablesWithCardinality(): Future[(TableId, TableId)] = {
+    // format: on
+    for {
+      tableId1 <- createDefaultTable(name = "table1")
+      tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/columns",
+        Columns(
+          LinkBiDirectionalCol("links", tableId2, Constraint(Cardinality(0, 1), deleteCascade = false))
+        )
+      )
+
+      columns1 <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+      columns2 <- sendRequest("GET", s"/tables/$tableId2/columns").map(_.getJsonArray("columns"))
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId2/rows",
+        Rows(columns2, Json.obj("Test Column 1" -> "table2row3"))
+      )
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId2/rows",
+        Rows(columns2, Json.obj("Test Column 1" -> "table2row4"))
+      )
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/rows",
+        Rows(
+          columns1,
+          Json.obj("Test Column 1" -> "table1row3", "links" -> Json.arr(1))
+        )
+      )
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/rows",
+        Rows(
+          columns1,
+          Json.obj("Test Column 1" -> "table1row4", "links" -> Json.arr(1))
         )
       )
     } yield (tableId1, tableId2)
