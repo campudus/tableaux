@@ -69,20 +69,37 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     (union, binds)
   }
 
+  def getReplacedIds(
+      tableId: TableId,
+      rowId: RowId,
+      maybeTransaction: Option[DbTransaction]
+  )(implicit ec: ExecutionContext): Future[JsonArray] = {
+    val query = s"SELECT COALESCE(replaced_ids, '[]') FROM user_table_${tableId} WHERE id = ?"
+    val binds = Json.arr(rowId)
+
+    for {
+      res <- maybeTransaction match {
+        case Some(transaction) => transaction.query(query, binds).map({ case (_, obj) => obj })
+        case None => connection.transactional(t => t.query(query, binds))
+      }
+    } yield (
+      Json.fromArrayString(res.getJsonArray("results").getJsonArray(0).getString(0))
+    )
+  }
+
   def updateReplacedIds(
       tableId: TableId,
+      replacedIds: JsonArray,
       oldRowId: RowId,
       newRowId: Int,
       maybeTransaction: Option[DbTransaction]
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val updateQuery = s"""
                          |UPDATE user_table_${tableId}
-                         |SET replaced_ids = COALESCE(replaced_ids, '[]'::jsonb) ||
-                         |(SELECT COALESCE(replaced_ids, '[]') FROM user_table_${tableId} WHERE id = ?) ||
-                         |?::jsonb
+                         |SET replaced_ids = COALESCE(replaced_ids, '[]'::jsonb) || ?::jsonb
                          |WHERE id = ?
                          |""".stripMargin
-    val binds = Json.arr(oldRowId, Json.arr(oldRowId).encode(), newRowId)
+    val binds = Json.arr(replacedIds.add(oldRowId).encode(), newRowId)
 
     for {
       _ <- maybeTransaction match {

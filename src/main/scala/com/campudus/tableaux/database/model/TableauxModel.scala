@@ -287,10 +287,22 @@ class TableauxModel(
 
         linkList <- retrieveDependentCells(table, rowId)
 
+        // get already replaced ids before we delete the row
+        replacedRowIds <- updateRowModel.getReplacedIds(table.id, rowId, t)
+
+        // Clear special cells before delete.
+        // For example AttachmentColumns will
+        // not be deleted by DELETE CASCADE.
+        // clearing LinkColumn will eventually trigger delete cascade
+        _ <- updateRowModel.clearRow(table, rowId, specialColumns, deleteRow, t)
+        _ <- updateRowModel.deleteRow(table.id, rowId, t)
+
+        // first delete row and then update dependent rows because of constraint checks
+        // we can do that because of the transaction
         _ <- replacingRowIdOpt match {
           case Some(replacingRowId) => {
             for {
-              _ <- updateRowModel.updateReplacedIds(table.id, rowId, replacingRowId, t)
+              _ <- updateRowModel.updateReplacedIds(table.id, replacedRowIds, rowId, replacingRowId, t)
 
               // link dependent Rows to new row
               // use foldLeft and flatMap to execute queries sequentially, as a transaction doesn't allow
@@ -312,13 +324,6 @@ class TableauxModel(
           }
           case None => Future.successful(())
         }
-
-        // Clear special cells before delete.
-        // For example AttachmentColumns will
-        // not be deleted by DELETE CASCADE.
-        // clearing LinkColumn will eventually trigger delete cascade
-        _ <- updateRowModel.clearRow(table, rowId, specialColumns, deleteRow, t)
-        _ <- updateRowModel.deleteRow(table.id, rowId, t)
 
         // invalidate row
         _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
