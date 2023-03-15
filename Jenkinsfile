@@ -22,10 +22,9 @@ pipeline {
   agent any
 
   environment {
-    GIT_HASH = sh (
-      script: 'git log -1 --pretty=%h',
-      returnStdout: true
-    ).trim()
+    GIT_HASH = sh (returnStdout: true, script: 'git log -1 --pretty=%h').trim()
+    BUILD_DATE = sh(returnStdout: true, script: 'date \"+%Y-%m-%d %H:%M:%S\"').trim()
+    GIT_COMMIT_DATE = sh(returnStdout: true, script: "git show -s --format=%ci").trim()
   }
 
   triggers {
@@ -79,7 +78,15 @@ pipeline {
 
     stage('Build docker image') {
       steps {
-        sh "docker build -t ${IMAGE_NAME}:${DOCKER_BASE_IMAGE_TAG}-${GIT_HASH} -t ${IMAGE_NAME}:latest -f Dockerfile --rm ."
+        sh """
+          docker build \
+          --label "GIT_COMMIT=${GIT_COMMIT}" \
+          --label "GIT_COMMIT_DATE=${GIT_COMMIT_DATE}" \
+          --label "BUILD_DATE=${BUILD_DATE}" \
+          -t ${IMAGE_NAME}:${DOCKER_BASE_IMAGE_TAG}-${GIT_HASH} \
+          -t ${IMAGE_NAME}:latest \
+          -f Dockerfile --rm .
+        """
         // Legacy, but needed for some project deployments
         sh "docker save ${IMAGE_NAME}:latest | gzip -c > ${DEPLOY_DIR}/${LEGACY_ARCHIVE_FILENAME}"
       }
