@@ -1243,7 +1243,6 @@ class TableauxModel(
     for {
       columns <- retrieveColumns(table)
       cellHistorySeq <- retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt)
-      // _ = println("ASSDFASDAF " + cellHistorySeq.toArray().toString())
       filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
     } yield filteredCellHistorySeq
   }
