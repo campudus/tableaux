@@ -427,12 +427,25 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  private def insertRowHistory(
+  private def insertCreateRowHistory(
       table: Table,
       rowId: RowId
   )(implicit user: TableauxUser): Future[RowId] = {
-    logger.info(s"createRowHistory ${table.id} $rowId ${user.name}")
+    logger.info(s"insertCreateRowHistory ${table.id} $rowId ${user.name}")
     insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None)
+  }
+
+  private def insertDeleteRowHistory(
+      table: Table,
+      rowId: RowId,
+      replacingRowIdOpt: Option[Int]
+  )(implicit user: TableauxUser): Future[RowId] = {
+    logger.info(s"insertDeleteRowHistory ${table.id} $rowId ${user.name} ${replacingRowIdOpt}")
+    val jsonStringOpt = replacingRowIdOpt match {
+      case Some(replacingRowId) => Some(Json.obj("value" -> Json.obj("replacingRowId" -> replacingRowId)).toString())
+      case None => None
+    }
+    insertHistory(table.id, rowId, None, RowDeletedEvent, HistoryTypeRow, None, None, jsonStringOpt)
   }
 
   private def addRowAnnotationHistory(
@@ -888,7 +901,13 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   }
 
   def createRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[RowId] = {
-    insertRowHistory(table, rowId)
+    insertCreateRowHistory(table, rowId)
+  }
+
+  def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int])(
+      implicit user: TableauxUser
+  ): Future[RowId] = {
+    insertDeleteRowHistory(table, rowId, replacingRowIdOpt)
   }
 
   def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], finalFlagOpt: Option[Boolean])(

@@ -2180,6 +2180,7 @@
           "enum": [
             "cell_changed",
             "row_created",
+            "row_deleted",
             "annotation_added",
             "annotation_removed"
           ]

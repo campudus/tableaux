@@ -2601,6 +2601,62 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
       }
     }
   }
+
+  @Test
+  def deleteRow_withoutReplacingId(implicit c: TestContext): Unit = {
+    okTest {
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("DELETE", "/tables/1/rows/1")
+
+        rowHistories <- sendRequest("GET", "/tables/1/history?historyType=row").map(toRowsArray)
+        row1 = rowHistories.get[JsonObject](0)
+        row2 = rowHistories.get[JsonObject](1)
+      } yield {
+        assertEquals(2, rowHistories.size())
+        JSONAssert.assertEquals(s"""{ "rowId": 1, "event": "row_created" }""", row1.toString, JSONCompareMode.LENIENT)
+        JSONAssert.assertEquals(s"""{ "rowId": 1, "event": "row_deleted" }""", row2.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def deleteRow_withReplacingId(implicit c: TestContext): Unit = {
+    okTest {
+
+      for {
+        _ <- createEmptyDefaultTable()
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("DELETE", "/tables/1/rows/1?replacingRowId=3")
+
+        rowHistories <- sendRequest("GET", "/tables/1/history?historyType=row").map(toRowsArray)
+
+        row1 = rowHistories.get[JsonObject](0)
+        row2 = rowHistories.get[JsonObject](1)
+        row3 = rowHistories.get[JsonObject](2)
+        row4 = rowHistories.get[JsonObject](3)
+      } yield {
+        assertEquals(4, rowHistories.size())
+        assertJSONEquals(Json.obj("rowId" -> 1, "historyType" -> "row", "event" -> "row_created"), row1)
+        assertJSONEquals(Json.obj("rowId" -> 2, "historyType" -> "row", "event" -> "row_created"), row2)
+        assertJSONEquals(Json.obj("rowId" -> 3, "historyType" -> "row", "event" -> "row_created"), row3)
+        assertJSONEquals(
+          Json.obj(
+            "rowId" -> 1,
+            "event" -> "row_deleted",
+            "value" -> Json.obj(
+              "replacingRowId" -> 3
+            )
+          ),
+          row4
+        )
+      }
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
