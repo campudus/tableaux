@@ -345,10 +345,16 @@ class TableauxModel(
       } yield (t, EmptyObject())
     };
 
-    replacingRowIdOpt match {
-      case Some(_) => connection.transactional(t => fnc(Some(t)).map({ case (t, obj) => (t.get, obj) }))
-      case None => fnc(None).map({ case (_, emptyObj) => emptyObj })
-    }
+    for {
+      _ <- replacingRowIdOpt match {
+        case Some(_) => connection.transactional(t => fnc(Some(t)).map({ case (t, obj) => (t.get, obj) }))
+        case None => fnc(None).map({ case (_, emptyObj) => emptyObj })
+      }
+
+      _ <- createHistoryModel.deleteRow(table, rowId, replacingRowIdOpt)
+
+    } yield EmptyObject()
+
   }
 
   def createRow(table: Table)(implicit user: TableauxUser): Future[Row] = {
@@ -1237,6 +1243,7 @@ class TableauxModel(
     for {
       columns <- retrieveColumns(table)
       cellHistorySeq <- retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt)
+      // _ = println("ASSDFASDAF " + cellHistorySeq.toArray().toString())
       filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
     } yield filteredCellHistorySeq
   }

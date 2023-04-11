@@ -52,6 +52,7 @@ sealed trait HistoryEventType {
 object HistoryEventType {
   final val CellChanged = "cell_changed"
   final val RowCreated = "row_created"
+  final val RowDeleted = "row_deleted"
   final val AnnotationAdded = "annotation_added"
   final val AnnotationRemoved = "annotation_removed"
 
@@ -59,6 +60,7 @@ object HistoryEventType {
     eventType match {
       case CellChanged => CellChangedEvent
       case RowCreated => RowCreatedEvent
+      case RowDeleted => RowDeletedEvent
       case AnnotationAdded => AnnotationAddedEvent
       case AnnotationRemoved => AnnotationRemovedEvent
       case _ => throw new IllegalArgumentException(s"Invalid argument for HistoryEventType $eventType")
@@ -72,6 +74,10 @@ case object CellChangedEvent extends HistoryEventType {
 
 case object RowCreatedEvent extends HistoryEventType {
   override val eventName = HistoryEventType.RowCreated
+}
+
+case object RowDeletedEvent extends HistoryEventType {
+  override val eventName = HistoryEventType.RowDeleted
 }
 
 case object AnnotationAddedEvent extends HistoryEventType {
