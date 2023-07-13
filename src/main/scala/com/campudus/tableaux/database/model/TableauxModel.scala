@@ -38,6 +38,15 @@ object TableauxModel {
   }
 }
 
+class DuplicateLinkOption(val skipConstrainedFrom: Boolean, val annotateSkipped: Boolean)
+
+object DuplicateLinkOption {
+
+  def apply(skipConstrainedFrom: Boolean, annotateSkipped: Boolean): DuplicateLinkOption = {
+    new DuplicateLinkOption(skipConstrainedFrom, annotateSkipped)
+  }
+}
+
 /**
   * Needed because e.g. `TableauxController#createCompleteTable` and `TableauxController#retrieveCompleteTable` need to
   * call method from `StructureModel`.
@@ -1008,17 +1017,32 @@ class TableauxModel(
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }
 
-  def duplicateRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
+  def duplicateRow(table: Table, rowId: RowId, linkOptions: Option[DuplicateLinkOption])(implicit
+  user: TableauxUser): Future[Row] = {
+    val isConstrainedLink = (link: LinkColumn) => link.linkDirection.constraint.cardinality.from > 0
+    val shouldAnnotateSkipped = linkOptions.fold(false)(_.annotateSkipped)
+    val shouldSkipConstrained = linkOptions.fold(false)(_.skipConstrainedFrom)
+    println(s"skip: $shouldSkipConstrained, annotate: $shouldAnnotateSkipped")
+    def canBeDuplicated(col: ColumnType[_]): Boolean = col match {
+      case _: ConcatColumn => false
+      case _: GroupColumn => false
+      case _ => true
+    }
     for {
       _ <- roleModel.checkAuthorization(CreateRow, ComparisonObjects(table))
-      columns <- retrieveColumns(table).map(_.filter({
-        // ConcatColumn && GroupColumn can't be duplicated
-        case _: ConcatColumn | _: GroupColumn => false
-        // Other columns can be duplicated
-        case _ => true
-      }))
+      allColumns <- retrieveColumns(table)
+      columns = allColumns
+        .filter(canBeDuplicated)
+        .filter({
+          case link: LinkColumn if shouldSkipConstrained => !isConstrainedLink(link)
+          case _ => true
+        })
+      constrainedColumns = allColumns.filter({
+        case link: LinkColumn => shouldSkipConstrained && isConstrainedLink(link)
+        case _ => false
+      })
 
-      // Retrieve row without ConcatColumn
+      // Retrieve row without skipped columns
       row <- retrieveRow(table, columns, rowId)
       rowValues = row.values
 
@@ -1040,6 +1064,12 @@ class TableauxModel(
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
+      _ <-
+        if (shouldAnnotateSkipped) {
+          Future.sequence(constrainedColumns.map(col =>
+            addCellAnnotation(col, duplicatedRow.id, Seq.empty, CellAnnotationType(CellAnnotationType.FLAG), "check-me")
+          ))
+        } else Future.successful(())
     } yield duplicatedRow
   }
 

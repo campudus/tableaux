@@ -977,7 +977,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      _ <- controller.duplicateRow(1, 1)
+      _ <- controller.duplicateRow(1, 1, None)
     } yield ()
   }
 
@@ -1009,7 +1009,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
         _ <- sendRequest("POST", "/system/settings/langtags", Json.obj("value" -> Json.arr("de", "en")))
 
         _ <- createTestTable()
-        duplicatedRow <- controller.duplicateRow(1, 1)
+        duplicatedRow <- controller.duplicateRow(1, 1, None)
 
         // Request with dev role to get al columns
         duplicatedRowAllColumns <- sendRequest("GET", s"/tables/1/rows/${duplicatedRow.id}")
@@ -1039,7 +1039,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex <- controller.duplicateRow(1, 1).recover({ case ex => ex })
+      ex <- controller.duplicateRow(1, 1, None).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(CreateRow, Seq("duplicate-rows")), ex)
     }
