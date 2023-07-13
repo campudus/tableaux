@@ -3,6 +3,7 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
+import com.campudus.tableaux.database.model.DuplicateLinkOption
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
@@ -556,6 +557,10 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     */
   private def duplicateRow(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
+    val linkOptions = DuplicateLinkOption(
+      getBoolParam("skipConstrainedLinks", context).getOrElse(false),
+      getBoolParam("annotateSkipped", context).getOrElse(false)
+    )
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
@@ -563,7 +568,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.duplicateRow(tableId, rowId)
+          controller.duplicateRow(tableId, rowId, Some(linkOptions))
         }
       )
     }
