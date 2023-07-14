@@ -38,12 +38,20 @@ object TableauxModel {
   }
 }
 
-class DuplicateLinkOption(val skipConstrainedFrom: Boolean, val annotateSkipped: Boolean)
+class DuplicateRowOptions(
+    val skipConstrainedFrom: Boolean,
+    val annotateSkipped: Boolean,
+    val columnIds: Option[Seq[TableauxModel.ColumnId]] = None
+)
 
-object DuplicateLinkOption {
+object DuplicateRowOptions {
 
-  def apply(skipConstrainedFrom: Boolean, annotateSkipped: Boolean): DuplicateLinkOption = {
-    new DuplicateLinkOption(skipConstrainedFrom, annotateSkipped)
+  def apply(
+      skipConstrainedFrom: Boolean,
+      annotateSkipped: Boolean,
+      columnIds: Option[Seq[TableauxModel.ColumnId]] = None
+  ): DuplicateRowOptions = {
+    new DuplicateRowOptions(skipConstrainedFrom, annotateSkipped, columnIds)
   }
 }
 
@@ -1017,33 +1025,38 @@ class TableauxModel(
     } yield RowSeq(rowSeq, Page(pagination, Some(totalSize)))
   }
 
-  def duplicateRow(table: Table, rowId: RowId, linkOptions: Option[DuplicateLinkOption])(implicit
+  def duplicateRow(table: Table, rowId: RowId, options: Option[DuplicateRowOptions])(implicit
   user: TableauxUser): Future[Row] = {
     val isConstrainedLink = (link: LinkColumn) => link.linkDirection.constraint.cardinality.from > 0
-    val shouldAnnotateSkipped = linkOptions.fold(false)(_.annotateSkipped)
-    val shouldSkipConstrained = linkOptions.fold(false)(_.skipConstrainedFrom)
-    println(s"skip: $shouldSkipConstrained, annotate: $shouldAnnotateSkipped")
+    val shouldAnnotateSkipped = options.fold(false)(_.annotateSkipped)
+    val shouldSkipConstrained = options.fold(false)(_.skipConstrainedFrom)
+    val specificColumns = options.flatMap(_.columnIds)
     def canBeDuplicated(col: ColumnType[_]): Boolean = col match {
       case _: ConcatColumn => false
       case _: GroupColumn => false
       case _ => true
     }
+    def isIn(xs: Seq[ColumnId]): ((ColumnType[_]) => Boolean) = {
+      val lookup = xs.toSet
+      (y: ColumnType[_]) => lookup contains y.id
+    }
     for {
       _ <- roleModel.checkAuthorization(CreateRow, ComparisonObjects(table))
       allColumns <- retrieveColumns(table)
-      columns = allColumns
+      columnsToDuplicate = allColumns
         .filter(canBeDuplicated)
         .filter({
           case link: LinkColumn if shouldSkipConstrained => !isConstrainedLink(link)
           case _ => true
         })
-      constrainedColumns = allColumns.filter({
-        case link: LinkColumn => shouldSkipConstrained && isConstrainedLink(link)
-        case _ => false
-      })
+        .filter(specificColumns match {
+          case Some(columnsToKeep) => isIn(columnsToKeep)
+          case _ => (_: Any) => true
+        })
+      skippedColumns = allColumns.filter(col => !isIn(columnsToDuplicate.map(_.id))(col))
 
       // Retrieve row without skipped columns
-      row <- retrieveRow(table, columns, rowId)
+      row <- retrieveRow(table, columnsToDuplicate, rowId)
       rowValues = row.values
 
       // First create a empty row
@@ -1051,7 +1064,7 @@ class TableauxModel(
 
       // Fill the row with life
       _ <- updateRowModel
-        .updateRow(table, duplicatedRowId, columns.zip(rowValues))
+        .updateRow(table, duplicatedRowId, columnsToDuplicate.zip(rowValues))
         // If this fails delete the row, cleanup time
         .recoverWith({
           case NonFatal(ex) =>
@@ -1060,13 +1073,13 @@ class TableauxModel(
         })
 
       _ <- createHistoryModel.createRow(table, duplicatedRowId)
-      _ <- createHistoryModel.createCells(table, rowId, columns.zip(rowValues))
+      _ <- createHistoryModel.createCells(table, rowId, columnsToDuplicate.zip(rowValues))
 
       // Retrieve duplicated row with all columns
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
       _ <-
         if (shouldAnnotateSkipped) {
-          Future.sequence(constrainedColumns.map(col =>
+          Future.sequence(skippedColumns.map(col =>
             addCellAnnotation(col, duplicatedRow.id, Seq.empty, CellAnnotationType(CellAnnotationType.FLAG), "check-me")
           ))
         } else Future.successful(())

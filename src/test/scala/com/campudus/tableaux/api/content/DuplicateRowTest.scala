@@ -1,9 +1,11 @@
 package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.database.domain.Cardinality
+import com.campudus.tableaux.database.domain.CellAnnotationType
 import com.campudus.tableaux.database.domain.Constraint
 import com.campudus.tableaux.database.model.TableauxModel
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.testtools.JsonAssertable
 import com.campudus.tableaux.testtools.RequestCreation
 import com.campudus.tableaux.testtools.TableauxTestBase
 
@@ -16,7 +18,6 @@ import scala.concurrent.Future
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import com.campudus.tableaux.database.domain.CellAnnotationType
 
 @RunWith(classOf[VertxUnitRunner])
 class DuplicateRowTest extends TableauxTestBase {
@@ -247,6 +248,45 @@ class DuplicateRowTest extends TableauxTestBase {
       val checkMeAnnotation = res.getJsonArray("annotations").getJsonArray(0).getJsonObject(0)
       assertEquals(checkMeAnnotation.getString("type"), CellAnnotationType.FLAG)
       assertEquals(checkMeAnnotation.getString("value"), "check-me")
+    }
+  }
+
+  @Test
+  def duplicateSpecificRows(implicit c: TestContext): Unit = okTest {
+    val payload = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1)))
+    for {
+      tableId <- createDefaultTable(name = "models")
+      _ <- sendRequest("POST", s"/tables/$tableId/rows/1/duplicate?skipConstrainedLinks=true", payload)
+      rowRes <- sendRequest("GET", s"/tables/$tableId/rows")
+    } yield {
+      val rows = rowRes.getJsonArray("rows")
+      val originalValues = rows.getJsonObject(0).getJsonArray("values")
+      val duplicatedValues = rows.getJsonObject(2).getJsonArray("values")
+
+      assertEquals(originalValues.getString(0), duplicatedValues.getString(0))
+      assertEquals(null, duplicatedValues.getJsonObject(1)) // column not in payload was omitted
+    }
+  }
+
+  @Test
+  def duplicateSpecificRowsWithoutConstrainedLinks(implicit c: TestContext): Unit = okTest {
+    val payload = Json.obj("columns" -> Json.arr(
+      Json.obj("id" -> 1),
+      Json.obj("id" -> 3)
+    ))
+    for {
+      tableIds <- createLinkedTables()
+      modelTableId = tableIds(0)
+      _ <- sendRequest("POST", s"/tables/$modelTableId/rows/1/duplicate?skipConstrainedLinks=true", payload)
+      rowRes <- sendRequest("GET", s"/tables/$modelTableId/rows")
+    } yield {
+      val rows = rowRes.getJsonArray("rows")
+      val originalValues = rows.getJsonObject(0).getJsonArray("values")
+      val duplicatedValues = rows.getJsonObject(2).getJsonArray("values")
+
+      assertEquals(originalValues.getString(0), duplicatedValues.getString(0))
+      assertEquals(null, duplicatedValues.getJsonObject(1)) // column not in payload was omitted
+      assertEquals(0, duplicatedValues.getJsonArray(2).size()) // constrained link was still skipped
     }
   }
 

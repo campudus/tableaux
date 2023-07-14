@@ -1,15 +1,19 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
+import com.campudus.tableaux.ArgumentChecker
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
-import com.campudus.tableaux.database.model.DuplicateLinkOption
+import com.campudus.tableaux.database.domain.ColumnType
+import com.campudus.tableaux.database.domain.SimpleValueColumn
+import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import org.vertx.scala.core.json.JsonArray
+import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -557,9 +561,15 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     */
   private def duplicateRow(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-    val linkOptions = DuplicateLinkOption(
+    val body = Try(getJson(context)).toOption
+    val specificColumnsIds =
+      body.filter(_.containsKey("columns"))
+        .map(toColumnSeq)
+        .map(_.get)
+     val duplicateOptions = DuplicateRowOptions(
       getBoolParam("skipConstrainedLinks", context).getOrElse(false),
-      getBoolParam("annotateSkipped", context).getOrElse(false)
+      getBoolParam("annotateSkipped", context).getOrElse(false),
+      specificColumnsIds
     )
     for {
       tableId <- getTableId(context)
@@ -568,7 +578,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.duplicateRow(tableId, rowId, Some(linkOptions))
+          controller.duplicateRow(tableId, rowId, Some(duplicateOptions))
         }
       )
     }
