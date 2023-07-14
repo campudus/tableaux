@@ -1079,7 +1079,7 @@ class TableauxModel(
       duplicatedRow <- retrieveRow(table, duplicatedRowId)
       _ <-
         if (shouldAnnotateSkipped) {
-          Future.sequence(skippedColumns.map(col =>
+          Future.sequence(skippedColumns.filter(canBeDuplicated).map(col =>
             addCellAnnotation(col, duplicatedRow.id, Seq.empty, CellAnnotationType(CellAnnotationType.FLAG), "check-me")
           ))
         } else Future.successful(())
