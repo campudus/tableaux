@@ -7,6 +7,7 @@ import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
+import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission._
 
@@ -17,7 +18,6 @@ import scala.concurrent.Future
 import scala.util.Try
 
 import java.util.UUID
-import com.campudus.tableaux.database.model.DuplicateRowOptions
 
 object TableauxController {
 
@@ -287,7 +287,8 @@ class TableauxController(
     } yield EmptyObject()
   }
 
-  def duplicateRow(tableId: TableId, rowId: RowId, duplicateOptions: Option[DuplicateRowOptions])(implicit user: TableauxUser): Future[Row] = {
+  def duplicateRow(tableId: TableId, rowId: RowId, duplicateOptions: Option[DuplicateRowOptions])(implicit
+  user: TableauxUser): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")
     for {

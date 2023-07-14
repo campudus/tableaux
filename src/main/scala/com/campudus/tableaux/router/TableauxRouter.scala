@@ -562,7 +562,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       body.filter(_.containsKey("columns"))
         .map(toColumnSeq)
         .map(_.get)
-     val duplicateOptions = DuplicateRowOptions(
+    val duplicateOptions = DuplicateRowOptions(
       getBoolParam("skipConstrainedLinks", context).getOrElse(false),
       getBoolParam("annotateSkipped", context).getOrElse(false),
       specificColumnsIds
