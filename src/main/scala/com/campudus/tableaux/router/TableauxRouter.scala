@@ -1,6 +1,7 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
+import com.campudus.tableaux.OkArg
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
@@ -560,8 +561,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     val body = Try(getJson(context)).toOption
     val specificColumnsIds =
       body.filter(_.containsKey("columns"))
-        .map(toColumnSeq)
-        .map(_.get)
+        .map(toColumnIdSeq)
+        .flatMap(_.toOption)
+        .flatMap(_ match {
+          case OkArg(value) => Some(value)
+          case _ => None
+        })
     val duplicateOptions = DuplicateRowOptions(
       getBoolParam("skipConstrainedLinks", context).getOrElse(false),
       getBoolParam("annotateSkipped", context).getOrElse(false),

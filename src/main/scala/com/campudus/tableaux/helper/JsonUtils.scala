@@ -259,11 +259,11 @@ object JsonUtils extends LazyLogging {
     } yield result).get
   }
 
-  def toColumnSeq(json: JsonObject) = {
+  def toColumnIdSeq(json: JsonObject) = {
     for {
       columnsObject <- toJsonObjectSeq("columns", json)
       columns = sequence(columnsObject.map(hasLong("id", _)))
-    } yield columns.get
+    } yield columns
   }
 
   def toColumnValueSeq(json: JsonObject): Seq[Seq[(ColumnId, _)]] = {
