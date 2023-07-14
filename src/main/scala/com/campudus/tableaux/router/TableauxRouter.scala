@@ -1,11 +1,8 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, TableauxConfig}
-import com.campudus.tableaux.ArgumentChecker
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, Pagination}
-import com.campudus.tableaux.database.domain.ColumnType
-import com.campudus.tableaux.database.domain.SimpleValueColumn
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
@@ -13,7 +10,6 @@ import com.campudus.tableaux.router.auth.permission.TableauxUser
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
 import org.vertx.scala.core.json.JsonArray
-import org.vertx.scala.core.json.JsonObject
 
 import scala.concurrent.Future
 import scala.util.Try
