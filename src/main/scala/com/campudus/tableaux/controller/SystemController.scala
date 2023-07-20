@@ -51,7 +51,7 @@ class SystemController(
   }
 
   def retrieveVersions(): Future[DomainObject] = {
-    logger.info("Retrieve version information")
+    logger.debug("Retrieve version information")
 
     val development = "DEVELOPMENT"
 
