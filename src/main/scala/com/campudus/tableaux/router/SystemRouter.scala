@@ -5,6 +5,7 @@ import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database.domain.{MultiLanguageValue, ServiceType}
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.router.auth.permission.TableauxUser
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
@@ -43,6 +44,7 @@ object SystemRouter {
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
   private val serviceId = """(?<serviceId>[\d]+)"""
+  private val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def route: Router = {
     val router = Router.router(vertx)
@@ -271,7 +273,13 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         val config = getNullableObject("config")(json)
         val scope = getNullableObject("scope")(json)
 
-        controller.createService(name, serviceType, ordering, displayName, description, active, config, scope)
+        for {
+          service <-
+            controller.createService(name, serviceType, ordering, displayName, description, active, config, scope)
+        } yield {
+          messagingClient.servicesChange()
+          service
+        }
       }
     )
   }
@@ -284,6 +292,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     for {
       serviceId <- getServiceId(context)
     } yield {
+      messagingClient.servicesChange()
       sendReply(
         context,
         asyncGetReply {
@@ -314,6 +323,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     for {
       serviceId <- getServiceId(context)
     } yield {
+      messagingClient.servicesChange()
       sendReply(
         context,
         asyncGetReply {

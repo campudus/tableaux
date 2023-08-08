@@ -18,6 +18,7 @@ import com.campudus.tableaux.database.model.structure.{CachedColumnModel, Column
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.eventbus.EventBus
@@ -48,6 +49,7 @@ class StructureController(
   val tableStruc: TableModel = repository.tableStruc
   val columnStruc: CachedColumnModel = repository.columnStruc
   val tableGroupStruc: TableGroupModel = repository.tableGroupStruc
+  val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def retrieveTable(tableId: TableId)(implicit user: TableauxUser): Future[Table] = {
     checkArguments(greaterZero(tableId))
@@ -85,6 +87,7 @@ class StructureController(
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
       sorted = retrieved.sortBy(_.ordering)
     } yield {
+      sorted.foreach(col => messagingClient.columnCreated(tableId, col.id))
       ColumnSeq(sorted)
     }
   }
@@ -171,13 +174,20 @@ class StructureController(
     }
 
     val validator = JsonSchemaValidatorClient(vertx)
-    attributes match {
+    val tableFuture: Future[Table] = attributes match {
       case Some(s) => {
         validator.validateJson(ValidatorKeys.ATTRIBUTES, s).flatMap(createTable).recover {
           case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
         }
       }
       case None => createTable(Unit)
+    }
+
+    for {
+      createdTable <- tableFuture
+    } yield {
+      messagingClient.tableCreated(createdTable.id)
+      createdTable
     }
 
   }
@@ -352,7 +362,10 @@ class StructureController(
           CacheClient(this).invalidateColumn(tableId, column.id)
         }
       }))
-    } yield EmptyObject()
+    } yield {
+      messagingClient.tableDeleted(tableId, table)
+      EmptyObject()
+    }
   }
 
   def deleteColumn(tableId: TableId, columnId: ColumnId)(
@@ -375,7 +388,10 @@ class StructureController(
       }
 
       _ <- CacheClient(this).invalidateColumn(tableId, columnId)
-    } yield EmptyObject()
+    } yield {
+      messagingClient.columnDeleted(table.id, column.id, column)
+      EmptyObject()
+    }
   }
 
   def changeTable(
@@ -424,6 +440,7 @@ class StructureController(
       changedTable <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $changedTable")
+      messagingClient.tableChanged(tableId)
       changedTable
     }
   }

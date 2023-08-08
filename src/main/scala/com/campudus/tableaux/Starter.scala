@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
 import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, JsonSchemaValidatorVerticle}
+import com.campudus.tableaux.verticles.Messaging.MessagingVerticle
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
@@ -72,6 +73,7 @@ class Starter extends ScalaVerticle with LazyLogging {
         server <- deployHttpServer(port, host, tableauxConfig, connection)
         _ <- deployJsonSchemaValidatorVerticle(jsonSchemaConfig)
         _ <- deployCacheVerticle(cacheConfig)
+        _ <- deployMessagingVerticle(tableauxConfig)
       } yield {
         this.server = server
       }
@@ -126,6 +128,30 @@ class Starter extends ScalaVerticle with LazyLogging {
     })
 
     deployFuture
+  }
+
+  private def deployMessagingVerticle(tableauxConfig: TableauxConfig): Future[String] = {
+
+    val config =
+      Json.obj(
+        "rolePermissions" -> tableauxConfig.rolePermissions,
+        "authConfig" -> tableauxConfig.authConfig,
+        "databaseConfig" -> tableauxConfig.databaseConfig
+      )
+    val options = DeploymentOptions()
+      .setConfig(config)
+
+    val deployFuture = vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[MessagingVerticle], options)
+
+    deployFuture.onComplete({
+      case Success(id) =>
+        logger.info(s"MessagingVerticle deployed with ID $id")
+      case Failure(e) =>
+        logger.error("MessagingVerticle couldn't be deployed.", e)
+    })
+
+    deployFuture
+
   }
 
   private def deployCacheVerticle(config: JsonObject): Future[String] = {

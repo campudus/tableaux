@@ -2,6 +2,14 @@
   //###########################
   //########## user ###########
   //###########################
+
+  "create-table": [
+    {
+      "type": "grant",
+      "action": ["create", "delete", "view"],
+      "scope": "table"
+    }
+  ],
   "view-table": [
     {
       "type": "grant",
@@ -212,6 +220,13 @@
         "editTableGroup",
         "deleteTableGroup"
       ]
+    }
+  ],
+  "create-media": [
+    {
+      "type": "grant",
+      "action": ["create"],
+      "scope": "media"
     }
   ],
   "change-service": [
