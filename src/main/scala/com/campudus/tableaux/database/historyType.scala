@@ -61,7 +61,7 @@ object HistoryEventType {
   final val RowDeleted = "row_deleted"
   final val AnnotationAdded = "annotation_added"
   final val AnnotationRemoved = "annotation_removed"
-  final val RowPermissionsChanged = "annotation_changed"
+  final val AnnotationChanged = "annotation_changed"
 
   def apply(eventType: String): HistoryEventType = {
     eventType match {
@@ -70,7 +70,7 @@ object HistoryEventType {
       case RowDeleted => RowDeletedEvent
       case AnnotationAdded => AnnotationAddedEvent
       case AnnotationRemoved => AnnotationRemovedEvent
-      case RowPermissionsChanged => RowPermissionsChangedEvent
+      case AnnotationChanged => AnnotationChangedEvent
       case _ => throw new IllegalArgumentException(s"Invalid argument for HistoryEventType $eventType")
     }
   }
@@ -96,6 +96,6 @@ case object AnnotationRemovedEvent extends HistoryEventType {
   override val eventName = HistoryEventType.AnnotationRemoved
 }
 
-case object RowPermissionsChangedEvent extends HistoryEventType {
-  override val eventName = HistoryEventType.RowPermissionsChanged
+case object AnnotationChangedEvent extends HistoryEventType {
+  override val eventName = HistoryEventType.AnnotationChanged
 }

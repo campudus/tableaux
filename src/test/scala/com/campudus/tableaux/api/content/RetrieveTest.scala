@@ -611,15 +611,15 @@ class RetrieveRowsTest extends TableauxTestBase {
                                     |      "type": "grant",
                                     |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
                                     |    },
-                                    |     {
-                                    |       "type": "deny",
-                                    |       "action": ["viewRow"],
-                                    |       "condition": {
-                                    |         "row": {
-                                    |           "permissions": "onlyLinemaster"
-                                    |         }
-                                    |       }
-                                    |     }
+                                    |    {
+                                    |      "type": "deny",
+                                    |      "action": ["viewRow"],
+                                    |      "condition": {
+                                    |        "row": {
+                                    |          "permissions": "onlyLinemaster"
+                                    |        }
+                                    |      }
+                                    |    }
                                     |  ]
                                     |}""".stripMargin)
     val expectedJson: JsonArray = Json.arr(

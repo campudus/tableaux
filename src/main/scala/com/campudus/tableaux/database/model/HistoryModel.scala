@@ -928,7 +928,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
               tableId,
               rowId,
               None,
-              RowPermissionsChangedEvent,
+              AnnotationChangedEvent,
               HistoryTypeRowPermissions,
               Some(annotation.jsonKey),
               Some(LanguageType.NEUTRAL),

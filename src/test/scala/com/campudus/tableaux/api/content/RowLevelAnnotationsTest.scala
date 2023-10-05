@@ -46,6 +46,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
         val expectedRowJson2 = Json.obj(
           "status" -> "ok",
           "id" -> rowId,
+          "final" -> false,
           "values" -> Json.arr(null, null)
         )
 

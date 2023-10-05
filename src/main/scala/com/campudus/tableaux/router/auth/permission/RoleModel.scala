@@ -99,7 +99,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
           case table: Table => ComparisonObjects(table)
           case column: ColumnType[_] => parentObjects.merge(column)
           case row: Row => ComparisonObjects(row)
-          case rowPermissions: RowPermissions => ComparisonObjects(rowPermissions = rowPermissions)
+          case rowPermissions: RowPermissions => ComparisonObjects(rowPermissions)
           case _: Service => ComparisonObjects()
           case _ => ComparisonObjects()
         }
