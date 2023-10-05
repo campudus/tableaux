@@ -2402,6 +2402,94 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
+  def addRowAnnotation_addPermissionFlag(implicit c: TestContext): Unit = {
+    okTest {
+      val expectedRow1 =
+        """
+          |{
+          |  "event": "annotation_changed",
+          |  "historyType": "row_permissions",
+          |  "valueType": "permissions",
+          |  "value": ["perm_1", "perm_2"]
+          |}
+        """.stripMargin
+
+      val expectedRow2 =
+        """
+          |{
+          |  "event": "annotation_changed",
+          |  "historyType": "row_permissions",
+          |  "valueType": "permissions",
+          |  "value": ["perm_3"]
+          |}
+        """.stripMargin
+
+      for {
+
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        _ <-
+          sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("perm_1", "perm_2")))
+        _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("perm_3")))
+
+        rows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
+
+        row1 = rows.get[JsonObject](0)
+        row2 = rows.get[JsonObject](1)
+      } yield {
+        assertEquals(2, rows.size())
+        assertJSONEquals(expectedRow1, row1.toString)
+        assertJSONEquals(expectedRow2, row2.toString)
+      }
+    }
+  }
+
+  @Test
+  def removeRowAnnotation_removePermissionFlag_setEmpty(implicit c: TestContext): Unit = {
+    okTest {
+      val expectedRow1 =
+        """
+          |{
+          |  "event": "annotation_changed",
+          |  "historyType": "row_permissions",
+          |  "valueType": "permissions",
+          |  "value": ["perm_1"]
+          |}
+        """.stripMargin
+
+      val expectedRow2 =
+        """
+          |{
+          |  "event": "annotation_changed",
+          |  "historyType": "row_permissions",
+          |  "valueType": "permissions",
+          |  "value": []
+          |}
+        """.stripMargin
+
+      for {
+
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        _ <-
+          sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("perm_1")))
+        _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr()))
+
+        rows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
+
+        row1 = rows.get[JsonObject](0)
+        row2 = rows.get[JsonObject](1)
+      } yield {
+        assertEquals(2, rows.size())
+        assertJSONEquals(expectedRow1, row1.toString)
+        assertJSONEquals(expectedRow2, row2.toString)
+      }
+    }
+  }
+
+  @Test
   def removeRowAnnotation_removeFinalFlag(implicit c: TestContext): Unit = {
     okTest {
       val expected =
@@ -2497,6 +2585,44 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
       }
     }
   }
+
+  // TODO add test for adding annotations for all rows at once (currently failing with runtime error)
+
+  // @Test
+  // def addRowPermissionAnnotation_addPermissionFlagToMultipleRows(implicit c: TestContext): Unit = {
+  //   okTest {
+  //     val expected =
+  //       """
+  //         |{
+  //         |  "event": "annotation_changed",
+  //         |  "historyType": "row_permissions",
+  //         |  "valueType": "permissions",
+  //         |  "value": ["perm_1"]
+  //         |}
+  //       """.stripMargin
+
+  //     for {
+
+  //       _ <- createTableWithMultilanguageColumns("history test")
+  //       _ <- sendRequest("POST", "/tables/1/rows")
+  //       _ <- sendRequest("POST", "/tables/1/rows")
+  //       _ <- sendRequest("POST", "/tables/1/rows")
+
+  //       _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("perm_1")))
+
+  //       rows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
+
+  //       row1 = rows.get[JsonObject](0)
+  //       row2 = rows.get[JsonObject](1)
+  //       row3 = rows.get[JsonObject](2)
+  //     } yield {
+  //       assertEquals(3, rows.size())
+  //       assertJSONEquals(expected, row1.toString)
+  //       assertJSONEquals(expected, row2.toString)
+  //       assertJSONEquals(expected, row3.toString)
+  //     }
+  //   }
+  // }
 }
 
 @RunWith(classOf[VertxUnitRunner])
