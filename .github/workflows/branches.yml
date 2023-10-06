@@ -72,22 +72,22 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: Test Report
+          name: test-report
           path: build/reports/tests/test
 
-      - name: Archive test result (xml)
+      - name: Archive test results (xml)
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: Unit Test Results
+          name: test-results
           path: build/test-results/test/TEST-*.xml
 
       - name: Archive code coverage results
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: Coverage Report
-          path: output/test/code-coverage.html
+          name: coverage-report
+          path: build/reports/scoverage
 
       - name: Test Report
         uses: dorny/test-reporter@v1
@@ -101,6 +101,12 @@ jobs:
           fail-on-error: "true"
           max-annotations: "10"
 
+      - name: Coverage Report
+        uses: 5monkeys/cobertura-action@master
+        with:
+          path: build/reports/scoverage/cobertura.xml
+          minimum_coverage: 80
+
   publish-test-results:
     name: "Publish Unit Tests Results"
     needs: build-and-test
@@ -109,11 +115,11 @@ jobs:
 
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
 
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
-          files: artifacts/**/*.xml
+          files: artifacts/test-results/**/*.xml
