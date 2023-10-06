@@ -607,7 +607,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         case rowPermissions: RowPermissions =>
           connection.query(
             s"UPDATE user_table_$tableId SET row_permissions = ?",
-            Json.arr(rowPermissions.value.toString())
+            Json.arr(rowPermissions.rowPermissions.toString())
           )
       }
     })

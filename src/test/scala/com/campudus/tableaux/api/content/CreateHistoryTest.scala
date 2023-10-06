@@ -2586,43 +2586,41 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
     }
   }
 
-  // TODO add test for adding annotations for all rows at once (currently failing with runtime error)
+  @Test
+  def addRowPermissionAnnotation_addPermissionFlagToMultipleRows(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |{
+          |  "event": "annotation_changed",
+          |  "historyType": "row_permissions",
+          |  "valueType": "permissions",
+          |  "value": ["perm_1"]
+          |}
+        """.stripMargin
 
-  // @Test
-  // def addRowPermissionAnnotation_addPermissionFlagToMultipleRows(implicit c: TestContext): Unit = {
-  //   okTest {
-  //     val expected =
-  //       """
-  //         |{
-  //         |  "event": "annotation_changed",
-  //         |  "historyType": "row_permissions",
-  //         |  "valueType": "permissions",
-  //         |  "value": ["perm_1"]
-  //         |}
-  //       """.stripMargin
+      for {
 
-  //     for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/rows")
 
-  //       _ <- createTableWithMultilanguageColumns("history test")
-  //       _ <- sendRequest("POST", "/tables/1/rows")
-  //       _ <- sendRequest("POST", "/tables/1/rows")
-  //       _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("PATCH", "/tables/1/rows/annotations", Json.obj("permissions" -> Json.arr("perm_1")))
 
-  //       _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("permissions" -> Json.arr("perm_1")))
+        rows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
 
-  //       rows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
-
-  //       row1 = rows.get[JsonObject](0)
-  //       row2 = rows.get[JsonObject](1)
-  //       row3 = rows.get[JsonObject](2)
-  //     } yield {
-  //       assertEquals(3, rows.size())
-  //       assertJSONEquals(expected, row1.toString)
-  //       assertJSONEquals(expected, row2.toString)
-  //       assertJSONEquals(expected, row3.toString)
-  //     }
-  //   }
-  // }
+        row1 = rows.get[JsonObject](0)
+        row2 = rows.get[JsonObject](1)
+        row3 = rows.get[JsonObject](2)
+      } yield {
+        assertEquals(3, rows.size())
+        assertJSONEquals(expected, row1.toString)
+        assertJSONEquals(expected, row2.toString)
+        assertJSONEquals(expected, row3.toString)
+      }
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])

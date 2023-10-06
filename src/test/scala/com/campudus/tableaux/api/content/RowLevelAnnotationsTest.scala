@@ -98,3 +98,100 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
     }
   }
 }
+
+@RunWith(classOf[VertxUnitRunner])
+class RowPermissionAnnotationsTest extends TableauxTestBase {
+
+  @Test
+  def createRowAndSetPermissionFlagsForSingleRow(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId <- createEmptyDefaultTable()
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId/rows/$rowId/annotations",
+          Json.obj("permissions" -> Json.arr("perm_1", "perm_2"))
+        )
+
+        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+
+        _ <- sendRequest("PATCH", s"/tables/$tableId/rows/$rowId/annotations", Json.obj("permissions" -> Json.arr()))
+
+        rowJson2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+      } yield {
+        val expectedRowJson1 = Json.obj(
+          "status" -> "ok",
+          "id" -> rowId,
+          "permissions" -> Json.arr("perm_1", "perm_2"),
+          "values" -> Json.arr(null, null)
+        )
+
+        assertJSONEquals(expectedRowJson1, rowJson1)
+
+        val expectedRowJson2 = Json.obj(
+          "status" -> "ok",
+          "id" -> rowId,
+          "permissions" -> Json.arr(),
+          "values" -> Json.arr(null, null)
+        )
+
+        assertJSONEquals(expectedRowJson2, rowJson2)
+      }
+    }
+  }
+
+  @Test
+  def createRowAndSetPermissionFlagsForTable(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        (tableId, _, _) <- createSimpleTableWithValues(
+          "table",
+          Seq(Identifier(TextCol("text"))),
+          Seq(
+            Seq("row 1"),
+            Seq("row 2"),
+            Seq("row 3")
+          )
+        )
+
+        _ <- sendRequest(
+          "PATCH",
+          s"/tables/$tableId/rows/annotations",
+          Json.obj("permissions" -> Json.arr("perm_1", "perm_2"))
+        )
+
+        rowsAllFinal <- sendRequest("GET", s"/tables/$tableId/rows")
+
+        _ <- sendRequest("PATCH", s"/tables/$tableId/rows/annotations", Json.obj("permissions" -> Json.arr()))
+
+        rowsAllNotFinal <- sendRequest("GET", s"/tables/$tableId/rows")
+      } yield {
+        val rowsAreFinal = rowsAllFinal
+          .getJsonArray("rows", Json.emptyArr())
+          .asScala
+          .toList
+          .map(_.asInstanceOf[JsonObject])
+          .forall(_.getJsonArray("permissions").asScala.toList == List("perm_1", "perm_2"))
+        // .forall(permissions => permission.eq .getJsonArray("permissions").is)
+
+        print(rowsAreFinal)
+        // assertTrue(rowsAreFinal)
+
+        val rowsAreNotFinal = rowsAllNotFinal
+          .getJsonArray("rows", Json.emptyArr())
+          .asScala
+          .toList
+          .map(_.asInstanceOf[JsonObject])
+          .forall(_.getJsonArray("permissions").asScala.toList.isEmpty)
+        // .forall(!_.getBoolean("final"))
+
+        // assertTrue(rowsAreNotFinal)
+      }
+    }
+  }
+}
