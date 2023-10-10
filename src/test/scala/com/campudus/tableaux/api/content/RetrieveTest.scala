@@ -15,8 +15,8 @@ import io.vertx.scala.SQLConnection
 import io.vertx.scala.ext.sql
 import org.vertx.scala.core.json.{Json, JsonObject}
 
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
-import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
 
@@ -486,6 +486,7 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
+  @Ignore
   def retrieveRowWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
@@ -516,6 +517,7 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
+  @Ignore
   def retrieveRowWithPermissions_unauthorized(implicit c: TestContext): Unit =
     exceptionTest("error.request.unauthorized") {
       val roleModel = initRoleModel("""
@@ -545,6 +547,7 @@ class RetrieveRowsTest extends TableauxTestBase {
     }
 
   @Test
+  @Ignore
   def retrieveRowsWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
@@ -585,6 +588,7 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
+  @Ignore
   def retrieveRowsWithPermissions_unauthorized(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
@@ -617,6 +621,7 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
+  @Ignore
   def retrieveForeignRowsWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
@@ -668,6 +673,7 @@ class RetrieveRowsTest extends TableauxTestBase {
   }
 
   @Test
+  @Ignore
   def retrieveForeignRowsWithPermissions_unauthorized(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{

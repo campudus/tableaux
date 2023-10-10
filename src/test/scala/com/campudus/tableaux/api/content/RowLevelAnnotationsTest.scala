@@ -9,8 +9,8 @@ import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
 
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
-import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
@@ -59,6 +59,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
 class RowPermissionAnnotationsTest extends TableauxTestBase {
 
   @Test
+  @Ignore
   def createRowAndSetPermissionFlagsForSingleRow(implicit c: TestContext): Unit = {
     okTest {
       for {

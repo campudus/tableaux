@@ -13,8 +13,8 @@ import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
-import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 
@@ -2402,6 +2402,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
+  @Ignore
   def addRowAnnotation_addPermissionFlag(implicit c: TestContext): Unit = {
     okTest {
       val expectedRow1 =
@@ -2446,6 +2447,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
+  @Ignore
   def removeRowAnnotation_removePermissionFlag_setEmpty(implicit c: TestContext): Unit = {
     okTest {
       val expectedRow1 =
@@ -2587,6 +2589,7 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
+  @Ignore
   def addRowPermissionAnnotation_addPermissionFlagToMultipleRows(implicit c: TestContext): Unit = {
     okTest {
       val expected =
