@@ -7,7 +7,8 @@ import org.vertx.scala.core.json._
 
 case class RawRow(
     id: RowId,
-    rowLevelAnnotations: Seq[RowAnnotation],
+    rowLevelAnnotations: RowLevelAnnotations,
+    rowPermissions: RowPermissions,
     cellLevelAnnotations: CellLevelAnnotations,
     values: Seq[_]
 )
@@ -15,7 +16,8 @@ case class RawRow(
 case class Row(
     table: Table,
     id: RowId,
-    rowLevelAnnotations: Seq[RowAnnotation],
+    rowLevelAnnotations: RowLevelAnnotations,
+    rowPermissions: RowPermissions,
     cellLevelAnnotations: CellLevelAnnotations,
     values: Seq[_]
 ) extends DomainObject {
@@ -26,7 +28,13 @@ case class Row(
       "values" -> compatibilityGet(values)
     )
 
-    rowLevelAnnotations.map(_.getJson).foreach(json.mergeIn(_))
+    if (rowLevelAnnotations.isDefined) {
+      json.mergeIn(rowLevelAnnotations.getJson)
+    }
+
+    if (rowPermissions.isDefined) {
+      json.mergeIn(rowPermissions.getJson)
+    }
 
     if (cellLevelAnnotations.isDefined) {
       json.mergeIn(cellLevelAnnotations.getJson)

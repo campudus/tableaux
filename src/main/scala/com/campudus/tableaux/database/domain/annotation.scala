@@ -18,14 +18,33 @@ trait RowAnnotation {
   }
 }
 
-case class FinalFlag(finalFlag: Boolean) extends RowAnnotation {
+// TODO refactor for multiple row level annotations
+case class RowLevelAnnotations(finalFlag: Boolean) extends RowAnnotation {
+
   override val value: Boolean = finalFlag
   override val jsonKey = "final"
+  def isDefined: Boolean = finalFlag
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      jsonKey -> finalFlag
+    )
+  }
 }
 
 case class RowPermissions(rowPermissions: JsonArray) extends RowAnnotation {
+
+  // override val value: JsonArray = rowPermissions
   override val value: Seq[String] = rowPermissions.asScala.toSeq.map(_.asInstanceOf[String])
   override val jsonKey = "permissions"
+  def isDefined: Boolean = rowPermissions.size() > 0
+// def isDefined: Boolean = annotations.values.exists(_.nonEmpty)
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      jsonKey -> rowPermissions
+    )
+  }
 }
 
 object CellAnnotationType {

@@ -159,11 +159,11 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
   override def isMatching(objects: ComparisonObjects): Boolean = {
     (objects.rowOpt, objects.rowPermissionsOpt) match {
       case (Some(row: Row), _) =>
-        val rowPermissionsOpt: Option[RowPermissions] =
-          row.rowLevelAnnotations.filter(_.isInstanceOf[RowPermissions]).headOption.map(
-            _.asInstanceOf[RowPermissions]
-          )
-        checkCondition(rowPermissionsOpt)
+        Option(row.rowPermissions) match {
+          case Some(rp) if rp.value.size == 0 => false
+          case None => false
+          case Some(rp) => checkCondition(Some(rp))
+        }
       case (_, Some(rowPermissions: RowPermissions)) => checkCondition(Some(rowPermissions))
       case (_, _) => false
     }

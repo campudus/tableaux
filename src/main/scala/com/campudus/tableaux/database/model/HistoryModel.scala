@@ -910,35 +910,50 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     insertDeleteRowHistory(table, rowId, replacingRowIdOpt)
   }
 
-  def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], rowAnnotations: Seq[RowAnnotation])(
-      implicit user: TableauxUser
-  ): Future[_] = {
+  // def updateRowsPermission(tableId: TableId, rowIds: Seq[RowId], rowPermissions: Seq[RowPermission])(
+  //     implicit user: TableauxUser
+  // ): Future[_] = {
 
-    val annotationChanges = rowIds.flatMap(rowId =>
-      rowAnnotations.map(annotation =>
-        annotation match {
-          case FinalFlag(finalFlag) => {
-            if (finalFlag)
-              addRowAnnotationHistory(tableId, rowId, annotation.jsonKey)
-            else
-              removeRowAnnotationHistory(tableId, rowId, annotation.jsonKey)
-          }
-          case RowPermissions(rowPermissions) => {
-            insertHistory(
-              tableId,
-              rowId,
-              None,
-              AnnotationChangedEvent,
-              HistoryTypeRowPermissions,
-              Some(annotation.jsonKey),
-              Some(LanguageType.NEUTRAL),
-              Some(Json.obj("value" -> rowPermissions).toString)
-            )
-          }
-        }
-      )
-    )
-    Future.sequence(annotationChanges)
+  //   val annotationChanges = rowIds.flatMap(rowId =>
+  //     rowAnnotations.map(annotation =>
+  //       annotation match {
+  //         case FinalFlag(finalFlag) => {
+  //           if (finalFlag)
+  //             addRowAnnotationHistory(tableId, rowId, annotation.jsonKey)
+  //           else
+  //             removeRowAnnotationHistory(tableId, rowId, annotation.jsonKey)
+  //         }
+  //         case RowPermissions(rowPermissions) => {
+  //           insertHistory(
+  //             tableId,
+  //             rowId,
+  //             None,
+  //             AnnotationChangedEvent,
+  //             HistoryTypeRowPermissions,
+  //             Some(annotation.jsonKey),
+  //             Some(LanguageType.NEUTRAL),
+  //             Some(Json.obj("value" -> rowPermissions).toString)
+  //           )
+  //         }
+  //       }
+  //     )
+  //   )
+  //   Future.sequence(annotationChanges)
+  // }
+
+  def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], finalFlagOpt: Option[Boolean])(
+      implicit user: TableauxUser
+  ): Future[Unit] = {
+    for {
+      _ <- finalFlagOpt match {
+        case None => Future.successful(())
+        case Some(isFinal) =>
+          if (isFinal)
+            Future.sequence(rowIds.map(rowId => addRowAnnotationHistory(tableId, rowId, "final")))
+          else
+            Future.sequence(rowIds.map(rowId => removeRowAnnotationHistory(tableId, rowId, "final")))
+      }
+    } yield ()
   }
 
   def createClearLink(table: Table, rowId: RowId, columns: Seq[LinkColumn])(

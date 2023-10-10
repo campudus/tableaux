@@ -472,23 +472,23 @@ class TableauxModel(
     } yield ()
   }
 
-  def updateRowAnnotations(table: Table, rowId: RowId, rowAnnotations: Seq[RowAnnotation])(
+  def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean])(
       implicit user: TableauxUser
   ): Future[Row] = {
     for {
-      _ <- updateRowModel.updateRowAnnotations(table.id, rowId, rowAnnotations)
-      _ <- createHistoryModel.updateRowsAnnotation(table.id, Seq(rowId), rowAnnotations)
+      _ <- updateRowModel.updateRowAnnotations(table.id, rowId, finalFlag)
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, Seq(rowId), finalFlag)
       row <- retrieveRow(table, rowId)
     } yield row
   }
 
-  def updateRowsAnnotations(table: Table, rowAnnotations: Seq[RowAnnotation])(
+  def updateRowsAnnotations(table: Table, finalFlag: Option[Boolean])(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      _ <- updateRowModel.updateRowsAnnotations(table.id, rowAnnotations)
+      _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
       rowIds <- retrieveRows(table, Pagination(None, None)).map(_.rows.map(_.id))
-      _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, rowAnnotations)
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, finalFlag)
     } yield ()
   }
 
@@ -847,7 +847,7 @@ class TableauxModel(
     for {
       column <- retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column), isInternalCall)
-      (_, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
+      (_, _, cellLevelAnnotations) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
     } yield cellLevelAnnotations
   }
 
@@ -893,10 +893,17 @@ class TableauxModel(
                 // Special case for AttachmentColumns
                 // Can't be handled by RowModel
                 for {
-                  (rowLevelAnnotations, cellLevelAnnotations) <- retrieveRowModel
+                  (rowLevelAnnotations, rowPermissions, cellLevelAnnotations) <- retrieveRowModel
                     .retrieveAnnotations(column.table.id, rowId, Seq(column))
                   attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
-                } yield Seq(Row(column.table, rowId, rowLevelAnnotations, cellLevelAnnotations, Seq(attachments)))
+                } yield Seq(Row(
+                  column.table,
+                  rowId,
+                  rowLevelAnnotations,
+                  rowPermissions,
+                  cellLevelAnnotations,
+                  Seq(attachments)
+                ))
 
               case _ =>
                 for {
@@ -940,6 +947,7 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[Row] = {
     val rowValues = row.values
     val rowLevelAnnotations = row.rowLevelAnnotations
+    val rowPermissions = row.rowPermissions
     val cellLevelAnnotations = row.cellLevelAnnotations
     val table = row.table
     val id = row.id
@@ -948,7 +956,7 @@ class TableauxModel(
       newRowValues <-
         removeUnauthorizedLinkAndConcatValuesFromRowValues(columns, rowValues, shouldIncludeViewAuthorization)
     } yield {
-      Row(table, id, rowLevelAnnotations, cellLevelAnnotations, newRowValues)
+      Row(table, id, rowLevelAnnotations, rowPermissions, cellLevelAnnotations, newRowValues)
     }
   }
 
@@ -1336,7 +1344,7 @@ class TableauxModel(
     }
 
     Future.sequence(rawRows.map({
-      case RawRow(rowId, rowLevelFlags, cellLevelFlags, rawValues) => {
+      case RawRow(rowId, rowLevelFlags, rowPermissions, cellLevelFlags, rawValues) => {
         for {
           // Chain post-processing RawRows
 
@@ -1387,12 +1395,10 @@ class TableauxModel(
               value
           })
         } yield {
-          Row(table, rowId, rowLevelFlags, cellLevelFlags, columnsWithPostProcessedValues)
+          Row(table, rowId, rowLevelFlags, rowPermissions, cellLevelFlags, columnsWithPostProcessedValues)
         }
-
       }
     }))
-
   }
 
   def retrieveColumnValues(table: Table, columnId: ColumnId, langtagOpt: Option[String])(
