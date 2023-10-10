@@ -1479,7 +1479,20 @@
         "operationId": "update-row-annotations",
         "parameters": [
           {
-            "$ref": "#/parameters/langtags"
+            "name": "row annotation",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "final": {
+                  "type": "boolean"
+                }
+              },
+              "example": {
+                "final": true
+              }
+            }
           }
         ],
         "responses": {
