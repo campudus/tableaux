@@ -6,7 +6,6 @@ import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.controller.{StructureController, TableauxController}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{InfoAnnotationType, Pagination}
-import com.campudus.tableaux.database.domain.FinalFlag
 import com.campudus.tableaux.database.model.{StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.helper.JsonUtils.{toCreateColumnSeq, toRowValueSeq}
@@ -31,7 +30,7 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
                                |  "view-all-tables": [
                                |    {
                                |      "type": "grant",
-                               |      "action": ["viewTable","viewRow"]
+                               |      "action": ["viewTable"]
                                |    }
                                |  ]
                                |}""".stripMargin
@@ -90,7 +89,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable","viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -119,7 +118,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable","viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -155,7 +154,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable","viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -209,7 +208,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable", "viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -245,7 +244,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable", "viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -289,7 +288,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable", "viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -322,7 +321,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable", "viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -355,7 +354,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable", "viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -391,7 +390,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable","viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -424,7 +423,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable","viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -457,7 +456,7 @@ class TableauxControllerAuthTest_cell extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable","viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -501,7 +500,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable", "viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -541,7 +540,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable", "viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -593,13 +592,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |      "type": "grant",
                                       |      "action": ["viewTable"]
                                       |    }
-                                      |  ],
-                                      |  "view-rows": [
-                                      |     {
-                                      |       "type": "grant",
-                                      |       "action": ["viewRow"]
-                                      |      }
-                                      |    ]
+                                      |  ]
                                       |}""".stripMargin)
 
       val controller = createTableauxController(roleModel)
@@ -627,7 +620,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable","viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -668,7 +661,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable","viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -717,7 +710,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable","viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -766,7 +759,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |    },
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewTable","viewRow"]
+                                      |      "action": ["viewTable"]
                                       |    }
                                       |  ]
                                       |}""".stripMargin)
@@ -836,7 +829,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable","viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -862,7 +855,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -923,7 +916,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewColumn", "viewCellValue", "viewRow"]
+                                    |      "action": ["viewTable", "viewColumn", "viewCellValue"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -977,13 +970,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                     |      "type": "grant",
                                     |      "action": ["viewTable", "createRow"]
                                     |    }
-                                    |  ],
-                                    |  "view-rows": [
-                                    |     {
-                                    |       "type": "grant",
-                                    |       "action": ["viewRow"]
-                                    |      }
-                                    |    ]
+                                    |  ]
                                     |}""".stripMargin)
 
     val controller = createTableauxController(roleModel)
@@ -1013,13 +1000,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
                                       |      "type": "grant",
                                       |      "action": ["viewTable", "createRow"]
                                       |    }
-                                      |  ],
-                                      |  "view-rows": [
-                                      |     {
-                                      |       "type": "grant",
-                                      |       "action": ["viewRow"]
-                                      |      }
-                                      |    ]
+                                      |  ]
                                       |}""".stripMargin)
 
       val controller = createTableauxController(roleModel)
@@ -1079,7 +1060,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1115,7 +1096,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1146,7 +1127,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1194,7 +1175,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1225,7 +1206,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1434,20 +1415,14 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
                                     |      "type": "grant",
                                     |      "action": ["viewTable", "editRowAnnotation", "viewCellValue"]
                                     |    }
-                                    |  ],
-                                    |  "view-rows": [
-                                    |     {
-                                    |       "type": "grant",
-                                    |       "action": ["viewRow"]
-                                    |      }
-                                    |    ]
+                                    |  ]
                                     |}""".stripMargin)
 
     val controller = createTableauxController(roleModel)
 
     for {
       _ <- createTestTable()
-      _ <- controller.updateRowAnnotations(1, 1, Seq(FinalFlag(true)))
+      _ <- controller.updateRowAnnotations(1, 1, Some(true))
     } yield ()
   }
 
@@ -1467,7 +1442,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex <- controller.updateRowAnnotations(1, 1, Seq(FinalFlag(true))).recover({ case ex => ex })
+      ex <- controller.updateRowAnnotations(1, 1, Some(true)).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(EditRowAnnotation, Seq("view-cells")), ex)
     }
@@ -1489,7 +1464,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      _ <- controller.updateRowsAnnotations(1, Seq(FinalFlag(true)))
+      _ <- controller.updateRowsAnnotations(1, Some(true))
     } yield ()
   }
 
@@ -1513,7 +1488,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex <- controller.updateRowsAnnotations(1, Seq(FinalFlag(true))).recover({ case ex => ex })
+      ex <- controller.updateRowsAnnotations(1, Some(true)).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(EditRowAnnotation, Seq("view-cells")), ex)
     }
@@ -1738,7 +1713,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1778,7 +1753,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1816,7 +1791,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -1856,7 +1831,7 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
                                     |  "view-all-cells": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"],
+                                    |      "action": ["viewTable"],
                                     |      "condition": {
                                     |        "table": {
                                     |          "id": "2"
@@ -2148,7 +2123,7 @@ class TableauxControllerAuthTest_completeTable extends TableauxControllerAuthTes
                                     |    },
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewTable", "viewRow"]
+                                    |      "action": ["viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)

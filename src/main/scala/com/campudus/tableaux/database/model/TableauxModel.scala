@@ -997,11 +997,10 @@ class TableauxModel(
               canUserViewRow(foreignTable, linkRowId, rowPermissions) flatMap {
 
                 val buildReturnJson: (Any, Boolean) => JsonObject = (value, viewAuthorization) => {
-                  if (shouldIncludeViewAuthorization) {
+                  if (shouldIncludeViewAuthorization && !viewAuthorization) {
                     Json.obj(
                       "id" -> linkRowId,
-                      "value" -> value,
-                      "viewAuthorization" -> viewAuthorization
+                      "hiddenByRowPermissions" -> true
                     )
                   } else {
                     Json.obj(

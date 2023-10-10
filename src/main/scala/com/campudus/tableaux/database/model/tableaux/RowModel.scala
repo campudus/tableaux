@@ -1136,13 +1136,15 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     assert(row.size >= 3)
     val liftedRow = row.lift
 
-    (row.headOption, liftedRow(1), liftedRow(2), liftedRow(3)) match {
+    // Row should have at least = row_id, final_flag, cell_annotations, row_permissions
+    (liftedRow(0), liftedRow(1), liftedRow(2), liftedRow(3)) match {
+      // values in case statement are nullable even if they are wrapped in Some, see lift function of Seq
       case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr), Some(permissionsStr)) =>
         val cellAnnotations = Option(cellAnnotationsStr)
           .map(_.asInstanceOf[String])
           .map(Json.fromArrayString)
           .getOrElse(Json.emptyArr())
-        val rawValues = row.drop(3)
+        val rawValues = row.drop(4)
 
         val rowPermissions = Option(permissionsStr) match {
           case Some(permissionsArrayString: String) => new JsonArray(permissionsArrayString)
@@ -1160,37 +1162,6 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         throw UnknownServerException(s"Please check generateProjection!")
     }
   }
-
-  // private def mapRowToRawRow2(columns: Seq[ColumnType[_]])(row: Seq[Any]): RawRow = {
-
-  //   val liftedRow = row.lift
-
-  //   // Row should have at least = row_id, final_flag, cell_annotations, row_permissions
-  //   (liftedRow(0), liftedRow(1), liftedRow(2), liftedRow(3)) match {
-  //     // values in case statement are nullable even if they are wrapped in Some, see lift function of Seq
-  //     case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr), Some(permissions)) =>
-  //       val cellAnnotations = Option(cellAnnotationsStr)
-  //         .map(_.asInstanceOf[String])
-  //         .map(Json.fromArrayString)
-  //         .getOrElse(Json.emptyArr())
-  //       val rowPermissions = Option(permissions) match {
-  //         case Some(permissionsArrayString: String) => new JsonArray(permissionsArrayString)
-  //         case _ => Json.arr()
-  //       }
-  //       // All row annotations, currently final and permissions
-  //       val rowAnnotations = Seq(FinalFlag(finalFlag), RowPermissions(rowPermissions))
-  //       val rawValues = row.drop(4)
-
-  //       RawRow(
-  //         rowId,
-  //         rowAnnotations,
-  //         CellLevelAnnotations(columns, cellAnnotations),
-  //         (columns, rawValues).zipped.map(mapValueByColumnType)
-  //       )
-  //     case _ =>
-  //       throw UnknownServerException(s"Please check generateProjection!")
-  //   }
-  // }
 
   def size(tableId: TableId): Future[Long] = {
     val select = s"SELECT COUNT(*) FROM user_table_$tableId"

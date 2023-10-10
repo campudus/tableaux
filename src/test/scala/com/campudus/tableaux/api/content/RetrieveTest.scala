@@ -321,7 +321,6 @@ class RetrieveRowsTest extends TableauxTestBase {
         "status" -> "ok",
         "id" -> 1,
         "values" -> Json.arr("table1row1", 1),
-        "final" -> false,
         "permissions" -> Json.arr()
       )
 
@@ -343,8 +342,8 @@ class RetrieveRowsTest extends TableauxTestBase {
         "totalSize" -> 2
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1), "final" -> false, "permissions" -> Json.arr()),
-        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2), "final" -> false, "permissions" -> Json.arr())
+        Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1), "permissions" -> Json.arr()),
+        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2), "permissions" -> Json.arr())
       )
     )
 
@@ -366,7 +365,7 @@ class RetrieveRowsTest extends TableauxTestBase {
         "totalSize" -> 2
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2), "final" -> false, "permissions" -> Json.arr())
+        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2), "permissions" -> Json.arr())
       )
     )
 
@@ -408,8 +407,8 @@ class RetrieveRowsTest extends TableauxTestBase {
         "totalSize" -> 2
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr(1), "final" -> false, "permissions" -> Json.arr()),
-        Json.obj("id" -> 2, "values" -> Json.arr(2), "final" -> false, "permissions" -> Json.arr())
+        Json.obj("id" -> 1, "values" -> Json.arr(1), "permissions" -> Json.arr()),
+        Json.obj("id" -> 2, "values" -> Json.arr(2), "permissions" -> Json.arr())
       )
     )
 
@@ -427,13 +426,11 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "id" -> 1,
         "values" -> Json.arr(Json.arr(1, "table1row1")),
-        "final" -> false,
         "permissions" -> Json.arr()
       ),
       Json.obj(
         "id" -> 2,
         "values" -> Json.arr(Json.arr(2, "table1row2")),
-        "final" -> false,
         "permissions" -> Json.arr()
       )
     )
@@ -451,8 +448,8 @@ class RetrieveRowsTest extends TableauxTestBase {
   @Test
   def retrieveRowsOfFirstColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.arr(
-      Json.obj("id" -> 1, "values" -> Json.arr("table1row1"), "final" -> false, "permissions" -> Json.arr()),
-      Json.obj("id" -> 2, "values" -> Json.arr("table1row2"), "final" -> false, "permissions" -> Json.arr())
+      Json.obj("id" -> 1, "values" -> Json.arr("table1row1"), "permissions" -> Json.arr()),
+      Json.obj("id" -> 2, "values" -> Json.arr("table1row2"), "permissions" -> Json.arr())
     )
 
     for {
@@ -469,13 +466,11 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "id" -> 1,
         "values" -> Json.arr(Json.arr(1, "table1row1")),
-        "final" -> false,
         "permissions" -> Json.arr()
       ),
       Json.obj(
         "id" -> 2,
         "values" -> Json.arr(Json.arr(2, "table1row2")),
-        "final" -> false,
         "permissions" -> Json.arr()
       )
     )
@@ -497,14 +492,13 @@ class RetrieveRowsTest extends TableauxTestBase {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
+                                    |      "action": ["viewColumn", "viewCellValue", "viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
     val expectedJson: JsonObject = Json.obj(
       "id" -> 1,
       "permissions" -> Json.arr("onlyLinemaster"),
-      "final" -> false,
       "values" -> Json.arr(
         "table1row1",
         1
@@ -529,23 +523,13 @@ class RetrieveRowsTest extends TableauxTestBase {
                                       |  "view-rows": [
                                       |    {
                                       |      "type": "grant",
-                                      |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
-                                      |    },
-                                      |     {
-                                      |       "type": "deny",
-                                      |       "action": ["viewRow"],
-                                      |       "condition": {
-                                      |         "row": {
-                                      |           "permissions": "onlyLinemaster"
-                                      |         }
-                                      |       }
-                                      |     }
+                                      |      "action": ["viewColumn", "viewCellValue", "viewTable"]
+                                      |    }
                                       |  ]
                                       |}""".stripMargin)
       val expectedJson: JsonObject = Json.obj(
         "id" -> 1,
         "permissions" -> Json.arr("onlyLinemaster"),
-        "final" -> false,
         "values" -> Json.arr(
           "table1row1",
           1
@@ -567,7 +551,7 @@ class RetrieveRowsTest extends TableauxTestBase {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
+                                    |      "action": ["viewColumn", "viewCellValue", "viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -575,7 +559,6 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "id" -> 1,
         "permissions" -> Json.arr("onlyLinemaster"),
-        "final" -> false,
         "values" -> Json.arr(
           "table1row1",
           1
@@ -584,7 +567,6 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "id" -> 2,
         "permissions" -> Json.arr(),
-        "final" -> false,
         "values" -> Json.arr(
           "table1row2",
           2
@@ -609,16 +591,7 @@ class RetrieveRowsTest extends TableauxTestBase {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
-                                    |    },
-                                    |    {
-                                    |      "type": "deny",
-                                    |      "action": ["viewRow"],
-                                    |      "condition": {
-                                    |        "row": {
-                                    |          "permissions": "onlyLinemaster"
-                                    |        }
-                                    |      }
+                                    |      "action": ["viewColumn", "viewCellValue", "viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -626,7 +599,6 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "id" -> 2,
         "permissions" -> Json.arr(),
-        "final" -> false,
         "values" -> Json.arr(
           "table1row2",
           2
@@ -651,7 +623,7 @@ class RetrieveRowsTest extends TableauxTestBase {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewColumn", "viewCellValue", "viewRow", "viewTable"]
+                                    |      "action": ["viewColumn", "viewCellValue", "viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -659,7 +631,6 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "id" -> 1,
         "permissions" -> Json.arr("onlyLinemaster"),
-        "final" -> false,
         "values" -> Json.arr(
           "table1row1"
         )
@@ -667,7 +638,6 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "id" -> 2,
         "permissions" -> Json.arr(),
-        "final" -> false,
         "values" -> Json.arr(
           "table1row2"
         )
@@ -704,16 +674,7 @@ class RetrieveRowsTest extends TableauxTestBase {
                                     |  "view-rows": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["viewColumn","viewRow", "viewCellValue", "viewTable"]
-                                    |    },
-                                    |    {
-                                    |      "type": "deny",
-                                    |      "action": ["viewRow"],
-                                    |      "condition": {
-                                    |         "row": {
-                                    |             "permissions": "onlyLinemaster"
-                                    |            }
-                                    |        }
+                                    |      "action": ["viewColumn", "viewCellValue", "viewTable"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -721,7 +682,6 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "id" -> 2,
         "permissions" -> Json.arr(),
-        "final" -> false,
         "values" -> Json.arr(
           "table1row2"
         )
