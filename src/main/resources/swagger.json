@@ -1298,6 +1298,13 @@
                   "items": {
                     "$ref": "#/definitions/Shared Request: Row"
                   }
+                },
+                "rowPermissions": {
+                  "type": "array",
+                  "description": "Array of row permissions",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "example": {
@@ -1314,6 +1321,10 @@
                       }
                     ]
                   }
+                ],
+                "rowPermissions": [
+                  "onlyUserGroupA",
+                  "onlyUserGroupB"
                 ]
               }
             }
@@ -1768,6 +1779,94 @@
           "content"
         ],
         "operationId": "clear-cell-annotation-language-tag",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/permissions/{rowPermission}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/rowPermission"
+        }
+      ],
+      "patch": {
+        "summary": "Add a permission to this row.",
+        "description": "Adds a new permission to this row.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "add-row-permission",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a permission of this row.",
+        "description": "Deletes a permission of this row.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "clear-row-permission",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/permissions": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
+      "put": {
+        "summary": "Replace permissions of this row.",
+        "description": "Replace current permissions of this row. This overwrites all permissions of this row with the new provided permission array.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "replace-row-permissions",
+        "parameters": [
+          {
+            "name": "value",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "example": [
+                "onlyUserGroupA",
+                "onlyUserGroupB"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -2234,7 +2333,8 @@
             "row_created",
             "row_deleted",
             "annotation_added",
-            "annotation_removed"
+            "annotation_removed",
+            "row_permissions_changed"
           ]
         },
         "historyType": {
@@ -2245,7 +2345,8 @@
             "cell",
             "comment",
             "cell_flag",
-            "row_flag"
+            "row_flag",
+            "row_permissions"
           ]
         },
         "languageType": {
@@ -2293,7 +2394,8 @@
             "datetime",
             "concat",
             "currency",
-            "group"
+            "group",
+            "permissions"
           ]
         }
       }
@@ -3628,6 +3730,11 @@
           "formatPattern": "city {{1}} has {{2}} inhabitants"
         }
       ]
+    },
+    "RowPermission": {
+      "description": "A row annotation",
+      "type": "string",
+      "example": "onlyUserGroupA"
     }
   },
   "parameters": {
@@ -3778,6 +3885,16 @@
       "type": "integer",
       "format": "int64",
       "required": false
+    },
+    "rowPermission": {
+      "name": "rowPermission",
+      "description": "A row permission.",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "items": {
+        "$ref": "#/definitions/RowPermission"
+      }
     }
   },
   "responses": {
