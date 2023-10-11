@@ -274,9 +274,9 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       objects: ComparisonObjects = ComparisonObjects()
   ): Boolean = {
 
-    def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action)
+    def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, true)
 
-    def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action)
+    def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action, true)
 
     val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects))
     grantPermissionOpt match {
@@ -343,19 +343,25 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       })
       .mkString("\n")
 
-  private def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
-    (role2permissions.filter({ case (key, _) => roleNames.contains(key) }
-    ).values.flatten.toSeq) :+ defaultViewRowPermission
+  private def getPermissionsForRoles(
+      roleNames: Seq[String],
+      shouldIncludeDefaultPermissions: Boolean
+  ): Seq[Permission] = {
+    val permissionsByRole = role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
 
-  def filterPermissions(roleNames: Seq[String], permissionType: PermissionType): Seq[Permission] =
-    filterPermissions(roleNames, Some(permissionType), None)
+    shouldIncludeDefaultPermissions match {
+      case true => permissionsByRole :+ defaultViewRowPermission
+      case false => permissionsByRole
+    }
+  }
 
   def filterPermissions(
       roleNames: Seq[String],
       permissionType: PermissionType,
-      action: Action
+      action: Action,
+      shouldIncludeDefaultPermissions: Boolean
   ): Seq[Permission] =
-    filterPermissions(roleNames, Some(permissionType), Some(action))
+    filterPermissions(roleNames, Some(permissionType), Some(action), shouldIncludeDefaultPermissions)
 
   /**
     * Filters permissions for role name, permissionType and action
@@ -366,10 +372,11 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   def filterPermissions(
       roleNames: Seq[String],
       permissionTypeOpt: Option[PermissionType] = None,
-      actionOpt: Option[Action] = None
+      actionOpt: Option[Action] = None,
+      shouldIncludeDefaultPermissions: Boolean = false
   ): Seq[Permission] = {
 
-    val permissions: Seq[Permission] = getPermissionsForRoles(roleNames)
+    val permissions: Seq[Permission] = getPermissionsForRoles(roleNames, shouldIncludeDefaultPermissions)
 
     permissions
       .filter(permission => permissionTypeOpt.forall(permission.permissionType == _))

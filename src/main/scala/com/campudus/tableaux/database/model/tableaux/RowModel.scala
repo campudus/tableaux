@@ -1063,7 +1063,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[RowPermissions] = {
     for {
-      (_, rowPermissions, _) <- retrieveAnnotations(tableId, rowId, Seq())
+      (_, rowPermissions, _) <- retrieveAnnotations(tableId, rowId, Seq()).recover({
+        case _ => (RowLevelAnnotations(false), RowPermissions(Json.arr()), CellLevelAnnotations(Seq(), Json.arr()))
+      })
     } yield {
       rowPermissions
     }

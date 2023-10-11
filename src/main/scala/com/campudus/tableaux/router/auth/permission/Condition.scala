@@ -163,7 +163,7 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
       case (Some(row: Row), _) =>
         Option(row.rowPermissions) match {
           case Some(rp) if rp.value.size == 0 => true
-          case None => false
+          case None => false // TODO check if this is correct
           case Some(rp) => checkCondition(Some(rp))
         }
       case (_, Some(rowPermissions: RowPermissions)) => checkCondition(Some(rowPermissions))
