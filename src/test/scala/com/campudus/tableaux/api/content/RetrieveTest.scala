@@ -320,8 +320,7 @@ class RetrieveRowsTest extends TableauxTestBase {
       Json.obj(
         "status" -> "ok",
         "id" -> 1,
-        "values" -> Json.arr("table1row1", 1),
-        "permissions" -> Json.arr()
+        "values" -> Json.arr("table1row1", 1)
       )
 
     for {
@@ -342,8 +341,8 @@ class RetrieveRowsTest extends TableauxTestBase {
         "totalSize" -> 2
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1), "permissions" -> Json.arr()),
-        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2), "permissions" -> Json.arr())
+        Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
+        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
       )
     )
 
@@ -365,7 +364,7 @@ class RetrieveRowsTest extends TableauxTestBase {
         "totalSize" -> 2
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2), "permissions" -> Json.arr())
+        Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
       )
     )
 
@@ -407,8 +406,8 @@ class RetrieveRowsTest extends TableauxTestBase {
         "totalSize" -> 2
       ),
       "rows" -> Json.arr(
-        Json.obj("id" -> 1, "values" -> Json.arr(1), "permissions" -> Json.arr()),
-        Json.obj("id" -> 2, "values" -> Json.arr(2), "permissions" -> Json.arr())
+        Json.obj("id" -> 1, "values" -> Json.arr(1)),
+        Json.obj("id" -> 2, "values" -> Json.arr(2))
       )
     )
 
@@ -423,16 +422,8 @@ class RetrieveRowsTest extends TableauxTestBase {
   @Test
   def retrieveRowsOfConcatColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.arr(
-      Json.obj(
-        "id" -> 1,
-        "values" -> Json.arr(Json.arr(1, "table1row1")),
-        "permissions" -> Json.arr()
-      ),
-      Json.obj(
-        "id" -> 2,
-        "values" -> Json.arr(Json.arr(2, "table1row2")),
-        "permissions" -> Json.arr()
-      )
+      Json.obj("id" -> 1, "values" -> Json.arr(Json.arr(1, "table1row1"))),
+      Json.obj("id" -> 2, "values" -> Json.arr(Json.arr(2, "table1row2")))
     )
 
     for {
@@ -448,8 +439,8 @@ class RetrieveRowsTest extends TableauxTestBase {
   @Test
   def retrieveRowsOfFirstColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.arr(
-      Json.obj("id" -> 1, "values" -> Json.arr("table1row1"), "permissions" -> Json.arr()),
-      Json.obj("id" -> 2, "values" -> Json.arr("table1row2"), "permissions" -> Json.arr())
+      Json.obj("id" -> 1, "values" -> Json.arr("table1row1")),
+      Json.obj("id" -> 2, "values" -> Json.arr("table1row2"))
     )
 
     for {
@@ -463,16 +454,8 @@ class RetrieveRowsTest extends TableauxTestBase {
   @Test
   def retrieveRowsOfFirstColumnWithConcatColumn(implicit c: TestContext): Unit = okTest {
     val expectedJson = Json.arr(
-      Json.obj(
-        "id" -> 1,
-        "values" -> Json.arr(Json.arr(1, "table1row1")),
-        "permissions" -> Json.arr()
-      ),
-      Json.obj(
-        "id" -> 2,
-        "values" -> Json.arr(Json.arr(2, "table1row2")),
-        "permissions" -> Json.arr()
-      )
+      Json.obj("id" -> 1, "values" -> Json.arr(Json.arr(1, "table1row1"))),
+      Json.obj("id" -> 2, "values" -> Json.arr(Json.arr(2, "table1row2")))
     )
 
     for {

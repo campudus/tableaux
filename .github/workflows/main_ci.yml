@@ -23,7 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        postgres-version: [13, 14, 15, 16]
+        # postgres-version: [13, 14, 15, 16]
+        postgres-version: [13] # for PR draft only test with one version
       max-parallel: 4
       fail-fast: false
 

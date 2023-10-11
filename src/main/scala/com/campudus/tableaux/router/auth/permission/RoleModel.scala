@@ -320,6 +320,12 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       s"for role '${permission.roleName}'. Action: '$action'"
   }
 
+  // The default behaviour is that a user can see all rows that are not restricted by specific row
+  // permissions. With this to work, we need to add a default permission without conditions to the
+  // role model.
+  val defaultViewRowRoleName = "view-all-non-restricted-rows"
+  val defaultViewRowPermission = new Permission(defaultViewRowRoleName, Grant, Seq(ViewRow), ConditionContainer(null))
+
   val role2permissions: Map[String, Seq[Permission]] =
     jsonObject
       .fieldNames()
@@ -338,7 +344,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       .mkString("\n")
 
   private def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
-    role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
+    (role2permissions.filter({ case (key, _) => roleNames.contains(key) }
+    ).values.flatten.toSeq) :+ defaultViewRowPermission
 
   def filterPermissions(roleNames: Seq[String], permissionType: PermissionType): Seq[Permission] =
     filterPermissions(roleNames, Some(permissionType), None)

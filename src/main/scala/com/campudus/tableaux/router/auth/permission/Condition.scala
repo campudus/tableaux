@@ -143,6 +143,7 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
       case (property, regex) =>
         property match {
           case "permissions" => {
+            println(s"checkCondition ${rowPermissionsOpt}")
             rowPermissionsOpt match {
               case Some(rowPermissions) => {
                 rowPermissions.value.exists(_.matches(regex))
@@ -157,10 +158,11 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
   }
 
   override def isMatching(objects: ComparisonObjects): Boolean = {
+    // TODO remove rowOpt, can also be done with rowPermissionsOpt
     (objects.rowOpt, objects.rowPermissionsOpt) match {
       case (Some(row: Row), _) =>
         Option(row.rowPermissions) match {
-          case Some(rp) if rp.value.size == 0 => false
+          case Some(rp) if rp.value.size == 0 => true
           case None => false
           case Some(rp) => checkCondition(Some(rp))
         }
