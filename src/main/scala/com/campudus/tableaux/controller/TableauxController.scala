@@ -243,7 +243,11 @@ class TableauxController(
     }
   }
 
-  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]])(
+  def createRow(
+      tableId: TableId,
+      values: Option[Seq[Seq[(ColumnId, _)]]],
+      rowPermissionsOpt: Option[Seq[String]] = None
+  )(
       implicit user: TableauxUser
   ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
@@ -255,10 +259,10 @@ class TableauxController(
         case Some(seq) =>
           checkArguments(nonEmpty(seq, "rows"))
           logger.info(s"createRows ${table.id} $values")
-          repository.createRows(table, seq)
+          repository.createRows(table, seq, rowPermissionsOpt)
         case None =>
           logger.info(s"createRow ${table.id}")
-          repository.createRow(table)
+          repository.createRow(table, rowPermissionsOpt)
       }
     } yield row
   }
@@ -531,7 +535,8 @@ class TableauxController(
         }
       table <- repository.createTable(tableName, hidden = false)
       columnIds <- repository.createColumns(table, columns).map(_.map(_.id))
-      _ <- repository.createRows(table, rows.map(columnIds.zip(_)))
+      // TODO: pass row permissions to createRows
+      _ <- repository.createRows(table, rows.map(columnIds.zip(_)), None)
       completeTable <- retrieveCompleteTable(table.id)
     } yield completeTable
   }

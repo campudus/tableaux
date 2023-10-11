@@ -185,7 +185,8 @@ class SystemController(
       columnIds = columns.map(_.id)
       rowsWithColumnIdAndValue = rows.map(columnIds.zip(_))
 
-      _ <- tableauxModel.createRows(table, rowsWithColumnIdAndValue)
+      // don't pass row permissions here, because method is only used for demo data
+      _ <- tableauxModel.createRows(table, rowsWithColumnIdAndValue, None)
     } yield table
   }
 

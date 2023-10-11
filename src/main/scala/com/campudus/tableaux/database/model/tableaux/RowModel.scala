@@ -118,6 +118,7 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
       table: Table,
       rowId: RowId,
       values: Seq[(LinkColumn, Seq[RowId])],
+      rowPermissionsOpt: Option[Seq[String]],
       maybeTransaction: Option[DbTransaction] = None
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val func = (value: (LinkColumn, Seq[RowId])) => {
@@ -498,7 +499,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         for {
           _ <- if (simple.isEmpty) Future.successful(()) else updateSimple(table, rowId, simple)
           _ <- if (multis.isEmpty) Future.successful(()) else updateTranslations(table, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links, maybeTransaction)
+          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links, None, maybeTransaction)
           _ <- if (attachments.isEmpty) Future.successful(()) else updateAttachments(table, rowId, attachments)
         } yield ()
     }
@@ -755,7 +756,11 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with UpdateCreateRowModelHelper {
   val attachmentModel = AttachmentModel(connection)
 
-  def createRow(table: Table, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+  def createRow(
+      table: Table,
+      values: Seq[(ColumnType[_], _)],
+      rowPermissionsOpt: Option[Seq[String]]
+  ): Future[RowId] = {
     val tableId = table.id
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -763,10 +768,13 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
       case Success((simple, multis, links, attachments)) =>
         for {
-          rowId <- if (simple.isEmpty) createEmpty(tableId) else createSimple(tableId, simple)
-          _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
-          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links)
-          _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(tableId, rowId, attachments)
+          rowId <- if (simple.isEmpty) createEmpty(tableId) else createSimple(tableId, simple, rowPermissionsOpt)
+          _ <-
+            if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis, rowPermissionsOpt)
+          _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links, rowPermissionsOpt)
+          _ <-
+            if (attachments.isEmpty) Future.successful(())
+            else createAttachments(tableId, rowId, attachments, rowPermissionsOpt)
         } yield rowId
     }
   }
@@ -779,7 +787,11 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     }
   }
 
-  private def createSimple(tableId: TableId, values: Seq[(SimpleValueColumn[_], Option[Any])]): Future[RowId] = {
+  private def createSimple(
+      tableId: TableId,
+      values: Seq[(SimpleValueColumn[_], Option[Any])],
+      rowPermissionsOpt: Option[Seq[String]]
+  ): Future[RowId] = {
     val placeholder = values.map(_ => "?").mkString(", ")
     val columns = values.map({ case (column: ColumnType[_], _) => s"column_${column.id}" }).mkString(", ")
     val binds = values.map({ case (_, value) => value.orNull })
@@ -795,7 +807,8 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   private def createTranslations(
       tableId: TableId,
       rowId: RowId,
-      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
+      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])],
+      rowPermissionsOpt: Option[Seq[String]]
   ): Future[_] = {
     val entries = for {
       (column, langtagValueOptMap) <- values
@@ -826,7 +839,8 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   private def createAttachments(
       tableId: TableId,
       rowId: RowId,
-      values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])]
+      values: Seq[(AttachmentColumn, Seq[(UUID, Option[Ordering])])],
+      rowPermissionsOpt: Option[Seq[String]]
   ): Future[_] = {
     val futureSequence = for {
       (column: AttachmentColumn, attachmentValue) <- values

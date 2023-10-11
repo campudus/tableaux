@@ -374,15 +374,15 @@ class TableauxModel(
 
   }
 
-  def createRow(table: Table)(implicit user: TableauxUser): Future[Row] = {
+  def createRow(table: Table, rowPermissionsOpt: Option[Seq[String]])(implicit user: TableauxUser): Future[Row] = {
     for {
-      rowId <- createRowModel.createRow(table, Seq.empty)
-      _ <- createHistoryModel.createRow(table, rowId)
+      rowId <- createRowModel.createRow(table, Seq.empty, rowPermissionsOpt)
+      _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
       row <- retrieveRow(table, rowId)
     } yield row
   }
 
-  def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]])(
+  def createRows(table: Table, rows: Seq[Seq[(ColumnId, Any)]], rowPermissionsOpt: Option[Seq[String]])(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
@@ -413,8 +413,8 @@ class TableauxModel(
                 case _ => Future.successful(())
               }
 
-              rowId <- createRowModel.createRow(table, columnValuePairs)
-              _ <- createHistoryModel.createRow(table, rowId)
+              rowId <- createRowModel.createRow(table, columnValuePairs, rowPermissionsOpt)
+              _ <- createHistoryModel.createRow(table, rowId, rowPermissionsOpt)
               _ <- createHistoryModel.createCells(table, rowId, columnValuePairs)
 
               newRow <- retrieveRow(table, columns, rowId)
@@ -1212,7 +1212,7 @@ class TableauxModel(
       rowValues = row.values
 
       // First create a empty row
-      duplicatedRowId <- createRowModel.createRow(table, Seq.empty)
+      duplicatedRowId <- createRowModel.createRow(table, Seq.empty, Option(row.rowPermissions.value))
 
       // Fill the row with life
       _ <- updateRowModel
@@ -1224,7 +1224,7 @@ class TableauxModel(
               .flatMap(_ => Future.failed(ex))
         })
 
-      _ <- createHistoryModel.createRow(table, duplicatedRowId)
+      _ <- createHistoryModel.createRow(table, duplicatedRowId, Option(row.rowPermissions.value))
       _ <- createHistoryModel.createCells(table, rowId, columnsToDuplicate.zip(rowValues))
 
       // Retrieve duplicated row with all columns

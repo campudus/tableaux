@@ -524,9 +524,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     */
   private def createRow(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
+    val json = getJson(context)
 
     def getOptionalValues = {
-      val json = getJson(context)
       if (json.containsKey("columns") && json.containsKey("rows")) {
         Some(toColumnValueSeq(json))
       } else {
@@ -545,9 +545,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
               case _: NoJsonFoundException => None
             })
             .get
-
-          controller
-            .createRow(tableId, optionalValues)
+          val rowPermissionsOpt = getRowPermissionsOpt(json)
+          controller.createRow(tableId, optionalValues, rowPermissionsOpt)
         }
       )
     }

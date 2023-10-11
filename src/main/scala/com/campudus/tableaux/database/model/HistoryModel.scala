@@ -900,8 +900,10 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }
   }
 
-  def createRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[RowId] = {
+  def createRow(table: Table, rowId: RowId, rowPermissionsOpt: Option[Seq[String]])(implicit
+  user: TableauxUser): Future[RowId] = {
     insertCreateRowHistory(table, rowId)
+    // TODO create history row with row permissions
   }
 
   def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int])(
