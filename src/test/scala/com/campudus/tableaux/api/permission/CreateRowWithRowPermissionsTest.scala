@@ -58,7 +58,7 @@ class CreateRowWithRowPermissionsTest extends TableauxTestBase {
 
         rowPermissions <-
           dbConnection.query("SELECT row_permissions FROM user_table_1")
-            .map(_.getJsonArray("results").getJsonArray(0))
+            .map(_.getJsonArray("results").getJsonArray(0).getString(0))
 
         // rowPermissionsHistory <-
         //   dbConnection.query(
@@ -66,8 +66,9 @@ class CreateRowWithRowPermissionsTest extends TableauxTestBase {
         //   )
         //     .map(_.getJsonArray("results").getJsonArray(0))
       } yield {
-        assertJSONEquals(expectedJson, test)
         println(s"rowPermissions: $rowPermissions")
+        assertJSONEquals(expectedJson, test)
+        assertJSONEquals(Json.arr("perm_group_1", "perm_group_2"), Json.fromArrayString(rowPermissions))
       }
     }
   }
