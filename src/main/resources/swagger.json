@@ -1789,7 +1789,7 @@
         }
       }
     },
-    "/tables/{tableId}/rows/{rowId}/permissions/{rowPermission}": {
+    "/tables/{tableId}/rows/{rowId}/permissions": {
       "parameters": [
         {
           "$ref": "#/parameters/tableId"
@@ -1798,16 +1798,16 @@
           "$ref": "#/parameters/rowId"
         },
         {
-          "$ref": "#/parameters/rowPermission"
+          "$ref": "#/parameters/rowPermissionBody"
         }
       ],
       "patch": {
-        "summary": "Add a permission to this row.",
-        "description": "Adds a new permission to this row.",
+        "summary": "Add permissions to this row.",
+        "description": "Add permissions to this row.",
         "tags": [
           "permission"
         ],
-        "operationId": "add-row-permission",
+        "operationId": "add-row-permissions",
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -1818,12 +1818,12 @@
         }
       },
       "delete": {
-        "summary": "Delete a permission of this row.",
-        "description": "Deletes a permission of this row.",
+        "summary": "Deletes permissions of this row.",
+        "description": "Deletes permissions of this row.",
         "tags": [
           "permission"
         ],
-        "operationId": "clear-row-permission",
+        "operationId": "remove-row-permissions",
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -1832,17 +1832,7 @@
             "$ref": "#/responses/not-found-in-database"
           }
         }
-      }
-    },
-    "/tables/{tableId}/rows/{rowId}/permissions": {
-      "parameters": [
-        {
-          "$ref": "#/parameters/tableId"
-        },
-        {
-          "$ref": "#/parameters/rowId"
-        }
-      ],
+      },
       "put": {
         "summary": "Replace permissions of this row.",
         "description": "Replace current permissions of this row. This overwrites all permissions of this row with the new provided permission array.",
@@ -1850,23 +1840,6 @@
           "permission"
         ],
         "operationId": "replace-row-permissions",
-        "parameters": [
-          {
-            "name": "value",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "example": [
-                "onlyUserGroupA",
-                "onlyUserGroupB"
-              ]
-            }
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -3886,14 +3859,20 @@
       "format": "int64",
       "required": false
     },
-    "rowPermission": {
-      "name": "rowPermission",
-      "description": "A row permission.",
-      "in": "path",
+    "rowPermissionBody": {
+      "name": "value",
+      "description": "An array of row permission to add, remove or replace.",
+      "in": "body",
       "required": true,
-      "type": "string",
-      "items": {
-        "$ref": "#/definitions/RowPermission"
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "example": [
+          "onlyUserGroupA",
+          "onlyUserGroupB"
+        ]
       }
     }
   },
