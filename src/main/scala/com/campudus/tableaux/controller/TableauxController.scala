@@ -13,6 +13,7 @@ import com.campudus.tableaux.router.auth.permission._
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.JsonArray
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -598,5 +599,41 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       historySequence <- repository.retrieveTableHistory(table, langtagOpt, typeOpt)
     } yield SeqHistory(historySequence)
+  }
+
+  def addRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"addRowPermissions $tableId $rowId $rowPermissions")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.addRowPermissions(table, rowId, rowPermissions)
+    } yield EmptyObject()
+  }
+
+  def removeRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"removeRowPermissions $tableId $rowId $rowPermissions")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.removeRowPermissions(table, rowId, rowPermissions)
+    } yield EmptyObject()
+  }
+
+  def replaceRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"replaceRowPermissions $tableId $rowId $rowPermissions")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.replaceRowPermissions(table, rowId, rowPermissions)
+    } yield EmptyObject()
   }
 }

@@ -65,6 +65,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val tableHistory: String = s"/tables/$tableId/history"
   private val tableHistoryWithLangtag: String = s"/tables/$tableId/history/$langtagRegex"
 
+  private val rowPermissionsPath: String = s"/tables/$tableId/rows/$rowId/permissions"
+
   def route: Router = {
     val router = Router.router(vertx)
 
@@ -120,6 +122,10 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.postWithRegex(cell).handler(updateCell)
     router.putWithRegex(cell).handler(replaceCell)
     router.putWithRegex(linkOrderOfCell).handler(changeLinkOrder)
+
+    router.patchWithRegex(rowPermissionsPath).handler(addRowPermissions)
+    router.deleteWithRegex(rowPermissionsPath).handler(removeRowPermissions)
+    router.putWithRegex(rowPermissionsPath).handler(replaceRowPermissions)
 
     router
   }
@@ -840,6 +846,66 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           controller.deleteLink(tableId, columnId, rowId, linkId)
+        }
+      )
+    }
+  }
+
+  /**
+    * Add permissions to Row
+    */
+  private def addRowPermissions(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+          val rowPermissions = getRowPermissionsOpt(json).getOrElse(Seq())
+          controller.addRowPermissions(tableId, rowId, rowPermissions)
+        }
+      )
+    }
+  }
+
+  /**
+    * Remove permissions from Row
+    */
+  private def removeRowPermissions(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+          val rowPermissions = getRowPermissionsOpt(json).getOrElse(Seq())
+          controller.removeRowPermissions(tableId, rowId, rowPermissions)
+        }
+      )
+    }
+  }
+
+  /**
+    * Replace permissions of Row
+    */
+  private def replaceRowPermissions(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+          val rowPermissions = getRowPermissionsOpt(json).getOrElse(Seq())
+          controller.replaceRowPermissions(tableId, rowId, rowPermissions)
         }
       )
     }

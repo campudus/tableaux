@@ -31,6 +31,8 @@ object TableauxModel {
 
   type Ordering = Long
 
+  type RowPermissionSeq = Seq[String]
+
   def apply(connection: DatabaseConnection, structureModel: StructureModel)(
       implicit roleModel: RoleModel
   ): TableauxModel = {
@@ -1480,4 +1482,39 @@ class TableauxModel(
     }
   }
 
+  def addRowPermissions(table: Table, rowId: RowId, rowPermissions: RowPermissionSeq)(
+      implicit user: TableauxUser
+  ): Future[Unit] = {
+    for {
+      // TODO check for authorization
+      // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
+      row <- retrieveRow(table, rowId)
+      newRowPermissions <- updateRowModel.addRowPermissions(table, row, rowPermissions)
+      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissions)
+    } yield ()
+  }
+
+  def removeRowPermissions(table: Table, rowId: RowId, rowPermissions: RowPermissionSeq)(
+      implicit user: TableauxUser
+  ): Future[Unit] = {
+    for {
+      // TODO check for authorization
+      // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
+      row <- retrieveRow(table, rowId)
+      newRowPermissions <- updateRowModel.removeRowPermissions(table, row, rowPermissions)
+      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissions)
+    } yield ()
+  }
+
+  def replaceRowPermissions(table: Table, rowId: RowId, rowPermissions: RowPermissionSeq)(
+      implicit user: TableauxUser
+  ): Future[Unit] = {
+    for {
+      // TODO check for authorization
+      // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
+      row <- retrieveRow(table, rowId)
+      newRowPermissions <- updateRowModel.replaceRowPermissions(table, row, rowPermissions)
+      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissions)
+    } yield ()
+  }
 }

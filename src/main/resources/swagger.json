@@ -1818,8 +1818,8 @@
         }
       },
       "delete": {
-        "summary": "Deletes permissions of this row.",
-        "description": "Deletes permissions of this row.",
+        "summary": "Removes permissions of this row.",
+        "description": "Removes permissions of this row.",
         "tags": [
           "permission"
         ],

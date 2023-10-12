@@ -931,6 +931,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     } yield rowId
   }
 
+  def updateRowPermission(table: Table, rowId: RowId, rowPermissions: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[RowId] = {
+    insertChangedRowPermissionHistory(table, rowId, rowPermissions)
+  }
+
   def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int])(
       implicit user: TableauxUser
   ): Future[RowId] = {
