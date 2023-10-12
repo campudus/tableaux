@@ -448,7 +448,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       None,
       RowPermissionsChangedEvent,
       HistoryTypeRowPermissions,
-      None,
+      Some("permissions"),
       None,
       Some(jsonString.toString)
     )

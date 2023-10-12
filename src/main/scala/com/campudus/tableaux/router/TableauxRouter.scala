@@ -550,7 +550,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
               case _: NoJsonFoundException => None
             })
             .get
-          val rowPermissionsOpt = getRowPermissionsOpt(json)
+          val rowPermissionsOpt = getRowPermissionsOpt("rowPermissions", json)
           controller.createRow(tableId, optionalValues, rowPermissionsOpt)
         }
       )
@@ -864,7 +864,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          val rowPermissions = getRowPermissionsOpt(json).getOrElse(Seq())
+          val rowPermissions = getRowPermissionsOpt("value", json).getOrElse(Seq())
           controller.addRowPermissions(tableId, rowId, rowPermissions)
         }
       )
@@ -884,7 +884,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          val rowPermissions = getRowPermissionsOpt(json).getOrElse(Seq())
+          val rowPermissions = getRowPermissionsOpt("value", json).getOrElse(Seq())
           controller.removeRowPermissions(tableId, rowId, rowPermissions)
         }
       )
@@ -904,7 +904,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          val rowPermissions = getRowPermissionsOpt(json).getOrElse(Seq())
+          val rowPermissions = getRowPermissionsOpt("value", json).getOrElse(Seq())
           controller.replaceRowPermissions(tableId, rowId, rowPermissions)
         }
       )

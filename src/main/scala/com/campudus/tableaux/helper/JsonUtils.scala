@@ -374,13 +374,13 @@ object JsonUtils extends LazyLogging {
     }
   }
 
-  def getRowPermissionsOpt(json: JsonObject): Option[Seq[String]] = {
+  def getRowPermissionsOpt(key: String, json: JsonObject): Option[Seq[String]] = {
     val rowPermissionsOpt = booleanToValueOption(
-      json.containsKey("rowPermissions"), {
+      json.containsKey(key), {
         checkAllValuesOfArray[String](
-          json.getJsonArray("rowPermissions"),
+          json.getJsonArray(key),
           d => d.isInstanceOf[String],
-          "rowPermissions"
+          key
         ).get
       }
     ).map(_.asScala.toSeq.map({ case perm: String => perm }))
