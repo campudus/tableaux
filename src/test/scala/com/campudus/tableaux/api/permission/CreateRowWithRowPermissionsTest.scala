@@ -31,16 +31,15 @@ class CreateRowWithRowPermissionsTest extends TableauxTestBase {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
+      val rowPermissions = Json.arr("perm_group_1", "perm_group_2")
+
       val valuesRow = Json.obj(
         "columns" -> Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)),
         "rows" -> Json.arr(
           Json.obj("values" -> Json.arr("Test Field 1", 2)),
           Json.obj("values" -> Json.arr("Test Field 2", 5))
         ),
-        "rowPermissions" -> Json.arr(
-          "perm_group_1",
-          "perm_group_2"
-        )
+        "rowPermissions" -> rowPermissions
       )
       val expectedJson = Json.obj(
         "status" -> "ok",
@@ -56,19 +55,25 @@ class CreateRowWithRowPermissionsTest extends TableauxTestBase {
         _ <- sendRequest("POST", "/tables/1/columns", createNumberColumnJson("Test Column 2"))
         test <- sendRequest("POST", "/tables/1/rows", valuesRow)
 
-        rowPermissions <-
+        rowPermissionsResult <-
           dbConnection.query("SELECT row_permissions FROM user_table_1")
             .map(_.getJsonArray("results").getJsonArray(0).getString(0))
 
-        // rowPermissionsHistory <-
-        //   dbConnection.query(
-        //     "SELECT value FROM user_table_history_1 WHERE event = 'row_permission_changed' AND history_type = 'permission'"
-        //   )
-        //     .map(_.getJsonArray("results").getJsonArray(0))
+        rowPermissionsHistoryResult <-
+          dbConnection.query(
+            s"""
+               |SELECT value FROM user_table_history_1
+               |WHERE event = 'row_permissions_changed'
+               |AND history_type = 'row_permissions'""".stripMargin
+          ).map(_.getJsonArray("results"))
+        rowPermissionsHistoryValue1 = Json.fromObjectString(rowPermissionsHistoryResult.getJsonArray(0).getString(0))
+        rowPermissionsHistoryValue2 = Json.fromObjectString(rowPermissionsHistoryResult.getJsonArray(1).getString(0))
       } yield {
-        println(s"rowPermissions: $rowPermissions")
         assertJSONEquals(expectedJson, test)
-        assertJSONEquals(Json.arr("perm_group_1", "perm_group_2"), Json.fromArrayString(rowPermissions))
+        assertJSONEquals(rowPermissions, Json.fromArrayString(rowPermissionsResult))
+        assertEquals(2, rowPermissionsHistoryResult.size())
+        assertJSONEquals(rowPermissions, rowPermissionsHistoryValue1.getJsonArray("value"))
+        assertJSONEquals(rowPermissions, rowPermissionsHistoryValue2.getJsonArray("value"))
       }
     }
   }

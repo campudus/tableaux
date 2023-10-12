@@ -435,6 +435,25 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None)
   }
 
+  private def insertChangedRowPermissionHistory(
+      table: Table,
+      rowId: RowId,
+      rowPermissions: Seq[String]
+  )(implicit user: TableauxUser): Future[RowId] = {
+    logger.info(s"insertChangedRowPermissionHistory ${table.id} $rowId ${user.name}")
+    val jsonString = Json.obj("value" -> (Json.arr(rowPermissions: _*)))
+    insertHistory(
+      table.id,
+      rowId,
+      None,
+      RowPermissionsChangedEvent,
+      HistoryTypeRowPermissions,
+      None,
+      None,
+      Some(jsonString.toString)
+    )
+  }
+
   private def insertDeleteRowHistory(
       table: Table,
       rowId: RowId,
@@ -900,10 +919,16 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }
   }
 
-  def createRow(table: Table, rowId: RowId, rowPermissionsOpt: Option[Seq[String]])(implicit
-  user: TableauxUser): Future[RowId] = {
-    insertCreateRowHistory(table, rowId)
-    // TODO create history row with row permissions
+  def createRow(table: Table, rowId: RowId, rowPermissionsOpt: Option[Seq[String]])(
+      implicit user: TableauxUser
+  ): Future[RowId] = {
+    for {
+      _ <- insertCreateRowHistory(table, rowId)
+      _ <- rowPermissionsOpt match {
+        case Some(rowPermissions) => insertChangedRowPermissionHistory(table, rowId, rowPermissions)
+        case None => Future.successful(())
+      }
+    } yield rowId
   }
 
   def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int])(
