@@ -10,7 +10,7 @@ import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
-import org.vertx.scala.core.json.JsonArray
+import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -524,9 +524,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     */
   private def createRow(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-    val json = getJson(context)
-
-    def getOptionalValues = {
+    def getOptionalValues(json: JsonObject) = {
       if (json.containsKey("columns") && json.containsKey("rows")) {
         Some(toColumnValueSeq(json))
       } else {
@@ -540,12 +538,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          val optionalValues = Try(getOptionalValues)
+          val json = Try(getJson(context)).getOrElse(Json.emptyObj())
+          val optionalValues = Try(getOptionalValues(json))
             .recover({
               case _: NoJsonFoundException => None
             })
             .get
           val rowPermissionsOpt = getRowPermissionsOpt(json)
+          println(s"rowPermissionsOpt: $rowPermissionsOpt")
           controller.createRow(tableId, optionalValues, rowPermissionsOpt)
         }
       )
