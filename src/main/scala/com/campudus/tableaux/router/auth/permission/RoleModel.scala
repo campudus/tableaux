@@ -324,7 +324,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   // permissions. With this to work, we need to add a default permission without conditions to the
   // role model.
   val defaultViewRowRoleName = "view-all-non-restricted-rows"
-  val defaultViewRowPermission = new Permission(defaultViewRowRoleName, Grant, Seq(ViewRow), ConditionContainer(null))
+  val defaultViewRowPermission = new Permission(defaultViewRowRoleName, Grant, Seq(ViewRow), ConditionContainer(None))
 
   val role2permissions: Map[String, Seq[Permission]] =
     jsonObject

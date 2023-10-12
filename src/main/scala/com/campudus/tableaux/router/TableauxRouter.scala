@@ -545,7 +545,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
             })
             .get
           val rowPermissionsOpt = getRowPermissionsOpt(json)
-          println(s"rowPermissionsOpt: $rowPermissionsOpt")
           controller.createRow(tableId, optionalValues, rowPermissionsOpt)
         }
       )

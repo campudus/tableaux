@@ -12,9 +12,9 @@ import com.typesafe.scalalogging.LazyLogging
 
 object ConditionContainer {
 
-  def apply(jsonObjectOrNull: JsonObject): ConditionContainer = {
+  def apply(jsonObjectOpt: Option[JsonObject]): ConditionContainer = {
 
-    val jsonObject: JsonObject = Option(jsonObjectOrNull).getOrElse(Json.emptyObj())
+    val jsonObject: JsonObject = jsonObjectOpt.getOrElse(Json.emptyObj())
 
     val conditionTable: ConditionOption =
       Option(jsonObject.getJsonObject("table")).map(ConditionTable).getOrElse(NoneCondition)

@@ -996,7 +996,7 @@ class TableauxModel(
               val linkRowId = link.getLong("id").longValue()
               canUserViewRow(foreignTable, linkRowId, rowPermissions) flatMap {
 
-                val buildReturnJson: (Any, Boolean) => JsonObject = (value, viewAuthorization) => {
+                val buildReturnJson: (Option[Any], Boolean) => JsonObject = (valueOpt, viewAuthorization) => {
                   if (shouldIncludeViewAuthorization && !viewAuthorization) {
                     Json.obj(
                       "id" -> linkRowId,
@@ -1005,7 +1005,7 @@ class TableauxModel(
                   } else {
                     Json.obj(
                       "id" -> linkRowId,
-                      "value" -> value
+                      "value" -> valueOpt.getOrElse(null)
                     )
                   }
                 }
@@ -1026,12 +1026,12 @@ class TableauxModel(
 
                       }
                     } yield {
-                      buildReturnJson(mutatedValues, true)
+                      buildReturnJson(Some(mutatedValues), true)
 
                     }
                   }
                   case false => {
-                    Future.successful(buildReturnJson(null, false))
+                    Future.successful(buildReturnJson(None, false))
                   }
                 }
               }
