@@ -1072,7 +1072,7 @@ class TableauxModel(
           isInternalCall = false
         )
       row <- retrieveRow(table, filteredColumns, rowId)
-      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(row), isInternalCall = false)
+      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(row.rowPermissions), isInternalCall = false)
       mutatedRow <- removeUnauthorizedLinkAndConcatValuesFromRow(filteredColumns, row)
     } yield mutatedRow
   }

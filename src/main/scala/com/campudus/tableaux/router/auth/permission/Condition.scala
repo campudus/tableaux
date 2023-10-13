@@ -149,6 +149,12 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
           case "permissions" => {
             println(s"checkCondition ${rowPermissionsOpt}")
             rowPermissionsOpt match {
+              // per default treat empty permissions as viewable for all users
+              case Some(rowPermissions)
+                  if (rowPermissions.value.size == 0 && regex == RoleModel.DEFAULT_ROW_PERMISSION_NAME) => {
+                println(s"### yes baby")
+                true
+              }
               case Some(rowPermissions) => {
                 rowPermissions.value.exists(_.matches(regex))
               }
@@ -163,32 +169,17 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
 
   override def isMatching(objects: ComparisonObjects): Boolean = {
     // TODO remove rowOpt, can also be done with rowPermissionsOpt
-    println(s"### isMatching ${objects.rowOpt} ${objects.rowPermissionsOpt}")
+    println(s"### isMatching ${objects.rowPermissionsOpt}")
 
-    (objects.rowOpt, objects.rowPermissionsOpt) match {
-      case (Some(row: Row), _) =>
-        Option(row.rowPermissions) match {
-          // case Some(rp) if rp.value.size == 0 => {
-          //   println(s"### checkCondition 1 ${rp}")
-          //   true
-          // }
-          case None => {
-            println(s"### checkCondition 2")
-            false
-          } // TODO check if this is correct
-          case Some(rp) => {
-            println(s"### checkCondition 3 ${rp}")
-            checkCondition(Some(rp))
-          }
-        }
-      case (_, Some(rowPermissions: RowPermissions)) => {
+    objects.rowPermissionsOpt match {
+      case None =>
+        println(s"### checkCondition 3 ")
+        // checkCondition(None)
+        true
+
+      case Some(rowPermissions: RowPermissions) =>
         println(s"### checkCondition 4 ${rowPermissions}")
         checkCondition(Some(rowPermissions))
-      }
-      case (_, _) => {
-        println(s"### checkCondition 5")
-        false
-      }
     }
   }
 }

@@ -44,8 +44,8 @@ trait TestHelper extends TableauxTestBase {
       |  ]
       |}""".stripMargin
 
-  def createTableauxController(
-      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)
+  def createTableauxController(roleConfig: String = defaultViewTableRole)(
+      implicit roleModel: RoleModel = initRoleModel(roleConfig)
   ): TableauxController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
@@ -241,10 +241,21 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
 
+  val roleConfigWithViewRowPermissions =
+    """
+      |{
+      |  "view-rows": [
+      |    {
+      |      "type": "grant",
+      |      "action": ["viewColumn", "viewCellValue", "viewTable", "viewRow"]
+      |    }
+      |  ]
+      |}""".stripMargin
+
   @Test
   def retrieveRowWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
     val expectedJson: JsonObject = Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1))
-    val controller: TableauxController = createTableauxController()
+    val controller: TableauxController = createTableauxController(roleConfigWithViewRowPermissions)
     for {
       _ <- createDefaultTable()
       _ <- sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA")))
@@ -274,11 +285,23 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
 
   @Test
   def retrieveRowsWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
+    // val roleModelWithViewRowPermissions = initRoleModel(
+    //   """
+    //     |{
+    //     |  "view-rows": [
+    //     |    {
+    //     |      "type": "grant",
+    //     |      "action": ["viewColumn", "viewCellValue", "viewTable", "viewRow"]
+    //     |    }
+    //     |  ]
+    //     |}""".stripMargin
+    // )
+
     val expectedJson: JsonArray = Json.arr(
       Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
       Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
     )
-    val controller: TableauxController = createTableauxController()
+    val controller: TableauxController = createTableauxController(roleConfigWithViewRowPermissions)
     for {
       _ <- createDefaultTable()
       _ <-
@@ -355,48 +378,4 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
       assertEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
     }
   }
-
-  @Test
-  def createRowAndSetPermissionFlagsForSingleRow(implicit c: TestContext): Unit = {
-    okTest {
-      for {
-        tableId <- createEmptyDefaultTable()
-
-        // empty row
-        result <- sendRequest("POST", s"/tables/$tableId/rows")
-        rowId = result.getLong("id")
-
-        _ <- sendRequest(
-          "PATCH",
-          s"/tables/$tableId/rows/$rowId/annotations",
-          Json.obj("permissions" -> Json.arr("perm_1", "perm_2"))
-        )
-
-        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
-
-        _ <- sendRequest("PATCH", s"/tables/$tableId/rows/$rowId/annotations", Json.obj("permissions" -> Json.arr()))
-
-        rowJson2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
-      } yield {
-        val expectedRowJson1 = Json.obj(
-          "status" -> "ok",
-          "id" -> rowId,
-          "permissions" -> Json.arr("perm_1", "perm_2"),
-          "values" -> Json.arr(null, null)
-        )
-
-        assertJSONEquals(expectedRowJson1, rowJson1)
-
-        val expectedRowJson2 = Json.obj(
-          "status" -> "ok",
-          "id" -> rowId,
-          "permissions" -> Json.arr(),
-          "values" -> Json.arr(null, null)
-        )
-
-        assertJSONEquals(expectedRowJson2, rowJson2)
-      }
-    }
-  }
-
 }

@@ -18,6 +18,8 @@ import com.typesafe.scalalogging.LazyLogging
 
 object RoleModel {
 
+  val DEFAULT_ROW_PERMISSION_NAME = "__default__"
+
   def apply(jsonObject: JsonObject, isAuthorization: Boolean = true): RoleModel = {
     if (isAuthorization) {
       new RoleModel(jsonObject)
@@ -50,8 +52,6 @@ case object Enrich extends LoggingMethod
   * (isInternalCall: Boolean).
   */
 class RoleModel(jsonObject: JsonObject) extends LazyLogging {
-
-  val defaultRowPermissionName = "__default__"
 
   /**
     * Checks if a writing request is allowed to change a resource. If not a UnauthorizedException is thrown.
@@ -100,7 +100,6 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         val objects: ComparisonObjects = obj match {
           case table: Table => ComparisonObjects(table)
           case column: ColumnType[_] => parentObjects.merge(column)
-          case row: Row => ComparisonObjects(row)
           case rowPermissions: RowPermissions => ComparisonObjects(rowPermissions)
           case _: Service => ComparisonObjects()
           case _ => ComparisonObjects()
@@ -325,7 +324,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   // permissions. With this to work, we need to add a default permission without conditions to the
   // role model.
   val defaultViewRowRoleName = "view-all-non-restricted-rows"
-  val defaultCondition = Json.obj("permissions" -> defaultRowPermissionName)
+  val defaultCondition = Json.obj("permissions" -> RoleModel.DEFAULT_ROW_PERMISSION_NAME)
 
   val defaultConditionContainer =
     new ConditionContainer(NoneCondition, NoneCondition, NoneCondition, ConditionRow(defaultCondition))
