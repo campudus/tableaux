@@ -66,7 +66,11 @@ case class ConditionContainer(
       }
       case ViewRow => {
         logger.debug(s"matching on action: $action conditionRow: $conditionRow")
-        conditionRow.isMatching(objects)
+        println(s"### try to match on ViewRow conditionRow: $conditionRow objects: $objects")
+        val foo = conditionRow.isMatching(objects)
+        println(s"### isMatching: $foo")
+
+        foo
       }
       case CreateTable | CreateMedia | EditMedia
           | DeleteMedia | CreateTableGroup | EditTableGroup | DeleteTableGroup
@@ -159,15 +163,32 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
 
   override def isMatching(objects: ComparisonObjects): Boolean = {
     // TODO remove rowOpt, can also be done with rowPermissionsOpt
+    println(s"### isMatching ${objects.rowOpt} ${objects.rowPermissionsOpt}")
+
     (objects.rowOpt, objects.rowPermissionsOpt) match {
       case (Some(row: Row), _) =>
         Option(row.rowPermissions) match {
-          case Some(rp) if rp.value.size == 0 => true
-          case None => false // TODO check if this is correct
-          case Some(rp) => checkCondition(Some(rp))
+          // case Some(rp) if rp.value.size == 0 => {
+          //   println(s"### checkCondition 1 ${rp}")
+          //   true
+          // }
+          case None => {
+            println(s"### checkCondition 2")
+            false
+          } // TODO check if this is correct
+          case Some(rp) => {
+            println(s"### checkCondition 3 ${rp}")
+            checkCondition(Some(rp))
+          }
         }
-      case (_, Some(rowPermissions: RowPermissions)) => checkCondition(Some(rowPermissions))
-      case (_, _) => false
+      case (_, Some(rowPermissions: RowPermissions)) => {
+        println(s"### checkCondition 4 ${rowPermissions}")
+        checkCondition(Some(rowPermissions))
+      }
+      case (_, _) => {
+        println(s"### checkCondition 5")
+        false
+      }
     }
   }
 }

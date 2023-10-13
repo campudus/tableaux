@@ -243,13 +243,7 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
 
   @Test
   def retrieveRowWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
-    val expectedJson: JsonObject = Json.obj(
-      "id" -> 1,
-      "values" -> Json.arr(
-        "table1row1",
-        1
-      )
-    )
+    val expectedJson: JsonObject = Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1))
     val controller: TableauxController = createTableauxController()
     for {
       _ <- createDefaultTable()
@@ -264,17 +258,15 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
   @Test
   def retrieveRowWithPermissions_unauthorized(implicit c: TestContext): Unit =
     exceptionTest("error.request.unauthorized") {
-      val expectedJson: JsonObject = Json.obj(
-        "id" -> 1,
-        "values" -> Json.arr(
-          "table1row1",
-          1
-        )
-      )
+      val expectedJson: JsonObject = Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1))
       val controller: TableauxController = createTableauxController()
       for {
         _ <- createDefaultTable()
-        _ <- sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA")))
+        _ <- sendRequest(
+          "PATCH",
+          "/tables/1/rows/1/permissions",
+          Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB"))
+        )
 
         retrievedRow <- controller.retrieveRow(1, 1)
       } yield {}
@@ -283,25 +275,14 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
   @Test
   def retrieveRowsWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
     val expectedJson: JsonArray = Json.arr(
-      Json.obj(
-        "id" -> 1,
-        "values" -> Json.arr(
-          "table1row1",
-          1
-        )
-      ),
-      Json.obj(
-        "id" -> 2,
-        "values" -> Json.arr(
-          "table1row2",
-          2
-        )
-      )
+      Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
+      Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
     )
     val controller: TableauxController = createTableauxController()
     for {
       _ <- createDefaultTable()
-      _ <- sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA")))
+      _ <-
+        sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB")))
 
       retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
     } yield {
@@ -312,18 +293,13 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
   @Test
   def retrieveRowsWithPermissions_unauthorized(implicit c: TestContext): Unit = okTest {
     val expectedJson: JsonArray = Json.arr(
-      Json.obj(
-        "id" -> 2,
-        "values" -> Json.arr(
-          "table1row2",
-          2
-        )
-      )
+      Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
     )
     val controller: TableauxController = createTableauxController()
     for {
       _ <- createDefaultTable()
-      _ <- sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA")))
+      _ <-
+        sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB")))
 
       retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
     } yield {
@@ -334,26 +310,12 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
   @Test
   def retrieveForeignRowsWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
     val expectedJson: JsonArray = Json.arr(
-      Json.obj(
-        "id" -> 1,
-        "values" -> Json.arr(
-          "table1row1"
-        )
-      ),
-      Json.obj(
-        "id" -> 2,
-        "values" -> Json.arr(
-          "table1row2"
-        )
-      )
+      Json.obj("id" -> 1, "values" -> Json.arr("table1row1")),
+      Json.obj("id" -> 2, "values" -> Json.arr("table1row2"))
     )
     val createLinkColumn = Json.obj(
       "columns" -> Json.arr(
-        Json.obj(
-          "name" -> "link col",
-          "toTable" -> 1,
-          "kind" -> "link"
-        )
+        Json.obj("name" -> "link col", "toTable" -> 1, "kind" -> "link")
       )
     )
     val controller: TableauxController = createTableauxController()
@@ -374,21 +336,10 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
   @Test
   def retrieveForeignRowsWithPermissions_unauthorized(implicit c: TestContext): Unit = okTest {
     val expectedJson: JsonArray = Json.arr(
-      Json.obj(
-        "id" -> 2,
-        "values" -> Json.arr(
-          "table1row2"
-        )
-      )
+      Json.obj("id" -> 2, "values" -> Json.arr("table1row2"))
     )
     val createLinkColumn = Json.obj(
-      "columns" -> Json.arr(
-        Json.obj(
-          "name" -> "link col",
-          "toTable" -> 1,
-          "kind" -> "link"
-        )
-      )
+      "columns" -> Json.arr(Json.obj("name" -> "link col", "toTable" -> 1, "kind" -> "link"))
     )
     val controller: TableauxController = createTableauxController()
     for {
@@ -447,4 +398,5 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
       }
     }
   }
+
 }

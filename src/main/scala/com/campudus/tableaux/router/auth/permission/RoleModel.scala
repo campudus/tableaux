@@ -51,6 +51,8 @@ case object Enrich extends LoggingMethod
   */
 class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
+  val defaultRowPermissionName = "__default__"
+
   /**
     * Checks if a writing request is allowed to change a resource. If not a UnauthorizedException is thrown.
     */
@@ -275,19 +277,18 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   ): Boolean = {
 
     def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, true)
-
     def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action, true)
 
     val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects))
     grantPermissionOpt match {
-      case Some(grantPermission) =>
+      case Some(grantPermission) => {
         val denyPermissionOpt: Option[Permission] = denyPermissions.find(_.isMatching(action, objects))
 
         denyPermissionOpt match {
           case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, method, denyPermission, action))
           case None => returnAndLog(Grant, loggingMessage(_, method, grantPermission, action))
         }
-
+      }
       case None => returnAndLog(Deny, defaultLoggingMessage(_, method, userRoles, action))
     }
   }
@@ -324,7 +325,11 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   // permissions. With this to work, we need to add a default permission without conditions to the
   // role model.
   val defaultViewRowRoleName = "view-all-non-restricted-rows"
-  val defaultViewRowPermission = new Permission(defaultViewRowRoleName, Grant, Seq(ViewRow), ConditionContainer(None))
+  val defaultCondition = Json.obj("permissions" -> defaultRowPermissionName)
+
+  val defaultConditionContainer =
+    new ConditionContainer(NoneCondition, NoneCondition, NoneCondition, ConditionRow(defaultCondition))
+  val defaultViewRowPermission = new Permission(defaultViewRowRoleName, Grant, Seq(ViewRow), defaultConditionContainer)
 
   val role2permissions: Map[String, Seq[Permission]] =
     jsonObject
