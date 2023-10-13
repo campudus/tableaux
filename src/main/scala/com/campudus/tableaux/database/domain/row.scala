@@ -32,10 +32,6 @@ case class Row(
       json.mergeIn(rowLevelAnnotations.getJson)
     }
 
-    if (rowPermissions.isDefined) {
-      json.mergeIn(rowPermissions.getJson)
-    }
-
     if (cellLevelAnnotations.isDefined) {
       json.mergeIn(cellLevelAnnotations.getJson)
     }
