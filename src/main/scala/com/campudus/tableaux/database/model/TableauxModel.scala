@@ -935,17 +935,17 @@ class TableauxModel(
   private def removeUnauthorizedForeignValuesFromRows(
       columns: Seq[ColumnType[_]],
       rows: Seq[Row],
-      shouldIncludeViewAuthorization: Boolean = true
+      shouldHideValuesByRowPermissions: Boolean = true
   )(implicit user: TableauxUser): Future[Seq[Row]] = {
     Future.sequence(rows map {
-      case row => removeUnauthorizedLinkAndConcatValuesFromRow(columns, row, shouldIncludeViewAuthorization)
+      case row => removeUnauthorizedLinkAndConcatValuesFromRow(columns, row, shouldHideValuesByRowPermissions)
     })
   }
 
   private def removeUnauthorizedLinkAndConcatValuesFromRow(
       columns: Seq[ColumnType[_]],
       row: Row,
-      shouldIncludeViewAuthorization: Boolean = true
+      shouldHideValuesByRowPermissions: Boolean = true
   )(implicit user: TableauxUser): Future[Row] = {
     val rowValues = row.values
     val rowLevelAnnotations = row.rowLevelAnnotations
@@ -956,7 +956,7 @@ class TableauxModel(
 
     for {
       newRowValues <-
-        removeUnauthorizedLinkAndConcatValuesFromRowValues(columns, rowValues, shouldIncludeViewAuthorization)
+        removeUnauthorizedLinkAndConcatValuesFromRowValues(columns, rowValues, shouldHideValuesByRowPermissions)
     } yield {
       Row(table, id, rowLevelAnnotations, rowPermissions, cellLevelAnnotations, newRowValues)
     }
@@ -965,10 +965,11 @@ class TableauxModel(
   private def removeUnauthorizedLinkAndConcatValuesFromRowValues(
       columns: Seq[ColumnType[_]],
       rowValues: Seq[_],
-      shouldIncludeViewAuthorization: Boolean = false
+      shouldHideValuesByRowPermissions: Boolean = false
   )(implicit user: TableauxUser): Future[Seq[_]] = {
     Future.sequence(columns zip rowValues map {
-      case (column, rowValue) => removeUnauthorizedLinkAndConcatValues(column, rowValue, shouldIncludeViewAuthorization)
+      case (column, rowValue) =>
+        removeUnauthorizedLinkAndConcatValues(column, rowValue, shouldHideValuesByRowPermissions)
     })
   }
 
@@ -977,7 +978,7 @@ class TableauxModel(
   private def removeUnauthorizedLinkAndConcatValues(
       column: ColumnType[_],
       value: Any,
-      shouldIncludeViewAuthorization: Boolean = false
+      shouldHideValuesByRowPermissions: Boolean = false
   )(implicit user: TableauxUser): Future[Any] = {
     (column, value) match {
       case (c: LinkColumn, linkSeq) => {
@@ -998,8 +999,8 @@ class TableauxModel(
               val linkRowId = link.getLong("id").longValue()
               canUserViewRow(foreignTable, linkRowId, rowPermissions) flatMap {
 
-                val buildReturnJson: (Option[Any], Boolean) => JsonObject = (valueOpt, viewAuthorization) => {
-                  if (shouldIncludeViewAuthorization && !viewAuthorization) {
+                val buildReturnJson: (Option[Any], Boolean) => JsonObject = (valueOpt, userCanView) => {
+                  if (shouldHideValuesByRowPermissions && !userCanView) {
                     Json.obj(
                       "id" -> linkRowId,
                       "hiddenByRowPermissions" -> true
@@ -1118,6 +1119,9 @@ class TableauxModel(
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
       rowSeqWithoutUnauthorizedValues <- removeUnauthorizedForeignValuesFromRows(representingColumns, rowSeq)
     } yield {
+      println(s"### rowSeqWithoutUnauthorizedValues size: ${rowSeqWithoutUnauthorizedValues.size}")
+      println(s"### rowSeqWithoutUnauthorizedValues: ${rowSeqWithoutUnauthorizedValues}")
+
       val filteredForeignRows =
         roleModel.filterDomainObjects(ViewRow, rowSeqWithoutUnauthorizedValues, ComparisonObjects(), false)
       val rowsSeq = RowSeq(filteredForeignRows, Page(pagination, Some(totalSize)))
@@ -1142,6 +1146,7 @@ class TableauxModel(
       rowSeq <- retrieveRows(table, filteredColumns, pagination)
       mutatedRows <- removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
     } yield {
+      println("mutatedRows: " + mutatedRows.size)
       val filteredRows = roleModel.filterDomainObjects(ViewRow, mutatedRows, ComparisonObjects(), false)
       RowSeq(filteredRows, rowSeq.page)
     }

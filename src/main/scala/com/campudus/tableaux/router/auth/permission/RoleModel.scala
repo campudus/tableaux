@@ -31,10 +31,10 @@ object RoleModel {
   def apply(): RoleModel = new RoleModel(Json.emptyObj())
 }
 
-sealed trait LoggingMethod
-case object Check extends LoggingMethod
-case object Filter extends LoggingMethod
-case object Enrich extends LoggingMethod
+sealed trait RoleMethod
+case object Check extends RoleMethod
+case object Filter extends RoleMethod
+case object Enrich extends RoleMethod
 
 /**
   * RoleModel is responsible for providing these main functions:
@@ -100,6 +100,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         val objects: ComparisonObjects = obj match {
           case table: Table => ComparisonObjects(table)
           case column: ColumnType[_] => parentObjects.merge(column)
+          case row: Row => ComparisonObjects(row)
           case rowPermissions: RowPermissions => ComparisonObjects(rowPermissions)
           case _: Service => ComparisonObjects()
           case _ => ComparisonObjects()
@@ -271,17 +272,17 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def isAllowed(
       userRoles: Seq[String],
       action: Action,
-      method: LoggingMethod,
+      method: RoleMethod,
       objects: ComparisonObjects = ComparisonObjects()
   ): Boolean = {
 
     def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, true)
     def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action, true)
 
-    val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects))
+    val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects, method))
     grantPermissionOpt match {
       case Some(grantPermission) => {
-        val denyPermissionOpt: Option[Permission] = denyPermissions.find(_.isMatching(action, objects))
+        val denyPermissionOpt: Option[Permission] = denyPermissions.find(_.isMatching(action, objects, method))
 
         denyPermissionOpt match {
           case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, method, denyPermission, action))
@@ -304,7 +305,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def defaultLoggingMessage(
       permissionType: PermissionType,
-      method: LoggingMethod,
+      method: RoleMethod,
       userRoles: Seq[String],
       action: Action
   ): String =
@@ -312,7 +313,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def loggingMessage(
       permissionType: PermissionType,
-      method: LoggingMethod,
+      method: RoleMethod,
       permission: Permission,
       action: Action
   ): String = {

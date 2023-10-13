@@ -33,6 +33,22 @@ trait TestHelper extends TableauxTestBase {
     arr.getJsonObject(pos).getJsonArray("value")
   }
 
+  val roleConfigWithViewRowPermissions =
+    """
+      |{
+      |  "view-rows": [
+      |    {
+      |      "type": "grant",
+      |      "action": ["viewColumn", "viewCellValue", "viewTable", "viewRow"],
+      |      "condition": {
+      |        "row": {
+      |          "permissions": "onlyGroupA|perm_1|perm_2|perm_3"
+      |        }
+      |      }
+      |    }
+      |  ]
+      |}""".stripMargin
+
   val defaultViewTableRole =
     """
       |{
@@ -62,7 +78,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
   @Test
   def replaceRowPermissions(implicit c: TestContext): Unit = {
     okTest {
-      val controller = createTableauxController()
+      val controller = createTableauxController(roleConfigWithViewRowPermissions)
       val expectedRow1 =
         """
           |{
@@ -109,7 +125,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
   @Test
   def addRowPermissions(implicit c: TestContext): Unit = {
     okTest {
-      val controller = createTableauxController()
+      val controller = createTableauxController(roleConfigWithViewRowPermissions)
       val expectedRow1 =
         """
           |{
@@ -159,7 +175,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
   @Test
   def deleteRowPermissions(implicit c: TestContext): Unit = {
     okTest {
-      val controller = createTableauxController()
+      val controller = createTableauxController(roleConfigWithViewRowPermissions)
       val expectedRow1 =
         """
           |{
@@ -209,7 +225,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
   @Test
   def addRowPermissionsWithCreateRow(implicit c: TestContext): Unit = {
     okTest {
-      val controller = createTableauxController()
+      val controller = createTableauxController(roleConfigWithViewRowPermissions)
       val expectedRow1 =
         """
           |{
@@ -240,17 +256,6 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
 
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
-
-  val roleConfigWithViewRowPermissions =
-    """
-      |{
-      |  "view-rows": [
-      |    {
-      |      "type": "grant",
-      |      "action": ["viewColumn", "viewCellValue", "viewTable", "viewRow"]
-      |    }
-      |  ]
-      |}""".stripMargin
 
   @Test
   def retrieveRowWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
@@ -285,18 +290,6 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
 
   @Test
   def retrieveRowsWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
-    // val roleModelWithViewRowPermissions = initRoleModel(
-    //   """
-    //     |{
-    //     |  "view-rows": [
-    //     |    {
-    //     |      "type": "grant",
-    //     |      "action": ["viewColumn", "viewCellValue", "viewTable", "viewRow"]
-    //     |    }
-    //     |  ]
-    //     |}""".stripMargin
-    // )
-
     val expectedJson: JsonArray = Json.arr(
       Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1)),
       Json.obj("id" -> 2, "values" -> Json.arr("table1row2", 2))
@@ -341,7 +334,7 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
         Json.obj("name" -> "link col", "toTable" -> 1, "kind" -> "link")
       )
     )
-    val controller: TableauxController = createTableauxController()
+    val controller: TableauxController = createTableauxController(roleConfigWithViewRowPermissions)
     for {
       _ <- createDefaultTable()
       _ <- createDefaultTable(" link test table", 2)
