@@ -124,7 +124,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.putWithRegex(linkOrderOfCell).handler(changeLinkOrder)
 
     router.patchWithRegex(rowPermissionsPath).handler(addRowPermissions)
-    router.deleteWithRegex(rowPermissionsPath).handler(removeRowPermissions)
+    router.deleteWithRegex(rowPermissionsPath).handler(deleteRowPermissions)
     router.putWithRegex(rowPermissionsPath).handler(replaceRowPermissions)
 
     router
@@ -872,9 +872,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Remove permissions from Row
+    * Delete all permissions from Row
     */
-  private def removeRowPermissions(context: RoutingContext): Unit = {
+  private def deleteRowPermissions(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
     for {
       tableId <- getTableId(context)
@@ -883,9 +883,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          val json = getJson(context)
-          val rowPermissions = getRowPermissionsOpt("value", json).getOrElse(Seq())
-          controller.removeRowPermissions(tableId, rowId, rowPermissions)
+          controller.deleteRowPermissions(tableId, rowId)
         }
       )
     }

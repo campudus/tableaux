@@ -155,7 +155,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
-  def removeRowPermissions(implicit c: TestContext): Unit = {
+  def deleteRowPermissions(implicit c: TestContext): Unit = {
     okTest {
       val controller = createTableauxController()
       val expectedRow1 =
@@ -174,7 +174,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
           |  "event": "row_permissions_changed",
           |  "historyType": "row_permissions",
           |  "valueType": "permissions",
-          |  "value": ["perm_2"]
+          |  "value": null
           |}
         """.stripMargin
 
@@ -188,11 +188,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
           "/tables/1/rows/1/permissions",
           Json.obj("value" -> Json.arr("perm_1", "perm_2", "perm_3"))
         )
-        _ <- sendRequest(
-          "DELETE",
-          "/tables/1/rows/1/permissions",
-          Json.obj("value" -> Json.arr("perm_1", "perm_3", "perm_3", "perm_4"))
-        )
+        _ <- sendRequest("DELETE", "/tables/1/rows/1/permissions")
 
         historyRows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
 
@@ -203,7 +199,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
         assertEquals(2, historyRows.size())
         assertJSONEquals(expectedRow1, historyRow1.toString)
         assertJSONEquals(expectedRow2, historyRow2.toString)
-        assertEquals(Seq("perm_2"), row.rowPermissions.value)
+        assertEquals(Seq(), row.rowPermissions.value)
       }
     }
   }

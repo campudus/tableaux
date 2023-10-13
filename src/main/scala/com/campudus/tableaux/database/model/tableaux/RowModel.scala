@@ -169,21 +169,23 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     }
   }
 
-  def updateRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: RowPermissionSeq)(
+  def updateRowPermissions(tableId: TableId, rowId: RowId, rowPermissionsOpt: Option[RowPermissionSeq])(
       implicit ec: ExecutionContext
-  ): Future[RowPermissionSeq] = {
+  ): Future[Option[RowPermissionSeq]] = {
     val updateQuery = s"""
                          |UPDATE user_table_${tableId}
                          |SET row_permissions = ?::jsonb
                          |WHERE id = ?
                          |""".stripMargin
 
-    val rowPermissionsJson = Json.arr(rowPermissions: _*)
-    val binds = Json.arr(rowPermissionsJson.encode(), rowId)
+    val value = rowPermissionsOpt match {
+      case Some(rowPermissions) => Json.arr(rowPermissions: _*).encode()
+      case None => null
+    }
 
     for {
-      _ <- connection.query(updateQuery, binds)
-    } yield rowPermissions
+      _ <- connection.query(updateQuery, Json.arr(value, rowId))
+    } yield rowPermissionsOpt
   }
 }
 
@@ -768,18 +770,21 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     connection.query(delete, binds)
   }
 
-  def addRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[RowPermissionSeq] = {
+  def addRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[Option[RowPermissionSeq]] = {
     val mergedSeq = (row.rowPermissions.value ++ rowPermissions).distinct
-    updateRowPermissions(table.id, row.id, mergedSeq)
+    updateRowPermissions(table.id, row.id, Some(mergedSeq))
   }
 
-  def removeRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[RowPermissionSeq] = {
-    val reducedSeq = row.rowPermissions.value.filterNot(rowPermissions.contains)
-    updateRowPermissions(table.id, row.id, reducedSeq)
+  def deleteRowPermissions(table: Table, row: Row): Future[Option[RowPermissionSeq]] = {
+    updateRowPermissions(table.id, row.id, None)
   }
 
-  def replaceRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[RowPermissionSeq] =
-    updateRowPermissions(table.id, row.id, rowPermissions)
+  def replaceRowPermissions(
+      table: Table,
+      row: Row,
+      rowPermissions: RowPermissionSeq
+  ): Future[Option[RowPermissionSeq]] =
+    updateRowPermissions(table.id, row.id, Some(rowPermissions))
 
 }
 
@@ -804,7 +809,7 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(tableId, rowId, attachments)
           _ <- rowPermissionsOpt match {
             case None => Future.successful(())
-            case Some(rowPermissions) => updateRowPermissions(tableId, rowId, rowPermissions)
+            case Some(rowPermissions) => updateRowPermissions(tableId, rowId, rowPermissionsOpt)
           }
         } yield rowId
     }

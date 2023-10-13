@@ -1796,9 +1796,6 @@
         },
         {
           "$ref": "#/parameters/rowId"
-        },
-        {
-          "$ref": "#/parameters/rowPermissionBody"
         }
       ],
       "patch": {
@@ -1808,6 +1805,11 @@
           "permission"
         ],
         "operationId": "add-row-permissions",
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowPermissionBody"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -1818,12 +1820,12 @@
         }
       },
       "delete": {
-        "summary": "Removes permissions of this row.",
-        "description": "Removes permissions of this row.",
+        "summary": "Delete all permissions of this row.",
+        "description": "Delete permissions of this row.",
         "tags": [
           "permission"
         ],
-        "operationId": "remove-row-permissions",
+        "operationId": "delete-row-permissions",
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -1840,6 +1842,11 @@
           "permission"
         ],
         "operationId": "replace-row-permissions",
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowPermissionBody"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"

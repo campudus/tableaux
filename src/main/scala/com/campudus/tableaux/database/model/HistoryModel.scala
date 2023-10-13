@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, RowPermissionSeq, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -438,10 +438,14 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   private def insertChangedRowPermissionHistory(
       table: Table,
       rowId: RowId,
-      rowPermissions: Seq[String]
+      rowPermissionsOpt: Option[RowPermissionSeq]
   )(implicit user: TableauxUser): Future[RowId] = {
     logger.info(s"insertChangedRowPermissionHistory ${table.id} $rowId ${user.name}")
-    val jsonString = Json.obj("value" -> (Json.arr(rowPermissions: _*)))
+    val value = rowPermissionsOpt match {
+      case Some(perm) => Json.arr(perm: _*)
+      case None => null
+    }
+    val jsonString = Json.obj("value" -> value)
     insertHistory(
       table.id,
       rowId,
@@ -925,16 +929,16 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     for {
       _ <- insertCreateRowHistory(table, rowId)
       _ <- rowPermissionsOpt match {
-        case Some(rowPermissions) => insertChangedRowPermissionHistory(table, rowId, rowPermissions)
+        case Some(rowPermissions) => insertChangedRowPermissionHistory(table, rowId, rowPermissionsOpt)
         case None => Future.successful(())
       }
     } yield rowId
   }
 
-  def updateRowPermission(table: Table, rowId: RowId, rowPermissions: Seq[String])(
+  def updateRowPermission(table: Table, rowId: RowId, rowPermissionsOpt: Option[RowPermissionSeq])(
       implicit user: TableauxUser
   ): Future[RowId] = {
-    insertChangedRowPermissionHistory(table, rowId, rowPermissions)
+    insertChangedRowPermissionHistory(table, rowId, rowPermissionsOpt)
   }
 
   def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int])(
@@ -942,37 +946,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   ): Future[RowId] = {
     insertDeleteRowHistory(table, rowId, replacingRowIdOpt)
   }
-
-  // def updateRowsPermission(tableId: TableId, rowIds: Seq[RowId], rowPermissions: Seq[RowPermission])(
-  //     implicit user: TableauxUser
-  // ): Future[_] = {
-
-  //   val annotationChanges = rowIds.flatMap(rowId =>
-  //     rowAnnotations.map(annotation =>
-  //       annotation match {
-  //         case FinalFlag(finalFlag) => {
-  //           if (finalFlag)
-  //             addRowAnnotationHistory(tableId, rowId, annotation.jsonKey)
-  //           else
-  //             removeRowAnnotationHistory(tableId, rowId, annotation.jsonKey)
-  //         }
-  //         case RowPermissions(rowPermissions) => {
-  //           insertHistory(
-  //             tableId,
-  //             rowId,
-  //             None,
-  //             AnnotationChangedEvent,
-  //             HistoryTypeRowPermissions,
-  //             Some(annotation.jsonKey),
-  //             Some(LanguageType.NEUTRAL),
-  //             Some(Json.obj("value" -> rowPermissions).toString)
-  //           )
-  //         }
-  //       }
-  //     )
-  //   )
-  //   Future.sequence(annotationChanges)
-  // }
 
   def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], finalFlagOpt: Option[Boolean])(
       implicit user: TableauxUser

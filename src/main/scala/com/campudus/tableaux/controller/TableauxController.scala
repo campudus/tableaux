@@ -613,15 +613,15 @@ class TableauxController(
     } yield EmptyObject()
   }
 
-  def removeRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: Seq[String])(
+  def deleteRowPermissions(tableId: TableId, rowId: RowId)(
       implicit user: TableauxUser
   ): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"removeRowPermissions $tableId $rowId $rowPermissions")
+    logger.info(s"removeRowPermissions $tableId $rowId")
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- repository.removeRowPermissions(table, rowId, rowPermissions)
+      _ <- repository.deleteRowPermissions(table, rowId)
     } yield EmptyObject()
   }
 

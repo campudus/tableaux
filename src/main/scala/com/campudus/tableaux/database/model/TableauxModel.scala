@@ -1489,20 +1489,20 @@ class TableauxModel(
       // TODO check for authorization
       // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
       row <- retrieveRow(table, rowId)
-      newRowPermissions <- updateRowModel.addRowPermissions(table, row, rowPermissions)
-      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissions)
+      newRowPermissionsOpt <- updateRowModel.addRowPermissions(table, row, rowPermissions)
+      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissionsOpt)
     } yield ()
   }
 
-  def removeRowPermissions(table: Table, rowId: RowId, rowPermissions: RowPermissionSeq)(
+  def deleteRowPermissions(table: Table, rowId: RowId)(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
       // TODO check for authorization
       // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
       row <- retrieveRow(table, rowId)
-      newRowPermissions <- updateRowModel.removeRowPermissions(table, row, rowPermissions)
-      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissions)
+      newRowPermissionsOpt <- updateRowModel.deleteRowPermissions(table, row)
+      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissionsOpt)
     } yield ()
   }
 
@@ -1513,8 +1513,8 @@ class TableauxModel(
       // TODO check for authorization
       // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
       row <- retrieveRow(table, rowId)
-      newRowPermissions <- updateRowModel.replaceRowPermissions(table, row, rowPermissions)
-      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissions)
+      newRowPermissionsOpt <- updateRowModel.replaceRowPermissions(table, row, rowPermissions)
+      _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissionsOpt)
     } yield ()
   }
 }
