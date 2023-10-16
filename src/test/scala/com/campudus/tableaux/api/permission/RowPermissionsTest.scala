@@ -411,7 +411,7 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
     val controller: TableauxController = createTableauxController()
     for {
       _ <- createDefaultTable()
-      _ <- createDefaultTable(" link test table", 2)
+      _ <- createDefaultTable("link test table", 2)
       _ <- sendRequest(
         "PATCH",
         "/tables/1/rows/1/permissions",
@@ -425,6 +425,48 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
       retrievedRows <- controller.retrieveForeignRows(2, 3, 1, Pagination(None, None))
     } yield {
       assertEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
+    }
+  }
+
+  @Test
+  def retrieveHiddenForeignRows_unauthorized(implicit c: TestContext): Unit = okTest {
+    val linkArray =
+      Json.arr(Json.obj("id" -> 1, "hiddenByRowPermissions" -> true), Json.obj("id" -> 2, "value" -> "table1row2"))
+    val row1 = Json.obj(
+      "id" -> 1,
+      "values" -> Json.arr(Json.arr("table2row1", 1, linkArray), "table2row1", 1, linkArray)
+    )
+    val row2 = Json.obj(
+      "id" -> 2,
+      "values" -> Json.arr(Json.arr("table2row2", 2, Json.emptyArr()), "table2row2", 2, Json.emptyArr())
+    )
+    val expectedJson: JsonArray = Json.arr(row1, row2)
+
+    val createLinkColumn = Json.obj(
+      "columns" -> Json.arr(Json.obj("name" -> "link col", "toTable" -> 1, "kind" -> "link"))
+    )
+    val identifierTrue = Json.obj("identifier" -> true)
+    val controller: TableauxController = createTableauxController()
+    for {
+      _ <- createDefaultTable()
+      _ <- createDefaultTable("link test table", 2)
+      _ <- sendRequest(
+        "PATCH",
+        "/tables/1/rows/1/permissions",
+        Json.obj("value" -> Json.arr("onlyGroupA")),
+        tokenWithRoles("view-tables", "view-test-row-permissions")
+      )
+
+      _ <- sendRequest("POST", "/tables/2/columns", createLinkColumn)
+      _ <- sendRequest("PATCH", "/tables/2/columns/2", identifierTrue)
+      _ <- sendRequest("PATCH", "/tables/2/columns/3", identifierTrue)
+      _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
+      _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
+      cell <- sendRequest("GET", "/tables/2/columns/3/rows/1")
+      retrievedRows <- controller.retrieveRows(2, Pagination(None, None))
+    } yield {
+      val resultRows = retrievedRows.getJson.getJsonArray("rows")
+      assertEquals(expectedJson, resultRows)
     }
   }
 }
