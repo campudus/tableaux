@@ -41,32 +41,32 @@ case class ConditionContainer(
     conditionRow: ConditionOption
 ) extends LazyLogging {
 
-  def isMatching(action: Action, objects: ComparisonObjects, method: RoleMethod): Boolean = {
+  def isMatching(action: Action, objects: ComparisonObjects): Boolean = {
 
     action match {
       case EditCellValue => {
         logger.debug(
           s"matching on action: $action conditionTable: $conditionTable conditionColumn $conditionColumn conditionLangtag $conditionLangtag"
         )
-        conditionTable.isMatching(objects, method) &&
-        conditionColumn.isMatching(objects, method) &&
-        conditionLangtag.isMatching(objects, method)
+        conditionTable.isMatching(objects) &&
+        conditionColumn.isMatching(objects) &&
+        conditionLangtag.isMatching(objects)
       }
       case ViewCellValue | DeleteColumn | ViewColumn
           | EditColumnDisplayProperty | EditColumnStructureProperty => {
         logger.debug(s"matching on action: $action conditionTable: $conditionTable conditionColumn $conditionColumn")
-        conditionTable.isMatching(objects, method) &&
-        conditionColumn.isMatching(objects, method)
+        conditionTable.isMatching(objects) &&
+        conditionColumn.isMatching(objects)
       }
       case ViewTable | DeleteTable | CreateRow | DeleteRow | EditCellAnnotation
           | EditRowAnnotation | EditTableDisplayProperty | EditTableStructureProperty
           | ViewHiddenTable | CreateColumn => {
         logger.debug(s"matching on action: $action conditionTable: $conditionTable")
-        conditionTable.isMatching(objects, method)
+        conditionTable.isMatching(objects)
       }
       case ViewRow => {
         logger.debug(s"matching on action: $action conditionRow: $conditionRow")
-        conditionRow.isMatching(objects, method)
+        conditionRow.isMatching(objects)
       }
       case CreateTable | CreateMedia | EditMedia
           | DeleteMedia | CreateTableGroup | EditTableGroup | DeleteTableGroup
@@ -87,12 +87,12 @@ abstract class ConditionOption(jsonObject: JsonObject) extends LazyLogging {
     jsonObject.asMap.toMap.asInstanceOf[Map[String, String]]
   }
 
-  def isMatching(objects: ComparisonObjects, _method: RoleMethod): Boolean = false
+  def isMatching(objects: ComparisonObjects): Boolean = false
 }
 
 case class ConditionTable(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-  override def isMatching(objects: ComparisonObjects, _method: RoleMethod): Boolean = {
+  override def isMatching(objects: ComparisonObjects): Boolean = {
     objects.tableOpt match {
       case Some(table) =>
         conditionMap.forall({
@@ -113,7 +113,7 @@ case class ConditionTable(jsonObject: JsonObject) extends ConditionOption(jsonOb
 
 case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-  override def isMatching(objects: ComparisonObjects, _method: RoleMethod): Boolean = {
+  override def isMatching(objects: ComparisonObjects): Boolean = {
 
     objects.columnOpt match {
       case Some(column) =>
@@ -138,7 +138,7 @@ case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonO
 
 case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-  def checkCondition(method: RoleMethod, rowPermissions: RowPermissions): Boolean = {
+  def checkCondition(rowPermissions: RowPermissions): Boolean = {
     conditionMap.forall({
       case (property, regex) =>
         property match {
@@ -156,15 +156,15 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
 
   }
 
-  override def isMatching(objects: ComparisonObjects, method: RoleMethod): Boolean = {
+  override def isMatching(objects: ComparisonObjects): Boolean = {
 
     (objects.rowOpt, objects.rowPermissionsOpt) match {
       case (Some(row: Row), _) =>
         Option(row.rowPermissions) match {
           case None => false
-          case Some(rp) => checkCondition(method, rp)
+          case Some(rp) => checkCondition(rp)
         }
-      case (_, Some(rp: RowPermissions)) => checkCondition(method, rp)
+      case (_, Some(rp: RowPermissions)) => checkCondition(rp)
       case (_, _) => false
     }
   }
@@ -172,7 +172,7 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
 
 case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-  override def isMatching(objects: ComparisonObjects, _method: RoleMethod): Boolean = {
+  override def isMatching(objects: ComparisonObjects): Boolean = {
 
     // At this point, the value for the column type must already have been checked. -> checkValueTypeForColumn
     objects.columnOpt match {
@@ -205,5 +205,5 @@ case class ConditionLangtag(jsonObject: JsonObject) extends ConditionOption(json
 }
 
 case object NoneCondition extends ConditionOption(Json.emptyObj()) {
-  override def isMatching(objects: ComparisonObjects, _method: RoleMethod): Boolean = true
+  override def isMatching(objects: ComparisonObjects): Boolean = true
 }

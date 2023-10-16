@@ -15,10 +15,9 @@ case class Permission(
 
   def isMatching(
       action: Action,
-      objects: ComparisonObjects = ComparisonObjects(),
-      method: RoleMethod = Check
+      objects: ComparisonObjects = ComparisonObjects()
   ): Boolean =
-    conditions.isMatching(action, objects, method)
+    conditions.isMatching(action, objects)
 }
 
 object Permission {

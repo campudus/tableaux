@@ -279,10 +279,10 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
     def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, true)
     def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action, true)
 
-    val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects, method))
+    val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects))
     grantPermissionOpt match {
       case Some(grantPermission) => {
-        val denyPermissionOpt: Option[Permission] = denyPermissions.find(_.isMatching(action, objects, method))
+        val denyPermissionOpt: Option[Permission] = denyPermissions.find(_.isMatching(action, objects))
 
         denyPermissionOpt match {
           case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, method, denyPermission, action))
