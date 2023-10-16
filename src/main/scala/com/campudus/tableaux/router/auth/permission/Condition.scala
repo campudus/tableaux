@@ -157,19 +157,10 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
               }
               case Some(rowPermissions) => {
                 println(s"### method ${method}")
-                method match {
-                  case Filter => rowPermissions.value.exists((aaa) => {
-                      println(s"### aaa ${aaa} matches ${regex} -> ${aaa.matches(regex)}")
-                      aaa.matches(regex)
-                    })
-                  case Check => true
-                  case _ => false
-                }
-                // println(s"### rowPermissions ${rowPermissions} regex ${regex}")
-                // rowPermissions.value.exists((aaa) => {
-                //   println(s"### aaa ${aaa} matches ${regex} -> ${aaa.matches(regex)}")
-                //   aaa.matches(regex)
-                // })
+                rowPermissions.value.exists((aaa) => {
+                  println(s"### aaa ${aaa} matches ${regex} -> ${aaa.matches(regex)}")
+                  aaa.matches(regex)
+                })
               }
               case None => false
             }

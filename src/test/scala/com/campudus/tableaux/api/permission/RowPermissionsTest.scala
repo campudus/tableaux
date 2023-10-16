@@ -39,7 +39,7 @@ trait TestHelper extends TableauxTestBase {
       |  "view-rows": [
       |    {
       |      "type": "grant",
-      |      "action": ["viewColumn", "viewCellValue", "viewTable", "viewRow"],
+      |      "action": ["viewColumn", "viewCellValue", "viewTable", "viewRow", "createRow"],
       |      "condition": {
       |        "row": {
       |          "permissions": "onlyGroupA|perm_1|perm_2|perm_3"
@@ -102,11 +102,9 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
       for {
 
         _ <- createTableWithMultilanguageColumns("history test")
-        _ <- sendRequest("POST", "/tables/1/rows")
-
-        _ <-
-          sendRequest("PUT", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("perm_1", "perm_2")))
-        _ <- sendRequest("PUT", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("perm_3")))
+        _ <- controller.createRow(1, None, None)
+        _ <- controller.replaceRowPermissions(1, 1, Seq("perm_1", "perm_2"))
+        _ <- controller.replaceRowPermissions(1, 1, Seq("perm_3"))
 
         historyRows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
         historyRow1 = historyRows.get[JsonObject](0)
@@ -149,14 +147,9 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
       for {
 
         _ <- createTableWithMultilanguageColumns("history test")
-        _ <- sendRequest("POST", "/tables/1/rows")
-
-        _ <- sendRequest("PUT", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("perm_1")))
-        _ <- sendRequest(
-          "PATCH",
-          "/tables/1/rows/1/permissions",
-          Json.obj("value" -> Json.arr("perm_2", "perm_3", "perm_3"))
-        )
+        _ <- controller.createRow(1, None, None)
+        _ <- controller.addRowPermissions(1, 1, Seq("perm_1"))
+        _ <- controller.addRowPermissions(1, 1, Seq("perm_2", "perm_3", "perm_3"))
 
         historyRows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
 
@@ -199,14 +192,9 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
       for {
 
         _ <- createTableWithMultilanguageColumns("history test")
-        _ <- sendRequest("POST", "/tables/1/rows")
-
-        _ <- sendRequest(
-          "PUT",
-          "/tables/1/rows/1/permissions",
-          Json.obj("value" -> Json.arr("perm_1", "perm_2", "perm_3"))
-        )
-        _ <- sendRequest("DELETE", "/tables/1/rows/1/permissions")
+        _ <- controller.createRow(1, None, None)
+        _ <- controller.replaceRowPermissions(1, 1, Seq("perm_1", "perm_2", "perm_3"))
+        _ <- controller.deleteRowPermissions(1, 1)
 
         historyRows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
 
@@ -239,7 +227,7 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
       for {
 
         _ <- createTableWithMultilanguageColumns("history test")
-        _ <- sendRequest("POST", "/tables/1/rows", Json.obj("rowPermissions" -> Json.arr("perm_1", "perm_2")))
+        _ <- controller.createRow(1, None, Some(Seq("perm_1", "perm_2")))
 
         historyRows <- sendRequest("GET", "/tables/1/history?historyType=row_permissions").map(toRowsArray)
 
