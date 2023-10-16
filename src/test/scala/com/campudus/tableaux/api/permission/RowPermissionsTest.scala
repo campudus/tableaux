@@ -1,5 +1,6 @@
 package com.campudus.tableaux.api.permission
 
+import com.campudus.tableaux.api.auth.AuthorizationTest
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.Pagination
@@ -242,14 +243,15 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
-  def addRowPermissions_ensureReadabilityWithNewRowPermissions_authorized(implicit c: TestContext): Unit = {
+  def addAndReplaceRowPermissions_ensureReadabilityWithNewRowPermissions_authorized(implicit c: TestContext): Unit = {
     okTest {
       val controller = createTableauxController(roleConfigWithViewRowPermissions)
-      for {
 
+      for {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- controller.createRow(1, None, None)
-        res <- controller.addRowPermissions(1, 1, Seq("perm_1"))
+        _ <- controller.addRowPermissions(1, 1, Seq("perm_1"))
+        res <- controller.replaceRowPermissions(1, 1, Seq("perm_2"))
       } yield {
         assertNotNull(res)
       }
@@ -262,25 +264,42 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
       val controller = createTableauxController()
 
       for {
-
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- controller.createRow(1, None, None)
         res <- controller.addRowPermissions(1, 1, Seq("perm_1"))
       } yield {}
     }
   }
+
+  @Test
+  def replaceRowPermissions_ensureReadabilityWithNewRowPermissions_unauthorized(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.unauthorized") {
+      val controller = createTableauxController()
+
+      for {
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- controller.createRow(1, None, None)
+        res <- controller.replaceRowPermissions(1, 1, Seq("perm_1"))
+      } yield {}
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
-class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
+class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
 
   @Test
-  def retrieveRowWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
+  def retrieveSingleRowWithPermissions_authorized(implicit c: TestContext): Unit = okTest {
     val expectedJson: JsonObject = Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1))
     val controller: TableauxController = createTableauxController(roleConfigWithViewRowPermissions)
     for {
       _ <- createDefaultTable()
-      _ <- sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA")))
+      _ <- sendRequest(
+        "PATCH",
+        "/tables/1/rows/1/permissions",
+        Json.obj("value" -> Json.arr("onlyGroupA")),
+        tokenWithRoles("view-tables", "view-test-row-permissions")
+      )
 
       retrievedRow <- controller.retrieveRow(1, 1)
     } yield {
@@ -289,16 +308,16 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
-  def retrieveRowWithPermissions_unauthorized(implicit c: TestContext): Unit =
+  def retrieveSingleRowWithPermissions_unauthorized(implicit c: TestContext): Unit =
     exceptionTest("error.request.unauthorized") {
-      val expectedJson: JsonObject = Json.obj("id" -> 1, "values" -> Json.arr("table1row1", 1))
       val controller: TableauxController = createTableauxController()
       for {
         _ <- createDefaultTable()
         _ <- sendRequest(
           "PATCH",
           "/tables/1/rows/1/permissions",
-          Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB"))
+          Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB")),
+          tokenWithRoles("view-tables", "view-test-row-permissions")
         )
 
         retrievedRow <- controller.retrieveRow(1, 1)
@@ -315,7 +334,12 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
     for {
       _ <- createDefaultTable()
       _ <-
-        sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB")))
+        sendRequest(
+          "PATCH",
+          "/tables/1/rows/1/permissions",
+          Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB")),
+          tokenWithRoles("view-tables", "view-test-row-permissions")
+        )
 
       retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
     } yield {
@@ -332,7 +356,12 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
     for {
       _ <- createDefaultTable()
       _ <-
-        sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB")))
+        sendRequest(
+          "PATCH",
+          "/tables/1/rows/1/permissions",
+          Json.obj("value" -> Json.arr("onlyGroupA", "onlyGroupB")),
+          tokenWithRoles("view-tables", "view-test-row-permissions")
+        )
 
       retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
     } yield {
@@ -355,7 +384,12 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
     for {
       _ <- createDefaultTable()
       _ <- createDefaultTable(" link test table", 2)
-      _ <- sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA")))
+      _ <- sendRequest(
+        "PATCH",
+        "/tables/1/rows/1/permissions",
+        Json.obj("value" -> Json.arr("onlyGroupA")),
+        tokenWithRoles("view-tables", "view-test-row-permissions")
+      )
       _ <- sendRequest("POST", "/tables/2/columns", createLinkColumn)
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
@@ -378,11 +412,17 @@ class RetrieveRowsPermissionsTest extends TableauxTestBase with TestHelper {
     for {
       _ <- createDefaultTable()
       _ <- createDefaultTable(" link test table", 2)
-      _ <- sendRequest("PATCH", "/tables/1/rows/1/permissions", Json.obj("value" -> Json.arr("onlyGroupA")))
+      _ <- sendRequest(
+        "PATCH",
+        "/tables/1/rows/1/permissions",
+        Json.obj("value" -> Json.arr("onlyGroupA")),
+        tokenWithRoles("view-tables", "view-test-row-permissions")
+      )
       _ <- sendRequest("POST", "/tables/2/columns", createLinkColumn)
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
       cell <- sendRequest("GET", "/tables/2/columns/3/rows/1")
+      _ = println(s"###: before retrieving foreign rows")
       retrievedRows <- controller.retrieveForeignRows(2, 3, 1, Pagination(None, None))
     } yield {
       assertEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))

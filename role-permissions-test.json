@@ -227,6 +227,19 @@
       ]
     }
   ],
+  "view-test-row-permissions": [
+    {
+      "type": "grant",
+      "action": [
+        "viewRow"
+      ],
+      "condition": {
+        "row": {
+          "permissions": "onlyGroupA|perm_1|perm_2|perm_3"
+        }
+      }
+    }
+  ],
   // Developer test role to be able to pass all integration tests
   "dev": [
     {
