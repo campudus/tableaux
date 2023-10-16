@@ -55,7 +55,7 @@ trait TestHelper extends TableauxTestBase {
       |  "view-rows": [
       |    {
       |      "type": "grant",
-      |      "action": ["viewColumn", "viewCellValue", "viewTable"]
+      |      "action": ["viewColumn", "viewCellValue", "viewTable", "createRow"]
       |    }
       |  ]
       |}""".stripMargin
@@ -238,6 +238,35 @@ class RowPermissionTest extends TableauxTestBase with TestHelper {
         assertJSONEquals(expectedRow1, historyRow1.toString)
         assertEquals(Seq("perm_1", "perm_2"), row.rowPermissions.value)
       }
+    }
+  }
+
+  @Test
+  def addRowPermissions_ensureReadabilityWithNewRowPermissions_authorized(implicit c: TestContext): Unit = {
+    okTest {
+      val controller = createTableauxController(roleConfigWithViewRowPermissions)
+      for {
+
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- controller.createRow(1, None, None)
+        res <- controller.addRowPermissions(1, 1, Seq("perm_1"))
+      } yield {
+        assertNotNull(res)
+      }
+    }
+  }
+
+  @Test
+  def addRowPermissions_ensureReadabilityWithNewRowPermissions_unauthorized(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.unauthorized") {
+      val controller = createTableauxController()
+
+      for {
+
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- controller.createRow(1, None, None)
+        res <- controller.addRowPermissions(1, 1, Seq("perm_1"))
+      } yield {}
     }
   }
 }

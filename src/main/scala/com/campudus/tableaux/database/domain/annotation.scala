@@ -1,8 +1,10 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
+import com.campudus.tableaux.database.model.TableauxModel._
 
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.JsonArray
+import org.vertx.scala.core.json.JsonObject
 
 import scala.collection.JavaConverters._
 
@@ -29,6 +31,14 @@ case class RowLevelAnnotations(finalFlag: Boolean) extends RowAnnotation {
     Json.obj(
       jsonKey -> finalFlag
     )
+  }
+}
+
+object RowPermissions {
+
+  def apply(rowPermissionSeq: RowPermissionSeq): RowPermissions = {
+    val jsonArray = Json.arr(rowPermissionSeq.map(_.toString()): _*)
+    new RowPermissions(jsonArray)
   }
 }
 

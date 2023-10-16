@@ -1491,10 +1491,10 @@ class TableauxModel(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      // TODO check for authorization
-      // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
       row <- retrieveRow(table, rowId)
       newRowPermissionsOpt <- updateRowModel.addRowPermissions(table, row, rowPermissions)
+      // ensure that user can view the row with the new permissions, otherwise he is not allowed to it
+      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(RowPermissions(rowPermissions)))
       _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissionsOpt)
     } yield ()
   }
@@ -1503,8 +1503,6 @@ class TableauxModel(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      // TODO check for authorization
-      // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
       row <- retrieveRow(table, rowId)
       newRowPermissionsOpt <- updateRowModel.deleteRowPermissions(table, row)
       _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissionsOpt)
@@ -1518,6 +1516,7 @@ class TableauxModel(
       // TODO check for authorization
       // _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(tableId))
       row <- retrieveRow(table, rowId)
+      // _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(row.rowPermissions), isInternalCall = false)
       newRowPermissionsOpt <- updateRowModel.replaceRowPermissions(table, row, rowPermissions)
       _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissionsOpt)
     } yield ()
