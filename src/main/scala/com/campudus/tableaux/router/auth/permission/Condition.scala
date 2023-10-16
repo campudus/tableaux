@@ -66,11 +66,7 @@ case class ConditionContainer(
       }
       case ViewRow => {
         logger.debug(s"matching on action: $action conditionRow: $conditionRow")
-        println(s"### try to match on ViewRow conditionRow: $conditionRow objects: $objects")
-        val foo = conditionRow.isMatching(objects, method)
-        println(s"### isMatching: $foo")
-
-        foo
+        conditionRow.isMatching(objects, method)
       }
       case CreateTable | CreateMedia | EditMedia
           | DeleteMedia | CreateTableGroup | EditTableGroup | DeleteTableGroup
@@ -142,27 +138,16 @@ case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonO
 
 case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
 
-  def checkCondition(method: RoleMethod, rowPermissionsOpt: Option[RowPermissions]): Boolean = {
+  def checkCondition(method: RoleMethod, rowPermissions: RowPermissions): Boolean = {
     conditionMap.forall({
       case (property, regex) =>
         property match {
           case "permissions" => {
-            println(s"checkCondition ${rowPermissionsOpt}")
-            rowPermissionsOpt match {
-              // per default treat empty permissions as viewable for all users
-              case Some(rowPermissions)
-                  if (rowPermissions.value.size == 0 && regex == RoleModel.DEFAULT_ROW_PERMISSION_NAME) => {
-                println(s"### yes baby")
-                true
-              }
-              case Some(rowPermissions) => {
-                println(s"### method ${method}")
-                rowPermissions.value.exists((aaa) => {
-                  println(s"### aaa ${aaa} matches ${regex} -> ${aaa.matches(regex)}")
-                  aaa.matches(regex)
-                })
-              }
-              case None => false
+            // per default treat empty permissions as viewable for all users
+            if (rowPermissions.value.size == 0 && regex == RoleModel.DEFAULT_ROW_PERMISSION_NAME) {
+              true
+            } else {
+              rowPermissions.value.exists(_.matches(regex))
             }
           }
           case _ => false
@@ -176,27 +161,11 @@ case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObje
     (objects.rowOpt, objects.rowPermissionsOpt) match {
       case (Some(row: Row), _) =>
         Option(row.rowPermissions) match {
-          // case Some(rp) if rp.value.size == 0 => {
-          //   println(s"### checkCondition 1 ${rp}")
-          //   true
-          // }
-          case None => {
-            println(s"### checkCondition 2")
-            false
-          } // TODO check if this is correct
-          case Some(rp) => {
-            println(s"### checkCondition 3 ${rp}")
-            checkCondition(method, Some(rp))
-          }
+          case None => false
+          case Some(rp) => checkCondition(method, rp)
         }
-      // objects.rowPermissionsOpt match {
-      case (_, Some(rowPermissions: RowPermissions)) =>
-        println(s"### checkCondition 4 ${rowPermissions}")
-        checkCondition(method, Some(rowPermissions))
-      case (_, _) => {
-        println(s"### checkCondition 5")
-        false
-      }
+      case (_, Some(rp: RowPermissions)) => checkCondition(method, rp)
+      case (_, _) => false
     }
   }
 }

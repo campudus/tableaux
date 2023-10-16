@@ -422,7 +422,6 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
       cell <- sendRequest("GET", "/tables/2/columns/3/rows/1")
-      _ = println(s"###: before retrieving foreign rows")
       retrievedRows <- controller.retrieveForeignRows(2, 3, 1, Pagination(None, None))
     } yield {
       assertEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))

@@ -1119,9 +1119,6 @@ class TableauxModel(
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
       rowSeqWithoutUnauthorizedValues <- removeUnauthorizedForeignValuesFromRows(representingColumns, rowSeq)
     } yield {
-      println(s"### rowSeqWithoutUnauthorizedValues size: ${rowSeqWithoutUnauthorizedValues.size}")
-      println(s"### rowSeqWithoutUnauthorizedValues: ${rowSeqWithoutUnauthorizedValues}")
-
       val filteredForeignRows =
         roleModel.filterDomainObjects(ViewRow, rowSeqWithoutUnauthorizedValues, ComparisonObjects(), false)
       val rowsSeq = RowSeq(filteredForeignRows, Page(pagination, Some(totalSize)))
@@ -1146,7 +1143,6 @@ class TableauxModel(
       rowSeq <- retrieveRows(table, filteredColumns, pagination)
       mutatedRows <- removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
     } yield {
-      println("mutatedRows: " + mutatedRows.size)
       val filteredRows = roleModel.filterDomainObjects(ViewRow, mutatedRows, ComparisonObjects(), false)
       RowSeq(filteredRows, rowSeq.page)
     }
