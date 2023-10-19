@@ -7,21 +7,13 @@ import com.campudus.tableaux.database.model._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import com.campudus.tableaux.router.auth.permission.RoleModel
 
-import io.vertx.core.AsyncResult
-import io.vertx.ext.auth.oauth2.OAuth2FlowType
-import io.vertx.ext.auth.oauth2.impl.OAuth2AuthProviderImpl
 import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.core.Vertx
-import io.vertx.scala.ext.auth.oauth2.OAuth2Auth
 import io.vertx.scala.ext.auth.oauth2.OAuth2ClientOptions
 import io.vertx.scala.ext.auth.oauth2.providers.KeycloakAuth
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.CookieHandler
 import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
-
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.util.Try
 
 import com.typesafe.scalalogging.LazyLogging
 

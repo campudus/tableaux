@@ -10,8 +10,6 @@ import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.auth.User
 import io.vertx.scala.ext.auth.oauth2.KeycloakHelper
 import io.vertx.scala.ext.web.RoutingContext
-import io.vertx.scala.ext.web.handler.AuthHandler
-import io.vertx.scala.ext.web.handler.OAuth2AuthHandler
 import org.vertx.scala.core.json.Json
 
 import scala.collection.JavaConverters._
