@@ -33,9 +33,10 @@ object RouterRegistry extends LazyLogging {
 
     val vertx: Vertx = tableauxConfig.vertx
 
-    val isAuthorization: Boolean = !tableauxConfig.authConfig.isEmpty
+    val isAuth: Boolean = !tableauxConfig.authConfig.isEmpty
+    val isAutoDiscovery: Boolean = tableauxConfig.authConfig.getBoolean("isAutoDiscovery", false)
 
-    implicit val roleModel: RoleModel = RoleModel(tableauxConfig.rolePermissions, isAuthorization)
+    implicit val roleModel: RoleModel = RoleModel(tableauxConfig.rolePermissions, isAuth)
 
     val mainRouter: Router = Router.router(vertx)
 
@@ -61,7 +62,6 @@ object RouterRegistry extends LazyLogging {
     mainRouter.route().handler(CookieHandler.create())
 
     def registerCommonRoutes(router: Router) = {
-      logger.info("### Registering routes...")
       router.mountSubRouter("/system", systemRouter.route)
       router.mountSubRouter("/", structureRouter.route)
       router.mountSubRouter("/", tableauxRouter.route)
@@ -72,29 +72,33 @@ object RouterRegistry extends LazyLogging {
       router.get("/index.html").handler(systemRouter.defaultRoute)
 
       router.route().handler(systemRouter.noRouteMatched)
-
-      logger.info("### Routes registered.")
     }
 
-    if (isAuthorization) {
-      val clientOptions: OAuth2ClientOptions =
-        OAuth2ClientOptions().setSite("https://keycloak.winora.grud.de/auth/realms/datacenter")
-          .setClientID("grud-backend-test")
-      val tableauxKeycloakAuthHandler = new KeycloakAuthHandler(vertx, tableauxConfig)
+    def initManualAuth() = {
+      val keycloakAuthProvider = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
+      val keycloakAuthHandler = OAuth2AuthHandler.create(keycloakAuthProvider)
+      mainRouter.route().handler(keycloakAuthHandler)
 
-      logger.info("### Discovered KeycloakAuthHandler")
+      val tableauxKeycloakAuthHandler = new KeycloakAuthHandler(vertx, tableauxConfig)
+      mainRouter.route().handler(tableauxKeycloakAuthHandler)
+
+      registerCommonRoutes(mainRouter)
+    }
+
+    def initAutoDiscoverAuth() = {
+      val clientOptions: OAuth2ClientOptions = OAuth2ClientOptions()
+        .setSite(tableauxConfig.authConfig.getString("issuer"))
+        .setClientID(tableauxConfig.authConfig.getString("resource"))
+
+      val tableauxKeycloakAuthHandler = new KeycloakAuthHandler(vertx, tableauxConfig)
 
       KeycloakAuth.discover(
         vertx,
         clientOptions,
         handler => {
-          logger.info("### Discovered KeycloakAuthHandler")
           if (handler.succeeded()) {
-            logger.info("### Discovered KeycloakAuthHandler succeeded")
-            // kHandlerP = handler.result()
             val keycloakAuthProvider = handler.result()
             val keycloakAuthHandler = OAuth2AuthHandler.create(keycloakAuthProvider)
-            // needed cookies will be extracted by route handlers and stored in `TableauxUser` instances
             mainRouter.route().handler(keycloakAuthHandler)
             mainRouter.route().handler(tableauxKeycloakAuthHandler)
 
@@ -107,17 +111,28 @@ object RouterRegistry extends LazyLogging {
           }
         }
       )
+    }
+
+    if (isAuth) {
+      if (isAutoDiscovery) {
+        initAutoDiscoverAuth()
+      } else {
+        logger.info(
+          "Started with manual auth configuration! To use auto discovery " +
+            "set 'auth.isAutoDiscovery' to true in your config and remove all other " +
+            "auth.* configuration options but `issuer` and `resource`."
+        )
+        initManualAuth()
+      }
 
     } else {
       logger.warn(
         "Started WITHOUT access token verification. The API is completely publicly available and NOT secured! " +
           "This is for development and/or testing purposes ONLY."
       )
-      logger.info("### Registering routes without auth...")
       registerCommonRoutes(mainRouter)
     }
 
-    logger.info("### Routes registered!!!")
     mainRouter
   }
 }
