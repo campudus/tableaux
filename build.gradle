@@ -2,6 +2,15 @@
 import java.nio.file.Paths
 import java.text.SimpleDateFormat
 
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    classpath 'ch.epfl.scala:gradle-bloop_2.12:1.6.1'
+  }
+}
+
 plugins {
   id 'java'
   id 'scala'
@@ -20,13 +29,17 @@ plugins {
   id 'com.adarshr.test-logger' version '3.2.0'
 }
 
+if (!plugins.hasPlugin('bloop')) {
+  apply plugin: 'bloop'
+}
+
 project.group = 'com.campudus'
 project.version = '0.1.0'
 
 def vertxVersion = '3.8.0'
-def scalaVersion = '2.12.8'
+def scalaVersion = '2.12.18'
 
-sourceCompatibility = '1.8'
+sourceCompatibility = '11'
 
 def requiredJavaVersion = JavaVersion.VERSION_11
 // ensure that the build fails if sdk version doesn't match the required version
