@@ -44,11 +44,9 @@ object RowPermissions {
 
 case class RowPermissions(rowPermissions: JsonArray) extends RowAnnotation {
 
-  // override val value: JsonArray = rowPermissions
   override val value: Seq[String] = rowPermissions.asScala.toSeq.map(_.asInstanceOf[String])
   override val jsonKey = "permissions"
   def isDefined: Boolean = rowPermissions.size() > 0
-// def isDefined: Boolean = annotations.values.exists(_.nonEmpty)
 
   override def getJson: JsonObject = {
     Json.obj(

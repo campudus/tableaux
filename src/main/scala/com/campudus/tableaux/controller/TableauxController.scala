@@ -536,7 +536,6 @@ class TableauxController(
         }
       table <- repository.createTable(tableName, hidden = false)
       columnIds <- repository.createColumns(table, columns).map(_.map(_.id))
-      // TODO: pass row permissions to createRows
       _ <- repository.createRows(table, rows.map(columnIds.zip(_)), None)
       completeTable <- retrieveCompleteTable(table.id)
     } yield completeTable

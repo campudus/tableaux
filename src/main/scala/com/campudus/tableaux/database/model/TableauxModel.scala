@@ -1246,8 +1246,6 @@ class TableauxModel(
       rowId: RowId,
       permissions: RowPermissions
   )(implicit user: TableauxUser): Future[Boolean] = {
-    val mockMap: Map[ColumnId, Seq[CellLevelAnnotation]] = Map()
-    val mockSeq: Seq[ColumnType[_]] = Seq()
     roleModel.checkAuthorization(
       ViewRow,
       ComparisonObjects(permissions)
