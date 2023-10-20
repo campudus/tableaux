@@ -1047,7 +1047,12 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       .mkString("", " UNION ALL ", " ORDER BY table_id, type, type_value, last_created_at DESC")
 
     for {
-      result <- connection.query(query)
+      result <-
+        if (tables.isEmpty) {
+          Future.successful(Json.emptyObj())
+        } else {
+          connection.query(query)
+        }
     } yield {
       resultObjectToJsonArray(result)
         .map(jsonArrayToSeq)
