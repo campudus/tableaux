@@ -59,7 +59,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   def checkAuthorization(
       action: Action,
       objects: ComparisonObjects = ComparisonObjects(),
-      isInternalCall: Boolean = false
+      isInternalCall: Boolean = false,
+      shouldLog: Boolean = true
   )(implicit user: TableauxUser): Future[Unit] = {
 
     if (isInternalCall) {
@@ -71,7 +72,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         Future.successful(())
       } else {
         val userName = user.name
-        logger.info(s"User ${userName} is not allowed to do action '$action'")
+        if (shouldLog) logger.info(s"User ${userName} is not allowed to do action '$action'")
         Future.failed(UnauthorizedException(action, userRoles))
       }
     }
@@ -411,7 +412,12 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   */
 class RoleModelStub extends RoleModel(Json.emptyObj()) with LazyLogging {
 
-  override def checkAuthorization(action: Action, objects: ComparisonObjects, isInternalCall: Boolean)(
+  override def checkAuthorization(
+      action: Action,
+      objects: ComparisonObjects,
+      isInternalCall: Boolean,
+      shouldLog: Boolean
+  )(
       implicit user: TableauxUser
   ): Future[Unit] = {
     Future.successful(())
