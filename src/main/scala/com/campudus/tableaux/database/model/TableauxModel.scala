@@ -1248,7 +1248,9 @@ class TableauxModel(
   )(implicit user: TableauxUser): Future[Boolean] = {
     roleModel.checkAuthorization(
       ViewRow,
-      ComparisonObjects(permissions)
+      ComparisonObjects(permissions),
+      isInternalCall = false,
+      shouldLog = false
     ) transform {
       case Success(_) => Success(true)
       case Failure(_) => Success(false)
