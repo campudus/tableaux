@@ -232,7 +232,12 @@ class TableauxController(
           })
           .map(_._2)
 
-        (langtag, mergedTranslationStatusForLangtag.sum / mergedTranslationStatusForLangtag.size)
+        val calculatedLangtagStatus = mergedTranslationStatusForLangtag.size match {
+          case 0 => 1
+          case _ => mergedTranslationStatusForLangtag.sum / mergedTranslationStatusForLangtag.size
+        }
+
+        (langtag, calculatedLangtagStatus)
       })
 
       PlainDomainObject(
