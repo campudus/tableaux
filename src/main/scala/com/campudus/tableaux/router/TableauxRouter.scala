@@ -10,7 +10,7 @@ import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
-import org.vertx.scala.core.json.JsonArray
+import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -64,6 +64,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   private val rowHistoryWithLangtag: String = s"/tables/$tableId/rows/$rowId/history/$langtagRegex"
   private val tableHistory: String = s"/tables/$tableId/history"
   private val tableHistoryWithLangtag: String = s"/tables/$tableId/history/$langtagRegex"
+
+  private val rowPermissionsPath: String = s"/tables/$tableId/rows/$rowId/permissions"
 
   def route: Router = {
     val router = Router.router(vertx)
@@ -120,6 +122,10 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.postWithRegex(cell).handler(updateCell)
     router.putWithRegex(cell).handler(replaceCell)
     router.putWithRegex(linkOrderOfCell).handler(changeLinkOrder)
+
+    router.patchWithRegex(rowPermissionsPath).handler(addRowPermissions)
+    router.deleteWithRegex(rowPermissionsPath).handler(deleteRowPermissions)
+    router.putWithRegex(rowPermissionsPath).handler(replaceRowPermissions)
 
     router
   }
@@ -524,9 +530,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     */
   private def createRow(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-
-    def getOptionalValues = {
-      val json = getJson(context)
+    def getOptionalValues(json: JsonObject) = {
       if (json.containsKey("columns") && json.containsKey("rows")) {
         Some(toColumnValueSeq(json))
       } else {
@@ -540,14 +544,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          val optionalValues = Try(getOptionalValues)
+          val json = Try(getJson(context)).getOrElse(Json.emptyObj())
+          val optionalValues = Try(getOptionalValues(json))
             .recover({
               case _: NoJsonFoundException => None
             })
             .get
-
-          controller
-            .createRow(tableId, optionalValues)
+          val rowPermissionsOpt = getRowPermissionsOpt("rowPermissions", json)
+          controller.createRow(tableId, optionalValues, rowPermissionsOpt)
         }
       )
     }
@@ -842,6 +846,64 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           controller.deleteLink(tableId, columnId, rowId, linkId)
+        }
+      )
+    }
+  }
+
+  /**
+    * Add permissions to Row
+    */
+  private def addRowPermissions(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+          val rowPermissions = getRowPermissionsOpt("value", json).getOrElse(Seq())
+          controller.addRowPermissions(tableId, rowId, rowPermissions)
+        }
+      )
+    }
+  }
+
+  /**
+    * Delete all permissions from Row
+    */
+  private def deleteRowPermissions(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.deleteRowPermissions(tableId, rowId)
+        }
+      )
+    }
+  }
+
+  /**
+    * Replace permissions of Row
+    */
+  private def replaceRowPermissions(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+          val rowPermissions = getRowPermissionsOpt("value", json).getOrElse(Seq())
+          controller.replaceRowPermissions(tableId, rowId, rowPermissions)
         }
       )
     }

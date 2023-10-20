@@ -1,5 +1,6 @@
 # Tableaux specific
 conf.json
+conf-*.jsonc
 conf-*.json
 !conf-example.json
 !conf-test-example.json
@@ -12,6 +13,7 @@ classes/
 bin/
 out/
 **.DS_Store
+role-*.jsonc
 role-*.json
 !role-permissions-example.json
 !role-permissions-test.json

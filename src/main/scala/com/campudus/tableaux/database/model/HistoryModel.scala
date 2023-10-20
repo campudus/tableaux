@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, RowPermissionSeq, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -433,6 +433,29 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   )(implicit user: TableauxUser): Future[RowId] = {
     logger.info(s"insertCreateRowHistory ${table.id} $rowId ${user.name}")
     insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None)
+  }
+
+  private def insertChangedRowPermissionHistory(
+      table: Table,
+      rowId: RowId,
+      rowPermissionsOpt: Option[RowPermissionSeq]
+  )(implicit user: TableauxUser): Future[RowId] = {
+    logger.info(s"insertChangedRowPermissionHistory ${table.id} $rowId ${user.name}")
+    val value = rowPermissionsOpt match {
+      case Some(perm) => Json.arr(perm: _*)
+      case None => null
+    }
+    val jsonString = Json.obj("value" -> value)
+    insertHistory(
+      table.id,
+      rowId,
+      None,
+      RowPermissionsChangedEvent,
+      HistoryTypeRowPermissions,
+      Some("permissions"),
+      None,
+      Some(jsonString.toString)
+    )
   }
 
   private def insertDeleteRowHistory(
@@ -900,8 +923,22 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }
   }
 
-  def createRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[RowId] = {
-    insertCreateRowHistory(table, rowId)
+  def createRow(table: Table, rowId: RowId, rowPermissionsOpt: Option[Seq[String]])(
+      implicit user: TableauxUser
+  ): Future[RowId] = {
+    for {
+      _ <- insertCreateRowHistory(table, rowId)
+      _ <- rowPermissionsOpt match {
+        case Some(rowPermissions) => insertChangedRowPermissionHistory(table, rowId, rowPermissionsOpt)
+        case None => Future.successful(())
+      }
+    } yield rowId
+  }
+
+  def updateRowPermission(table: Table, rowId: RowId, rowPermissionsOpt: Option[RowPermissionSeq])(
+      implicit user: TableauxUser
+  ): Future[RowId] = {
+    insertChangedRowPermissionHistory(table, rowId, rowPermissionsOpt)
   }
 
   def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int])(

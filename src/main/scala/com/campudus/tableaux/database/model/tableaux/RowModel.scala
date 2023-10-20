@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model.tableaux
 
 import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{MultiLanguageColumn, RowLevelAnnotations, _}
+import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -11,6 +11,7 @@ import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import org.vertx.scala.core.json.{Json, _}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -166,6 +167,25 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     values.foldLeft(Future(())) {
       (future, value) => future.flatMap(_ => func(value).map(_ => ()))
     }
+  }
+
+  def updateRowPermissions(tableId: TableId, rowId: RowId, rowPermissionsOpt: Option[RowPermissionSeq])(
+      implicit ec: ExecutionContext
+  ): Future[Option[RowPermissionSeq]] = {
+    val updateQuery = s"""
+                         |UPDATE user_table_${tableId}
+                         |SET row_permissions = ?::jsonb
+                         |WHERE id = ?
+                         |""".stripMargin
+
+    val value = rowPermissionsOpt match {
+      case Some(rowPermissions) => Json.arr(rowPermissions: _*).encode()
+      case None => null
+    }
+
+    for {
+      _ <- connection.query(updateQuery, Json.arr(value, rowId))
+    } yield rowPermissionsOpt
   }
 }
 
@@ -749,12 +769,33 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
     connection.query(delete, binds)
   }
+
+  def addRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[Option[RowPermissionSeq]] = {
+    val mergedSeq = (row.rowPermissions.value ++ rowPermissions).distinct
+    updateRowPermissions(table.id, row.id, Some(mergedSeq))
+  }
+
+  def deleteRowPermissions(table: Table, row: Row): Future[Option[RowPermissionSeq]] = {
+    updateRowPermissions(table.id, row.id, None)
+  }
+
+  def replaceRowPermissions(
+      table: Table,
+      row: Row,
+      rowPermissions: RowPermissionSeq
+  ): Future[Option[RowPermissionSeq]] =
+    updateRowPermissions(table.id, row.id, Some(rowPermissions))
+
 }
 
 class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with UpdateCreateRowModelHelper {
   val attachmentModel = AttachmentModel(connection)
 
-  def createRow(table: Table, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+  def createRow(
+      table: Table,
+      values: Seq[(ColumnType[_], _)],
+      rowPermissionsOpt: Option[RowPermissionSeq]
+  ): Future[RowId] = {
     val tableId = table.id
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -766,6 +807,10 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
           _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links)
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(tableId, rowId, attachments)
+          _ <- rowPermissionsOpt match {
+            case None => Future.successful(())
+            case Some(rowPermissions) => updateRowPermissions(tableId, rowId, rowPermissionsOpt)
+          }
         } yield rowId
     }
   }
@@ -1035,7 +1080,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       tableId: TableId,
       rowId: RowId,
       columns: Seq[ColumnType[_]]
-  ): Future[(RowLevelAnnotations, CellLevelAnnotations)] = {
+  ): Future[(RowLevelAnnotations, RowPermissions, CellLevelAnnotations)] = {
     for {
       result <- connection.query(
         s"SELECT ut.id, ${generateFlagsAndAnnotationsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?",
@@ -1043,7 +1088,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       )
     } yield {
       val rawRow = mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
-      (rawRow.rowLevelAnnotations, rawRow.cellLevelAnnotations)
+      (rawRow.rowLevelAnnotations, rawRow.rowPermissions, rawRow.cellLevelAnnotations)
     }
   }
 
@@ -1054,10 +1099,24 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       uuid: UUID
   ): Future[Option[CellLevelAnnotation]] = {
     for {
-      (_, cellLevelAnnotations) <- retrieveAnnotations(tableId, rowId, Seq(column))
+      (_, _, cellLevelAnnotations) <- retrieveAnnotations(tableId, rowId, Seq(column))
       annotations = cellLevelAnnotations.annotations.get(column.id).getOrElse(Seq.empty[CellLevelAnnotation])
     } yield annotations.find(_.uuid == uuid)
 
+  }
+
+  def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[RowPermissions] = {
+    for {
+      (_, rowPermissions, _) <- retrieveAnnotations(tableId, rowId, Seq()).recover({
+        case _ => (RowLevelAnnotations(false), RowPermissions(Json.arr()), CellLevelAnnotations(Seq(), Json.arr()))
+      })
+    } yield {
+      rowPermissions
+    }
+  }
+
+  def retrieveRowsPermissions(tableId: TableId, rowIds: Seq[RowId]): Future[Seq[RowPermissions]] = {
+    Future.sequence(rowIds.map(retrieveRowPermissions(tableId, _)))
   }
 
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {
@@ -1123,22 +1182,29 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     assert(row.size >= 3)
     val liftedRow = row.lift
 
-    (row.headOption, liftedRow(1), liftedRow(2)) match {
-      case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr)) =>
+    // Row should have at least = row_id, final_flag, cell_annotations, row_permissions
+    (liftedRow(0), liftedRow(1), liftedRow(2), liftedRow(3)) match {
+      // values in case statement are nullable even if they are wrapped in Some, see lift function of Seq
+      case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr), Some(permissionsStr)) =>
         val cellAnnotations = Option(cellAnnotationsStr)
           .map(_.asInstanceOf[String])
           .map(Json.fromArrayString)
           .getOrElse(Json.emptyArr())
-        val rawValues = row.drop(3)
+        val rawValues = row.drop(4)
+
+        val rowPermissions = Option(permissionsStr) match {
+          case Some(permissionsArrayString: String) => new JsonArray(permissionsArrayString)
+          case _ => Json.arr()
+        }
 
         RawRow(
           rowId,
           RowLevelAnnotations(finalFlag),
+          RowPermissions(rowPermissions),
           CellLevelAnnotations(columns, cellAnnotations),
           (columns, rawValues).zipped.map(mapValueByColumnType)
         )
       case _ =>
-        // shouldn't happen b/c of assert
         throw UnknownServerException(s"Please check generateProjection!")
     }
   }
@@ -1327,7 +1393,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         |    'value', value,
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
-        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
+        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations,
+        |ut.row_permissions AS row_permissions""".stripMargin
   }
 
   private def generateCardinalityFilter(linkColumn: LinkColumn): String = {

@@ -13,6 +13,7 @@ import com.campudus.tableaux.router.auth.permission._
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.JsonArray
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -243,7 +244,11 @@ class TableauxController(
     }
   }
 
-  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]])(
+  def createRow(
+      tableId: TableId,
+      values: Option[Seq[Seq[(ColumnId, _)]]],
+      rowPermissionsOpt: Option[Seq[String]] = None
+  )(
       implicit user: TableauxUser
   ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
@@ -255,10 +260,10 @@ class TableauxController(
         case Some(seq) =>
           checkArguments(nonEmpty(seq, "rows"))
           logger.info(s"createRows ${table.id} $values")
-          repository.createRows(table, seq)
+          repository.createRows(table, seq, rowPermissionsOpt)
         case None =>
           logger.info(s"createRow ${table.id}")
-          repository.createRow(table)
+          repository.createRow(table, rowPermissionsOpt)
       }
     } yield row
   }
@@ -531,7 +536,7 @@ class TableauxController(
         }
       table <- repository.createTable(tableName, hidden = false)
       columnIds <- repository.createColumns(table, columns).map(_.map(_.id))
-      _ <- repository.createRows(table, rows.map(columnIds.zip(_)))
+      _ <- repository.createRows(table, rows.map(columnIds.zip(_)), None)
       completeTable <- retrieveCompleteTable(table.id)
     } yield completeTable
   }
@@ -593,5 +598,41 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       historySequence <- repository.retrieveTableHistory(table, langtagOpt, typeOpt)
     } yield SeqHistory(historySequence)
+  }
+
+  def addRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"addRowPermissions $tableId $rowId $rowPermissions")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.addRowPermissions(table, rowId, rowPermissions)
+    } yield EmptyObject()
+  }
+
+  def deleteRowPermissions(tableId: TableId, rowId: RowId)(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"removeRowPermissions $tableId $rowId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.deleteRowPermissions(table, rowId)
+    } yield EmptyObject()
+  }
+
+  def replaceRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"replaceRowPermissions $tableId $rowId $rowPermissions")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.replaceRowPermissions(table, rowId, rowPermissions)
+    } yield EmptyObject()
   }
 }

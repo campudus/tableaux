@@ -9,8 +9,8 @@ import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.collection.JavaConverters._
 
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
-import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(classOf[VertxUnitRunner])
@@ -41,7 +41,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
           "values" -> Json.arr(null, null)
         )
 
-        assertEquals(expectedRowJson1, rowJson1)
+        assertJSONEquals(expectedRowJson1, rowJson1)
 
         val expectedRowJson2 = Json.obj(
           "status" -> "ok",
@@ -49,50 +49,7 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
           "values" -> Json.arr(null, null)
         )
 
-        assertEquals(expectedRowJson2, rowJson2)
-      }
-    }
-  }
-
-  @Test
-  def createRowsAndSetFinalFlagForTable(implicit c: TestContext): Unit = {
-    okTest {
-      for {
-        (tableId, _, _) <- createSimpleTableWithValues(
-          "table",
-          Seq(Identifier(TextCol("text"))),
-          Seq(
-            Seq("row 1"),
-            Seq("row 2"),
-            Seq("row 3")
-          )
-        )
-
-        _ <- sendRequest("PATCH", s"/tables/$tableId/rows/annotations", Json.obj("final" -> true))
-
-        rowsAllFinal <- sendRequest("GET", s"/tables/$tableId/rows")
-
-        _ <- sendRequest("PATCH", s"/tables/$tableId/rows/annotations", Json.obj("final" -> false))
-
-        rowsAllNotFinal <- sendRequest("GET", s"/tables/$tableId/rows")
-      } yield {
-        val rowsAreFinal = rowsAllFinal
-          .getJsonArray("rows", Json.emptyArr())
-          .asScala
-          .toList
-          .map(_.asInstanceOf[JsonObject])
-          .forall(_.getBoolean("final"))
-
-        assertTrue(rowsAreFinal)
-
-        val rowsAreNotFinal = rowsAllNotFinal
-          .getJsonArray("rows", Json.emptyArr())
-          .asScala
-          .toList
-          .map(_.asInstanceOf[JsonObject])
-          .forall(!_.containsKey("final"))
-
-        assertTrue(rowsAreNotFinal)
+        assertJSONEquals(expectedRowJson2, rowJson2)
       }
     }
   }

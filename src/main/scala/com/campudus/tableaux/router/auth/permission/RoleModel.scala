@@ -3,6 +3,8 @@ package com.campudus.tableaux.router.auth.permission
 import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.database.{MultiCountry, MultiLanguage}
 import com.campudus.tableaux.database.domain.{ColumnType, Service, Table}
+import com.campudus.tableaux.database.domain.Row
+import com.campudus.tableaux.database.domain.RowPermissions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 
@@ -16,6 +18,8 @@ import com.typesafe.scalalogging.LazyLogging
 
 object RoleModel {
 
+  val DEFAULT_ROW_PERMISSION_NAME = "__default__"
+
   def apply(jsonObject: JsonObject, isAuthorization: Boolean = true): RoleModel = {
     if (isAuthorization) {
       new RoleModel(jsonObject)
@@ -27,10 +31,10 @@ object RoleModel {
   def apply(): RoleModel = new RoleModel(Json.emptyObj())
 }
 
-sealed trait LoggingMethod
-case object Check extends LoggingMethod
-case object Filter extends LoggingMethod
-case object Enrich extends LoggingMethod
+sealed trait RoleMethod
+case object Check extends RoleMethod
+case object Filter extends RoleMethod
+case object Enrich extends RoleMethod
 
 /**
   * RoleModel is responsible for providing these main functions:
@@ -96,6 +100,8 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
         val objects: ComparisonObjects = obj match {
           case table: Table => ComparisonObjects(table)
           case column: ColumnType[_] => parentObjects.merge(column)
+          case row: Row => ComparisonObjects(row)
+          case rowPermissions: RowPermissions => ComparisonObjects(rowPermissions)
           case _: Service => ComparisonObjects()
           case _ => ComparisonObjects()
         }
@@ -266,25 +272,23 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   private def isAllowed(
       userRoles: Seq[String],
       action: Action,
-      method: LoggingMethod,
+      method: RoleMethod,
       objects: ComparisonObjects = ComparisonObjects()
   ): Boolean = {
 
-    def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action)
-
-    def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action)
+    def grantPermissions: Seq[Permission] = filterPermissions(userRoles, Grant, action, true)
+    def denyPermissions: Seq[Permission] = filterPermissions(userRoles, Deny, action, true)
 
     val grantPermissionOpt: Option[Permission] = grantPermissions.find(_.isMatching(action, objects))
-
     grantPermissionOpt match {
-      case Some(grantPermission) =>
+      case Some(grantPermission) => {
         val denyPermissionOpt: Option[Permission] = denyPermissions.find(_.isMatching(action, objects))
 
         denyPermissionOpt match {
           case Some(denyPermission) => returnAndLog(Deny, loggingMessage(_, method, denyPermission, action))
           case None => returnAndLog(Grant, loggingMessage(_, method, grantPermission, action))
         }
-
+      }
       case None => returnAndLog(Deny, defaultLoggingMessage(_, method, userRoles, action))
     }
   }
@@ -301,7 +305,7 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def defaultLoggingMessage(
       permissionType: PermissionType,
-      method: LoggingMethod,
+      method: RoleMethod,
       userRoles: Seq[String],
       action: Action
   ): String =
@@ -309,13 +313,23 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
 
   private def loggingMessage(
       permissionType: PermissionType,
-      method: LoggingMethod,
+      method: RoleMethod,
       permission: Permission,
       action: Action
   ): String = {
     s"${permissionType.toString.toUpperCase}($method): A permission is fitting " +
       s"for role '${permission.roleName}'. Action: '$action'"
   }
+
+  // The default behaviour is that a user can see all rows that are not restricted by specific row
+  // permissions. With this to work, we need to add a default permission without conditions to the
+  // role model.
+  val defaultViewRowRoleName = "view-all-non-restricted-rows"
+  val defaultCondition = Json.obj("permissions" -> RoleModel.DEFAULT_ROW_PERMISSION_NAME)
+
+  val defaultConditionContainer =
+    new ConditionContainer(NoneCondition, NoneCondition, NoneCondition, ConditionRow(defaultCondition))
+  val defaultViewRowPermission = new Permission(defaultViewRowRoleName, Grant, Seq(ViewRow), defaultConditionContainer)
 
   val role2permissions: Map[String, Seq[Permission]] =
     jsonObject
@@ -334,18 +348,25 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
       })
       .mkString("\n")
 
-  private def getPermissionsForRoles(roleNames: Seq[String]): Seq[Permission] =
-    role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
+  private def getPermissionsForRoles(
+      roleNames: Seq[String],
+      shouldIncludeDefaultPermissions: Boolean
+  ): Seq[Permission] = {
+    val permissionsByRole = role2permissions.filter({ case (key, _) => roleNames.contains(key) }).values.flatten.toSeq
 
-  def filterPermissions(roleNames: Seq[String], permissionType: PermissionType): Seq[Permission] =
-    filterPermissions(roleNames, Some(permissionType), None)
+    shouldIncludeDefaultPermissions match {
+      case true => permissionsByRole :+ defaultViewRowPermission
+      case false => permissionsByRole
+    }
+  }
 
   def filterPermissions(
       roleNames: Seq[String],
       permissionType: PermissionType,
-      action: Action
+      action: Action,
+      shouldIncludeDefaultPermissions: Boolean
   ): Seq[Permission] =
-    filterPermissions(roleNames, Some(permissionType), Some(action))
+    filterPermissions(roleNames, Some(permissionType), Some(action), shouldIncludeDefaultPermissions)
 
   /**
     * Filters permissions for role name, permissionType and action
@@ -356,10 +377,11 @@ class RoleModel(jsonObject: JsonObject) extends LazyLogging {
   def filterPermissions(
       roleNames: Seq[String],
       permissionTypeOpt: Option[PermissionType] = None,
-      actionOpt: Option[Action] = None
+      actionOpt: Option[Action] = None,
+      shouldIncludeDefaultPermissions: Boolean = false
   ): Seq[Permission] = {
 
-    val permissions: Seq[Permission] = getPermissionsForRoles(roleNames)
+    val permissions: Seq[Permission] = getPermissionsForRoles(roleNames, shouldIncludeDefaultPermissions)
 
     permissions
       .filter(permission => permissionTypeOpt.forall(permission.permissionType == _))

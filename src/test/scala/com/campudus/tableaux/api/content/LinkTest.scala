@@ -540,7 +540,10 @@ class LinkTest extends LinkTestBase {
         linkValue <- sendRequest("GET", s"/tables/1/columns/$columnId/rows/1")
       } yield {
         assertEquals(
-          Json.obj("status" -> "ok", "value" -> Json.arr(Json.obj("id" -> rowId1, "value" -> "Lala"))),
+          Json.obj(
+            "status" -> "ok",
+            "value" -> Json.arr(Json.obj("id" -> rowId1, "value" -> "Lala"))
+          ),
           addLink1
         )
         assertEquals(
@@ -623,8 +626,8 @@ class LinkTest extends LinkTestBase {
         val expectedLink1 = Json.arr(Json.obj("id" -> table2RowId2, "value" -> "table2RowId2"))
         val expectedLink2 = Json.arr(Json.obj("id" -> table1RowId2, "value" -> "table1RowId2"))
 
-        assertEquals(Json.obj("status" -> "ok", "value" -> expectedLink1), addLink1)
-        assertEquals(Json.obj("status" -> "ok", "value" -> expectedLink2), addLink2)
+        assertJSONEquals(Json.obj("status" -> "ok", "value" -> expectedLink1), addLink1)
+        assertJSONEquals(Json.obj("status" -> "ok", "value" -> expectedLink2), addLink2)
 
         val expectedJsonForResult1 = Json.obj(
           "status" -> "ok",
@@ -646,9 +649,9 @@ class LinkTest extends LinkTestBase {
           )
         )
 
-        assertEquals(expectedJsonForResult1, linkValueForTable1)
+        assertJSONEquals(expectedJsonForResult1, linkValueForTable1)
 
-        assertEquals(expectedJsonForResult2, linkValueForTable2)
+        assertJSONEquals(expectedJsonForResult2, linkValueForTable2)
       }
     }
   }
@@ -774,11 +777,17 @@ class LinkTest extends LinkTestBase {
           "value" -> Json.arr(
             Json.obj(
               "id" -> 1,
-              "value" -> Json.obj("en-GB" -> "Hello, Table 2 World!", "de-DE" -> "Hallo, Table 2 Welt!")
+              "value" -> Json.obj(
+                "en-GB" -> "Hello, Table 2 World!",
+                "de-DE" -> "Hallo, Table 2 Welt!"
+              )
             ),
             Json.obj(
               "id" -> 2,
-              "value" -> Json.obj("en-GB" -> "Hello, Table 2 World2!", "de-DE" -> "Hallo, Table 2 Welt2!")
+              "value" -> Json.obj(
+                "en-GB" -> "Hello, Table 2 World2!",
+                "de-DE" -> "Hallo, Table 2 Welt2!"
+              )
             )
           )
         )
@@ -843,11 +852,17 @@ class LinkTest extends LinkTestBase {
           "value" -> Json.arr(
             Json.obj(
               "id" -> 1,
-              "value" -> Json.obj("en-GB" -> "Hello, Table 2 World!", "de-DE" -> "Hallo, Table 2 Welt!")
+              "value" -> Json.obj(
+                "en-GB" -> "Hello, Table 2 World!",
+                "de-DE" -> "Hallo, Table 2 Welt!"
+              )
             ),
             Json.obj(
               "id" -> 2,
-              "value" -> Json.obj("en-GB" -> "Hello, Table 2 World2!", "de-DE" -> "Hallo, Table 2 Welt2!")
+              "value" -> Json.obj(
+                "en-GB" -> "Hello, Table 2 World2!",
+                "de-DE" -> "Hallo, Table 2 Welt2!"
+              )
             )
           )
         )
@@ -1100,7 +1115,7 @@ class LinkTest extends LinkTestBase {
         "values" -> Json.arr(null, null, Json.arr())
       )
 
-      assertEquals(expectedJson, emptyLinkValue)
+      assertJSONEquals(expectedJson, emptyLinkValue)
     }
   }
 
@@ -1179,7 +1194,7 @@ class LinkTest extends LinkTestBase {
                                                     |}
          """.stripMargin)
 
-        assertEquals(expectedJson, rows)
+        assertJSONEquals(expectedJson, rows)
 
         // text column, and the self-link column
         assertEquals(2, columns.size())

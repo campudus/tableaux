@@ -13,8 +13,8 @@ import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
-import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 
@@ -2449,7 +2449,6 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
 
         _ <- sendRequest("PATCH", "/tables/1/rows/annotations", Json.obj("final" -> true))
-
         rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(toRowsArray)
 
         row1 = rows.get[JsonObject](0)

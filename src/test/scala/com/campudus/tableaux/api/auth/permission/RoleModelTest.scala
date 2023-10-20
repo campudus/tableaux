@@ -196,7 +196,7 @@ class RoleModelTest {
 
     val roleModel: RoleModel = RoleModel(json)
     val permissions: Seq[Permission] =
-      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, ViewTable)
+      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, ViewTable, false)
     Assert.assertEquals(2, permissions.size)
   }
 
@@ -227,7 +227,7 @@ class RoleModelTest {
 
     val roleModel: RoleModel = RoleModel(json)
     val permissions: Seq[Permission] =
-      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, ViewTable)
+      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, ViewTable, false)
     Assert.assertEquals(1, permissions.size)
   }
 
@@ -254,7 +254,7 @@ class RoleModelTest {
 
     val roleModel: RoleModel = RoleModel(json)
     val permissions: Seq[Permission] =
-      roleModel.filterPermissions(Seq("view-tables1"), Deny, ViewTable)
+      roleModel.filterPermissions(Seq("view-tables1"), Deny, ViewTable, false)
     Assert.assertEquals(1, permissions.size)
   }
 }

@@ -1,6 +1,8 @@
 package com.campudus.tableaux.router.auth.permission
 
 import com.campudus.tableaux.database.{LanguageNeutral, MultiCountry, MultiLanguage}
+import com.campudus.tableaux.database.domain.Row
+import com.campudus.tableaux.database.domain.RowPermissions
 
 import org.vertx.scala.core.json.{Json, JsonObject, _}
 
@@ -10,9 +12,9 @@ import com.typesafe.scalalogging.LazyLogging
 
 object ConditionContainer {
 
-  def apply(jsonObjectOrNull: JsonObject): ConditionContainer = {
+  def apply(jsonObjectOpt: Option[JsonObject]): ConditionContainer = {
 
-    val jsonObject: JsonObject = Option(jsonObjectOrNull).getOrElse(Json.emptyObj())
+    val jsonObject: JsonObject = jsonObjectOpt.getOrElse(Json.emptyObj())
 
     val conditionTable: ConditionOption =
       Option(jsonObject.getJsonObject("table")).map(ConditionTable).getOrElse(NoneCondition)
@@ -20,19 +22,23 @@ object ConditionContainer {
     val conditionColumn: ConditionOption =
       Option(jsonObject.getJsonObject("column")).map(ConditionColumn).getOrElse(NoneCondition)
 
+    val conditionRow: ConditionOption =
+      Option(jsonObject.getJsonObject("row")).map(ConditionRow).getOrElse(NoneCondition)
+
     val conditionLangtag: ConditionOption =
       Option(jsonObject.getString("langtag"))
         .map(langtags => ConditionLangtag(Json.obj("langtag" -> langtags)))
         .getOrElse(NoneCondition)
 
-    new ConditionContainer(conditionTable, conditionColumn, conditionLangtag)
+    new ConditionContainer(conditionTable, conditionColumn, conditionLangtag, conditionRow)
   }
 }
 
 case class ConditionContainer(
     conditionTable: ConditionOption,
     conditionColumn: ConditionOption,
-    conditionLangtag: ConditionOption
+    conditionLangtag: ConditionOption,
+    conditionRow: ConditionOption
 ) extends LazyLogging {
 
   def isMatching(action: Action, objects: ComparisonObjects): Boolean = {
@@ -57,6 +63,10 @@ case class ConditionContainer(
           | ViewHiddenTable | CreateColumn => {
         logger.debug(s"matching on action: $action conditionTable: $conditionTable")
         conditionTable.isMatching(objects)
+      }
+      case ViewRow => {
+        logger.debug(s"matching on action: $action conditionRow: $conditionRow")
+        conditionRow.isMatching(objects)
       }
       case CreateTable | CreateMedia | EditMedia
           | DeleteMedia | CreateTableGroup | EditTableGroup | DeleteTableGroup
@@ -122,6 +132,40 @@ case class ConditionColumn(jsonObject: JsonObject) extends ConditionOption(jsonO
             }
         })
       case None => false
+    }
+  }
+}
+
+case class ConditionRow(jsonObject: JsonObject) extends ConditionOption(jsonObject) {
+
+  def checkCondition(rowPermissions: RowPermissions): Boolean = {
+    conditionMap.forall({
+      case (property, regex) =>
+        property match {
+          case "permissions" => {
+            // per default treat empty permissions as viewable for all users
+            if (rowPermissions.value.size == 0 && regex == RoleModel.DEFAULT_ROW_PERMISSION_NAME) {
+              true
+            } else {
+              rowPermissions.value.exists(_.matches(regex))
+            }
+          }
+          case _ => false
+        }
+    })
+
+  }
+
+  override def isMatching(objects: ComparisonObjects): Boolean = {
+
+    (objects.rowOpt, objects.rowPermissionsOpt) match {
+      case (Some(row: Row), _) =>
+        Option(row.rowPermissions) match {
+          case None => false
+          case Some(rp) => checkCondition(rp)
+        }
+      case (_, Some(rp: RowPermissions)) => checkCondition(rp)
+      case (_, _) => false
     }
   }
 }

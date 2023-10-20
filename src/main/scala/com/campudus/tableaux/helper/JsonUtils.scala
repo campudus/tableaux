@@ -374,6 +374,20 @@ object JsonUtils extends LazyLogging {
     }
   }
 
+  def getRowPermissionsOpt(key: String, json: JsonObject): Option[Seq[String]] = {
+    val rowPermissionsOpt = booleanToValueOption(
+      json.containsKey(key), {
+        checkAllValuesOfArray[String](
+          json.getJsonArray(key),
+          d => d.isInstanceOf[String],
+          key
+        ).get
+      }
+    ).map(_.asScala.toSeq.map({ case perm: String => perm }))
+
+    rowPermissionsOpt
+  }
+
   def toLocationType(json: JsonObject): LocationType = {
     (for {
       location <- notNull(json.getString("location"), "location")
@@ -410,7 +424,7 @@ object JsonUtils extends LazyLogging {
     * Helper to cast a Json Array to a scala Seq of class A
     *
     * @param jsonArray
-    * @tparam A
+    * @param A
     * @return
     *   Seq[A]
     */

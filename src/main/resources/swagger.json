@@ -1298,6 +1298,13 @@
                   "items": {
                     "$ref": "#/definitions/Shared Request: Row"
                   }
+                },
+                "rowPermissions": {
+                  "type": "array",
+                  "description": "Array of row permissions",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "example": {
@@ -1314,6 +1321,10 @@
                       }
                     ]
                   }
+                ],
+                "rowPermissions": [
+                  "onlyUserGroupA",
+                  "onlyUserGroupB"
                 ]
               }
             }
@@ -1479,7 +1490,20 @@
         "operationId": "update-row-annotations",
         "parameters": [
           {
-            "$ref": "#/parameters/langtags"
+            "name": "row annotation",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "final": {
+                  "type": "boolean"
+                }
+              },
+              "example": {
+                "final": true
+              }
+            }
           }
         ],
         "responses": {
@@ -1755,6 +1779,74 @@
           "content"
         ],
         "operationId": "clear-cell-annotation-language-tag",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/permissions": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
+      "patch": {
+        "summary": "Add permissions to this row.",
+        "description": "Add permissions to this row.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "add-row-permissions",
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowPermissionBody"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete all permissions of this row.",
+        "description": "Delete permissions of this row.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "delete-row-permissions",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace permissions of this row.",
+        "description": "Replace current permissions of this row. This overwrites all permissions of this row with the new provided permission array.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "replace-row-permissions",
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowPermissionBody"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -2221,7 +2313,8 @@
             "row_created",
             "row_deleted",
             "annotation_added",
-            "annotation_removed"
+            "annotation_removed",
+            "row_permissions_changed"
           ]
         },
         "historyType": {
@@ -2232,7 +2325,8 @@
             "cell",
             "comment",
             "cell_flag",
-            "row_flag"
+            "row_flag",
+            "row_permissions"
           ]
         },
         "languageType": {
@@ -2280,7 +2374,8 @@
             "datetime",
             "concat",
             "currency",
-            "group"
+            "group",
+            "permissions"
           ]
         }
       }
@@ -3615,6 +3710,11 @@
           "formatPattern": "city {{1}} has {{2}} inhabitants"
         }
       ]
+    },
+    "RowPermission": {
+      "description": "A row annotation",
+      "type": "string",
+      "example": "onlyUserGroupA"
     }
   },
   "parameters": {
@@ -3765,6 +3865,22 @@
       "type": "integer",
       "format": "int64",
       "required": false
+    },
+    "rowPermissionBody": {
+      "name": "value",
+      "description": "An array of row permission to add, remove or replace.",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "example": [
+          "onlyUserGroupA",
+          "onlyUserGroupB"
+        ]
+      }
     }
   },
   "responses": {

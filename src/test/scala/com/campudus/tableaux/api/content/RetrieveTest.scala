@@ -1,13 +1,22 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.controller.TableauxController
+import com.campudus.tableaux.database.DatabaseConnection
+import com.campudus.tableaux.database.domain.Pagination
+import com.campudus.tableaux.database.model.StructureModel
+import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.testtools.TableauxTestBase
 
+import io.vertx.core.json.JsonArray
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.scala.SQLConnection
+import io.vertx.scala.ext.sql
 import org.vertx.scala.core.json.{Json, JsonObject}
 
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
-import org.junit.Test
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.JSONCompareMode
 
@@ -284,9 +293,35 @@ class RetrieveTest extends TableauxTestBase {
 @RunWith(classOf[VertxUnitRunner])
 class RetrieveRowsTest extends TableauxTestBase {
 
+  val defaultViewTableRole = """
+                               |{
+                               |  "view-all-tables": [
+                               |    {
+                               |      "type": "grant",
+                               |      "action": ["viewTable"]
+                               |    }
+                               |  ]
+                               |}""".stripMargin
+
+  def createTableauxController(
+      implicit roleModel: RoleModel = initRoleModel(defaultViewTableRole)
+  ): TableauxController = {
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val structureModel = StructureModel(dbConnection)
+    val tableauxModel = TableauxModel(dbConnection, structureModel)
+
+    TableauxController(tableauxConfig, tableauxModel, roleModel)
+  }
+
   @Test
   def retrieveRow(implicit c: TestContext): Unit = okTest {
-    val expectedJson = Json.obj("status" -> "ok", "id" -> 1, "values" -> Json.arr("table1row1", 1))
+    val expectedJson =
+      Json.obj(
+        "status" -> "ok",
+        "id" -> 1,
+        "values" -> Json.arr("table1row1", 1)
+      )
 
     for {
       _ <- createDefaultTable()
@@ -432,6 +467,7 @@ class RetrieveRowsTest extends TableauxTestBase {
       assertEquals(expectedJson, test.getJsonArray("rows"))
     }
   }
+
 }
 
 @RunWith(classOf[VertxUnitRunner])

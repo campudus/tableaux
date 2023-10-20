@@ -1,21 +1,56 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
+import com.campudus.tableaux.database.model.TableauxModel._
 
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.JsonArray
+import org.vertx.scala.core.json.JsonObject
 
 import scala.collection.JavaConverters._
 
 import java.util.UUID
 import org.joda.time.DateTime
 
-case class RowLevelAnnotations(finalFlag: Boolean) extends DomainObject {
+trait RowAnnotation {
+  val value: Any
+  val jsonKey: String
 
+  def getJson: JsonObject = {
+    Json.obj(jsonKey -> value)
+  }
+}
+
+// TODO refactor for multiple row level annotations
+case class RowLevelAnnotations(finalFlag: Boolean) extends RowAnnotation {
+
+  override val value: Boolean = finalFlag
+  override val jsonKey = "final"
   def isDefined: Boolean = finalFlag
 
   override def getJson: JsonObject = {
     Json.obj(
-      "final" -> finalFlag
+      jsonKey -> finalFlag
+    )
+  }
+}
+
+object RowPermissions {
+
+  def apply(rowPermissionSeq: RowPermissionSeq): RowPermissions = {
+    val jsonArray = Json.arr(rowPermissionSeq.map(_.toString()): _*)
+    new RowPermissions(jsonArray)
+  }
+}
+
+case class RowPermissions(rowPermissions: JsonArray) extends RowAnnotation {
+
+  override val value: Seq[String] = rowPermissions.asScala.toSeq.map(_.asInstanceOf[String])
+  override val jsonKey = "permissions"
+  def isDefined: Boolean = rowPermissions.size() > 0
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      jsonKey -> rowPermissions
     )
   }
 }

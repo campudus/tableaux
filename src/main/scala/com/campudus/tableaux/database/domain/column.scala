@@ -5,7 +5,7 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database.{LanguageNeutral, _}
 import com.campudus.tableaux.database.model.AttachmentFile
 import com.campudus.tableaux.database.model.TableauxModel._
-import com.campudus.tableaux.router.auth.permission.{ComparisonObjects, RoleModel, TableauxUser}
+import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
