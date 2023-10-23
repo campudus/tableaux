@@ -21,6 +21,7 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 import java.util.UUID
+import org.checkerframework.checker.units.qual.s
 
 object TableauxModel {
   type LinkId = Long
@@ -645,6 +646,24 @@ class TableauxModel(
     }
   }
 
+  def isValueChange[A](column: ColumnType[_], newValue: A, oldValue: A): Boolean = {
+    column match {
+      case MultiLanguageColumn(c) => {
+        println(s"multilang oldValue: $oldValue, newValue: $newValue")
+        newValue != oldValue
+      }
+      case s: SimpleValueColumn[_] => newValue != oldValue
+      case l: LinkColumn => {
+        println(s"link oldValue: $oldValue, newValue: $newValue")
+        newValue != oldValue
+      }
+      case a: AttachmentColumn => {
+        println(s"attachment oldValue: $oldValue, newValue: $newValue")
+        newValue != oldValue
+      }
+    }
+  }
+
   private def updateOrReplaceValue[A](
       table: Table,
       columnId: ColumnId,
@@ -653,6 +672,28 @@ class TableauxModel(
       replace: Boolean = false,
       maybeTransaction: Option[DbTransaction] = None
   )(implicit user: TableauxUser): Future[Cell[_]] = {
+
+    def doUpdateOrReplaceValue(column: ColumnType[_]) = {
+      for {
+        _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
+        _ <-
+          if (replace) {
+            for {
+              _ <- createHistoryModel.clearBackLinksWhichWillBeDeleted(table, rowId, Seq((column, value)))
+              _ <- updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
+            } yield ()
+          } else {
+            Future.successful(())
+          }
+
+        _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), maybeTransaction)
+        _ <- invalidateCellAndDependentColumns(column, rowId)
+        _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
+
+        changedCell <- retrieveCell(column, rowId, true)
+      } yield (changedCell)
+    }
+
     for {
       _ <- checkForSettingsTable(table, columnId, "can't update key cell of a settings table")
 
@@ -673,23 +714,16 @@ class TableauxModel(
           roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column, value))
         }
 
-      _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
+      cell <- retrieveCell(column, rowId, true)
+      shouldChangeValue = isValueChange(column, value, cell.value)
 
-      _ <-
-        if (replace) {
-          for {
-            _ <- createHistoryModel.clearBackLinksWhichWillBeDeleted(table, rowId, Seq((column, value)))
-            _ <- updateRowModel.clearRowWithValues(table, rowId, Seq((column, value)), deleteRow)
-          } yield ()
-        } else {
-          Future.successful(())
+      changedCell <- shouldChangeValue match {
+        case true => doUpdateOrReplaceValue(column)
+        case false => {
+          logger.info(s"Value did not change, skipping update for ${table.id} $columnId $rowId")
+          Future.successful(cell)
         }
-
-      _ <- updateRowModel.updateRow(table, rowId, Seq((column, value)), maybeTransaction)
-      _ <- invalidateCellAndDependentColumns(column, rowId)
-      _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
-
-      changedCell <- retrieveCell(column, rowId, true)
+      }
     } yield changedCell
   }
 

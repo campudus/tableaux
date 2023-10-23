@@ -18,31 +18,6 @@ import org.junit.Assert._
 import org.junit.runner.RunWith
 import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
 
-// trait TestHelper2 extends MediaTestBase {
-
-//   def toRowsArray(obj: JsonObject): JsonArray = {
-//     obj.getJsonArray("rows")
-//   }
-
-//   def getLinksValue(arr: JsonArray, pos: Int): JsonArray = {
-//     arr.getJsonObject(pos).getJsonArray("value")
-//   }
-
-//   protected def createTestAttachment(name: String)(implicit c: TestContext): Future[String] = {
-
-//     val path = s"/com/campudus/tableaux/uploads/Screen.Shot.png"
-//     val mimetype = "application/png"
-
-//     val file = Json.obj("title" -> Json.obj("de-DE" -> name))
-
-//     for {
-//       fileUuid <- createFile("de-DE", path, mimetype, None) map (_.getString("uuid"))
-//       _ <- sendRequest("PUT", s"/files/$fileUuid", file)
-
-//     } yield fileUuid
-//   }
-// }
-
 @RunWith(classOf[VertxUnitRunner])
 class CreateHistoryChangeDetectionTest extends TableauxTestBase with TestHelper {
 
@@ -72,8 +47,8 @@ class CreateHistoryChangeDetectionTest extends TableauxTestBase with TestHelper 
       for {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows")
-        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue)
-        _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", newValue)
+        _ <- sendRequest("PATCH", "/tables/1/columns/1/rows/1", newValue)
+        _ <- sendRequest("PATCH", "/tables/1/columns/1/rows/1", newValue)
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         assertEquals(1, rows.size())
@@ -89,14 +64,10 @@ class CreateHistoryChangeDetectionTest extends TableauxTestBase with TestHelper 
       for {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows")
-        _ <-
-          sendRequest(
-            "POST",
-            "/tables/1/columns/2/rows/1",
-            newValue
-          ) // Booleans always gets a initial history entry on first change, so +1 history row
-        _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", newValue)
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
+        // Booleans always gets a initial history entry on first change, so +1 history row
+        _ <- sendRequest("PATCH", "/tables/1/columns/2/rows/1", newValue)
+        _ <- sendRequest("PATCH", "/tables/1/columns/2/rows/1", newValue)
+        rows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         assertEquals(2, rows.size())
       }
@@ -111,9 +82,9 @@ class CreateHistoryChangeDetectionTest extends TableauxTestBase with TestHelper 
       for {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows")
-        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue)
-        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue)
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
+        _ <- sendRequest("PATCH", "/tables/1/columns/3/rows/1", newValue)
+        _ <- sendRequest("PATCH", "/tables/1/columns/3/rows/1", newValue)
+        rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         assertEquals(1, rows.size())
       }
@@ -128,9 +99,9 @@ class CreateHistoryChangeDetectionTest extends TableauxTestBase with TestHelper 
       for {
         _ <- createTableWithMultilanguageColumns("history test")
         _ <- sendRequest("POST", "/tables/1/rows")
-        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue)
-        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue)
-        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
+        _ <- sendRequest("PATCH", "/tables/1/columns/7/rows/1", newValue)
+        _ <- sendRequest("PATCH", "/tables/1/columns/7/rows/1", newValue)
+        rows <- sendRequest("GET", "/tables/1/columns/7/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
         assertEquals(1, rows.size())
       }
@@ -146,11 +117,11 @@ class CreateHistoryChangeDetectionTest extends TableauxTestBase with TestHelper 
       for {
         _ <- createSimpleTableWithCell("table1", multiCountryCurrencyColumn)
         _ <- sendRequest("POST", "/tables/1/rows")
-        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue)
-        _ <- sendRequest("POST", "/tables/1/columns/3/rows/1", newValue)
+        _ <- sendRequest("PATCH", "/tables/1/columns/1/rows/1", newValue)
+        _ <- sendRequest("PATCH", "/tables/1/columns/1/rows/1", newValue)
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
-        assertEquals(2, rows.size())
+        assertEquals(1, rows.size())
       }
     }
   }
