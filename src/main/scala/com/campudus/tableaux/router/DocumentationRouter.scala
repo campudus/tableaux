@@ -19,7 +19,7 @@ object DocumentationRouter {
 
 class DocumentationRouter(override val config: TableauxConfig) extends BaseRouter {
 
-  private val swaggerUiVersion = "4.11.1"
+  private val swaggerUiVersion = "5.9.0"
   private val directory = """(?<directory>[A-Za-z0-9-_\\.]{1,60}){1}"""
   private val file = s"""(?<file>[A-Za-z0-9-_\\.]{1,60}){1}"""
 
