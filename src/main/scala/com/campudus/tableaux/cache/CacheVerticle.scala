@@ -73,14 +73,13 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
   private def getCache(tableId: TableId, columnId: ColumnId): Cache[AnyRef] = {
 
     def createCache() = {
-      val builder = CacheBuilder
-        .newBuilder()
+      val builder = CacheBuilder.newBuilder()
 
       val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
       if (expireAfterAccess > 0) {
         builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
       } else {
-        logger.info("Cache will not expire!")
+        logger.debug("Cache will not expire!")
       }
 
       val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
