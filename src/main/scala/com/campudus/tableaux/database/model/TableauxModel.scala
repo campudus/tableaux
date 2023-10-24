@@ -347,7 +347,7 @@ class TableauxModel(
                 {
                   case (future, (table, column, id)) => {
                     future.flatMap(_ => {
-                      updateOrReplaceValue(table, column.id, id, replacingRowId, false, t)
+                      updateOrReplaceValue(table, column.id, id, replacingRowId, false, maybeTransaction = t)
                     }).map(_ => ())
                   }
                 }
@@ -666,6 +666,7 @@ class TableauxModel(
       rowId: RowId,
       value: A,
       replace: Boolean = false,
+      forceHistory: Boolean = false,
       maybeTransaction: Option[DbTransaction] = None
   )(implicit user: TableauxUser): Future[Cell[_]] = {
     for {
@@ -704,8 +705,10 @@ class TableauxModel(
       _ <- invalidateCellAndDependentColumns(column, rowId)
       newCell <- retrieveCell(column, rowId, true)
 
+      shouldCreateHistory = forceHistory || hasCellChanged(oldCell, newCell)
+
       _ <-
-        if (hasCellChanged(oldCell, newCell)) {
+        if (shouldCreateHistory) {
           for {
             _ <- createHistoryModel.createCellsInit(table, rowId, oldCell, Seq((column, value)))
             _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
@@ -716,15 +719,15 @@ class TableauxModel(
     } yield newCell
   }
 
-  def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A)(
+  def updateCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
   ): Future[Cell[_]] =
-    updateOrReplaceValue(table, columnId, rowId, value)
+    updateOrReplaceValue(table, columnId, rowId, value, forceHistory = forceHistory)
 
-  def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A)(
+  def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
   ): Future[Cell[_]] =
-    updateOrReplaceValue(table, columnId, rowId, value, replace = true)
+    updateOrReplaceValue(table, columnId, rowId, value, replace = true, forceHistory = true)
 
   def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId)(
       implicit user: TableauxUser

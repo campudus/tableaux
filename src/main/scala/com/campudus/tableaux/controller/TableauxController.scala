@@ -458,18 +458,18 @@ class TableauxController(
     } yield filled
   }
 
-  def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A)(
+  def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
   ): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"replaceCellValue $tableId $columnId $rowId $value")
     for {
       table <- repository.retrieveTable(tableId)
-      filled <- repository.replaceCellValue(table, columnId, rowId, value)
+      filled <- repository.replaceCellValue(table, columnId, rowId, value, forceHistory)
     } yield filled
   }
 
-  def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A)(
+  def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
   ): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
@@ -477,7 +477,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      updated <- repository.updateCellValue(table, columnId, rowId, value)
+      updated <- repository.updateCellValue(table, columnId, rowId, value, forceHistory)
     } yield updated
   }
 
