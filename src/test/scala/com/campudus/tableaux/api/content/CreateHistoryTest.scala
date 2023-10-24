@@ -1637,7 +1637,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
       // Booleans always gets a initial history entry on first change
       val expectedInitialLinks = """{ "value": true} """
-      val expectedAfterPost1 = """{ "value": true }"""
+      val expectedAfterPost1 = """{ "value": false }"""
 
       val booleanColumn =
         s"""{"columns": [{"kind": "boolean", "name": "Boolean Column", "languageType": "neutral"} ] }"""
