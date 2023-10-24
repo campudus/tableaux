@@ -306,16 +306,7 @@ class TableauxModel(
           .collect({ case c: LinkColumn if !c.linkDirection.constraint.deleteCascade => c })
           .map(col => (col, 0))
 
-        _ <- Future.sequence(
-          columns.map({
-            case c: ColumnType[_] => {
-              for {
-                cell <- retrieveCell(c, rowId, true)
-                _ <- createHistoryModel.createCellsInit(table, rowId, cell, Seq.empty)
-              } yield ()
-            }
-          })
-        )
+        _ <- createHistoryModel.createCellsInit(table, rowId, columnValueLinks)
 
         linkList <- retrieveDependentCells(table, rowId)
 
@@ -540,8 +531,7 @@ class TableauxModel(
       _ <- column match {
         case linkColumn: LinkColumn => {
           for {
-            oldCell <- retrieveCell(column, rowId, true)
-            _ <- createHistoryModel.createCellsInit(table, rowId, oldCell, Seq((column, Seq(toId))))
+            _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, Seq(toId))))
             _ <- updateRowModel.deleteLink(table, linkColumn, rowId, toId, deleteRow)
             _ <- invalidateCellAndDependentColumns(column, rowId)
             _ <- createHistoryModel.deleteLink(table, linkColumn, rowId, toId)
@@ -568,8 +558,7 @@ class TableauxModel(
       _ <- column match {
         case linkColumn: LinkColumn => {
           for {
-            oldCell <- retrieveCell(column, rowId, true)
-            _ <- createHistoryModel.createCellsInit(table, rowId, oldCell, Seq((linkColumn, Seq(rowId))))
+            _ <- createHistoryModel.createCellsInit(table, rowId, Seq((linkColumn, Seq(rowId))))
             _ <- updateRowModel.updateLinkOrder(table, linkColumn, rowId, toId, locationType)
             _ <- invalidateCellAndDependentColumns(column, rowId)
             _ <- createHistoryModel.updateLinks(table, linkColumn, Seq(rowId))
@@ -656,9 +645,7 @@ class TableauxModel(
     }
   }
 
-  private def hasCellChanged(oldCell: Cell[_], newCell: Cell[_]): Boolean = {
-    oldCell.value != newCell.value
-  }
+  private def hasCellChanged(oldCell: Cell[_], newCell: Cell[_]): Boolean = oldCell.value != newCell.value
 
   private def updateOrReplaceValue[A](
       table: Table,
@@ -690,6 +677,7 @@ class TableauxModel(
         }
 
       oldCell <- retrieveCell(column, rowId, true)
+      _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
 
       _ <-
         if (replace) {
@@ -709,10 +697,7 @@ class TableauxModel(
 
       _ <-
         if (shouldCreateHistory) {
-          for {
-            _ <- createHistoryModel.createCellsInit(table, rowId, oldCell, Seq((column, value)))
-            _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
-          } yield ()
+          createHistoryModel.createCells(table, rowId, Seq((column, value)))
         } else {
           Future.successful(())
         }
@@ -727,7 +712,7 @@ class TableauxModel(
   def replaceCellValue[A](table: Table, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
   ): Future[Cell[_]] =
-    updateOrReplaceValue(table, columnId, rowId, value, replace = true, forceHistory = true)
+    updateOrReplaceValue(table, columnId, rowId, value, replace = true, forceHistory = forceHistory)
 
   def clearCellValue(table: Table, columnId: ColumnId, rowId: RowId)(
       implicit user: TableauxUser
@@ -745,8 +730,7 @@ class TableauxModel(
           roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
         }
 
-      oldCell <- retrieveCell(column, rowId, true)
-      _ <- createHistoryModel.createClearCellInit(table, rowId, oldCell, Seq(column))
+      _ <- createHistoryModel.createClearCellInit(table, rowId, Seq(column))
       _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
       _ <- invalidateCellAndDependentColumns(column, rowId)
