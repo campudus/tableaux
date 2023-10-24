@@ -656,6 +656,10 @@ class TableauxModel(
     }
   }
 
+  private def hasCellChanged(oldCell: Cell[_], newCell: Cell[_]): Boolean = {
+    oldCell.value != newCell.value
+  }
+
   private def updateOrReplaceValue[A](
       table: Table,
       columnId: ColumnId,
@@ -686,8 +690,6 @@ class TableauxModel(
 
       oldCell <- retrieveCell(column, rowId, true)
 
-      // _ <- createHistoryModel.createCellsInit(table, rowId, Seq((column, value)))
-
       _ <-
         if (replace) {
           for {
@@ -702,20 +704,15 @@ class TableauxModel(
       _ <- invalidateCellAndDependentColumns(column, rowId)
       newCell <- retrieveCell(column, rowId, true)
 
-      _ = println(s"value changed from ${oldCell.value} to ${newCell.value} isEqual ${oldCell.value == newCell.value}")
       _ <-
-        if (oldCell != newCell) {
-          println("createHistoryModel.createCellsInit")
+        if (hasCellChanged(oldCell, newCell)) {
           for {
             _ <- createHistoryModel.createCellsInit(table, rowId, oldCell, Seq((column, value)))
-            _ = println("createHistoryModel.createCells")
             _ <- createHistoryModel.createCells(table, rowId, Seq((column, value)))
           } yield ()
         } else {
           Future.successful(())
         }
-
-      // changedCell <- retrieveCell(column, rowId, true)
     } yield newCell
   }
 
