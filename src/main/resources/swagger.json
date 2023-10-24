@@ -1065,6 +1065,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/value"
+          },
+          {
+            "$ref": "#/parameters/forceHistoryOpt"
           }
         ],
         "responses": {
@@ -1086,6 +1089,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/value"
+          },
+          {
+            "$ref": "#/parameters/forceHistoryOpt"
           }
         ],
         "responses": {
@@ -1107,6 +1113,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/value"
+          },
+          {
+            "$ref": "#/parameters/forceHistoryOpt"
           }
         ],
         "responses": {
@@ -3824,6 +3833,14 @@
           }
         }
       }
+    },
+    "forceHistoryOpt": {
+      "name": "forceHistory",
+      "description": "If set to true, a history entry will be created even if the value did not change.",
+      "in": "query",
+      "required": false,
+      "type": "boolean",
+      "default": false
     },
     "fileuuid": {
       "name": "fileuuid",

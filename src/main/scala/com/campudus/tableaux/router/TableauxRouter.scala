@@ -665,6 +665,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     */
   private def updateCell(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
+    val forceHistory = getBoolQuery("forceHistory", context).getOrElse(false)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -675,7 +676,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val json = getJson(context)
           for {
-            updated <- controller.updateCellValue(tableId, columnId, rowId, json.getValue("value"))
+            updated <- controller.updateCellValue(tableId, columnId, rowId, json.getValue("value"), forceHistory)
           } yield updated
         }
       )
@@ -687,6 +688,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     */
   private def replaceCell(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
+    val forceHistory = getBoolQuery("forceHistory", context).getOrElse(false)
     for {
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
@@ -699,7 +701,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           for {
             updated <-
               if (json.containsKey("value")) {
-                controller.replaceCellValue(tableId, columnId, rowId, json.getValue("value"))
+                controller.replaceCellValue(tableId, columnId, rowId, json.getValue("value"), forceHistory)
               } else {
                 Future.failed(InvalidJsonException("request must contain a value", "value_is_missing"))
               }
