@@ -141,18 +141,42 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   val tableModel = new TableModel(connection)
   val attachmentModel = AttachmentModel(connection)
 
+  private def toInitCellValueOption(
+      column: ColumnType[_],
+      cell: Cell[_],
+      langtagCountryOpt: Option[String] = None
+  ): Option[Any] = {
+    Option(cell.value) match {
+      case Some(v) =>
+        column match {
+          case MultiLanguageColumn(_) =>
+            val rawValue = cell.getJson.getJsonObject("value")
+            column match {
+              case _: BooleanColumn => Option(rawValue.getBoolean(langtagCountryOpt.getOrElse(""), false))
+              case _ => Option(rawValue.getValue(langtagCountryOpt.getOrElse("")))
+            }
+          case _: SimpleValueColumn[_] => Some(v)
+        }
+      case _ => None
+    }
+  }
+
+  private def toInitLinkIds(column: LinkColumn, cell: Cell[_]): Seq[RowId] = {
+    cell.getJson
+      .getJsonArray("value")
+      .asScala
+      .map(_.asInstanceOf[JsonObject])
+      .map(_.getLong("id").longValue())
+      .toSeq
+  }
+
   private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId)(
       implicit user: TableauxUser
   ): Future[Seq[RowId]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
     } yield {
-      cell.getJson
-        .getJsonArray("value")
-        .asScala
-        .map(_.asInstanceOf[JsonObject])
-        .map(_.getLong("id").longValue())
-        .toSeq
+      toInitLinkIds(column, cell)
     }
   }
 
@@ -596,15 +620,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   ): Future[Seq[Unit]] = {
 
     def createIfNotEmpty(linkColumn: LinkColumn): Future[Unit] = {
-      for {
-        linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
-        _ <-
-          if (linkIds.nonEmpty) {
-            createLinks(table, rowId, Seq((linkColumn, linkIds)), allowRecursion = true)
-          } else {
-            Future.successful(())
-          }
-      } yield ()
+      val linkIds = toInitLinkIds(linkColumn, oldCell)
+      if (linkIds.nonEmpty) {
+        createLinks(table, rowId, Seq((linkColumn, linkIds)), allowRecursion = true).map(_ => ())
+      } else {
+        Future.successful(())
+      }
     }
 
     Future.sequence(links.map({ linkColumn =>
@@ -689,26 +710,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       s"SELECT COUNT(*) > 0 FROM user_table_history_$tableId WHERE column_id = ? AND row_id = ? $whereLanguage",
       Json.arr(columnId, rowId)
     )
-  }
-
-  private def toInitCellValueOption(
-      column: ColumnType[_],
-      cell: Cell[_],
-      langtagCountryOpt: Option[String] = None
-  ): Option[Any] = {
-    Option(cell.value) match {
-      case Some(v) =>
-        column match {
-          case MultiLanguageColumn(_) =>
-            val rawValue = cell.getJson.getJsonObject("value")
-            column match {
-              case _: BooleanColumn => Option(rawValue.getBoolean(langtagCountryOpt.getOrElse(""), false))
-              case _ => Option(rawValue.getValue(langtagCountryOpt.getOrElse("")))
-            }
-          case _: SimpleValueColumn[_] => Some(v)
-        }
-      case _ => None
-    }
   }
 
   /**
