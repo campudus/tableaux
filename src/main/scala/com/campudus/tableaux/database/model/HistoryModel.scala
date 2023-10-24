@@ -906,19 +906,18 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
       implicit user: TableauxUser
   ): Future[Unit] = {
-    val columns = values.map({ case (col: ColumnType[_], _) => col })
-    val (_, _, _, attachments) = ColumnType.splitIntoTypes(columns)
-
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
 
-      case Success((simples, multis, links, _)) =>
+      case Success((simples, multis, links, attachments)) =>
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
           _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, allowRecursion = true)
-          _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(table, rowId, attachments)
+          _ <-
+            if (attachments.isEmpty) Future.successful(())
+            else createAttachments(table, rowId, attachments.map({ case (column, _) => column }))
         } yield ()
     }
   }

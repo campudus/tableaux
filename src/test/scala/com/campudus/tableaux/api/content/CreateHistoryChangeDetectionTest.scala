@@ -127,24 +127,24 @@ class CreateHistoryChangeDetectionTest extends TableauxTestBase with TestHelper 
   }
 }
 
-// @RunWith(classOf[VertxUnitRunner])
-// class CreateHistoryChangeLinkDetectionTest extends LinkTestBase with TestHelper {
+@RunWith(classOf[VertxUnitRunner])
+class CreateHistoryChangeLinkDetectionTest extends LinkTestBase with TestHelper {
 
-//   @Test
-//   def changeLinkValueTwice_xxx(implicit c: TestContext): Unit = {
-//     okTest {
-//       val twoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
+  @Test
+  def changeLinkValueTwice_singleLanguage(implicit c: TestContext): Unit = okTest {
+    val twoLinks = Json.obj("value" -> Json.obj("values" -> Json.arr(1, 2)))
 
-//       for {
-//         linkColumnId <- setupTwoTablesWithEmptyLinks()
+    for {
+      linkColumnId <- setupTwoTablesWithEmptyLinks()
 
-//         _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", twoLinks)
-//         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
-//       } yield {
-//         assertEquals(2, rows.size())
-//       }
-//     }
-//   }
+      _ = println(s"linkColumnId: $linkColumnId")
+      _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", twoLinks)
+      _ <- sendRequest("PUT", s"/tables/1/columns/3/rows/1", twoLinks)
+      rows <- sendRequest("GET", s"/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
+    } yield {
+      assertEquals(1, rows.size())
+    }
+  }
 
 //   @Test
 //   def changeLink_singleLanguageMultiIdentifiers(implicit c: TestContext): Unit = {
@@ -1610,4 +1610,4 @@ class CreateHistoryChangeDetectionTest extends TableauxTestBase with TestHelper 
 //     }
 //   }
 
-// }
+}
