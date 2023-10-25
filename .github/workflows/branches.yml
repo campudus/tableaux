@@ -8,7 +8,7 @@ name: CI | Push on branches
 on:
   push:
     branches:
-      - "*"
+      - "**"
       - "!master"
 
 env:
@@ -120,6 +120,6 @@ jobs:
           path: artifacts
 
       - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
+        uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: artifacts/test-results/**/*.xml
