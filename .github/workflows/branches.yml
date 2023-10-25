@@ -106,6 +106,7 @@ jobs:
         with:
           path: build/reports/scoverage/cobertura.xml
           minimum_coverage: 80
+          only_changed_files: true
 
   publish-test-results:
     name: "Publish Unit Tests Results"
@@ -120,6 +121,6 @@ jobs:
           path: artifacts
 
       - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
+        uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: artifacts/test-results/**/*.xml
