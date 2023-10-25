@@ -114,13 +114,6 @@ jobs:
           badge: true
           fail_below_min: true
           
-      - name: Add Coverage PR Comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        if: github.event_name == 'pull_request'
-        with:
-          recreate: true
-          path: code-coverage-results.md
-
   publish-test-results:
     name: "Publish Unit Tests Results"
     needs: build-and-test
