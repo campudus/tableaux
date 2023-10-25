@@ -8,7 +8,7 @@ name: CI | Push on branches
 on:
   push:
     branches:
-      - "*"
+      - "**"
       - "!master"
 
 env:
