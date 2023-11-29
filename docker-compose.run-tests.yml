@@ -8,8 +8,8 @@ services:
     depends_on:
       - postgres
     volumes:
-      # - ./conf-test.json:/usr/src/app/conf-test.json # as provided by Jenkins config file provider
-      - ./conf-jenkins.json:/usr/src/app/conf-test.json
+      - ./conf-test.json:/usr/src/app/conf-test.json # as provided by Jenkins config file provider
+      # - ./conf-jenkins.json:/usr/src/app/conf-test.json
     # command: ["ls", "-rtla"]
     command: ["gradle", "test", "--tests", "*changeSimpleValue_booleanInitHistoryWithSameValue*", "--info" ]
     # command: ["gradle", "test" ]
