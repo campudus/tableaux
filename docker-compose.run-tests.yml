@@ -1,0 +1,26 @@
+version: "3.7"
+
+services:
+  grud-backend:
+    restart: "no"
+    image: $TEST_IMAGE
+    container_name: grud-backend-branch-${CLEAN_GIT_BRANCH}
+    depends_on:
+      - postgres
+    volumes:
+      # - ./conf-test.json:/usr/src/app/conf-test.json # as provided by Jenkins config file provider
+      - ./conf-jenkins.json:/usr/src/app/conf-test.json
+    # command: ["ls", "-rtla"]
+    command: ["gradle", "test", "--tests", "*changeSimpleValue_booleanInitHistoryWithSameValue*", "--info" ]
+    # command: ["gradle", "test" ]
+
+  postgres:
+    image: postgres:16.1-alpine
+    container_name: grud-postgres-branch-${CLEAN_GIT_BRANCH}
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: testing
+      POSTGRES_DB: testing
+      POSTGRES_PASSWORD: testing
+    user: postgres
+    shm_size: 1g
