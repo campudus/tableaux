@@ -2,4 +2,14 @@
 **
 
 # ...except binaries from gradle build
-!build/libs/*
+# !build/libs/*
+!src
+!build.gradle
+!gradle.properties
+# !gradlew
+# !gradlew.bat
+!settings.gradle
+
+# files for testing
+!conf-test.json
+!role-permissions-test.json
