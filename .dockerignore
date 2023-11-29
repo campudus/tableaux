@@ -1,15 +1,12 @@
 # ignore all files and folders for Docker build context ...
 **
 
-# ...except binaries from gradle build
-# !build/libs/*
+# except the following files and folders
 !src
 !build.gradle
 !gradle.properties
-# !gradlew
-# !gradlew.bat
 !settings.gradle
 
 # files for testing
-!conf-test.json
+# !conf-test.json # does not exist, is provided by Jenkins config file provider
 !role-permissions-test.json

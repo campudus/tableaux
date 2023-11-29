@@ -25,8 +25,8 @@ sourceCompatibility = '1.8'
 
 def requiredJavaVersion = JavaVersion.VERSION_11
 // ensure that the build fails if sdk version doesn't match the required version
-if(JavaVersion.current() != requiredJavaVersion) {
-  throw new GradleException("This project requires Java ${requiredJavaVersion}, but it's running on " + JavaVersion.current())
+if(JavaVersion.current() < requiredJavaVersion) {
+  throw new GradleException("This project requires minimum Java Version ${requiredJavaVersion}, but it's running on " + JavaVersion.current())
 }
 
 repositories {
