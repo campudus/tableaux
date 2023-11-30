@@ -14,6 +14,8 @@ ARG APP_HOME
 ENV GRADLE_USER_HOME /cache
 WORKDIR $APP_HOME
 COPY --from=cacher /cache /cache
+# prevent from strange docker error when built without buildkit, see: https://github.com/moby/moby/issues/37965
+RUN true 
 COPY --chown=gradle:gradle . $APP_HOME
 RUN gradle -v \
   && gradle testClasses assemble \
