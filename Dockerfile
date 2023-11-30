@@ -9,7 +9,7 @@ COPY build.gradle gradle.properties settings.gradle ./
 # prevent errors from spotless b/c in cacher stage we have no source files yet
 RUN gradle testClasses assemble -x spotlessScala
 
-FROM gradle:7.4.1-jdk17 as builder
+FROM cacher as builder
 ARG APP_HOME
 ENV GRADLE_USER_HOME /cache
 WORKDIR $APP_HOME
@@ -22,6 +22,6 @@ RUN gradle -v \
 FROM openjdk:22-slim as prod
 ARG APP_HOME
 WORKDIR $APP_HOME
-COPY --from=builder --chown=campudus:campudus ./build/libs/grud-backend-0.1.0-fat.jar ./tableaux-fat.jar
+COPY --from=builder --chown=campudus:campudus $APP_HOME/build/libs/grud-backend-0.1.0-fat.jar ./tableaux-fat.jar
 # USER campudus
 CMD [ "java", "-Xmx512M", "-jar", "./tableaux-fat.jar", "-conf /config.json" ]
