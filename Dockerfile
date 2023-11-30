@@ -1,13 +1,16 @@
+# to use APP_HOME in other stages, we need to redeclare it in each stage (not on docker for mac)
+ARG APP_HOME=/usr/src/app
+
 FROM gradle:7.4.1-jdk17 as cacher
-ENV APP_HOME=/usr/src/app
+ARG APP_HOME
 ENV GRADLE_USER_HOME /cache
 WORKDIR $APP_HOME
 COPY build.gradle gradle.properties settings.gradle ./
-RUN gradle --no-daemon testClasses assemble \
-  # prevent errors from spotless b/c in cacher stage we have no source files yet
-  -x spotlessScala
+# prevent errors from spotless b/c in cacher stage we have no source files yet
+RUN gradle testClasses assemble -x spotlessScala
 
 FROM gradle:7.4.1-jdk17 as builder
+ARG APP_HOME
 ENV GRADLE_USER_HOME /cache
 WORKDIR $APP_HOME
 COPY --from=cacher /cache /cache
@@ -17,6 +20,7 @@ RUN gradle -v \
   && mv conf-jenkins.json conf-test.json
 
 FROM openjdk:22-slim as prod
+ARG APP_HOME
 WORKDIR $APP_HOME
 COPY --from=builder --chown=campudus:campudus ./build/libs/grud-backend-0.1.0-fat.jar ./tableaux-fat.jar
 # USER campudus
