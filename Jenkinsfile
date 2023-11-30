@@ -68,7 +68,6 @@ pipeline {
           } finally {
             sh "docker cp grud-backend-branch-${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER}:/usr/src/app/build ./build/"
             junit './build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
-            // TODO coverage?
           }
         }
       }
