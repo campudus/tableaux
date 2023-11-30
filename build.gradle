@@ -21,7 +21,7 @@ project.version = '0.1.0'
 def vertxVersion = '3.8.0'
 def scalaVersion = '2.12.8'
 
-sourceCompatibility = '1.8'
+sourceCompatibility = '11'
 
 def requiredJavaVersion = JavaVersion.VERSION_11
 // ensure that the build fails if sdk version doesn't match the required version
