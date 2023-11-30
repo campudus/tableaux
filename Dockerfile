@@ -4,7 +4,8 @@ WORKDIR $APP_HOME
 COPY --chown=gradle:gradle . $APP_HOME
 # RUN ls -rtla $APP_HOME
 RUN gradle -v \
-  && gradle testClasses assemble
+  && gradle testClasses assemble \
+  && mv conf-jenkins.json conf-test.json
 
 FROM gradle:7.4.1-jdk17 as tester
 WORKDIR $APP_HOME

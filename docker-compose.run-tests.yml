@@ -7,12 +7,13 @@ services:
     container_name: grud-backend-branch-${CLEAN_GIT_BRANCH}
     depends_on:
       - postgres
-    volumes:
-      - ./conf-test.json:/usr/src/app/conf-test.json # as provided by Jenkins config file provider
+    # volumes:
+      # - ./conf-test.json:/usr/src/app/conf-test.json # as provided by Jenkins config file provider
       # - ./conf-jenkins.json:/usr/src/app/conf-test.json
     # command: ["ls", "-rtla"]
-    command: ["gradle", "test", "--tests", "*changeSimpleValue_booleanInitHistoryWithSameValue*", "--info" ]
-    # command: ["gradle", "test" ]
+    # command: ["gradle", "test", "--tests", "*changeSimpleValue_booleanInitHistoryWithSameValue*", "--info" ]
+    # command: ["gradle", "test", "--tests", "*CreateHistoryChangeDetectionTest*" ]
+    command: ["gradle", "test" ]
 
   postgres:
     image: postgres:16.1-alpine

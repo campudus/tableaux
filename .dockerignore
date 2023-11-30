@@ -10,3 +10,4 @@
 # files for testing
 # !conf-test.json # does not exist, is provided by Jenkins config file provider
 !role-permissions-test.json
+!conf-jenkins.json

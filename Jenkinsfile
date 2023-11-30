@@ -57,14 +57,14 @@ pipeline {
       steps {
         script {
           try {
-              configFileProvider([configFile(fileId: 'grud-backend-build', targetLocation: 'conf-test.json')]) {
-                sh """
-                  TEST_IMAGE=${IMAGE_NAME}-builder \
-                  CLEAN_GIT_BRANCH=${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER} \
-                  docker-compose -f ./docker-compose.run-tests.yml up \
-                  --abort-on-container-exit --exit-code-from grud-backend
-                """
-              }
+              // configFileProvider([configFile(fileId: 'grud-backend-build', targetLocation: 'conf-test.json')]) {
+              sh """
+                TEST_IMAGE=${IMAGE_NAME}-builder \
+                CLEAN_GIT_BRANCH=${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER} \
+                docker-compose -f ./docker-compose.run-tests.yml up \
+                --abort-on-container-exit --exit-code-from grud-backend
+              """
+              // }
           } finally {
             sh "docker cp grud-backend-branch-${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER}:/usr/src/app/build ./build/"
             junit './build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
