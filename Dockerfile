@@ -24,6 +24,5 @@ RUN gradle -v \
 FROM openjdk:22-slim as prod
 ARG APP_HOME
 WORKDIR $APP_HOME
-COPY --from=builder --chown=campudus:campudus $APP_HOME/build/libs/grud-backend-0.1.0-fat.jar ./tableaux-fat.jar
-# USER campudus
+COPY --from=builder $APP_HOME/build/libs/grud-backend-0.1.0-fat.jar ./tableaux-fat.jar
 CMD [ "java", "-Xmx512M", "-jar", "./tableaux-fat.jar", "-conf /config.json" ]
