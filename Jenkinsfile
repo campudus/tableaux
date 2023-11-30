@@ -5,8 +5,7 @@ DEPLOY_DIR = 'build/libs'
 LEGACY_ARCHIVE_FILENAME="grud-backend-docker.tar.gz"
 DOCKER_BASE_IMAGE_TAG = "build-${BUILD_NUMBER}"
 
-// SLACK_CHANNEL = "#grud"
-SLACK_CHANNEL = "D0657HFLCM9"
+SLACK_CHANNEL = "#grud"
 
 // flag deactivate tests for fast redeployment from jenkins frontend
 shouldTest = true

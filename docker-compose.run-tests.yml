@@ -7,8 +7,7 @@ services:
     container_name: grud-backend-branch-${CLEAN_GIT_BRANCH}
     depends_on:
       - postgres
-    command: ["gradle", "test", "--tests", "*CreateHistoryChangeDetectionTest*" ]
-    # command: ["gradle", "test" ]
+    command: ["gradle", "test" ]
 
   postgres:
     image: postgres:16.1-alpine
