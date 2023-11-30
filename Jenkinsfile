@@ -31,16 +31,23 @@ pipeline {
   }
 
   stages {
-    stage('Cleanup & Setup') {
+    stage('Cleanup & Build base docker image') {
       steps {
-        sh './gradlew clean'
-
-        // ensure temp folder has write rights for tests otherwise they fail with "java.lang.IllegalStateException: Failed to create cache dir"
-        sh "sudo chmod a+w /tmp/vertx-cache/"
-
-        // cleanup docker
+        sh "echo setup/clean up stuff..."
+        // remove images older than two weeks
         sh 'docker rmi $(docker images -f "dangling=true" -q) || true'
-        sh "docker rmi -f \$(docker images -qa --filter=reference='${IMAGE_NAME}') || true"
+        sh 'docker rmi -f $(docker images --filter "reference=campudus/grud-backend*" | grep " [weeks|months|years]* ago" | awk \'{print $3}\') 2>/dev/null || echo "No images to cleanup"'
+
+        echo "Environment variables:"
+        sh "printenv | sort"
+        echo ""
+        echo "Groovy/Pipeline variables:"
+        script {
+          groovyVars = [:] << getBinding().getVariables()
+          groovyVars.each  {k,v -> print "$k = $v"}
+        }
+        
+        sh "docker build -t ${IMAGE_NAME}-cacher --target=cacher ."
       }
     }
 
@@ -57,17 +64,15 @@ pipeline {
       steps {
         script {
           try {
-              // configFileProvider([configFile(fileId: 'grud-backend-build', targetLocation: 'conf-test.json')]) {
-              sh """
-                TEST_IMAGE=${IMAGE_NAME}-builder \
-                CLEAN_GIT_BRANCH=${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER} \
-                docker-compose -f ./docker-compose.run-tests.yml up \
-                --abort-on-container-exit --exit-code-from grud-backend
-              """
-              // }
+            sh """
+              TEST_IMAGE=${IMAGE_NAME}-builder \
+              CLEAN_GIT_BRANCH=${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER} \
+              docker-compose -f ./docker-compose.run-tests.yml up \
+              --abort-on-container-exit --exit-code-from grud-backend
+            """
           } finally {
             sh "docker cp grud-backend-branch-${CLEAN_GIT_BRANCH}-build-${BUILD_NUMBER}:/usr/src/app/build ./build/"
-            junit './build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
+            junit '**/build/test-results/test/TEST-*.xml' //make the junit test results available in any case (success & failure)
           }
         }
       }
