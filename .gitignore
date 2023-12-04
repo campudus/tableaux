@@ -5,6 +5,7 @@ conf-*.json
 !conf-example.json
 !conf-test-example.json
 !conf-github-ci.json
+!conf-jenkins.json
 uploads/
 .vertx/
 uploads*
