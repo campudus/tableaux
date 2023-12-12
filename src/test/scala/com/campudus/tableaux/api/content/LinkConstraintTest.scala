@@ -1037,6 +1037,32 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
   }
 
   @Test
+  def deleteRow_withReplacingRowIdAlreadyLinked_shouldSkipDuplicateInsert(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        (tableId1, tableId2) <- createDefaultLinkTables()
+
+        // row 2 is already linked to row 1
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=2")
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+      } yield {
+        assertEquals(4, rowsTable1.size())
+        assertEquals(3, rowsTable2.size())
+
+        val expected = Json.arr(Json.obj("id" -> 2, "value" -> "table2row2")) // contains row 2 only once
+
+        assertJSONEquals(expected, rowsTable1.getJsonObject(2).getJsonArray("values").getJsonArray(2))
+        assertJSONEquals(expected, rowsTable1.getJsonObject(3).getJsonArray("values").getJsonArray(2))
+      }
+    }
+  }
+
+  @Test
   def deleteRow_withReplacingRowId_mergesAllReplacedRowIds(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
