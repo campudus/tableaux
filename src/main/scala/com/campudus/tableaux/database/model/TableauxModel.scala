@@ -284,6 +284,21 @@ class TableauxModel(
     doDeleteRow(table, rowId, None)
   }
 
+  def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId)(
+      implicit user: TableauxUser
+  ): Future[Seq[RowId]] = {
+    for {
+      cell <- retrieveCell(table, column.id, rowId, isInternalCall = true)
+    } yield {
+      cell.getJson
+        .getJsonArray("value")
+        .asScala
+        .map(_.asInstanceOf[JsonObject])
+        .map(_.getLong("id").longValue())
+        .toSeq
+    }
+  }
+
   def doDeleteRow(
       table: Table,
       rowId: RowId,

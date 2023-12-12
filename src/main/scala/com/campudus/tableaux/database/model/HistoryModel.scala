@@ -141,21 +141,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   val tableModel = new TableModel(connection)
   val attachmentModel = AttachmentModel(connection)
 
-  private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId)(
-      implicit user: TableauxUser
-  ): Future[Seq[RowId]] = {
-    for {
-      cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
-    } yield {
-      cell.getJson
-        .getJsonArray("value")
-        .asScala
-        .map(_.asInstanceOf[JsonObject])
-        .map(_.getLong("id").longValue())
-        .toSeq
-    }
-  }
-
   private def getLinksData(idCellSeq: Seq[Cell[Any]], langTags: Seq[String]): (LanguageType, Seq[(RowId, Object)]) = {
     val preparedData = idCellSeq
       .map(cell => {
@@ -218,7 +203,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
             insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapLinkValue())
           } else {
             for {
-              linkIds <- retrieveCurrentLinkIds(table, column, rowId)
+              linkIds <- tableauxModel.retrieveCurrentLinkIds(table, column, rowId)
               identifierCellSeq <- retrieveForeignIdentifierCells(column, linkIds)
               langTags <- getLangTags(table)
 
@@ -274,7 +259,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
+      linkIds <- tableauxModel.retrieveCurrentLinkIds(table, linkColumn, rowId)
       identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)
       langTags <- getLangTags(table)
       (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
@@ -594,7 +579,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
     def createIfNotEmpty(linkColumn: LinkColumn): Future[Unit] = {
       for {
-        linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
+        linkIds <- tableauxModel.retrieveCurrentLinkIds(table, linkColumn, rowId)
         _ <-
           if (linkIds.nonEmpty) {
             createLinks(table, rowId, Seq((linkColumn, linkIds)), allowRecursion = true)
