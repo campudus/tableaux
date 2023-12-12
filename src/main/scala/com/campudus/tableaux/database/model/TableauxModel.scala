@@ -352,9 +352,20 @@ class TableauxModel(
               }).foldLeft(Future(())) {
                 {
                   case (future, (table, column, id)) => {
-                    future.flatMap(_ => {
-                      updateOrReplaceValue(table, column.id, id, replacingRowId, false, maybeTransaction = t)
-                    }).map(_ => ())
+                    for {
+                      _ <- future
+                      linkedIds <- retrieveCurrentLinkIds(table, column, id)
+
+                      _ <-
+                        if (!linkedIds.contains(replacingRowId)) {
+                          updateOrReplaceValue(table, column.id, id, replacingRowId, false, maybeTransaction = t)
+                        } else {
+                          logger.info(
+                            s"skip adding link ${replacingRowId} to: ${table.id} ${column.id} $id because it is already linked"
+                          )
+                          Future.successful(())
+                        }
+                    } yield ()
                   }
                 }
               }
