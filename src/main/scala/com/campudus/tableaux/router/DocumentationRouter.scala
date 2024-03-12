@@ -133,7 +133,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
 
     val uri = (forwardedScheme, forwardedHost, forwardedUrl) match {
       case (Some(scheme), Some(host), Some(query)) => s"$scheme://$host$query"
-      case _ => request.absoluteURI()
+      case _ => config.openApiUrl
     }
 
     DocUriParser.parse(uri)

@@ -5,6 +5,7 @@
   "uploadsDirectory": "uploads/",
   "workingDirectory": "./",
   "rolePermissionsPath": "./role-permissions.json",
+  "openApiUrl": "https://my.domain.com/api/docs",
 
   "database" : {
     "host" : "localhost",
