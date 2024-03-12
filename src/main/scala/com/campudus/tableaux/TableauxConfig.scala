@@ -13,8 +13,8 @@ class TableauxConfig(
     databaseConfig: JsonObject,
     workingDirectory: String,
     uploadsDirectory: String,
-    val openApiUrl: String,
-    val rolePermissions: JsonObject
+    val rolePermissions: JsonObject,
+    val openApiUrl: String = ""
 ) extends VertxAccess {
 
   def uploadsDirectoryPath(): Path = {
