@@ -53,7 +53,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       val uploadsDirectory = getStringDefault(config, "uploadsDirectory", Starter.DEFAULT_UPLOADS_DIRECTORY)
       val authConfig = config.getJsonObject("auth", Json.obj())
       val rolePermissionsPath = getStringDefault(config, "rolePermissionsPath", Starter.DEFAULT_ROLE_PERMISSIONS_PATH)
-      val openApiUrl = getStringDefault(config, "openApiUrl", "")
+      val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
 
       val rolePermissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionsPath, Json.emptyObj())
 

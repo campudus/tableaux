@@ -14,7 +14,7 @@ class TableauxConfig(
     workingDirectory: String,
     uploadsDirectory: String,
     val rolePermissions: JsonObject,
-    val openApiUrl: String = ""
+    val openApiUrl: Option[String] = None
 ) extends VertxAccess {
 
   def uploadsDirectoryPath(): Path = {
