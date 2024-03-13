@@ -130,10 +130,12 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
       })
 
     val forwardedUrl = request.getHeader("x-forwarded-url")
+    val openApiUrl = config.openApiUrl
 
-    val uri = (forwardedScheme, forwardedHost, forwardedUrl) match {
-      case (Some(scheme), Some(host), Some(query)) => s"$scheme://$host$query"
-      case _ => config.openApiUrl
+    val uri = (forwardedScheme, forwardedHost, forwardedUrl, openApiUrl) match {
+      case (Some(scheme), Some(host), Some(query), _) => s"$scheme://$host$query"
+      case (_, _, _, Some(openApiUrl)) => openApiUrl
+      case _ => request.absoluteURI()
     }
 
     DocUriParser.parse(uri)
