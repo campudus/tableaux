@@ -51,7 +51,9 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     router.get(folders).handler(retrieveRootFolder)
     router.getWithRegex(folder).handler(retrieveFolder)
     router.getWithRegex(file).handler(retrieveFile)
-    router.getWithRegex(fileLangStatic).handler(serveFile)
+    if (!config.isPublicFileServer) {
+      router.getWithRegex(fileLangStatic).handler(serveFile)
+    }
 
     router.deleteWithRegex(folder).handler(deleteFolder)
     router.deleteWithRegex(file).handler(deleteFile)
@@ -75,6 +77,16 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     router.postWithRegex(fileMerge).handler(mergeFile)
     router.putWithRegex(file).handler(updateFile)
 
+    router
+  }
+
+  def publicRoute: Router = {
+    val router = Router.router(vertx)
+
+    // RETRIEVE
+    if (config.isPublicFileServer) {
+      router.getWithRegex(fileLangStatic).handler(serveFile)
+    }
     router
   }
 
