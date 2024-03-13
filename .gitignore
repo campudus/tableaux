@@ -2,7 +2,8 @@
 conf.json
 conf-*.jsonc
 conf-*.json
-!conf-example.json
+!conf-example.jsonc
+!conf-example-manual-auth.jsonc
 !conf-test-example.json
 !conf-github-ci.json
 !conf-jenkins.json

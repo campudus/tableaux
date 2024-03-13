@@ -1,0 +1,21 @@
+{
+  "host": "127.0.0.1",
+  "port": 8080,
+  "uploadsDirectory": "uploads/",
+  "workingDirectory": "./",
+  "rolePermissionsPath": "./role-permissions.json",
+  "isPublicFileServer": false, // if true, the file serving endpoint is public, if false, the file serving is protected by the auth server (default: false)
+  "openApiUrl": "https://my.domain.com/api/docs", // override the openapi url, needed for reverse proxy (if not set, the openapi url is generated automatically)
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "username": "postgres",
+    "password": "secret",
+    "database": "tableaux"
+  },
+  "auth": {
+    "isAutoDiscovery": true,
+    "resource": "grud-backend",
+    "issuer": "https://<path-to-keycloak>/auth/realms/<realm>"
+  }
+}
