@@ -66,6 +66,11 @@ object RouterRegistry extends LazyLogging {
       router.route().handler(systemRouter.noRouteMatched)
     }
 
+    def registerPublicRoutes(router: Router) = {
+      logger.info("Registering public routes")
+      router.mountSubRouter("/", mediaRouter.publicRoute)
+    }
+
     def initManualAuth() = {
       val keycloakAuthProvider = KeycloakAuth.create(vertx, tableauxConfig.authConfig)
       val keycloakAuthHandler = OAuth2AuthHandler.create(keycloakAuthProvider)
@@ -89,6 +94,8 @@ object RouterRegistry extends LazyLogging {
         clientOptions,
         handler => {
           if (handler.succeeded()) {
+            registerPublicRoutes(mainRouter)
+
             val keycloakAuthProvider = handler.result()
             val keycloakAuthHandler = OAuth2AuthHandler.create(keycloakAuthProvider)
             mainRouter.route().handler(keycloakAuthHandler)
@@ -122,6 +129,7 @@ object RouterRegistry extends LazyLogging {
         "Started WITHOUT access token verification. The API is completely publicly available and NOT secured! " +
           "This is for development and/or testing purposes ONLY."
       )
+      registerPublicRoutes(mainRouter)
       registerCommonRoutes(mainRouter)
     }
 

@@ -24,6 +24,7 @@ object Starter {
   val DEFAULT_WORKING_DIRECTORY = "./"
   val DEFAULT_UPLOADS_DIRECTORY = "uploads/"
   val DEFAULT_ROLE_PERMISSIONS_PATH = "./role-permissions.json"
+  val DEFAULT_IS_PUBLIC_FILE_SERVER = false
 }
 
 class Starter extends ScalaVerticle with LazyLogging {
@@ -54,6 +55,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       val authConfig = config.getJsonObject("auth", Json.obj())
       val rolePermissionsPath = getStringDefault(config, "rolePermissionsPath", Starter.DEFAULT_ROLE_PERMISSIONS_PATH)
       val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
+      val isPublicFileServer = config.getBoolean("isPublicFileServer", Starter.DEFAULT_IS_PUBLIC_FILE_SERVER)
 
       val rolePermissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionsPath, Json.emptyObj())
 
@@ -64,7 +66,8 @@ class Starter extends ScalaVerticle with LazyLogging {
         workingDirectory = workingDirectory,
         uploadsDirectory = uploadsDirectory,
         rolePermissions = rolePermissions,
-        openApiUrl = openApiUrl
+        openApiUrl = openApiUrl,
+        isPublicFileServer = isPublicFileServer
       )
 
       connection = SQLConnection(vertxAccessContainer(), databaseConfig)
