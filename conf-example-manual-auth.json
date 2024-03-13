@@ -1,5 +1,5 @@
 {
-  // other configurations but auth are documented in conf-example.jsonc
+  "// other configurations but auth are documented in conf-example.jsonc": "",
   "auth": {
     "realm": "keycloak-realm",
     "bearer-only": true,
