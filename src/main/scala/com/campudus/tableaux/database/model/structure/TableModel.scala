@@ -66,7 +66,17 @@ class TableModel(val connection: DatabaseConnection)(
           id = insertNotNull(result).head.get[TableId](0)
 
           (t, _) <- t.query(
-            s"CREATE TABLE user_table_$id (id BIGSERIAL, final BOOLEAN DEFAULT false, row_permissions jsonb DEFAULT NULL, replaced_ids jsonb DEFAULT NULL, PRIMARY KEY (id))"
+            s"""
+               | CREATE TABLE user_table_$id (
+               |   id BIGSERIAL,
+               |   final BOOLEAN DEFAULT false,
+               |   archived BOOLEAN DEFAULT false,
+               |   row_permissions jsonb DEFAULT NULL,
+               |   replaced_ids jsonb DEFAULT NULL,
+               |
+               |   PRIMARY KEY (id)
+               | )
+            """.stripMargin
           )
           t <- createLanguageTable(t, id)
           t <- createCellAnnotationsTable(t, id)
