@@ -1113,7 +1113,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[RowPermissions] = {
     for {
       (_, rowPermissions, _) <- retrieveAnnotations(tableId, rowId, Seq()).recover({
-        case _ => (RowLevelAnnotations(false), RowPermissions(Json.arr()), CellLevelAnnotations(Seq(), Json.arr()))
+        case _ =>
+          (RowLevelAnnotations(false, false), RowPermissions(Json.arr()), CellLevelAnnotations(Seq(), Json.arr()))
       })
     } yield {
       rowPermissions
@@ -1183,14 +1184,19 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def mapRowToRawRow(columns: Seq[ColumnType[_]])(row: Seq[Any]): RawRow = {
 
-    // Row should have at least = row_id, final_flag, cell_annotations
-    assert(row.size >= 3)
+    // Row should have at least = row_id, final_flag, archived_flag, cell_annotations, row_permissions
+    assert(row.size >= 5)
     val liftedRow = row.lift
 
-    // Row should have at least = row_id, final_flag, cell_annotations, row_permissions
-    (liftedRow(0), liftedRow(1), liftedRow(2), liftedRow(3)) match {
+    (liftedRow(0), liftedRow(1), liftedRow(2), liftedRow(3), liftedRow(4)) match {
       // values in case statement are nullable even if they are wrapped in Some, see lift function of Seq
-      case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr), Some(permissionsStr)) =>
+      case (
+            Some(rowId: RowId),
+            Some(finalFlag: Boolean),
+            Some(archivedFlag: Boolean),
+            Some(cellAnnotationsStr),
+            Some(permissionsStr)
+          ) =>
         val cellAnnotations = Option(cellAnnotationsStr)
           .map(_.asInstanceOf[String])
           .map(Json.fromArrayString)
@@ -1204,7 +1210,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
         RawRow(
           rowId,
-          RowLevelAnnotations(finalFlag),
+          RowLevelAnnotations(finalFlag, archivedFlag),
           RowPermissions(rowPermissions),
           CellLevelAnnotations(columns, cellAnnotations),
           (columns, rawValues).zipped.map(mapValueByColumnType)
@@ -1389,6 +1395,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def generateFlagsAndAnnotationsProjection(tableId: TableId): String = {
     s"""|ut.final AS final_flag,
+        |ut.archived AS archived_flag,
         |(SELECT json_agg(
         |  json_build_object(
         |    'column_id', column_id,

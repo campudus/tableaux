@@ -13,24 +13,31 @@ import org.joda.time.DateTime
 
 trait RowAnnotation {
   val value: Any
-  val jsonKey: String
+  val jsonKey: String = ""
 
   def getJson: JsonObject = {
     Json.obj(jsonKey -> value)
   }
 }
 
-// TODO refactor for multiple row level annotations
-case class RowLevelAnnotations(finalFlag: Boolean) extends RowAnnotation {
+case class RowLevelAnnotations(finalFlag: Boolean, archivedFlag: Boolean) extends RowAnnotation {
 
-  override val value: Boolean = finalFlag
-  override val jsonKey = "final"
-  def isDefined: Boolean = finalFlag
+  override val value: (Boolean, Boolean) = (finalFlag, finalFlag)
+
+  def isDefined: Boolean = finalFlag || archivedFlag
 
   override def getJson: JsonObject = {
-    Json.obj(
-      jsonKey -> finalFlag
-    )
+    val finalFlagJson = finalFlag match {
+      case true => Json.obj("final" -> finalFlag)
+      case false => Json.emptyObj()
+    }
+
+    val archivedFlagJson = archivedFlag match {
+      case true => Json.obj("archived" -> archivedFlag)
+      case false => Json.emptyObj()
+    }
+
+    finalFlagJson.mergeIn(archivedFlagJson)
   }
 }
 
