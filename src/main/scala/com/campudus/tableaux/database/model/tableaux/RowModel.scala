@@ -628,7 +628,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
         if (finalFlagOpt.isDefined || archivedFlagOpt.isDefined) {
           connection.query(
             s"UPDATE user_table_$tableId SET final = COALESCE(?, final), archived = COALESCE(?, archived)",
-            Json.arr(finalFlagOpt.getOrElse(null), archivedFlagOpt.getOrElse(null), archivedFlagOpt)
+            Json.arr(finalFlagOpt.getOrElse(null), archivedFlagOpt.getOrElse(null))
           )
         } else {
           Future.successful(())
