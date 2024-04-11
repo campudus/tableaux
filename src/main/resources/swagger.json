@@ -1529,6 +1529,51 @@
         }
       }
     },
+    "/tables/{tableId}/rows/annotations": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        }
+      ],
+      "patch": {
+        "summary": "Add annotations to all rows of a table.",
+        "description": "Adds new annotations to all rows of a table.",
+        "tags": [
+          "content"
+        ],
+        "operationId": "update-rows-annotations",
+        "parameters": [
+          {
+            "name": "row annotation",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "final": {
+                  "type": "boolean"
+                },
+                "archived": {
+                  "type": "boolean"
+                }
+              },
+              "example": {
+                "final": true,
+                "archived": true
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/attachment/{attachmentId}": {
       "parameters": [
         {
