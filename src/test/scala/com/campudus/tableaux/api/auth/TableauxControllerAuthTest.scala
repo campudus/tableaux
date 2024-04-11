@@ -1422,7 +1422,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      _ <- controller.updateRowAnnotations(1, 1, Some(true))
+      _ <- controller.updateRowAnnotations(1, 1, Some(true), Some(true))
     } yield ()
   }
 
@@ -1442,7 +1442,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex <- controller.updateRowAnnotations(1, 1, Some(true)).recover({ case ex => ex })
+      ex <- controller.updateRowAnnotations(1, 1, Some(true), Some(true)).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(EditRowAnnotation, Seq("view-cells")), ex)
     }
@@ -1464,7 +1464,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      _ <- controller.updateRowsAnnotations(1, Some(true))
+      _ <- controller.updateRowsAnnotations(1, Some(true), Some(true))
     } yield ()
   }
 
@@ -1488,7 +1488,7 @@ class TableauxControllerAuthTest_annotation extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex <- controller.updateRowsAnnotations(1, Some(true)).recover({ case ex => ex })
+      ex <- controller.updateRowsAnnotations(1, Some(true), Some(true)).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(EditRowAnnotation, Seq("view-cells")), ex)
     }

@@ -500,23 +500,23 @@ class TableauxModel(
     } yield ()
   }
 
-  def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean])(
+  def updateRowAnnotations(table: Table, rowId: RowId, finalFlag: Option[Boolean], archivedFlagOpt: Option[Boolean])(
       implicit user: TableauxUser
   ): Future[Row] = {
     for {
-      _ <- updateRowModel.updateRowAnnotations(table.id, rowId, finalFlag)
-      _ <- createHistoryModel.updateRowsAnnotation(table.id, Seq(rowId), finalFlag)
+      _ <- updateRowModel.updateRowAnnotations(table.id, rowId, finalFlag, archivedFlagOpt)
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, Seq(rowId), finalFlag, archivedFlagOpt)
       row <- retrieveRow(table, rowId)
     } yield row
   }
 
-  def updateRowsAnnotations(table: Table, finalFlag: Option[Boolean])(
+  def updateRowsAnnotations(table: Table, finalFlag: Option[Boolean], archivedFlagOpt: Option[Boolean])(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag)
+      _ <- updateRowModel.updateRowsAnnotations(table.id, finalFlag, archivedFlagOpt)
       rowIds <- retrieveRows(table, Pagination(None, None)).map(_.rows.map(_.id))
-      _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, finalFlag)
+      _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, finalFlag, archivedFlagOpt)
     } yield ()
   }
 

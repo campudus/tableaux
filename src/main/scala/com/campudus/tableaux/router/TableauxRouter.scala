@@ -603,8 +603,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val json = getJson(context)
           val finalFlagOpt = getBooleanOption("final", false, json)
+          val archivedFlagOpt = getBooleanOption("archived", false, json)
           for {
-            updated <- controller.updateRowAnnotations(tableId, rowId, finalFlagOpt)
+            updated <- controller.updateRowAnnotations(tableId, rowId, finalFlagOpt, archivedFlagOpt)
           } yield updated
         }
       )
@@ -624,8 +625,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val json = getJson(context)
           val finalFlagOpt = getBooleanOption("final", false, json)
+          val archivedFlagOpt = getBooleanOption("archived", false, json)
           for {
-            updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt)
+            updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt, archivedFlagOpt)
           } yield updated
         }
       )

@@ -618,23 +618,40 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(futureSequence)
   }
 
-  def updateRowsAnnotations(tableId: TableId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
+  def updateRowsAnnotations(
+      tableId: TableId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  ): Future[Unit] = {
     for {
-      _ <- finalFlagOpt match {
-        case None => Future.successful(())
-        case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_$tableId SET final = ?", Json.arr(finalFlag))
-      }
+      _ <-
+        if (finalFlagOpt.isDefined || archivedFlagOpt.isDefined) {
+          connection.query(
+            s"UPDATE user_table_$tableId SET final = COALESCE(?, final), archived = COALESCE(?, archived)",
+            Json.arr(finalFlagOpt.getOrElse(null), archivedFlagOpt.getOrElse(null), archivedFlagOpt)
+          )
+        } else {
+          Future.successful(())
+        }
     } yield ()
   }
 
-  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
+  def updateRowAnnotations(
+      tableId: TableId,
+      rowId: RowId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  ): Future[Unit] = {
     for {
-      _ <- finalFlagOpt match {
-        case None => Future.successful(())
-        case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_$tableId SET final = ? WHERE id = ?", Json.arr(finalFlag, rowId))
-      }
+      _ <-
+        if (finalFlagOpt.isDefined || archivedFlagOpt.isDefined) {
+          connection.query(
+            s"UPDATE user_table_$tableId SET final = COALESCE(?, final), archived = COALESCE(?, archived) WHERE id = ?",
+            Json.arr(finalFlagOpt.getOrElse(null), archivedFlagOpt.getOrElse(null), rowId)
+          )
+        } else {
+          Future.successful(())
+        }
     } yield ()
   }
 
