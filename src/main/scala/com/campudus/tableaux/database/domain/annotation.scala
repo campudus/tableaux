@@ -220,3 +220,29 @@ case class TableWithCellAnnotationCount(table: Table, totalSize: Long, annotatio
     table.getJson.mergeIn(Json.obj("totalSize" -> totalSize, "annotationCount" -> compatibilityGet(annotationCount)))
   }
 }
+
+sealed trait RowAnnotationType {
+  def typeName: String
+  override def toString: String = typeName
+}
+
+object RowAnnotationType {
+  final val Final = "final"
+  final val Archived = "archived"
+
+  def apply(kind: String): RowAnnotationType = {
+    kind match {
+      case Final => RowAnnotationTypeFinal
+      case Archived => RowAnnotationTypeArchived
+      case _ => throw new IllegalArgumentException(s"Invalid argument for RowAnnotationType $kind")
+    }
+  }
+}
+
+case object RowAnnotationTypeFinal extends RowAnnotationType {
+  override val typeName = RowAnnotationType.Final
+}
+
+case object RowAnnotationTypeArchived extends RowAnnotationType {
+  override val typeName = RowAnnotationType.Archived
+}

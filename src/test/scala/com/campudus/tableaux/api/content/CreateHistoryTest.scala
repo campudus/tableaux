@@ -2402,6 +2402,35 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
+  def addRowAnnotation_addArchivedFlag(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |{
+          |  "rowId": 1,
+          |  "event": "annotation_added",
+          |  "historyType": "row_flag",
+          |  "valueType": "archived"
+          |}
+        """.stripMargin
+
+      for {
+
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("archived" -> true))
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=row_flag").map(toRowsArray)
+
+        row = rows.get[JsonObject](0)
+      } yield {
+        assertJSONEquals(expected, row.toString)
+      }
+    }
+  }
+
+  @Test
   def removeRowAnnotation_removeFinalFlag(implicit c: TestContext): Unit = {
     okTest {
       val expected =
@@ -2430,7 +2459,35 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
-  def addRowAnnotation_addFinalFlagToMultipleRows(implicit c: TestContext): Unit = {
+  def removeRowAnnotation_removeArchivedFlag(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |{
+          |  "event": "annotation_removed",
+          |  "historyType": "row_flag",
+          |  "valueType": "archived"
+          |}
+        """.stripMargin
+
+      for {
+
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        _ <- sendRequest("PATCH", "/tables/1/rows/1/annotations", Json.obj("archived" -> false))
+
+        rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=row_flag").map(toRowsArray)
+
+        row = rows.get[JsonObject](0)
+      } yield {
+        assertJSONEquals(expected, row.toString)
+      }
+    }
+  }
+
+  @Test
+  def addRowAnnotation_addAllRowsFinalFlag(implicit c: TestContext): Unit = {
     okTest {
       val expected =
         """
@@ -2464,7 +2521,41 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
-  def removeRowAnnotation_removeFinalFlagFromMultipleRows(implicit c: TestContext): Unit = {
+  def addRowAnnotation_addAllRowsArchivedFlag(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |{
+          |  "event": "annotation_added",
+          |  "historyType": "row_flag",
+          |  "valueType": "archived"
+          |}
+        """.stripMargin
+
+      for {
+
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        _ <- sendRequest("PATCH", "/tables/1/rows/annotations", Json.obj("archived" -> true))
+        rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(toRowsArray)
+
+        row1 = rows.get[JsonObject](0)
+        row2 = rows.get[JsonObject](1)
+        row3 = rows.get[JsonObject](2)
+      } yield {
+        assertEquals(3, rows.size())
+        assertJSONEquals(expected, row1.toString)
+        assertJSONEquals(expected, row2.toString)
+        assertJSONEquals(expected, row3.toString)
+      }
+    }
+  }
+
+  @Test
+  def removeRowAnnotation_removeAllRowsFinalFlag(implicit c: TestContext): Unit = {
     okTest {
       val expected =
         """
@@ -2483,6 +2574,41 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/rows")
 
         _ <- sendRequest("PATCH", "/tables/1/rows/annotations", Json.obj("final" -> false))
+
+        rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(toRowsArray)
+
+        row1 = rows.get[JsonObject](0)
+        row2 = rows.get[JsonObject](1)
+        row3 = rows.get[JsonObject](2)
+      } yield {
+        assertEquals(3, rows.size())
+        assertJSONEquals(expected, row1.toString)
+        assertJSONEquals(expected, row2.toString)
+        assertJSONEquals(expected, row3.toString)
+      }
+    }
+  }
+
+  @Test
+  def removeRowAnnotation_removeAllRowsArchivedFlag(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |{
+          |  "event": "annotation_removed",
+          |  "historyType": "row_flag",
+          |  "valueType": "archived"
+          |}
+        """.stripMargin
+
+      for {
+
+        _ <- createTableWithMultilanguageColumns("history test")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/rows")
+        _ <- sendRequest("POST", "/tables/1/rows")
+
+        _ <- sendRequest("PATCH", "/tables/1/rows/annotations", Json.obj("archived" -> false))
 
         rows <- sendRequest("GET", "/tables/1/history?historyType=row_flag").map(toRowsArray)
 

@@ -456,30 +456,14 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     insertHistory(table.id, rowId, None, RowDeletedEvent, HistoryTypeRow, None, None, jsonStringOpt)
   }
 
-  private def addRowAnnotationHistory(
-      tableId: TableId,
-      rowId: RowId,
-      value: String
-  )(implicit user: TableauxUser): Future[RowId] = {
-    logger.info(s"createAddRowAnnotationHistory $tableId $rowId ${user.name}")
-    addOrRemoveAnnotationHistory(tableId, rowId, AnnotationAddedEvent, value)
-  }
-
-  private def removeRowAnnotationHistory(
-      tableId: TableId,
-      rowId: RowId,
-      value: String
-  )(implicit user: TableauxUser): Future[RowId] = {
-    logger.info(s"createRemoveRowAnnotationHistory $tableId $rowId ${user.name}")
-    addOrRemoveAnnotationHistory(tableId, rowId, AnnotationRemovedEvent, value)
-  }
-
-  private def addOrRemoveAnnotationHistory(
+  private def createRowAnnotationHistory(
       tableId: TableId,
       rowId: RowId,
       eventType: HistoryEventType,
-      value: String
+      rowAnnotationType: RowAnnotationType
   )(implicit user: TableauxUser): Future[RowId] = {
+    val value = rowAnnotationType.toString
+    logger.info(s"createRowAnnotationHistory $tableId $rowId ${eventType.toString} $value ${user.name}")
     val json = Json.obj("value" -> value)
     insertHistory(
       tableId,
@@ -939,14 +923,24 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   )(
       implicit user: TableauxUser
   ): Future[Unit] = {
+    def createRowsAnnotationHistory(
+        tableId: TableId,
+        isAdd: Boolean,
+        rowAnnotationType: RowAnnotationType,
+        rowIds: Seq[RowId]
+    ): Future[Seq[RowId]] = {
+      val eventType = if (isAdd) AnnotationAddedEvent else AnnotationRemovedEvent
+      Future.sequence(rowIds.map(rowId => createRowAnnotationHistory(tableId, rowId, eventType, rowAnnotationType)))
+    }
+
     for {
       _ <- finalFlagOpt match {
         case None => Future.successful(())
-        case Some(isFinal) =>
-          if (isFinal)
-            Future.sequence(rowIds.map(rowId => addRowAnnotationHistory(tableId, rowId, "final")))
-          else
-            Future.sequence(rowIds.map(rowId => removeRowAnnotationHistory(tableId, rowId, "final")))
+        case Some(isFinal) => createRowsAnnotationHistory(tableId, isFinal, RowAnnotationTypeFinal, rowIds)
+      }
+      _ <- archivedFlagOpt match {
+        case None => Future.successful(())
+        case Some(isArchived) => createRowsAnnotationHistory(tableId, isArchived, RowAnnotationTypeArchived, rowIds)
       }
     } yield ()
   }
