@@ -374,6 +374,9 @@ object JsonUtils extends LazyLogging {
     }
   }
 
+  def getBooleanOption(key: String, default: Boolean, json: JsonObject) =
+    booleanToValueOption(json.containsKey(key), json.getBoolean(key, default)).map(_.booleanValue())
+
   def getRowPermissionsOpt(key: String, json: JsonObject): Option[Seq[String]] = {
     val rowPermissionsOpt = booleanToValueOption(
       json.containsKey(key), {

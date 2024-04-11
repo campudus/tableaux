@@ -602,8 +602,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          val finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
-            .map(_.booleanValue())
+          val finalFlagOpt = getBooleanOption("final", false, json)
           for {
             updated <- controller.updateRowAnnotations(tableId, rowId, finalFlagOpt)
           } yield updated
@@ -624,8 +623,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         context,
         asyncGetReply {
           val json = getJson(context)
-          val finalFlagOpt = booleanToValueOption(json.containsKey("final"), json.getBoolean("final", false))
-            .map(_.booleanValue())
+          val finalFlagOpt = getBooleanOption("final", false, json)
           for {
             updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt)
           } yield updated
