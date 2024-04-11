@@ -931,7 +931,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     insertDeleteRowHistory(table, rowId, replacingRowIdOpt)
   }
 
-  def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], finalFlagOpt: Option[Boolean])(
+  def updateRowsAnnotation(
+      tableId: TableId,
+      rowIds: Seq[RowId],
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  )(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {

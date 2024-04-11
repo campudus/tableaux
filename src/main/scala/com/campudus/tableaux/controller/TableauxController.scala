@@ -273,27 +273,32 @@ class TableauxController(
     } yield row
   }
 
-  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean])(
+  def updateRowAnnotations(
+      tableId: TableId,
+      rowId: RowId,
+      finalFlag: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  )(
       implicit user: TableauxUser
   ): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"updateRowAnnotations $tableId $rowId $finalFlag")
+    logger.info(s"updateRowAnnotations $tableId $rowId $finalFlag $archivedFlagOpt")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
-      updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlag)
+      updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlag, archivedFlagOpt)
     } yield updatedRow
   }
 
-  def updateRowsAnnotations(tableId: TableId, finalFlag: Option[Boolean])(
+  def updateRowsAnnotations(tableId: TableId, finalFlag: Option[Boolean], archivedFlagOpt: Option[Boolean])(
       implicit user: TableauxUser
   ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
-    logger.info(s"updateRowsAnnotations $tableId $finalFlag")
+    logger.info(s"updateRowsAnnotations $tableId $finalFlag $archivedFlagOpt")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
-      _ <- repository.updateRowsAnnotations(table, finalFlag)
+      _ <- repository.updateRowsAnnotations(table, finalFlag, archivedFlagOpt)
     } yield EmptyObject()
   }
 
