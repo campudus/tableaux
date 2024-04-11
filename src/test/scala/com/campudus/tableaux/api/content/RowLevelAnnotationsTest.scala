@@ -53,4 +53,42 @@ class RowLevelAnnotationsTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def createRowAndSetArchivedFlag(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId <- createEmptyDefaultTable()
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest("PATCH", s"/tables/$tableId/rows/$rowId/annotations", Json.obj("archived" -> true))
+
+        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+
+        _ <- sendRequest("PATCH", s"/tables/$tableId/rows/$rowId/annotations", Json.obj("archived" -> false))
+
+        rowJson2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+      } yield {
+        val expectedRowJson1 = Json.obj(
+          "status" -> "ok",
+          "id" -> rowId,
+          "archived" -> true,
+          "values" -> Json.arr(null, null)
+        )
+
+        assertJSONEquals(expectedRowJson1, rowJson1)
+
+        val expectedRowJson2 = Json.obj(
+          "status" -> "ok",
+          "id" -> rowId,
+          "values" -> Json.arr(null, null)
+        )
+
+        assertJSONEquals(expectedRowJson2, rowJson2)
+      }
+    }
+  }
 }
