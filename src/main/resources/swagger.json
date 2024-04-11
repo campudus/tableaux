@@ -1507,10 +1507,14 @@
               "properties": {
                 "final": {
                   "type": "boolean"
+                },
+                "archived": {
+                  "type": "boolean"
                 }
               },
               "example": {
-                "final": true
+                "final": true,
+                "archived": true
               }
             }
           }
