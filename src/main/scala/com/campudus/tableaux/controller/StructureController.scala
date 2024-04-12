@@ -316,7 +316,7 @@ class StructureController(
           singleDirection = false,
           identifier = false,
           Seq(NameOnly("de", "Oberkategorie"), NameOnly("en", "Parent category")),
-          Constraint(Cardinality(0, 1), false),
+          Constraint(Cardinality(0, 1), false, false),
           attributes,
           hidden = true
         )
@@ -553,7 +553,7 @@ class StructureController(
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
         case TaxonomyTable =>
           if (columnId > 4) performChangeFx(table)
-          else Future.failed(ForbiddenException("can't change a default column of a taxonmy table", "column"))
+          else Future.failed(ForbiddenException("can't change a default column of a taxonomy table", "column"))
       }
 
       _ <- CacheClient(this).invalidateColumn(tableId, columnId)

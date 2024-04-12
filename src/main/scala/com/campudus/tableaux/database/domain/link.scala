@@ -8,7 +8,8 @@ case class Cardinality(from: Int, to: Int)
 
 object DefaultCardinality extends Cardinality(0, 0)
 
-case class Constraint(cardinality: Cardinality, deleteCascade: Boolean) extends DomainObject {
+case class Constraint(cardinality: Cardinality, deleteCascade: Boolean = false, archiveCascade: Boolean = false)
+    extends DomainObject {
 
   override def getJson: JsonObject = {
     if (this == DefaultConstraint) {
@@ -19,13 +20,14 @@ case class Constraint(cardinality: Cardinality, deleteCascade: Boolean) extends 
           "from" -> cardinality.from,
           "to" -> cardinality.to
         ),
-        "deleteCascade" -> deleteCascade
+        "deleteCascade" -> deleteCascade,
+        "archiveCascade" -> archiveCascade
       )
     }
   }
 }
 
-object DefaultConstraint extends Constraint(DefaultCardinality, false)
+object DefaultConstraint extends Constraint(DefaultCardinality, false, false)
 
 object LinkDirection {
 
@@ -48,15 +50,24 @@ object LinkDirection {
       tableId2: TableId,
       cardinality1: Int,
       cardinality2: Int,
-      deleteCascade: Boolean
+      deleteCascade: Boolean,
+      archiveCascade: Boolean
   ): LinkDirection = {
 
     // we need this because links can go both ways
     if (fromTableId == tableId1) {
-      LeftToRight(tableId1, tableId2, Constraint(Cardinality(cardinality1, cardinality2), deleteCascade))
+      LeftToRight(
+        tableId1,
+        tableId2,
+        Constraint(Cardinality(cardinality1, cardinality2), deleteCascade, archiveCascade)
+      )
     } else {
-      // no delete cascade from in this direction
-      RightToLeft(tableId2, tableId1, Constraint(Cardinality(cardinality2, cardinality1), deleteCascade = false))
+      // no cascade functions in this direction
+      RightToLeft(
+        tableId2,
+        tableId1,
+        Constraint(Cardinality(cardinality2, cardinality1), deleteCascade = false, archiveCascade = false)
+      )
     }
   }
 }

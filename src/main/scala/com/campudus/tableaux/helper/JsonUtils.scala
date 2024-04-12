@@ -149,7 +149,13 @@ object JsonUtils extends LazyLogging {
                       .getJsonObject("constraint")
                       .getBoolean("deleteCascade")
                   ).orElse(Success(false))
-                } yield Constraint(Cardinality(cardinalityFrom, cardinalityTo), deleteCascade)
+
+                  archiveCascade <- Try[Boolean](
+                    json
+                      .getJsonObject("constraint")
+                      .getBoolean("archiveCascade")
+                  ).orElse(Success(false))
+                } yield Constraint(Cardinality(cardinalityFrom, cardinalityTo), deleteCascade, archiveCascade)
 
                 CreateLinkColumn(
                   name,
