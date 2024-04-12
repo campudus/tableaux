@@ -1192,8 +1192,6 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
 
-    println(s"### SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
-
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
