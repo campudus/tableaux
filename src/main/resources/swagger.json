@@ -3217,6 +3217,7 @@
     },
     "Shared Response: Column": {
       "type": "object",
+      "description": "Information about a column",
       "required": [
         "id",
         "kind",
@@ -3224,6 +3225,16 @@
         "ordering"
       ],
       "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1,
+          "description": "Id of column"
+        },
+        "name": {
+          "type": "string",
+          "example": "Land"
+        },
         "kind": {
           "$ref": "#/definitions/Enum: Column type"
         },
@@ -3232,29 +3243,22 @@
           "format": "int32",
           "example": 1
         },
-        "name": {
-          "type": "string",
-          "example": "Land"
-        },
         "toTable": {
           "type": "integer",
           "format": "int32",
           "example": 2,
           "description": "Optional, only needed if kind is link."
         },
-        "id": {
-          "type": "integer",
-          "format": "int32",
-          "example": 1,
-          "description": "Id of column"
-        },
         "toColumn": {
           "type": "integer",
           "format": "int32",
-          "description": "Optional, only needed if kind is link."
+          "description": "Optional, only needed if kind is link.",
+          "example": 2
+        },
+        "constraint": {
+          "$ref": "#/definitions/constraint"
         }
-      },
-      "description": "Information about a column"
+      }
     },
     "Shared Response: Row": {
       "type": "object",
@@ -3413,26 +3417,7 @@
           "example": "ok"
         }
       },
-      "description": "Array of columns",
-      "example": {
-        "status": "ok",
-        "columns": [
-          {
-            "id": 1,
-            "name": "Text column",
-            "kind": "text",
-            "ordering": 1
-          },
-          {
-            "id": 2,
-            "name": "Link Column",
-            "kind": "link",
-            "ordering": "2",
-            "toTable": 2,
-            "toColumn": 1
-          }
-        ]
-      }
+      "description": "Array of columns"
     },
     "Response: File": {
       "type": "object",
@@ -3776,6 +3761,39 @@
       "description": "A row annotation",
       "type": "string",
       "example": "onlyUserGroupA"
+    },
+    "constraint": {
+      "type": "object",
+      "description": "The constraint of the column",
+      "properties": {
+        "cardinality": {
+          "$ref": "#/definitions/cardinality"
+        },
+        "deleteCascade": {
+          "type": "boolean",
+          "example": true
+        },
+        "archiveCascade": {
+          "type": "boolean",
+          "example": true
+        }
+      }
+    },
+    "cardinality": {
+      "type": "object",
+      "description": "The cardinality of the column",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "format": "int32",
+          "example": 0
+        },
+        "to": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        }
+      }
     }
   },
   "parameters": {
