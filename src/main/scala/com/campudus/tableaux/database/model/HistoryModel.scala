@@ -996,6 +996,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     } yield ()
   }
 
+  // TODO delete b/c not used?
   def deleteLink(table: Table, linkColumn: LinkColumn, rowId: RowId, toId: RowId)(
       implicit user: TableauxUser
   ): Future[_] = {

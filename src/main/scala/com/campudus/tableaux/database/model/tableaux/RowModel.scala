@@ -1192,6 +1192,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
 
+    println(s"### SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
+
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
@@ -1218,7 +1220,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
           .map(_.asInstanceOf[String])
           .map(Json.fromArrayString)
           .getOrElse(Json.emptyArr())
-        val rawValues = row.drop(4)
+        val rawValues = row.drop(5)
 
         val rowPermissions = Option(permissionsStr) match {
           case Some(permissionsArrayString: String) => new JsonArray(permissionsArrayString)
