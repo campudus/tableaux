@@ -10,3 +10,6 @@ SELECT add_archived_column(table_id)
 FROM system_table;
 
 DROP FUNCTION add_archived_column( BIGINT );
+
+ALTER TABLE system_link_table
+  ADD COLUMN archive_cascade BOOLEAN DEFAULT 'FALSE';
