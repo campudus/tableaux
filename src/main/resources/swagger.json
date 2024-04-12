@@ -1160,7 +1160,7 @@
         "summary": "Retrieves the history entries of a table",
         "description": "Returns the history entries of a table.",
         "tags": [
-          "content"
+          "history"
         ],
         "operationId": "retrieve-table-history-cell",
         "responses": {
@@ -1192,7 +1192,7 @@
         "summary": "Retrieves the history entries of a row",
         "description": "Returns the history entries of a row.",
         "tags": [
-          "content"
+          "history"
         ],
         "operationId": "retrieve-row-history-cell",
         "responses": {
@@ -1227,7 +1227,7 @@
         "summary": "Retrieves the history entries of a cell",
         "description": "Returns the history entries of a specified cell.",
         "tags": [
-          "content"
+          "history"
         ],
         "operationId": "retrieve-cell-history-cell",
         "responses": {
