@@ -1494,7 +1494,7 @@
         "summary": "Add annotations to this row.",
         "description": "Adds new annotations to this row.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "update-row-annotations",
         "parameters": [
@@ -1539,7 +1539,7 @@
         "summary": "Add annotations to all rows of a table.",
         "description": "Adds new annotations to all rows of a table.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "update-rows-annotations",
         "parameters": [
@@ -1718,7 +1718,7 @@
         "summary": "Add an new annotation to a cell.",
         "description": "Adds an annotation to a cell. Annotations with the same type and value will be merged.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "add-cell-annotation",
         "parameters": [
@@ -1767,7 +1767,7 @@
         "summary": "Get annotations of this cell.",
         "description": "Get annotations of this cell",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "get-cell-annotation",
         "responses": {
@@ -1799,7 +1799,7 @@
         "summary": "Remove an annotation from a cell.",
         "description": "Removes an annotation for all language tags from a cell.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "clear-cell-annotation",
         "responses": {
@@ -1834,7 +1834,7 @@
         "summary": "Remove annotation for a language from a cell.",
         "description": "Removes an annotation for a specific language tag from a cell.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "clear-cell-annotation-language-tag",
         "responses": {
