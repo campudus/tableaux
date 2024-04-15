@@ -915,35 +915,34 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     insertDeleteRowHistory(table, rowId, replacingRowIdOpt)
   }
 
-  def updateRowsAnnotation(
+  def createRowsAnnotationHistory(
       tableId: TableId,
-      rowIds: Seq[RowId],
-      finalFlagOpt: Option[Boolean],
-      archivedFlagOpt: Option[Boolean]
-  )(
-      implicit user: TableauxUser
-  ): Future[Unit] = {
-    def createRowsAnnotationHistory(
-        tableId: TableId,
-        isAdd: Boolean,
-        rowAnnotationType: RowAnnotationType,
-        rowIds: Seq[RowId]
-    ): Future[Seq[RowId]] = {
-      val eventType = if (isAdd) AnnotationAddedEvent else AnnotationRemovedEvent
-      Future.sequence(rowIds.map(rowId => createRowAnnotationHistory(tableId, rowId, eventType, rowAnnotationType)))
-    }
-
-    for {
-      _ <- finalFlagOpt match {
-        case None => Future.successful(())
-        case Some(isFinal) => createRowsAnnotationHistory(tableId, isFinal, RowAnnotationTypeFinal, rowIds)
-      }
-      _ <- archivedFlagOpt match {
-        case None => Future.successful(())
-        case Some(isArchived) => createRowsAnnotationHistory(tableId, isArchived, RowAnnotationTypeArchived, rowIds)
-      }
-    } yield ()
+      isAdd: Boolean,
+      rowAnnotationType: RowAnnotationType,
+      rowIds: Seq[RowId]
+  )(implicit user: TableauxUser): Future[Seq[RowId]] = {
+    val eventType = if (isAdd) AnnotationAddedEvent else AnnotationRemovedEvent
+    Future.sequence(rowIds.map(rowId => createRowAnnotationHistory(tableId, rowId, eventType, rowAnnotationType)))
   }
+
+  // def updateRowsAnnotation(
+  //     tableId: TableId,
+  //     rowIds: Seq[RowId],
+  //     finalFlagOpt: Option[Boolean],
+  //     archivedFlagOpt: Option[Boolean]
+  // )(implicit user: TableauxUser): Future[Unit] = {
+
+  //   for {
+  //     _ <- finalFlagOpt match {
+  //       case None => Future.successful(())
+  //       case Some(isFinal) => createRowsAnnotationHistory(tableId, isFinal, RowAnnotationTypeFinal, rowIds)
+  //     }
+  //     _ <- archivedFlagOpt match {
+  //       case None => Future.successful(())
+  //       case Some(isArchived) => createRowsAnnotationHistory(tableId, isArchived, RowAnnotationTypeArchived, rowIds)
+  //     }
+  //   } yield ()
+  // }
 
   def createClearLink(table: Table, rowId: RowId, columns: Seq[LinkColumn])(
       implicit user: TableauxUser
