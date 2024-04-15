@@ -328,6 +328,41 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(cleared)
   }
 
+  def updateArchiveLinkedRows(
+      table: Table,
+      rowId: RowId,
+      column: LinkColumn,
+      columnName: String,
+      archivedFlagOpt: Boolean,
+      archiveRowFn: (Table, RowId, String, Boolean) => Future[_]
+  ) = {
+    val linkTable = s"link_table_${column.linkId}"
+    val fromIdColumn = column.linkDirection.fromSql
+    val toIdColumn = column.linkDirection.toSql
+
+    // TODO here we could end up in a endless loop,
+    // TODO but we could argue that a schema like this doesn't make sense
+    retrieveLinkedRows(table, rowId, column)
+      .flatMap(foreignRowIds => {
+        val futures = foreignRowIds
+          .map(foreignRowId => {
+            // only delete foreign row if it's not part of new values...
+            // ... otherwise delete link
+            // if (newForeignRowIds.contains(foreignRowId)) {
+            //   doQuery(
+            //     transaction,
+            //     s"DELETE FROM $linkTable WHERE $fromIdColumn = ? AND $toIdColumn = ?",
+            //     Json.arr(rowId, foreignRowId)
+            //   )
+            // } else {
+            archiveRowFn(column.to.table, foreignRowId, columnName, archivedFlagOpt)
+            // }
+          })
+
+        Future.sequence(futures)
+      })
+  }
+
   private def deleteLinkedRows(
       table: Table,
       rowId: RowId,
@@ -618,40 +653,24 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(futureSequence)
   }
 
-  def updateRowsAnnotations(
+  def updateRowsAnnotation(
       tableId: TableId,
-      finalFlagOpt: Option[Boolean],
-      archivedFlagOpt: Option[Boolean]
+      columnName: String,
+      flag: Boolean
   ): Future[Unit] = {
     for {
-      _ <-
-        if (finalFlagOpt.isDefined || archivedFlagOpt.isDefined) {
-          connection.query(
-            s"UPDATE user_table_$tableId SET final = COALESCE(?, final), archived = COALESCE(?, archived)",
-            Json.arr(finalFlagOpt.getOrElse(null), archivedFlagOpt.getOrElse(null))
-          )
-        } else {
-          Future.successful(())
-        }
+      _ <- connection.query(s"UPDATE user_table_$tableId SET $columnName = ?", Json.arr(flag))
     } yield ()
   }
 
-  def updateRowAnnotations(
+  def updateRowAnnotation(
       tableId: TableId,
       rowId: RowId,
-      finalFlagOpt: Option[Boolean],
-      archivedFlagOpt: Option[Boolean]
+      columnName: String,
+      flag: Boolean
   ): Future[Unit] = {
     for {
-      _ <-
-        if (finalFlagOpt.isDefined || archivedFlagOpt.isDefined) {
-          connection.query(
-            s"UPDATE user_table_$tableId SET final = COALESCE(?, final), archived = COALESCE(?, archived) WHERE id = ?",
-            Json.arr(finalFlagOpt.getOrElse(null), archivedFlagOpt.getOrElse(null), rowId)
-          )
-        } else {
-          Future.successful(())
-        }
+      _ <- connection.query(s"UPDATE user_table_$tableId SET $columnName = ? WHERE id = ?", Json.arr(flag, rowId))
     } yield ()
   }
 
