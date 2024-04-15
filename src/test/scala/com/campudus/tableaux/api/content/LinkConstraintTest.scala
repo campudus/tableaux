@@ -1256,3 +1256,132 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
     } yield (tableId1, tableId2)
   }
 }
+
+@RunWith(classOf[VertxUnitRunner])
+class LinkArchiveCascadeTest extends LinkTestBase with Helper {
+
+  @Test
+  def createLinkColumnWithArchiveCascade(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        columns = Columns(
+          LinkBiDirectionalCol("archiveCascade", tableId2, Constraint(DefaultCardinality, archiveCascade = true))
+        )
+
+        // create bi-directional link column
+        createdArchiveCascadeLinkColumnTable1 <- sendRequest("POST", s"/tables/$tableId1/columns", columns)
+          .map(_.getJsonArray("columns"))
+          .map(_.getJsonObject(0))
+
+        // retrieve bi-directional link column from table 1
+        retrieveArchiveCascadeLinkColumnTable1 <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("archiveCascade"))
+
+        // retrieve bi-directional backlink from table 2
+        retrieveArchiveCascadeLinkColumnTable2 <- sendRequest("GET", s"/tables/$tableId2/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("table1"))
+      } yield {
+        assertJSONEquals(
+          Constraint(DefaultCardinality, archiveCascade = true).getJson,
+          createdArchiveCascadeLinkColumnTable1.getJsonObject("constraint")
+        )
+
+        assertJSONEquals(
+          Constraint(DefaultCardinality, archiveCascade = true).getJson,
+          retrieveArchiveCascadeLinkColumnTable1.getJsonObject("constraint")
+        )
+
+        assertNull(retrieveArchiveCascadeLinkColumnTable2.getJsonObject("constraint"))
+      }
+    }
+  }
+
+  @Test
+  def archiveRowWithArchiveCascadeShouldArchiveForeignRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createArchiveCascadeLinkColumn(tableId1, tableId2, "archiveCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("archiveCascade" -> Json.arr(1, 2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
+
+        // archive parent row
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/$rowId/annotations", Json.obj("archived" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterByArchived)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterByArchived)
+      } yield {
+        assertEquals(1, rowsTable1.size)
+        assertEquals(2, rowsTable2.size)
+      }
+    }
+  }
+
+  @Test
+  def archiveForeignRowsWithArchiveCascadeShouldNotArchiveParentRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createArchiveCascadeLinkColumn(tableId1, tableId2, "deleteCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+
+        // archive foreign rows
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("archived" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterByArchived)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterByArchived)
+      } yield {
+        // parent row should still be unarchived
+        assertEquals(2, rowsTable1.size)
+        assertEquals(0, rowsTable2.size)
+      }
+    }
+  }
+
+  def filterByArchived(jsonArray: JsonArray): Seq[JsonObject] = {
+    import scala.collection.JavaConverters._
+
+    jsonArray.asScala
+      .collect({
+        case obj: JsonObject => obj
+      })
+      .toSeq
+      .filter(_.getBoolean("archived"))
+  }
+
+  private def createArchiveCascadeLinkColumn(
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String
+  ): Future[ColumnId] = {
+    val columns = Columns(
+      LinkBiDirectionalCol(columnName, toTableId, Constraint(DefaultCardinality, archiveCascade = true))
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", columns)
+      .map(_.getJsonArray("columns"))
+      .map(_.getJsonObject(0))
+      .map(_.getLong("id"))
+  }
+}
