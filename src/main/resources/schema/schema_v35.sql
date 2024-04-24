@@ -12,4 +12,5 @@ FROM system_table;
 DROP FUNCTION add_archived_column( BIGINT );
 
 ALTER TABLE system_link_table
-  ADD COLUMN archive_cascade BOOLEAN DEFAULT 'FALSE';
+  ADD COLUMN archive_cascade BOOLEAN DEFAULT 'FALSE',
+  ADD COLUMN final_cascade BOOLEAN DEFAULT 'FALSE';

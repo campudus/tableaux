@@ -135,27 +135,39 @@ object JsonUtils extends LazyLogging {
                 )
 
                 // constraints = cardinality and/or deleteCascade
-                val constraint = for {
-                  (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
-                    val cardinality = json
-                      .getJsonObject("constraint")
-                      .getJsonObject("cardinality", new JsonObject())
+                val constraint =
+                  for {
+                    (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
+                      val cardinality = json
+                        .getJsonObject("constraint")
+                        .getJsonObject("cardinality", new JsonObject())
 
-                    (cardinality.getInteger("from", 0).intValue(), cardinality.getInteger("to", 0).intValue())
-                  }).orElse(Success((0, 0)))
+                      (cardinality.getInteger("from", 0).intValue(), cardinality.getInteger("to", 0).intValue())
+                    }).orElse(Success((0, 0)))
 
-                  deleteCascade <- Try[Boolean](
-                    json
-                      .getJsonObject("constraint")
-                      .getBoolean("deleteCascade")
-                  ).orElse(Success(false))
+                    deleteCascade <- Try[Boolean](
+                      json
+                        .getJsonObject("constraint")
+                        .getBoolean("deleteCascade")
+                    ).orElse(Success(false))
 
-                  archiveCascade <- Try[Boolean](
-                    json
-                      .getJsonObject("constraint")
-                      .getBoolean("archiveCascade")
-                  ).orElse(Success(false))
-                } yield Constraint(Cardinality(cardinalityFrom, cardinalityTo), deleteCascade, archiveCascade)
+                    archiveCascade <- Try[Boolean](
+                      json
+                        .getJsonObject("constraint")
+                        .getBoolean("archiveCascade")
+                    ).orElse(Success(false))
+
+                    finalCascade <- Try[Boolean](
+                      json
+                        .getJsonObject("constraint")
+                        .getBoolean("finalCascade")
+                    ).orElse(Success(false))
+                  } yield Constraint(
+                    Cardinality(cardinalityFrom, cardinalityTo),
+                    deleteCascade,
+                    archiveCascade,
+                    finalCascade
+                  )
 
                 CreateLinkColumn(
                   name,
