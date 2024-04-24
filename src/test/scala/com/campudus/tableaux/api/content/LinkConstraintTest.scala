@@ -1338,12 +1338,12 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
         tableId1 <- createDefaultTable(name = "table1")
         tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
 
-        _ <- createArchiveCascadeLinkColumn(tableId1, tableId2, "deleteCascade")
+        _ <- createArchiveCascadeLinkColumn(tableId1, tableId2, "archiveCascade")
 
         columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
 
         // create parent row
-        _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
+        _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("archiveCascade" -> Json.arr(1, 2))))
 
         // archive foreign rows
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("archived" -> true))
@@ -1365,8 +1365,7 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
     jsonArray.asScala
       .collect({
         case obj: JsonObject => obj
-      })
-      .toSeq
+      }).toSeq
       .filter(_.getBoolean("archived"))
   }
 
@@ -1377,6 +1376,134 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
   ): Future[ColumnId] = {
     val columns = Columns(
       LinkBiDirectionalCol(columnName, toTableId, Constraint(DefaultCardinality, archiveCascade = true))
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", columns)
+      .map(_.getJsonArray("columns"))
+      .map(_.getJsonObject(0))
+      .map(_.getLong("id"))
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class LinkFinalCascadeTest extends LinkTestBase with Helper {
+
+  @Test
+  def createLinkColumnWithFinalCascade(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        columns = Columns(
+          LinkBiDirectionalCol("finalCascade", tableId2, Constraint(DefaultCardinality, finalCascade = true))
+        )
+
+        // create bi-directional link column
+        createdFinalCascadeLinkColumnTable1 <- sendRequest("POST", s"/tables/$tableId1/columns", columns)
+          .map(_.getJsonArray("columns"))
+          .map(_.getJsonObject(0))
+
+        // retrieve bi-directional link column from table 1
+        retrieveFinalCascadeLinkColumnTable1 <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("finalCascade"))
+
+        // retrieve bi-directional backlink from table 2
+        retrieveFinalCascadeLinkColumnTable2 <- sendRequest("GET", s"/tables/$tableId2/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("table1"))
+      } yield {
+        assertJSONEquals(
+          Constraint(DefaultCardinality, finalCascade = true).getJson,
+          createdFinalCascadeLinkColumnTable1.getJsonObject("constraint")
+        )
+
+        assertJSONEquals(
+          Constraint(DefaultCardinality, finalCascade = true).getJson,
+          retrieveFinalCascadeLinkColumnTable1.getJsonObject("constraint")
+        )
+
+        assertNull(retrieveFinalCascadeLinkColumnTable2.getJsonObject("constraint"))
+      }
+    }
+  }
+
+  @Test
+  def finalizeRowWithFinalCascadeShouldFinalizeForeignRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createFinalCascadeLinkColumn(tableId1, tableId2, "finalCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(1, 2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
+
+        // archive parent row
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/$rowId/annotations", Json.obj("final" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterByFinal)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterByFinal)
+      } yield {
+        assertEquals(1, rowsTable1.size)
+        assertEquals(2, rowsTable2.size)
+      }
+    }
+  }
+
+  @Test
+  def finalizeForeignRowsWithFinalCascadeShouldNotFinalizeParentRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createFinalCascadeLinkColumn(tableId1, tableId2, "finalCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(1, 2))))
+
+        // archive foreign rows
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("archived" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterByFinal)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterByFinal)
+      } yield {
+        // parent row should still be unarchived
+        assertEquals(2, rowsTable1.size)
+        assertEquals(0, rowsTable2.size)
+      }
+    }
+  }
+
+  def filterByFinal(jsonArray: JsonArray): Seq[JsonObject] = {
+    import scala.collection.JavaConverters._
+
+    jsonArray.asScala
+      .collect({
+        case obj: JsonObject => obj
+      }).toSeq
+      .filter(_.getBoolean("final"))
+  }
+
+  private def createFinalCascadeLinkColumn(
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String
+  ): Future[ColumnId] = {
+    val columns = Columns(
+      LinkBiDirectionalCol(columnName, toTableId, Constraint(DefaultCardinality, finalCascade = true))
     )
 
     sendRequest("POST", s"/tables/$tableId/columns", columns)
