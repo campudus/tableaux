@@ -477,15 +477,17 @@ class ColumnModel(val connection: DatabaseConnection)(
              |  cardinality_1,
              |  cardinality_2,
              |  delete_cascade,
-             |  archive_cascade
-             |) VALUES (?, ?, ?, ?, ?, ?) RETURNING link_id""".stripMargin,
+             |  archive_cascade,
+             |  final_cascade
+             |) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING link_id""".stripMargin,
           Json.arr(
             tableId,
             linkColumnInfo.toTable,
             linkColumnInfo.constraint.cardinality.from,
             linkColumnInfo.constraint.cardinality.to,
             linkColumnInfo.constraint.deleteCascade,
-            linkColumnInfo.constraint.archiveCascade
+            linkColumnInfo.constraint.archiveCascade,
+            linkColumnInfo.constraint.finalCascade
           )
         )
         linkId = insertNotNull(result).head.get[Long](0)
@@ -790,7 +792,8 @@ class ColumnModel(val connection: DatabaseConnection)(
             val cardinality2 = row.get[Int](4)
             val deleteCascade = row.get[Boolean](5)
             val archiveCascade = row.get[Boolean](6)
-            val bidirectional = row.get[Boolean](7)
+            val finalCascade = row.get[Boolean](7)
+            val bidirectional = row.get[Boolean](8)
 
             val result = (
               linkId,
@@ -801,7 +804,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 cardinality1,
                 cardinality2,
                 deleteCascade,
-                archiveCascade
+                archiveCascade,
+                finalCascade
               ),
               bidirectional
             )
@@ -1225,7 +1229,8 @@ class ColumnModel(val connection: DatabaseConnection)(
           | cardinality_1,
           | cardinality_2,
           | delete_cascade,
-          | archive_cascade
+          | archive_cascade,
+          | final_cascade
           |FROM system_link_table
           |WHERE link_id = (
           |  SELECT link_id
@@ -1245,6 +1250,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         val cardinality2 = res.getLong(4).intValue()
         val deleteCascade = res.getBoolean(5)
         val archiveCascade = res.getBoolean(6)
+        val finalCascade = res.getBoolean(7)
 
         (
           linkId,
@@ -1255,7 +1261,8 @@ class ColumnModel(val connection: DatabaseConnection)(
             cardinality1,
             cardinality2,
             deleteCascade,
-            archiveCascade
+            archiveCascade,
+            finalCascade
           )
         )
       }
