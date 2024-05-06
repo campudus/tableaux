@@ -551,7 +551,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
       for {
         _ <- createTestTable()
         columns <- structureController.retrieveColumns(1).map(_.columns)
-        rows <- controller.retrieveRows(1, Pagination(None, None)).map(_.rows)
+        rows <- controller.retrieveRows(1).map(_.rows)
       } yield {
         assertEquals(2, columns.length)
         assertEquals(2, rows.length)
@@ -864,12 +864,12 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      completeRows <- controller.retrieveRows(1, Pagination(None, None)).map(_.rows)
+      completeRows <- controller.retrieveRows(1).map(_.rows)
 
-      rows1 <- controller.retrieveRowsOfColumn(1, 1, Pagination(None, None)).map(_.rows)
-      rows2 <- controller.retrieveRowsOfColumn(1, 2, Pagination(None, None)).map(_.rows)
-      rows3 <- controller.retrieveRowsOfColumn(1, 3, Pagination(None, None)).map(_.rows)
-      rows4 <- controller.retrieveRowsOfColumn(1, 4, Pagination(None, None)).map(_.rows)
+      rows1 <- controller.retrieveRowsOfColumn(1, 1).map(_.rows)
+      rows2 <- controller.retrieveRowsOfColumn(1, 2).map(_.rows)
+      rows3 <- controller.retrieveRowsOfColumn(1, 3).map(_.rows)
+      rows4 <- controller.retrieveRowsOfColumn(1, 4).map(_.rows)
     } yield {
       assertEquals(4, completeRows.head.values.length)
       assertEquals(1, rows1.head.values.length)
@@ -896,10 +896,10 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex1 <- controller.retrieveRowsOfColumn(1, 1, Pagination(None, None)).recover({ case ex => ex })
-      ex2 <- controller.retrieveRowsOfColumn(1, 2, Pagination(None, None)).recover({ case ex => ex })
-      ex3 <- controller.retrieveRowsOfColumn(1, 3, Pagination(None, None)).recover({ case ex => ex })
-      ex4 <- controller.retrieveRowsOfColumn(1, 4, Pagination(None, None)).recover({ case ex => ex })
+      ex1 <- controller.retrieveRowsOfColumn(1, 1).recover({ case ex => ex })
+      ex2 <- controller.retrieveRowsOfColumn(1, 2).recover({ case ex => ex })
+      ex3 <- controller.retrieveRowsOfColumn(1, 3).recover({ case ex => ex })
+      ex4 <- controller.retrieveRowsOfColumn(1, 4).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(ViewCellValue, Seq("view-rows")), ex1)
       assertEquals(UnauthorizedException(ViewCellValue, Seq("view-rows")), ex2)
@@ -925,9 +925,9 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      completeRows <- controller.retrieveRows(1, Pagination(None, None)).map(_.rows)
+      completeRows <- controller.retrieveRows(1).map(_.rows)
 
-      rowsOfFirstColumn <- controller.retrieveRowsOfFirstColumn(1, Pagination(None, None)).map(_.rows)
+      rowsOfFirstColumn <- controller.retrieveRowsOfFirstColumn(1).map(_.rows)
     } yield {
       assertEquals(4, completeRows.head.values.length)
       assertEquals(1, rowsOfFirstColumn.head.values.length)
@@ -951,7 +951,7 @@ class TableauxControllerAuthTest_row extends TableauxControllerAuthTest {
 
     for {
       _ <- createTestTable()
-      ex <- controller.retrieveRowsOfFirstColumn(1, Pagination(None, None)).recover({ case ex => ex })
+      ex <- controller.retrieveRowsOfFirstColumn(1).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(ViewCellValue, Seq("view-rows")), ex)
     }
@@ -1910,8 +1910,8 @@ class TableauxControllerAuthTest_linkCell extends LinkTestBase with TableauxCont
       linkColumnId <- setupTwoTablesWithEmptyLinks()
       _ <- sendRequest("PUT", s"/tables/1/columns/$linkColumnId/rows/1", putTwoLinks)
 
-      _ <- controller.retrieveForeignRows(1, linkColumnId, 1, Pagination(None, None))
-      ex <- controller.retrieveForeignRows(2, linkColumnId, 1, Pagination(None, None)).recover({ case ex => ex })
+      _ <- controller.retrieveForeignRows(1, linkColumnId, 1)
+      ex <- controller.retrieveForeignRows(2, linkColumnId, 1).recover({ case ex => ex })
     } yield {
       assertEquals(UnauthorizedException(ViewTable, Seq("view-table-1")), ex)
     }

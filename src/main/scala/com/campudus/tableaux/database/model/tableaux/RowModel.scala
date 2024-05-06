@@ -1198,9 +1198,17 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[RawRow]] = {
+  def retrieveAll(
+      tableId: TableId,
+      columns: Seq[ColumnType[_]],
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  ): Future[Seq[RawRow]] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
+
+    println(s"finalFlagOpt: $finalFlagOpt, archivedFlagOpt: $archivedFlagOpt")
 
     for {
       result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")

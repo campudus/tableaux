@@ -563,7 +563,7 @@ class TableauxModel(
   ): Future[Unit] = {
     for {
       columns <- retrieveColumns(table, isInternalCall = true)
-      rowSeq <- retrieveRowModel.retrieveAll(table.id, columns, Pagination(None, None))
+      rowSeq <- retrieveRowModel.retrieveAll(table.id, columns, None, None, Pagination(None, None))
       _ <- Future.sequence(
         rowSeq.map(row => updateRowAnnotations(table, row.id, finalFlagOpt, archivedFlagOpt))
       )
@@ -826,7 +826,7 @@ class TableauxModel(
   private def checkForDuplicateKey[A](table: Table, keyColumn: ColumnType[_], keyName: Option[Any])(
       implicit user: TableauxUser
   ) = {
-    retrieveRows(table, Seq(keyColumn), Pagination(None, None))
+    retrieveRows(table, Seq(keyColumn), None, None, Pagination(None, None))
       .map(_.rows.map(_.values.head))
       .flatMap(oldValues => {
         if (keyName.isDefined && oldValues.contains(keyName.get)) {
@@ -1217,7 +1217,12 @@ class TableauxModel(
     rowsSeq.copy(rows = rowsSeq.rows.map(row => row.copy(values = row.values.take(1))))
   }
 
-  def retrieveRows(table: Table, pagination: Pagination)(implicit user: TableauxUser): Future[RowSeq] = {
+  def retrieveRows(
+      table: Table,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(implicit user: TableauxUser): Future[RowSeq] = {
     for {
       columns <- retrieveColumns(table)
       filteredColumns = roleModel
@@ -1227,7 +1232,7 @@ class TableauxModel(
           ComparisonObjects(table),
           isInternalCall = false
         )
-      rowSeq <- retrieveRows(table, filteredColumns, pagination)
+      rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
       mutatedRows <- removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
     } yield {
       val filteredRows = roleModel.filterDomainObjects(ViewRow, mutatedRows, ComparisonObjects(), false)
@@ -1235,7 +1240,13 @@ class TableauxModel(
     }
   }
 
-  def retrieveRows(table: Table, columnId: ColumnId, pagination: Pagination)(
+  def retrieveRows(
+      table: Table,
+      columnId: ColumnId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
@@ -1249,18 +1260,24 @@ class TableauxModel(
         case _ => Seq(column)
       }
 
-      rowsSeq <- retrieveRows(table, columns, pagination)
+      rowsSeq <- retrieveRows(table, columns, finalFlagOpt, archivedFlagOpt, pagination)
     } yield {
       copyFirstColumnOfRowsSeq(rowsSeq)
     }
   }
 
-  private def retrieveRows(table: Table, columns: Seq[ColumnType[_]], pagination: Pagination)(
+  private def retrieveRows(
+      table: Table,
+      columns: Seq[ColumnType[_]],
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
       totalSize <- retrieveRowModel.size(table.id)
-      rawRows <- retrieveRowModel.retrieveAll(table.id, columns, pagination)
+      rawRows <- retrieveRowModel.retrieveAll(table.id, columns, finalFlagOpt, archivedFlagOpt, pagination)
       rowSeq <- mapRawRows(table, columns, rawRows)
     } yield {
       RowSeq(rowSeq, Page(pagination, Some(totalSize)))
