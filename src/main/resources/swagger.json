@@ -3267,28 +3267,50 @@
         "values"
       ],
       "properties": {
-        "values": {
-          "type": "array",
-          "example": "Baden-Württemberg",
-          "items": {
-            "type": "object"
-          }
-        },
         "id": {
           "type": "integer",
           "format": "int64",
           "example": 1,
           "description": "Id of row"
+        },
+        "values": {
+          "type": "array",
+          "example": [
+            "Baden-Württemberg",
+            "Stuttgart",
+            [
+              {
+                "id": 3,
+                "value": "Tübingen"
+              },
+              {
+                "id": 4,
+                "value": "Karlsruhe"
+              }
+            ]
+          ],
+          "items": {
+            "type": "object"
+          }
+        },
+        "final": {
+          "type": "boolean",
+          "example": true,
+          "description": "A flag describing whether the row is final or not. Only present if final is set to true."
+        },
+        "archived": {
+          "type": "boolean",
+          "example": true,
+          "description": "A flag describing whether the row is archived or not. Only present if archived is set to true."
+        },
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CellAnnotation"
+          }
         }
       },
-      "description": "A row contains all column values of this specific table.",
-      "example": {
-        "id": 1,
-        "values": [
-          "Baden-Württemberg",
-          35751
-        ]
-      }
+      "description": "A row contains all column values of this specific table."
     },
     "Shared Response: Service": {
       "type": "object",
@@ -3551,46 +3573,7 @@
           "example": "ok"
         }
       },
-      "description": "Array of rows",
-      "example": {
-        "status": "ok",
-        "rows": [
-          {
-            "id": 1,
-            "values": [
-              "Baden-Württemberg",
-              "Stuttgart",
-              [
-                {
-                  "id": 3,
-                  "value": "Tübingen"
-                },
-                {
-                  "id": 4,
-                  "value": "Karlsruhe"
-                }
-              ]
-            ]
-          },
-          {
-            "id": 2,
-            "values": [
-              "Bayern",
-              "München",
-              [
-                {
-                  "id": 1,
-                  "value": "Oberbayern"
-                },
-                {
-                  "id": 2,
-                  "value": "Niederbayern"
-                }
-              ]
-            ]
-          }
-        ]
-      }
+      "description": "Array of rows"
     },
     "Enum: Column type": {
       "type": "string",
