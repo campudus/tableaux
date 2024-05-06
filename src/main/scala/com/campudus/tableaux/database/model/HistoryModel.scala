@@ -925,25 +925,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(rowIds.map(rowId => createRowAnnotationHistory(tableId, rowId, eventType, rowAnnotationType)))
   }
 
-  // def updateRowsAnnotation(
-  //     tableId: TableId,
-  //     rowIds: Seq[RowId],
-  //     finalFlagOpt: Option[Boolean],
-  //     archivedFlagOpt: Option[Boolean]
-  // )(implicit user: TableauxUser): Future[Unit] = {
-
-  //   for {
-  //     _ <- finalFlagOpt match {
-  //       case None => Future.successful(())
-  //       case Some(isFinal) => createRowsAnnotationHistory(tableId, isFinal, RowAnnotationTypeFinal, rowIds)
-  //     }
-  //     _ <- archivedFlagOpt match {
-  //       case None => Future.successful(())
-  //       case Some(isArchived) => createRowsAnnotationHistory(tableId, isArchived, RowAnnotationTypeArchived, rowIds)
-  //     }
-  //   } yield ()
-  // }
-
   def createClearLink(table: Table, rowId: RowId, columns: Seq[LinkColumn])(
       implicit user: TableauxUser
   ): Future[Unit] = {
