@@ -328,13 +328,13 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(cleared)
   }
 
-  def updateArchiveLinkedRows(
+  def updateCascadedRows(
       table: Table,
       rowId: RowId,
       column: LinkColumn,
-      columnName: String,
-      archivedFlagOpt: Boolean,
-      archiveRowFn: (Table, RowId, String, Boolean) => Future[_]
+      rowAnnotationType: RowAnnotationType,
+      flag: Boolean,
+      updateRowAnnotationsRecursiveFn: (Table, RowId, RowAnnotationType, Boolean) => Future[_]
   ) = {
     val linkTable = s"link_table_${column.linkId}"
     val fromIdColumn = column.linkDirection.fromSql
@@ -344,20 +344,9 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     // TODO but we could argue that a schema like this doesn't make sense
     retrieveLinkedRows(table, rowId, column)
       .flatMap(foreignRowIds => {
-        val futures = foreignRowIds
-          .map(foreignRowId => {
-            // only delete foreign row if it's not part of new values...
-            // ... otherwise delete link
-            // if (newForeignRowIds.contains(foreignRowId)) {
-            //   doQuery(
-            //     transaction,
-            //     s"DELETE FROM $linkTable WHERE $fromIdColumn = ? AND $toIdColumn = ?",
-            //     Json.arr(rowId, foreignRowId)
-            //   )
-            // } else {
-            archiveRowFn(column.to.table, foreignRowId, columnName, archivedFlagOpt)
-            // }
-          })
+        val futures = foreignRowIds.map { foreignRowId =>
+          updateRowAnnotationsRecursiveFn(column.to.table, foreignRowId, rowAnnotationType, flag)
+        }
 
         Future.sequence(futures)
       })
@@ -655,9 +644,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
   def updateRowsAnnotation(
       tableId: TableId,
-      columnName: String,
+      rowAnnotationType: RowAnnotationType,
       flag: Boolean
   ): Future[Unit] = {
+    val columnName = rowAnnotationType.toString
     for {
       _ <- connection.query(s"UPDATE user_table_$tableId SET $columnName = ?", Json.arr(flag))
     } yield ()
@@ -666,9 +656,10 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   def updateRowAnnotation(
       tableId: TableId,
       rowId: RowId,
-      columnName: String,
+      rowAnnotationType: RowAnnotationType,
       flag: Boolean
   ): Future[Unit] = {
+    val columnName = rowAnnotationType.toString
     for {
       _ <- connection.query(s"UPDATE user_table_$tableId SET $columnName = ? WHERE id = ?", Json.arr(flag, rowId))
     } yield ()

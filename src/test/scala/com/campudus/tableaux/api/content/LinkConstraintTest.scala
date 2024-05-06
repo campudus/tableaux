@@ -501,6 +501,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
         rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+
       } yield {
         assertEquals(1, rowsTable1.size())
         assertEquals(1, rowsTable2.size())
@@ -1322,11 +1323,16 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
         // archive parent row
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/$rowId/annotations", Json.obj("archived" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterByArchived)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterByArchived)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
       } yield {
         assertEquals(1, rowsTable1.size)
         assertEquals(2, rowsTable2.size)
+        assertEquals(1, historyRowsTable1.size)
+        assertEquals(2, historyRowsTable2.size)
       }
     }
   }
@@ -1349,17 +1355,26 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("archived" -> true))
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("archived" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterByArchived)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterByArchived)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
       } yield {
         // parent row should still be unarchived
         assertEquals(2, rowsTable1.size)
         assertEquals(0, rowsTable2.size)
+        assertEquals(2, historyRowsTable1.size)
+        assertEquals(0, historyRowsTable2.size)
       }
     }
   }
 
-  def filterByArchived(jsonArray: JsonArray): Seq[JsonObject] = {
+  def toRowsArray(obj: JsonObject): JsonArray = {
+    obj.getJsonArray("rows")
+  }
+
+  def filterArchivedRows(jsonArray: JsonArray): Seq[JsonObject] = {
     import scala.collection.JavaConverters._
 
     jsonArray.asScala

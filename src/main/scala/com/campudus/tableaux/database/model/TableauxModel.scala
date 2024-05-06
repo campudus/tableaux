@@ -503,12 +503,12 @@ class TableauxModel(
   def updateRowAnnotationsRecursive(
       table: Table,
       rowId: RowId,
-      columnName: String,
+      rowAnnotationType: RowAnnotationType,
       flag: Boolean
   )(implicit user: TableauxUser): Future[_] = {
     for {
-      _ <- updateRowModel.updateRowAnnotation(table.id, rowId, RowAnnotationType.Archived, flag)
-      _ <- createHistoryModel.createRowsAnnotationHistory(table.id, flag, RowAnnotationTypeArchived, Seq(rowId))
+      _ <- updateRowModel.updateRowAnnotation(table.id, rowId, rowAnnotationType, flag)
+      _ <- createHistoryModel.createRowsAnnotationHistory(table.id, flag, rowAnnotationType, Seq(rowId))
       columns <- retrieveColumns(table, isInternalCall = true)
 
       specialColumns = columns.collect({
@@ -522,11 +522,11 @@ class TableauxModel(
       _ = specialColumns.map((column) => {
         for {
           _ <-
-            updateRowModel.updateArchiveLinkedRows(
+            updateRowModel.updateCascadedRows(
               table,
               rowId,
               column,
-              columnName,
+              rowAnnotationType,
               flag,
               updateRowAnnotationsRecursive
             )
@@ -546,7 +546,7 @@ class TableauxModel(
         case None => Future.successful(())
         case Some(isFinal) => {
           for {
-            _ <- updateRowModel.updateRowAnnotation(table.id, rowId, RowAnnotationType.Final, isFinal)
+            _ <- updateRowModel.updateRowAnnotation(table.id, rowId, RowAnnotationTypeFinal, isFinal)
             _ <- createHistoryModel.createRowsAnnotationHistory(table.id, isFinal, RowAnnotationTypeFinal, Seq(rowId))
           } yield ()
         }
@@ -556,7 +556,7 @@ class TableauxModel(
         case None => Future.successful(())
         case Some(isArchived) => {
           for {
-            _ <- updateRowAnnotationsRecursive(table, rowId, RowAnnotationType.Archived, isArchived)
+            _ <- updateRowAnnotationsRecursive(table, rowId, RowAnnotationTypeArchived, isArchived)
             // updateRowModel.updateRowAnnotation(table.id, rowId, RowAnnotationType.Archived, isArchived)
             // _ <- createHistoryModel.createRowsAnnotationHistory(
             //   table.id,
@@ -583,7 +583,7 @@ class TableauxModel(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      _ <- updateRowModel.updateRowsAnnotation(table.id, RowAnnotationType.Final, true)
+      _ <- updateRowModel.updateRowsAnnotation(table.id, RowAnnotationTypeFinal, true)
       // rowIds <- retrieveRows(table, Pagination(None, None)).map(_.rows.map(_.id))
       // _ <- createHistoryModel.createRowsAnnotationHistory(table.id, finalFlag, RowAnnotationTypeFinal, rowIds)
       // _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, finalFlag, archivedFlagOpt)
