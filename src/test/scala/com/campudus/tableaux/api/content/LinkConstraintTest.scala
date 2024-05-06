@@ -31,6 +31,10 @@ sealed trait Helper {
       .find(_.getString("name") == columnName)
       .orNull
   }
+
+  def toRowsArray(obj: JsonObject): JsonArray = {
+    obj.getJsonArray("rows")
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -1370,10 +1374,6 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
     }
   }
 
-  def toRowsArray(obj: JsonObject): JsonArray = {
-    obj.getJsonArray("rows")
-  }
-
   def filterArchivedRows(jsonArray: JsonArray): Seq[JsonObject] = {
     import scala.collection.JavaConverters._
 
@@ -1462,14 +1462,19 @@ class LinkFinalCascadeTest extends LinkTestBase with Helper {
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
-        // archive parent row
+        // finalize parent row
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/$rowId/annotations", Json.obj("final" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterByFinal)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterByFinal)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
       } yield {
         assertEquals(1, rowsTable1.size)
         assertEquals(2, rowsTable2.size)
+        assertEquals(1, historyRowsTable1.size)
+        assertEquals(2, historyRowsTable2.size)
       }
     }
   }
@@ -1488,21 +1493,26 @@ class LinkFinalCascadeTest extends LinkTestBase with Helper {
         // create parent row
         _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(1, 2))))
 
-        // archive foreign rows
-        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("archived" -> true))
-        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("archived" -> true))
+        // finalize foreign rows
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("final" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterByFinal)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterByFinal)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
       } yield {
-        // parent row should still be unarchived
+        // parent row should still NOT be finalized
         assertEquals(2, rowsTable1.size)
         assertEquals(0, rowsTable2.size)
+        assertEquals(2, historyRowsTable1.size)
+        assertEquals(0, historyRowsTable2.size)
       }
     }
   }
 
-  def filterByFinal(jsonArray: JsonArray): Seq[JsonObject] = {
+  def filterFinalRows(jsonArray: JsonArray): Seq[JsonObject] = {
     import scala.collection.JavaConverters._
 
     jsonArray.asScala
