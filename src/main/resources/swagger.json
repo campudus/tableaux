@@ -1588,6 +1588,147 @@
         }
       }
     },
+    "/tables/{tableId}/columns/{columnId}/rows": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/limit"
+        },
+        {
+          "$ref": "#/parameters/offset"
+        },
+        {
+          "$ref": "#/parameters/final"
+        },
+        {
+          "$ref": "#/parameters/archived"
+        }
+      ],
+      "get": {
+        "summary": "Get all rows of a specific column",
+        "description": "Returns just the rows of the specified column of the table",
+        "tags": [
+          "data"
+        ],
+        "operationId": "get-all-rows-of-column",
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "object",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Pagination"
+                },
+                {
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/Shared Response: Row"
+                      },
+                      "example": [
+                        {
+                          "id": 1,
+                          "values": [
+                            "Shimano"
+                          ]
+                        },
+                        {
+                          "id": 2,
+                          "values": [
+                            "Sram "
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "default": {
+              "description": "Unexpected error",
+              "schema": {
+                "$ref": "#/responses/unknown-error"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/first/rows": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/limit"
+        },
+        {
+          "$ref": "#/parameters/offset"
+        },
+        {
+          "$ref": "#/parameters/final"
+        },
+        {
+          "$ref": "#/parameters/archived"
+        }
+      ],
+      "get": {
+        "summary": "Get all rows of the first column",
+        "description": "Returns just the rows of the first column of the table",
+        "tags": [
+          "data"
+        ],
+        "operationId": "get-all-rows-of-first-column",
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "object",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Pagination"
+                },
+                {
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/Shared Response: Row"
+                      },
+                      "example": [
+                        {
+                          "id": 1,
+                          "values": [
+                            "Shimano"
+                          ]
+                        },
+                        {
+                          "id": 2,
+                          "values": [
+                            "Sram "
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "default": {
+              "description": "Unexpected error",
+              "schema": {
+                "$ref": "#/responses/unknown-error"
+              }
+            }
+          }
+        }
+      }
+    },
     "/tables/{tableId}/columns/{columnId}/rows/{rowId}/attachment/{attachmentId}": {
       "parameters": [
         {
