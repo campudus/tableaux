@@ -1271,7 +1271,15 @@
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/Response: Rows"
+              "type": "object",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Pagination"
+                },
+                {
+                  "$ref": "#/definitions/Response: Rows"
+                }
+              ]
             }
           },
           "default": {
