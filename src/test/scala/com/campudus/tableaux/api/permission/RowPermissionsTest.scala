@@ -341,7 +341,7 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
           tokenWithRoles("view-tables", "view-test-row-permissions")
         )
 
-      retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
+      retrievedRows <- controller.retrieveRows(1)
     } yield {
       assertJSONEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
     }
@@ -363,7 +363,7 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
           tokenWithRoles("view-tables", "view-test-row-permissions")
         )
 
-      retrievedRows <- controller.retrieveRows(1, Pagination(None, None))
+      retrievedRows <- controller.retrieveRows(1)
     } yield {
       assertJSONEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
     }
@@ -394,7 +394,7 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
       cell <- sendRequest("GET", "/tables/2/columns/3/rows/1")
-      retrievedRows <- controller.retrieveForeignRows(2, 3, 1, Pagination(None, None))
+      retrievedRows <- controller.retrieveForeignRows(2, 3, 1)
     } yield {
       assertEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
     }
@@ -422,7 +422,7 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
       cell <- sendRequest("GET", "/tables/2/columns/3/rows/1")
-      retrievedRows <- controller.retrieveForeignRows(2, 3, 1, Pagination(None, None))
+      retrievedRows <- controller.retrieveForeignRows(2, 3, 1)
     } yield {
       assertEquals(expectedJson, retrievedRows.getJson.getJsonArray("rows"))
     }
@@ -463,7 +463,7 @@ class RetrieveRowsPermissionsTest extends AuthorizationTest with TestHelper {
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 1))
       _ <- sendRequest("PATCH", "/tables/2/columns/3/rows/1", Json.obj("value" -> 2))
       cell <- sendRequest("GET", "/tables/2/columns/3/rows/1")
-      retrievedRows <- controller.retrieveRows(2, Pagination(None, None))
+      retrievedRows <- controller.retrieveRows(2)
     } yield {
       val resultRows = retrievedRows.getJson.getJsonArray("rows")
       assertEquals(expectedJson, resultRows)
