@@ -562,10 +562,11 @@ class TableauxModel(
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      _ <- updateRowModel.updateRowsAnnotation(table.id, RowAnnotationTypeFinal, true)
-      // rowIds <- retrieveRows(table, Pagination(None, None)).map(_.rows.map(_.id))
-      // _ <- createHistoryModel.createRowsAnnotationHistory(table.id, finalFlag, RowAnnotationTypeFinal, rowIds)
-      // _ <- createHistoryModel.updateRowsAnnotation(table.id, rowIds, finalFlag, archivedFlagOpt)
+      columns <- retrieveColumns(table, isInternalCall = true)
+      rowSeq <- retrieveRowModel.retrieveAll(table.id, columns, Pagination(None, None))
+      _ <- Future.sequence(
+        rowSeq.map(row => updateRowAnnotations(table, row.id, finalFlagOpt, archivedFlagOpt))
+      )
     } yield ()
   }
 

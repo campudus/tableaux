@@ -1374,6 +1374,41 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
     }
   }
 
+  @Test
+  def archiveTableWithArchiveCascadeShouldArchiveAllRowsAndForeignRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createArchiveCascadeLinkColumn(tableId1, tableId2, "archiveCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("archiveCascade" -> Json.arr(2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
+
+        // archive whole table
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/annotations", Json.obj("archived" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
+      } yield {
+        assertEquals(3, rowsTable1.size)
+        assertEquals(1, rowsTable2.size)
+        assertEquals(3, historyRowsTable1.size)
+        assertEquals(1, historyRowsTable2.size)
+      }
+    }
+  }
+
   def filterArchivedRows(jsonArray: JsonArray): Seq[JsonObject] = {
     import scala.collection.JavaConverters._
 
@@ -1508,6 +1543,41 @@ class LinkFinalCascadeTest extends LinkTestBase with Helper {
         assertEquals(0, rowsTable2.size)
         assertEquals(2, historyRowsTable1.size)
         assertEquals(0, historyRowsTable2.size)
+      }
+    }
+  }
+
+  @Test
+  def finalizeTableWithFinalCascadeShouldFinalizeAllRowsAndForeignRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createFinalCascadeLinkColumn(tableId1, tableId2, "finalCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(2))))
+            .map(_.getJsonArray("rows"))
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
+
+        // finalize whole table
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/annotations", Json.obj("final" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
+      } yield {
+        assertEquals(3, rowsTable1.size)
+        assertEquals(1, rowsTable2.size)
+        assertEquals(3, historyRowsTable1.size)
+        assertEquals(1, historyRowsTable2.size)
       }
     }
   }
