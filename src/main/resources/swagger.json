@@ -1252,6 +1252,20 @@
         "tags": [
           "data"
         ],
+        "parameters": [
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/final"
+          },
+          {
+            "$ref": "#/parameters/archived"
+          }
+        ],
         "operationId": "get-all-rows",
         "responses": {
           "200": {
@@ -3957,6 +3971,34 @@
           "onlyUserGroupB"
         ]
       }
+    },
+    "limit": {
+      "name": "limit",
+      "description": "The maximum number of rows to return.",
+      "in": "query",
+      "type": "integer",
+      "required": false
+    },
+    "offset": {
+      "name": "offset",
+      "description": "The number of rows to skip.",
+      "in": "query",
+      "type": "integer",
+      "required": false
+    },
+    "final": {
+      "name": "final",
+      "description": "Filter for final rows.\n- If set to true, only final rows are returned.\n- If set to false, only non-final rows are returned.\n- If not set, all rows are returned. (default)",
+      "in": "query",
+      "type": "boolean",
+      "required": false
+    },
+    "archived": {
+      "name": "archived",
+      "description": "Filter for archived rows.\n- If set to true, only archived rows are returned.\n- If set to false, only non-archived rows are returned.\n- If not set, all rows are returned. (default)",
+      "in": "query",
+      "type": "boolean",
+      "required": false
     }
   },
   "responses": {
