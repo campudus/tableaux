@@ -18,7 +18,7 @@ import org.junit.{Ignore, Test}
 import org.junit.Assert._
 import org.junit.runner.RunWith
 
-sealed trait Helper {
+sealed trait Helper extends LinkTestBase {
 
   def findByNameInColumnsArray(columnName: String)(jsonArray: JsonArray): JsonObject = {
     import scala.collection.JavaConverters._
@@ -34,6 +34,23 @@ sealed trait Helper {
 
   def toRowsArray(obj: JsonObject): JsonArray = {
     obj.getJsonArray("rows")
+  }
+
+  def createCardinalityLinkColumn(
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String,
+      from: Int,
+      to: Int
+  ): Future[ColumnId] = {
+    val columns = Columns(
+      LinkBiDirectionalCol(columnName, toTableId, Constraint(Cardinality(from, to), deleteCascade = false))
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", columns)
+      .map(_.getJsonArray("columns"))
+      .map(_.getJsonObject(0))
+      .map(_.getLong("id"))
   }
 }
 
@@ -957,23 +974,6 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
       }
     }
   }
-
-  private def createCardinalityLinkColumn(
-      tableId: TableId,
-      toTableId: TableId,
-      columnName: String,
-      from: Int,
-      to: Int
-  ): Future[ColumnId] = {
-    val columns = Columns(
-      LinkBiDirectionalCol(columnName, toTableId, Constraint(Cardinality(from, to), deleteCascade = false))
-    )
-
-    sendRequest("POST", s"/tables/$tableId/columns", columns)
-      .map(_.getJsonArray("columns"))
-      .map(_.getJsonObject(0))
-      .map(_.getLong("id"))
-  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -1659,6 +1659,36 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
         assertEquals(2, finalTrueAndArchivedTrue.size())
         assertEquals(1, finalFalseAndArchivedTrue.size())
         assertEquals(3, finalTrueAndArchivedFalse.size())
+      }
+    }
+  }
+
+  @Test
+  def retrieveForeignRowsOfLinkCell_finalAndArchivedRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
+
+        rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows").map(_.getLong("id"))
+        _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/1/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/2/annotations", Json.obj("archived" -> true))
+
+        resultCell <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
+
+        resultForeignRowsFinal <-
+          sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?final=true")
+        resultForeignRowsArchived <-
+          sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?archived=true")
+      } yield {
+        assertEquals(0, resultCell.getJsonArray("value").size())
+
+        assertEquals(2, resultForeignRowsFinal.getJsonObject("page").getLong("totalSize").longValue())
+        assertEquals(2, resultForeignRowsArchived.getJsonObject("page").getLong("totalSize").longValue())
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1)), resultForeignRowsFinal.getJsonArray("rows"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 2)), resultForeignRowsArchived.getJsonArray("rows"))
       }
     }
   }

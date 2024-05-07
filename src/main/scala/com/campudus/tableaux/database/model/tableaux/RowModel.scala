@@ -1191,7 +1191,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     for {
       result <- connection.query(
-        s"SELECT $projection FROM $fromClause WHERE TRUE $maybeCardinalityFilter $whereClause GROUP BY ut.id ORDER BY ut.id $pagination"
+        s"""|SELECT $projection
+            |FROM $fromClause
+            |WHERE TRUE $maybeCardinalityFilter $whereClause
+            |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin,
+        binds
       )
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(foreignColumns))
@@ -1209,12 +1213,13 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     val fromClause = generateFromClause(tableId)
     val whereClause = generateRowAnnotationWhereClause(finalFlagOpt, archivedFlagOpt)
 
-    println(s"finalFlagOpt: $finalFlagOpt, archivedFlagOpt: $archivedFlagOpt")
-
     for {
       result <-
         connection.query(
-          s"SELECT $projection FROM $fromClause WHERE TRUE $whereClause GROUP BY ut.id ORDER BY ut.id $pagination"
+          s"""|SELECT $projection
+              |FROM $fromClause
+              |WHERE TRUE $whereClause
+              |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin
         )
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
