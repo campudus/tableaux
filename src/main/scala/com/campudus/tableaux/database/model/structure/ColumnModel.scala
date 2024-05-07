@@ -772,6 +772,7 @@ class ColumnModel(val connection: DatabaseConnection)(
          |  l.cardinality_2,
          |  l.delete_cascade,
          |  l.archive_cascade,
+         |  l.final_cascade,
          |  COUNT(c.*) > 1 AS bidirectional
          |FROM
          |  system_link_table l
