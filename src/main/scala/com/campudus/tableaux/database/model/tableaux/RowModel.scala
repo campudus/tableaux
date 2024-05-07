@@ -1207,11 +1207,13 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   ): Future[Seq[RawRow]] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
+    val whereClause = generateRowAnnotationWhereClause(finalFlagOpt, archivedFlagOpt)
 
     println(s"finalFlagOpt: $finalFlagOpt, archivedFlagOpt: $archivedFlagOpt")
 
     for {
-      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
+      result <-
+        connection.query(s"SELECT $projection FROM $fromClause $whereClause GROUP BY ut.id ORDER BY ut.id $pagination")
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
     }
@@ -1456,5 +1458,21 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
        |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.toSql} = ut.id) < (SELECT ${linkDirection.fromCardinality} FROM system_link_table WHERE link_id = ?) AND
        |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.fromSql} = ?) < (SELECT ${linkDirection.toCardinality} FROM system_link_table WHERE link_id = ?)
        """.stripMargin
+  }
+
+  private def generateRowAnnotationWhereClause(
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  ): String = {
+    (finalFlagOpt, archivedFlagOpt) match {
+      case (Some(finalFlag), Some(archivedFlag)) =>
+        s"WHERE final = $finalFlag AND archived = $archivedFlag"
+      case (Some(finalFlag), _) =>
+        s"WHERE final = $finalFlag"
+      case (_, Some(archivedFlag)) =>
+        s"WHERE archived = $archivedFlag"
+      case _ =>
+        ""
+    }
   }
 }

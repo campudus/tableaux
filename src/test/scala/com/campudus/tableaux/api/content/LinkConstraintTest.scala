@@ -95,14 +95,14 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/$rowId")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(2, rowsTable1.size())
         assertEquals(0, rowsTable2.size())
@@ -128,8 +128,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1")
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/2")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         // parent rows should still be there
         assertEquals(3, rowsTable1.size())
@@ -159,8 +159,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(2, rowsTable1.size())
         assertEquals(2, rowsTable2.size())
@@ -181,7 +181,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
@@ -189,8 +189,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/$rowId")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(3, rowsTable1.size())
         assertEquals(1, rowsTable2.size())
@@ -212,8 +212,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(1, rowsTable1.size())
         assertEquals(2, rowsTable2.size())
@@ -248,8 +248,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(0, rowsTable1.size())
         assertEquals(0, rowsTable2.size())
@@ -280,7 +280,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
           sendRequest("PUT", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1", Json.obj("value" -> Json.arr(2)))
 
         // Then
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(1, rowsTable2.size())
       }
@@ -317,7 +317,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         )
 
         // Then
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
         linkCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
           .map(_.getJsonArray("value"))
       } yield {
@@ -358,7 +358,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         )
 
         // Then
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
         linkedCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
           .map(_.getJsonArray("value"))
       } yield {
@@ -402,7 +402,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         )
 
         // Then
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
         linkedCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
           .map(_.getJsonArray("value"))
       } yield {
@@ -427,15 +427,15 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
         // clear cell
         _ <- sendRequest("DELETE", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(3, rowsTable1.size())
         assertEquals(0, rowsTable2.size())
@@ -457,7 +457,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
@@ -470,8 +470,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         // delete link from link cell with delete cascade
         _ <- sendRequest("DELETE", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId/link/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(3, rowsTable1.size())
         assertEquals(1, rowsTable2.size())
@@ -503,8 +503,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         // This will currently end up in a endless loop
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
 
       } yield {
         assertEquals(1, rowsTable1.size())
@@ -590,7 +590,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
@@ -621,7 +621,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
@@ -990,8 +990,8 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(4, rowsTable1.size())
         assertEquals(3, rowsTable2.size())
@@ -1018,8 +1018,8 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
 
         replacedRowIds <-
           dbConnection.query("SELECT replaced_ids FROM user_table_2 WHERE id = 3")
@@ -1053,8 +1053,8 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
         // row 2 is already linked to row 1
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=2")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(4, rowsTable1.size())
         assertEquals(3, rowsTable2.size())
@@ -1088,8 +1088,8 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
           )
 
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
 
         replacedRowIds <-
           dbConnection.query("SELECT replaced_ids FROM user_table_2 WHERE id = ?", Json.arr(3))
@@ -1320,15 +1320,15 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
         // create parent row
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("archiveCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
         // archive parent row
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/$rowId/annotations", Json.obj("archived" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterArchivedRows)
 
         historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
         historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
@@ -1359,8 +1359,8 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("archived" -> true))
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("archived" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterArchivedRows)
 
         historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
         historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
@@ -1388,15 +1388,15 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
         // create parent row
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("archiveCascade" -> Json.arr(2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
         // archive whole table
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/annotations", Json.obj("archived" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterArchivedRows)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterArchivedRows)
 
         historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
         historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
@@ -1493,15 +1493,15 @@ class LinkFinalCascadeTest extends LinkTestBase with Helper {
         // create parent row
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
         // finalize parent row
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/$rowId/annotations", Json.obj("final" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterFinalRows)
 
         historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
         historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
@@ -1532,8 +1532,8 @@ class LinkFinalCascadeTest extends LinkTestBase with Helper {
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("final" -> true))
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("final" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterFinalRows)
 
         historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
         historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
@@ -1561,15 +1561,15 @@ class LinkFinalCascadeTest extends LinkTestBase with Helper {
         // create parent row
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
         // finalize whole table
         _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/annotations", Json.obj("final" -> true))
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows")).map(filterFinalRows)
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterFinalRows)
 
         historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
         historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
@@ -1605,5 +1605,61 @@ class LinkFinalCascadeTest extends LinkTestBase with Helper {
       .map(_.getJsonArray("columns"))
       .map(_.getJsonObject(0))
       .map(_.getLong("id"))
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
+
+  @Test
+  def retrieveMixedFinalAndArchivedRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+
+        // | rowid | final | archived |
+        // | ----- | ----- | -------- |
+        // | 1     | false | false    |
+        // | 2     | true  | false    |
+        // | 3     | false | true     |
+        // | 4     | true  | true     |
+        // | 5     | true  | false    |
+        // | 6     | true  | false    |
+        // | 7     | true  | true     |
+
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("PATCH", s"/tables/1/rows/2/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/3/annotations", Json.obj("archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/4/annotations", Json.obj("final" -> true, "archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/5/annotations", Json.obj("final" -> true, "archived" -> false))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/6/annotations", Json.obj("final" -> true, "archived" -> false))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/7/annotations", Json.obj("final" -> true, "archived" -> true))
+
+        finalFalse <- sendRequest("GET", s"/tables/1/rows?final=false").map(toRowsArray)
+        finalTrue <- sendRequest("GET", s"/tables/1/rows?final=true").map(toRowsArray)
+        archivedFalse <- sendRequest("GET", s"/tables/1/rows?archived=false").map(toRowsArray)
+        archivedTrue <- sendRequest("GET", s"/tables/1/rows?archived=true").map(toRowsArray)
+        allRows <- sendRequest("GET", s"/tables/1/rows").map(toRowsArray)
+        finalFalseAndArchivedFalse <- sendRequest("GET", s"/tables/1/rows?final=false&archived=false").map(toRowsArray)
+        finalTrueAndArchivedTrue <- sendRequest("GET", s"/tables/1/rows?final=true&archived=true").map(toRowsArray)
+        finalFalseAndArchivedTrue <- sendRequest("GET", s"/tables/1/rows?final=false&archived=true").map(toRowsArray)
+        finalTrueAndArchivedFalse <- sendRequest("GET", s"/tables/1/rows?final=true&archived=false").map(toRowsArray)
+      } yield {
+        assertEquals(2, finalFalse.size())
+        assertEquals(5, finalTrue.size())
+        assertEquals(4, archivedFalse.size())
+        assertEquals(3, archivedTrue.size())
+
+        assertEquals(7, allRows.size())
+        assertEquals(1, finalFalseAndArchivedFalse.size())
+        assertEquals(2, finalTrueAndArchivedTrue.size())
+        assertEquals(1, finalFalseAndArchivedTrue.size())
+        assertEquals(3, finalTrueAndArchivedFalse.size())
+      }
+    }
   }
 }
