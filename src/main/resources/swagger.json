@@ -1846,6 +1846,18 @@
         },
         {
           "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/limit"
+        },
+        {
+          "$ref": "#/parameters/offset"
+        },
+        {
+          "$ref": "#/parameters/final"
+        },
+        {
+          "$ref": "#/parameters/archived"
         }
       ],
       "get": {
