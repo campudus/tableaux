@@ -1168,6 +1168,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       linkColumn: LinkColumn,
       rowId: RowId,
       foreignColumns: Seq[ColumnType[_]],
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
       pagination: Pagination,
       linkDirection: LinkDirection
   ): Future[Seq[RawRow]] = {
@@ -1175,23 +1177,21 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     val projection = generateProjection(foreignTableId, foreignColumns)
     val fromClause = generateFromClause(foreignTableId)
+    val whereClause = generateRowAnnotationWhereClause(finalFlagOpt, archivedFlagOpt)
     val cardinalityFilter = generateCardinalityFilter(linkColumn)
-    val shouldNotCheckCardinality = linkDirection.isManyToMany
+    val shouldCheckCardinality = !linkDirection.isManyToMany
+    val maybeCardinalityFilter = shouldCheckCardinality match {
+      case false => ""
+      case true => s"AND $cardinalityFilter"
+    }
+    val binds = shouldCheckCardinality match {
+      case false => Json.arr()
+      case true => Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+    }
 
     for {
-      maybeCardinalityFilter <-
-        if (shouldNotCheckCardinality) {
-          Future.successful("")
-        } else {
-          Future.successful(s"WHERE $cardinalityFilter")
-        }
       result <- connection.query(
-        s"SELECT $projection FROM $fromClause $maybeCardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
-        if (shouldNotCheckCardinality) {
-          Json.arr()
-        } else {
-          Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
-        }
+        s"SELECT $projection FROM $fromClause WHERE TRUE $maybeCardinalityFilter $whereClause GROUP BY ut.id ORDER BY ut.id $pagination"
       )
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(foreignColumns))
@@ -1213,7 +1213,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     for {
       result <-
-        connection.query(s"SELECT $projection FROM $fromClause $whereClause GROUP BY ut.id ORDER BY ut.id $pagination")
+        connection.query(
+          s"SELECT $projection FROM $fromClause WHERE TRUE $whereClause GROUP BY ut.id ORDER BY ut.id $pagination"
+        )
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
     }
@@ -1466,11 +1468,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   ): String = {
     (finalFlagOpt, archivedFlagOpt) match {
       case (Some(finalFlag), Some(archivedFlag)) =>
-        s"WHERE final = $finalFlag AND archived = $archivedFlag"
+        s"AND final = $finalFlag AND archived = $archivedFlag"
       case (Some(finalFlag), _) =>
-        s"WHERE final = $finalFlag"
+        s"AND final = $finalFlag"
       case (_, Some(archivedFlag)) =>
-        s"WHERE archived = $archivedFlag"
+        s"AND archived = $archivedFlag"
       case _ =>
         ""
     }

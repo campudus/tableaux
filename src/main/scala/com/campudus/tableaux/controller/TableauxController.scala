@@ -380,6 +380,8 @@ class TableauxController(
       tableId: TableId,
       columnId: ColumnId,
       rowId: RowId,
+      finalFlagOpt: Option[Boolean] = None,
+      archivedFlagOpt: Option[Boolean] = None,
       pagination: Pagination = Pagination(None, None)
   )(implicit user: TableauxUser): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId), pagination.check)
@@ -387,7 +389,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveForeignRows(table, columnId, rowId, pagination)
+      rows <- repository.retrieveForeignRows(table, columnId, rowId, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
   }
 

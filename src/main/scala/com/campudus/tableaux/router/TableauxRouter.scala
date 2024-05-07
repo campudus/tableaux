@@ -141,10 +141,11 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          val limit = getLongParam("limit", context)
-          val offset = getLongParam("offset", context)
           val finalFlagOpt = getBoolParam("final", context)
           val archivedFlagOpt = getBoolParam("archived", context)
+
+          val limit = getLongParam("limit", context)
+          val offset = getLongParam("offset", context)
           val pagination = Pagination(offset, limit)
 
           controller.retrieveRows(tableId, finalFlagOpt, archivedFlagOpt, pagination)
@@ -166,10 +167,14 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
+          val finalFlagOpt = getBoolParam("final", context)
+          val archivedFlagOpt = getBoolParam("archived", context)
+
           val limit = getLongParam("limit", context)
           val offset = getLongParam("offset", context)
           val pagination = Pagination(offset, limit)
-          controller.retrieveForeignRows(tableId, columnId, rowId, pagination)
+
+          controller.retrieveForeignRows(tableId, columnId, rowId, finalFlagOpt, archivedFlagOpt, pagination)
         }
       )
     }
@@ -189,9 +194,9 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
         asyncGetReply {
           val finalFlagOpt = getBoolParam("final", context)
           val archivedFlagOpt = getBoolParam("archived", context)
+
           val limit = getLongParam("limit", context)
           val offset = getLongParam("offset", context)
-
           val pagination = Pagination(offset, limit)
 
           controller.retrieveRowsOfColumn(tableId, columnId, finalFlagOpt, archivedFlagOpt, pagination)
@@ -211,10 +216,11 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          val limit = getLongParam("limit", context)
-          val offset = getLongParam("offset", context)
           val finalFlagOpt = getBoolParam("final", context)
           val archivedFlagOpt = getBoolParam("archived", context)
+
+          val limit = getLongParam("limit", context)
+          val offset = getLongParam("offset", context)
           val pagination = Pagination(offset, limit)
 
           controller.retrieveRowsOfFirstColumn(tableId, finalFlagOpt, archivedFlagOpt, pagination)
