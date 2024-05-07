@@ -1174,9 +1174,14 @@ class TableauxModel(
     } yield rowSeq.head
   }
 
-  def retrieveForeignRows(table: Table, columnId: ColumnId, rowId: RowId, pagination: Pagination)(
-      implicit user: TableauxUser
-  ): Future[RowSeq] = {
+  def retrieveForeignRows(
+      table: Table,
+      columnId: ColumnId,
+      rowId: RowId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  )(implicit user: TableauxUser): Future[RowSeq] = {
     for {
       linkColumn <- retrieveColumn(table, columnId).flatMap({
         case linkColumn: LinkColumn => Future.successful(linkColumn)
@@ -1191,7 +1196,7 @@ class TableauxModel(
           val firstForeignColumn = foreignColumns.head
 
           // In case of a ConcatColumn we need to retrieve the
-          // other values too, so the ConcatColumn can be build.
+          // other values too, so the ConcatColumn can be built.
           firstForeignColumn match {
             case c: ConcatColumn =>
               c.columns.+:(c)
@@ -1202,7 +1207,15 @@ class TableauxModel(
 
       (_, linkDirection, _) <- structureModel.columnStruc.retrieveLinkInformation(table, linkColumn.id)
       totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId, linkDirection)
-      rawRows <- retrieveRowModel.retrieveForeign(linkColumn, rowId, representingColumns, pagination, linkDirection)
+      rawRows <- retrieveRowModel.retrieveForeign(
+        linkColumn,
+        rowId,
+        representingColumns,
+        finalFlagOpt,
+        archivedFlagOpt,
+        pagination,
+        linkDirection
+      )
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
       rowSeqWithoutUnauthorizedValues <- removeUnauthorizedForeignValuesFromRows(representingColumns, rowSeq)
     } yield {
