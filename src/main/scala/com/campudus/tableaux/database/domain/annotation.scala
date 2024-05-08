@@ -22,7 +22,7 @@ trait RowAnnotation {
 
 case class RowLevelAnnotations(finalFlag: Boolean, archivedFlag: Boolean) extends RowAnnotation {
 
-  override val value: (Boolean, Boolean) = (finalFlag, finalFlag)
+  override val value: (Boolean, Boolean) = (finalFlag, archivedFlag)
 
   def isDefined: Boolean = finalFlag || archivedFlag
 
