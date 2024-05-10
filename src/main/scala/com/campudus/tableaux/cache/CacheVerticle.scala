@@ -1,6 +1,6 @@
 package com.campudus.tableaux.cache
 
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.eventbus.Message
@@ -32,8 +32,10 @@ object CacheVerticle {
   val NOT_FOUND_FAILURE: Int = 404
   val INVALID_MESSAGE: Int = 400
 
-  val ADDRESS_SET: String = "cache.set"
-  val ADDRESS_RETRIEVE: String = "cache.retrieve"
+  val ADDRESS_SET_CELL: String = "cache.set.cell"
+  val ADDRESS_SET_ROW: String = "cache.set.row"
+  val ADDRESS_RETRIEVE_CELL: String = "cache.retrieve.cell"
+  val ADDRESS_RETRIEVE_ROW: String = "cache.retrieve.rom"
 
   val ADDRESS_INVALIDATE_CELL: String = "cache.invalidate.cell"
   val ADDRESS_INVALIDATE_COLUMN: String = "cache.invalidate.column"
@@ -50,7 +52,8 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
 
   private lazy val eventBus = vertx.eventBus()
 
-  private val caches: mutable.Map[(TableId, ColumnId), Cache[AnyRef]] = mutable.Map.empty
+  private val cellCaches: mutable.Map[(TableId, ColumnId), Cache[AnyRef]] = mutable.Map.empty
+  private val rowCaches: mutable.Map[(TableId), Cache[AnyRef]] = mutable.Map.empty
 
   override def startFuture(): Future[_] = {
     logger.info(
@@ -63,8 +66,10 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
   private def registerOnEventBus(): Future[_] = {
     Future.sequence(
       Seq(
-        eventBus.localConsumer(ADDRESS_SET, messageHandlerSet).completionFuture(),
-        eventBus.localConsumer(ADDRESS_RETRIEVE, messageHandlerRetrieve).completionFuture(),
+        eventBus.localConsumer(ADDRESS_SET_CELL, messageHandlerSetCell).completionFuture(),
+        eventBus.localConsumer(ADDRESS_RETRIEVE_CELL, messageHandlerRetrieveCell).completionFuture(),
+        eventBus.localConsumer(ADDRESS_SET_ROW, messageHandlerSetRow).completionFuture(),
+        eventBus.localConsumer(ADDRESS_RETRIEVE_ROW, messageHandlerRetrieveRow).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow).completionFuture(),
@@ -74,54 +79,46 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     )
   }
 
-  private def getCache(tableId: TableId, columnId: ColumnId): Cache[AnyRef] = {
+  private def createCache() = {
+    val builder = CacheBuilder.newBuilder()
 
-    def createCache() = {
-      val builder = CacheBuilder.newBuilder()
-
-      val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
-      if (expireAfterAccess > 0) {
-        builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
-      }
-
-      val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
-      if (maximumSize > 0) {
-        builder.maximumSize(maximumSize)
-      }
-
-      builder.recordStats()
-      builder.build[String, Entry[AnyRef]]
+    val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
+    if (expireAfterAccess > 0) {
+      builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
     }
 
-    caches.get(tableId, columnId) match {
+    val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
+    if (maximumSize > 0) {
+      builder.maximumSize(maximumSize)
+    }
+
+    builder.recordStats()
+    builder.build[String, Entry[AnyRef]]
+  }
+
+  private def getCellCache(tableId: TableId, columnId: ColumnId): Cache[AnyRef] = {
+    cellCaches.get(tableId, columnId) match {
       case Some(cache) => cache
       case None =>
         val cache: Cache[AnyRef] = GuavaCache(createCache())
-        caches.put((tableId, columnId), cache)
+        cellCaches.put((tableId, columnId), cache)
         cache
     }
   }
 
-  private def removeCache(tableId: TableId, columnId: ColumnId): Unit = caches.remove((tableId, columnId))
-
-  private def messageHandlerSet(message: Message[JsonObject]): Unit = {
-    val obj = message.body()
-
-    val value = obj.getValue("value")
-
-    extractTableColumnRow(obj) match {
-      case Some((tableId, columnId, rowId)) =>
-        implicit val scalaCache: Cache[AnyRef] = getCache(tableId, columnId)
-        put(rowId)(value)
-          .map(_ => replyJson(message, tableId, columnId, rowId))
-
+  private def getRowCache(tableId: TableId): Cache[AnyRef] = {
+    rowCaches.get(tableId) match {
+      case Some(cache) => cache
       case None =>
-        logger.error("Message invalid: Fields (tableId, columnId, rowId) should be a Long")
-        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId, rowId) should be a Long")
+        val cache: Cache[AnyRef] = GuavaCache(createCache())
+        rowCaches.put((tableId), cache)
+        cache
     }
   }
 
-  private def extractTableColumnRow(obj: JsonObject): Option[(ColumnId, ColumnId, ColumnId)] = {
+  private def removeCache(tableId: TableId, columnId: ColumnId): Unit = cellCaches.remove((tableId, columnId))
+
+  private def extractTableColumnRow(obj: JsonObject): Option[(TableId, ColumnId, RowId)] = {
     for {
       tableId <- Option(obj.getLong("tableId")).map(_.toLong)
       columnId <- Option(obj.getLong("columnId")).map(_.toLong)
@@ -129,10 +126,35 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     } yield (tableId, columnId, rowId)
   }
 
-  private def messageHandlerRetrieve(message: Message[JsonObject]): Unit = {
-    extractTableColumnRow(message.body()) match {
+  private def extractTableRow(obj: JsonObject): Option[(TableId, RowId)] = {
+    for {
+      tableId <- Option(obj.getLong("tableId")).map(_.toLong)
+      rowId <- Option(obj.getLong("rowId")).map(_.toLong)
+    } yield (tableId, rowId)
+  }
+
+  private def messageHandlerSetCell(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+
+    val value = obj.getValue("value")
+
+    extractTableColumnRow(obj) match {
       case Some((tableId, columnId, rowId)) =>
-        implicit val scalaCache: Cache[AnyRef] = getCache(tableId, columnId)
+        implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
+        put(rowId)(value).map(_ => replyJson(message, tableId, columnId, rowId))
+
+      case None =>
+        logger.error("Message invalid: Fields (tableId, columnId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId, rowId) should be a Long")
+    }
+  }
+
+  private def messageHandlerRetrieveCell(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+
+    extractTableColumnRow(obj) match {
+      case Some((tableId, columnId, rowId)) =>
+        implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
 
         get(rowId)
           .map({
@@ -146,7 +168,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
 
               message.reply(reply)
             case None =>
-              logger.debug(s"messageHandlerRetrieve $tableId, $columnId, $rowId not found")
+              logger.debug(s"messageHandlerRetrieveCell $tableId, $columnId, $rowId not found")
               message.fail(NOT_FOUND_FAILURE, "Not found")
           })
 
@@ -156,11 +178,60 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     }
   }
 
+  private def messageHandlerSetRow(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+    val value = obj.getValue("value")
+
+    logger.info(s"messageHandlerSetRow $obj")
+
+    extractTableRow(obj) match {
+      case Some((tableId, rowId)) => {
+        implicit val scalaCache: Cache[AnyRef] = getRowCache(tableId)
+        logger.debug(s"messageHandlerSetRow $tableId, rowId: $rowId: value: ${value.toString()}")
+        put(rowId)(value).map(_ => replyJson(message, tableId, rowId))
+      }
+      case None => {
+        logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
+      }
+    }
+  }
+
+  private def messageHandlerRetrieveRow(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+
+    extractTableRow(obj) match {
+      case Some((tableId, rowId)) =>
+        implicit val scalaCache: Cache[AnyRef] = getRowCache(tableId)
+
+        get(rowId).map({
+          case Some(value) => {
+            val reply = Json.obj(
+              "tableId" -> tableId,
+              "rowId" -> rowId,
+              "value" -> value
+            )
+
+            logger.debug(s"messageHandlerRetrieveRow $tableId, rowId: $rowId: value: ${value.toString()}")
+            message.reply(reply)
+          }
+          case None => {
+            logger.debug(s"messageHandlerRetrieveRow $tableId, $rowId not found")
+            message.fail(NOT_FOUND_FAILURE, "Not found")
+          }
+        })
+
+      case None =>
+        logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
+    }
+  }
+
   private def messageHandlerInvalidateCell(message: Message[JsonObject]): Unit = {
     extractTableColumnRow(message.body()) match {
       case Some((tableId, columnId, rowId)) =>
         // invalidate cell
-        implicit val scalaCache: Cache[AnyRef] = getCache(tableId, columnId)
+        implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
 
         remove(rowId)
           .map(_ => replyJson(message, tableId, columnId, rowId))
@@ -171,8 +242,13 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     }
   }
 
-  private def replyJson(message: Message[JsonObject], tableId: ColumnId, columnId: ColumnId, rowId: ColumnId): Unit = {
+  private def replyJson(message: Message[JsonObject], tableId: TableId, columnId: ColumnId, rowId: RowId): Unit = {
     val reply = Json.obj("tableId" -> tableId, "columnId" -> columnId, "rowId" -> rowId)
+    message.reply(reply)
+  }
+
+  private def replyJson(message: Message[JsonObject], tableId: TableId, rowId: ColumnId): Unit = {
+    val reply = Json.obj("tableId" -> tableId, "rowId" -> rowId)
     message.reply(reply)
   }
 
@@ -185,7 +261,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     } yield (tableId, columnId)) match {
       case Some((tableId, columnId)) =>
         // invalidate column
-        implicit val scalaCache: Cache[AnyRef] = getCache(tableId, columnId)
+        implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
 
         removeAll()
           .map(_ => {
@@ -203,7 +279,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
   private def filterScalaCaches(tableId: TableId) = {
 
     // invalidate table
-    caches
+    cellCaches
       .filterKeys({
         case (cachedTableId, _) =>
           cachedTableId == tableId
@@ -264,14 +340,14 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
 
   private def messageHandlerInvalidateAll(message: Message[JsonObject]): Unit = {
     Future
-      .sequence(caches.map({
+      .sequence(cellCaches.map({
         case ((tableId, columnId), cache) =>
           implicit val implicitCache: Cache[AnyRef] = implicitly(cache)
 
           removeAll().map(_ => removeCache(tableId, columnId))
       }))
       .onComplete(_ => {
-        caches.clear()
+        cellCaches.clear()
         message.reply(Json.emptyObj())
       })
   }
