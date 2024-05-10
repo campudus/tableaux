@@ -1124,6 +1124,20 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     }
   }
 
+  def retrieveAnnotationsByTable(tableId: TableId)
+      : Future[Seq[(RowId, RowLevelAnnotations, RowPermissions, CellLevelAnnotations)]] = {
+    for {
+      result <- connection.query(
+        s"SELECT ut.id, ${generateFlagsAndAnnotationsProjection(tableId)} FROM user_table_$tableId ut"
+      )
+    } yield {
+      resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(Seq())).map({
+        case rawRow =>
+          (rawRow.id, rawRow.rowLevelAnnotations, rawRow.rowPermissions, rawRow.cellLevelAnnotations)
+      })
+    }
+  }
+
   def retrieveAnnotation(
       tableId: TableId,
       rowId: RowId,
@@ -1149,7 +1163,17 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   }
 
   def retrieveRowsPermissions(tableId: TableId, rowIds: Seq[RowId]): Future[Seq[RowPermissions]] = {
-    Future.sequence(rowIds.map(retrieveRowPermissions(tableId, _)))
+    for {
+      result <- retrieveAnnotationsByTable(tableId)
+    } yield {
+      result
+        .filter({
+          case (rowId, _, rowPermissions, _) => rowIds.contains(rowId)
+        })
+        .map({
+          case (_, _, rowPermissions, _) => rowPermissions
+        })
+    }
   }
 
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {
