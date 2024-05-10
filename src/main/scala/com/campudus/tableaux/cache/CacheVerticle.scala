@@ -25,9 +25,9 @@ object CacheVerticle {
   val DEFAULT_EXPIRE_AFTER_ACCESS: Long = -1L
 
   /**
-    * Max. 10k cached values per column
+    * Max. 100k cached values per column
     */
-  val DEFAULT_MAXIMUM_SIZE: ColumnId = 10000L
+  val DEFAULT_MAXIMUM_SIZE: ColumnId = 100000L
 
   val NOT_FOUND_FAILURE: Int = 404
   val INVALID_MESSAGE: Int = 400
@@ -53,6 +53,10 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
   private val caches: mutable.Map[(TableId, ColumnId), Cache[AnyRef]] = mutable.Map.empty
 
   override def startFuture(): Future[_] = {
+    logger.info(
+      s"CacheVerticle initialized: DEFAULT_MAXIMUM_SIZE: $DEFAULT_MAXIMUM_SIZE, DEFAULT_EXPIRE_AFTER_ACCESS: "
+        + s"$DEFAULT_EXPIRE_AFTER_ACCESS TIMEOUT_AFTER_MILLISECONDS: $TIMEOUT_AFTER_MILLISECONDS"
+    )
     registerOnEventBus()
   }
 
@@ -78,17 +82,14 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
       val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).toLong
       if (expireAfterAccess > 0) {
         builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
-      } else {
-        logger.debug("Cache will not expire!")
       }
 
       val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong
       if (maximumSize > 0) {
-        builder.maximumSize(config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).toLong)
+        builder.maximumSize(maximumSize)
       }
 
       builder.recordStats()
-
       builder.build[String, Entry[AnyRef]]
     }
 
@@ -101,9 +102,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     }
   }
 
-  private def removeCache(tableId: TableId, columnId: ColumnId): Unit = {
-    caches.remove((tableId, columnId))
-  }
+  private def removeCache(tableId: TableId, columnId: ColumnId): Unit = caches.remove((tableId, columnId))
 
   private def messageHandlerSet(message: Message[JsonObject]): Unit = {
     val obj = message.body()
@@ -269,10 +268,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
         case ((tableId, columnId), cache) =>
           implicit val implicitCache: Cache[AnyRef] = implicitly(cache)
 
-          removeAll()
-            .map(_ => {
-              removeCache(tableId, columnId)
-            })
+          removeAll().map(_ => removeCache(tableId, columnId))
       }))
       .onComplete(_ => {
         caches.clear()

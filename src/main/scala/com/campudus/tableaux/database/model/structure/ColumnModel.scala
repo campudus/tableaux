@@ -43,9 +43,9 @@ object CachedColumnModel {
   val DEFAULT_EXPIRE_AFTER_ACCESS: Long = -1L
 
   /**
-    * Max. 10k cached values per column
+    * Max. 100k cached values per column
     */
-  val DEFAULT_MAXIMUM_SIZE: Long = 10000L
+  val DEFAULT_MAXIMUM_SIZE: Long = 100000L
 }
 
 class CachedColumnModel(
@@ -58,14 +58,15 @@ class CachedColumnModel(
   implicit val scalaCache: Cache[Object] = GuavaCache(createCache())
 
   private def createCache() = {
-    val builder = CacheBuilder
-      .newBuilder()
+    val builder = CacheBuilder.newBuilder()
+    logger.info(
+      s"CachedColumnModel initialized: DEFAULT_MAXIMUM_SIZE: $DEFAULT_MAXIMUM_SIZE"
+        + s", DEFAULT_EXPIRE_AFTER_ACCESS: $DEFAULT_EXPIRE_AFTER_ACCESS"
+    )
 
     val expireAfterAccess = config.getLong("expireAfterAccess", DEFAULT_EXPIRE_AFTER_ACCESS).longValue()
     if (expireAfterAccess > 0) {
       builder.expireAfterAccess(expireAfterAccess, TimeUnit.SECONDS)
-    } else {
-      logger.info("Cache will not expire!")
     }
 
     val maximumSize = config.getLong("maximumSize", DEFAULT_MAXIMUM_SIZE).longValue()
