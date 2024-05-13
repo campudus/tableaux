@@ -968,12 +968,10 @@ class TableauxModel(
 
     for {
       valueCache <- CacheClient(this.connection).retrieveCellValue(column.table.id, column.id, rowId)
-      rowCache <- CacheClient(this.connection).retrieveRowValues(column.table.id, rowId)
 
       value <- valueCache match {
         case Some(obj) => {
           // Cache hit
-          logger.debug(s"Cache hit for ${column.table.id} ${column.id} $rowId")
           Future.successful(obj)
         }
         case None =>
@@ -984,20 +982,10 @@ class TableauxModel(
                 // Special case for AttachmentColumns
                 // Can't be handled by RowModel
                 for {
-                  // (rowLevelAnnotations, rowPermissions, cellLevelAnnotations) <-
-                  //   retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
                   attachments <- attachmentModel.retrieveAll(column.table.id, column.id, rowId)
-                } yield Seq(Row(
-                  column.table,
-                  rowId,
-                  null,
-                  null,
-                  null,
-                  // rowLevelAnnotations,
-                  // rowPermissions,
-                  // cellLevelAnnotations,
-                  Seq(attachments)
-                ))
+                  // Dummy value for rowLevelAnnotations, rowPermissions and cellLevelAnnotations
+                  // are okay here, because we only want to get a cell's value
+                } yield Seq(Row(column.table, rowId, null, null, null, Seq(attachments)))
 
               case _ =>
                 for {
@@ -1009,8 +997,6 @@ class TableauxModel(
             // Because we only want a cell's value other
             // potential rows and columns can be ignored.
             val value = rowSeq.head.values.head
-            val rowLevelAnnotations = rowSeq.head.rowLevelAnnotations
-            val rowPermissions = rowSeq.head.rowPermissions
 
             // fire-and-forget don't need to wait for this to return
             CacheClient(this.connection).setCellValue(column.table.id, column.id, rowId, value)
@@ -1018,27 +1004,11 @@ class TableauxModel(
           }
       }
 
-      rowPermissions <- rowCache match {
-        case Some(rowPermissionsArray) => {
-          // Cache hit
-          logger.debug(s"Cache hit for rowPermissions ${column.table.id} $rowId")
-          Future.successful(RowPermissions(rowPermissionsArray))
-        }
-        case None =>
-          // Cache miss
-          for {
-            rowPermissions <- retrieveRowModel.retrieveRowPermissions(column.table.id, rowId)
-          } yield {
-            CacheClient(this.connection).setRowValues(column.table.id, rowId, null, rowPermissions)
-            rowPermissions
-          }
-      }
-
-      // rowPermissions <- retrieveRowModel.retrieveRowPermissions(column.table.id, rowId)
+      rowPermissions <- retrieveRowModel.retrieveRowPermissions(column.table.id, rowId)
       _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions), isInternalCall)
       filteredValue <- removeUnauthorizedLinkAndConcatValues(column, value, true)
     } yield {
-      Cell(column, rowId, value)
+      Cell(column, rowId, filteredValue)
     }
   }
 
