@@ -68,8 +68,8 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
       Seq(
         eventBus.localConsumer(ADDRESS_SET_CELL, messageHandlerSetCell).completionFuture(),
         eventBus.localConsumer(ADDRESS_RETRIEVE_CELL, messageHandlerRetrieveCell).completionFuture(),
-        eventBus.localConsumer(ADDRESS_SET_ROW, messageHandlerSetRow).completionFuture(),
-        eventBus.localConsumer(ADDRESS_RETRIEVE_ROW, messageHandlerRetrieveRow).completionFuture(),
+        eventBus.localConsumer(ADDRESS_SET_ROW, messageHandlerRetrieveRowPermissions).completionFuture(),
+        eventBus.localConsumer(ADDRESS_RETRIEVE_ROW, messageHandlerRetrieveRowPermissions).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow).completionFuture(),
@@ -135,7 +135,6 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
 
   private def messageHandlerSetCell(message: Message[JsonObject]): Unit = {
     val obj = message.body()
-
     val value = obj.getValue("value")
 
     extractTableColumnRow(obj) match {
@@ -178,16 +177,13 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     }
   }
 
-  private def messageHandlerSetRow(message: Message[JsonObject]): Unit = {
+  private def messageHandlerSetRowPermissions(message: Message[JsonObject]): Unit = {
     val obj = message.body()
     val value = obj.getValue("value")
-
-    logger.info(s"messageHandlerSetRow $obj")
 
     extractTableRow(obj) match {
       case Some((tableId, rowId)) => {
         implicit val scalaCache: Cache[AnyRef] = getRowCache(tableId)
-        logger.debug(s"messageHandlerSetRow $tableId, rowId: $rowId: value: ${value.toString()}")
         put(rowId)(value).map(_ => replyJson(message, tableId, rowId))
       }
       case None => {
@@ -197,7 +193,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     }
   }
 
-  private def messageHandlerRetrieveRow(message: Message[JsonObject]): Unit = {
+  private def messageHandlerRetrieveRowPermissions(message: Message[JsonObject]): Unit = {
     val obj = message.body()
 
     extractTableRow(obj) match {
@@ -212,7 +208,6 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
               "value" -> value
             )
 
-            logger.debug(s"messageHandlerRetrieveRow $tableId, rowId: $rowId: value: ${value.toString()}")
             message.reply(reply)
           }
           case None => {

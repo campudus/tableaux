@@ -1,6 +1,7 @@
 package com.campudus.tableaux.database.model.tableaux
 
 import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
+import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
@@ -1124,20 +1125,6 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     }
   }
 
-  def retrieveAnnotationsByTable(tableId: TableId)
-      : Future[Seq[(RowId, RowLevelAnnotations, RowPermissions, CellLevelAnnotations)]] = {
-    for {
-      result <- connection.query(
-        s"SELECT ut.id, ${generateFlagsAndAnnotationsProjection(tableId)} FROM user_table_$tableId ut"
-      )
-    } yield {
-      resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(Seq())).map({
-        case rawRow =>
-          (rawRow.id, rawRow.rowLevelAnnotations, rawRow.rowPermissions, rawRow.cellLevelAnnotations)
-      })
-    }
-  }
-
   def retrieveAnnotation(
       tableId: TableId,
       rowId: RowId,
@@ -1153,27 +1140,30 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[RowPermissions] = {
     for {
-      (_, rowPermissions, _) <- retrieveAnnotations(tableId, rowId, Seq()).recover({
-        case _ =>
-          (RowLevelAnnotations(false, false), RowPermissions(Json.arr()), CellLevelAnnotations(Seq(), Json.arr()))
-      })
-    } yield {
-      rowPermissions
-    }
+      rowCache <- CacheClient(this.connection).retrieveRowPermissions(tableId, rowId)
+      rowPermissions <- rowCache match {
+        case Some(rowPermissions) => {
+          // Cache hit
+          Future.successful(rowPermissions)
+        }
+        case None => {
+          // Cache miss
+          for {
+            (_, rowPermissions, _) <- retrieveAnnotations(tableId, rowId, Seq()).recover({
+              case _ =>
+                (RowLevelAnnotations(false, false), RowPermissions(Json.arr()), CellLevelAnnotations(Seq(), Json.arr()))
+            })
+          } yield {
+            CacheClient(this.connection).setRowPermissions(tableId, rowId, rowPermissions)
+            rowPermissions
+          }
+        }
+      }
+    } yield rowPermissions
   }
 
   def retrieveRowsPermissions(tableId: TableId, rowIds: Seq[RowId]): Future[Seq[RowPermissions]] = {
-    for {
-      result <- retrieveAnnotationsByTable(tableId)
-    } yield {
-      result
-        .filter({
-          case (rowId, _, rowPermissions, _) => rowIds.contains(rowId)
-        })
-        .map({
-          case (_, _, rowPermissions, _) => rowPermissions
-        })
-    }
+    Future.sequence(rowIds.map(retrieveRowPermissions(tableId, _)))
   }
 
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {
