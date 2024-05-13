@@ -51,7 +51,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     router.get(folders).handler(retrieveRootFolder)
     router.getWithRegex(folder).handler(retrieveFolder)
     router.getWithRegex(file).handler(retrieveFile)
-    if (!config.isPublicFileServer) {
+    if (!config.isPublicFileServerEnabled) {
       router.getWithRegex(fileLangStatic).handler(serveFile)
     }
 
@@ -84,7 +84,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     val router = Router.router(vertx)
 
     // RETRIEVE
-    if (config.isPublicFileServer) {
+    if (config.isPublicFileServerEnabled) {
       router.getWithRegex(fileLangStatic).handler(serveFile)
     }
     router

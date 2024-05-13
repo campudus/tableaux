@@ -116,13 +116,20 @@ or with automatic redeploy on code changes
 
 TODO add documentation for authentication and permission handling. Currently the docs are filed in confluence and hackmd.io.
 
+## Feature Flags
+
+Feature flags are used to enable or disable certain features. They have to be configured in the configuration file.Feature flags are:
+
+- `isRowPermissionCheckEnabled`: Enable or disable row permission checks (default: false)
+- `isPublicFileServerEnabled`: Enable or disable the public file server. If enabled, files are accessible without authentication (default: false)
+
 ## Highlevel Features
 
-* Content Creation System
-* Content Translation System
-* Digital Asset Management
-* Editing Publishing Workflow
-* Workspaces & Custom Projections
+- Content Creation System
+- Content Translation System
+- Digital Asset Management
+- Editing Publishing Workflow
+- Workspaces & Custom Projections
 
 ## License
 

@@ -36,7 +36,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
       "workingDirectory",
       "uploadsDirectory",
       rolePermissions,
-      isRowPermissionCheck = false
+      isRowPermissionCheckEnabled = false
     )
   private var deploymentId: String = "CacheVerticleTest"
 

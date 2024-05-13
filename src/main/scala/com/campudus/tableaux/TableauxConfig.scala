@@ -15,8 +15,8 @@ class TableauxConfig(
     uploadsDirectory: String,
     val rolePermissions: JsonObject,
     val openApiUrl: Option[String] = None,
-    val isPublicFileServer: Boolean = false,
-    val isRowPermissionCheck: Boolean = false
+    val isPublicFileServerEnabled: Boolean = false,
+    var isRowPermissionCheckEnabled: Boolean = false
 ) extends VertxAccess {
 
   def uploadsDirectoryPath(): Path = {
