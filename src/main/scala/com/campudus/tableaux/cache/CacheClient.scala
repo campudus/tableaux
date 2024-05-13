@@ -57,18 +57,17 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
       })
   }
 
-  def setRowValues(
+  def setRowPermissions(
       tableId: TableId,
       rowId: RowId,
-      rowLevelAnnotations: RowLevelAnnotations,
       rowPermissions: RowPermissions
   ): Future[_] = {
-    val rowValue = Json.obj("value" -> Json.obj("rowPermissions" -> rowPermissions.getJson))
+    val rowValue = Json.obj("value" -> rowPermissions.rowPermissions)
     val obj = rowKey(tableId, rowId).copy().mergeIn(rowValue)
     eventBus.sendFuture(CacheVerticle.ADDRESS_SET_ROW, obj, options)
   }
 
-  def retrieveRowValues(tableId: TableId, rowId: RowId): Future[Option[JsonArray]] = {
+  def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[Option[RowPermissions]] = {
     val obj = rowKey(tableId, rowId)
 
     eventBus
@@ -76,9 +75,8 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
       .map(value => {
         value match {
           case v if v.body().containsKey("value") => {
-            val value = v.body().getValue("value").asInstanceOf[JsonObject]
-            val rowPermissions = value.getJsonObject("rowPermissions").getJsonArray("permissions")
-            Some(rowPermissions)
+            val array = v.body().getValue("value").asInstanceOf[JsonArray]
+            Some(RowPermissions(array))
           }
           case _ => {
             None
