@@ -64,10 +64,12 @@ trait TestHelper extends TableauxTestBase {
   def createTableauxController(roleConfig: String = defaultViewTableRole)(
       implicit roleModel: RoleModel = initRoleModel(roleConfig)
   ): TableauxController = {
+    // mutate TableauxConfig to test with enabled row permission check
+    tableauxConfig.isRowPermissionCheckEnabled = true
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val structureModel = StructureModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection, structureModel)
+    val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
 
     TableauxController(tableauxConfig, tableauxModel, roleModel)
   }

@@ -33,10 +33,10 @@ object TableauxModel {
 
   type RowPermissionSeq = Seq[String]
 
-  def apply(connection: DatabaseConnection, structureModel: StructureModel)(
+  def apply(connection: DatabaseConnection, structureModel: StructureModel, config: TableauxConfig)(
       implicit roleModel: RoleModel
   ): TableauxModel = {
-    new TableauxModel(connection, structureModel)
+    new TableauxModel(connection, structureModel, config)
   }
 }
 
@@ -68,6 +68,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   protected val connection: DatabaseConnection
 
   protected val structureModel: StructureModel
+
+  protected val config: TableauxConfig
 
   protected[this] implicit def roleModel: RoleModel
 
@@ -123,7 +125,8 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
 
 class TableauxModel(
     override protected[this] val connection: DatabaseConnection,
-    override protected[this] val structureModel: StructureModel
+    override protected[this] val structureModel: StructureModel,
+    override protected[this] val config: TableauxConfig
 )(override implicit val roleModel: RoleModel)
     extends DatabaseQuery
     with StructureDelegateModel {
@@ -1004,11 +1007,18 @@ class TableauxModel(
           }
       }
 
-      rowPermissions <- retrieveRowModel.retrieveRowPermissions(column.table.id, rowId)
-      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions), isInternalCall)
-      filteredValue <- removeUnauthorizedLinkAndConcatValues(column, value, true)
+      resultValue <-
+        if (config.isRowPermissionCheckEnabled) {
+          for {
+            rowPermissions <- retrieveRowModel.retrieveRowPermissions(column.table.id, rowId)
+            _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions), isInternalCall)
+            filteredValue <- removeUnauthorizedLinkAndConcatValues(column, value, true)
+          } yield filteredValue
+        } else {
+          Future.successful(value)
+        }
     } yield {
-      Cell(column, rowId, filteredValue)
+      Cell(column, rowId, resultValue)
     }
   }
 
@@ -1153,9 +1163,16 @@ class TableauxModel(
           isInternalCall = false
         )
       row <- retrieveRow(table, filteredColumns, rowId)
-      // _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(row.rowPermissions), isInternalCall = false)
-      // mutatedRow <- removeUnauthorizedLinkAndConcatValuesFromRow(filteredColumns, row)
-    } yield row
+      resultRow <-
+        if (config.isRowPermissionCheckEnabled) {
+          for {
+            _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(row.rowPermissions), isInternalCall = false)
+            mutatedRow <- removeUnauthorizedLinkAndConcatValuesFromRow(filteredColumns, row)
+          } yield mutatedRow
+        } else {
+          Future.successful(row)
+        }
+    } yield resultRow
   }
 
   private def retrieveRow(table: Table, columns: Seq[ColumnType[_]], rowId: RowId)(
@@ -1210,10 +1227,14 @@ class TableauxModel(
         linkDirection
       )
       rowSeq <- mapRawRows(table, representingColumns, rawRows)
-      // rowSeqWithoutUnauthorizedValues <- removeUnauthorizedForeignValuesFromRows(representingColumns, rowSeq)
+      resultRowSeq <-
+        if (config.isRowPermissionCheckEnabled) {
+          removeUnauthorizedForeignValuesFromRows(representingColumns, rowSeq)
+        } else {
+          Future.successful(rowSeq)
+        }
     } yield {
-      val filteredForeignRows =
-        roleModel.filterDomainObjects(ViewRow, rowSeq, ComparisonObjects(), false)
+      val filteredForeignRows = roleModel.filterDomainObjects(ViewRow, resultRowSeq, ComparisonObjects(), false)
       val rowsSeq = RowSeq(filteredForeignRows, Page(pagination, Some(totalSize)))
       copyFirstColumnOfRowsSeq(rowsSeq)
     }
@@ -1239,9 +1260,14 @@ class TableauxModel(
           isInternalCall = false
         )
       rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
-      // mutatedRows <- removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
+      resultRows <-
+        if (config.isRowPermissionCheckEnabled) {
+          removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
+        } else {
+          Future.successful(rowSeq.rows)
+        }
     } yield {
-      val filteredRows = roleModel.filterDomainObjects(ViewRow, rowSeq.rows, ComparisonObjects(), false)
+      val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
       RowSeq(filteredRows, rowSeq.page)
     }
   }
@@ -1539,8 +1565,15 @@ class TableauxModel(
       typeOpt: Option[String]
   )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
-      rowPermissions <- retrieveRowModel.retrieveRowPermissions(table.id, rowId)
-      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions))
+      _ <-
+        if (config.isRowPermissionCheckEnabled) {
+          for {
+            rowPermissions <- retrieveRowModel.retrieveRowPermissions(table.id, rowId)
+            _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions))
+          } yield ()
+        } else {
+          Future.successful(())
+        }
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
@@ -1555,8 +1588,15 @@ class TableauxModel(
       typeOpt: Option[String]
   )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
-      rowPermissions <- retrieveRowModel.retrieveRowPermissions(table.id, rowId)
-      _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions))
+      _ <-
+        if (config.isRowPermissionCheckEnabled) {
+          for {
+            rowPermissions <- retrieveRowModel.retrieveRowPermissions(table.id, rowId)
+            _ <- roleModel.checkAuthorization(ViewRow, ComparisonObjects(rowPermissions))
+          } yield ()
+        } else {
+          Future.successful(())
+        }
       columns <- retrieveColumns(table)
       cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
       filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)

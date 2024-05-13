@@ -27,7 +27,7 @@ trait SystemControllerAuthTest extends TableauxTestBase {
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection, structureModel)
+    val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
     val serviceModel = ServiceModel(dbConnection)
 
     SystemController(tableauxConfig, systemModel, tableauxModel, structureModel, serviceModel, roleModel)
