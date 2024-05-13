@@ -56,6 +56,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       val rolePermissionsPath = getStringDefault(config, "rolePermissionsPath", Starter.DEFAULT_ROLE_PERMISSIONS_PATH)
       val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
       val isPublicFileServer = config.getBoolean("isPublicFileServer", Starter.DEFAULT_IS_PUBLIC_FILE_SERVER)
+      val isRowPermissionCheck = config.getBoolean("isRowPermissionCheck", Starter.DEFAULT_IS_PUBLIC_FILE_SERVER)
 
       val rolePermissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionsPath, Json.emptyObj())
 
@@ -67,7 +68,8 @@ class Starter extends ScalaVerticle with LazyLogging {
         uploadsDirectory = uploadsDirectory,
         rolePermissions = rolePermissions,
         openApiUrl = openApiUrl,
-        isPublicFileServer = isPublicFileServer
+        isPublicFileServer = isPublicFileServer,
+        isRowPermissionCheck = isRowPermissionCheck
       )
 
       connection = SQLConnection(vertxAccessContainer(), databaseConfig)
@@ -76,7 +78,7 @@ class Starter extends ScalaVerticle with LazyLogging {
         _ <- createUploadsDirectories(tableauxConfig)
         server <- deployHttpServer(port, host, tableauxConfig, connection)
         _ <- deployJsonSchemaValidatorVerticle(jsonSchemaConfig)
-        _ <- deployCacheVerticle(cacheConfig)
+        _ <- deployCacheVerticle(cacheConfig, tableauxConfig)
       } yield {
         this.server = server
       }
@@ -111,9 +113,7 @@ class Starter extends ScalaVerticle with LazyLogging {
   }
 
   private def deployJsonSchemaValidatorVerticle(config: JsonObject): Future[String] = {
-
-    val options = DeploymentOptions()
-      .setConfig(config)
+    val options = DeploymentOptions().setConfig(config)
 
     val jsonSchemaValidatorClient = JsonSchemaValidatorClient(vertx)
     val deployFuture = for {
@@ -133,11 +133,10 @@ class Starter extends ScalaVerticle with LazyLogging {
     deployFuture
   }
 
-  private def deployCacheVerticle(config: JsonObject): Future[String] = {
-    val options = DeploymentOptions()
-      .setConfig(config)
+  private def deployCacheVerticle(cacheConfig: JsonObject, tableauxConfig: TableauxConfig): Future[String] = {
+    val options = DeploymentOptions().setConfig(cacheConfig)
 
-    val deployFuture = vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[CacheVerticle], options)
+    val deployFuture = vertx.deployVerticleFuture(new CacheVerticle(tableauxConfig), options)
 
     deployFuture.onComplete({
       case Success(id) =>
