@@ -33,15 +33,16 @@ object CacheVerticle {
   val INVALID_MESSAGE: Int = 400
 
   val ADDRESS_SET_CELL: String = "cache.set.cell"
-  val ADDRESS_SET_ROW: String = "cache.set.row"
+  val ADDRESS_SET_ROW_PERMISSIONS: String = "cache.set.row_permissions"
   val ADDRESS_RETRIEVE_CELL: String = "cache.retrieve.cell"
-  val ADDRESS_RETRIEVE_ROW: String = "cache.retrieve.rom"
+  val ADDRESS_RETRIEVE_ROW_PERMISSIONS: String = "cache.retrieve.row_permissions"
 
   val ADDRESS_INVALIDATE_CELL: String = "cache.invalidate.cell"
   val ADDRESS_INVALIDATE_COLUMN: String = "cache.invalidate.column"
   val ADDRESS_INVALIDATE_ROW: String = "cache.invalidate.row"
   val ADDRESS_INVALIDATE_TABLE: String = "cache.invalidate.table"
   val ADDRESS_INVALIDATE_ALL: String = "cache.invalidate.all"
+  val ADDRESS_INVALIDATE_ROW_PERMISSIONS: String = "cache.invalidate.row_permissions"
 
   val TIMEOUT_AFTER_MILLISECONDS: Int = 400
 }
@@ -52,8 +53,12 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
 
   private lazy val eventBus = vertx.eventBus()
 
-  private val cellCaches: mutable.Map[(TableId, ColumnId), Cache[AnyRef]] = mutable.Map.empty
-  private val rowCaches: mutable.Map[(TableId), Cache[AnyRef]] = mutable.Map.empty
+  type CellCaches = mutable.Map[(TableId, ColumnId), Cache[AnyRef]]
+  type RowPermissionsCaches = mutable.Map[(TableId), Cache[AnyRef]]
+  type Caches = Either[CellCaches, RowPermissionsCaches]
+
+  private val cellCaches: CellCaches = mutable.Map.empty
+  private val rowPermissionsCaches: RowPermissionsCaches = mutable.Map.empty
 
   override def startFuture(): Future[_] = {
     logger.info(
@@ -68,13 +73,20 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
       Seq(
         eventBus.localConsumer(ADDRESS_SET_CELL, messageHandlerSetCell).completionFuture(),
         eventBus.localConsumer(ADDRESS_RETRIEVE_CELL, messageHandlerRetrieveCell).completionFuture(),
-        eventBus.localConsumer(ADDRESS_SET_ROW, messageHandlerRetrieveRowPermissions).completionFuture(),
-        eventBus.localConsumer(ADDRESS_RETRIEVE_ROW, messageHandlerRetrieveRowPermissions).completionFuture(),
+        eventBus.localConsumer(ADDRESS_SET_ROW_PERMISSIONS, messageHandlerRetrieveRowPermissions).completionFuture(),
+        eventBus.localConsumer(
+          ADDRESS_RETRIEVE_ROW_PERMISSIONS,
+          messageHandlerRetrieveRowPermissions
+        ).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow).completionFuture(),
         eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable).completionFuture(),
-        eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll).completionFuture()
+        eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll).completionFuture(),
+        eventBus.localConsumer(
+          ADDRESS_INVALIDATE_ROW_PERMISSIONS,
+          messageHandlerInvalidateRowPermissions
+        ).completionFuture()
       )
     )
   }
@@ -106,12 +118,12 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     }
   }
 
-  private def getRowCache(tableId: TableId): Cache[AnyRef] = {
-    rowCaches.get(tableId) match {
+  private def getRowPermissionsCache(tableId: TableId): Cache[AnyRef] = {
+    rowPermissionsCaches.get(tableId) match {
       case Some(cache) => cache
       case None =>
         val cache: Cache[AnyRef] = GuavaCache(createCache())
-        rowCaches.put((tableId), cache)
+        rowPermissionsCaches.put((tableId), cache)
         cache
     }
   }
@@ -183,7 +195,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
 
     extractTableRow(obj) match {
       case Some((tableId, rowId)) => {
-        implicit val scalaCache: Cache[AnyRef] = getRowCache(tableId)
+        implicit val scalaCache: Cache[AnyRef] = getRowPermissionsCache(tableId)
         put(rowId)(value).map(_ => replyJson(message, tableId, rowId))
       }
       case None => {
@@ -198,7 +210,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
 
     extractTableRow(obj) match {
       case Some((tableId, rowId)) =>
-        implicit val scalaCache: Cache[AnyRef] = getRowCache(tableId)
+        implicit val scalaCache: Cache[AnyRef] = getRowPermissionsCache(tableId)
 
         get(rowId).map({
           case Some(value) => {
@@ -271,28 +283,30 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     }
   }
 
-  private def filterScalaCaches(tableId: TableId) = {
-
+  private def filterCellCaches(tableId: TableId) = {
     // invalidate table
-    cellCaches
-      .filterKeys({
-        case (cachedTableId, _) =>
-          cachedTableId == tableId
-      })
-      .values
+    cellCaches.filterKeys({
+      case (cachedTableId, _) =>
+        cachedTableId == tableId
+    }).values
+  }
+
+  private def filterRowPermissionCaches(tableId: TableId) = {
+    // invalidate table
+    rowPermissionsCaches.filterKeys({
+      case (cachedTableId) =>
+        cachedTableId == tableId
+    }).values
   }
 
   private def messageHandlerInvalidateRow(message: Message[JsonObject]): Unit = {
     val obj = message.body()
 
-    (for {
-      tableId <- Option(obj.getLong("tableId")).map(_.toLong)
-      rowId <- Option(obj.getLong("rowId")).map(_.toLong)
-    } yield (tableId, rowId)) match {
+    (extractTableRow(obj)) match {
       case Some((tableId, rowId)) =>
         Future
           .sequence(
-            filterScalaCaches(tableId)
+            filterCellCaches(tableId)
               .map(implicit cache => {
                 remove(rowId)
               })
@@ -317,7 +331,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
       case Some(tableId) =>
         Future
           .sequence(
-            filterScalaCaches(tableId)
+            filterCellCaches(tableId)
               .map(implicit cache => {
                 removeAll()
               })
@@ -345,5 +359,28 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
         cellCaches.clear()
         message.reply(Json.emptyObj())
       })
+  }
+
+  private def messageHandlerInvalidateRowPermissions(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+
+    (extractTableRow(obj)) match {
+      case Some((tableId, rowId)) =>
+        Future
+          .sequence(
+            filterRowPermissionCaches(tableId)
+              .map(implicit cache => {
+                remove(rowId)
+              })
+          )
+          .map(_ => {
+            val reply = Json.obj("tableId" -> tableId, "rowId" -> rowId)
+            message.reply(reply)
+          })
+
+      case None =>
+        logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
+    }
   }
 }

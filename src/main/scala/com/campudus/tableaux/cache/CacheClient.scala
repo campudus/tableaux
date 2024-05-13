@@ -64,14 +64,14 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
   ): Future[_] = {
     val rowValue = Json.obj("value" -> rowPermissions.rowPermissions)
     val obj = rowKey(tableId, rowId).copy().mergeIn(rowValue)
-    eventBus.sendFuture(CacheVerticle.ADDRESS_SET_ROW, obj, options)
+    eventBus.sendFuture(CacheVerticle.ADDRESS_SET_ROW_PERMISSIONS, obj, options)
   }
 
   def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[Option[RowPermissions]] = {
     val obj = rowKey(tableId, rowId)
 
     eventBus
-      .sendFuture[JsonObject](CacheVerticle.ADDRESS_RETRIEVE_ROW, obj, options)
+      .sendFuture[JsonObject](CacheVerticle.ADDRESS_RETRIEVE_ROW_PERMISSIONS, obj, options)
       .map(value => {
         value match {
           case v if v.body().containsKey("value") => {
@@ -89,6 +89,11 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
         case ex =>
           Future.failed(ex)
       })
+  }
+
+  def invalidateRowPermissions(tableId: TableId, rowId: RowId): Future[_] = {
+    val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
+    eventBus.sendFuture(CacheVerticle.ADDRESS_INVALIDATE_ROW_PERMISSIONS, obj)
   }
 
   def invalidateCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[_] = {
