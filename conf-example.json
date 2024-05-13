@@ -5,6 +5,7 @@
   "workingDirectory": "./",
   "rolePermissionsPath": "./role-permissions.json",
   "isPublicFileServer": false,
+  "isRowPermissionCheck": false,
   "openApiUrl": "https://my.domain.com/api/docs",
   "database": {
     "host": "localhost",
