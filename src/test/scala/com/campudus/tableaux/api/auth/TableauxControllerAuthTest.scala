@@ -41,7 +41,7 @@ trait TableauxControllerAuthTest extends TableauxTestBase {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val structureModel = StructureModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection, structureModel)
+    val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
 
     TableauxController(tableauxConfig, tableauxModel, roleModel)
   }

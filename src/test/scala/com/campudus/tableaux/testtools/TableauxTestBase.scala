@@ -98,7 +98,7 @@ trait TableauxTestBase
       config.getString("workingDirectory"),
       config.getString("uploadsDirectory"),
       rolePermissions,
-      isRowPermissionCheck = false
+      isRowPermissionCheckEnabled = false
     )
 
     val async = context.async()

@@ -4,8 +4,8 @@
   "uploadsDirectory": "uploads/",
   "workingDirectory": "./",
   "rolePermissionsPath": "./role-permissions.json",
-  "isPublicFileServer": false,
-  "isRowPermissionCheck": false,
+  "isPublicFileServerEnabled": false,
+  "isRowPermissionCheckEnabled": false,
   "openApiUrl": "https://my.domain.com/api/docs",
   "database": {
     "host": "localhost",
