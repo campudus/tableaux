@@ -1,11 +1,14 @@
 package com.campudus.tableaux.cache
 
+import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.{TestAssertionHelper, TestCustomException}
+import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.lang.scala.VertxExecutionContext
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -21,7 +24,21 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
 
   override val vertx: Vertx = Vertx.vertx()
 
-  private var deploymentId: String = ""
+  val databaseConfig = Json.emptyObj()
+  val authConfig = Json.emptyObj()
+  val rolePermissions = Json.emptyObj()
+
+  val tableauxConfig =
+    new TableauxConfig(
+      vertx,
+      authConfig,
+      databaseConfig,
+      "workingDirectory",
+      "uploadsDirectory",
+      rolePermissions,
+      isRowPermissionCheck = false
+    )
+  private var deploymentId: String = "CacheVerticleTest"
 
   @Before
   def before(context: TestContext) {
@@ -43,7 +60,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
     }: Try[String] => Unit
 
     vertx
-      .deployVerticleFuture(ScalaVerticle.nameForVerticle[CacheVerticle], options)
+      .deployVerticleFuture(new CacheVerticle(tableauxConfig), options)
       .onComplete(completionHandler)
   }
 

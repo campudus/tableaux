@@ -1,5 +1,6 @@
 package com.campudus.tableaux.cache
 
+import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 
 import io.vertx.core.Handler
@@ -47,9 +48,13 @@ object CacheVerticle {
   val ADDRESS_INVALIDATE_ROW_PERMISSIONS: String = "cache.invalidate.row_permissions"
 
   val TIMEOUT_AFTER_MILLISECONDS: Int = 400
+
+  def apply(tableauxConfig: TableauxConfig): CacheVerticle = {
+    new CacheVerticle(tableauxConfig)
+  }
 }
 
-class CacheVerticle extends ScalaVerticle with LazyLogging {
+class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with LazyLogging {
 
   import CacheVerticle._
 
