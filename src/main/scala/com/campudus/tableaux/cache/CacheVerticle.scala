@@ -2,7 +2,9 @@ package com.campudus.tableaux.cache
 
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 
+import io.vertx.core.Handler
 import io.vertx.lang.scala.ScalaVerticle
+import io.vertx.scala.core.eventbus.EventBus
 import io.vertx.scala.core.eventbus.Message
 import org.vertx.scala.core.json.{Json, JsonObject}
 
@@ -68,25 +70,26 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     registerOnEventBus()
   }
 
+  private def registerHandler(
+      eventBus: EventBus,
+      address: String,
+      handler: Handler[Message[JsonObject]]
+  ): Future[Unit] = eventBus.localConsumer(address, handler).completionFuture()
+
   private def registerOnEventBus(): Future[_] = {
     Future.sequence(
       Seq(
-        eventBus.localConsumer(ADDRESS_SET_CELL, messageHandlerSetCell).completionFuture(),
-        eventBus.localConsumer(ADDRESS_RETRIEVE_CELL, messageHandlerRetrieveCell).completionFuture(),
-        eventBus.localConsumer(ADDRESS_SET_ROW_PERMISSIONS, messageHandlerRetrieveRowPermissions).completionFuture(),
-        eventBus.localConsumer(
-          ADDRESS_RETRIEVE_ROW_PERMISSIONS,
-          messageHandlerRetrieveRowPermissions
-        ).completionFuture(),
-        eventBus.localConsumer(ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell).completionFuture(),
-        eventBus.localConsumer(ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn).completionFuture(),
-        eventBus.localConsumer(ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow).completionFuture(),
-        eventBus.localConsumer(ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable).completionFuture(),
-        eventBus.localConsumer(ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll).completionFuture(),
-        eventBus.localConsumer(
-          ADDRESS_INVALIDATE_ROW_PERMISSIONS,
-          messageHandlerInvalidateRowPermissions
-        ).completionFuture()
+        registerHandler(eventBus, ADDRESS_SET_CELL, messageHandlerSetCell),
+        registerHandler(eventBus, ADDRESS_SET_CELL, messageHandlerSetCell),
+        registerHandler(eventBus, ADDRESS_RETRIEVE_CELL, messageHandlerRetrieveCell),
+        registerHandler(eventBus, ADDRESS_SET_ROW_PERMISSIONS, messageHandlerSetRowPermissions),
+        registerHandler(eventBus, ADDRESS_RETRIEVE_ROW_PERMISSIONS, messageHandlerRetrieveRowPermissions),
+        registerHandler(eventBus, ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell),
+        registerHandler(eventBus, ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn),
+        registerHandler(eventBus, ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow),
+        registerHandler(eventBus, ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable),
+        registerHandler(eventBus, ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll),
+        registerHandler(eventBus, ADDRESS_INVALIDATE_ROW_PERMISSIONS, messageHandlerInvalidateRowPermissions)
       )
     )
   }
@@ -196,6 +199,7 @@ class CacheVerticle extends ScalaVerticle with LazyLogging {
     extractTableRow(obj) match {
       case Some((tableId, rowId)) => {
         implicit val scalaCache: Cache[AnyRef] = getRowPermissionsCache(tableId)
+        logger.info(s"messageHandlerSetRowPermissions $obj $tableId $rowId $value")
         put(rowId)(value).map(_ => replyJson(message, tableId, rowId))
       }
       case None => {

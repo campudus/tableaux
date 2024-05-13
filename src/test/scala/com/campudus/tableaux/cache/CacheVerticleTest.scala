@@ -86,7 +86,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
       vertx
         .eventBus()
         .sendFuture[JsonObject](
-          CacheVerticle.ADDRESS_RETRIEVE,
+          CacheVerticle.ADDRESS_RETRIEVE_CELL,
           Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1)
         )
         .flatMap(_ => Future.failed(TestCustomException("shouldn't succeed", "", 0)))
@@ -106,14 +106,14 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> Json.obj("test" -> "hallo"))
           )
 
         result <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_RETRIEVE,
+            CacheVerticle.ADDRESS_RETRIEVE_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1)
           )
       } yield {
@@ -129,7 +129,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> Json.obj("test" -> "hallo"))
           )
 
@@ -143,7 +143,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_RETRIEVE,
+            CacheVerticle.ADDRESS_RETRIEVE_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1)
           )
           .flatMap({ json =>
@@ -166,13 +166,13 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> Json.obj("test" -> "hallo"))
           )
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 2, "value" -> Json.obj("test" -> "hallo"))
           )
 
@@ -186,7 +186,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_RETRIEVE,
+            CacheVerticle.ADDRESS_RETRIEVE_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1)
           )
           .flatMap({ json =>
@@ -209,14 +209,14 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> Json.obj("test" -> "hallo"))
           )
 
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 2, "value" -> Json.obj("test" -> "hallo"))
           )
 
@@ -227,7 +227,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_RETRIEVE,
+            CacheVerticle.ADDRESS_RETRIEVE_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1)
           )
           .flatMap({ json =>
@@ -250,26 +250,26 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> Json.obj("test" -> "hallo111"))
           )
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 2, "value" -> Json.obj("test" -> "hallo112"))
           )
 
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 2, "columnId" -> 1, "rowId" -> 1, "value" -> Json.obj("test" -> "hallo211"))
           )
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 2, "columnId" -> 1, "rowId" -> 2, "value" -> Json.obj("test" -> "hallo212"))
           )
 
@@ -283,7 +283,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         value <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_RETRIEVE,
+            CacheVerticle.ADDRESS_RETRIEVE_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1)
           )
           .recoverWith({
@@ -295,7 +295,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_RETRIEVE,
+            CacheVerticle.ADDRESS_RETRIEVE_CELL,
             Json.obj("tableId" -> 2, "columnId" -> 1, "rowId" -> 1)
           )
           .flatMap({ json =>
@@ -320,13 +320,13 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1, "value" -> Json.obj("test" -> "hallo111"))
           )
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_SET,
+            CacheVerticle.ADDRESS_SET_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 2, "value" -> Json.obj("test" -> "hallo112"))
           )
 
@@ -340,7 +340,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         value <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_RETRIEVE,
+            CacheVerticle.ADDRESS_RETRIEVE_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 1)
           )
           .recoverWith({
@@ -352,7 +352,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
         _ <- vertx
           .eventBus()
           .sendFuture[JsonObject](
-            CacheVerticle.ADDRESS_RETRIEVE,
+            CacheVerticle.ADDRESS_RETRIEVE_CELL,
             Json.obj("tableId" -> 1, "columnId" -> 1, "rowId" -> 2)
           )
           .flatMap({ json =>
@@ -366,6 +366,92 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
           })
       } yield {
         assertEquals(Json.obj("test" -> "hallo111"), value.body.getJsonObject("value"))
+      }
+    }
+  }
+
+  @Test
+  def testRetrievingNonExistingCachedRowPermissions(implicit context: TestContext): Unit = {
+    okTest {
+      vertx
+        .eventBus()
+        .sendFuture[JsonObject](
+          CacheVerticle.ADDRESS_RETRIEVE_ROW_PERMISSIONS,
+          Json.obj("tableId" -> 1, "rowId" -> 1)
+        )
+        .flatMap(_ => Future.failed(TestCustomException("shouldn't succeed", "", 0)))
+        .recoverWith({
+          case e @ TestCustomException("shouldn't succeed", _, _) =>
+            Future.failed(e)
+          case _: Throwable =>
+            Future.successful(())
+        })
+    }
+  }
+
+  @Test
+  def testRetrievingCachedRowPermissions(implicit context: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- vertx
+          .eventBus()
+          .sendFuture[JsonObject](
+            CacheVerticle.ADDRESS_SET_ROW_PERMISSIONS,
+            Json.obj("tableId" -> 1, "rowId" -> 1, "value" -> Json.arr("foo", "bar", "baz"))
+          )
+
+        result <- vertx
+          .eventBus()
+          .sendFuture[JsonObject](
+            CacheVerticle.ADDRESS_RETRIEVE_ROW_PERMISSIONS,
+            Json.obj("tableId" -> 1, "rowId" -> 1)
+          )
+      } yield {
+        assertEquals(Json.arr("foo", "bar", "baz"), result.body().getJsonArray("value"))
+      }
+    }
+  }
+
+  @Test
+  def testInvalidateCachedRowPermissions(implicit context: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- vertx
+          .eventBus()
+          .sendFuture[JsonObject](
+            CacheVerticle.ADDRESS_SET_ROW_PERMISSIONS,
+            Json.obj("tableId" -> 1, "rowId" -> 1, "value" -> Json.arr("1", "2"))
+          )
+
+        resultBeforeInvalidation <- vertx
+          .eventBus()
+          .sendFuture[JsonObject](
+            CacheVerticle.ADDRESS_RETRIEVE_ROW_PERMISSIONS,
+            Json.obj("tableId" -> 1, "rowId" -> 1)
+          )
+
+        _ <- vertx
+          .eventBus()
+          .sendFuture[JsonObject](
+            CacheVerticle.ADDRESS_INVALIDATE_ROW_PERMISSIONS,
+            Json.obj("tableId" -> 1, "rowId" -> 1)
+          )
+
+        _ <- vertx
+          .eventBus()
+          .sendFuture[JsonObject](
+            CacheVerticle.ADDRESS_RETRIEVE_ROW_PERMISSIONS,
+            Json.obj("tableId" -> 1, "rowId" -> 1)
+          )
+          .flatMap(_ => Future.failed(TestCustomException("shouldn't succeed", "", 0)))
+          .recoverWith({
+            case e @ TestCustomException("shouldn't succeed", _, _) =>
+              Future.failed(e)
+            case _: Throwable =>
+              Future.successful(())
+          })
+      } yield {
+        assertEquals(Json.arr("1", "2"), resultBeforeInvalidation.body().getJsonArray("value"))
       }
     }
   }

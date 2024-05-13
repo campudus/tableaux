@@ -186,6 +186,7 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
 
     for {
       _ <- connection.query(updateQuery, Json.arr(value, rowId))
+      _ <- CacheClient(this.connection).invalidateRowPermissions(tableId, rowId)
     } yield rowPermissionsOpt
   }
 }
