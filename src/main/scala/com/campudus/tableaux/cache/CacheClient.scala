@@ -57,30 +57,33 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
       })
   }
 
-  def setCellRowValues(
+  def setRowValues(
       tableId: TableId,
       rowId: RowId,
       rowLevelAnnotations: RowLevelAnnotations,
       rowPermissions: RowPermissions
   ): Future[_] = {
-    val rowValue = Json.obj("value" -> Json.obj(
-      "rowLevelAnnotations" -> rowLevelAnnotations.getJson,
-      "rowPermissions" -> rowPermissions.getJson
-    ))
+    val rowValue = Json.obj("value" -> Json.obj("rowPermissions" -> rowPermissions.getJson))
     val obj = rowKey(tableId, rowId).copy().mergeIn(rowValue)
     eventBus.sendFuture(CacheVerticle.ADDRESS_SET_ROW, obj, options)
   }
 
-  def retrieveRowValue(tableId: TableId, rowId: RowId): Future[Option[Any]] = {
+  def retrieveRowValues(tableId: TableId, rowId: RowId): Future[Option[JsonArray]] = {
     val obj = rowKey(tableId, rowId)
 
     eventBus
       .sendFuture[JsonObject](CacheVerticle.ADDRESS_RETRIEVE_ROW, obj, options)
-      .map({
-        case v if v.body().containsKey("value") =>
-          Some(v.body().getValue("value"))
-        case _ =>
-          None
+      .map(value => {
+        value match {
+          case v if v.body().containsKey("value") => {
+            val value = v.body().getValue("value").asInstanceOf[JsonObject]
+            val rowPermissions = value.getJsonObject("rowPermissions").getJsonArray("permissions")
+            Some(rowPermissions)
+          }
+          case _ => {
+            None
+          }
+        }
       })
       .recoverWith({
         case ex: ReplyException if ex.failureCode() == CacheVerticle.NOT_FOUND_FAILURE =>
