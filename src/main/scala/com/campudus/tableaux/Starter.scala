@@ -24,7 +24,8 @@ object Starter {
   val DEFAULT_WORKING_DIRECTORY = "./"
   val DEFAULT_UPLOADS_DIRECTORY = "uploads/"
   val DEFAULT_ROLE_PERMISSIONS_PATH = "./role-permissions.json"
-  val DEFAULT_IS_PUBLIC_FILE_SERVER = false
+  val DEFAULT_IS_PUBLIC_FILE_SERVER_ENABLED = false
+  val DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED = false
 }
 
 class Starter extends ScalaVerticle with LazyLogging {
@@ -58,9 +59,9 @@ class Starter extends ScalaVerticle with LazyLogging {
 
       // feature flags
       val isPublicFileServerEnabled =
-        config.getBoolean("isPublicFileServerEnabled", Starter.DEFAULT_IS_PUBLIC_FILE_SERVER)
+        config.getBoolean("isPublicFileServerEnabled", Starter.DEFAULT_IS_PUBLIC_FILE_SERVER_ENABLED)
       val isRowPermissionCheckEnabled =
-        config.getBoolean("isRowPermissionCheckEnabled", Starter.DEFAULT_IS_PUBLIC_FILE_SERVER)
+        config.getBoolean("isRowPermissionCheckEnabled", Starter.DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED)
 
       val rolePermissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionsPath, Json.emptyObj())
 
