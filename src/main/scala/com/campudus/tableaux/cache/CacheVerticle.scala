@@ -85,7 +85,6 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
     Future.sequence(
       Seq(
         registerHandler(eventBus, ADDRESS_SET_CELL, messageHandlerSetCell),
-        registerHandler(eventBus, ADDRESS_SET_CELL, messageHandlerSetCell),
         registerHandler(eventBus, ADDRESS_RETRIEVE_CELL, messageHandlerRetrieveCell),
         registerHandler(eventBus, ADDRESS_SET_ROW_PERMISSIONS, messageHandlerSetRowPermissions),
         registerHandler(eventBus, ADDRESS_RETRIEVE_ROW_PERMISSIONS, messageHandlerRetrieveRowPermissions),
