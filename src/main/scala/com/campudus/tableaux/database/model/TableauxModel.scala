@@ -1017,8 +1017,11 @@ class TableauxModel(
         } else {
           Future.successful(value)
         }
+
+      // TODO use cache for rowLevelAnnotations
+      (rowLevelAnnotations, _, _) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
     } yield {
-      Cell(column, rowId, resultValue)
+      Cell(column, rowId, resultValue, rowLevelAnnotations)
     }
   }
 
