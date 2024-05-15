@@ -1440,8 +1440,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
        |(SELECT
        |    lt$linkId.${direction.fromSql} AS ${direction.fromSql},
        |    (
-       |      jsonb_build_object('id', ut$toTableId.id, 'value', $value)
-       |      ||
+       |      jsonb_build_object('id', ut$toTableId.id, 'value', $value) ||
        |      jsonb_strip_nulls(
        |        jsonb_build_object(
        |          'final', CASE WHEN ut$toTableId.final IS TRUE THEN ut$toTableId.final ELSE NULL END,
