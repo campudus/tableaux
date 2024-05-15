@@ -103,7 +103,6 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
   ): Future[_] = {
     val rowValue = Json.obj("value" -> rowLevelAnnotations.getJson)
     val obj = rowKey(tableId, rowId).copy().mergeIn(rowValue)
-    println(s"set cache value for row level annotations: $obj")
     eventBus.sendFuture(CacheVerticle.ADDRESS_SET_ROW_LEVEL_ANNOTATIONS, obj, options)
   }
 

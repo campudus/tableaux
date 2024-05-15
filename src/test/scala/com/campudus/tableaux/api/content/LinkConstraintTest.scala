@@ -1682,11 +1682,7 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
           sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?final=true")
         resultForeignRowsArchived <-
           sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?archived=true")
-
-        rrr <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
       } yield {
-        println(s"rrr: $rrr")
-
         assertEquals(0, resultCell.getJsonArray("value").size())
 
         assertEquals(2, resultForeignRowsFinal.getJsonObject("page").getLong("totalSize").longValue())

@@ -243,7 +243,6 @@ class DuplicateRowTest extends TableauxTestBase {
       modelTableId = tableIds(0)
       _ <- sendRequest("POST", s"/tables/$modelTableId/rows/1/duplicate?skipConstrainedLinks=true&annotateSkipped=true")
       res <- sendRequest("GET", s"/tables/$modelTableId/columns/3/rows/3/annotations")
-      _ = println(res)
     } yield {
       val checkMeAnnotation = res.getJsonArray("annotations").getJsonArray(0).getJsonObject(0)
       assertEquals(checkMeAnnotation.getString("type"), CellAnnotationType.FLAG)
