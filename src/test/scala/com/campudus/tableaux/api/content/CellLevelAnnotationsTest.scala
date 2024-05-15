@@ -559,7 +559,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       for {
         tableId <- createEmptyDefaultTable()
 
-        // make second column an identifer
+        // make second column an identifier
         _ <- sendRequest("POST", s"/tables/$tableId/columns/2", Json.obj("identifier" -> true))
 
         // empty row
@@ -592,7 +592,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
       for {
         tableId <- createEmptyDefaultTable()
 
-        // make second column an identifer
+        // make second column an identifier
         _ <- sendRequest("POST", s"/tables/$tableId/columns/2", Json.obj("identifier" -> true))
 
         // empty row

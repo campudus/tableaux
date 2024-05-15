@@ -1644,13 +1644,15 @@
                           "id": 1,
                           "values": [
                             "Shimano"
-                          ]
+                          ],
+                          "final": true
                         },
                         {
                           "id": 2,
                           "values": [
                             "Sram "
-                          ]
+                          ],
+                          "archived": true
                         }
                       ]
                     }
@@ -1713,13 +1715,15 @@
                           "id": 1,
                           "values": [
                             "Shimano"
-                          ]
+                          ],
+                          "final": true
                         },
                         {
                           "id": 2,
                           "values": [
-                            "Sram "
-                          ]
+                            "Sram"
+                          ],
+                          "archived": true
                         }
                       ]
                     }
@@ -2476,6 +2480,9 @@
       "allOf": [
         {
           "$ref": "#/definitions/Property:Status"
+        },
+        {
+          "$ref": "#/definitions/Property:RowLevelAnnotations"
         }
       ],
       "properties": {
@@ -3954,6 +3961,19 @@
           "type": "integer",
           "format": "int32",
           "example": 1
+        }
+      }
+    },
+    "Property:RowLevelAnnotations": {
+      "type": "object",
+      "properties": {
+        "final": {
+          "type": "boolean",
+          "example": true
+        },
+        "archived": {
+          "type": "boolean",
+          "example": true
         }
       }
     }
