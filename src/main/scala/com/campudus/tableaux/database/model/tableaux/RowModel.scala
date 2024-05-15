@@ -1435,18 +1435,27 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     s"""(
        |SELECT
-       | json_agg(sub.value)
+       |  json_agg(sub.value)
        |FROM
        |(SELECT
-       |   lt$linkId.${direction.fromSql} AS ${direction.fromSql},
-       |   json_build_object('id', ut$toTableId.id, 'value', $value) AS value
+       |    lt$linkId.${direction.fromSql} AS ${direction.fromSql},
+       |    (
+       |      jsonb_build_object('id', ut$toTableId.id, 'value', $value)
+       |      ||
+       |      jsonb_strip_nulls(
+       |        jsonb_build_object(
+       |          'final', CASE WHEN ut$toTableId.final IS TRUE THEN ut$toTableId.final ELSE NULL END,
+       |          'archived', CASE WHEN ut$toTableId.archived IS TRUE THEN ut$toTableId.archived ELSE NULL END
+       |        )
+       |      )
+       |    ) AS value
        | FROM
-       |   link_table_$linkId lt$linkId
-       |   JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
-       |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
-       | WHERE $column IS NOT NULL
-       | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
-       | ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+       |    link_table_$linkId lt$linkId
+       |    JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
+       |    LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
+       |  WHERE $column IS NOT NULL
+       |  GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+       |  ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
        |) sub
        |WHERE sub.${direction.fromSql} = ut.id
        |GROUP BY sub.${direction.fromSql}) AS column_${c.id}""".stripMargin
@@ -1456,7 +1465,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     s"""|ut.final AS final_flag,
         |ut.archived AS archived_flag,
         |(SELECT json_agg(
-        |  json_build_object(
+        |  jsonb_build_object(
         |    'column_id', column_id,
         |    'uuid', uuid,
         |    'langtags', langtags::text[],
