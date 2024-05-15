@@ -1023,16 +1023,12 @@ class TableauxModel(
 
       rowLevelAnnotations <- rowLevelAnnotationsCache match {
         case Some(annotations) => {
-          println(s"Cache hit for rowLevelAnnotations for table ${column.table.id} and row $rowId")
           Future.successful(annotations)
         }
         case None => {
           for {
             (rowLevelAnnotations, _, _) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
           } yield {
-            println(
-              s"Cache miss for rowLevelAnnotations for table ${column.table.id} and row $rowId, rowLevelAnnotations: $rowLevelAnnotations"
-            )
             // fire-and-forget don't need to wait for this to return
             CacheClient(this.connection).setRowLevelAnnotations(column.table.id, rowId, rowLevelAnnotations)
             rowLevelAnnotations
