@@ -52,6 +52,31 @@ sealed trait Helper extends LinkTestBase {
       .map(_.getJsonObject(0))
       .map(_.getLong("id"))
   }
+
+  def createArchiveCascadeLinkColumn(
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String
+  ): Future[ColumnId] = {
+    val columns = Columns(
+      LinkBiDirectionalCol(columnName, toTableId, Constraint(DefaultCardinality, archiveCascade = true))
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", columns)
+      .map(_.getJsonArray("columns"))
+      .map(_.getJsonObject(0))
+      .map(_.getLong("id"))
+  }
+
+  def filterArchivedRows(jsonArray: JsonArray): Seq[JsonObject] = {
+    import scala.collection.JavaConverters._
+
+    jsonArray.asScala
+      .collect({
+        case obj: JsonObject => obj
+      }).toSeq
+      .filter(_.getBoolean("archived"))
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -1408,31 +1433,6 @@ class LinkArchiveCascadeTest extends LinkTestBase with Helper {
       }
     }
   }
-
-  def filterArchivedRows(jsonArray: JsonArray): Seq[JsonObject] = {
-    import scala.collection.JavaConverters._
-
-    jsonArray.asScala
-      .collect({
-        case obj: JsonObject => obj
-      }).toSeq
-      .filter(_.getBoolean("archived"))
-  }
-
-  private def createArchiveCascadeLinkColumn(
-      tableId: TableId,
-      toTableId: TableId,
-      columnName: String
-  ): Future[ColumnId] = {
-    val columns = Columns(
-      LinkBiDirectionalCol(columnName, toTableId, Constraint(DefaultCardinality, archiveCascade = true))
-    )
-
-    sendRequest("POST", s"/tables/$tableId/columns", columns)
-      .map(_.getJsonArray("columns"))
-      .map(_.getJsonObject(0))
-      .map(_.getLong("id"))
-  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -1682,13 +1682,92 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
           sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?final=true")
         resultForeignRowsArchived <-
           sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?archived=true")
+
+        rrr <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
       } yield {
+        println(s"rrr: $rrr")
+
         assertEquals(0, resultCell.getJsonArray("value").size())
 
         assertEquals(2, resultForeignRowsFinal.getJsonObject("page").getLong("totalSize").longValue())
         assertEquals(2, resultForeignRowsArchived.getJsonObject("page").getLong("totalSize").longValue())
         assertJSONEquals(Json.arr(Json.obj("id" -> 1)), resultForeignRowsFinal.getJsonArray("rows"))
         assertJSONEquals(Json.arr(Json.obj("id" -> 2)), resultForeignRowsArchived.getJsonArray("rows"))
+      }
+    }
+  }
+
+  @Test
+  def retrieveSingleArchivedRowAndCell(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        _ <- sendRequest("PATCH", s"/tables/1/rows/1/annotations", Json.obj("archived" -> true))
+
+        row <- sendRequest("GET", s"/tables/1/rows/1").map(_.getBoolean("archived"))
+        cell <- sendRequest("GET", s"/tables/1/columns/1/rows/1").map(_.getBoolean("archived"))
+      } yield {
+        assertEquals(row, true)
+        assertEquals(cell, true)
+      }
+    }
+  }
+
+  @Test
+  def retrieveSingleArchivedFirstCellsAndLinkCell(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createArchiveCascadeLinkColumn(tableId1, tableId2, "cardinality")
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        rowId1 <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
+            .map(toRowsArray).map(_.getJsonObject(0)).map(_.getLong("id"))
+        _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/1/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/2/annotations", Json.obj("archived" -> true))
+
+        _ = println(s"#############")
+
+        firstCells <- sendRequest("GET", s"/tables/$tableId2/columns/first/rows").map(_.getJsonArray("rows"))
+        linkCell <-
+          sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1").map(_.getJsonArray("value"))
+      } yield {
+        println(s"firstCell: $firstCells")
+        println(s"linkCells: $linkCell")
+
+        assertJSONEquals(
+          Json.fromObjectString("""|{
+                                   |  "id": 1,
+                                   |  "values": [
+                                   |    "table2row1"
+                                   |  ],
+                                   |  "final": true
+                                   |}
+                                   |""".stripMargin),
+          firstCells.getJsonObject(0)
+        )
+
+        assertJSONEquals(
+          Json.fromArrayString(
+            """|[
+               |  {
+               |    "id": 1,
+               |    "value": "table2row1",
+               |    "final": true
+               |  },
+               |  {
+               |    "id": 2,
+               |    "value": "table2row2",
+               |    "archived": true
+               |  }
+               |]
+               |""".stripMargin
+          ),
+          linkCell
+        )
       }
     }
   }
