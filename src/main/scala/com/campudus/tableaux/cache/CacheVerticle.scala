@@ -35,17 +35,25 @@ object CacheVerticle {
   val NOT_FOUND_FAILURE: Int = 404
   val INVALID_MESSAGE: Int = 400
 
+  // cell based addresses
   val ADDRESS_SET_CELL: String = "cache.set.cell"
-  val ADDRESS_SET_ROW_PERMISSIONS: String = "cache.set.row_permissions"
   val ADDRESS_RETRIEVE_CELL: String = "cache.retrieve.cell"
-  val ADDRESS_RETRIEVE_ROW_PERMISSIONS: String = "cache.retrieve.row_permissions"
-
   val ADDRESS_INVALIDATE_CELL: String = "cache.invalidate.cell"
   val ADDRESS_INVALIDATE_COLUMN: String = "cache.invalidate.column"
   val ADDRESS_INVALIDATE_ROW: String = "cache.invalidate.row"
   val ADDRESS_INVALIDATE_TABLE: String = "cache.invalidate.table"
   val ADDRESS_INVALIDATE_ALL: String = "cache.invalidate.all"
+
+  // row permissions based addresses
+  val ADDRESS_SET_ROW_PERMISSIONS: String = "cache.set.row_permissions"
+  val ADDRESS_RETRIEVE_ROW_PERMISSIONS: String = "cache.retrieve.row_permissions"
   val ADDRESS_INVALIDATE_ROW_PERMISSIONS: String = "cache.invalidate.row_permissions"
+
+  // row level annotations based addresses
+  val ADDRESS_SET_ROW_LEVEL_ANNOTATIONS: String = "cache.set.row_level_annotations"
+  val ADDRESS_RETRIEVE_ROW_LEVEL_ANNOTATIONS: String = "cache.retrieve.row_level_annotations"
+  val ADDRESS_INVALIDATE_ROW_LEVEL_ANNOTATIONS: String = "cache.invalidate.row_level_annotations"
+  val ADDRESS_INVALIDATE_TABLE_ROW_LEVEL_ANNOTATIONS: String = "cache.invalidate.table.row_level_annotations"
 
   val TIMEOUT_AFTER_MILLISECONDS: Int = 400
 
@@ -62,10 +70,11 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
   type CellCaches = mutable.Map[(TableId, ColumnId), Cache[AnyRef]]
   type RowPermissionsCaches = mutable.Map[(TableId), Cache[AnyRef]]
-  type Caches = Either[CellCaches, RowPermissionsCaches]
+  type RowLevelAnnotationsCache = mutable.Map[(TableId), Cache[AnyRef]]
 
   private val cellCaches: CellCaches = mutable.Map.empty
   private val rowPermissionsCaches: RowPermissionsCaches = mutable.Map.empty
+  private val rowLevelAnnotationsCache: RowLevelAnnotationsCache = mutable.Map.empty
 
   override def startFuture(): Future[_] = {
     logger.info(
@@ -84,16 +93,31 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
   private def registerOnEventBus(): Future[_] = {
     Future.sequence(
       Seq(
+        // cell
         registerHandler(eventBus, ADDRESS_SET_CELL, messageHandlerSetCell),
         registerHandler(eventBus, ADDRESS_RETRIEVE_CELL, messageHandlerRetrieveCell),
-        registerHandler(eventBus, ADDRESS_SET_ROW_PERMISSIONS, messageHandlerSetRowPermissions),
-        registerHandler(eventBus, ADDRESS_RETRIEVE_ROW_PERMISSIONS, messageHandlerRetrieveRowPermissions),
         registerHandler(eventBus, ADDRESS_INVALIDATE_CELL, messageHandlerInvalidateCell),
         registerHandler(eventBus, ADDRESS_INVALIDATE_COLUMN, messageHandlerInvalidateColumn),
         registerHandler(eventBus, ADDRESS_INVALIDATE_ROW, messageHandlerInvalidateRow),
         registerHandler(eventBus, ADDRESS_INVALIDATE_TABLE, messageHandlerInvalidateTable),
         registerHandler(eventBus, ADDRESS_INVALIDATE_ALL, messageHandlerInvalidateAll),
-        registerHandler(eventBus, ADDRESS_INVALIDATE_ROW_PERMISSIONS, messageHandlerInvalidateRowPermissions)
+        // row permissions
+        registerHandler(eventBus, ADDRESS_SET_ROW_PERMISSIONS, messageHandlerSetRowPermissions),
+        registerHandler(eventBus, ADDRESS_RETRIEVE_ROW_PERMISSIONS, messageHandlerRetrieveRowPermissions),
+        registerHandler(eventBus, ADDRESS_INVALIDATE_ROW_PERMISSIONS, messageHandlerInvalidateRowPermissions),
+        // row level annotations
+        registerHandler(eventBus, ADDRESS_SET_ROW_LEVEL_ANNOTATIONS, messageHandlerSetRowLevelAnnotations),
+        registerHandler(eventBus, ADDRESS_RETRIEVE_ROW_LEVEL_ANNOTATIONS, messageHandlerRetrieveRowLevelAnnotations),
+        registerHandler(
+          eventBus,
+          ADDRESS_INVALIDATE_ROW_LEVEL_ANNOTATIONS,
+          messageHandlerInvalidateRowLevelAnnotations
+        ),
+        registerHandler(
+          eventBus,
+          ADDRESS_INVALIDATE_TABLE_ROW_LEVEL_ANNOTATIONS,
+          messageHandlerInvalidateTableRowLevelAnnotations
+        )
       )
     )
   }
@@ -131,6 +155,16 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
       case None =>
         val cache: Cache[AnyRef] = GuavaCache(createCache())
         rowPermissionsCaches.put((tableId), cache)
+        cache
+    }
+  }
+
+  private def getRowLevelAnnotationsCache(tableId: TableId): Cache[AnyRef] = {
+    rowLevelAnnotationsCache.get(tableId) match {
+      case Some(cache) => cache
+      case None =>
+        val cache: Cache[AnyRef] = GuavaCache(createCache())
+        rowLevelAnnotationsCache.put((tableId), cache)
         cache
     }
   }
@@ -203,7 +237,6 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
     extractTableRow(obj) match {
       case Some((tableId, rowId)) => {
         implicit val scalaCache: Cache[AnyRef] = getRowPermissionsCache(tableId)
-        logger.info(s"messageHandlerSetRowPermissions $obj $tableId $rowId $value")
         put(rowId)(value).map(_ => replyJson(message, tableId, rowId))
       }
       case None => {
@@ -247,14 +280,115 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
       case Some((tableId, columnId, rowId)) =>
         // invalidate cell
         implicit val scalaCache: Cache[AnyRef] = getCellCache(tableId, columnId)
-
-        remove(rowId)
-          .map(_ => replyJson(message, tableId, columnId, rowId))
+        remove(rowId).map(_ => replyJson(message, tableId, columnId, rowId))
 
       case None =>
         logger.error("Message invalid: Fields (tableId, columnId, rowId) should be a Long")
         message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, columnId, rowId) should be a Long")
     }
+  }
+
+  private def messageHandlerSetRowLevelAnnotations(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+    val value = obj.getValue("value")
+
+    extractTableRow(obj) match {
+      case Some((tableId, rowId)) => {
+        implicit val scalaCache: Cache[AnyRef] = getRowLevelAnnotationsCache(tableId)
+        put(rowId)(value).map(_ => replyJson(message, tableId, rowId))
+      }
+      case None => {
+        logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
+      }
+    }
+  }
+
+  private def messageHandlerRetrieveRowLevelAnnotations(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+
+    extractTableRow(obj) match {
+      case Some((tableId, rowId)) =>
+        implicit val scalaCache: Cache[AnyRef] = getRowLevelAnnotationsCache(tableId)
+
+        get(rowId).map({
+          case Some(value) => {
+            val reply = Json.obj(
+              "tableId" -> tableId,
+              "rowId" -> rowId,
+              "value" -> value
+            )
+
+            println(s"hey, ausm cache raus: $value")
+            message.reply(reply)
+          }
+          case None => {
+            logger.debug(s"messageHandlerRetrieveRowLevelAnnotations $tableId, $rowId not found")
+            message.fail(NOT_FOUND_FAILURE, "Not found")
+          }
+        })
+
+      case None =>
+        logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
+    }
+  }
+
+  private def messageHandlerInvalidateRowLevelAnnotations(message: Message[JsonObject]): Unit = {
+    extractTableRow(message.body()) match {
+      case Some((tableId, rowId)) =>
+        // invalidate cell
+        implicit val scalaCache: Cache[AnyRef] = getRowLevelAnnotationsCache(tableId)
+
+        remove(rowId).map(_ => replyJson(message, tableId, rowId))
+
+      case None =>
+        logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
+    }
+  }
+
+  private def messageHandlerInvalidateTableRowLevelAnnotations(message: Message[JsonObject]): Unit = {
+    val obj = message.body()
+    println(s"caches clear arrived for all tables")
+
+    (for {
+      tableId <- Option(obj.getLong("tableId")).map(_.toLong)
+    } yield tableId) match {
+      case Some(tableId) =>
+        Future.sequence(filterRowLevelAnnotationsCache(tableId)
+          .map(implicit cache => removeAll()))
+          .map(_ => {
+            val reply = Json.obj("tableId" -> tableId)
+            message.reply(reply)
+          })
+
+      case None =>
+        logger.error("Message invalid: Fields (tableId) should be a Long")
+        message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId) should be a Long")
+    }
+
+    // extractTableRow(message.body()) match {
+    //   case Some((tableId, rowId)) =>
+    //     // invalidate cell
+    //     implicit val scalaCache: Cache[AnyRef] = getRowLevelAnnotationsCache(tableId)
+
+    //     remove(rowId).map(_ => replyJson(message, tableId, rowId))
+
+    //   case None =>
+    //     logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
+    //     message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
+    // }
+
+    // Future.sequence(rowLevelAnnotationsCache.map({
+    //   case ((tableId), cache) =>
+    //     implicit val implicitCache: Cache[AnyRef] = implicitly(cache)
+
+    //     removeAll().map(_ => rowLevelAnnotationsCache.remove(tableId))
+    // })).onComplete(_ => {
+    //   rowLevelAnnotationsCache.clear()
+    //   message.reply(Json.emptyObj())
+    // })
   }
 
   private def replyJson(message: Message[JsonObject], tableId: TableId, columnId: ColumnId, rowId: RowId): Unit = {
@@ -299,11 +433,10 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
     }).values
   }
 
-  private def filterRowPermissionCaches(tableId: TableId) = {
+  private def filterRowLevelAnnotationsCache(tableId: TableId) = {
     // invalidate table
-    rowPermissionsCaches.filterKeys({
-      case (cachedTableId) =>
-        cachedTableId == tableId
+    rowLevelAnnotationsCache.filterKeys({
+      case (cachedTableId) => cachedTableId == tableId
     }).values
   }
 
@@ -356,35 +489,25 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
   }
 
   private def messageHandlerInvalidateAll(message: Message[JsonObject]): Unit = {
-    Future
-      .sequence(cellCaches.map({
-        case ((tableId, columnId), cache) =>
-          implicit val implicitCache: Cache[AnyRef] = implicitly(cache)
+    Future.sequence(cellCaches.map({
+      case ((tableId, columnId), cache) =>
+        implicit val implicitCache: Cache[AnyRef] = implicitly(cache)
 
-          removeAll().map(_ => removeCache(tableId, columnId))
-      }))
-      .onComplete(_ => {
-        cellCaches.clear()
-        message.reply(Json.emptyObj())
-      })
+        removeAll().map(_ => removeCache(tableId, columnId))
+    })).onComplete(_ => {
+      cellCaches.clear()
+      message.reply(Json.emptyObj())
+    })
   }
 
   private def messageHandlerInvalidateRowPermissions(message: Message[JsonObject]): Unit = {
     val obj = message.body()
 
-    (extractTableRow(obj)) match {
+    extractTableRow(message.body()) match {
       case Some((tableId, rowId)) =>
-        Future
-          .sequence(
-            filterRowPermissionCaches(tableId)
-              .map(implicit cache => {
-                remove(rowId)
-              })
-          )
-          .map(_ => {
-            val reply = Json.obj("tableId" -> tableId, "rowId" -> rowId)
-            message.reply(reply)
-          })
+        // invalidate cell
+        implicit val scalaCache: Cache[AnyRef] = getRowPermissionsCache(tableId)
+        remove(rowId).map(_ => replyJson(message, tableId, rowId))
 
       case None =>
         logger.error("Message invalid: Fields (tableId, rowId) should be a Long")

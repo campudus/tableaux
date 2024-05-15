@@ -96,6 +96,53 @@ class CacheClient(vertxAccess: VertxAccess) extends VertxAccess {
     eventBus.sendFuture(CacheVerticle.ADDRESS_INVALIDATE_ROW_PERMISSIONS, obj)
   }
 
+  def setRowLevelAnnotations(
+      tableId: TableId,
+      rowId: RowId,
+      rowLevelAnnotations: RowLevelAnnotations
+  ): Future[_] = {
+    val rowValue = Json.obj("value" -> rowLevelAnnotations.getJson)
+    val obj = rowKey(tableId, rowId).copy().mergeIn(rowValue)
+    println(s"set cache value for row level annotations: $obj")
+    eventBus.sendFuture(CacheVerticle.ADDRESS_SET_ROW_LEVEL_ANNOTATIONS, obj, options)
+  }
+
+  def retrieveRowLevelAnnotations(tableId: TableId, rowId: RowId): Future[Option[RowLevelAnnotations]] = {
+    val obj = rowKey(tableId, rowId)
+
+    eventBus
+      .sendFuture[JsonObject](CacheVerticle.ADDRESS_RETRIEVE_ROW_LEVEL_ANNOTATIONS, obj, options)
+      .map(value => {
+        value match {
+          case v if v.body().containsKey("value") => {
+            val rawRowLevelAnnotations = v.body().getValue("value").asInstanceOf[JsonObject]
+            val finalFlag = rawRowLevelAnnotations.getBoolean("final", false)
+            val archivedFlag = rawRowLevelAnnotations.getBoolean("archived", false)
+            Some(RowLevelAnnotations(finalFlag, archivedFlag))
+          }
+          case _ => {
+            None
+          }
+        }
+      })
+      .recoverWith({
+        case ex: ReplyException if ex.failureCode() == CacheVerticle.NOT_FOUND_FAILURE =>
+          Future.successful(None)
+        case ex =>
+          Future.failed(ex)
+      })
+  }
+
+  def invalidateRowLevelAnnotations(tableId: TableId, rowId: RowId): Future[_] = {
+    val obj = Json.obj("tableId" -> tableId, "rowId" -> rowId)
+    eventBus.sendFuture(CacheVerticle.ADDRESS_INVALIDATE_ROW_LEVEL_ANNOTATIONS, obj)
+  }
+
+  def invalidateTableRowLevelAnnotations(tableId: TableId): Future[_] = {
+    val obj = Json.obj("tableId" -> tableId)
+    eventBus.sendFuture(CacheVerticle.ADDRESS_INVALIDATE_TABLE_ROW_LEVEL_ANNOTATIONS, obj)
+  }
+
   def invalidateCellValue(tableId: TableId, columnId: ColumnId, rowId: RowId): Future[_] = {
     val obj = cellKey(tableId, columnId, rowId)
     eventBus.sendFuture(CacheVerticle.ADDRESS_INVALIDATE_CELL, obj, options)
