@@ -193,7 +193,6 @@ class TranslationStatusTest extends TableauxTestBase {
       translationStatus <- sendRequest("GET", s"/tables/translationStatus")
     } yield {
 
-      println(s"translationStatus: $translationStatus")
       val expectedTranslationStatus = Json.obj(
         "tables" -> Json.emptyArr(),
         "translationStatus" -> Json.obj(

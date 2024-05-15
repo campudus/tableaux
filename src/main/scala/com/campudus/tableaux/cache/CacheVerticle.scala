@@ -319,7 +319,6 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
               "value" -> value
             )
 
-            println(s"hey, ausm cache raus: $value")
             message.reply(reply)
           }
           case None => {
@@ -350,7 +349,6 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
 
   private def messageHandlerInvalidateTableRowLevelAnnotations(message: Message[JsonObject]): Unit = {
     val obj = message.body()
-    println(s"caches clear arrived for all tables")
 
     (for {
       tableId <- Option(obj.getLong("tableId")).map(_.toLong)
@@ -367,28 +365,6 @@ class CacheVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with L
         logger.error("Message invalid: Fields (tableId) should be a Long")
         message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId) should be a Long")
     }
-
-    // extractTableRow(message.body()) match {
-    //   case Some((tableId, rowId)) =>
-    //     // invalidate cell
-    //     implicit val scalaCache: Cache[AnyRef] = getRowLevelAnnotationsCache(tableId)
-
-    //     remove(rowId).map(_ => replyJson(message, tableId, rowId))
-
-    //   case None =>
-    //     logger.error("Message invalid: Fields (tableId, rowId) should be a Long")
-    //     message.fail(INVALID_MESSAGE, "Message invalid: Fields (tableId, rowId) should be a Long")
-    // }
-
-    // Future.sequence(rowLevelAnnotationsCache.map({
-    //   case ((tableId), cache) =>
-    //     implicit val implicitCache: Cache[AnyRef] = implicitly(cache)
-
-    //     removeAll().map(_ => rowLevelAnnotationsCache.remove(tableId))
-    // })).onComplete(_ => {
-    //   rowLevelAnnotationsCache.clear()
-    //   message.reply(Json.emptyObj())
-    // })
   }
 
   private def replyJson(message: Message[JsonObject], tableId: TableId, columnId: ColumnId, rowId: RowId): Unit = {
