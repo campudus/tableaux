@@ -42,16 +42,21 @@ class DomainObjectTest {
   @Test
   def nestedCells(): Unit = {
 
-    val innerCell1 = Cell(null, 1, 1)
-    val innerCell2 = Cell(null, 1, 2)
-    val innerCell3 = Cell(null, 1, 3)
-    val cell = Cell(null, 1, Seq(innerCell1, innerCell2, innerCell3))
+    val innerRowLevelAnnotations1 = RowLevelAnnotations(finalFlag = true, archivedFlag = false)
+    val innerRowLevelAnnotations2 = RowLevelAnnotations(finalFlag = false, archivedFlag = true)
+    val innerRowLevelAnnotations3 = RowLevelAnnotations(finalFlag = false, archivedFlag = false)
+    val rowLevelAnnotations = RowLevelAnnotations(finalFlag = true, archivedFlag = true)
+    val innerCell1 = Cell(null, 1, 1, innerRowLevelAnnotations1)
+    val innerCell2 = Cell(null, 1, 2, innerRowLevelAnnotations2)
+    val innerCell3 = Cell(null, 1, 3, innerRowLevelAnnotations3)
+    val cell = Cell(null, 1, Seq(innerCell1, innerCell2, innerCell3), rowLevelAnnotations)
 
     val actual = DomainObject.compatibilityGet(cell)
 
+    println(actual.toString())
     JSONAssert
       .assertEquals(
-        s"""{"value": [{"value": 1}, {"value": 2}, {"value": 3}]}""",
+        s"""{"value": [{"value":1, "final":true}, {"value":2, "archived":true}, {"value":3}], "final":true, "archived":true}""",
         actual.toString,
         JSONCompareMode.STRICT
       )
