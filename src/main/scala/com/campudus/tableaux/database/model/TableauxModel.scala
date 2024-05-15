@@ -1440,7 +1440,10 @@ class TableauxModel(
           for {
             list <- futureList
             cell <- retrieveCell(concatenateColumn, rowId, true)
-          } yield list ++ List(Json.obj("id" -> rowId, "value" -> DomainObject.compatibilityGet(cell.value)))
+          } yield {
+            val cellJson = cell.getJson
+            list ++ List(Json.obj("id" -> rowId).mergeIn(cellJson))
+          }
       }
     }
 

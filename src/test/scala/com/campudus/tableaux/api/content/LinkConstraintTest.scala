@@ -1729,15 +1729,11 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
         _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/1/annotations", Json.obj("final" -> true))
         _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/2/annotations", Json.obj("archived" -> true))
 
-        _ = println(s"#############")
-
         firstCells <- sendRequest("GET", s"/tables/$tableId2/columns/first/rows").map(_.getJsonArray("rows"))
         linkCell <-
           sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1").map(_.getJsonArray("value"))
+        row <- sendRequest("GET", s"/tables/$tableId1/rows/$rowId1")
       } yield {
-        println(s"firstCell: $firstCells")
-        println(s"linkCells: $linkCell")
-
         assertJSONEquals(
           Json.fromObjectString("""|{
                                    |  "id": 1,
