@@ -208,4 +208,37 @@ class TaxonomyTableTest extends TableauxTestBase {
       assertJSONEquals(expectedTable, table)
     }
   }
+
+  @Test
+  def archiveRowShouldFail(implicit c: TestContext) = exceptionTest("error.request.forbidden.archive") {
+
+    for {
+      tableId <- initTable()
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+
+      _ <- sendRequest("PATCH", s"/tables/$tableId/rows/1/annotations", Json.obj("archived" -> true))
+    } yield {}
+  }
+
+  @Test
+  def archiveTableShouldFail(implicit c: TestContext) = exceptionTest("error.request.forbidden.archive") {
+    for {
+      tableId <- initTable()
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+
+      _ <- sendRequest("PATCH", s"/tables/$tableId/rows/annotations", Json.obj("archived" -> true))
+    } yield {}
+  }
+
+  @Test
+  def finalizeTableShouldBeAllowed(implicit c: TestContext) = okTest {
+    for {
+      tableId <- initTable()
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+      _ <- sendRequest("POST", s"/tables/$tableId/rows")
+
+      _ <- sendRequest("PATCH", s"/tables/$tableId/rows/1/annotations", Json.obj("final" -> true))
+      _ <- sendRequest("PATCH", s"/tables/$tableId/rows/annotations", Json.obj("final" -> true))
+    } yield {}
+  }
 }
