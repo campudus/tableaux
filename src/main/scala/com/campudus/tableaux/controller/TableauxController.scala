@@ -2,6 +2,7 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.ArgumentChecker._
+import com.campudus.tableaux.ForbiddenException
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
@@ -273,6 +274,12 @@ class TableauxController(
     } yield row
   }
 
+  private def checkForTaxonomyTable(table: Table, archivedFlagOpt: Option[Boolean]): Unit = {
+    if (table.tableType == TaxonomyTable && archivedFlagOpt.isDefined) {
+      throw ForbiddenException(s"Archived flag is not allowed on taxonomy tables (table: ${table.id})", "archive")
+    }
+  }
+
   def updateRowAnnotations(
       tableId: TableId,
       rowId: RowId,
@@ -286,6 +293,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
+      _ = checkForTaxonomyTable(table, archivedFlagOpt)
       updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlagOpt, archivedFlagOpt)
     } yield updatedRow
   }
@@ -298,6 +306,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
+      _ = checkForTaxonomyTable(table, archivedFlagOpt)
       _ <- repository.updateRowsAnnotations(table, finalFlagOpt, archivedFlagOpt)
     } yield EmptyObject()
   }
