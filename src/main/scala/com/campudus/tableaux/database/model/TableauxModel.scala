@@ -1327,7 +1327,7 @@ class TableauxModel(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     for {
-      totalSize <- retrieveRowModel.size(table.id)
+      totalSize <- retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt)
       rawRows <- retrieveRowModel.retrieveAll(table.id, columns, finalFlagOpt, archivedFlagOpt, pagination)
       rowSeq <- mapRawRows(table, columns, rawRows)
     } yield {
@@ -1575,8 +1575,12 @@ class TableauxModel(
     } yield values
   }
 
-  def retrieveTotalSize(table: Table): Future[Long] = {
-    retrieveRowModel.size(table.id)
+  def retrieveTotalSize(
+      table: Table,
+      finalFlagOpt: Option[Boolean] = None,
+      archivedFlagOpt: Option[Boolean] = None
+  ): Future[Long] = {
+    retrieveRowModel.size(table.id, finalFlagOpt, archivedFlagOpt)
   }
 
   def retrieveCellHistory(
