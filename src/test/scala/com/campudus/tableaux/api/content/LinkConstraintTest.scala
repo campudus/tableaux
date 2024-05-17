@@ -1704,6 +1704,7 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
 
         resultCell <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
 
+        resultAllForeignRows <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows")
         resultForeignRowsFinal <-
           sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?final=true")
         resultForeignRowsArchived <-
@@ -1711,8 +1712,11 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
       } yield {
         assertEquals(0, resultCell.getJsonArray("value").size())
 
-        assertEquals(2, resultForeignRowsFinal.getJsonObject("page").getLong("totalSize").longValue())
-        assertEquals(2, resultForeignRowsArchived.getJsonObject("page").getLong("totalSize").longValue())
+        assertEquals(2, resultAllForeignRows.getJsonObject("page").getLong("totalSize").longValue())
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultAllForeignRows.getJsonArray("rows"))
+
+        assertEquals(1, resultForeignRowsFinal.getJsonObject("page").getLong("totalSize").longValue())
+        assertEquals(1, resultForeignRowsArchived.getJsonObject("page").getLong("totalSize").longValue())
         assertJSONEquals(Json.arr(Json.obj("id" -> 1)), resultForeignRowsFinal.getJsonArray("rows"))
         assertJSONEquals(Json.arr(Json.obj("id" -> 2)), resultForeignRowsArchived.getJsonArray("rows"))
       }

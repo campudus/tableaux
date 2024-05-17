@@ -1192,12 +1192,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     val projection = generateProjection(foreignTableId, foreignColumns)
     val fromClause = generateFromClause(foreignTableId)
-    val whereClause = generateRowAnnotationWhereClause(finalFlagOpt, archivedFlagOpt)
-    val cardinalityFilter = generateCardinalityFilter(linkColumn)
+    val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
     val shouldCheckCardinality = !linkDirection.isManyToMany
-    val maybeCardinalityFilter = shouldCheckCardinality match {
+    val cardinalityFilter = shouldCheckCardinality match {
       case false => ""
-      case true => s"AND $cardinalityFilter"
+      case true => generateCardinalityFilter(linkColumn)
     }
     val binds = shouldCheckCardinality match {
       case false => Json.arr()
@@ -1208,7 +1207,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       result <- connection.query(
         s"""|SELECT $projection
             |FROM $fromClause
-            |WHERE TRUE $maybeCardinalityFilter $whereClause
+            |WHERE TRUE $cardinalityFilter $rowAnnotationFilter
             |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin,
         binds
       )
@@ -1226,14 +1225,14 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   ): Future[Seq[RawRow]] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
-    val whereClause = generateRowAnnotationWhereClause(finalFlagOpt, archivedFlagOpt)
+    val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
 
     for {
       result <-
         connection.query(
           s"""|SELECT $projection
               |FROM $fromClause
-              |WHERE TRUE $whereClause
+              |WHERE TRUE $rowAnnotationFilter
               |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin
         )
     } yield {
@@ -1280,31 +1279,35 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
   }
 
   def size(tableId: TableId, finalFlagOpt: Option[Boolean], archivedFlagOpt: Option[Boolean]): Future[Long] = {
-    val whereClause = generateRowAnnotationWhereClause(finalFlagOpt, archivedFlagOpt)
-    val query = s"SELECT COUNT(*) FROM user_table_$tableId WHERE TRUE $whereClause"
+    val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
+    val query = s"SELECT COUNT(*) FROM user_table_$tableId WHERE TRUE $rowAnnotationFilter"
 
     connection.selectSingleValue(query)
   }
 
-  def sizeForeign(linkColumn: LinkColumn, rowId: RowId, linkDirection: LinkDirection): Future[Long] = {
+  def sizeForeign(
+      linkColumn: LinkColumn,
+      rowId: RowId,
+      linkDirection: LinkDirection,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  ): Future[Long] = {
     val foreignTableId = linkColumn.to.table.id
-    val cardinalityFilter = generateCardinalityFilter(linkColumn)
-    val shouldNotCheckCardinality = linkDirection.isManyToMany
+    val shouldCheckCardinality = !linkDirection.isManyToMany
+    val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
+    val cardinalityFilter = shouldCheckCardinality match {
+      case false => ""
+      case true => generateCardinalityFilter(linkColumn)
+    }
+    val binds = shouldCheckCardinality match {
+      case false => Json.arr()
+      case true => Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+    }
 
     for {
-      maybeCardinalityFilter <-
-        if (shouldNotCheckCardinality) {
-          Future.successful("")
-        } else {
-          Future.successful(s"WHERE $cardinalityFilter")
-        }
       result <- connection.selectSingleValue[Long](
-        s"SELECT COUNT(*) FROM user_table_$foreignTableId ut $maybeCardinalityFilter",
-        if (shouldNotCheckCardinality) {
-          Json.arr()
-        } else {
-          Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
-        }
+        s"SELECT COUNT(*) FROM user_table_$foreignTableId ut WHERE TRUE $cardinalityFilter $rowAnnotationFilter",
+        binds
       )
     } yield { result }
   }
@@ -1485,13 +1488,14 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     // linkColumn is from origin tables point of view
     // ... so we need to swap toSql and fromSql
     s"""
+       | AND
        |(SELECT COUNT(*) = 0 FROM $linkTable WHERE ${linkDirection.toSql} = ut.id AND ${linkDirection.fromSql} = ?) AND
        |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.toSql} = ut.id) < (SELECT ${linkDirection.fromCardinality} FROM system_link_table WHERE link_id = ?) AND
        |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.fromSql} = ?) < (SELECT ${linkDirection.toCardinality} FROM system_link_table WHERE link_id = ?)
        """.stripMargin
   }
 
-  private def generateRowAnnotationWhereClause(
+  private def generateRowAnnotationFilter(
       finalFlagOpt: Option[Boolean],
       archivedFlagOpt: Option[Boolean]
   ): String = {
