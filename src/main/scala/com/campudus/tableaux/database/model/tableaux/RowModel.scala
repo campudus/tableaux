@@ -1279,10 +1279,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     }
   }
 
-  def size(tableId: TableId): Future[Long] = {
-    val select = s"SELECT COUNT(*) FROM user_table_$tableId"
+  def size(tableId: TableId, finalFlagOpt: Option[Boolean], archivedFlagOpt: Option[Boolean]): Future[Long] = {
+    val whereClause = generateRowAnnotationWhereClause(finalFlagOpt, archivedFlagOpt)
+    val query = s"SELECT COUNT(*) FROM user_table_$tableId WHERE TRUE $whereClause"
 
-    connection.selectSingleValue(select)
+    connection.selectSingleValue(query)
   }
 
   def sizeForeign(linkColumn: LinkColumn, rowId: RowId, linkDirection: LinkDirection): Future[Long] = {
