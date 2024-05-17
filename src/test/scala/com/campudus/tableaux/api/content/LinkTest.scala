@@ -1178,21 +1178,23 @@ class LinkTest extends LinkTestBase {
           js.getJsonArray("columns")
         }
       } yield {
-        val expectedJson = Json.fromObjectString(s"""
-                                                    |{
-                                                    |  "status": "ok",
-                                                    |  "page": {
-                                                    |    "offset": null,
-                                                    |    "limit": null,
-                                                    |    "totalSize": 3
-                                                    |  },
-                                                    |  "rows": [
-                                                    |    {"id": 1,"values": [[{"id": 2,"value": "blub 2"}]]},
-                                                    |    {"id": 2,"values": [[{"id": 3,"value": "blub 3"}]]},
-                                                    |    {"id": 3,"values": [[{"id": 1,"value": "blub 1"}]]}
-                                                    |  ]
-                                                    |}
-         """.stripMargin)
+        val expectedJson = Json.fromObjectString(
+          s"""
+             |{
+             |  "status": "ok",
+             |  "page": {
+             |    "offset": null,
+             |    "limit": null,
+             |    "totalSize": 3
+             |  },
+             |  "rows": [
+             |    {"id": 1,"values": [[{"id": 2,"value": "blub 2"}]]},
+             |    {"id": 2,"values": [[{"id": 3,"value": "blub 3"}]]},
+             |    {"id": 3,"values": [[{"id": 1,"value": "blub 1"}]]}
+             |  ]
+             |}
+         """.stripMargin
+        )
 
         assertJSONEquals(expectedJson, rows)
 

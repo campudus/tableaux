@@ -2238,6 +2238,7 @@
               "example": 100
             },
             "totalSize": {
+              "description": "Total number of rows depending on filter query parameters. If no filters are set, totalSize is the total number of rows in the table",
               "type": "integer",
               "example": 315
             }
