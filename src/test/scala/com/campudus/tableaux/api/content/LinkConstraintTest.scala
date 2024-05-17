@@ -36,6 +36,10 @@ sealed trait Helper extends LinkTestBase {
     obj.getJsonArray("rows")
   }
 
+  def toRowsArrayAndTotalSize(obj: JsonObject): (JsonArray, Long) = {
+    (obj.getJsonArray("rows"), obj.getJsonObject("page").getLong("totalSize"))
+  }
+
   def createCardinalityLinkColumn(
       tableId: TableId,
       toTableId: TableId,
@@ -1639,26 +1643,48 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
         _ <- sendRequest("PATCH", s"/tables/1/rows/6/annotations", Json.obj("final" -> true, "archived" -> false))
         _ <- sendRequest("PATCH", s"/tables/1/rows/7/annotations", Json.obj("final" -> true, "archived" -> true))
 
-        finalFalse <- sendRequest("GET", s"/tables/1/rows?final=false").map(toRowsArray)
-        finalTrue <- sendRequest("GET", s"/tables/1/rows?final=true").map(toRowsArray)
-        archivedFalse <- sendRequest("GET", s"/tables/1/rows?archived=false").map(toRowsArray)
-        archivedTrue <- sendRequest("GET", s"/tables/1/rows?archived=true").map(toRowsArray)
-        allRows <- sendRequest("GET", s"/tables/1/rows").map(toRowsArray)
-        finalFalseAndArchivedFalse <- sendRequest("GET", s"/tables/1/rows?final=false&archived=false").map(toRowsArray)
-        finalTrueAndArchivedTrue <- sendRequest("GET", s"/tables/1/rows?final=true&archived=true").map(toRowsArray)
-        finalFalseAndArchivedTrue <- sendRequest("GET", s"/tables/1/rows?final=false&archived=true").map(toRowsArray)
-        finalTrueAndArchivedFalse <- sendRequest("GET", s"/tables/1/rows?final=true&archived=false").map(toRowsArray)
-      } yield {
-        assertEquals(2, finalFalse.size())
-        assertEquals(5, finalTrue.size())
-        assertEquals(4, archivedFalse.size())
-        assertEquals(3, archivedTrue.size())
+        (allRows, totalSize1) <- sendRequest("GET", s"/tables/1/rows").map(toRowsArrayAndTotalSize)
 
+        (finalFalse, totalSize2) <- sendRequest("GET", s"/tables/1/rows?final=false").map(toRowsArrayAndTotalSize)
+        (finalTrue, totalSize3) <- sendRequest("GET", s"/tables/1/rows?final=true").map(toRowsArrayAndTotalSize)
+        (archivedFalse, totalSize4) <- sendRequest("GET", s"/tables/1/rows?archived=false").map(toRowsArrayAndTotalSize)
+        (archivedTrue, totalSize5) <- sendRequest("GET", s"/tables/1/rows?archived=true").map(toRowsArrayAndTotalSize)
+
+        (finalFalseAndArchivedFalse, totalSize6) <-
+          sendRequest("GET", s"/tables/1/rows?final=false&archived=false").map(toRowsArrayAndTotalSize)
+        (finalTrueAndArchivedTrue, totalSize7) <-
+          sendRequest("GET", s"/tables/1/rows?final=true&archived=true").map(toRowsArrayAndTotalSize)
+        (finalFalseAndArchivedTrue, totalSize8) <-
+          sendRequest("GET", s"/tables/1/rows?final=false&archived=true").map(toRowsArrayAndTotalSize)
+        (finalTrueAndArchivedFalse, totalSize9) <-
+          sendRequest("GET", s"/tables/1/rows?final=true&archived=false").map(toRowsArrayAndTotalSize)
+
+        (finalTrueWithPagination, totalSize10) <-
+          sendRequest("GET", s"/tables/1/rows?final=true&limit=4&offset=0").map(toRowsArrayAndTotalSize)
+      } yield {
         assertEquals(7, allRows.size())
+        assertEquals(7, totalSize1)
+
+        assertEquals(2, finalFalse.size())
+        assertEquals(2, totalSize2)
+        assertEquals(5, finalTrue.size())
+        assertEquals(5, totalSize3)
+        assertEquals(4, archivedFalse.size())
+        assertEquals(4, totalSize4)
+        assertEquals(3, archivedTrue.size())
+        assertEquals(3, totalSize5)
+
         assertEquals(1, finalFalseAndArchivedFalse.size())
+        assertEquals(1, totalSize6)
         assertEquals(2, finalTrueAndArchivedTrue.size())
+        assertEquals(2, totalSize7)
         assertEquals(1, finalFalseAndArchivedTrue.size())
+        assertEquals(1, totalSize8)
         assertEquals(3, finalTrueAndArchivedFalse.size())
+        assertEquals(3, totalSize9)
+
+        assertEquals(4, finalTrueWithPagination.size())
+        assertEquals(5, totalSize10)
       }
     }
   }
@@ -1731,14 +1757,16 @@ class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
         row <- sendRequest("GET", s"/tables/$tableId1/rows/$rowId1")
       } yield {
         assertJSONEquals(
-          Json.fromObjectString("""|{
-                                   |  "id": 1,
-                                   |  "values": [
-                                   |    "table2row1"
-                                   |  ],
-                                   |  "final": true
-                                   |}
-                                   |""".stripMargin),
+          Json.fromObjectString(
+            """|{
+               |  "id": 1,
+               |  "values": [
+               |    "table2row1"
+               |  ],
+               |  "final": true
+               |}
+               |""".stripMargin
+          ),
           firstCells.getJsonObject(0)
         )
 
