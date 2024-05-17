@@ -11,7 +11,7 @@
     - [Retrieving a specific column](#retrieving-a-specific-column)
     - [Retrieving a specific row](#retrieving-a-specific-row)
     - [Retrieving a specific cell](#retrieving-a-specific-cell)
-  - [2.2. Data types & column kinds](#22-data-types--column-kinds)
+  - [2.2. Data types \& column kinds](#22-data-types--column-kinds)
     - [Primitive data types](#primitive-data-types)
       - [Examples](#examples)
     - [Complex data types](#complex-data-types)
@@ -155,7 +155,7 @@ Call this endpoint to retrieve all rows of a specific table. Most important part
   "page": { // result can be paged with two query parameters offset and limit
     "offset": null,
     "limit": null,
-    "totalSize": 18 // total size of this table
+    "totalSize": 18 // total number of rows depending on filter query parameters. If no filters are set, totalSize is the total number of rows in the table
   },
   "rows": [
     { // row object
