@@ -1235,7 +1235,7 @@ class TableauxModel(
         })
 
       (_, linkDirection, _) <- structureModel.columnStruc.retrieveLinkInformation(table, linkColumn.id)
-      totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId, linkDirection)
+      totalSize <- retrieveRowModel.sizeForeign(linkColumn, rowId, linkDirection, finalFlagOpt, archivedFlagOpt)
       rawRows <- retrieveRowModel.retrieveForeign(
         linkColumn,
         rowId,
