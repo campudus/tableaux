@@ -1,11 +1,18 @@
 @Library('campudus-jenkins-shared-lib') _
 
-IMAGE_NAME = "campudus/grud-backend"
-DEPLOY_DIR = 'build/libs'
-LEGACY_ARCHIVE_FILENAME="grud-backend-docker.tar.gz"
-DOCKER_BASE_IMAGE_TAG = "build-${BUILD_NUMBER}"
+final String BRANCH = params.BRANCH
+final boolean NOTIFY_SLACK_ON_FAILURE = params.NOTIFY_SLACK_ON_FAILURE
+final boolean NOTIFY_SLACK_ON_SUCCESS = params.NOTIFY_SLACK_ON_SUCCESS
 
-SLACK_CHANNEL = "#grud"
+final String CLEAN_GIT_BRANCH = BRANCH ? BRANCH.replaceAll("[\\.\\_\\#]", "-").tokenize('/').last() : ""
+
+final String IMAGE_NAME = "campudus/grud-backend"
+final String IMAGE_TAG = CLEAN_GIT_BRANCH && CLEAN_GIT_BRANCH != "master" ? CLEAN_GIT_BRANCH : "latest"
+final String DEPLOY_DIR = 'build/libs'
+final String LEGACY_ARCHIVE_FILENAME="grud-backend-docker.tar.gz"
+final GString DOCKER_BASE_IMAGE_TAG = "build-${BUILD_NUMBER}"
+
+final String SLACK_CHANNEL = "#grud"
 
 // flag deactivate tests for fast redeployment from jenkins frontend
 shouldTest = true
@@ -16,17 +23,21 @@ pipeline {
   environment {
     BUILD_DATE = sh(returnStdout: true, script: 'date \"+%Y-%m-%d %H:%M:%S\"').trim()
     GIT_COMMIT_DATE = sh(returnStdout: true, script: "git show -s --format=%ci").trim()
-    CLEAN_GIT_BRANCH = sh(returnStdout: true, script: "echo $GIT_BRANCH | sed 's/[\\.\\/\\_\\#]/-/g'").trim()
     COMPOSE_PROJECT_NAME = "${IMAGE_NAME}-${CLEAN_GIT_BRANCH}"
   }
 
   triggers {
-    pollSCM('H/5 * * * *')
+    githubPush()
   }
 
   options {
     timestamps()
     copyArtifactPermission('*');
+  }
+
+  parameters {
+    booleanParam(name: 'NOTIFY_SLACK_ON_FAILURE', defaultValue: true, description: '')
+    booleanParam(name: 'NOTIFY_SLACK_ON_SUCCESS', defaultValue: false, description: '')
   }
 
   stages {
@@ -45,7 +56,7 @@ pipeline {
           groovyVars = [:] << getBinding().getVariables()
           groovyVars.each  {k,v -> print "$k = $v"}
         }
-        
+
         sh "docker build -t ${IMAGE_NAME}-cacher --target=cacher ."
       }
     }
@@ -85,12 +96,13 @@ pipeline {
           --label "GIT_COMMIT_DATE=${GIT_COMMIT_DATE}" \
           --label "BUILD_DATE=${BUILD_DATE}" \
           -t ${IMAGE_NAME}:${DOCKER_BASE_IMAGE_TAG}-${GIT_COMMIT} \
-          -t ${IMAGE_NAME}:latest \
+          -t ${IMAGE_NAME}:${IMAGE_TAG} \
           -f Dockerfile \
           --rm --target=prod .
         """
+
         // Legacy, but needed for some project deployments
-        sh "docker save ${IMAGE_NAME}:latest | gzip -c > ${DEPLOY_DIR}/${LEGACY_ARCHIVE_FILENAME}"
+        sh "docker save ${IMAGE_NAME}:${IMAGE_TAG} | gzip -c > ${DEPLOY_DIR}/${LEGACY_ARCHIVE_FILENAME}"
       }
     }
 
@@ -105,7 +117,7 @@ pipeline {
       steps {
         withDockerRegistry([ credentialsId: "dockerhub", url: "" ]) {
           sh "docker push ${IMAGE_NAME}:${DOCKER_BASE_IMAGE_TAG}-${GIT_COMMIT}"
-          sh "docker push ${IMAGE_NAME}:latest"
+          sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
         }
       }
     }
@@ -115,8 +127,14 @@ pipeline {
     success {
       wrap([$class: 'BuildUser']) {
         script {
-          sh "echo successful"
-          slackOk(channel: SLACK_CHANNEL, message: "Image pushed to docker registry: ${IMAGE_NAME}:${DOCKER_BASE_IMAGE_TAG}-${GIT_COMMIT}")
+          if (NOTIFY_SLACK_ON_SUCCESS) {
+            final String logParams = [
+                BRANCH ? "BRANCH=${BRANCH}" : null,
+                "image: ${IMAGE_NAME}:${IMAGE_TAG}",
+            ].minus(null).join(' ')
+
+            slackOk(channel: SLACK_CHANNEL, message: "${logParams}")
+          }
         }
       }
     }
@@ -124,8 +142,13 @@ pipeline {
     failure {
       wrap([$class: 'BuildUser']) {
         script {
-          sh "echo failed"
-          slackError(channel: SLACK_CHANNEL)
+          if (NOTIFY_SLACK_ON_FAILURE) {
+            final String logParams = [
+                BRANCH ? "BRANCH=${BRANCH}" : null,
+            ].minus(null).join(' ')
+
+            slackError(channel: SLACK_CHANNEL, message: "${logParams}")
+          }
         }
       }
     }
