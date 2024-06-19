@@ -61,3 +61,5 @@ project/plugins/project/
 
 # local log properties
 local_logging.properties
+
+*.local*
