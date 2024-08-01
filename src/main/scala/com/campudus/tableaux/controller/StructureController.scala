@@ -472,10 +472,11 @@ class StructureController(
           separator,
           attributes,
           rules,
-          hidden
+          hidden,
+          showMemberColumns
         ),
         Seq(maxLengthTry, minLengthTry),
-        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden, maxLength, minLength"
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden, maxLength, minLength, showMemberColumns"
       )
     )
     val maxLength = maxLengthTry match {

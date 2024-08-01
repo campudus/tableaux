@@ -558,4 +558,41 @@ class GroupColumnTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def changeGroupColumn_setShowMemberColumnsToTrue(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
+        booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
+
+        groupColumnCreated <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId))
+        )
+          .map(_.getJsonArray("columns").getJsonObject(0))
+
+        groupColumnChanged <- sendRequest(
+          "POST",
+          s"/tables/1/columns/${groupColumnCreated.getInteger("id")}",
+          Json.obj(
+            "showMemberColumns" -> true
+          )
+        )
+      } yield {
+        assertNull(groupColumnCreated.getBoolean("showMemberColumns"))
+
+        assertJSONEquals(
+          Json.obj(
+            "groups" -> Json.arr(Json.obj("id" -> textColumnId), Json.obj("id" -> booleanColumnId)),
+            "showMemberColumns" -> true
+          ),
+          groupColumnChanged
+        )
+      }
+    }
+  }
 }
