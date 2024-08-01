@@ -191,8 +191,19 @@ object JsonUtils extends LazyLogging {
                   .toSeq
 
                 val formatPattern = Try(Option(json.getString("formatPattern"))).toOption.flatten
+                val showMemberColumns = json.getBoolean("showMemberColumns", false)
 
-                CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups, attributes)
+                CreateGroupColumn(
+                  name,
+                  ordering,
+                  identifier,
+                  formatPattern,
+                  displayInfos,
+                  groups,
+                  attributes,
+                  hidden,
+                  showMemberColumns
+                )
 
               case StatusType =>
                 val validator = JsonSchemaValidatorClient(Vertx.currentContext().get.owner())
@@ -333,7 +344,8 @@ object JsonUtils extends LazyLogging {
       Option[JsonArray],
       Option[Boolean],
       Try[Option[Int]],
-      Try[Option[Int]]
+      Try[Option[Int]],
+      Option[Boolean]
   ) = {
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
@@ -354,6 +366,7 @@ object JsonUtils extends LazyLogging {
       case list => Some(list)
     }
     val hidden = Try(json.getBoolean("hidden").booleanValue()).toOption
+    val showMemberColumns = Try(json.getBoolean("showMemberColumns").booleanValue()).toOption
 
     val countryCodes = booleanToValueOption(
       json.containsKey("countryCodes"), {
@@ -380,7 +393,8 @@ object JsonUtils extends LazyLogging {
       rules,
       hidden,
       maxLength,
-      minLength
+      minLength,
+      showMemberColumns
     )
   }
 

@@ -706,29 +706,34 @@ case class ConcatColumn(
   override val kind: ConcatType.type = ConcatType
 
   override def getJson: JsonObject =
-    super.getJson mergeIn Json.obj("concats" -> columns.map(_.getJson))
+    super.getJson.mergeIn(
+      Json.obj("concats" -> columns.map(_.getJson))
+    )
 
 }
 
 case class GroupColumn(
     override val columnInformation: ColumnInformation,
     override val columns: Seq[ColumnType[_]],
-    formatPattern: Option[String]
+    formatPattern: Option[String],
+    showMemberColumns: Boolean
 )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ConcatenateColumn {
   override val kind: GroupType.type = GroupType
 
   override def getJson: JsonObject = {
-    val json = super.getJson mergeIn Json.obj("groups" -> columns.map(_.getJson))
+    val json = super.getJson.mergeIn(Json.obj("groups" -> columns.map(_.getJson)))
 
-    formatPattern match {
-      case Some(pattern) =>
-        json mergeIn Json.obj("formatPattern" -> pattern)
-
-      case None =>
-      // do nothing
+    val formatPatternJson = formatPattern match {
+      case Some(pattern) => Json.obj("formatPattern" -> pattern)
+      case None => Json.emptyObj()
     }
 
-    json
+    val showMemberColumnsJson = showMemberColumns match {
+      case true => Json.obj("showMemberColumns" -> showMemberColumns)
+      case false => Json.emptyObj()
+    }
+
+    json.mergeIn(formatPatternJson).mergeIn(showMemberColumnsJson)
   }
 }
 

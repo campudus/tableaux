@@ -184,7 +184,8 @@ class CachedColumnModel(
       rules: Option[JsonArray],
       hidden: Option[Boolean],
       maxLength: Option[Int],
-      minLength: Option[Int]
+      minLength: Option[Int],
+      showMemberColumns: Option[Boolean]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -203,7 +204,8 @@ class CachedColumnModel(
           rules,
           hidden,
           maxLength,
-          minLength
+          minLength,
+          showMemberColumns
         )
     } yield r
   }
@@ -318,7 +320,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 AttachmentColumn(applyColumnInformation(id, ordering, displayInfos))
             })
 
-        case groupColumnInfo: CreateGroupColumn =>
+        case groupColumnInfo: CreateGroupColumn => {
+          println("groupColumnInfo: " + groupColumnInfo)
           createGroupColumn(table, groupColumnInfo)
             .map({
               case CreatedColumnInformation(_, id, ordering, displayInfos) =>
@@ -327,9 +330,11 @@ class ColumnModel(val connection: DatabaseConnection)(
                 GroupColumn(
                   applyColumnInformation(id, ordering, displayInfos),
                   Seq.empty,
-                  groupColumnInfo.formatPattern
+                  groupColumnInfo.formatPattern,
+                  groupColumnInfo.showMemberColumns
                 )
             })
+        }
 
         case statusColumnInfo: CreateStatusColumn =>
           for {
@@ -362,7 +367,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     connection.transactional { t =>
       for {
         dependentColumns <- retrieveAndValidateDependentStatusColumns(statusColumnInfo.rules, table)
-        (t, columnInfo) <- insertSystemColumn(t, table.id, statusColumnInfo, None, None)
+        (t, columnInfo) <- insertSystemColumn(t, table.id, statusColumnInfo, None, None, false)
       } yield {
         (t, (dependentColumns, columnInfo))
       }
@@ -371,7 +376,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
   private def createGroupColumn(
       table: Table,
-      groupColumnInfo: CreateGroupColumn
+      cgc: CreateGroupColumn
   )(implicit user: TableauxUser): Future[CreatedColumnInformation] = {
     val tableId = table.id
 
@@ -379,37 +384,37 @@ class ColumnModel(val connection: DatabaseConnection)(
       for {
         // retrieve all to-be-grouped columns
         groupedColumns <- retrieveAll(table)
-          .map(_.filter(column => groupColumnInfo.groups.contains(column.id)))
+          .map(_.filter(column => cgc.groups.contains(column.id)))
 
         // do some validation before creating GroupColumn
         _ = {
-          if (groupedColumns.size != groupColumnInfo.groups.size) {
+          if (groupedColumns.size != cgc.groups.size) {
             throw UnprocessableEntityException(
-              s"GroupColumn (${groupColumnInfo.name}) couldn't be created because some columns don't exist"
+              s"GroupColumn (${cgc.name}) couldn't be created because some columns don't exist"
             )
           }
 
           if (groupedColumns.exists(_.kind == GroupType)) {
             throw UnprocessableEntityException(
-              s"GroupColumn (${groupColumnInfo.name}) can't contain another GroupColumn"
+              s"GroupColumn (${cgc.name}) can't contain another GroupColumn"
             )
           }
 
-          if (!isColumnGroupMatchingToFormatPattern(groupColumnInfo.formatPattern, groupedColumns)) {
+          if (!isColumnGroupMatchingToFormatPattern(cgc.formatPattern, groupedColumns)) {
             throw UnprocessableEntityException(
               s"GroupColumns (${groupedColumns.map(_.id).mkString(", ")}) don't match to formatPattern " +
-                s"${"\"" + groupColumnInfo.formatPattern.map(_.toString).orNull + "\""}"
+                s"${"\"" + cgc.formatPattern.map(_.toString).orNull + "\""}"
             )
           }
         }
 
-        (t, columnInfo) <- insertSystemColumn(t, tableId, groupColumnInfo, None, groupColumnInfo.formatPattern)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, cgc, None, cgc.formatPattern, cgc.showMemberColumns)
 
         // insert group information
-        insertPlaceholder = groupColumnInfo.groups.map(_ => "(?, ?, ?)").mkString(", ")
+        insertPlaceholder = cgc.groups.map(_ => "(?, ?, ?)").mkString(", ")
         (t, _) <- t.query(
           s"INSERT INTO system_column_groups(table_id, group_column_id, grouped_column_id) VALUES $insertPlaceholder",
-          Json.arr(groupColumnInfo.groups.flatMap(Seq(tableId, columnInfo.columnId, _)): _*)
+          Json.arr(cgc.groups.flatMap(Seq(tableId, columnInfo.columnId, _)): _*)
         )
       } yield (t, columnInfo)
     }
@@ -421,7 +426,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   ): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
-        (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None, None, false)
         tableSql = simpleColumnInfo.languageType match {
           case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
           case LanguageNeutral => s"user_table_$tableId"
@@ -445,7 +450,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   ): Future[CreatedColumnInformation] = {
     connection.transactional { t =>
       for {
-        (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None, None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, attachmentColumnInfo, None, None, false)
       } yield (t, columnInfo)
     }
   }
@@ -494,7 +499,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         linkId = insertNotNull(result).head.get[Long](0)
 
         // insert link column on source table
-        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), None)
+        (t, columnInfo) <- insertSystemColumn(t, tableId, linkColumnInfo, Some(linkId), None, false)
 
         // only add the second link column if tableId != toTableId or singleDirection is false
         t <- {
@@ -513,7 +518,7 @@ class ColumnModel(val connection: DatabaseConnection)(
             )
 
             // ColumnInfo will be ignored, so we can lose it
-            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId), None)
+            insertSystemColumn(t, linkColumnInfo.toTable, copiedLinkColumnInfo, Some(linkId), None, false)
               .map({
                 case (t, _) => t
               })
@@ -546,30 +551,32 @@ class ColumnModel(val connection: DatabaseConnection)(
       tableId: TableId,
       createColumn: CreateColumn,
       linkId: Option[LinkId],
-      formatPattern: Option[String]
+      formatPattern: Option[String],
+      showMemberColumns: Boolean
   ): Future[(DbTransaction, CreatedColumnInformation)] = {
 
     def insertStatement(tableId: TableId, ordering: String) = {
       s"""|INSERT INTO system_columns (
-          | table_id,
-          | column_id,
-          | column_type,
-          | user_column_name,
-          | ordering,
-          | link_id,
-          | multilanguage,
-          | identifier,
-          | format_pattern,
-          | country_codes,
-          | separator,
-          | attributes,
-          | rules,
-          | hidden,
-          | max_length,
-          | min_length
-          | )
-          | VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          | RETURNING column_id, ordering
+          |  table_id,
+          |  column_id,
+          |  column_type,
+          |  user_column_name,
+          |  ordering,
+          |  link_id,
+          |  multilanguage,
+          |  identifier,
+          |  format_pattern,
+          |  country_codes,
+          |  separator,
+          |  attributes,
+          |  rules,
+          |  hidden,
+          |  max_length,
+          |  min_length,
+          |  show_member_columns
+          |  )
+          |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          |  RETURNING column_id, ordering
           |""".stripMargin
     }
 
@@ -629,7 +636,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 rules,
                 createColumn.hidden,
                 maxLength,
-                minLength
+                minLength,
+                showMemberColumns
               )
             )
           case Some(ord) =>
@@ -650,7 +658,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 rules,
                 createColumn.hidden,
                 maxLength,
-                minLength
+                minLength,
+                showMemberColumns
               )
             )
         }
@@ -853,6 +862,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int)(
       implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
+    // TODO: refactor duplicate query
     val select =
       s"""
          |SELECT
@@ -873,7 +883,8 @@ class ColumnModel(val connection: DatabaseConnection)(
          |  format_pattern,
          |  hidden,
          |  max_length,
-         |  min_length
+         |  min_length,
+         |  show_member_columns
          |FROM system_columns c
          |WHERE
          |  table_id = ? AND
@@ -918,7 +929,7 @@ class ColumnModel(val connection: DatabaseConnection)(
             // fill GroupColumn with life!
             // ... till now GroupColumn only was a placeholder
             val groupedColumns = mappedColumns.filter(_.columnInformation.groupColumnIds.contains(g.id))
-            GroupColumn(g.columnInformation, groupedColumns, g.formatPattern)
+            GroupColumn(g.columnInformation, groupedColumns, g.formatPattern, g.showMemberColumns)
 
           case c => c
         })
@@ -967,7 +978,8 @@ class ColumnModel(val connection: DatabaseConnection)(
        |  format_pattern,
        |  hidden,
        |  max_length,
-       |  min_length
+       |  min_length,
+       |  show_member_columns
        |FROM system_columns c
        |WHERE
        |  table_id = ?
@@ -1019,7 +1031,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       languageType: LanguageType,
       columnInformation: ColumnInformation,
       formatPattern: Option[String],
-      rules: JsonArray
+      rules: JsonArray,
+      showMemberColumns: Boolean
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     kind match {
       case AttachmentType =>
@@ -1033,7 +1046,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
       case GroupType =>
         // placeholder for now, grouped columns will be filled in later
-        Future(GroupColumn(columnInformation, Seq.empty, formatPattern))
+        Future(GroupColumn(columnInformation, Seq.empty, formatPattern, showMemberColumns))
 
       case _ =>
         Future(SimpleValueColumn(kind, languageType, columnInformation))
@@ -1173,6 +1186,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val hidden = row.get[Boolean](12)
     val maxLength = Option(row.get[Int](13))
     val minLength = Option(row.get[Int](14))
+    val showMemberColumns = row.get[Boolean](15)
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
@@ -1192,7 +1206,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         minLength
       )
 
-      column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules)
+      column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
     } yield column
   }
 
@@ -1482,10 +1496,12 @@ class ColumnModel(val connection: DatabaseConnection)(
       rules: Option[JsonArray],
       hidden: Option[Boolean],
       maxLength: Option[Int],
-      minLength: Option[Int]
+      minLength: Option[Int],
+      showMemberColumns: Option[Boolean]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 
+    // TODO: refactor this update cascade to less updates or at least use a query template for all updates
     for {
       t <- connection.begin()
 
@@ -1623,6 +1639,18 @@ class ColumnModel(val connection: DatabaseConnection)(
             Json.arr(null, tableId, columnId)
           )
       }
+      (t, resultSeparator) <- optionToValidFuture(
+        showMemberColumns,
+        t,
+        { smc: Boolean =>
+          {
+            t.query(
+              s"UPDATE system_columns SET show_member_columns = ? WHERE table_id = ? AND column_id = ?",
+              Json.arr(smc, tableId, columnId)
+            )
+          }
+        }
+      )
 
       // change display information
       t <- insertOrUpdateColumnLangInfo(t, table.id, columnId, displayInfos)

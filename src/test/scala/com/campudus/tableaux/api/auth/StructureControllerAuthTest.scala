@@ -557,7 +557,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
         None,
         None,
         Try(Option(0)),
-        Try(Option(0))
+        Try(Option(0)),
+        None
       )
     } yield ()
   }
@@ -585,7 +586,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
             None,
             None,
             Try(Option(0)),
-            Try(Option(0))
+            Try(Option(0)),
+            None
           )
       } yield ()
     }
@@ -626,7 +628,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
           None,
           None,
           Try(Option(0)),
-          Try(Option(0))
+          Try(Option(0)),
+          None
         )
     } yield ()
   }
@@ -654,7 +657,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
             None,
             None,
             Try(Option(0)),
-            Try(Option(0))
+            Try(Option(0)),
+            None
           )
       } yield ()
     }
@@ -704,7 +708,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
           None,
           None,
           Try(Option(0)),
-          Try(Option(0))
+          Try(Option(0)),
+          None
         )
         ex <- controller
           .changeColumn(
@@ -721,7 +726,8 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
             None,
             None,
             Try(Option(0)),
-            Try(Option(0))
+            Try(Option(0)),
+            None
           )
           .recover({ case ex => ex })
       } yield {

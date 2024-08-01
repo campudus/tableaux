@@ -455,7 +455,8 @@ class StructureController(
       rules: Option[JsonArray],
       hidden: Option[Boolean],
       maxLengthTry: Try[Option[Int]],
-      minLengthTry: Try[Option[Int]]
+      minLengthTry: Try[Option[Int]],
+      showMemberColumns: Option[Boolean]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
@@ -510,7 +511,8 @@ class StructureController(
           rules,
           hidden,
           maxLength,
-          minLength
+          minLength,
+          showMemberColumns
         )
 
     for {
