@@ -113,7 +113,8 @@ case class CreateGroupColumn(
     override val displayInfos: Seq[DisplayInfo],
     groups: Seq[ColumnId],
     override val attributes: Option[JsonObject],
-    override val hidden: Boolean = false
+    override val hidden: Boolean = false,
+    showMemberColumns: Boolean = false
 ) extends CreateColumn {
   override val kind: TableauxDbType = GroupType
   override val languageType: LanguageType = LanguageNeutral

@@ -3882,6 +3882,11 @@
           "type": "string",
           "description": "Pattern for the frontend how to render the content of a group column",
           "example": "{{1}} × {{2}} × {{3}} mm (B × H × T)"
+        },
+        "showMemberColumns": {
+          "type": "boolean",
+          "description": "Flag if the member columns should be displayed in the frontend table view (They are always displayed in entity view).",
+          "example": true
         }
       },
       "description": "A column object, which is used to create a new column.",
@@ -3919,7 +3924,8 @@
             1,
             2
           ],
-          "formatPattern": "city {{1}} has {{2}} inhabitants"
+          "formatPattern": "city {{1}} has {{2}} inhabitants",
+          "showMemberColumns": true
         }
       ]
     },

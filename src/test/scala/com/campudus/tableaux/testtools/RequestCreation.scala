@@ -72,18 +72,20 @@ object RequestCreation {
 
   case class StatusCol(name: String) extends ColumnType("status")
 
-  sealed abstract class BaseGroupCol(groups: Seq[ColumnId]) extends ColumnType("group") {
+  sealed abstract class BaseGroupCol(groups: Seq[ColumnId], showMemberColumns: Boolean) extends ColumnType("group") {
 
     override def getJson: JsonObject = {
       super.getJson.mergeIn(
         Json.obj(
-          "groups" -> groups
+          "groups" -> groups,
+          "showMemberColumns" -> showMemberColumns
         )
       )
     }
   }
 
-  case class GroupCol(name: String, groups: Seq[ColumnId]) extends BaseGroupCol(groups) {}
+  case class GroupCol(name: String, groups: Seq[ColumnId], showMemberColumns: Boolean = false)
+      extends BaseGroupCol(groups, showMemberColumns) {}
 
   sealed abstract class LinkCol extends ColumnType("link") {
 
@@ -141,8 +143,12 @@ object RequestCreation {
     override def getJson: JsonObject = column.getJson.mergeIn(Json.obj("identifier" -> true))
   }
 
-  case class FormattedGroupCol(name: String, groups: Seq[ColumnId], formatPattern: String)
-      extends BaseGroupCol(groups) {
+  case class FormattedGroupCol(
+      name: String,
+      groups: Seq[ColumnId],
+      formatPattern: String,
+      showMemberColumns: Boolean = false
+  ) extends BaseGroupCol(groups, showMemberColumns) {
 
     override def getJson: JsonObject = {
       super.getJson
