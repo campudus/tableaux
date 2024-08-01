@@ -528,17 +528,17 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
 
         (t, _) <- t.query(s"""|CREATE TABLE link_table_$linkId (
-                              | id_1 bigint,
-                              | id_2 bigint,
-                              | ordering_1 serial,
-                              | ordering_2 serial,
-                              |
-                              | PRIMARY KEY(id_1, id_2),
-                              |
-                              | CONSTRAINT link_table_${linkId}_foreign_1
-                              | FOREIGN KEY(id_1) REFERENCES user_table_$tableId (id) ON DELETE CASCADE,
-                              | CONSTRAINT link_table_${linkId}_foreign_2
-                              | FOREIGN KEY(id_2) REFERENCES user_table_${linkColumnInfo.toTable} (id) ON DELETE CASCADE
+                              |  id_1 bigint,
+                              |  id_2 bigint,
+                              |  ordering_1 serial,
+                              |  ordering_2 serial,
+                              |  
+                              |  PRIMARY KEY(id_1, id_2),
+                              |  
+                              |  CONSTRAINT link_table_${linkId}_foreign_1
+                              |  FOREIGN KEY(id_1) REFERENCES user_table_$tableId (id) ON DELETE CASCADE,
+                              |  CONSTRAINT link_table_${linkId}_foreign_2
+                              |  FOREIGN KEY(id_2) REFERENCES user_table_${linkColumnInfo.toTable} (id) ON DELETE CASCADE
                               |)""".stripMargin)
       } yield {
         (t, (linkId, toCol, columnInfo))
@@ -697,8 +697,8 @@ class ColumnModel(val connection: DatabaseConnection)(
          |  d.column_id,
          |  d.column_type,
          |  d.identifier
-         | FROM system_columns d JOIN system_column_groups g ON (d.table_id = g.table_id AND d.column_id = g.group_column_id)
-         | WHERE d.table_id = ? AND g.grouped_column_id = ?""".stripMargin
+         |FROM system_columns d JOIN system_column_groups g ON (d.table_id = g.table_id AND d.column_id = g.group_column_id)
+         |WHERE d.table_id = ? AND g.grouped_column_id = ?""".stripMargin
 
     for {
       dependentGroupColumns <- connection.query(select, Json.arr(tableId, columnId))
@@ -725,10 +725,10 @@ class ColumnModel(val connection: DatabaseConnection)(
          |  d.column_type,
          |  d.identifier,
          |  json_agg(g.group_column_id) AS group_column_ids
-         | FROM system_link_table l JOIN system_columns d ON (l.link_id = d.link_id) LEFT JOIN system_column_groups g ON (d.table_id = g.table_id AND d.column_id = g.grouped_column_id)
-         | WHERE (l.table_id_1 = ? OR l.table_id_2 = ?) AND d.table_id != ?
-         | GROUP BY d.table_id, d.column_id
-         | ORDER BY d.table_id, d.column_id""".stripMargin
+         |FROM system_link_table l JOIN system_columns d ON (l.link_id = d.link_id) LEFT JOIN system_column_groups g ON (d.table_id = g.table_id AND d.column_id = g.grouped_column_id)
+         |WHERE (l.table_id_1 = ? OR l.table_id_2 = ?) AND d.table_id != ?
+         |GROUP BY d.table_id, d.column_id
+         |ORDER BY d.table_id, d.column_id""".stripMargin
 
     for {
       dependentColumns <- connection.query(select, Json.arr(tableId, tableId, tableId))
@@ -884,7 +884,6 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int)(
       implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
-    // TODO: refactor duplicate query
     val select =
       s"""
          |SELECT
@@ -1491,58 +1490,35 @@ class ColumnModel(val connection: DatabaseConnection)(
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 
-    // TODO: refactor this update cascade to less updates or at least use a query template for all updates
+    def maybeUpdateColumn[VALUE_TYPE](
+        t: DbTransaction,
+        columnName: String,
+        value: Option[VALUE_TYPE],
+        trans: VALUE_TYPE => _ = (v: VALUE_TYPE) => v
+    ): Future[(DbTransaction, JsonObject)] = {
+      optionToValidFuture(
+        value,
+        t,
+        { v: VALUE_TYPE => t.query(getUpdateQueryFor(columnName), Json.arr(trans(v), tableId, columnId)) }
+      )
+    }
+
     for {
       t <- connection.begin()
 
       // change column settings
-      (t, resultName) <- optionToValidFuture(
-        columnName,
-        t,
-        { name: String => t.query(getUpdateQueryFor("user_column_name"), Json.arr(name, tableId, columnId)) }
-      )
-      (t, resultOrdering) <- optionToValidFuture(
-        ordering,
-        t,
-        { ord: Ordering => t.query(getUpdateQueryFor("ordering"), Json.arr(ord, tableId, columnId)) }
-      )
-      (t, resultKind) <- optionToValidFuture(
-        kind,
-        t,
-        { k: TableauxDbType => t.query(getUpdateQueryFor("column_type"), Json.arr(k.name, tableId, columnId)) }
-      )
-      (t, resultIdentifier) <- optionToValidFuture(
-        identifier,
-        t,
-        { ident: Boolean => t.query(getUpdateQueryFor("identifier"), Json.arr(ident, tableId, columnId)) }
-      )
-      (t, resultSeparator) <- optionToValidFuture(
-        separator,
-        t,
-        { sep: Boolean => t.query(getUpdateQueryFor("separator"), Json.arr(sep, tableId, columnId)) }
-      )
-      (t, resultAttributes) <- optionToValidFuture(
-        attributes,
-        t,
-        { att: JsonObject => t.query(getUpdateQueryFor("attributes"), Json.arr(att.encode(), tableId, columnId)) }
-      )
-      (t, resultRules) <- optionToValidFuture(
-        rules,
-        t,
-        { rul: JsonArray => t.query(getUpdateQueryFor("rules"), Json.arr(rul.encode(), tableId, columnId)) }
-      )
-      (t, resultCountryCodes) <- optionToValidFuture(
-        countryCodes,
-        t,
-        { codes: Seq[String] =>
-          t.query(getUpdateQueryFor("country_codes"), Json.arr(Json.arr(codes: _*), tableId, columnId))
-        }
-      )
-      (t, resultHidden) <- optionToValidFuture(
-        hidden,
-        t,
-        { hid: Boolean => t.query(getUpdateQueryFor("hidden"), Json.arr(hid, tableId, columnId)) }
-      )
+      (t, resultName) <- maybeUpdateColumn(t, "user_column_name", columnName)
+      (t, resultOrdering) <- maybeUpdateColumn(t, "ordering", ordering)
+      (t, resultKind) <- maybeUpdateColumn(t, "column_type", kind, (k: TableauxDbType) => k.name)
+      (t, resultIdentifier) <- maybeUpdateColumn(t, "identifier", identifier)
+      (t, resultSeparator) <- maybeUpdateColumn(t, "separator", separator)
+      (t, resultAttributes) <- maybeUpdateColumn(t, "attributes", attributes, (a: JsonObject) => a.encode())
+      (t, resultRules) <- maybeUpdateColumn(t, "rules", rules, (r: JsonArray) => r.encode())
+      (t, resultCountryCodes) <-
+        maybeUpdateColumn(t, "country_codes", countryCodes, (c: Seq[String]) => Json.arr(c: _*))
+      (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)
+      (t, resultSeparator) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
+
       // cannot use optionToValidFuture here, we need to be able to set these settings to null
       (t, resultMaxLength) <- maxLength match {
         case Some(maxLen) => t.query(getUpdateQueryFor("max_length"), Json.arr(maxLen, tableId, columnId))
@@ -1552,11 +1528,6 @@ class ColumnModel(val connection: DatabaseConnection)(
         case Some(minLen) => t.query(getUpdateQueryFor("min_length"), Json.arr(minLen, tableId, columnId))
         case None => t.query(getUpdateQueryFor("min_length"), Json.arr(null, tableId, columnId))
       }
-      (t, resultSeparator) <- optionToValidFuture(
-        showMemberColumns,
-        t,
-        { smc: Boolean => t.query(getUpdateQueryFor("show_member_columns"), Json.arr(smc, tableId, columnId)) }
-      )
 
       // change display information
       t <- insertOrUpdateColumnLangInfo(t, table.id, columnId, displayInfos)
@@ -1566,11 +1537,10 @@ class ColumnModel(val connection: DatabaseConnection)(
         kind,
         t,
         { k: TableauxDbType =>
-          {
-            t.query(
-              s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}"
-            )
-          }
+          t.query(
+            s"ALTER TABLE user_table_$tableId ALTER COLUMN column_$columnId TYPE ${k.toDbType} USING column_$columnId::${k.toDbType}"
+          )
+
         }
       ).recoverWith(t.rollbackAndFail())
 
