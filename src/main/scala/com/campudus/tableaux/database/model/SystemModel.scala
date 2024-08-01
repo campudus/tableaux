@@ -20,24 +20,47 @@ object SystemModel {
 class SystemModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
   /**
-    * Runs all setup functions.
+    * Runs all needed setup functions.
     */
   def install(version: Option[Int] = None): Future[Unit] = {
     for {
       t <- connection.begin()
 
       // retrieve but ignore version
-      (t, _) <- retrieveCurrentVersion(t)
+      (t, installedVersions) <- retrieveCurrentVersion(t)
 
       t <- version
         .map(i => setupFunctions.take(i))
         .getOrElse(setupFunctions)
+        .drop(installedVersions)
         .foldLeft(Future(t)) {
           case (t, setup) =>
             t.flatMap(setup)
         }
 
       _ = logger.info("Setup schema finished")
+
+      _ <- t.commit()
+    } yield ()
+  }
+
+  /**
+    * Runs all setup functions.
+    */
+  def installShortCutFunction(): Future[Unit] = {
+    for {
+      t <- connection.begin()
+
+      // retrieve but ignore version
+      (t, _) <- retrieveCurrentVersion(t)
+
+      t <- setupShortCutFunction
+        .foldLeft(Future(t)) {
+          case (t, setup) =>
+            t.flatMap(setup)
+        }
+
+      _ = logger.info("Setup shortcut schema finished")
 
       _ <- t.commit()
     } yield ()
@@ -127,6 +150,44 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
   }
 
   private val setupFunctions: Seq[DbTransaction => Future[DbTransaction]] = Seq(
+    setupVersion(readSchemaFile("schema_v1"), 1),
+    setupVersion(readSchemaFile("schema_v2"), 2),
+    setupVersion(readSchemaFile("schema_v3"), 3),
+    setupVersion(readSchemaFile("schema_v4"), 4),
+    setupVersion(readSchemaFile("schema_v5"), 5),
+    setupVersion(readSchemaFile("schema_v6"), 6),
+    setupVersion(readSchemaFile("schema_v7"), 7),
+    setupVersion(readSchemaFile("schema_v8"), 8),
+    setupVersion(readSchemaFile("schema_v9"), 9),
+    setupVersion(readSchemaFile("schema_v10"), 10),
+    setupVersion(readSchemaFile("schema_v11"), 11),
+    setupVersion(readSchemaFile("schema_v12"), 12),
+    setupVersion(readSchemaFile("schema_v13"), 13),
+    setupVersion(readSchemaFile("schema_v14"), 14),
+    setupVersion(readSchemaFile("schema_v15"), 15),
+    setupVersion(readSchemaFile("schema_v16"), 16),
+    setupVersion(readSchemaFile("schema_v17"), 17),
+    setupVersion(readSchemaFile("schema_v18"), 18),
+    setupVersion(readSchemaFile("schema_v19"), 19),
+    setupVersion(readSchemaFile("schema_v20"), 20),
+    setupVersion(readSchemaFile("schema_v21"), 21),
+    setupVersion(readSchemaFile("schema_v22"), 22),
+    setupVersion(readSchemaFile("schema_v23"), 23),
+    setupVersion(readSchemaFile("schema_v24"), 24),
+    setupVersion(readSchemaFile("schema_v25"), 25),
+    setupVersion(readSchemaFile("schema_v26"), 26),
+    setupVersion(readSchemaFile("schema_v27"), 27),
+    setupVersion(readSchemaFile("schema_v28"), 28),
+    setupVersion(readSchemaFile("schema_v29"), 29),
+    setupVersion(readSchemaFile("schema_v30"), 30),
+    setupVersion(readSchemaFile("schema_v31"), 31),
+    setupVersion(readSchemaFile("schema_v32"), 32),
+    setupVersion(readSchemaFile("schema_v33"), 33),
+    setupVersion(readSchemaFile("schema_v34"), 34),
+    setupVersion(readSchemaFile("schema_v35"), 35)
+  )
+
+  private val setupShortCutFunction: Seq[DbTransaction => Future[DbTransaction]] = Seq(
     setupVersion(readSchemaFile("merged_schema_until_v35"), 35)
   )
 

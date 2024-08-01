@@ -101,6 +101,7 @@ class SystemController(
     for {
       _ <- roleModel.checkAuthorization(EditSystem)
       _ <- repository.uninstall()
+      _ <- repository.installShortCutFunction()
       _ <- repository.install()
       _ <- invalidateCache()
       _ <- structureModel.columnStruc.removeAllCache()

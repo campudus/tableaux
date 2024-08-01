@@ -116,6 +116,7 @@ trait TableauxTestBase
 
         for {
           _ <- system.uninstall()
+          _ <- system.installShortCutFunction()
           _ <- system.install()
         } yield async.complete()
 
