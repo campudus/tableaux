@@ -859,6 +859,28 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
+  val baseColumnProjection =
+    s"""
+       |  column_id,
+       |  user_column_name,
+       |  column_type,
+       |  ordering,
+       |  multilanguage,
+       |  identifier,
+       |  separator,
+       |  attributes,
+       |  rules,
+       |  array_to_json(country_codes),
+       |  (
+       |    SELECT json_agg(group_column_id) FROM system_column_groups
+       |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
+       |  ) AS group_column_ids,
+       |  format_pattern,
+       |  hidden,
+       |  max_length,
+       |  min_length,
+       |  show_member_columns""".stripMargin
+
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int)(
       implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
@@ -866,25 +888,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
-         |  column_id,
-         |  user_column_name,
-         |  column_type,
-         |  ordering,
-         |  multilanguage,
-         |  identifier,
-         |  separator,
-         |  attributes,
-         |  rules,
-         |  array_to_json(country_codes),
-         |  (
-         |    SELECT json_agg(group_column_id) FROM system_column_groups
-         |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
-         |  ) AS group_column_ids,
-         |  format_pattern,
-         |  hidden,
-         |  max_length,
-         |  min_length,
-         |  show_member_columns
+         |  $baseColumnProjection
          |FROM system_columns c
          |WHERE
          |  table_id = ? AND
@@ -961,25 +965,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
     s"""
        |SELECT
-       |  column_id,
-       |  user_column_name,
-       |  column_type,
-       |  ordering,
-       |  multilanguage,
-       |  identifier,
-       |  separator,
-       |  attributes,
-       |  rules,
-       |  array_to_json(country_codes),
-       |  (
-       |    SELECT json_agg(group_column_id) FROM system_column_groups
-       |    WHERE table_id = c.table_id AND grouped_column_id = c.column_id
-       |  ) AS group_column_ids,
-       |  format_pattern,
-       |  hidden,
-       |  max_length,
-       |  min_length,
-       |  show_member_columns
+       |  $baseColumnProjection
        |FROM system_columns c
        |WHERE
        |  table_id = ?
@@ -1482,6 +1468,10 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield t
   }
 
+  private def getUpdateQueryFor(
+      columnName: String
+  ): String = s"UPDATE system_columns SET $columnName = ? WHERE table_id = ? AND column_id = ?"
+
   def change(
       table: Table,
       columnId: ColumnId,
@@ -1509,147 +1499,63 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t, resultName) <- optionToValidFuture(
         columnName,
         t,
-        { name: String =>
-          {
-            t.query(
-              s"UPDATE system_columns SET user_column_name = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(name, tableId, columnId)
-            )
-          }
-        }
+        { name: String => t.query(getUpdateQueryFor("user_column_name"), Json.arr(name, tableId, columnId)) }
       )
       (t, resultOrdering) <- optionToValidFuture(
         ordering,
         t,
-        { ord: Ordering =>
-          {
-            t.query(
-              s"UPDATE system_columns SET ordering = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(ord, tableId, columnId)
-            )
-          }
-        }
+        { ord: Ordering => t.query(getUpdateQueryFor("ordering"), Json.arr(ord, tableId, columnId)) }
       )
       (t, resultKind) <- optionToValidFuture(
         kind,
         t,
-        { k: TableauxDbType =>
-          {
-            t.query(
-              s"UPDATE system_columns SET column_type = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(k.name, tableId, columnId)
-            )
-          }
-        }
+        { k: TableauxDbType => t.query(getUpdateQueryFor("column_type"), Json.arr(k.name, tableId, columnId)) }
       )
       (t, resultIdentifier) <- optionToValidFuture(
         identifier,
         t,
-        { ident: Boolean =>
-          {
-            t.query(
-              s"UPDATE system_columns SET identifier = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(ident, tableId, columnId)
-            )
-          }
-        }
+        { ident: Boolean => t.query(getUpdateQueryFor("identifier"), Json.arr(ident, tableId, columnId)) }
       )
       (t, resultSeparator) <- optionToValidFuture(
         separator,
         t,
-        { sep: Boolean =>
-          {
-            t.query(
-              s"UPDATE system_columns SET separator = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(sep, tableId, columnId)
-            )
-          }
-        }
+        { sep: Boolean => t.query(getUpdateQueryFor("separator"), Json.arr(sep, tableId, columnId)) }
       )
       (t, resultAttributes) <- optionToValidFuture(
         attributes,
         t,
-        { att: JsonObject =>
-          {
-            t.query(
-              s"UPDATE system_columns SET attributes = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(att.encode(), tableId, columnId)
-            )
-          }
-        }
+        { att: JsonObject => t.query(getUpdateQueryFor("attributes"), Json.arr(att.encode(), tableId, columnId)) }
       )
       (t, resultRules) <- optionToValidFuture(
         rules,
         t,
-        { rul: JsonArray =>
-          {
-            t.query(
-              s"UPDATE system_columns SET rules = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(rul.encode(), tableId, columnId)
-            )
-          }
-        }
+        { rul: JsonArray => t.query(getUpdateQueryFor("rules"), Json.arr(rul.encode(), tableId, columnId)) }
       )
       (t, resultCountryCodes) <- optionToValidFuture(
         countryCodes,
         t,
         { codes: Seq[String] =>
-          {
-            t.query(
-              s"UPDATE system_columns SET country_codes = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(Json.arr(codes: _*), tableId, columnId)
-            )
-          }
+          t.query(getUpdateQueryFor("country_codes"), Json.arr(Json.arr(codes: _*), tableId, columnId))
         }
       )
       (t, resultHidden) <- optionToValidFuture(
         hidden,
         t,
-        { hid: Boolean =>
-          {
-            t.query(
-              s"UPDATE system_columns SET hidden = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(hid, tableId, columnId)
-            )
-          }
-        }
+        { hid: Boolean => t.query(getUpdateQueryFor("hidden"), Json.arr(hid, tableId, columnId)) }
       )
       // cannot use optionToValidFuture here, we need to be able to set these settings to null
       (t, resultMaxLength) <- maxLength match {
-        case Some(maxLen) =>
-          t.query(
-            s"UPDATE system_columns SET max_length = ? WHERE table_id = ? AND column_id = ?",
-            Json.arr(maxLen, tableId, columnId)
-          )
-        case None =>
-          t.query(
-            s"UPDATE system_columns SET max_length = ? WHERE table_id = ? AND column_id = ?",
-            Json.arr(null, tableId, columnId)
-          )
+        case Some(maxLen) => t.query(getUpdateQueryFor("max_length"), Json.arr(maxLen, tableId, columnId))
+        case None => t.query(getUpdateQueryFor("max_length"), Json.arr(null, tableId, columnId))
       }
       (t, resultMinLength) <- minLength match {
-        case Some(minLen) =>
-          t.query(
-            s"UPDATE system_columns SET min_length = ? WHERE table_id = ? AND column_id = ?",
-            Json.arr(minLen, tableId, columnId)
-          )
-        case None =>
-          t.query(
-            s"UPDATE system_columns SET min_length = ? WHERE table_id = ? AND column_id = ?",
-            Json.arr(null, tableId, columnId)
-          )
+        case Some(minLen) => t.query(getUpdateQueryFor("min_length"), Json.arr(minLen, tableId, columnId))
+        case None => t.query(getUpdateQueryFor("min_length"), Json.arr(null, tableId, columnId))
       }
       (t, resultSeparator) <- optionToValidFuture(
         showMemberColumns,
         t,
-        { smc: Boolean =>
-          {
-            t.query(
-              s"UPDATE system_columns SET show_member_columns = ? WHERE table_id = ? AND column_id = ?",
-              Json.arr(smc, tableId, columnId)
-            )
-          }
-        }
+        { smc: Boolean => t.query(getUpdateQueryFor("show_member_columns"), Json.arr(smc, tableId, columnId)) }
       )
 
       // change display information
