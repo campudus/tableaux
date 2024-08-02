@@ -10,7 +10,6 @@ import org.vertx.scala.core.json.Json
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.scalatest.Ignore
 
 @RunWith(classOf[VertxUnitRunner])
 class SystemControllerTest extends TableauxTestBase {
