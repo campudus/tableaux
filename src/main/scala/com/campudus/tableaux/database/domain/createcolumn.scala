@@ -17,6 +17,7 @@ sealed trait CreateColumn {
   val hidden: Boolean
   val maxLength: Option[Int] = None
   val minLength: Option[Int] = None
+  val decimalDigits: Option[Int] = None
 }
 
 case class CreateSimpleColumn(
@@ -30,7 +31,8 @@ case class CreateSimpleColumn(
     override val attributes: Option[JsonObject],
     override val hidden: Boolean = false,
     override val maxLength: Option[Int] = None,
-    override val minLength: Option[Int] = None
+    override val minLength: Option[Int] = None,
+    override val decimalDigits: Option[Int] = None
 ) extends CreateColumn
 
 case class CreateBackLinkColumn(

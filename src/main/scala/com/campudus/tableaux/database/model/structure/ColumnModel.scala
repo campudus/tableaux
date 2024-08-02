@@ -185,7 +185,8 @@ class CachedColumnModel(
       hidden: Option[Boolean],
       maxLength: Option[Int],
       minLength: Option[Int],
-      showMemberColumns: Option[Boolean]
+      showMemberColumns: Option[Boolean],
+      decimalDigits: Option[Int]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -205,7 +206,8 @@ class CachedColumnModel(
           hidden,
           maxLength,
           minLength,
-          showMemberColumns
+          showMemberColumns,
+          decimalDigits
         )
     } yield r
   }
@@ -573,9 +575,10 @@ class ColumnModel(val connection: DatabaseConnection)(
           |  hidden,
           |  max_length,
           |  min_length,
-          |  show_member_columns
+          |  show_member_columns,
+          |  decimal_digits
           |  )
-          |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          |  VALUES (?, nextval('system_columns_column_id_table_$tableId'), ?, ?, $ordering, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           |  RETURNING column_id, ordering
           |""".stripMargin
     }
@@ -637,7 +640,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.hidden,
                 maxLength,
                 minLength,
-                showMemberColumns
+                showMemberColumns,
+                createColumn.decimalDigits.orNull
               )
             )
           case Some(ord) =>
@@ -659,7 +663,8 @@ class ColumnModel(val connection: DatabaseConnection)(
                 createColumn.hidden,
                 maxLength,
                 minLength,
-                showMemberColumns
+                showMemberColumns,
+                createColumn.decimalDigits.orNull
               )
             )
         }
@@ -879,7 +884,9 @@ class ColumnModel(val connection: DatabaseConnection)(
        |  hidden,
        |  max_length,
        |  min_length,
-       |  show_member_columns""".stripMargin
+       |  show_member_columns,
+       |  decimal_digits
+       |""".stripMargin
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int)(
       implicit user: TableauxUser
@@ -1172,6 +1179,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val maxLength = Option(row.get[Int](13))
     val minLength = Option(row.get[Int](14))
     val showMemberColumns = row.get[Boolean](15)
+    val decimalDigits = Option(row.get[Int](16))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
@@ -1188,7 +1196,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         attributes,
         hidden,
         maxLength,
-        minLength
+        minLength,
+        decimalDigits
       )
 
       column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
@@ -1486,7 +1495,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       hidden: Option[Boolean],
       maxLength: Option[Int],
       minLength: Option[Int],
-      showMemberColumns: Option[Boolean]
+      showMemberColumns: Option[Boolean],
+      decimalDigits: Option[Int]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 
@@ -1507,7 +1517,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       t <- connection.begin()
 
       // change column settings
-      (t, resultName) <- maybeUpdateColumn(t, "user_column_name", columnName)
+      (t, resultColumnName) <- maybeUpdateColumn(t, "user_column_name", columnName)
       (t, resultOrdering) <- maybeUpdateColumn(t, "ordering", ordering)
       (t, resultKind) <- maybeUpdateColumn(t, "column_type", kind, (k: TableauxDbType) => k.name)
       (t, resultIdentifier) <- maybeUpdateColumn(t, "identifier", identifier)
@@ -1518,6 +1528,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         maybeUpdateColumn(t, "country_codes", countryCodes, (c: Seq[String]) => Json.arr(c: _*))
       (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)
       (t, resultShowMemberColumns) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
+      (t, resultDecimalDigits) <- maybeUpdateColumn(t, "decimal_digits", decimalDigits)
 
       // cannot use optionToValidFuture here, we need to be able to set these settings to null
       (t, resultMaxLength) <- maxLength match {
@@ -1546,7 +1557,7 @@ class ColumnModel(val connection: DatabaseConnection)(
 
       _ <- Future(
         checkUpdateResults(
-          resultName,
+          resultColumnName,
           resultOrdering,
           resultKind,
           resultIdentifier,
@@ -1556,7 +1567,8 @@ class ColumnModel(val connection: DatabaseConnection)(
           resultRules,
           resultMaxLength,
           resultMinLength,
-          resultShowMemberColumns
+          resultShowMemberColumns,
+          resultDecimalDigits
         )
       )
         .recoverWith(t.rollbackAndFail())
