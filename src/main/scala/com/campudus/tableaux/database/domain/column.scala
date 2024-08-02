@@ -37,6 +37,7 @@ sealed trait ColumnInformation {
   val hidden: Boolean
   val maxLength: Option[Int]
   val minLength: Option[Int]
+  val decimalDigits: Option[Int]
 }
 
 object BasicColumnInformation {
@@ -64,7 +65,8 @@ object BasicColumnInformation {
       attributes,
       createColumn.hidden,
       createColumn.maxLength,
-      createColumn.minLength
+      createColumn.minLength,
+      createColumn.decimalDigits
     )
   }
 }
@@ -110,7 +112,8 @@ case class BasicColumnInformation(
     override val attributes: JsonObject,
     override val hidden: Boolean,
     override val maxLength: Option[Int],
-    override val minLength: Option[Int]
+    override val minLength: Option[Int],
+    override val decimalDigits: Option[Int]
 ) extends ColumnInformation
 
 case class StatusColumnInformation(
@@ -126,7 +129,8 @@ case class StatusColumnInformation(
     val rules: JsonArray,
     override val hidden: Boolean,
     override val maxLength: Option[Int] = None,
-    override val minLength: Option[Int] = None
+    override val minLength: Option[Int] = None,
+    override val decimalDigits: Option[Int] = None
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -147,6 +151,7 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   override val attributes: JsonObject = Json.obj()
   override val maxLength: Option[Int] = None
   override val minLength: Option[Int] = None
+  override val decimalDigits: Option[Int] = None
 }
 
 object ColumnType {
@@ -292,24 +297,27 @@ sealed trait ColumnType[+A] extends DomainObject {
     columnInformation.displayInfos.foreach(displayInfo => {
       displayInfo.optionalName.map(name => {
         json
-          .mergeIn(
-            Json
-              .obj("displayName" -> json.getJsonObject("displayName").mergeIn(Json.obj(displayInfo.langtag -> name)))
-          )
+          .mergeIn(Json.obj("displayName" -> json.getJsonObject("displayName")
+            .mergeIn(Json.obj(displayInfo.langtag -> name))))
       })
 
       displayInfo.optionalDescription.map(desc => {
         json
-          .mergeIn(
-            Json
-              .obj("description" -> json.getJsonObject("description").mergeIn(Json.obj(displayInfo.langtag -> desc)))
-          )
+          .mergeIn(Json.obj("description" -> json.getJsonObject("description")
+            .mergeIn(Json.obj(displayInfo.langtag -> desc))))
       })
     })
     json
   }
 
   def checkValidValue[B](value: B): Try[Option[A]]
+
+  protected def getJsonPart(columnInformationFiled: Option[Any], name: String): JsonObject = {
+    columnInformationFiled match {
+      case Some(v) => Json.obj(name -> v)
+      case None => Json.emptyObj()
+    }
+  }
 }
 
 /**
@@ -410,15 +418,12 @@ case class TextColumn(override val languageType: LanguageType)(override val colu
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 
   override def getJson: JsonObject = {
-    val maxLength = columnInformation.maxLength match {
-      case None => null
-      case Some(num) => num
-    }
-    val minLength = columnInformation.minLength match {
-      case None => null
-      case Some(num) => num
-    }
-    super.getJson.mergeIn(Json.obj("maxLength" -> maxLength, "minLength" -> minLength))
+    val maxLengthJson = getJsonPart(columnInformation.maxLength, "maxLength")
+    val minLengthJson = getJsonPart(columnInformation.minLength, "minLength")
+
+    super.getJson
+      .mergeIn(maxLengthJson)
+      .mergeIn(minLengthJson)
   }
 }
 
@@ -430,15 +435,12 @@ case class ShortTextColumn(override val languageType: LanguageType)(override val
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 
   override def getJson: JsonObject = {
-    val maxLength = columnInformation.maxLength match {
-      case None => null
-      case Some(num) => num
-    }
-    val minLength = columnInformation.minLength match {
-      case None => null
-      case Some(num) => num
-    }
-    super.getJson.mergeIn(Json.obj("maxLength" -> maxLength, "minLength" -> minLength))
+    val maxLengthJson = getJsonPart(columnInformation.maxLength, "maxLength")
+    val minLengthJson = getJsonPart(columnInformation.minLength, "minLength")
+
+    super.getJson
+      .mergeIn(maxLengthJson)
+      .mergeIn(minLengthJson)
   }
 }
 
@@ -450,15 +452,12 @@ case class RichTextColumn(override val languageType: LanguageType)(override val 
   override def checkValidSingleValue[B](value: B): Try[String] = Try(value.asInstanceOf[String])
 
   override def getJson: JsonObject = {
-    val maxLength = columnInformation.maxLength match {
-      case None => null
-      case Some(num) => num
-    }
-    val minLength = columnInformation.minLength match {
-      case None => null
-      case Some(num) => num
-    }
-    super.getJson.mergeIn(Json.obj("maxLength" -> maxLength, "minLength" -> minLength))
+    val maxLengthJson = getJsonPart(columnInformation.maxLength, "maxLength")
+    val minLengthJson = getJsonPart(columnInformation.minLength, "minLength")
+
+    super.getJson
+      .mergeIn(maxLengthJson)
+      .mergeIn(minLengthJson)
   }
 }
 
@@ -467,6 +466,12 @@ case class NumberColumn(override val languageType: LanguageType)(override val co
     val user: TableauxUser
 ) extends SimpleValueColumn[Number](NumericType)(languageType) {
 
+  override def getJson: JsonObject = {
+    val decimalDigitsJson = getJsonPart(columnInformation.decimalDigits, "decimalDigits")
+
+    super.getJson
+      .mergeIn(decimalDigitsJson)
+  }
   override def checkValidSingleValue[B](value: B): Try[Number] = Try(value.asInstanceOf[Number])
 }
 
@@ -528,16 +533,19 @@ case class LinkColumn(
   override val languageType: LanguageType = to.languageType
 
   override def getJson: JsonObject = {
-    val constraintJson = linkDirection.constraint.getJson
+    val baseJson = Json.obj(
+      "toTable" -> to.table.id,
+      "toColumn" -> to.getJson
+    )
+
+    val constraintJson = linkDirection.constraint.getJson match {
+      case json if json.isEmpty => Json.emptyObj()
+      case json => Json.obj("constraint" -> json)
+    }
 
     super.getJson
-      .mergeIn(
-        Json.obj(
-          "toTable" -> to.table.id,
-          "toColumn" -> to.getJson
-        )
-      )
-      .mergeIn(if (constraintJson.isEmpty) Json.emptyObj() else Json.obj("constraint" -> constraintJson))
+      .mergeIn(baseJson)
+      .mergeIn(constraintJson)
   }
 
   override def checkValidValue[B](value: B): Try[Option[Seq[RowId]]] = {
@@ -721,7 +729,7 @@ case class GroupColumn(
   override val kind: GroupType.type = GroupType
 
   override def getJson: JsonObject = {
-    val json = super.getJson.mergeIn(Json.obj("groups" -> columns.map(_.getJson)))
+    val groupsJson = Json.obj("groups" -> columns.map(_.getJson))
 
     val formatPatternJson = formatPattern match {
       case Some(pattern) => Json.obj("formatPattern" -> pattern)
@@ -733,7 +741,10 @@ case class GroupColumn(
       case false => Json.emptyObj()
     }
 
-    json.mergeIn(formatPatternJson).mergeIn(showMemberColumnsJson)
+    super.getJson
+      .mergeIn(groupsJson)
+      .mergeIn(formatPatternJson)
+      .mergeIn(showMemberColumnsJson)
   }
 }
 
