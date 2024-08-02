@@ -62,7 +62,18 @@ object RequestCreation {
 
   case class RichTextCol(name: String) extends ColumnType("richtext")
 
-  case class NumericCol(name: String) extends ColumnType("numeric")
+  case class NumericCol(override val name: String, decimalDigits: Option[Int] = None) extends ColumnType("numeric") {
+
+    override def getJson: JsonObject = {
+      super.getJson
+        .mergeIn(
+          decimalDigits match {
+            case Some(digits) => Json.obj("decimalDigits" -> digits)
+            case None => Json.emptyObj()
+          }
+        )
+    }
+  }
 
   case class IntegerCol(name: String) extends ColumnType("integer")
 

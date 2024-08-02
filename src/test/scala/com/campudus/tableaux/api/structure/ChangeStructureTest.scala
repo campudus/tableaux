@@ -93,6 +93,20 @@ class ChangeStructureTest extends TableauxTestBase {
   }
 
   @Test
+  def changeColumnDecimalDigits(implicit c: TestContext): Unit = okTest {
+    val postJson = Json.obj("decimalDigits" -> 4)
+
+    for {
+      _ <- createDefaultTable()
+      resultPost <- sendRequest("POST", "/tables/1/columns/2", postJson)
+      resultGet <- sendRequest("GET", "/tables/1/columns/2")
+    } yield {
+      assertEquals(4, resultGet.getInteger("decimalDigits"))
+      assertEquals(resultPost, resultGet)
+    }
+  }
+
+  @Test
   def changeColumnKindWhichShouldFail(implicit c: TestContext): Unit = {
     okTest {
       val kindTextJson = Json.obj("kind" -> "text")

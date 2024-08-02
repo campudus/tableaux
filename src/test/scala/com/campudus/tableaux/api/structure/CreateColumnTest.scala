@@ -24,7 +24,8 @@ class CreateColumnTest extends TableauxTestBase {
 
   def createRichTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.RichTextCol(name)).getJson
 
-  def createNumberColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.NumericCol(name)).getJson
+  def createNumberColumnJson(name: String, decimalDigits: Option[Int] = None) =
+    RequestCreation.Columns().add(RequestCreation.NumericCol(name, decimalDigits)).getJson
 
   def createIntegerColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.IntegerCol(name)).getJson
 
@@ -218,6 +219,54 @@ class CreateColumnTest extends TableauxTestBase {
         test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
       } yield {
         assertJSONEquals(expectedJson, test1)
+        assertJSONEquals(expectedJson2, test2)
+      }
+    }
+  }
+
+  @Test
+  def createNumberColumnWithCustomDecimalDigits(implicit c: TestContext): Unit = {
+    okTest {
+      val createColumn1 = createNumberColumnJson("column1", None)
+      val createColumn2 = createNumberColumnJson("column2", Some(5))
+      val expectedJson = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj(
+              "id" -> 1,
+              "ordering" -> 1,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj()
+            )
+            .mergeIn(createColumn1.getJsonArray("columns").getJsonObject(0))
+        )
+      )
+      val expectedJson2 = Json.obj(
+        "status" -> "ok",
+        "columns" -> Json.arr(
+          Json
+            .obj(
+              "id" -> 2,
+              "ordering" -> 2,
+              "multilanguage" -> false,
+              "identifier" -> false,
+              "displayName" -> Json.obj(),
+              "description" -> Json.obj()
+            )
+            .mergeIn(createColumn2.getJsonArray("columns").getJsonObject(0))
+        )
+      )
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test1 <- sendRequest("POST", "/tables/1/columns", createColumn1)
+        test2 <- sendRequest("POST", "/tables/1/columns", createColumn2)
+      } yield {
+        assertJSONEquals(expectedJson, test1)
+        assertNull(test1.getJsonArray("columns").getJsonObject(0).getInteger("decimalDigits"))
         assertJSONEquals(expectedJson2, test2)
       }
     }
