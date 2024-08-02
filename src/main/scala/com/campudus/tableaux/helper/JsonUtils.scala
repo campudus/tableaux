@@ -103,8 +103,9 @@ object JsonUtils extends LazyLogging {
               case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
             }
 
-            val maxLength = Option(json.getInteger("maxLength")).map(_.toInt)
-            val minLength = Option(json.getInteger("minLength")).map(_.toInt)
+            val maxLength = Try(json.getInteger("maxLength").intValue()).toOption
+            val minLength = Try(json.getInteger("minLength").intValue()).toOption
+            val decimalDigits = Try(json.getInteger("decimalDigits").intValue()).toOption
 
             // languageType or deprecated multilanguage
             // if languageType == 'country' countryCodes must be specified
@@ -230,7 +231,8 @@ object JsonUtils extends LazyLogging {
                   attributes,
                   hidden,
                   maxLength,
-                  minLength
+                  minLength,
+                  decimalDigits
                 )
             }
           }

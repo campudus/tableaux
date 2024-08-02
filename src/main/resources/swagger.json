@@ -3887,6 +3887,24 @@
           "type": "boolean",
           "description": "Flag if the member columns should be displayed in the frontend table view (They are always displayed in entity view).",
           "example": true
+        },
+        "minLength": {
+          "type": "integer",
+          "description": "Minimum length of the value, only for text columns",
+          "format": "int32",
+          "example": 1
+        },
+        "maxLength": {
+          "type": "integer",
+          "description": "Maximum length of the value, only for text columns",
+          "format": "int32",
+          "example": 255
+        },
+        "decimalDigits": {
+          "type": "integer",
+          "description": "Number of decimal digits, only for numeric columns. Values between 0 and 10 are allowed. If not set, the default value is 3.",
+          "format": "int32",
+          "example": 2
         }
       },
       "description": "A column object, which is used to create a new column.",
@@ -3925,7 +3943,8 @@
             2
           ],
           "formatPattern": "city {{1}} has {{2}} inhabitants",
-          "showMemberColumns": true
+          "showMemberColumns": true,
+          "decimalDigits": 6
         }
       ]
     },
