@@ -1517,7 +1517,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t, resultCountryCodes) <-
         maybeUpdateColumn(t, "country_codes", countryCodes, (c: Seq[String]) => Json.arr(c: _*))
       (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)
-      (t, resultSeparator) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
+      (t, resultShowMemberColumns) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
 
       // cannot use optionToValidFuture here, we need to be able to set these settings to null
       (t, resultMaxLength) <- maxLength match {
@@ -1555,7 +1555,8 @@ class ColumnModel(val connection: DatabaseConnection)(
           resultAttributes,
           resultRules,
           resultMaxLength,
-          resultMinLength
+          resultMinLength,
+          resultShowMemberColumns
         )
       )
         .recoverWith(t.rollbackAndFail())
