@@ -48,6 +48,8 @@ pipeline {
         sh 'docker rmi $(docker images -f "dangling=true" -q) || true'
         sh 'docker rmi -f $(docker images --filter "reference=campudus/grud-backend*" | grep " [weeks|months|years]* ago" | awk \'{print $3}\') 2>/dev/null || echo "No images to cleanup"'
 
+        sh "rm -rf ./build/test-results"
+
         echo "Environment variables:"
         sh "printenv | sort"
         echo ""
