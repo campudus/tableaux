@@ -474,20 +474,16 @@ class StructureController(
           attributes,
           rules,
           hidden,
-          showMemberColumns
+          maxLength,
+          minLength,
+          showMemberColumns,
+          decimalDigits
         ),
-        Seq(maxLengthTry, minLengthTry),
-        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden, maxLength, minLength, showMemberColumns"
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, " +
+          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits"
       )
     )
-    val maxLength = maxLengthTry match {
-      case Failure(exception) => None
-      case Success(opt) => opt
-    }
-    val minLength = minLengthTry match {
-      case Failure(exception) => None
-      case Success(opt) => opt
-    }
+
     val structureProperties: Seq[Option[Any]] = Seq(columnName, ordering, kind, identifier, countryCodes)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
@@ -514,7 +510,8 @@ class StructureController(
           hidden,
           maxLength,
           minLength,
-          showMemberColumns
+          showMemberColumns,
+          decimalDigits
         )
 
     for {

@@ -109,27 +109,6 @@ object ArgumentChecker {
     }
   }
 
-  def isDefined(options: Seq[Option[_]], trys: Seq[Try[Option[_]]], name: String): ArgumentCheck[Unit] = {
-    val empty = !options.exists(_.isDefined)
-    val noneHaveBeenDefined = trys.forall(_.isFailure)
-
-    if (empty && noneHaveBeenDefined) {
-      FailArg(InvalidRequestException(s"None of these options has a (valid) value. ($name)"))
-    } else {
-      OkArg(())
-    }
-
-  }
-
-  def nullableValuesAreDefined(trys: Seq[Try[Option[_]]], name: String = ""): ArgumentCheck[Unit] = {
-    val allHaveBeenSupplied = trys.forall(_.isSuccess)
-    if (allHaveBeenSupplied) {
-      FailArg(InvalidRequestException(s"None of these options has a (valid) value. ($name)"))
-    } else {
-      OkArg(())
-    }
-  }
-
   def oneOf[A](x: => A, list: List[A], name: String): ArgumentCheck[A] = {
     if (list.contains(x)) {
       OkArg(x)

@@ -323,11 +323,11 @@ object JsonUtils extends LazyLogging {
     } yield valueList
   }
 
-  private def getNullableJsonIntegerValue(key: String, json: JsonObject): Try[Option[Int]] = {
+  private def getNullableJsonIntegerValue(key: String, json: JsonObject): Try[Int] = {
     Try({
       json.containsKey(key) match {
         case false => throw new KeyNotFoundInJsonException(key)
-        case true => Option(json.getInteger(key)).map(_.toInt)
+        case true => json.getInteger(key)
       }
     })
   }
@@ -343,9 +343,10 @@ object JsonUtils extends LazyLogging {
       Option[JsonObject],
       Option[JsonArray],
       Option[Boolean],
-      Try[Option[Int]],
-      Try[Option[Int]],
-      Option[Boolean]
+      Option[Int],
+      Option[Int],
+      Option[Boolean],
+      Option[Int]
   ) = {
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
@@ -378,8 +379,9 @@ object JsonUtils extends LazyLogging {
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 
-    val maxLength = getNullableJsonIntegerValue("maxLength", json)
-    val minLength = getNullableJsonIntegerValue("minLength", json)
+    val maxLength = getNullableJsonIntegerValue("maxLength", json).toOption
+    val minLength = getNullableJsonIntegerValue("minLength", json).toOption
+    val decimalDigits = getNullableJsonIntegerValue("decimalDigits", json).toOption
 
     (
       name,
@@ -394,7 +396,8 @@ object JsonUtils extends LazyLogging {
       hidden,
       maxLength,
       minLength,
-      showMemberColumns
+      showMemberColumns,
+      decimalDigits
     )
   }
 
