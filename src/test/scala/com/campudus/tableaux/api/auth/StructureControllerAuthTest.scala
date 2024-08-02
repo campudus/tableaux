@@ -547,18 +547,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
         tableId,
         1,
         None,
-        None,
-        None,
-        None,
-        Some(displayInfos),
-        None,
-        None,
-        None,
-        None,
-        None,
-        Try(Option(0)),
-        Try(Option(0)),
-        None
+        displayInfos = Some(displayInfos)
       )
     } yield ()
   }
@@ -576,18 +565,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
             tableId,
             1,
             None,
-            None,
-            None,
-            None,
-            Some(displayInfos),
-            None,
-            None,
-            None,
-            None,
-            None,
-            Try(Option(0)),
-            Try(Option(0)),
-            None
+            displayInfos = Some(displayInfos)
           )
       } yield ()
     }
@@ -618,18 +596,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
           tableId,
           1,
           Some("newName"),
-          None,
-          None,
-          None,
-          Some(displayInfos),
-          None,
-          None,
-          None,
-          None,
-          None,
-          Try(Option(0)),
-          Try(Option(0)),
-          None
+          displayInfos = Some(displayInfos)
         )
     } yield ()
   }
@@ -647,18 +614,7 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
             tableId,
             1,
             Some("newName"),
-            None,
-            None,
-            None,
-            Some(displayInfos),
-            None,
-            None,
-            None,
-            None,
-            None,
-            Try(Option(0)),
-            Try(Option(0)),
-            None
+            displayInfos = Some(displayInfos)
           )
       } yield ()
     }
@@ -698,38 +654,13 @@ class StructureControllerColumnAuthTest_checkAuthorization extends StructureCont
           modelTableId,
           1,
           Some("newName"),
-          None,
-          None,
-          None,
-          None,
-          None,
-          None,
-          None,
-          None,
-          None,
-          Try(Option(0)),
-          Try(Option(0)),
           None
         )
-        ex <- controller
-          .changeColumn(
-            variantTableId,
-            1,
-            Some("newName"),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Try(Option(0)),
-            Try(Option(0)),
-            None
-          )
-          .recover({ case ex => ex })
+        ex <- controller.changeColumn(
+          variantTableId,
+          1,
+          Some("newName")
+        ).recover({ case ex => ex })
       } yield {
         assertEquals(UnauthorizedException(EditColumnStructureProperty, Seq("edit-columns-in-model-tables")), ex)
       }
