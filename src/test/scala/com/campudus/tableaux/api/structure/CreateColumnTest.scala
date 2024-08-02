@@ -228,7 +228,7 @@ class CreateColumnTest extends TableauxTestBase {
   def createNumberColumnWithCustomDecimalDigits(implicit c: TestContext): Unit = {
     okTest {
       val createColumn1 = createNumberColumnJson("column1", None)
-      val createColumn2 = createNumberColumnJson("column2", Some(5))
+      val createColumn2 = createNumberColumnJson("column2", Some(10))
       val expectedJson = Json.obj(
         "status" -> "ok",
         "columns" -> Json.arr(
@@ -269,6 +269,18 @@ class CreateColumnTest extends TableauxTestBase {
         assertNull(test1.getJsonArray("columns").getJsonObject(0).getInteger("decimalDigits"))
         assertJSONEquals(expectedJson2, test2)
       }
+    }
+  }
+
+  @Test
+  def createNumberColumnWithCustomDecimalDigitsTooHigh(implicit c: TestContext): Unit = {
+    exceptionTest("error.json.decimalDigits") {
+      val createColumn = createNumberColumnJson("column2", Some(11))
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        test <- sendRequest("POST", "/tables/1/columns", createColumn)
+      } yield ()
     }
   }
 
