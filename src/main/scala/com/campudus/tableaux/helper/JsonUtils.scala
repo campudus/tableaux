@@ -105,7 +105,7 @@ object JsonUtils extends LazyLogging {
 
             val maxLength = Try(json.getInteger("maxLength").intValue()).toOption
             val minLength = Try(json.getInteger("minLength").intValue()).toOption
-            val decimalDigits = Try(json.getInteger("decimalDigits").intValue()).toOption
+            val decimalDigits = parseDecimalDigits(json)
 
             // languageType or deprecated multilanguage
             // if languageType == 'country' countryCodes must be specified
@@ -283,6 +283,16 @@ object JsonUtils extends LazyLogging {
     }
   }
 
+  private def parseDecimalDigits(json: JsonObject): Option[Int] = {
+    val decimalDigits = Try(json.getInteger("decimalDigits").intValue()).toOption
+
+    decimalDigits.map({
+      case value if value > 10 || value < 0 =>
+        throw InvalidJsonException(s"Decimal digits must be between 0 and 10, but was $value.", "decimalDigits")
+      case value => value
+    })
+  }
+
   def toRowValueSeq(json: JsonObject): Seq[Seq[_]] = {
     (for {
       checkedRowList <- toJsonObjectSeq("rows", json)
@@ -383,7 +393,7 @@ object JsonUtils extends LazyLogging {
 
     val maxLength = getNullableJsonIntegerValue("maxLength", json).toOption
     val minLength = getNullableJsonIntegerValue("minLength", json).toOption
-    val decimalDigits = getNullableJsonIntegerValue("decimalDigits", json).toOption
+    val decimalDigits = parseDecimalDigits(json)
 
     (
       name,
