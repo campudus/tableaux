@@ -184,4 +184,24 @@ class TranslationStatusTest extends TableauxTestBase {
       }
     }
   }
+
+  @Test
+  def retrieveTranslationStatusWithoutAnyMultilangColumn(implicit c: TestContext) = okTest {
+
+    for {
+      tableId <- createDefaultTable()
+      translationStatus <- sendRequest("GET", s"/tables/translationStatus")
+    } yield {
+
+      val expectedTranslationStatus = Json.obj(
+        "tables" -> Json.emptyArr(),
+        "translationStatus" -> Json.obj(
+          "de-DE" -> 1.0,
+          "en-GB" -> 1.0
+        )
+      )
+
+      assertJSONEquals(expectedTranslationStatus, translationStatus)
+    }
+  }
 }

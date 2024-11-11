@@ -25,7 +25,8 @@ class GroupColumnTest extends TableauxTestBase {
 
   def createBooleanColumnJson(name: String) = Columns(BooleanCol(name)).getJson
 
-  def createGroupColumnJson(name: String, groups: Seq[ColumnId]) = Columns(GroupCol(name, groups)).getJson
+  def createGroupColumnJson(name: String, groups: Seq[ColumnId], showMemberColumns: Boolean = false) =
+    Columns(GroupCol(name, groups, showMemberColumns)).getJson
 
   def createGroupColumnWithFormatPatternJson(name: String, groups: Seq[ColumnId], formatPattern: String) =
     Columns(FormattedGroupCol(name, groups, formatPattern)).getJson
@@ -518,6 +519,80 @@ class GroupColumnTest extends TableauxTestBase {
           createGroupColumnWithFormatPatternJson("groupcolumn", Seq(textCol1), "{{1}} × {{2}} mm")
         )
       } yield ()
+    }
+  }
+
+  @Test
+  def createGroupColumnWithTwoColumnsAndWithShowMemberColumnsTrue(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
+        booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
+
+        groupColumnCreated <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId), true)
+        )
+          .map(_.getJsonArray("columns").getJsonObject(0))
+
+        groupColumnRetrieved <- sendRequest("GET", s"/tables/1/columns/${groupColumnCreated.getInteger("id")}")
+      } yield {
+        assertJSONEquals(
+          Json.obj(
+            "groups" -> Json.arr(Json.obj("id" -> textColumnId), Json.obj("id" -> booleanColumnId)),
+            "showMemberColumns" -> true
+          ),
+          groupColumnCreated
+        )
+
+        assertJSONEquals(
+          Json.obj(
+            "groups" -> Json.arr(Json.obj("id" -> textColumnId), Json.obj("id" -> booleanColumnId)),
+            "showMemberColumns" -> true
+          ),
+          groupColumnRetrieved
+        )
+      }
+    }
+  }
+
+  @Test
+  def changeGroupColumn_setShowMemberColumnsToTrue(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textColumnId <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn"))
+        booleanColumnId <- sendCreateColumnRequest(1, createBooleanColumnJson("booleancolumn"))
+
+        groupColumnCreated <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnJson("groupcolumn", Seq(textColumnId, booleanColumnId))
+        )
+          .map(_.getJsonArray("columns").getJsonObject(0))
+
+        groupColumnChanged <- sendRequest(
+          "POST",
+          s"/tables/1/columns/${groupColumnCreated.getInteger("id")}",
+          Json.obj(
+            "showMemberColumns" -> true
+          )
+        )
+      } yield {
+        assertNull(groupColumnCreated.getBoolean("showMemberColumns"))
+
+        assertJSONEquals(
+          Json.obj(
+            "groups" -> Json.arr(Json.obj("id" -> textColumnId), Json.obj("id" -> booleanColumnId)),
+            "showMemberColumns" -> true
+          ),
+          groupColumnChanged
+        )
+      }
     }
   }
 }

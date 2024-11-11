@@ -62,7 +62,18 @@ object RequestCreation {
 
   case class RichTextCol(name: String) extends ColumnType("richtext")
 
-  case class NumericCol(name: String) extends ColumnType("numeric")
+  case class NumericCol(override val name: String, decimalDigits: Option[Int] = None) extends ColumnType("numeric") {
+
+    override def getJson: JsonObject = {
+      super.getJson
+        .mergeIn(
+          decimalDigits match {
+            case Some(digits) => Json.obj("decimalDigits" -> digits)
+            case None => Json.emptyObj()
+          }
+        )
+    }
+  }
 
   case class IntegerCol(name: String) extends ColumnType("integer")
 
@@ -72,18 +83,20 @@ object RequestCreation {
 
   case class StatusCol(name: String) extends ColumnType("status")
 
-  sealed abstract class BaseGroupCol(groups: Seq[ColumnId]) extends ColumnType("group") {
+  sealed abstract class BaseGroupCol(groups: Seq[ColumnId], showMemberColumns: Boolean) extends ColumnType("group") {
 
     override def getJson: JsonObject = {
       super.getJson.mergeIn(
         Json.obj(
-          "groups" -> groups
+          "groups" -> groups,
+          "showMemberColumns" -> showMemberColumns
         )
       )
     }
   }
 
-  case class GroupCol(name: String, groups: Seq[ColumnId]) extends BaseGroupCol(groups) {}
+  case class GroupCol(name: String, groups: Seq[ColumnId], showMemberColumns: Boolean = false)
+      extends BaseGroupCol(groups, showMemberColumns) {}
 
   sealed abstract class LinkCol extends ColumnType("link") {
 
@@ -141,8 +154,12 @@ object RequestCreation {
     override def getJson: JsonObject = column.getJson.mergeIn(Json.obj("identifier" -> true))
   }
 
-  case class FormattedGroupCol(name: String, groups: Seq[ColumnId], formatPattern: String)
-      extends BaseGroupCol(groups) {
+  case class FormattedGroupCol(
+      name: String,
+      groups: Seq[ColumnId],
+      formatPattern: String,
+      showMemberColumns: Boolean = false
+  ) extends BaseGroupCol(groups, showMemberColumns) {
 
     override def getJson: JsonObject = {
       super.getJson

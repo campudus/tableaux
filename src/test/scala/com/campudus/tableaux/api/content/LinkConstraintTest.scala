@@ -18,7 +18,7 @@ import org.junit.{Ignore, Test}
 import org.junit.Assert._
 import org.junit.runner.RunWith
 
-sealed trait Helper {
+sealed trait Helper extends LinkTestBase {
 
   def findByNameInColumnsArray(columnName: String)(jsonArray: JsonArray): JsonObject = {
     import scala.collection.JavaConverters._
@@ -30,6 +30,56 @@ sealed trait Helper {
       .toSeq
       .find(_.getString("name") == columnName)
       .orNull
+  }
+
+  def toRowsArray(obj: JsonObject): JsonArray = {
+    obj.getJsonArray("rows")
+  }
+
+  def toRowsArrayAndTotalSize(obj: JsonObject): (JsonArray, Long) = {
+    (obj.getJsonArray("rows"), obj.getJsonObject("page").getLong("totalSize"))
+  }
+
+  def createCardinalityLinkColumn(
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String,
+      from: Int,
+      to: Int
+  ): Future[ColumnId] = {
+    val columns = Columns(
+      LinkBiDirectionalCol(columnName, toTableId, Constraint(Cardinality(from, to), deleteCascade = false))
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", columns)
+      .map(_.getJsonArray("columns"))
+      .map(_.getJsonObject(0))
+      .map(_.getLong("id"))
+  }
+
+  def createArchiveCascadeLinkColumn(
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String
+  ): Future[ColumnId] = {
+    val columns = Columns(
+      LinkBiDirectionalCol(columnName, toTableId, Constraint(DefaultCardinality, archiveCascade = true))
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", columns)
+      .map(_.getJsonArray("columns"))
+      .map(_.getJsonObject(0))
+      .map(_.getLong("id"))
+  }
+
+  def filterArchivedRows(jsonArray: JsonArray): Seq[JsonObject] = {
+    import scala.collection.JavaConverters._
+
+    jsonArray.asScala
+      .collect({
+        case obj: JsonObject => obj
+      }).toSeq
+      .filter(_.getBoolean("archived"))
   }
 }
 
@@ -91,14 +141,14 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/$rowId")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(2, rowsTable1.size())
         assertEquals(0, rowsTable2.size())
@@ -124,8 +174,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1")
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/2")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         // parent rows should still be there
         assertEquals(3, rowsTable1.size())
@@ -155,8 +205,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(2, rowsTable1.size())
         assertEquals(2, rowsTable2.size())
@@ -177,7 +227,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
@@ -185,8 +235,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/$rowId")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(3, rowsTable1.size())
         assertEquals(1, rowsTable2.size())
@@ -208,8 +258,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(1, rowsTable1.size())
         assertEquals(2, rowsTable2.size())
@@ -244,8 +294,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(0, rowsTable1.size())
         assertEquals(0, rowsTable2.size())
@@ -276,7 +326,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
           sendRequest("PUT", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1", Json.obj("value" -> Json.arr(2)))
 
         // Then
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(1, rowsTable2.size())
       }
@@ -313,7 +363,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         )
 
         // Then
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
         linkCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
           .map(_.getJsonArray("value"))
       } yield {
@@ -354,7 +404,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         )
 
         // Then
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
         linkedCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
           .map(_.getJsonArray("value"))
       } yield {
@@ -398,7 +448,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         )
 
         // Then
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
         linkedCellTable1 <- sendRequest("GET", s"/tables/$tableId1/columns/$table1LinkColumnId/rows/1")
           .map(_.getJsonArray("value"))
       } yield {
@@ -423,15 +473,15 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
         // clear cell
         _ <- sendRequest("DELETE", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(3, rowsTable1.size())
         assertEquals(0, rowsTable2.size())
@@ -453,7 +503,7 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("deleteCascade" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
@@ -466,8 +516,8 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         // delete link from link cell with delete cascade
         _ <- sendRequest("DELETE", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId/link/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(3, rowsTable1.size())
         assertEquals(1, rowsTable2.size())
@@ -499,8 +549,9 @@ class LinkDeleteCascadeTest extends LinkTestBase with Helper {
         // This will currently end up in a endless loop
         _ <- sendRequest("DELETE", s"/tables/$tableId1/rows/1")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
+
       } yield {
         assertEquals(1, rowsTable1.size())
         assertEquals(1, rowsTable2.size())
@@ -585,7 +636,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
@@ -616,7 +667,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
 
         rowId <-
           sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
-            .map(_.getJsonArray("rows"))
+            .map(toRowsArray)
             .map(_.getJsonObject(0))
             .map(_.getLong("id"))
 
@@ -952,23 +1003,6 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
       }
     }
   }
-
-  private def createCardinalityLinkColumn(
-      tableId: TableId,
-      toTableId: TableId,
-      columnName: String,
-      from: Int,
-      to: Int
-  ): Future[ColumnId] = {
-    val columns = Columns(
-      LinkBiDirectionalCol(columnName, toTableId, Constraint(Cardinality(from, to), deleteCascade = false))
-    )
-
-    sendRequest("POST", s"/tables/$tableId/columns", columns)
-      .map(_.getJsonArray("columns"))
-      .map(_.getJsonObject(0))
-      .map(_.getLong("id"))
-  }
 }
 
 @RunWith(classOf[VertxUnitRunner])
@@ -985,8 +1019,8 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
 
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
 
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
       } yield {
         assertEquals(4, rowsTable1.size())
         assertEquals(3, rowsTable2.size())
@@ -995,6 +1029,66 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
           Json.obj("id" -> 2, "value" -> "table2row2"),
           Json.obj("id" -> 3, "value" -> "table2row3") // link must be moved from row 1 to 3
         )
+
+        assertJSONEquals(expected, rowsTable1.getJsonObject(2).getJsonArray("values").getJsonArray(2))
+        assertJSONEquals(expected, rowsTable1.getJsonObject(3).getJsonArray("values").getJsonArray(2))
+      }
+    }
+  }
+
+  @Test
+  def deleteRow_withReplacingRowId_updateForeignLinksWithCardinalityOne(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        (tableId1, tableId2) <- createLinkTablesWithCardinality()
+
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
+
+        replacedRowIds <-
+          dbConnection.query("SELECT replaced_ids FROM user_table_2 WHERE id = 3")
+            .map(
+              _.getJsonArray("results").getJsonArray(0).getString(0)
+            )
+      } yield {
+        assertEquals(4, rowsTable1.size())
+        assertEquals(3, rowsTable2.size())
+
+        val expected = Json.arr(
+          Json.obj("id" -> 3, "value" -> "table2row3") // link must be moved from row 1 to 3
+        )
+
+        assertJSONEquals(expected, rowsTable1.getJsonObject(2).getJsonArray("values").getJsonArray(2))
+        assertJSONEquals(expected, rowsTable1.getJsonObject(3).getJsonArray("values").getJsonArray(2))
+        assertEquals("[1]", replacedRowIds)
+      }
+    }
+  }
+
+  @Test
+  def deleteRow_withReplacingRowIdAlreadyLinked_shouldSkipDuplicateInsert(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        (tableId1, tableId2) <- createDefaultLinkTables()
+
+        // row 2 is already linked to row 1
+        _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=2")
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
+      } yield {
+        assertEquals(4, rowsTable1.size())
+        assertEquals(3, rowsTable2.size())
+
+        val expected = Json.arr(Json.obj("id" -> 2, "value" -> "table2row2")) // contains row 2 only once
 
         assertJSONEquals(expected, rowsTable1.getJsonObject(2).getJsonArray("values").getJsonArray(2))
         assertJSONEquals(expected, rowsTable1.getJsonObject(3).getJsonArray("values").getJsonArray(2))
@@ -1023,8 +1117,8 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
           )
 
         _ <- sendRequest("DELETE", s"/tables/$tableId2/rows/1?replacingRowId=3")
-        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(_.getJsonArray("rows"))
-        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(_.getJsonArray("rows"))
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray)
 
         replacedRowIds <-
           dbConnection.query("SELECT replaced_ids FROM user_table_2 WHERE id = ?", Json.arr(3))
@@ -1075,13 +1169,13 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
 
   // format: off
   /**
-    * Creates two tables with four rows each and a links two rows two times.
+    * Creates two tables with four rows each and link two rows two times.
     *
     * |----------------------------|           |----------------------------|
     * |           table1           |           |           table2           |
     * |----------------------------|           |----------------------------|
     * | id | Test Column 1 | links |           | id | Test Column 1 | links |
-    * |----|---------------|-------|    ==>    |----|---------------|-------|
+    * |----|---------------|-------|  * ==> *  |----|---------------|-------|
     * | 1  | table1row1    |       |           | 1  | table2row1    | 3,4   |
     * | 2  | table1row2    |       |           | 2  | table2row2    | 3,4   |
     * | 3  | table1row3    | 1,2   |           | 3  | table2row3    |       |
@@ -1132,5 +1226,573 @@ class LinkDeleteReplaceRowIdTest extends LinkTestBase with Helper {
         )
       )
     } yield (tableId1, tableId2)
+  }
+
+  // format: off
+  /**
+    * Creates two tables with four rows each and link two rows.
+    *
+    * |----------------------------|           |----------------------------|
+    * |           table1           |           |           table2           |
+    * |----------------------------|           |----------------------------|
+    * | id | Test Column 1 | links |           | id | Test Column 1 | links |
+    * |----|---------------|-------|  * ==> 1  |----|---------------|-------|
+    * | 1  | table1row1    |       |           | 1  | table2row1    | 3,4   |
+    * | 2  | table1row2    |       |           | 2  | table2row2    |       |
+    * | 3  | table1row3    | 1     |           | 3  | table2row3    |       |
+    * | 4  | table1row4    | 1     |           | 4  | table2row4    |       |
+    */
+  private def createLinkTablesWithCardinality(): Future[(TableId, TableId)] = {
+    // format: on
+    for {
+      tableId1 <- createDefaultTable(name = "table1")
+      tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/columns",
+        Columns(
+          LinkBiDirectionalCol("links", tableId2, Constraint(Cardinality(0, 1), deleteCascade = false))
+        )
+      )
+
+      columns1 <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+      columns2 <- sendRequest("GET", s"/tables/$tableId2/columns").map(_.getJsonArray("columns"))
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId2/rows",
+        Rows(columns2, Json.obj("Test Column 1" -> "table2row3"))
+      )
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId2/rows",
+        Rows(columns2, Json.obj("Test Column 1" -> "table2row4"))
+      )
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/rows",
+        Rows(
+          columns1,
+          Json.obj("Test Column 1" -> "table1row3", "links" -> Json.arr(1))
+        )
+      )
+
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$tableId1/rows",
+        Rows(
+          columns1,
+          Json.obj("Test Column 1" -> "table1row4", "links" -> Json.arr(1))
+        )
+      )
+    } yield (tableId1, tableId2)
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class LinkArchiveCascadeTest extends LinkTestBase with Helper {
+
+  @Test
+  def createLinkColumnWithArchiveCascade(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        columns = Columns(
+          LinkBiDirectionalCol("archiveCascade", tableId2, Constraint(DefaultCardinality, archiveCascade = true))
+        )
+
+        // create bi-directional link column
+        createdArchiveCascadeLinkColumnTable1 <- sendRequest("POST", s"/tables/$tableId1/columns", columns)
+          .map(_.getJsonArray("columns"))
+          .map(_.getJsonObject(0))
+
+        // retrieve bi-directional link column from table 1
+        retrieveArchiveCascadeLinkColumnTable1 <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("archiveCascade"))
+
+        // retrieve bi-directional backlink from table 2
+        retrieveArchiveCascadeLinkColumnTable2 <- sendRequest("GET", s"/tables/$tableId2/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("table1"))
+      } yield {
+        assertJSONEquals(
+          Constraint(DefaultCardinality, archiveCascade = true).getJson,
+          createdArchiveCascadeLinkColumnTable1.getJsonObject("constraint")
+        )
+
+        assertJSONEquals(
+          Constraint(DefaultCardinality, archiveCascade = true).getJson,
+          retrieveArchiveCascadeLinkColumnTable1.getJsonObject("constraint")
+        )
+
+        assertNull(retrieveArchiveCascadeLinkColumnTable2.getJsonObject("constraint"))
+      }
+    }
+  }
+
+  @Test
+  def archiveRowWithArchiveCascadeShouldArchiveForeignRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createArchiveCascadeLinkColumn(tableId1, tableId2, "archiveCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("archiveCascade" -> Json.arr(1, 2))))
+            .map(toRowsArray)
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
+
+        // archive parent row
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/$rowId/annotations", Json.obj("archived" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterArchivedRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
+      } yield {
+        assertEquals(1, rowsTable1.size)
+        assertEquals(2, rowsTable2.size)
+        assertEquals(1, historyRowsTable1.size)
+        assertEquals(2, historyRowsTable2.size)
+      }
+    }
+  }
+
+  @Test
+  def archiveForeignRowsWithArchiveCascadeShouldNotArchiveParentRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createArchiveCascadeLinkColumn(tableId1, tableId2, "archiveCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("archiveCascade" -> Json.arr(1, 2))))
+
+        // archive foreign rows
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("archived" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterArchivedRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
+      } yield {
+        // parent row should still be unarchived
+        assertEquals(2, rowsTable1.size)
+        assertEquals(0, rowsTable2.size)
+        assertEquals(2, historyRowsTable1.size)
+        assertEquals(0, historyRowsTable2.size)
+      }
+    }
+  }
+
+  @Test
+  def archiveTableWithArchiveCascadeShouldArchiveAllRowsAndForeignRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createArchiveCascadeLinkColumn(tableId1, tableId2, "archiveCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("archiveCascade" -> Json.arr(2))))
+            .map(toRowsArray)
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
+
+        // archive whole table
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/annotations", Json.obj("archived" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterArchivedRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterArchivedRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
+      } yield {
+        assertEquals(3, rowsTable1.size)
+        assertEquals(1, rowsTable2.size)
+        assertEquals(3, historyRowsTable1.size)
+        assertEquals(1, historyRowsTable2.size)
+      }
+    }
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class LinkFinalCascadeTest extends LinkTestBase with Helper {
+
+  @Test
+  def createLinkColumnWithFinalCascade(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        columns = Columns(
+          LinkBiDirectionalCol("finalCascade", tableId2, Constraint(DefaultCardinality, finalCascade = true))
+        )
+
+        // create bi-directional link column
+        createdFinalCascadeLinkColumnTable1 <- sendRequest("POST", s"/tables/$tableId1/columns", columns)
+          .map(_.getJsonArray("columns"))
+          .map(_.getJsonObject(0))
+
+        // retrieve bi-directional link column from table 1
+        retrieveFinalCascadeLinkColumnTable1 <- sendRequest("GET", s"/tables/$tableId1/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("finalCascade"))
+
+        // retrieve bi-directional backlink from table 2
+        retrieveFinalCascadeLinkColumnTable2 <- sendRequest("GET", s"/tables/$tableId2/columns")
+          .map(_.getJsonArray("columns"))
+          .map(findByNameInColumnsArray("table1"))
+      } yield {
+        assertJSONEquals(
+          Constraint(DefaultCardinality, finalCascade = true).getJson,
+          createdFinalCascadeLinkColumnTable1.getJsonObject("constraint")
+        )
+
+        assertJSONEquals(
+          Constraint(DefaultCardinality, finalCascade = true).getJson,
+          retrieveFinalCascadeLinkColumnTable1.getJsonObject("constraint")
+        )
+
+        assertNull(retrieveFinalCascadeLinkColumnTable2.getJsonObject("constraint"))
+      }
+    }
+  }
+
+  @Test
+  def finalizeRowWithFinalCascadeShouldFinalizeForeignRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createFinalCascadeLinkColumn(tableId1, tableId2, "finalCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(1, 2))))
+            .map(toRowsArray)
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
+
+        // finalize parent row
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/$rowId/annotations", Json.obj("final" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterFinalRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
+      } yield {
+        assertEquals(1, rowsTable1.size)
+        assertEquals(2, rowsTable2.size)
+        assertEquals(1, historyRowsTable1.size)
+        assertEquals(2, historyRowsTable2.size)
+      }
+    }
+  }
+
+  @Test
+  def finalizeForeignRowsWithFinalCascadeShouldNotFinalizeParentRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createFinalCascadeLinkColumn(tableId1, tableId2, "finalCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        _ <- sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(1, 2))))
+
+        // finalize foreign rows
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/1/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/2/annotations", Json.obj("final" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterFinalRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
+      } yield {
+        // parent row should still NOT be finalized
+        assertEquals(2, rowsTable1.size)
+        assertEquals(0, rowsTable2.size)
+        assertEquals(2, historyRowsTable1.size)
+        assertEquals(0, historyRowsTable2.size)
+      }
+    }
+  }
+
+  @Test
+  def finalizeTableWithFinalCascadeShouldFinalizeAllRowsAndForeignRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        _ <- createFinalCascadeLinkColumn(tableId1, tableId2, "finalCascade")
+
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        // create parent row
+        rowId <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("finalCascade" -> Json.arr(2))))
+            .map(toRowsArray)
+            .map(_.getJsonObject(0))
+            .map(_.getLong("id"))
+
+        // finalize whole table
+        _ <- sendRequest("PATCH", s"/tables/$tableId1/rows/annotations", Json.obj("final" -> true))
+
+        rowsTable1 <- sendRequest("GET", s"/tables/$tableId1/rows").map(toRowsArray).map(filterFinalRows)
+        rowsTable2 <- sendRequest("GET", s"/tables/$tableId2/rows").map(toRowsArray).map(filterFinalRows)
+
+        historyRowsTable1 <- sendRequest("GET", s"/tables/$tableId1/history?historyType=row_flag").map(toRowsArray)
+        historyRowsTable2 <- sendRequest("GET", s"/tables/$tableId2/history?historyType=row_flag").map(toRowsArray)
+      } yield {
+        assertEquals(3, rowsTable1.size)
+        assertEquals(1, rowsTable2.size)
+        assertEquals(3, historyRowsTable1.size)
+        assertEquals(1, historyRowsTable2.size)
+      }
+    }
+  }
+
+  def filterFinalRows(jsonArray: JsonArray): Seq[JsonObject] = {
+    import scala.collection.JavaConverters._
+
+    jsonArray.asScala
+      .collect({
+        case obj: JsonObject => obj
+      }).toSeq
+      .filter(_.getBoolean("final"))
+  }
+
+  private def createFinalCascadeLinkColumn(
+      tableId: TableId,
+      toTableId: TableId,
+      columnName: String
+  ): Future[ColumnId] = {
+    val columns = Columns(
+      LinkBiDirectionalCol(columnName, toTableId, Constraint(DefaultCardinality, finalCascade = true))
+    )
+
+    sendRequest("POST", s"/tables/$tableId/columns", columns)
+      .map(_.getJsonArray("columns"))
+      .map(_.getJsonObject(0))
+      .map(_.getLong("id"))
+  }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class RetrieveFinalAndArchivedRows extends LinkTestBase with Helper {
+
+  @Test
+  def retrieveMixedFinalAndArchivedRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+
+        // | rowid | final | archived |
+        // | ----- | ----- | -------- |
+        // | 1     | false | false    |
+        // | 2     | true  | false    |
+        // | 3     | false | true     |
+        // | 4     | true  | true     |
+        // | 5     | true  | false    |
+        // | 6     | true  | false    |
+        // | 7     | true  | true     |
+
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("POST", s"/tables/1/rows")
+        _ <- sendRequest("PATCH", s"/tables/1/rows/2/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/3/annotations", Json.obj("archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/4/annotations", Json.obj("final" -> true, "archived" -> true))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/5/annotations", Json.obj("final" -> true, "archived" -> false))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/6/annotations", Json.obj("final" -> true, "archived" -> false))
+        _ <- sendRequest("PATCH", s"/tables/1/rows/7/annotations", Json.obj("final" -> true, "archived" -> true))
+
+        (allRows, totalSize1) <- sendRequest("GET", s"/tables/1/rows").map(toRowsArrayAndTotalSize)
+
+        (finalFalse, totalSize2) <- sendRequest("GET", s"/tables/1/rows?final=false").map(toRowsArrayAndTotalSize)
+        (finalTrue, totalSize3) <- sendRequest("GET", s"/tables/1/rows?final=true").map(toRowsArrayAndTotalSize)
+        (archivedFalse, totalSize4) <- sendRequest("GET", s"/tables/1/rows?archived=false").map(toRowsArrayAndTotalSize)
+        (archivedTrue, totalSize5) <- sendRequest("GET", s"/tables/1/rows?archived=true").map(toRowsArrayAndTotalSize)
+
+        (finalFalseAndArchivedFalse, totalSize6) <-
+          sendRequest("GET", s"/tables/1/rows?final=false&archived=false").map(toRowsArrayAndTotalSize)
+        (finalTrueAndArchivedTrue, totalSize7) <-
+          sendRequest("GET", s"/tables/1/rows?final=true&archived=true").map(toRowsArrayAndTotalSize)
+        (finalFalseAndArchivedTrue, totalSize8) <-
+          sendRequest("GET", s"/tables/1/rows?final=false&archived=true").map(toRowsArrayAndTotalSize)
+        (finalTrueAndArchivedFalse, totalSize9) <-
+          sendRequest("GET", s"/tables/1/rows?final=true&archived=false").map(toRowsArrayAndTotalSize)
+
+        (finalTrueWithPagination, totalSize10) <-
+          sendRequest("GET", s"/tables/1/rows?final=true&limit=4&offset=0").map(toRowsArrayAndTotalSize)
+      } yield {
+        assertEquals(7, allRows.size())
+        assertEquals(7, totalSize1)
+
+        assertEquals(2, finalFalse.size())
+        assertEquals(2, totalSize2)
+        assertEquals(5, finalTrue.size())
+        assertEquals(5, totalSize3)
+        assertEquals(4, archivedFalse.size())
+        assertEquals(4, totalSize4)
+        assertEquals(3, archivedTrue.size())
+        assertEquals(3, totalSize5)
+
+        assertEquals(1, finalFalseAndArchivedFalse.size())
+        assertEquals(1, totalSize6)
+        assertEquals(2, finalTrueAndArchivedTrue.size())
+        assertEquals(2, totalSize7)
+        assertEquals(1, finalFalseAndArchivedTrue.size())
+        assertEquals(1, totalSize8)
+        assertEquals(3, finalTrueAndArchivedFalse.size())
+        assertEquals(3, totalSize9)
+
+        assertEquals(4, finalTrueWithPagination.size())
+        assertEquals(5, totalSize10)
+      }
+    }
+  }
+
+  @Test
+  def retrieveForeignRowsOfLinkCell_finalAndArchivedRows(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 1, 1)
+
+        rowId1 <- sendRequest("POST", s"/tables/$tableId1/rows").map(_.getLong("id"))
+        _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/1/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/2/annotations", Json.obj("archived" -> true))
+
+        resultCell <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1")
+
+        resultAllForeignRows <- sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows")
+        resultForeignRowsFinal <-
+          sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?final=true")
+        resultForeignRowsArchived <-
+          sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1/foreignRows?archived=true")
+      } yield {
+        assertEquals(0, resultCell.getJsonArray("value").size())
+
+        assertEquals(2, resultAllForeignRows.getJsonObject("page").getLong("totalSize").longValue())
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2)), resultAllForeignRows.getJsonArray("rows"))
+
+        assertEquals(1, resultForeignRowsFinal.getJsonObject("page").getLong("totalSize").longValue())
+        assertEquals(1, resultForeignRowsArchived.getJsonObject("page").getLong("totalSize").longValue())
+        assertJSONEquals(Json.arr(Json.obj("id" -> 1)), resultForeignRowsFinal.getJsonArray("rows"))
+        assertJSONEquals(Json.arr(Json.obj("id" -> 2)), resultForeignRowsArchived.getJsonArray("rows"))
+      }
+    }
+  }
+
+  @Test
+  def retrieveSingleArchivedRowAndCell(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        _ <- sendRequest("PATCH", s"/tables/1/rows/1/annotations", Json.obj("archived" -> true))
+
+        row <- sendRequest("GET", s"/tables/1/rows/1").map(_.getBoolean("archived"))
+        cell <- sendRequest("GET", s"/tables/1/columns/1/rows/1").map(_.getBoolean("archived"))
+      } yield {
+        assertEquals(row, true)
+        assertEquals(cell, true)
+      }
+    }
+  }
+
+  @Test
+  def retrieveSingleArchivedFirstCellsAndLinkCell(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        tableId1 <- createDefaultTable(name = "table1")
+        tableId2 <- createDefaultTable(name = "table2", tableNum = 2)
+
+        linkColumnId <- createArchiveCascadeLinkColumn(tableId1, tableId2, "cardinality")
+        columns <- sendRequest("GET", s"/tables/$tableId1/columns").map(_.getJsonArray("columns"))
+
+        rowId1 <-
+          sendRequest("POST", s"/tables/$tableId1/rows", Rows(columns, Json.obj("cardinality" -> Json.arr(1, 2))))
+            .map(toRowsArray).map(_.getJsonObject(0)).map(_.getLong("id"))
+        _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/1/annotations", Json.obj("final" -> true))
+        _ <- sendRequest("PATCH", s"/tables/$tableId2/rows/2/annotations", Json.obj("archived" -> true))
+
+        firstCells <- sendRequest("GET", s"/tables/$tableId2/columns/first/rows").map(_.getJsonArray("rows"))
+        linkCell <-
+          sendRequest("GET", s"/tables/$tableId1/columns/$linkColumnId/rows/$rowId1").map(_.getJsonArray("value"))
+        row <- sendRequest("GET", s"/tables/$tableId1/rows/$rowId1")
+      } yield {
+        assertJSONEquals(
+          Json.fromObjectString(
+            """|{
+               |  "id": 1,
+               |  "values": [
+               |    "table2row1"
+               |  ],
+               |  "final": true
+               |}
+               |""".stripMargin
+          ),
+          firstCells.getJsonObject(0)
+        )
+
+        assertJSONEquals(
+          Json.fromArrayString(
+            """|[
+               |  {
+               |    "id": 1,
+               |    "value": "table2row1",
+               |    "final": true
+               |  },
+               |  {
+               |    "id": 2,
+               |    "value": "table2row2",
+               |    "archived": true
+               |  }
+               |]
+               |""".stripMargin
+          ),
+          linkCell
+        )
+      }
+    }
   }
 }

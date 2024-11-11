@@ -1,21 +1,63 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId}
+import com.campudus.tableaux.database.model.TableauxModel._
 
-import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
+import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.JsonArray
+import org.vertx.scala.core.json.JsonObject
 
 import scala.collection.JavaConverters._
 
 import java.util.UUID
 import org.joda.time.DateTime
 
-case class RowLevelAnnotations(finalFlag: Boolean) extends DomainObject {
+trait RowAnnotation {
+  val value: Any
+  val jsonKey: String = ""
 
-  def isDefined: Boolean = finalFlag
+  def getJson: JsonObject = {
+    Json.obj(jsonKey -> value)
+  }
+}
+
+case class RowLevelAnnotations(finalFlag: Boolean, archivedFlag: Boolean) extends RowAnnotation {
+
+  override val value: (Boolean, Boolean) = (finalFlag, archivedFlag)
+
+  def isDefined: Boolean = finalFlag || archivedFlag
+
+  override def getJson: JsonObject = {
+    val finalFlagJson = finalFlag match {
+      case true => Json.obj("final" -> finalFlag)
+      case false => Json.emptyObj()
+    }
+
+    val archivedFlagJson = archivedFlag match {
+      case true => Json.obj("archived" -> archivedFlag)
+      case false => Json.emptyObj()
+    }
+
+    finalFlagJson.mergeIn(archivedFlagJson)
+  }
+}
+
+object RowPermissions {
+
+  def apply(rowPermissionSeq: RowPermissionSeq): RowPermissions = {
+    val jsonArray = Json.arr(rowPermissionSeq.map(_.toString()): _*)
+    new RowPermissions(jsonArray)
+  }
+}
+
+case class RowPermissions(rowPermissions: JsonArray) extends RowAnnotation {
+
+  override val value: Seq[String] = rowPermissions.asScala.toSeq.map(_.asInstanceOf[String])
+  override val jsonKey = "permissions"
+  def isDefined: Boolean = rowPermissions.size() > 0
 
   override def getJson: JsonObject = {
     Json.obj(
-      "final" -> finalFlag
+      jsonKey -> rowPermissions
     )
   }
 }
@@ -177,4 +219,30 @@ case class TableWithCellAnnotationCount(table: Table, totalSize: Long, annotatio
   override def getJson: JsonObject = {
     table.getJson.mergeIn(Json.obj("totalSize" -> totalSize, "annotationCount" -> compatibilityGet(annotationCount)))
   }
+}
+
+sealed trait RowAnnotationType {
+  def typeName: String
+  override def toString: String = typeName
+}
+
+object RowAnnotationType {
+  final val Final = "final"
+  final val Archived = "archived"
+
+  def apply(kind: String): RowAnnotationType = {
+    kind match {
+      case Final => RowAnnotationTypeFinal
+      case Archived => RowAnnotationTypeArchived
+      case _ => throw new IllegalArgumentException(s"Invalid argument for RowAnnotationType $kind")
+    }
+  }
+}
+
+case object RowAnnotationTypeFinal extends RowAnnotationType {
+  override val typeName = RowAnnotationType.Final
+}
+
+case object RowAnnotationTypeArchived extends RowAnnotationType {
+  override val typeName = RowAnnotationType.Archived
 }

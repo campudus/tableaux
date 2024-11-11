@@ -1,10 +1,19 @@
 package com.campudus.tableaux.api.content
 
+import com.campudus.tableaux.database.domain.Cardinality
+import com.campudus.tableaux.database.domain.CellAnnotationType
+import com.campudus.tableaux.database.domain.Constraint
+import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.testtools.JsonAssertable
+import com.campudus.tableaux.testtools.RequestCreation
 import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
 import org.vertx.scala.core.json.Json
+
+import scala.concurrent.Future
 
 import org.junit.Assert._
 import org.junit.Test
@@ -207,4 +216,98 @@ class DuplicateRowTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def skipConstrainedLinks(implicit c: TestContext): Unit = okTest {
+    for {
+      tableIds <- createLinkedTables()
+      modelTableId = tableIds(0)
+      _ <- sendRequest("POST", s"/tables/$modelTableId/rows/1/duplicate?skipConstrainedLinks=true")
+      rowRes <- sendRequest("GET", s"/tables/$modelTableId/rows")
+      annotationRes <- sendRequest("GET", s"/tables/$modelTableId/columns/3/rows/3/annotations")
+    } yield {
+      val rows = rowRes.getJsonArray("rows")
+      val originalValues = rows.getJsonObject(0).getJsonArray("values")
+      val duplicatedValues = rows.getJsonObject(2).getJsonArray("values")
+
+      assertEquals(originalValues.getString(0), duplicatedValues.getString(0))
+      assertEquals(1, originalValues.getJsonArray(2).size()) // original had a link
+      assertEquals(0, duplicatedValues.getJsonArray(2).size()) // duplicate does not have it
+      assertEquals(null, annotationRes.getJsonArray("annotations").getJsonObject(0)) // no annotations set
+    }
+  }
+
+  @Test
+  def skipAndAnnotateConstrainedLinks(implicit c: TestContext): Unit = okTest {
+    for {
+      tableIds <- createLinkedTables()
+      modelTableId = tableIds(0)
+      _ <- sendRequest("POST", s"/tables/$modelTableId/rows/1/duplicate?skipConstrainedLinks=true&annotateSkipped=true")
+      res <- sendRequest("GET", s"/tables/$modelTableId/columns/3/rows/3/annotations")
+    } yield {
+      val checkMeAnnotation = res.getJsonArray("annotations").getJsonArray(0).getJsonObject(0)
+      assertEquals(checkMeAnnotation.getString("type"), CellAnnotationType.FLAG)
+      assertEquals(checkMeAnnotation.getString("value"), "check-me")
+    }
+  }
+
+  @Test
+  def duplicateSpecificRows(implicit c: TestContext): Unit = okTest {
+    val payload = Json.obj("columns" -> Json.arr(Json.obj("id" -> 1)))
+    for {
+      tableId <- createDefaultTable(name = "models")
+      _ <- sendRequest("POST", s"/tables/$tableId/rows/1/duplicate?skipConstrainedLinks=true", payload)
+      rowRes <- sendRequest("GET", s"/tables/$tableId/rows")
+    } yield {
+      val rows = rowRes.getJsonArray("rows")
+      val originalValues = rows.getJsonObject(0).getJsonArray("values")
+      val duplicatedValues = rows.getJsonObject(2).getJsonArray("values")
+
+      assertEquals(originalValues.getString(0), duplicatedValues.getString(0))
+      assertEquals(null, duplicatedValues.getJsonObject(1)) // column not in payload was omitted
+    }
+  }
+
+  @Test
+  def duplicateSpecificRowsWithoutConstrainedLinks(implicit c: TestContext): Unit = okTest {
+    val payload = Json.obj("columns" -> Json.arr(
+      Json.obj("id" -> 1),
+      Json.obj("id" -> 3)
+    ))
+    for {
+      tableIds <- createLinkedTables()
+      modelTableId = tableIds(0)
+      _ <- sendRequest("POST", s"/tables/$modelTableId/rows/1/duplicate?skipConstrainedLinks=true", payload)
+      rowRes <- sendRequest("GET", s"/tables/$modelTableId/rows")
+    } yield {
+      val rows = rowRes.getJsonArray("rows")
+      val originalValues = rows.getJsonObject(0).getJsonArray("values")
+      val duplicatedValues = rows.getJsonObject(2).getJsonArray("values")
+
+      assertEquals(originalValues.getString(0), duplicatedValues.getString(0))
+      assertEquals(null, duplicatedValues.getJsonObject(1)) // column not in payload was omitted
+      assertEquals(0, duplicatedValues.getJsonArray(2).size()) // constrained link was still skipped
+    }
+  }
+
+  def createLinkedTables(): Future[Seq[TableId]] = {
+    for {
+      modelTableId <- createDefaultTable(name = "models")
+      variantTableId <- createDefaultTable(name = "variants")
+      addLinkColumn = RequestCreation.Columns(
+        RequestCreation.LinkBiDirectionalCol(
+          "variant",
+          variantTableId,
+          Constraint(new Cardinality(1, 0), deleteCascade = false)
+        )
+      )
+      _ <- sendRequest("POST", s"/tables/$modelTableId/columns", addLinkColumn)
+      _ <- sendRequest(
+        "POST",
+        s"/tables/$modelTableId/columns/3/rows/1",
+        Json.obj("value" -> Json.arr(1))
+      )
+    } yield (
+      Seq(modelTableId, variantTableId)
+    )
+  }
 }

@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, RowPermissionSeq, TableId}
 import com.campudus.tableaux.database.model.structure.TableModel
 import com.campudus.tableaux.helper.{IdentifierFlattener, JsonUtils}
 import com.campudus.tableaux.helper.ResultChecker._
@@ -141,21 +141,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   val tableModel = new TableModel(connection)
   val attachmentModel = AttachmentModel(connection)
 
-  private def retrieveCurrentLinkIds(table: Table, column: LinkColumn, rowId: RowId)(
-      implicit user: TableauxUser
-  ): Future[Seq[RowId]] = {
-    for {
-      cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
-    } yield {
-      cell.getJson
-        .getJsonArray("value")
-        .asScala
-        .map(_.asInstanceOf[JsonObject])
-        .map(_.getLong("id").longValue())
-        .toSeq
-    }
-  }
-
   private def getLinksData(idCellSeq: Seq[Cell[Any]], langTags: Seq[String]): (LanguageType, Seq[(RowId, Object)]) = {
     val preparedData = idCellSeq
       .map(cell => {
@@ -218,7 +203,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
             insertCellHistory(table, rowId, column.id, column.kind, column.languageType, wrapLinkValue())
           } else {
             for {
-              linkIds <- retrieveCurrentLinkIds(table, column, rowId)
+              linkIds <- tableauxModel.retrieveCurrentLinkIds(table, column, rowId)
               identifierCellSeq <- retrieveForeignIdentifierCells(column, linkIds)
               langTags <- getLangTags(table)
 
@@ -274,7 +259,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       implicit user: TableauxUser
   ): Future[Unit] = {
     for {
-      linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
+      linkIds <- tableauxModel.retrieveCurrentLinkIds(table, linkColumn, rowId)
       identifierCellSeq <- retrieveForeignIdentifierCells(linkColumn, linkIds)
       langTags <- getLangTags(table)
       (languageType, linksData) = getLinksData(identifierCellSeq, langTags)
@@ -427,38 +412,58 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  private def insertRowHistory(
+  private def insertCreateRowHistory(
       table: Table,
       rowId: RowId
   )(implicit user: TableauxUser): Future[RowId] = {
-    logger.info(s"createRowHistory ${table.id} $rowId ${user.name}")
+    logger.info(s"insertCreateRowHistory ${table.id} $rowId ${user.name}")
     insertHistory(table.id, rowId, None, RowCreatedEvent, HistoryTypeRow, None, None, None)
   }
 
-  private def addRowAnnotationHistory(
-      tableId: TableId,
+  private def insertChangedRowPermissionHistory(
+      table: Table,
       rowId: RowId,
-      value: String
+      rowPermissionsOpt: Option[RowPermissionSeq]
   )(implicit user: TableauxUser): Future[RowId] = {
-    logger.info(s"createAddRowAnnotationHistory $tableId $rowId ${user.name}")
-    addOrRemoveAnnotationHistory(tableId, rowId, AnnotationAddedEvent, value)
+    logger.info(s"insertChangedRowPermissionHistory ${table.id} $rowId ${user.name}")
+    val value = rowPermissionsOpt match {
+      case Some(perm) => Json.arr(perm: _*)
+      case None => null
+    }
+    val jsonString = Json.obj("value" -> value)
+    insertHistory(
+      table.id,
+      rowId,
+      None,
+      RowPermissionsChangedEvent,
+      HistoryTypeRowPermissions,
+      Some("permissions"),
+      None,
+      Some(jsonString.toString)
+    )
   }
 
-  private def removeRowAnnotationHistory(
-      tableId: TableId,
+  private def insertDeleteRowHistory(
+      table: Table,
       rowId: RowId,
-      value: String
+      replacingRowIdOpt: Option[Int]
   )(implicit user: TableauxUser): Future[RowId] = {
-    logger.info(s"createRemoveRowAnnotationHistory $tableId $rowId ${user.name}")
-    addOrRemoveAnnotationHistory(tableId, rowId, AnnotationRemovedEvent, value)
+    logger.info(s"insertDeleteRowHistory ${table.id} $rowId ${user.name} ${replacingRowIdOpt}")
+    val jsonStringOpt = replacingRowIdOpt match {
+      case Some(replacingRowId) => Some(Json.obj("value" -> Json.obj("replacingRowId" -> replacingRowId)).toString())
+      case None => None
+    }
+    insertHistory(table.id, rowId, None, RowDeletedEvent, HistoryTypeRow, None, None, jsonStringOpt)
   }
 
-  private def addOrRemoveAnnotationHistory(
+  private def createRowAnnotationHistory(
       tableId: TableId,
       rowId: RowId,
       eventType: HistoryEventType,
-      value: String
+      rowAnnotationType: RowAnnotationType
   )(implicit user: TableauxUser): Future[RowId] = {
+    val value = rowAnnotationType.toString
+    logger.info(s"createRowAnnotationHistory $tableId $rowId ${eventType.toString} $value ${user.name}")
     val json = Json.obj("value" -> value)
     insertHistory(
       tableId,
@@ -558,7 +563,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
     def createIfNotEmpty(linkColumn: LinkColumn): Future[Unit] = {
       for {
-        linkIds <- retrieveCurrentLinkIds(table, linkColumn, rowId)
+        linkIds <- tableauxModel.retrieveCurrentLinkIds(table, linkColumn, rowId)
         _ <-
           if (linkIds.nonEmpty) {
             createLinks(table, rowId, Seq((linkColumn, linkIds)), allowRecursion = true)
@@ -870,40 +875,54 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
       implicit user: TableauxUser
   ): Future[Unit] = {
-    val columns = values.map({ case (col: ColumnType[_], _) => col })
-    val (_, _, _, attachments) = ColumnType.splitIntoTypes(columns)
-
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
         Future.failed(ex)
 
-      case Success((simples, multis, links, _)) =>
+      case Success((simples, multis, links, attachments)) =>
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
           _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, allowRecursion = true)
-          _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(table, rowId, attachments)
+          _ <-
+            if (attachments.isEmpty) Future.successful(())
+            else createAttachments(table, rowId, attachments.map({ case (column, _) => column }))
         } yield ()
     }
   }
 
-  def createRow(table: Table, rowId: RowId)(implicit user: TableauxUser): Future[RowId] = {
-    insertRowHistory(table, rowId)
+  def createRow(table: Table, rowId: RowId, rowPermissionsOpt: Option[Seq[String]])(
+      implicit user: TableauxUser
+  ): Future[RowId] = {
+    for {
+      _ <- insertCreateRowHistory(table, rowId)
+      _ <- rowPermissionsOpt match {
+        case Some(rowPermissions) => insertChangedRowPermissionHistory(table, rowId, rowPermissionsOpt)
+        case None => Future.successful(())
+      }
+    } yield rowId
   }
 
-  def updateRowsAnnotation(tableId: TableId, rowIds: Seq[RowId], finalFlagOpt: Option[Boolean])(
+  def updateRowPermission(table: Table, rowId: RowId, rowPermissionsOpt: Option[RowPermissionSeq])(
       implicit user: TableauxUser
-  ): Future[Unit] = {
-    for {
-      _ <- finalFlagOpt match {
-        case None => Future.successful(())
-        case Some(isFinal) =>
-          if (isFinal)
-            Future.sequence(rowIds.map(rowId => addRowAnnotationHistory(tableId, rowId, "final")))
-          else
-            Future.sequence(rowIds.map(rowId => removeRowAnnotationHistory(tableId, rowId, "final")))
-      }
-    } yield ()
+  ): Future[RowId] = {
+    insertChangedRowPermissionHistory(table, rowId, rowPermissionsOpt)
+  }
+
+  def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int])(
+      implicit user: TableauxUser
+  ): Future[RowId] = {
+    insertDeleteRowHistory(table, rowId, replacingRowIdOpt)
+  }
+
+  def createRowsAnnotationHistory(
+      tableId: TableId,
+      isAdd: Boolean,
+      rowAnnotationType: RowAnnotationType,
+      rowIds: Seq[RowId]
+  )(implicit user: TableauxUser): Future[Seq[RowId]] = {
+    val eventType = if (isAdd) AnnotationAddedEvent else AnnotationRemovedEvent
+    Future.sequence(rowIds.map(rowId => createRowAnnotationHistory(tableId, rowId, eventType, rowAnnotationType)))
   }
 
   def createClearLink(table: Table, rowId: RowId, columns: Seq[LinkColumn])(
@@ -957,6 +976,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     } yield ()
   }
 
+  // TODO delete b/c not used?
   def deleteLink(table: Table, linkColumn: LinkColumn, rowId: RowId, toId: RowId)(
       implicit user: TableauxUser
   ): Future[_] = {

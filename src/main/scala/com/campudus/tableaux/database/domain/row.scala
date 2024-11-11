@@ -1,5 +1,6 @@
 package com.campudus.tableaux.database.domain
 
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel._
 
 import org.vertx.scala.core.json._
@@ -7,6 +8,7 @@ import org.vertx.scala.core.json._
 case class RawRow(
     id: RowId,
     rowLevelAnnotations: RowLevelAnnotations,
+    rowPermissions: RowPermissions,
     cellLevelAnnotations: CellLevelAnnotations,
     values: Seq[_]
 )
@@ -15,6 +17,7 @@ case class Row(
     table: Table,
     id: RowId,
     rowLevelAnnotations: RowLevelAnnotations,
+    rowPermissions: RowPermissions,
     cellLevelAnnotations: CellLevelAnnotations,
     values: Seq[_]
 ) extends DomainObject {

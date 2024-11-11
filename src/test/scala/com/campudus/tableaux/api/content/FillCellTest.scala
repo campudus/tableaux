@@ -67,6 +67,172 @@ class FillCellTest extends TableauxTestBase {
   }
 
   @Test
+  def fillStringCellWithLengthInRange(implicit c: TestContext): Unit = okTest {
+    val fillStringCellJson1 = Json.obj("value" -> "12345")
+    val fillStringCellJson2 = Json.obj("value" -> "1234567")
+    val fillStringCellJson3 = Json.obj("value" -> "0123456789")
+    val fillStringCellJson4 = Json.obj("value" -> Json.obj("de" -> "12345", "en" -> "0123456789"))
+
+    val expectedCell1 = Json.obj("status" -> "ok", "value" -> "12345")
+    val expectedCell2 = Json.obj("status" -> "ok", "value" -> "1234567")
+    val expectedCell3 = Json.obj("status" -> "ok", "value" -> "0123456789")
+    val expectedCell4 = Json.obj("status" -> "ok", "value" -> Json.obj("de" -> "12345", "en" -> "0123456789"))
+
+    val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "text",
+      "name" -> "Test Column 1",
+      "minLength" -> 5,
+      "maxLength" -> 10
+    )))
+
+    val createMultilangStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "text",
+      "name" -> "Test Column 2",
+      "multilanguage" -> true,
+      "minLength" -> 5,
+      "maxLength" -> 10
+    )))
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJsonWithLengthLimit)
+      _ <- sendRequest("POST", "/tables/1/columns", createMultilangStringColumnJsonWithLengthLimit)
+      _ <- sendRequest("POST", "/tables/1/rows")
+      res1 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson1)
+      res2 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson2)
+      res3 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson3)
+      res4 <- sendRequest("POST", "/tables/1/columns/2/rows/1", fillStringCellJson4)
+    } yield {
+      assertEquals(expectedCell1, res1)
+      assertEquals(expectedCell2, res2)
+      assertEquals(expectedCell3, res3)
+      assertEquals(expectedCell4, res4)
+    }
+  }
+
+  @Test
+  def emptyStringCellWithLimitsPresent(implicit c: TestContext): Unit = okTest {
+    val fillStringCellJson1 = Json.obj("value" -> "12345")
+    val fillStringCellJson2 = Json.obj("value" -> "")
+    val fillStringCellJson3 = Json.obj("value" -> Json.obj("de" -> "123456", "en" -> "0123456789"))
+    val fillStringCellJson4 = Json.obj("value" -> Json.obj("de" -> "", "en" -> "0123456789"))
+
+    val expectedCell2 = Json.obj("status" -> "ok", "value" -> "")
+    val expectedCell4 = Json.obj("status" -> "ok", "value" -> Json.obj("de" -> "", "en" -> "0123456789"))
+
+    val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "text",
+      "name" -> "Test Column 1",
+      "minLength" -> 5,
+      "maxLength" -> 10
+    )))
+
+    val createMultilangStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
+      "kind" -> "text",
+      "name" -> "Test Column 2",
+      "multilanguage" -> true,
+      "minLength" -> 5,
+      "maxLength" -> 10
+    )))
+
+    for {
+      _ <- sendRequest("POST", "/tables", createTableJson)
+      _ <- sendRequest("POST", "/tables/1/columns", createStringColumnJsonWithLengthLimit)
+      _ <- sendRequest("POST", "/tables/1/columns", createMultilangStringColumnJsonWithLengthLimit)
+      _ <- sendRequest("POST", "/tables/1/rows")
+      res1 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson1)
+      res2 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson2)
+      res3 <- sendRequest("POST", "/tables/1/columns/2/rows/1", fillStringCellJson3)
+      res4 <- sendRequest("POST", "/tables/1/columns/2/rows/1", fillStringCellJson4)
+    } yield {
+      assertEquals(expectedCell2, res2)
+      assertEquals(expectedCell4, res4)
+    }
+  }
+
+  @Test
+  def fillSingleStringCellWithLengthTooShort(implicit c: TestContext): Unit =
+    exceptionTest("error.request.value.length") {
+      val fillStringCellJson1 = Json.obj("value" -> "1234")
+
+      val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
+        "kind" -> "text",
+        "name" -> "Test Column 1",
+        "minLength" -> 5,
+        "maxLength" -> 10
+      )))
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        col <- sendRequest("POST", "/tables/1/columns", createStringColumnJsonWithLengthLimit)
+        _ <- sendRequest("POST", "/tables/1/rows")
+        res1 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson1)
+      } yield ()
+    }
+
+  @Test
+  def fillMultilangStringCellWithLengthTooShort(implicit c: TestContext): Unit =
+    exceptionTest("error.request.value.length") {
+      val fillStringCellJson1 = Json.obj("value" -> Json.obj("de" -> "123", "en" -> "123456"))
+
+      val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
+        "kind" -> "text",
+        "name" -> "Test Column 1",
+        "multilanguage" -> true,
+        "minLength" -> 5,
+        "maxLength" -> 10
+      )))
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        col <- sendRequest("POST", "/tables/1/columns", createStringColumnJsonWithLengthLimit)
+        _ <- sendRequest("POST", "/tables/1/rows")
+        res1 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson1)
+      } yield ()
+    }
+
+  @Test
+  def fillMultilangStringCellWithLengthTooLong(implicit c: TestContext): Unit =
+    exceptionTest("error.request.value.length") {
+      val fillStringCellJson1 = Json.obj("value" -> Json.obj("de" -> "12345678912345", "en" -> "123456"))
+
+      val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
+        "kind" -> "text",
+        "name" -> "Test Column 1",
+        "multilanguage" -> true,
+        "minLength" -> 5,
+        "maxLength" -> 10
+      )))
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        col <- sendRequest("POST", "/tables/1/columns", createStringColumnJsonWithLengthLimit)
+        _ <- sendRequest("POST", "/tables/1/rows")
+        res1 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson1)
+      } yield ()
+    }
+
+  @Test
+  def fillSingleStringCellWithLengthTooLong(implicit c: TestContext): Unit =
+    exceptionTest("error.request.value.length") {
+      val fillStringCellJson1 = Json.obj("value" -> "012345678921")
+
+      val createStringColumnJsonWithLengthLimit = Json.obj("columns" -> Json.arr(Json.obj(
+        "kind" -> "text",
+        "name" -> "Test Column 1",
+        "minLength" -> 5,
+        "maxLength" -> 10
+      )))
+
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+        col <- sendRequest("POST", "/tables/1/columns", createStringColumnJsonWithLengthLimit)
+        _ <- sendRequest("POST", "/tables/1/rows")
+        res1 <- sendRequest("POST", "/tables/1/columns/1/rows/1", fillStringCellJson1)
+      } yield ()
+    }
+
+  @Test
   def fillSingleNumberCell(implicit c: TestContext): Unit = okTest {
     val fillNumberCellJson = Json.obj("value" -> 101)
 

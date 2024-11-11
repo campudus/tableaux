@@ -17,8 +17,7 @@ class RoleModelTest {
                                                    |  "view-tables": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table",
+                                                   |      "action": ["viewTable"],
                                                    |      "condition": {
                                                    |        "table": {
                                                    |          "id": ".*",
@@ -42,8 +41,7 @@ class RoleModelTest {
                                                    |  "view-tables": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table",
+                                                   |      "action": ["viewTable"],
                                                    |      "condition": {
                                                    |        "table": {
                                                    |          "id": ".*",
@@ -52,8 +50,7 @@ class RoleModelTest {
                                                    |      }
                                                    |    }, {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "media",
+                                                   |      "action": ["viewTable"],
                                                    |      "condition": {
                                                    |        "table": {
                                                    |          "id": ".*",
@@ -74,17 +71,16 @@ class RoleModelTest {
 
     val json: JsonObject = Json.fromObjectString("""
                                                    |{
-                                                   |  "view-media": [
+                                                   |  "view-table": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "media"
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
     val roleModel: RoleModel = RoleModel(json)
 
-    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-media"))
+    val permissions: Seq[Permission] = roleModel.filterPermissions(Seq("view-table"))
     Assert.assertEquals(1, permissions.size)
   }
 
@@ -96,8 +92,7 @@ class RoleModelTest {
                                                    |  "view-media": [
                                                    |    {
                                                    |      "type": "invalidType",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "media"
+                                                   |      "action": ["viewMedia"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
@@ -117,32 +112,12 @@ class RoleModelTest {
                                                    |  "view-media": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["invalidAction"],
-                                                   |      "scope": "media"
+                                                   |      "action": ["invalidAction"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
 
     import org.scalatest.Assertions._
-
-    assertThrows[IllegalArgumentException] {
-      RoleModel(json)
-    }
-  }
-
-  @Test
-  def parse_invalidScope_throwsException(): Unit = {
-
-    val json: JsonObject = Json.fromObjectString("""
-                                                   |{
-                                                   |  "view-media": [
-                                                   |    {
-                                                   |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "invalidScope"
-                                                   |    }
-                                                   |  ]
-                                                   |}""".stripMargin)
 
     assertThrows[IllegalArgumentException] {
       RoleModel(json)
@@ -157,8 +132,7 @@ class RoleModelTest {
                                                    |  "view-column": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "column",
+                                                   |      "action": ["viewColumn"],
                                                    |      "condition": {
                                                    |        "langtag": "de|en"
                                                    |      }
@@ -179,15 +153,13 @@ class RoleModelTest {
                                                    |  "view-tables": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ],
                                                    |  "view-media": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "media"
+                                                   |      "action": ["deleteTable"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
@@ -198,36 +170,33 @@ class RoleModelTest {
   }
 
   @Test
-  def filterPermissions_threeRolesActionAndScopeAreMatching_returnsTwoPermissions(): Unit = {
+  def filterPermissions_threeRolesActionsAreMatching_returnsTwoPermissions(): Unit = {
 
     val json: JsonObject = Json.fromObjectString("""
                                                    |{
                                                    |  "view-tables1": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ],
                                                    |  "view-tables2": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ],
                                                    |  "view-tables3": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
 
     val roleModel: RoleModel = RoleModel(json)
     val permissions: Seq[Permission] =
-      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, View, ScopeTable)
+      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, ViewTable, false)
     Assert.assertEquals(2, permissions.size)
   }
 
@@ -239,63 +208,26 @@ class RoleModelTest {
                                                    |  "view-tables1": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ],
                                                    |  "view-tables2": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["edit"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["deleteTable"]
                                                    |    }
                                                    |  ],
                                                    |  "view-tables3": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
 
     val roleModel: RoleModel = RoleModel(json)
     val permissions: Seq[Permission] =
-      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, View, ScopeTable)
-    Assert.assertEquals(1, permissions.size)
-  }
-
-  @Test
-  def filterPermissions_threeRolesScopeNotMatching_returnsOnePermission(): Unit = {
-
-    val json: JsonObject = Json.fromObjectString("""
-                                                   |{
-                                                   |  "view-tables1": [
-                                                   |    {
-                                                   |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
-                                                   |    }
-                                                   |  ],
-                                                   |  "view-tables2": [
-                                                   |    {
-                                                   |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "media"
-                                                   |    }
-                                                   |  ],
-                                                   |  "view-tables3": [
-                                                   |    {
-                                                   |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
-                                                   |    }
-                                                   |  ]
-                                                   |}""".stripMargin)
-
-    val roleModel: RoleModel = RoleModel(json)
-    val permissions: Seq[Permission] =
-      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, View, ScopeTable)
+      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, ViewTable, false)
     Assert.assertEquals(1, permissions.size)
   }
 
@@ -307,62 +239,22 @@ class RoleModelTest {
                                                    |  "view-tables1": [
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    },
                                                    |    {
                                                    |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    },
                                                    |    {
                                                    |      "type": "deny",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
+                                                   |      "action": ["viewTable"]
                                                    |    }
                                                    |  ]
                                                    |}""".stripMargin)
 
     val roleModel: RoleModel = RoleModel(json)
     val permissions: Seq[Permission] =
-      roleModel.filterPermissions(Seq("view-tables1"), Deny, View, ScopeTable)
+      roleModel.filterPermissions(Seq("view-tables1"), Deny, ViewTable, false)
     Assert.assertEquals(1, permissions.size)
-  }
-
-  @Test
-  def filterPermissions_withoutDefinedAction_returnsAllPermissions(): Unit = {
-
-    val json: JsonObject = Json.fromObjectString("""
-                                                   |{
-                                                   |  "view-tables1": [
-                                                   |    {
-                                                   |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
-                                                   |    },
-                                                   |    {
-                                                   |      "type": "grant",
-                                                   |      "action": ["edit"],
-                                                   |      "scope": "table"
-                                                   |    }
-                                                   |  ],
-                                                   |  "view-tables2": [
-                                                   |    {
-                                                   |      "type": "grant",
-                                                   |      "action": ["view"],
-                                                   |      "scope": "table"
-                                                   |    },
-                                                   |    {
-                                                   |      "type": "grant",
-                                                   |      "action": ["delete"],
-                                                   |      "scope": "table"
-                                                   |    }
-                                                   |  ]
-                                                   |}""".stripMargin)
-
-    val roleModel: RoleModel = RoleModel(json)
-    val permissions: Seq[Permission] =
-      roleModel.filterPermissions(Seq("view-tables1", "view-tables2"), Grant, ScopeTable)
-    Assert.assertEquals(4, permissions.size)
   }
 }

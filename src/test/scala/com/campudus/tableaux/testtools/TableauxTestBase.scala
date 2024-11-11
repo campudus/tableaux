@@ -97,7 +97,8 @@ trait TableauxTestBase
       databaseConfig,
       config.getString("workingDirectory"),
       config.getString("uploadsDirectory"),
-      rolePermissions
+      rolePermissions,
+      isRowPermissionCheckEnabled = false
     )
 
     val async = context.async()
@@ -121,6 +122,7 @@ trait TableauxTestBase
     val system = SystemModel(dbConnection)
     for {
       _ <- system.uninstall()
+          _ <- system.installShortCutFunction()
       _ <- system.install()
     } yield {
       vertx
@@ -162,8 +164,8 @@ trait TableauxTestBase
   /**
     * Helper method to set up Tests without running into permission problem (UnauthorizedException)
     *
-    * 1. Sets a userRole for requestContext 
-    * 2. Invokes a function block with this userRole 
+    * 1. Sets a userRole for requestContext
+    * 2. Invokes a function block with this userRole
     * 3. Resets the original userRoles defined by the test
     *
     * For this purpose there is a dummy test role "dev" in `role-permissions-test.json`.

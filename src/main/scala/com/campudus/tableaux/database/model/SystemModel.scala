@@ -20,24 +20,47 @@ object SystemModel {
 class SystemModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
 
   /**
-    * Runs all setup functions.
+    * Runs all needed setup functions.
     */
   def install(version: Option[Int] = None): Future[Unit] = {
     for {
       t <- connection.begin()
 
       // retrieve but ignore version
-      (t, _) <- retrieveCurrentVersion(t)
+      (t, installedVersions) <- retrieveCurrentVersion(t)
 
       t <- version
         .map(i => setupFunctions.take(i))
         .getOrElse(setupFunctions)
+        .drop(installedVersions)
         .foldLeft(Future(t)) {
           case (t, setup) =>
             t.flatMap(setup)
         }
 
       _ = logger.info("Setup schema finished")
+
+      _ <- t.commit()
+    } yield ()
+  }
+
+  /**
+    * Runs all setup functions.
+    */
+  def installShortCutFunction(): Future[Unit] = {
+    for {
+      t <- connection.begin()
+
+      // retrieve but ignore version
+      (t, _) <- retrieveCurrentVersion(t)
+
+      t <- setupShortCutFunction
+        .foldLeft(Future(t)) {
+          case (t, setup) =>
+            t.flatMap(setup)
+        }
+
+      _ = logger.info("Setup shortcut schema finished")
 
       _ <- t.commit()
     } yield ()
@@ -158,7 +181,16 @@ class SystemModel(override protected[this] val connection: DatabaseConnection) e
     setupVersion(readSchemaFile("schema_v29"), 29),
     setupVersion(readSchemaFile("schema_v30"), 30),
     setupVersion(readSchemaFile("schema_v31"), 31),
-    setupVersion(readSchemaFile("schema_v32"), 32)
+    setupVersion(readSchemaFile("schema_v32"), 32),
+    setupVersion(readSchemaFile("schema_v33"), 33),
+    setupVersion(readSchemaFile("schema_v34"), 34),
+    setupVersion(readSchemaFile("schema_v35"), 35),
+    setupVersion(readSchemaFile("schema_v36"), 36),
+    setupVersion(readSchemaFile("schema_v37"), 37)
+  )
+
+  private val setupShortCutFunction: Seq[DbTransaction => Future[DbTransaction]] = Seq(
+    setupVersion(readSchemaFile("merged_schema_until_v35"), 35)
   )
 
   private def readSchemaFile(name: String): String = {

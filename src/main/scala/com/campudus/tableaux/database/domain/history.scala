@@ -32,8 +32,9 @@ object History {
       case HistoryTypeCell | HistoryTypeCellComment =>
         CellHistory(baseHistory, columnId, valueType, languageType, value)
       case HistoryTypeCellFlag => CellFlagHistory(baseHistory, columnId, languageType, value)
-      case HistoryTypeRow => baseHistory
+      case HistoryTypeRow => RowHistory(baseHistory, value)
       case HistoryTypeRowFlag => RowFlagHistory(baseHistory, valueType)
+      case HistoryTypeRowPermissions => RowPermissionsHistory(baseHistory, valueType, value)
       case _ => throw new IllegalArgumentException(s"Invalid historyType for CellHistory.apply $historyType")
     }
   }
@@ -69,6 +70,31 @@ case class RowFlagHistory(baseHistory: BaseHistory, valueType: String) extends H
       .mergeIn(
         Json.obj("valueType" -> valueType)
       )
+  }
+
+  override val columnIdOpt: Option[ColumnId] = None
+}
+
+case class RowPermissionsHistory(baseHistory: BaseHistory, valueType: String, value: JsonObject) extends History {
+
+  override def getJson: JsonObject = {
+    baseHistory.getJson
+      .mergeIn(
+        Json.obj(
+          "valueType" -> valueType,
+          "value" -> Json.emptyObj()
+        )
+      ).mergeIn(value)
+  }
+
+  override val columnIdOpt: Option[ColumnId] = None
+}
+
+case class RowHistory(baseHistory: BaseHistory, value: JsonObject) extends History {
+
+  override def getJson: JsonObject = {
+    baseHistory.getJson
+      .mergeIn(value)
   }
 
   override val columnIdOpt: Option[ColumnId] = None

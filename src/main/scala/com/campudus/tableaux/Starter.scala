@@ -25,6 +25,8 @@ object Starter {
   val DEFAULT_WORKING_DIRECTORY = "./"
   val DEFAULT_UPLOADS_DIRECTORY = "uploads/"
   val DEFAULT_ROLE_PERMISSIONS_PATH = "./role-permissions.json"
+  val DEFAULT_IS_PUBLIC_FILE_SERVER_ENABLED = false
+  val DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED = false
 }
 
 class Starter extends ScalaVerticle with LazyLogging {
@@ -54,6 +56,13 @@ class Starter extends ScalaVerticle with LazyLogging {
       val uploadsDirectory = getStringDefault(config, "uploadsDirectory", Starter.DEFAULT_UPLOADS_DIRECTORY)
       val authConfig = config.getJsonObject("auth", Json.obj())
       val rolePermissionsPath = getStringDefault(config, "rolePermissionsPath", Starter.DEFAULT_ROLE_PERMISSIONS_PATH)
+      val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
+
+      // feature flags
+      val isPublicFileServerEnabled =
+        config.getBoolean("isPublicFileServerEnabled", Starter.DEFAULT_IS_PUBLIC_FILE_SERVER_ENABLED)
+      val isRowPermissionCheckEnabled =
+        config.getBoolean("isRowPermissionCheckEnabled", Starter.DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED)
 
       val rolePermissions = FileUtils(vertxAccessContainer()).readJsonFile(rolePermissionsPath, Json.emptyObj())
 
@@ -63,7 +72,10 @@ class Starter extends ScalaVerticle with LazyLogging {
         authConfig = authConfig,
         workingDirectory = workingDirectory,
         uploadsDirectory = uploadsDirectory,
-        rolePermissions = rolePermissions
+        rolePermissions = rolePermissions,
+        openApiUrl = openApiUrl,
+        isPublicFileServerEnabled = isPublicFileServerEnabled,
+        isRowPermissionCheckEnabled = isRowPermissionCheckEnabled
       )
 
       connection = SQLConnection(vertxAccessContainer(), databaseConfig)
@@ -72,7 +84,7 @@ class Starter extends ScalaVerticle with LazyLogging {
         _ <- createUploadsDirectories(tableauxConfig)
         server <- deployHttpServer(port, host, tableauxConfig, connection)
         _ <- deployJsonSchemaValidatorVerticle(jsonSchemaConfig)
-        _ <- deployCacheVerticle(cacheConfig)
+        _ <- deployCacheVerticle(cacheConfig, tableauxConfig)
         _ <- deployMessagingVerticle(tableauxConfig)
       } yield {
         this.server = server
@@ -108,9 +120,7 @@ class Starter extends ScalaVerticle with LazyLogging {
   }
 
   private def deployJsonSchemaValidatorVerticle(config: JsonObject): Future[String] = {
-
-    val options = DeploymentOptions()
-      .setConfig(config)
+    val options = DeploymentOptions().setConfig(config)
 
     val jsonSchemaValidatorClient = JsonSchemaValidatorClient(vertx)
     val deployFuture = for {
@@ -154,11 +164,10 @@ class Starter extends ScalaVerticle with LazyLogging {
 
   }
 
-  private def deployCacheVerticle(config: JsonObject): Future[String] = {
-    val options = DeploymentOptions()
-      .setConfig(config)
+  private def deployCacheVerticle(cacheConfig: JsonObject, tableauxConfig: TableauxConfig): Future[String] = {
+    val options = DeploymentOptions().setConfig(cacheConfig)
 
-    val deployFuture = vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[CacheVerticle], options)
+    val deployFuture = vertx.deployVerticleFuture(new CacheVerticle(tableauxConfig), options)
 
     deployFuture.onComplete({
       case Success(id) =>

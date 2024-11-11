@@ -275,9 +275,9 @@ class MultiLanguageTest extends TableauxTestBase {
         row2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId2")
         row3 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId3")
       } yield {
-        assertEquals(exceptedJson(rowId1), row1)
-        assertEquals(exceptedJson(rowId2), row2)
-        assertEquals(exceptedJson(rowId3), row3)
+        assertJSONEquals(exceptedJson(rowId1), row1)
+        assertJSONEquals(exceptedJson(rowId2), row2)
+        assertJSONEquals(exceptedJson(rowId3), row3)
       }
     }
   }
@@ -365,7 +365,7 @@ class MultiLanguageTest extends TableauxTestBase {
 
         row <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
-        assertEquals(exceptedJson, row)
+        assertJSONEquals(exceptedJson, row)
       }
     }
   }

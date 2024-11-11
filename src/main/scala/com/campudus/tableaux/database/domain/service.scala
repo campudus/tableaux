@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.domain
 
-import com.campudus.tableaux.router.auth.permission.{RoleModel, ScopeService, ScopeServiceSeq, TableauxUser}
+import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._

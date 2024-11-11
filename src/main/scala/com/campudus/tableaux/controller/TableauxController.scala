@@ -2,17 +2,20 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.ArgumentChecker._
+import com.campudus.tableaux.ForbiddenException
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
+import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.JsonArray
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -53,7 +56,7 @@ class TableauxController(
           s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)"
         )
       }
-      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
     } yield {
@@ -71,7 +74,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
-      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
       _ <- repository.deleteCellAnnotation(column, rowId, uuid)
     } yield {
       messagingClient.cellAnnotationChanged(tableId, columnId, rowId)
@@ -102,7 +105,7 @@ class TableauxController(
           s"There are no annotations with langtags on a language neutral cell (table: $tableId, column: $columnId)"
         )
       }
-      _ <- roleModel.checkAuthorization(EditCellAnnotation, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
 
       _ <- repository.deleteCellAnnotation(column, rowId, uuid, langtag)
     } yield EmptyObject()
@@ -116,7 +119,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(ViewTable, ComparisonObjects(table))
 
       annotations <- repository.retrieveTableWithCellAnnotations(table)
     } yield annotations
@@ -168,7 +171,7 @@ class TableauxController(
         .map({ case (table, _) => table })
 
       tablesForWhichViewIsGranted = roleModel
-        .filterDomainObjects[Table](ScopeTable, relevantTables, isInternalCall = false)
+        .filterDomainObjects[Table](ViewTable, relevantTables, isInternalCall = false)
 
       tablesWithCellAnnotationCount <- repository.retrieveTablesWithCellAnnotationCount(relevantTables)
     } yield {
@@ -239,7 +242,12 @@ class TableauxController(
           })
           .map(_._2)
 
-        (langtag, mergedTranslationStatusForLangtag.sum / mergedTranslationStatusForLangtag.size)
+        val calculatedLangtagStatus = mergedTranslationStatusForLangtag.size match {
+          case 0 => 1
+          case _ => mergedTranslationStatusForLangtag.sum / mergedTranslationStatusForLangtag.size
+        }
+
+        (langtag, calculatedLangtagStatus)
       })
 
       PlainDomainObject(
@@ -251,20 +259,24 @@ class TableauxController(
     }
   }
 
-  def createRow(tableId: TableId, values: Option[Seq[Seq[(ColumnId, _)]]])(
+  def createRow(
+      tableId: TableId,
+      values: Option[Seq[Seq[(ColumnId, _)]]],
+      rowPermissionsOpt: Option[Seq[String]] = None
+  )(
       implicit user: TableauxUser
   ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(CreateRow, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(CreateRow, ComparisonObjects(table))
       row <- values match {
         case Some(seq) =>
           checkArguments(nonEmpty(seq, "rows"))
           logger.info(s"createRows ${table.id} $values")
           for {
-            createdRows <- repository.createRows(table, seq)
+            createdRows <- repository.createRows(table, seq, rowPermissionsOpt)
           } yield {
             createdRows.rows.foreach(singleCreatedRow => messagingClient.rowCreated(tableId, singleCreatedRow.id))
             createdRows
@@ -272,7 +284,7 @@ class TableauxController(
         case None =>
           logger.info(s"createRow ${table.id}")
           for {
-            createdRow <- repository.createRow(table)
+            createdRow <- repository.createRow(table, rowPermissionsOpt)
           } yield {
             messagingClient.rowCreated(tableId, createdRow.id)
             createdRow
@@ -281,39 +293,53 @@ class TableauxController(
     } yield row
   }
 
-  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlag: Option[Boolean])(
+  private def checkForTaxonomyTable(table: Table, archivedFlagOpt: Option[Boolean]): Unit = {
+    if (table.tableType == TaxonomyTable && archivedFlagOpt.isDefined) {
+      throw ForbiddenException(s"Archived flag is not allowed on taxonomy tables (table: ${table.id})", "archive")
+    }
+  }
+
+  def updateRowAnnotations(
+      tableId: TableId,
+      rowId: RowId,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  )(
       implicit user: TableauxUser
   ): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
-    logger.info(s"updateRowAnnotations $tableId $rowId $finalFlag")
+    logger.info(s"updateRowAnnotations $tableId $rowId $finalFlagOpt $archivedFlagOpt")
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(EditRowAnnotation, ScopeTable, ComparisonObjects(table))
-      updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlag)
+      _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
+      _ = checkForTaxonomyTable(table, archivedFlagOpt)
+      updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlagOpt, archivedFlagOpt)
     } yield {
       messagingClient.rowAnnotationChanged(tableId, rowId)
       updatedRow
     }
   }
 
-  def updateRowsAnnotations(tableId: TableId, finalFlag: Option[Boolean])(
+  def updateRowsAnnotations(tableId: TableId, finalFlagOpt: Option[Boolean], archivedFlagOpt: Option[Boolean])(
       implicit user: TableauxUser
   ): Future[DomainObject] = {
     checkArguments(greaterZero(tableId))
-    logger.info(s"updateRowsAnnotations $tableId $finalFlag")
+    logger.info(s"updateRowsAnnotations $tableId $finalFlagOpt $archivedFlagOpt")
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(EditRowAnnotation, ScopeTable, ComparisonObjects(table))
-      _ <- repository.updateRowsAnnotations(table, finalFlag)
+      _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
+      _ = checkForTaxonomyTable(table, archivedFlagOpt)
+      _ <- repository.updateRowsAnnotations(table, finalFlagOpt, archivedFlagOpt)
     } yield EmptyObject()
   }
 
-  def duplicateRow(tableId: TableId, rowId: RowId)(implicit user: TableauxUser): Future[Row] = {
+  def duplicateRow(tableId: TableId, rowId: RowId, duplicateOptions: Option[DuplicateRowOptions])(implicit
+  user: TableauxUser): Future[Row] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"duplicateRow $tableId $rowId")
     for {
       table <- repository.retrieveTable(tableId)
-      duplicated <- repository.duplicateRow(table, rowId)
+      duplicated <- repository.duplicateRow(table, rowId, duplicateOptions)
     } yield duplicated
   }
 
@@ -326,40 +352,58 @@ class TableauxController(
     } yield row
   }
 
-  def retrieveRows(tableId: TableId, pagination: Pagination)(
+  def retrieveRows(
+      tableId: TableId,
+      finalFlagOpt: Option[Boolean] = None,
+      archivedFlagOpt: Option[Boolean] = None,
+      pagination: Pagination = Pagination(None, None)
+  )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), pagination.check)
-    logger.info(s"retrieveRows $tableId for all columns")
+    logger.info(s"retrieveRows $tableId for all columns, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveRows(table, pagination)
+      rows <- repository.retrieveRows(table, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
   }
 
-  def retrieveRowsOfFirstColumn(tableId: TableId, pagination: Pagination)(
+  def retrieveRowsOfFirstColumn(
+      tableId: TableId,
+      finalFlagOpt: Option[Boolean] = None,
+      archivedFlagOpt: Option[Boolean] = None,
+      pagination: Pagination = Pagination(None, None)
+  )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), pagination.check)
-    logger.info(s"retrieveRowsOfFirstColumn $tableId for first column")
+    logger.info(
+      s"retrieveRowsOfFirstColumn $tableId for first column, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt"
+    )
 
     for {
       table <- repository.retrieveTable(tableId)
       columns <- repository.retrieveColumns(table)
-      rows <- repository.retrieveRows(table, columns.head.id, pagination)
+      rows <- repository.retrieveRows(table, columns.head.id, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
   }
 
-  def retrieveRowsOfColumn(tableId: TableId, columnId: ColumnId, pagination: Pagination)(
+  def retrieveRowsOfColumn(
+      tableId: TableId,
+      columnId: ColumnId,
+      finalFlagOpt: Option[Boolean] = None,
+      archivedFlagOpt: Option[Boolean] = None,
+      pagination: Pagination = Pagination(None, None)
+  )(
       implicit user: TableauxUser
   ): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), pagination.check)
-    logger.info(s"retrieveRows $tableId for column $columnId")
+    logger.info(s"retrieveRows $tableId for column $columnId, finalFlag: $finalFlagOpt, archivedFlag: $archivedFlagOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveRows(table, columnId, pagination)
+      rows <- repository.retrieveRows(table, columnId, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
   }
 
@@ -367,14 +411,16 @@ class TableauxController(
       tableId: TableId,
       columnId: ColumnId,
       rowId: RowId,
-      pagination: Pagination
+      finalFlagOpt: Option[Boolean] = None,
+      archivedFlagOpt: Option[Boolean] = None,
+      pagination: Pagination = Pagination(None, None)
   )(implicit user: TableauxUser): Future[RowSeq] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId), pagination.check)
     logger.info(s"retrieveForeignRows $tableId $columnId $rowId")
 
     for {
       table <- repository.retrieveTable(tableId)
-      rows <- repository.retrieveForeignRows(table, columnId, rowId, pagination)
+      rows <- repository.retrieveForeignRows(table, columnId, rowId, finalFlagOpt, archivedFlagOpt, pagination)
     } yield rows
   }
 
@@ -410,7 +456,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(View, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(ViewTable, ComparisonObjects(table))
       dependentRows <- repository.retrieveDependentRows(table, rowId)
     } yield dependentRows
   }
@@ -436,7 +482,7 @@ class TableauxController(
     logger.info(s"deleteRow $tableId $rowId $replacingRowIdOpt")
     for {
       table <- repository.retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(DeleteRow, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(DeleteRow, ComparisonObjects(table))
       _ <- repository.deleteRow(table, rowId, replacingRowIdOpt)
     } yield {
       messagingClient.rowDeleted(tableId, rowId)
@@ -471,18 +517,18 @@ class TableauxController(
     } yield filled
   }
 
-  def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A)(
+  def replaceCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
   ): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
     logger.info(s"replaceCellValue $tableId $columnId $rowId $value")
     for {
       table <- repository.retrieveTable(tableId)
-      filled <- repository.replaceCellValue(table, columnId, rowId, value)
+      filled <- repository.replaceCellValue(table, columnId, rowId, value, forceHistory)
     } yield filled
   }
 
-  def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A)(
+  def updateCellValue[A](tableId: TableId, columnId: ColumnId, rowId: RowId, value: A, forceHistory: Boolean = false)(
       implicit user: TableauxUser
   ): Future[Cell[_]] = {
     checkArguments(greaterZero(tableId), greaterZero(columnId), greaterZero(rowId))
@@ -490,7 +536,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
-      updated <- repository.updateCellValue(table, columnId, rowId, value)
+      updated <- repository.updateCellValue(table, columnId, rowId, value, forceHistory)
       _ <- messagingClient.cellChanged(tableId, columnId, rowId)
     } yield updated
   }
@@ -518,7 +564,7 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       column <- repository.retrieveColumn(table, columnId)
 
-      _ <- roleModel.checkAuthorization(EditCellValue, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(EditCellValue, ComparisonObjects(table, column))
 
       _ <- repository.createHistoryModel.createCellsInit(table, rowId, Seq((column, uuid)))
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
@@ -534,7 +580,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       colList <- repository.retrieveColumns(table)
-      rowList <- repository.retrieveRows(table, Pagination(None, None))
+      rowList <- repository.retrieveRows(table, None, None, Pagination(None, None))
     } yield CompleteTable(table, colList, rowList)
   }
 
@@ -545,17 +591,17 @@ class TableauxController(
     logger.info(s"createTable $tableName columns $columns rows $rows")
 
     for {
-      _ <- roleModel.checkAuthorization(Create, ScopeTable)
-      _ <- roleModel.checkAuthorization(Create, ScopeColumn)
+      _ <- roleModel.checkAuthorization(CreateTable)
+      _ <- roleModel.checkAuthorization(CreateColumn)
       _ <-
         if (!rows.headOption.exists(_.isEmpty)) {
-          roleModel.checkAuthorization(CreateRow, ScopeTable)
+          roleModel.checkAuthorization(CreateRow)
         } else {
           Future.successful(())
         }
       table <- repository.createTable(tableName, hidden = false)
       columnIds <- repository.createColumns(table, columns).map(_.map(_.id))
-      _ <- repository.createRows(table, rows.map(columnIds.zip(_)))
+      _ <- repository.createRows(table, rows.map(columnIds.zip(_)), None)
       completeTable <- retrieveCompleteTable(table.id)
     } yield completeTable
   }
@@ -617,5 +663,41 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       historySequence <- repository.retrieveTableHistory(table, langtagOpt, typeOpt)
     } yield SeqHistory(historySequence)
+  }
+
+  def addRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"addRowPermissions $tableId $rowId $rowPermissions")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.addRowPermissions(table, rowId, rowPermissions)
+    } yield EmptyObject()
+  }
+
+  def deleteRowPermissions(tableId: TableId, rowId: RowId)(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"removeRowPermissions $tableId $rowId")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.deleteRowPermissions(table, rowId)
+    } yield EmptyObject()
+  }
+
+  def replaceRowPermissions(tableId: TableId, rowId: RowId, rowPermissions: Seq[String])(
+      implicit user: TableauxUser
+  ): Future[EmptyObject] = {
+    checkArguments(greaterZero(tableId), greaterZero(rowId))
+    logger.info(s"replaceRowPermissions $tableId $rowId $rowPermissions")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.replaceRowPermissions(table, rowId, rowPermissions)
+    } yield EmptyObject()
   }
 }

@@ -1,8 +1,9 @@
 package com.campudus.tableaux.database.model.tableaux
 
 import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
+import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
-import com.campudus.tableaux.database.domain.{MultiLanguageColumn, RowLevelAnnotations, _}
+import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, AttachmentModel}
 import com.campudus.tableaux.database.model.TableauxModel._
@@ -11,6 +12,7 @@ import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
 import org.vertx.scala.core.json.{Json, _}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -69,20 +71,41 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     (union, binds)
   }
 
+  def getReplacedIds(
+      tableId: TableId,
+      rowId: RowId,
+      maybeTransaction: Option[DbTransaction]
+  )(implicit ec: ExecutionContext): Future[JsonArray] = {
+    val query = s"SELECT COALESCE(replaced_ids, '[]') FROM user_table_${tableId} WHERE id = ?"
+    val binds = Json.arr(rowId)
+
+    for {
+      res <- maybeTransaction match {
+        case Some(transaction) => transaction.query(query, binds).map({ case (_, obj) => obj })
+        case None => connection.transactional(t => t.query(query, binds))
+      }
+
+      replacedIds = Try(res.getJsonArray("results").getJsonArray(0).getString(0)) match {
+        case Success(value) => Json.fromArrayString(value)
+        case Failure(s) => Json.arr()
+      }
+
+    } yield (replacedIds)
+  }
+
   def updateReplacedIds(
       tableId: TableId,
+      replacedIds: JsonArray,
       oldRowId: RowId,
       newRowId: Int,
       maybeTransaction: Option[DbTransaction]
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val updateQuery = s"""
                          |UPDATE user_table_${tableId}
-                         |SET replaced_ids = COALESCE(replaced_ids, '[]'::jsonb) ||
-                         |(SELECT COALESCE(replaced_ids, '[]') FROM user_table_${tableId} WHERE id = ?) ||
-                         |?::jsonb
+                         |SET replaced_ids = COALESCE(replaced_ids, '[]'::jsonb) || ?::jsonb
                          |WHERE id = ?
                          |""".stripMargin
-    val binds = Json.arr(oldRowId, Json.arr(oldRowId).encode(), newRowId)
+    val binds = Json.arr(replacedIds.add(oldRowId).encode(), newRowId)
 
     for {
       _ <- maybeTransaction match {
@@ -145,6 +168,26 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
     values.foldLeft(Future(())) {
       (future, value) => future.flatMap(_ => func(value).map(_ => ()))
     }
+  }
+
+  def updateRowPermissions(tableId: TableId, rowId: RowId, rowPermissionsOpt: Option[RowPermissionSeq])(
+      implicit ec: ExecutionContext
+  ): Future[Option[RowPermissionSeq]] = {
+    val updateQuery = s"""
+                         |UPDATE user_table_${tableId}
+                         |SET row_permissions = ?::jsonb
+                         |WHERE id = ?
+                         |""".stripMargin
+
+    val value = rowPermissionsOpt match {
+      case Some(rowPermissions) => Json.arr(rowPermissions: _*).encode()
+      case None => null
+    }
+
+    for {
+      _ <- connection.query(updateQuery, Json.arr(value, rowId))
+      _ <- CacheClient(this.connection).invalidateRowPermissions(tableId, rowId)
+    } yield rowPermissionsOpt
   }
 }
 
@@ -285,6 +328,30 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   private def clearAttachments(table: Table, rowId: RowId, columns: Seq[AttachmentColumn]): Future[_] = {
     val cleared = columns.map((c: AttachmentColumn) => attachmentModel.deleteAll(table.id, c.id, rowId))
     Future.sequence(cleared)
+  }
+
+  def updateCascadedRows(
+      table: Table,
+      rowId: RowId,
+      column: LinkColumn,
+      rowAnnotationType: RowAnnotationType,
+      flag: Boolean,
+      updateRowAnnotationsRecursiveFn: (Table, RowId, RowAnnotationType, Boolean) => Future[_]
+  ) = {
+    val linkTable = s"link_table_${column.linkId}"
+    val fromIdColumn = column.linkDirection.fromSql
+    val toIdColumn = column.linkDirection.toSql
+
+    // TODO here we could end up in a endless loop,
+    // TODO but we could argue that a schema like this doesn't make sense
+    retrieveLinkedRows(table, rowId, column)
+      .flatMap(foreignRowIds => {
+        val futures = foreignRowIds.map { foreignRowId =>
+          updateRowAnnotationsRecursiveFn(column.to.table, foreignRowId, rowAnnotationType, flag)
+        }
+
+        Future.sequence(futures)
+      })
   }
 
   private def deleteLinkedRows(
@@ -577,23 +644,26 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     Future.sequence(futureSequence)
   }
 
-  def updateRowsAnnotations(tableId: TableId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
+  def updateRowsAnnotation(
+      tableId: TableId,
+      rowAnnotationType: RowAnnotationType,
+      flag: Boolean
+  ): Future[Unit] = {
+    val columnName = rowAnnotationType.toString
     for {
-      _ <- finalFlagOpt match {
-        case None => Future.successful(())
-        case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_$tableId SET final = ?", Json.arr(finalFlag))
-      }
+      _ <- connection.query(s"UPDATE user_table_$tableId SET $columnName = ?", Json.arr(flag))
     } yield ()
   }
 
-  def updateRowAnnotations(tableId: TableId, rowId: RowId, finalFlagOpt: Option[Boolean]): Future[Unit] = {
+  def updateRowAnnotation(
+      tableId: TableId,
+      rowId: RowId,
+      rowAnnotationType: RowAnnotationType,
+      flag: Boolean
+  ): Future[Unit] = {
+    val columnName = rowAnnotationType.toString
     for {
-      _ <- finalFlagOpt match {
-        case None => Future.successful(())
-        case Some(finalFlag) =>
-          connection.query(s"UPDATE user_table_$tableId SET final = ? WHERE id = ?", Json.arr(finalFlag, rowId))
-      }
+      _ <- connection.query(s"UPDATE user_table_$tableId SET $columnName = ? WHERE id = ?", Json.arr(flag, rowId))
     } yield ()
   }
 
@@ -728,12 +798,33 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
 
     connection.query(delete, binds)
   }
+
+  def addRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[Option[RowPermissionSeq]] = {
+    val mergedSeq = (row.rowPermissions.value ++ rowPermissions).distinct
+    updateRowPermissions(table.id, row.id, Some(mergedSeq))
+  }
+
+  def deleteRowPermissions(table: Table, row: Row): Future[Option[RowPermissionSeq]] = {
+    updateRowPermissions(table.id, row.id, None)
+  }
+
+  def replaceRowPermissions(
+      table: Table,
+      row: Row,
+      rowPermissions: RowPermissionSeq
+  ): Future[Option[RowPermissionSeq]] =
+    updateRowPermissions(table.id, row.id, Some(rowPermissions))
+
 }
 
 class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery with UpdateCreateRowModelHelper {
   val attachmentModel = AttachmentModel(connection)
 
-  def createRow(table: Table, values: Seq[(ColumnType[_], _)]): Future[RowId] = {
+  def createRow(
+      table: Table,
+      values: Seq[(ColumnType[_], _)],
+      rowPermissionsOpt: Option[RowPermissionSeq]
+  ): Future[RowId] = {
     val tableId = table.id
     ColumnType.splitIntoTypesWithValues(values) match {
       case Failure(ex) =>
@@ -745,6 +836,10 @@ class CreateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
           _ <- if (multis.isEmpty) Future.successful(()) else createTranslations(tableId, rowId, multis)
           _ <- if (links.isEmpty) Future.successful(()) else updateLinks(table, rowId, links)
           _ <- if (attachments.isEmpty) Future.successful(()) else createAttachments(tableId, rowId, attachments)
+          _ <- rowPermissionsOpt match {
+            case None => Future.successful(())
+            case Some(rowPermissions) => updateRowPermissions(tableId, rowId, rowPermissionsOpt)
+          }
         } yield rowId
     }
   }
@@ -981,7 +1076,12 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       .mkString("", " UNION ALL ", " ORDER BY table_id, type, type_value, last_created_at DESC")
 
     for {
-      result <- connection.query(query)
+      result <-
+        if (tables.isEmpty) {
+          Future.successful(Json.emptyObj())
+        } else {
+          connection.query(query)
+        }
     } yield {
       resultObjectToJsonArray(result)
         .map(jsonArrayToSeq)
@@ -1014,7 +1114,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       tableId: TableId,
       rowId: RowId,
       columns: Seq[ColumnType[_]]
-  ): Future[(RowLevelAnnotations, CellLevelAnnotations)] = {
+  ): Future[(RowLevelAnnotations, RowPermissions, CellLevelAnnotations)] = {
     for {
       result <- connection.query(
         s"SELECT ut.id, ${generateFlagsAndAnnotationsProjection(tableId)} FROM user_table_$tableId ut WHERE ut.id = ?",
@@ -1022,7 +1122,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       )
     } yield {
       val rawRow = mapRowToRawRow(columns)(jsonArrayToSeq(selectNotNull(result).head))
-      (rawRow.rowLevelAnnotations, rawRow.cellLevelAnnotations)
+      (rawRow.rowLevelAnnotations, rawRow.rowPermissions, rawRow.cellLevelAnnotations)
     }
   }
 
@@ -1033,10 +1133,38 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       uuid: UUID
   ): Future[Option[CellLevelAnnotation]] = {
     for {
-      (_, cellLevelAnnotations) <- retrieveAnnotations(tableId, rowId, Seq(column))
+      (_, _, cellLevelAnnotations) <- retrieveAnnotations(tableId, rowId, Seq(column))
       annotations = cellLevelAnnotations.annotations.get(column.id).getOrElse(Seq.empty[CellLevelAnnotation])
     } yield annotations.find(_.uuid == uuid)
 
+  }
+
+  def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[RowPermissions] = {
+    for {
+      rowCache <- CacheClient(this.connection).retrieveRowPermissions(tableId, rowId)
+      rowPermissions <- rowCache match {
+        case Some(rowPermissions) => {
+          // Cache hit
+          Future.successful(rowPermissions)
+        }
+        case None => {
+          // Cache miss
+          for {
+            (_, rowPermissions, _) <- retrieveAnnotations(tableId, rowId, Seq()).recover({
+              case _ =>
+                (RowLevelAnnotations(false, false), RowPermissions(Json.arr()), CellLevelAnnotations(Seq(), Json.arr()))
+            })
+          } yield {
+            CacheClient(this.connection).setRowPermissions(tableId, rowId, rowPermissions)
+            rowPermissions
+          }
+        }
+      }
+    } yield rowPermissions
+  }
+
+  def retrieveRowsPermissions(tableId: TableId, rowIds: Seq[RowId]): Future[Seq[RowPermissions]] = {
+    Future.sequence(rowIds.map(retrieveRowPermissions(tableId, _)))
   }
 
   def retrieve(tableId: TableId, rowId: RowId, columns: Seq[ColumnType[_]]): Future[RawRow] = {
@@ -1055,6 +1183,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
       linkColumn: LinkColumn,
       rowId: RowId,
       foreignColumns: Seq[ColumnType[_]],
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
       pagination: Pagination,
       linkDirection: LinkDirection
   ): Future[Seq[RawRow]] = {
@@ -1062,35 +1192,49 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     val projection = generateProjection(foreignTableId, foreignColumns)
     val fromClause = generateFromClause(foreignTableId)
-    val cardinalityFilter = generateCardinalityFilter(linkColumn)
-    val shouldNotCheckCardinality = linkDirection.isManyToMany
+    val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
+    val shouldCheckCardinality = !linkDirection.isManyToMany
+    val cardinalityFilter = shouldCheckCardinality match {
+      case false => ""
+      case true => generateCardinalityFilter(linkColumn)
+    }
+    val binds = shouldCheckCardinality match {
+      case false => Json.arr()
+      case true => Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+    }
 
     for {
-      maybeCardinalityFilter <-
-        if (shouldNotCheckCardinality) {
-          Future.successful("")
-        } else {
-          Future.successful(s"WHERE $cardinalityFilter")
-        }
       result <- connection.query(
-        s"SELECT $projection FROM $fromClause $maybeCardinalityFilter GROUP BY ut.id ORDER BY ut.id $pagination",
-        if (shouldNotCheckCardinality) {
-          Json.arr()
-        } else {
-          Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
-        }
+        s"""|SELECT $projection
+            |FROM $fromClause
+            |WHERE TRUE $cardinalityFilter $rowAnnotationFilter
+            |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin,
+        binds
       )
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(foreignColumns))
     }
   }
 
-  def retrieveAll(tableId: TableId, columns: Seq[ColumnType[_]], pagination: Pagination): Future[Seq[RawRow]] = {
+  def retrieveAll(
+      tableId: TableId,
+      columns: Seq[ColumnType[_]],
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean],
+      pagination: Pagination
+  ): Future[Seq[RawRow]] = {
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
+    val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
 
     for {
-      result <- connection.query(s"SELECT $projection FROM $fromClause GROUP BY ut.id ORDER BY ut.id $pagination")
+      result <-
+        connection.query(
+          s"""|SELECT $projection
+              |FROM $fromClause
+              |WHERE TRUE $rowAnnotationFilter
+              |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin
+        )
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
     }
@@ -1098,55 +1242,72 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def mapRowToRawRow(columns: Seq[ColumnType[_]])(row: Seq[Any]): RawRow = {
 
-    // Row should have at least = row_id, final_flag, cell_annotations
-    assert(row.size >= 3)
+    // Row should have at least = row_id, final_flag, archived_flag, cell_annotations, row_permissions
+    assert(row.size >= 5)
     val liftedRow = row.lift
 
-    (row.headOption, liftedRow(1), liftedRow(2)) match {
-      case (Some(rowId: RowId), Some(finalFlag: Boolean), Some(cellAnnotationsStr)) =>
+    (liftedRow(0), liftedRow(1), liftedRow(2), liftedRow(3), liftedRow(4)) match {
+      // values in case statement are nullable even if they are wrapped in Some, see lift function of Seq
+      case (
+            Some(rowId: RowId),
+            Some(finalFlag: Boolean),
+            Some(archivedFlag: Boolean),
+            Some(cellAnnotationsStr),
+            Some(permissionsStr)
+          ) =>
         val cellAnnotations = Option(cellAnnotationsStr)
           .map(_.asInstanceOf[String])
           .map(Json.fromArrayString)
           .getOrElse(Json.emptyArr())
-        val rawValues = row.drop(3)
+        val rawValues = row.drop(5)
+
+        val rowPermissions = Option(permissionsStr) match {
+          case Some(permissionsArrayString: String) => new JsonArray(permissionsArrayString)
+          case _ => Json.arr()
+        }
 
         RawRow(
           rowId,
-          RowLevelAnnotations(finalFlag),
+          RowLevelAnnotations(finalFlag, archivedFlag),
+          RowPermissions(rowPermissions),
           CellLevelAnnotations(columns, cellAnnotations),
           (columns, rawValues).zipped.map(mapValueByColumnType)
         )
       case _ =>
-        // shouldn't happen b/c of assert
         throw UnknownServerException(s"Please check generateProjection!")
     }
   }
 
-  def size(tableId: TableId): Future[Long] = {
-    val select = s"SELECT COUNT(*) FROM user_table_$tableId"
+  def size(tableId: TableId, finalFlagOpt: Option[Boolean], archivedFlagOpt: Option[Boolean]): Future[Long] = {
+    val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
+    val query = s"SELECT COUNT(*) FROM user_table_$tableId WHERE TRUE $rowAnnotationFilter"
 
-    connection.selectSingleValue(select)
+    connection.selectSingleValue(query)
   }
 
-  def sizeForeign(linkColumn: LinkColumn, rowId: RowId, linkDirection: LinkDirection): Future[Long] = {
+  def sizeForeign(
+      linkColumn: LinkColumn,
+      rowId: RowId,
+      linkDirection: LinkDirection,
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  ): Future[Long] = {
     val foreignTableId = linkColumn.to.table.id
-    val cardinalityFilter = generateCardinalityFilter(linkColumn)
-    val shouldNotCheckCardinality = linkDirection.isManyToMany
+    val shouldCheckCardinality = !linkDirection.isManyToMany
+    val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
+    val cardinalityFilter = shouldCheckCardinality match {
+      case false => ""
+      case true => generateCardinalityFilter(linkColumn)
+    }
+    val binds = shouldCheckCardinality match {
+      case false => Json.arr()
+      case true => Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
+    }
 
     for {
-      maybeCardinalityFilter <-
-        if (shouldNotCheckCardinality) {
-          Future.successful("")
-        } else {
-          Future.successful(s"WHERE $cardinalityFilter")
-        }
       result <- connection.selectSingleValue[Long](
-        s"SELECT COUNT(*) FROM user_table_$foreignTableId ut $maybeCardinalityFilter",
-        if (shouldNotCheckCardinality) {
-          Json.arr()
-        } else {
-          Json.arr(rowId, linkColumn.linkId, rowId, linkColumn.linkId)
-        }
+        s"SELECT COUNT(*) FROM user_table_$foreignTableId ut WHERE TRUE $cardinalityFilter $rowAnnotationFilter",
+        binds
       )
     } yield { result }
   }
@@ -1278,18 +1439,26 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     s"""(
        |SELECT
-       | json_agg(sub.value)
+       |  json_agg(sub.value)
        |FROM
        |(SELECT
-       |   lt$linkId.${direction.fromSql} AS ${direction.fromSql},
-       |   json_build_object('id', ut$toTableId.id, 'value', $value) AS value
+       |    lt$linkId.${direction.fromSql} AS ${direction.fromSql},
+       |    (
+       |      jsonb_build_object('id', ut$toTableId.id, 'value', $value) ||
+       |      jsonb_strip_nulls(
+       |        jsonb_build_object(
+       |          'final', CASE WHEN ut$toTableId.final IS TRUE THEN ut$toTableId.final ELSE NULL END,
+       |          'archived', CASE WHEN ut$toTableId.archived IS TRUE THEN ut$toTableId.archived ELSE NULL END
+       |        )
+       |      )
+       |    ) AS value
        | FROM
-       |   link_table_$linkId lt$linkId
-       |   JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
-       |   LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
-       | WHERE $column IS NOT NULL
-       | GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
-       | ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+       |    link_table_$linkId lt$linkId
+       |    JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
+       |    LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
+       |  WHERE $column IS NOT NULL
+       |  GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
+       |  ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
        |) sub
        |WHERE sub.${direction.fromSql} = ut.id
        |GROUP BY sub.${direction.fromSql}) AS column_${c.id}""".stripMargin
@@ -1297,8 +1466,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def generateFlagsAndAnnotationsProjection(tableId: TableId): String = {
     s"""|ut.final AS final_flag,
+        |ut.archived AS archived_flag,
         |(SELECT json_agg(
-        |  json_build_object(
+        |  jsonb_build_object(
         |    'column_id', column_id,
         |    'uuid', uuid,
         |    'langtags', langtags::text[],
@@ -1306,7 +1476,8 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         |    'value', value,
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
-        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations""".stripMargin
+        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations,
+        |ut.row_permissions AS row_permissions""".stripMargin
   }
 
   private def generateCardinalityFilter(linkColumn: LinkColumn): String = {
@@ -1317,9 +1488,26 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     // linkColumn is from origin tables point of view
     // ... so we need to swap toSql and fromSql
     s"""
+       | AND
        |(SELECT COUNT(*) = 0 FROM $linkTable WHERE ${linkDirection.toSql} = ut.id AND ${linkDirection.fromSql} = ?) AND
        |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.toSql} = ut.id) < (SELECT ${linkDirection.fromCardinality} FROM system_link_table WHERE link_id = ?) AND
        |(SELECT COUNT(*) FROM $linkTable WHERE ${linkDirection.fromSql} = ?) < (SELECT ${linkDirection.toCardinality} FROM system_link_table WHERE link_id = ?)
        """.stripMargin
+  }
+
+  private def generateRowAnnotationFilter(
+      finalFlagOpt: Option[Boolean],
+      archivedFlagOpt: Option[Boolean]
+  ): String = {
+    (finalFlagOpt, archivedFlagOpt) match {
+      case (Some(finalFlag), Some(archivedFlag)) =>
+        s"AND final = $finalFlag AND archived = $archivedFlag"
+      case (Some(finalFlag), _) =>
+        s"AND final = $finalFlag"
+      case (_, Some(archivedFlag)) =>
+        s"AND archived = $archivedFlag"
+      case _ =>
+        ""
+    }
   }
 }

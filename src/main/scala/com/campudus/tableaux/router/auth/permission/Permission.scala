@@ -10,12 +10,14 @@ case class Permission(
     roleName: String,
     permissionType: PermissionType,
     actions: Seq[Action],
-    scope: Scope,
     conditions: ConditionContainer
 ) extends LazyLogging {
 
-  def isMatching(objects: ComparisonObjects, withLangtagCondition: Boolean = true): Boolean =
-    conditions.isMatching(objects, withLangtagCondition)
+  def isMatching(
+      action: Action,
+      objects: ComparisonObjects = ComparisonObjects()
+  ): Boolean =
+    conditions.isMatching(action, objects)
 }
 
 object Permission {
@@ -26,10 +28,9 @@ object Permission {
     val permissionType: PermissionType = PermissionType(jsonObject.getString("type"))
     val actionString: Seq[String] = asSeqOf[String](jsonObject.getJsonArray("action"))
     val actions: Seq[Action] = actionString.map(key => Action(key))
-    val scope: Scope = Scope(jsonObject.getString("scope"))
-    val condition: ConditionContainer = ConditionContainer(jsonObject.getJsonObject("condition"))
+    val condition: ConditionContainer = ConditionContainer(Option(jsonObject.getJsonObject("condition")))
 
-    new Permission(roleName, permissionType, actions, scope, condition)
+    new Permission(roleName, permissionType, actions, condition)
   }
 }
 

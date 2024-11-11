@@ -78,7 +78,7 @@ class StructureController(
 
     for {
       table <- retrieveTable(tableId)
-      _ <- roleModel.checkAuthorization(Create, ScopeColumn, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(CreateColumn, ComparisonObjects(table))
       created <- table.tableType match {
         case SettingsTable => Future.failed(ForbiddenException("can't add a column to a settings table", "column"))
         case _ => columnStruc.createColumns(table, columns)
@@ -101,7 +101,7 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
-      _ <- roleModel.checkAuthorization(View, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(ViewColumn, ComparisonObjects(table, column))
     } yield column
   }
 
@@ -116,7 +116,7 @@ class StructureController(
       columns <- columnStruc.retrieveAll(table)
     } yield {
       val filteredColumns: Seq[ColumnType[_]] =
-        roleModel.filterDomainObjects[ColumnType[_]](ScopeColumn, columns, ComparisonObjects(table), isInternalCall)
+        roleModel.filterDomainObjects[ColumnType[_]](ViewColumn, columns, ComparisonObjects(table), isInternalCall)
       ColumnSeq(filteredColumns)
     }
   }
@@ -202,7 +202,7 @@ class StructureController(
         attributes: Option[JsonObject]
     ) => {
       for {
-        _ <- roleModel.checkAuthorization(Create, ScopeTable)
+        _ <- roleModel.checkAuthorization(CreateTable)
         tableStub <- tableStruc.create(tableName, hidden, langtags, displayInfos, tableType, tableGroupId, attributes)
         _ <- columns match {
           case None => Future.successful(())
@@ -326,7 +326,7 @@ class StructureController(
           singleDirection = false,
           identifier = false,
           Seq(NameOnly("de", "Oberkategorie"), NameOnly("en", "Parent category")),
-          Constraint(Cardinality(0, 1), false),
+          Constraint(Cardinality(0, 1), false, false),
           attributes,
           hidden = true
         )
@@ -341,7 +341,7 @@ class StructureController(
 
     for {
       table <- tableStruc.retrieve(tableId)
-      _ <- roleModel.checkAuthorization(Delete, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(DeleteTable, ComparisonObjects(table))
       columns <- columnStruc.retrieveAll(table)
 
       // only delete special column before deleting table;
@@ -377,7 +377,7 @@ class StructureController(
     for {
       table <- tableStruc.retrieve(tableId)
       column <- columnStruc.retrieve(table, columnId)
-      _ <- roleModel.checkAuthorization(Delete, ScopeColumn, ComparisonObjects(table, column))
+      _ <- roleModel.checkAuthorization(DeleteColumn, ComparisonObjects(table, column))
       _ <- table.tableType match {
         case GenericTable => columnStruc.delete(table, columnId)
         case TaxonomyTable =>
@@ -422,9 +422,9 @@ class StructureController(
       table <- tableStruc.retrieve(tableId)
       _ <-
         if (isAtLeastOneStructureProperty) {
-          roleModel.checkAuthorization(EditStructureProperty, ScopeTable, ComparisonObjects(table))
+          roleModel.checkAuthorization(EditTableStructureProperty, ComparisonObjects(table))
         } else {
-          roleModel.checkAuthorization(EditDisplayProperty, ScopeTable, ComparisonObjects(table))
+          roleModel.checkAuthorization(EditTableDisplayProperty, ComparisonObjects(table))
         }
       _ <-
         if (attributes.nonEmpty) {
@@ -453,7 +453,7 @@ class StructureController(
 
     for {
       table <- tableStruc.retrieve(tableId)
-      _ <- roleModel.checkAuthorization(EditDisplayProperty, ScopeTable, ComparisonObjects(table))
+      _ <- roleModel.checkAuthorization(EditTableDisplayProperty, ComparisonObjects(table))
       _ <- tableStruc.changeOrder(tableId, locationType)
     } yield EmptyObject()
   }
@@ -462,22 +462,42 @@ class StructureController(
       tableId: TableId,
       columnId: ColumnId,
       columnName: Option[String],
-      ordering: Option[Ordering],
-      kind: Option[TableauxDbType],
-      identifier: Option[Boolean],
-      displayInfos: Option[Seq[DisplayInfo]],
-      countryCodes: Option[Seq[String]],
-      separator: Option[Boolean],
-      attributes: Option[JsonObject],
-      rules: Option[JsonArray],
-      hidden: Option[Boolean]
+      ordering: Option[Ordering] = None,
+      kind: Option[TableauxDbType] = None,
+      identifier: Option[Boolean] = None,
+      displayInfos: Option[Seq[DisplayInfo]] = None,
+      countryCodes: Option[Seq[String]] = None,
+      separator: Option[Boolean] = None,
+      attributes: Option[JsonObject] = None,
+      rules: Option[JsonArray] = None,
+      hidden: Option[Boolean] = None,
+      maxLength: Option[Int] = None,
+      minLength: Option[Int] = None,
+      showMemberColumns: Option[Boolean] = None,
+      decimalDigits: Option[Int] = None
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
       greaterZero(columnId),
       isDefined(
-        Seq(columnName, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden),
-        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden"
+        Seq(
+          columnName,
+          ordering,
+          kind,
+          identifier,
+          displayInfos,
+          countryCodes,
+          separator,
+          attributes,
+          rules,
+          hidden,
+          maxLength,
+          minLength,
+          showMemberColumns,
+          decimalDigits
+        ),
+        "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, " +
+          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits"
       )
     )
 
@@ -504,7 +524,11 @@ class StructureController(
           separator,
           attributes,
           rules,
-          hidden
+          hidden,
+          maxLength,
+          minLength,
+          showMemberColumns,
+          decimalDigits
         )
 
     for {
@@ -537,9 +561,9 @@ class StructureController(
 
       _ <-
         if (isAtLeastOneStructureProperty) {
-          roleModel.checkAuthorization(EditStructureProperty, ScopeColumn, ComparisonObjects(table, column))
+          roleModel.checkAuthorization(EditColumnStructureProperty, ComparisonObjects(table, column))
         } else {
-          roleModel.checkAuthorization(EditDisplayProperty, ScopeColumn, ComparisonObjects(table, column))
+          roleModel.checkAuthorization(EditColumnDisplayProperty, ComparisonObjects(table, column))
         }
 
       changedColumn <- table.tableType match {
@@ -547,7 +571,7 @@ class StructureController(
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
         case TaxonomyTable =>
           if (columnId > 4) performChangeFx(table)
-          else Future.failed(ForbiddenException("can't change a default column of a taxonmy table", "column"))
+          else Future.failed(ForbiddenException("can't change a default column of a taxonomy table", "column"))
       }
 
       _ <- CacheClient(this).invalidateColumn(tableId, columnId)
@@ -559,7 +583,7 @@ class StructureController(
     logger.info(s"createTableGroup $displayInfos")
 
     for {
-      _ <- roleModel.checkAuthorization(Create, ScopeTableGroup)
+      _ <- roleModel.checkAuthorization(CreateTableGroup)
       tableGroup <- tableGroupStruc.create(displayInfos)
     } yield tableGroup
   }
@@ -571,7 +595,7 @@ class StructureController(
     logger.info(s"changeTableGroup $tableGroupId $displayInfos")
 
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeTableGroup)
+      _ <- roleModel.checkAuthorization(EditTableGroup)
       _ <- tableGroupStruc.change(tableGroupId, displayInfos)
       tableGroup <- tableGroupStruc.retrieve(tableGroupId)
     } yield tableGroup
@@ -582,7 +606,7 @@ class StructureController(
     logger.info(s"deleteTableGroup $tableGroupId")
 
     for {
-      _ <- roleModel.checkAuthorization(Delete, ScopeTableGroup)
+      _ <- roleModel.checkAuthorization(DeleteTableGroup)
       _ <- tableGroupStruc.delete(tableGroupId)
     } yield EmptyObject()
   }

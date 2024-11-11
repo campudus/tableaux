@@ -1,9 +1,12 @@
 # Tableaux specific
 conf.json
+conf-*.jsonc
 conf-*.json
 !conf-example.json
+!conf-example-manual-auth.json
 !conf-test-example.json
 !conf-github-ci.json
+!conf-jenkins.json
 uploads/
 .vertx/
 uploads*
@@ -12,6 +15,7 @@ classes/
 bin/
 out/
 **.DS_Store
+role-*.jsonc
 role-*.json
 !role-permissions-example.json
 !role-permissions-test.json
@@ -57,3 +61,5 @@ project/plugins/project/
 
 # local log properties
 local_logging.properties
+
+*.local*

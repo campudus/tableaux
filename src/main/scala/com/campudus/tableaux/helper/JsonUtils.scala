@@ -3,6 +3,7 @@ package com.campudus.tableaux.helper
 import com.campudus.tableaux.{ArgumentCheck, FailArg, InvalidJsonException, OkArg}
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig, WrongJsonTypeException}
 import com.campudus.tableaux.ArgumentChecker._
+import com.campudus.tableaux.KeyNotFoundInJsonException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
@@ -102,6 +103,10 @@ object JsonUtils extends LazyLogging {
               case Failure(s) => throw WrongJsonTypeException("Field attributes is not a valid json object.")
             }
 
+            val maxLength = Try(json.getInteger("maxLength").intValue()).toOption
+            val minLength = Try(json.getInteger("minLength").intValue()).toOption
+            val decimalDigits = parseDecimalDigits(json)
+
             // languageType or deprecated multilanguage
             // if languageType == 'country' countryCodes must be specified
             val languageType = parseJsonForLanguageType(json)
@@ -131,21 +136,39 @@ object JsonUtils extends LazyLogging {
                 )
 
                 // constraints = cardinality and/or deleteCascade
-                val constraint = for {
-                  (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
-                    val cardinality = json
-                      .getJsonObject("constraint")
-                      .getJsonObject("cardinality", new JsonObject())
+                val constraint =
+                  for {
+                    (cardinalityFrom, cardinalityTo) <- Try[(Int, Int)]({
+                      val cardinality = json
+                        .getJsonObject("constraint")
+                        .getJsonObject("cardinality", new JsonObject())
 
-                    (cardinality.getInteger("from", 0).intValue(), cardinality.getInteger("to", 0).intValue())
-                  }).orElse(Success((0, 0)))
+                      (cardinality.getInteger("from", 0).intValue(), cardinality.getInteger("to", 0).intValue())
+                    }).orElse(Success((0, 0)))
 
-                  deleteCascade <- Try[Boolean](
-                    json
-                      .getJsonObject("constraint")
-                      .getBoolean("deleteCascade")
-                  ).orElse(Success(false))
-                } yield Constraint(Cardinality(cardinalityFrom, cardinalityTo), deleteCascade)
+                    deleteCascade <- Try[Boolean](
+                      json
+                        .getJsonObject("constraint")
+                        .getBoolean("deleteCascade")
+                    ).orElse(Success(false))
+
+                    archiveCascade <- Try[Boolean](
+                      json
+                        .getJsonObject("constraint")
+                        .getBoolean("archiveCascade")
+                    ).orElse(Success(false))
+
+                    finalCascade <- Try[Boolean](
+                      json
+                        .getJsonObject("constraint")
+                        .getBoolean("finalCascade")
+                    ).orElse(Success(false))
+                  } yield Constraint(
+                    Cardinality(cardinalityFrom, cardinalityTo),
+                    deleteCascade,
+                    archiveCascade,
+                    finalCascade
+                  )
 
                 CreateLinkColumn(
                   name,
@@ -169,8 +192,19 @@ object JsonUtils extends LazyLogging {
                   .toSeq
 
                 val formatPattern = Try(Option(json.getString("formatPattern"))).toOption.flatten
+                val showMemberColumns = json.getBoolean("showMemberColumns", false)
 
-                CreateGroupColumn(name, ordering, identifier, formatPattern, displayInfos, groups, attributes)
+                CreateGroupColumn(
+                  name,
+                  ordering,
+                  identifier,
+                  formatPattern,
+                  displayInfos,
+                  groups,
+                  attributes,
+                  hidden,
+                  showMemberColumns
+                )
 
               case StatusType =>
                 val validator = JsonSchemaValidatorClient(Vertx.currentContext().get.owner())
@@ -195,7 +229,10 @@ object JsonUtils extends LazyLogging {
                   displayInfos,
                   separator,
                   attributes,
-                  hidden
+                  hidden,
+                  maxLength,
+                  minLength,
+                  decimalDigits
                 )
             }
           }
@@ -246,11 +283,28 @@ object JsonUtils extends LazyLogging {
     }
   }
 
+  private def parseDecimalDigits(json: JsonObject): Option[Int] = {
+    val decimalDigits = Try(json.getInteger("decimalDigits").intValue()).toOption
+
+    decimalDigits.map({
+      case value if value > 10 || value < 0 =>
+        throw InvalidJsonException(s"Decimal digits must be between 0 and 10, but was $value.", "decimalDigits")
+      case value => value
+    })
+  }
+
   def toRowValueSeq(json: JsonObject): Seq[Seq[_]] = {
     (for {
       checkedRowList <- toJsonObjectSeq("rows", json)
       result <- sequence(checkedRowList map toValueSeq)
     } yield result).get
+  }
+
+  def toColumnIdSeq(json: JsonObject) = {
+    for {
+      columnsObject <- toJsonObjectSeq("columns", json)
+      columns = sequence(columnsObject.map(hasLong("id", _)))
+    } yield columns
   }
 
   def toColumnValueSeq(json: JsonObject): Seq[Seq[(ColumnId, _)]] = {
@@ -281,6 +335,15 @@ object JsonUtils extends LazyLogging {
     } yield valueList
   }
 
+  private def getNullableJsonIntegerValue(key: String, json: JsonObject): Try[Int] = {
+    Try({
+      json.containsKey(key) match {
+        case false => throw new KeyNotFoundInJsonException(key)
+        case true => json.getInteger(key)
+      }
+    })
+  }
+
   def toColumnChanges(json: JsonObject): (
       Option[String],
       Option[Ordering],
@@ -291,7 +354,11 @@ object JsonUtils extends LazyLogging {
       Option[Boolean],
       Option[JsonObject],
       Option[JsonArray],
-      Option[Boolean]
+      Option[Boolean],
+      Option[Int],
+      Option[Int],
+      Option[Boolean],
+      Option[Int]
   ) = {
 
     val name = Try(notNull(json.getString("name"), "name").get).toOption
@@ -312,6 +379,7 @@ object JsonUtils extends LazyLogging {
       case list => Some(list)
     }
     val hidden = Try(json.getBoolean("hidden").booleanValue()).toOption
+    val showMemberColumns = Try(json.getBoolean("showMemberColumns").booleanValue()).toOption
 
     val countryCodes = booleanToValueOption(
       json.containsKey("countryCodes"), {
@@ -323,7 +391,26 @@ object JsonUtils extends LazyLogging {
       }
     ).map(_.asScala.toSeq.map({ case code: String => code }))
 
-    (name, ord, kind, identifier, displayInfos, countryCodes, separator, attributes, rules, hidden)
+    val maxLength = getNullableJsonIntegerValue("maxLength", json).toOption
+    val minLength = getNullableJsonIntegerValue("minLength", json).toOption
+    val decimalDigits = parseDecimalDigits(json)
+
+    (
+      name,
+      ord,
+      kind,
+      identifier,
+      displayInfos,
+      countryCodes,
+      separator,
+      attributes,
+      rules,
+      hidden,
+      maxLength,
+      minLength,
+      showMemberColumns,
+      decimalDigits
+    )
   }
 
   def booleanToValueOption[A](boolean: Boolean, value: => A): Option[A] = {
@@ -332,6 +419,23 @@ object JsonUtils extends LazyLogging {
     } else {
       None
     }
+  }
+
+  def getBooleanOption(key: String, default: Boolean, json: JsonObject) =
+    booleanToValueOption(json.containsKey(key), json.getBoolean(key, default)).map(_.booleanValue())
+
+  def getRowPermissionsOpt(key: String, json: JsonObject): Option[Seq[String]] = {
+    val rowPermissionsOpt = booleanToValueOption(
+      json.containsKey(key), {
+        checkAllValuesOfArray[String](
+          json.getJsonArray(key),
+          d => d.isInstanceOf[String],
+          key
+        ).get
+      }
+    ).map(_.asScala.toSeq.map({ case perm: String => perm }))
+
+    rowPermissionsOpt
   }
 
   def toLocationType(json: JsonObject): LocationType = {
@@ -370,7 +474,7 @@ object JsonUtils extends LazyLogging {
     * Helper to cast a Json Array to a scala Seq of class A
     *
     * @param jsonArray
-    * @tparam A
+    * @param A
     * @return
     *   Seq[A]
     */

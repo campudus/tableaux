@@ -2,8 +2,9 @@
   "view-tables": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "table",
+      "action": [
+        "viewTable"
+      ],
       "condition": {
         "table": {
           "id": ".*",
@@ -15,41 +16,50 @@
   "view-columns": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "column"
+      "action": [
+        "viewColumn"
+      ]
     }
   ],
   "delete-tables": [
     {
       "type": "grant",
-      "action": ["delete"],
-      "scope": "table"
+      "action": [
+        "deleteTable"
+      ]
     }
   ],
   "create-tables": [
     {
       "type": "grant",
-      "action": ["create"],
-      "scope": "table"
+      "action": [
+        "createTable"
+      ]
     }
   ],
   "edit-tables": [
     {
       "type": "grant",
-      "action": ["view", "editDisplayProperty", "editStructureProperty"],
-      "scope": "table"
+      "action": [
+        "viewTable",
+        "editTableDisplayProperty",
+        "editTableStructureProperty"
+      ]
     }
   ],
   "edit-model-tables": [
     {
       "type": "grant",
-      "action": ["view", "editDisplayProperty"],
-      "scope": "table"
+      "action": [
+        "viewTable",
+        "editTableDisplayProperty"
+      ]
     },
     {
       "type": "grant",
-      "action": ["editStructureProperty"],
-      "scope": "table",
+      "action": [
+        "editTableStructureProperty"
+      ],
       "condition": {
         "table": {
           "name": ".*_model"
@@ -61,63 +71,70 @@
     {
       "type": "grant",
       "action": [
-        "view",
-        "editDisplayProperty",
-        "editStructureProperty",
-        "delete",
+        "viewTable",
+        "editTableDisplayProperty",
+        "editTableStructureProperty",
+        "deleteTable",
         "createRow",
         "deleteRow",
         "editCellAnnotation",
         "editRowAnnotation"
-      ],
-      "scope": "table"
+      ]
     },
     {
       "type": "grant",
-      "action": ["view", "create"],
-      "scope": "column"
+      "action": [
+        "viewColumn",
+        "createColumn"
+      ]
     }
   ],
   "create-columns": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "table"
+      "action": [
+        "viewTable"
+      ]
     },
     {
       "type": "grant",
-      "action": ["view", "create"],
-      "scope": "column"
+      "action": [
+        "viewColumn",
+        "createColumn"
+      ]
     }
   ],
   "edit-columns-all-allowed": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "table"
+      "action": [
+        "viewTable"
+      ]
     },
     {
       "type": "grant",
       "action": [
-        "view",
-        "editDisplayProperty",
-        "editStructureProperty",
-        "delete",
+        "viewColumn",
+        "editColumnDisplayProperty",
+        "editColumnStructureProperty",
+        "deleteColumn",
         "editCellValue"
-      ],
-      "scope": "column"
+      ]
     }
   ],
   "can-edit-de-en-cell-values": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "table"
+      "action": [
+        "viewTable"
+      ]
     },
     {
       "type": "grant",
-      "action": ["view", "editCellValue"],
-      "scope": "column",
+      "action": [
+        "viewColumn",
+        "editCellValue"
+      ],
       "condition": {
         "langtag": "en|es"
       }
@@ -126,25 +143,31 @@
   "can-edit-cell-values": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "table"
+      "action": [
+        "viewTable"
+      ]
     },
     {
       "type": "grant",
-      "action": ["view", "editCellValue"],
-      "scope": "column"
+      "action": [
+        "viewColumn",
+        "editCellValue"
+      ]
     }
   ],
   "can-edit-cell-values-AT-GB": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "table"
+      "action": [
+        "viewTable"
+      ]
     },
     {
       "type": "grant",
-      "action": ["view", "editCellValue"],
-      "scope": "column",
+      "action": [
+        "viewColumn",
+        "editCellValue"
+      ],
       "condition": {
         "langtag": "AT|GB"
       }
@@ -153,49 +176,68 @@
   "create-media": [
     {
       "type": "grant",
-      "action": ["create"],
-      "scope": "media"
+      "action": [
+        "createMedia"
+      ]
     }
   ],
   "edit-delete-media": [
     {
       "type": "grant",
-      "action": ["edit", "delete"],
-      "scope": "media"
+      "action": [
+        "editMedia",
+        "deleteMedia"
+      ]
     }
   ],
   "NOT-delete-media": [
     {
       "type": "deny",
-      "action": ["delete"],
-      "scope": "media"
+      "action": [
+        "deleteMedia"
+      ]
     }
   ],
   "view-create-services": [
     {
       "type": "grant",
-      "action": ["view", "create"],
-      "scope": "service"
+      "action": [
+        "viewService",
+        "createService"
+      ]
     }
   ],
   "view-services": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "service"
+      "action": [
+        "viewService"
+      ]
     }
   ],
   "edit-and-delete-services": [
     {
       "type": "grant",
       "action": [
-        "view",
-        "create",
-        "editDisplayProperty",
-        "editStructureProperty",
-        "delete"
+        "viewService",
+        "createService",
+        "editServiceDisplayProperty",
+        "editServiceStructureProperty",
+        "deleteService"
+      ]
+    }
+  ],
+  "view-test-row-permissions": [
+    {
+      "type": "grant",
+      "action": [
+        "viewRow"
       ],
-      "scope": "service"
+      "condition": {
+        "row": {
+          "permissions": "onlyGroupA|perm_1|perm_2|perm_3"
+        }
+      }
     }
   ],
   // Developer test role to be able to pass all integration tests
@@ -203,56 +245,60 @@
     {
       "type": "grant",
       "action": [
-        "create",
-        "view",
-        "delete",
-        "editDisplayProperty",
+        "createTable",
+        "viewTable",
+        "deleteTable",
+        "editTableDisplayProperty",
         "createRow",
         "deleteRow",
-        "editStructureProperty",
+        "editTableStructureProperty",
         "editCellAnnotation",
         "editRowAnnotation"
-      ],
-      "scope": "table"
-    },
-    {
-      "type": "grant",
-      "action": ["edit"],
-      "scope": "system"
-    },
-    {
-      "type": "grant",
-      "action": ["create", "edit", "delete"],
-      "scope": "media"
+      ]
     },
     {
       "type": "grant",
       "action": [
-        "create",
-        "view",
-        "delete",
-        "editStructureProperty",
-        "editDisplayProperty",
+        "editSystem"
+      ]
+    },
+    {
+      "type": "grant",
+      "action": [
+        "createMedia",
+        "editMedia",
+        "deleteMedia"
+      ]
+    },
+    {
+      "type": "grant",
+      "action": [
+        "createColumn",
+        "viewColumn",
+        "deleteColumn",
+        "editColumnStructureProperty",
+        "editColumnDisplayProperty",
         "viewCellValue",
         "editCellValue"
-      ],
-      "scope": "column"
-    },
-    {
-      "type": "grant",
-      "action": ["create", "edit", "delete"],
-      "scope": "tableGroup"
+      ]
     },
     {
       "type": "grant",
       "action": [
-        "create",
-        "view",
-        "delete",
-        "editStructureProperty",
-        "editDisplayProperty"
-      ],
-      "scope": "service"
+        "createTableGroup",
+        "editTableGroup",
+        "deleteTableGroup"
+      ]
+    },
+    {
+      "type": "grant",
+      "action": [
+        "createService",
+        "viewService",
+        "deleteService",
+        "editServiceStructureProperty",
+        "editServiceDisplayProperty"
+      ]
     }
   ]
 }

@@ -27,7 +27,7 @@ trait SystemControllerAuthTest extends TableauxTestBase {
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val systemModel = SystemModel(dbConnection)
     val structureModel = StructureModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection, structureModel)
+    val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
     val serviceModel = ServiceModel(dbConnection)
 
     SystemController(tableauxConfig, systemModel, tableauxModel, structureModel, serviceModel, roleModel)
@@ -58,8 +58,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "create-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "create"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService", "createService"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -89,8 +88,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "create-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -112,7 +110,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
         .recover({ case ex => ex })
 
     } yield {
-      assertEquals(UnauthorizedException(Create, ScopeService, Seq("create-services")), ex)
+      assertEquals(UnauthorizedException(CreateService, Seq("create-services")), ex)
     }
   }
 
@@ -123,8 +121,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "create-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "delete"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService", "deleteService"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -144,8 +141,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "create-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -156,7 +152,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
       serviceId <- createDefaultService()
       ex <- controller.deleteService(serviceId).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Delete, ScopeService, Seq("create-services")), ex)
+      assertEquals(UnauthorizedException(DeleteService, Seq("create-services")), ex)
     }
   }
 
@@ -167,8 +163,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "view-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -189,7 +184,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
       serviceId <- createDefaultService()
       ex <- controller.retrieveService(serviceId).recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(View, ScopeService, Seq()), ex)
+      assertEquals(UnauthorizedException(ViewService, Seq()), ex)
     }
   }
 
@@ -201,8 +196,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "edit-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "editStructureProperty"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService", "editServiceStructureProperty"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -223,8 +217,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "edit-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "editDisplayProperty"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService", "editServiceDisplayProperty"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -237,7 +230,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
         .updateService(serviceId, Some("changed name"), None, None, None, None, None, None, None)
         .recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(EditStructureProperty, ScopeService, Seq("edit-services")), ex)
+      assertEquals(UnauthorizedException(EditServiceStructureProperty, Seq("edit-services")), ex)
     }
   }
 
@@ -249,8 +242,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "edit-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view", "editDisplayProperty"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService", "editServiceDisplayProperty"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -271,8 +263,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "system": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["edit"],
-                                    |      "scope": "system"
+                                    |      "action": ["editSystem"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -292,7 +283,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
     for {
       ex <- controller.resetDB().recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex)
+      assertEquals(UnauthorizedException(EditSystem, Seq()), ex)
     }
   }
 
@@ -304,18 +295,13 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "system": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["edit"],
-                                    |      "scope": "system"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view","viewCellValue", "editCellValue"],
-                                    |      "scope": "column"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "table"
+                                    |      "action": [
+                                    |        "editSystem",
+                                    |        "viewColumn",
+                                    |        "viewCellValue",
+                                    |        "editCellValue",
+                                    |        "viewTable"
+                                    |      ]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -335,7 +321,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
     for {
       ex <- controller.createDemoTables().recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex)
+      assertEquals(UnauthorizedException(EditSystem, Seq()), ex)
     }
   }
 
@@ -347,13 +333,10 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "system": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["edit"],
-                                    |      "scope": "system"
-                                    |    },
-                                    |    {
-                                    |      "type": "grant",
-                                    |      "action": ["editCellValue"],
-                                    |      "scope": "column"
+                                    |      "action": [
+                                    |        "editSystem",
+                                    |        "editCellValue"
+                                    |      ]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -373,7 +356,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
     for {
       ex <- controller.updateDB().recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex)
+      assertEquals(UnauthorizedException(EditSystem, Seq()), ex)
     }
   }
 
@@ -385,8 +368,7 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
                                     |  "system": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["edit"],
-                                    |      "scope": "system"
+                                    |      "action": ["editSystem"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)
@@ -408,8 +390,8 @@ class SystemControllerAuthTest_checkAuthorization extends SystemControllerAuthTe
       ex1 <- controller.updateLangtags(Seq("de", "en")).recover({ case ex => ex })
       ex2 <- controller.updateSentryUrl("new_url").recover({ case ex => ex })
     } yield {
-      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex1)
-      assertEquals(UnauthorizedException(Edit, ScopeSystem, Seq()), ex2)
+      assertEquals(UnauthorizedException(EditSystem, Seq()), ex1)
+      assertEquals(UnauthorizedException(EditSystem, Seq()), ex2)
     }
   }
 }
@@ -424,8 +406,7 @@ class SystemControllerAuthTest_filterAuthorization extends SystemControllerAuthT
                                     |  "view-services": [
                                     |    {
                                     |      "type": "grant",
-                                    |      "action": ["view"],
-                                    |      "scope": "service"
+                                    |      "action": ["viewService"]
                                     |    }
                                     |  ]
                                     |}""".stripMargin)

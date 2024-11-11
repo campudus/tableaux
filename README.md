@@ -33,12 +33,24 @@ gradlew -v
 
 ### Setup
 
-At first you need to setup your database and create a new `conf.json` based on `conf-example.json`.
+At first you need to setup your database and create a new `conf.json` based on `./conf-example.json`.
 After that you can need to call `POST /system/reset` once to initialize system tables. If you wish you can fill in the demo data with `POST /system/resetDemo`.
 
 ### Update DB schema (optionally)
 
 If you upgrade from an older schema version you need to call `POST /system/update` before that. Schema will be upgraded automatically.
+
+## Auth
+
+There are three different auth modes:
+
+- 1. no auth (legacy)
+- 2. manual auth with bearer token validation (JWT)
+- 3. automatic keycloak auth discovery (JWT) - preferred
+
+Auth modes 2. and 3. of Tableaux are secured by a JWT based authentication. The JWT (signed with a private key) is verified by the public key of the auth service. In manual auth mode 2. the public key is configured in the conf file (see `./conf-example-manual-auth.jsonc`), in automatic auth mode 3. the public key is discovered via the auth service also configured in the conf file (see `./conf-example.jsonc`)
+
+The auth mode 1. is a legacy mode for testing or for running the service behind a different auth service. In this mode the incoming request is not verified. The user (e.g. for history entries) must be set via cookie `userName`. Legacy mode is activated, if `auth` key in config is missing.
 
 ## Build & Test
 
@@ -104,13 +116,20 @@ or with automatic redeploy on code changes
 
 TODO add documentation for authentication and permission handling. Currently the docs are filed in confluence and hackmd.io.
 
+## Feature Flags
+
+Feature flags are used to enable or disable certain features. They have to be configured in the configuration file. Feature flags are:
+
+- `isRowPermissionCheckEnabled`: Enable or disable row permission checks (default: false)
+- `isPublicFileServerEnabled`: Enable or disable the public file server. If enabled, files are accessible without authentication (default: false)
+
 ## Highlevel Features
 
-* Content Creation System
-* Content Translation System
-* Digital Asset Management
-* Editing Publishing Workflow
-* Workspaces & Custom Projections
+- Content Creation System
+- Content Translation System
+- Digital Asset Management
+- Editing Publishing Workflow
+- Workspaces & Custom Projections
 
 ## License
 

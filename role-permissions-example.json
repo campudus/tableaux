@@ -13,8 +13,9 @@
   "view-table": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "table",
+      "action": [
+        "viewTable"
+      ],
       "condition": {
         "table": {
           "hidden": "false"
@@ -25,8 +26,9 @@
   "view-hidden-table": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "table",
+      "action": [
+        "viewTable"
+      ],
       "condition": {
         "table": {
           "hidden": "true"
@@ -37,8 +39,9 @@
   "create-row": [
     {
       "type": "grant",
-      "action": ["createRow"],
-      "scope": "table",
+      "action": [
+        "createRow"
+      ],
       "condition": {
         "table": {
           "tableType": "generic"
@@ -49,8 +52,9 @@
   "delete-row": [
     {
       "type": "grant",
-      "action": ["deleteRow"],
-      "scope": "table",
+      "action": [
+        "deleteRow"
+      ],
       "condition": {
         "table": {
           "tableType": "generic"
@@ -61,8 +65,9 @@
   "create-row-setting-table": [
     {
       "type": "grant",
-      "action": ["createRow"],
-      "scope": "table",
+      "action": [
+        "createRow"
+      ],
       "condition": {
         "table": {
           "tableType": "settings"
@@ -73,8 +78,9 @@
   "delete-row-setting-table": [
     {
       "type": "grant",
-      "action": ["deleteRow"],
-      "scope": "table",
+      "action": [
+        "deleteRow"
+      ],
       "condition": {
         "table": {
           "tableType": "settings"
@@ -85,50 +91,60 @@
   "change-table-display": [
     {
       "type": "grant",
-      "action": ["editDisplayProperty"],
-      "scope": "table"
+      "action": [
+        "editTableDisplayProperty"
+      ]
     }
   ],
   "change-column-display": [
     {
       "type": "grant",
-      "action": ["editDisplayProperty"],
-      "scope": "column"
+      "action": [
+        "editColumnDisplayProperty"
+      ]
     }
   ],
   "view-column": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "column"
+      "action": [
+        "viewColumn"
+      ]
     }
   ],
   "change-media": [
     {
       "type": "grant",
-      "action": ["create", "edit", "delete"],
-      "scope": "media"
+      "action": [
+        "createMedia",
+        "editMedia",
+        "deleteMedia"
+      ]
     }
   ],
   "change-annotation": [
     {
       "type": "grant",
-      "action": ["editCellAnnotation", "editRowAnnotation"],
-      "scope": "table"
+      "action": [
+        "editCellAnnotation",
+        "editRowAnnotation"
+      ]
     }
   ],
   "view-cell-value": [
     {
       "type": "grant",
-      "action": ["viewCellValue"],
-      "scope": "column"
+      "action": [
+        "viewCellValue"
+      ]
     }
   ],
   "edit-single-language-cell-value": [
     {
       "type": "grant",
-      "action": ["editCellValue"],
-      "scope": "column",
+      "action": [
+        "editCellValue"
+      ],
       "condition": {
         "column": {
           "multilanguage": "false"
@@ -139,8 +155,9 @@
   "edit-multi-language-cell-value": [
     {
       "type": "grant",
-      "action": ["editCellValue"],
-      "scope": "column",
+      "action": [
+        "editCellValue"
+      ],
       "condition": {
         "column": {
           "multilanguage": "true"
@@ -151,8 +168,9 @@
   "edit-cell-value-de": [
     {
       "type": "grant",
-      "action": ["editCellValue"],
-      "scope": "column",
+      "action": [
+        "editCellValue"
+      ],
       "condition": {
         "column": {
           "multilanguage": "true"
@@ -164,8 +182,9 @@
   "edit-cell-value-en": [
     {
       "type": "grant",
-      "action": ["editCellValue"],
-      "scope": "column",
+      "action": [
+        "editCellValue"
+      ],
       "condition": {
         "column": {
           "multilanguage": "true"
@@ -177,26 +196,30 @@
   "view-service": [
     {
       "type": "grant",
-      "action": ["view"],
-      "scope": "service"
+      "action": [
+        "viewService"
+      ]
     }
   ],
-
   //###########################
   //#### admin - developer ####
   //###########################
   "change-system": [
     {
       "type": "grant",
-      "action": ["edit"],
-      "scope": "system"
+      "action": [
+        "editSystem"
+      ]
     }
   ],
   "change-table-group": [
     {
       "type": "grant",
-      "action": ["create", "edit", "delete"],
-      "scope": "tableGroup"
+      "action": [
+        "createTableGroup",
+        "editTableGroup",
+        "deleteTableGroup"
+      ]
     }
   ],
   "create-media": [
@@ -209,42 +232,49 @@
   "change-service": [
     {
       "type": "grant",
-      "action": ["create", "view", "delete", "editStructureProperty", "editDisplayProperty"],
-      "scope": "service"
+      "action": [
+        "createService",
+        "viewService",
+        "deleteService",
+        "editServiceStructureProperty",
+        "editServiceDisplayProperty"
+      ]
     }
   ],
-
   // shortcut role to get all available permissions
   "dev": [
     {
       "type": "grant",
-      "action": ["create", "view", "delete", "editDisplayProperty", "createRow", "deleteRow", "editStructureProperty", "editCellAnnotation", "editRowAnnotation"],
-      "scope": "table"
-    },
-    {
-      "type": "grant",
-      "action": ["create", "view", "delete", "editStructureProperty", "editDisplayProperty", "viewCellValue", "editCellValue"],
-      "scope": "column"
-    },
-    {
-      "type": "grant",
-      "action": ["edit"],
-      "scope": "system"
-    },
-    {
-      "type": "grant",
-      "action": ["create", "edit", "delete"],
-      "scope": "tableGroup"
-    },
-    {
-      "type": "grant",
-      "action": ["create", "view", "delete", "editStructureProperty", "editDisplayProperty"],
-      "scope": "service"
-    },
-    {
-      "type": "grant",
-      "action": ["create", "edit", "delete"],
-      "scope": "media"
+      "action": [
+        "createTable",
+        "viewTable",
+        "deleteTable",
+        "editTableDisplayProperty",
+        "createRow",
+        "deleteRow",
+        "editTableStructureProperty",
+        "editCellAnnotation",
+        "editRowAnnotation",
+        "createColumn",
+        "viewColumn",
+        "deleteColumn",
+        "editColumnStructureProperty",
+        "editColumnDisplayProperty",
+        "viewCellValue",
+        "editCellValue",
+        "editSystem",
+        "createTableGroup",
+        "editTableGroup",
+        "deleteTableGroup",
+        "createService",
+        "viewService",
+        "deleteService",
+        "editServiceStructureProperty",
+        "editServiceDisplayProperty",
+        "createMedia",
+        "editMedia",
+        "deleteMedia"
+      ]
     }
   ]
 }

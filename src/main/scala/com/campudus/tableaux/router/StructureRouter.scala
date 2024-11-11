@@ -271,7 +271,11 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             optSeparator,
             optAttributes,
             optRules,
-            optHidden
+            optHidden,
+            maxLength,
+            minLength,
+            showMemberColumns,
+            decimalDigits
           ) =
             toColumnChanges(json)
 
@@ -287,7 +291,11 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             optSeparator,
             optAttributes,
             optRules,
-            optHidden
+            optHidden,
+            maxLength,
+            minLength,
+            showMemberColumns,
+            decimalDigits
           )
         }
       )

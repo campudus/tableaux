@@ -4,7 +4,7 @@ import com.campudus.tableaux.database.{LanguageType, TableauxDbType}
 import com.campudus.tableaux.database.domain.ColumnType
 import com.campudus.tableaux.database.model.TableauxModel.{RowId, TableId}
 import com.campudus.tableaux.router.RouterException
-import com.campudus.tableaux.router.auth.permission.{Action, Scope}
+import com.campudus.tableaux.router.auth.permission.Action
 
 sealed trait CustomException extends Throwable {
   val message: String
@@ -25,6 +25,12 @@ sealed trait CustomException extends Throwable {
     id = id,
     statusCode = statusCode
   )
+}
+
+case class KeyNotFoundInJsonException(key: String) extends CustomException {
+  override val id = "error.json.key.notfound"
+  override val statusCode = 400
+  val message = s"Key $key not found"
 }
 
 case class NoJsonFoundException(override val message: String) extends CustomException {
@@ -154,13 +160,19 @@ case class AuthenticationException(override val message: String) extends CustomE
   override val statusCode: Int = 401
 }
 
-case class UnauthorizedException(action: Action, scope: Scope, userRoles: Seq[String]) extends CustomException {
+case class UnauthorizedException(action: Action, userRoles: Seq[String]) extends CustomException {
   override val id: String = s"error.request.unauthorized"
   override val statusCode: Int = 403
-  override val message: String = s"Action $action on scope $scope is not allowed. UserRoles are: $userRoles"
+  override val message: String = s"Action $action is not allowed. UserRoles are: $userRoles"
 }
 
 case class HasStatusColumnDependencyException(override val message: String) extends CustomException {
   override val id: String = s"error.column.dependency"
   override val statusCode: Int = 409
+}
+
+case class LengthOutOfRangeException() extends CustomException {
+  override val id: String = s"error.request.value.length"
+  override val statusCode: Int = 400
+  override val message: String = "Value length is not in specified range."
 }

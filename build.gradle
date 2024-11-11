@@ -7,16 +7,11 @@ plugins {
   id 'scala'
   id 'application'
 
-  id "com.github.ben-manes.versions" version '0.42.0'
-
-  id 'org.scoverage' version '7.0.0'
-  id 'com.github.kt3k.coveralls' version '2.12.0'
-
+  id "com.github.ben-manes.versions" version '0.48.0'
+  id 'org.scoverage' version '8.0.3'
+  id 'com.github.kt3k.coveralls' version '2.12.2'
   id 'com.github.johnrengelman.shadow' version '7.1.2'
-  id 'org.ajoberstar.grgit' version '4.1.1'
-
-  id 'com.diffplug.spotless' version '6.3.0'
-
+  id 'com.diffplug.spotless' version '6.22.0'
   id 'com.adarshr.test-logger' version '3.2.0'
 }
 
@@ -26,12 +21,12 @@ project.version = '0.1.0'
 def vertxVersion = '3.8.0'
 def scalaVersion = '2.12.8'
 
-sourceCompatibility = '1.8'
+sourceCompatibility = '11'
 
 def requiredJavaVersion = JavaVersion.VERSION_11
 // ensure that the build fails if sdk version doesn't match the required version
-if(JavaVersion.current() != requiredJavaVersion) {
-  throw new GradleException("This project requires Java ${requiredJavaVersion}, but it's running on " + JavaVersion.current())
+if(JavaVersion.current() < requiredJavaVersion) {
+  throw new GradleException("This project requires minimum Java Version ${requiredJavaVersion}, but it's running on " + JavaVersion.current())
 }
 
 repositories {
@@ -61,12 +56,9 @@ dependencies {
   implementation 'joda-time:joda-time:2.10.3'
   implementation 'com.typesafe.scala-logging:scala-logging_2.12:3.9.4'
   implementation 'org.slf4j:slf4j-jdk14:1.7.28'
-
   implementation 'com.jcabi:jcabi-manifests:1.1'
-
   implementation 'com.github.cb372:scalacache-guava_2.12:0.28.0'
-
-  implementation 'org.webjars:swagger-ui:4.11.1'
+  implementation 'org.webjars:swagger-ui:5.9.0' // Also update version in DocumentationRouter
 
   compileOnly "io.vertx:vertx-codegen:${vertxVersion}"
 
@@ -98,9 +90,9 @@ run {
   }
 
   args = [
-          "run",
-          mainVerticle,
-          "-conf", configFile
+    "run",
+    mainVerticle,
+    "-conf", configFile
   ]
 
   environment ENV: "development"
@@ -108,9 +100,7 @@ run {
 
 task runRedeploy(type: JavaExec) {
   classpath = sourceSets.main.runtimeClasspath
-
   mainClass = mainClassName
-
   def configFile = "conf.json"
 
   if (project.hasProperty("conf")) {
@@ -120,12 +110,12 @@ task runRedeploy(type: JavaExec) {
   }
 
   args = [
-          "run",
-          mainVerticle,
-          "-conf", configFile,
-          "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
-          "--launcher-class=${mainClassName}",
-          "--on-redeploy=./gradlew classes"
+    "run",
+    mainVerticle,
+    "-conf", configFile,
+    "--redeploy=src/main/**/*.scala,src/main/resources/**/*.*",
+    "--launcher-class=${mainClassName}",
+    "--on-redeploy=./gradlew classes"
   ]
 
   environment ENV: "development"
@@ -155,39 +145,21 @@ sourceSets {
 scoverage {
   minimumRate = 0.85
   excludedPackages = [
-          'io.vertx.scala.*',
-          'org.vertx.scala.*',
-          'com.github.mauricio.async.db.*'
+    'io.vertx.scala.*',
+    'org.vertx.scala.*',
+    'com.github.mauricio.async.db.*'
   ]
-}
-
-coveralls {
-  service = "travis-ci"
-
-  def coverageReportPath = "${buildDir}/reports/scoverage/cobertura.xml".toString()
-
-  def sourceDirsList = new ArrayList<String>()
-  subprojects.sourceSets.main.allSource.srcDirs.each {
-    it.each {
-      def basePath = Paths.get(System.getProperty("user.dir"))
-      def relPath = basePath.relativize(Paths.get(it.toString()))
-      sourceDirsList.add(relPath.toString())
-    }
-  }
-
-  sourceDirs = sourceDirsList
-
-  coberturaReportPath = coverageReportPath
 }
 
 /**
  * Jar stuff
  */
-def df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX") // you can change it
+def df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX")
 
-def gitBranch = grgit.branch.current().fullName
-def gitCommit = grgit.log(maxCommits: 1).get(0).id
-def gitComitterDate = df.format(grgit.log(maxCommits: 1).get(0).date)
+// pass these values via env variables to the build
+def gitBranch = System.getenv("GIT_BRANCH") ?: "unknown"
+def gitCommit = System.getenv("GIT_COMMIT") ?: "unknown"
+def gitComitterDate = System.getenv("GIT_COMMITTER_DATE") ?: "unknown"
 
 def buildTime = df.format(new Date())
 def buildJavaVersion = JavaVersion.current().toString()
@@ -231,23 +203,23 @@ spotless {
 }
 
 testlogger {
-    theme 'mocha'
-    showExceptions true
-    showStackTraces true
-    showFullStackTraces false
-    showCauses true
-    slowThreshold 2000
-    showSummary true
-    showSimpleNames false
-    showPassed true
-    showSkipped true
-    showFailed true
-    showOnlySlow false
-    showStandardStreams false
-    showPassedStandardStreams true
-    showSkippedStandardStreams true
-    showFailedStandardStreams true
-    logLevel 'lifecycle'
+  theme 'mocha'
+  showExceptions true
+  showStackTraces true
+  showFullStackTraces false
+  showCauses true
+  slowThreshold 2000
+  showSummary true
+  showSimpleNames false
+  showPassed true
+  showSkipped true
+  showFailed true
+  showOnlySlow false
+  showStandardStreams false
+  showPassedStandardStreams true
+  showSkippedStandardStreams true
+  showFailedStandardStreams true
+  logLevel 'lifecycle'
 }
 
 /**

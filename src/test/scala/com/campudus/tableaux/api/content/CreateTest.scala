@@ -318,7 +318,7 @@ class CreateRowTest extends TableauxTestBase {
         assertEquals(fileUuid, resultAttachment.getJsonObject(0).getString("uuid"))
 
         result.getJsonArray("values").remove(8)
-        assertEquals(expect, result)
+        assertJSONEquals(expect, result)
       }
     }
   }

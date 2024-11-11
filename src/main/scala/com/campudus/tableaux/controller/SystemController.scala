@@ -51,7 +51,7 @@ class SystemController(
   }
 
   def retrieveVersions(): Future[DomainObject] = {
-    logger.info("Retrieve version information")
+    logger.debug("Retrieve version information")
 
     val development = "DEVELOPMENT"
 
@@ -89,7 +89,7 @@ class SystemController(
     logger.info("Update system structure")
 
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
+      _ <- roleModel.checkAuthorization(EditSystem)
       _ <- repository.update()
       version <- retrieveVersions()
     } yield PlainDomainObject(Json.obj("updated" -> true).mergeIn(version.getJson))
@@ -99,8 +99,9 @@ class SystemController(
     logger.info("Reset system structure")
 
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
+      _ <- roleModel.checkAuthorization(EditSystem)
       _ <- repository.uninstall()
+      _ <- repository.installShortCutFunction()
       _ <- repository.install()
       _ <- invalidateCache()
       _ <- structureModel.columnStruc.removeAllCache()
@@ -115,7 +116,7 @@ class SystemController(
     }
 
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
+      _ <- roleModel.checkAuthorization(EditSystem)
       bl <- writeDemoData(readDemoData("bundeslaender"))
       rb <- writeDemoData(readDemoData("regierungsbezirke"))
 
@@ -185,7 +186,8 @@ class SystemController(
       columnIds = columns.map(_.id)
       rowsWithColumnIdAndValue = rows.map(columnIds.zip(_))
 
-      _ <- tableauxModel.createRows(table, rowsWithColumnIdAndValue)
+      // don't pass row permissions here, because method is only used for demo data
+      _ <- tableauxModel.createRows(table, rowsWithColumnIdAndValue, None)
     } yield table
   }
 
@@ -213,7 +215,7 @@ class SystemController(
 
   def updateLangtags(langtags: Seq[String])(implicit user: TableauxUser): Future[DomainObject] = {
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
+      _ <- roleModel.checkAuthorization(EditSystem)
       _ <- repository.updateSetting(SystemController.SETTING_LANGTAGS, Json.arr(langtags: _*).toString)
       updatedLangtags <- retrieveLangtags()
     } yield updatedLangtags
@@ -221,7 +223,7 @@ class SystemController(
 
   def updateSentryUrl(sentryUrl: String)(implicit user: TableauxUser): Future[DomainObject] = {
     for {
-      _ <- roleModel.checkAuthorization(Edit, ScopeSystem)
+      _ <- roleModel.checkAuthorization(EditSystem)
       _ <- repository.updateSetting(SystemController.SETTING_SENTRY_URL, sentryUrl)
       updatedSentryUrl <- retrieveSentryUrl()
     } yield updatedSentryUrl
@@ -258,7 +260,7 @@ class SystemController(
     logger.info(s"createService $name $serviceType $ordering $displayName $description $active $config $scope")
 
     for {
-      _ <- roleModel.checkAuthorization(Create, ScopeService)
+      _ <- roleModel.checkAuthorization(CreateService)
       serviceId <- serviceModel.create(name, serviceType, ordering, displayName, description, active, config, scope)
       service <- retrieveService(serviceId)
     } yield service
@@ -294,9 +296,9 @@ class SystemController(
     for {
       _ <-
         if (isAtLeastOneStructureProperty) {
-          roleModel.checkAuthorization(EditStructureProperty, ScopeService)
+          roleModel.checkAuthorization(EditServiceStructureProperty)
         } else {
-          roleModel.checkAuthorization(EditDisplayProperty, ScopeService)
+          roleModel.checkAuthorization(EditServiceDisplayProperty)
         }
       _ <- serviceModel.update(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
       service <- retrieveService(serviceId)
@@ -309,7 +311,7 @@ class SystemController(
       serviceSeq <- serviceModel.retrieveAll()
     } yield {
       val filteredServices: Seq[Service] =
-        roleModel.filterDomainObjects[Service](ScopeService, serviceSeq, isInternalCall = false)
+        roleModel.filterDomainObjects[Service](ViewService, serviceSeq, isInternalCall = false)
       ServiceSeq(filteredServices)
     }
   }
@@ -317,7 +319,7 @@ class SystemController(
   def retrieveService(serviceId: ServiceId)(implicit user: TableauxUser): Future[Service] = {
     logger.info(s"retrieveService $serviceId")
     for {
-      _ <- roleModel.checkAuthorization(View, ScopeService)
+      _ <- roleModel.checkAuthorization(ViewService)
       service <- serviceModel.retrieve(serviceId)
     } yield service
   }
@@ -326,7 +328,7 @@ class SystemController(
     logger.info(s"deleteService $serviceId")
 
     for {
-      _ <- roleModel.checkAuthorization(Delete, ScopeService)
+      _ <- roleModel.checkAuthorization(DeleteService)
       _ <- serviceModel.delete(serviceId)
     } yield EmptyObject()
   }

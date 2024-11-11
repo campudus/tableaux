@@ -1065,6 +1065,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/value"
+          },
+          {
+            "$ref": "#/parameters/forceHistoryOpt"
           }
         ],
         "responses": {
@@ -1086,6 +1089,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/value"
+          },
+          {
+            "$ref": "#/parameters/forceHistoryOpt"
           }
         ],
         "responses": {
@@ -1107,6 +1113,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/value"
+          },
+          {
+            "$ref": "#/parameters/forceHistoryOpt"
           }
         ],
         "responses": {
@@ -1151,7 +1160,7 @@
         "summary": "Retrieves the history entries of a table",
         "description": "Returns the history entries of a table.",
         "tags": [
-          "content"
+          "history"
         ],
         "operationId": "retrieve-table-history-cell",
         "responses": {
@@ -1183,7 +1192,7 @@
         "summary": "Retrieves the history entries of a row",
         "description": "Returns the history entries of a row.",
         "tags": [
-          "content"
+          "history"
         ],
         "operationId": "retrieve-row-history-cell",
         "responses": {
@@ -1218,7 +1227,7 @@
         "summary": "Retrieves the history entries of a cell",
         "description": "Returns the history entries of a specified cell.",
         "tags": [
-          "content"
+          "history"
         ],
         "operationId": "retrieve-cell-history-cell",
         "responses": {
@@ -1243,12 +1252,34 @@
         "tags": [
           "data"
         ],
+        "parameters": [
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/final"
+          },
+          {
+            "$ref": "#/parameters/archived"
+          }
+        ],
         "operationId": "get-all-rows",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/Response: Rows"
+              "type": "object",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Pagination"
+                },
+                {
+                  "$ref": "#/definitions/Response: Rows"
+                }
+              ]
             }
           },
           "default": {
@@ -1298,6 +1329,13 @@
                   "items": {
                     "$ref": "#/definitions/Shared Request: Row"
                   }
+                },
+                "rowPermissions": {
+                  "type": "array",
+                  "description": "Array of row permissions",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "example": {
@@ -1314,6 +1352,10 @@
                       }
                     ]
                   }
+                ],
+                "rowPermissions": [
+                  "onlyUserGroupA",
+                  "onlyUserGroupB"
                 ]
               }
             }
@@ -1380,6 +1422,45 @@
         }
       ],
       "post": {
+        "parameters": [
+          {
+            "name": "skipConstrainedLinks",
+            "description": "When true, do not duplicate links with `n:x` cardinality where `n < ∞`.",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "annotateSkipped",
+            "description": "When true, annotate all columns which were not duplicated as \"Please double check\".",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "Columns to duplicate",
+            "description": "When given, duplicate only those columns. Query parameter `skipConstrainedLinks` dominates given columns.",
+            "required": false,
+            "type": "object",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "columns": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
         "summary": "Duplicate a row.",
         "description": "Duplicates a row with the same values and returns the duplicated row.",
         "tags": [
@@ -1435,12 +1516,29 @@
         "summary": "Add annotations to this row.",
         "description": "Adds new annotations to this row.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "update-row-annotations",
         "parameters": [
           {
-            "$ref": "#/parameters/langtags"
+            "name": "row annotation",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "final": {
+                  "type": "boolean"
+                },
+                "archived": {
+                  "type": "boolean"
+                }
+              },
+              "example": {
+                "final": true,
+                "archived": true
+              }
+            }
           }
         ],
         "responses": {
@@ -1449,6 +1547,196 @@
           },
           "404": {
             "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/annotations": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        }
+      ],
+      "patch": {
+        "summary": "Add annotations to all rows of a table.",
+        "description": "Adds new annotations to all rows of a table.",
+        "tags": [
+          "annotation"
+        ],
+        "operationId": "update-rows-annotations",
+        "parameters": [
+          {
+            "name": "row annotation",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "final": {
+                  "type": "boolean"
+                },
+                "archived": {
+                  "type": "boolean"
+                }
+              },
+              "example": {
+                "final": true,
+                "archived": true
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/rows": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/limit"
+        },
+        {
+          "$ref": "#/parameters/offset"
+        },
+        {
+          "$ref": "#/parameters/final"
+        },
+        {
+          "$ref": "#/parameters/archived"
+        }
+      ],
+      "get": {
+        "summary": "Get all rows of a specific column",
+        "description": "Returns just the rows of the specified column of the table",
+        "tags": [
+          "data"
+        ],
+        "operationId": "get-all-rows-of-column",
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "object",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Pagination"
+                },
+                {
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/Shared Response: Row"
+                      },
+                      "example": [
+                        {
+                          "id": 1,
+                          "values": [
+                            "Shimano"
+                          ],
+                          "final": true
+                        },
+                        {
+                          "id": 2,
+                          "values": [
+                            "Sram "
+                          ],
+                          "archived": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "default": {
+              "description": "Unexpected error",
+              "schema": {
+                "$ref": "#/responses/unknown-error"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/first/rows": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/limit"
+        },
+        {
+          "$ref": "#/parameters/offset"
+        },
+        {
+          "$ref": "#/parameters/final"
+        },
+        {
+          "$ref": "#/parameters/archived"
+        }
+      ],
+      "get": {
+        "summary": "Get all rows of the first column",
+        "description": "Returns just the rows of the first column of the table",
+        "tags": [
+          "data"
+        ],
+        "operationId": "get-all-rows-of-first-column",
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "object",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Pagination"
+                },
+                {
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/Shared Response: Row"
+                      },
+                      "example": [
+                        {
+                          "id": 1,
+                          "values": [
+                            "Shimano"
+                          ],
+                          "final": true
+                        },
+                        {
+                          "id": 2,
+                          "values": [
+                            "Sram"
+                          ],
+                          "archived": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "default": {
+              "description": "Unexpected error",
+              "schema": {
+                "$ref": "#/responses/unknown-error"
+              }
+            }
           }
         }
       }
@@ -1562,6 +1850,18 @@
         },
         {
           "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/limit"
+        },
+        {
+          "$ref": "#/parameters/offset"
+        },
+        {
+          "$ref": "#/parameters/final"
+        },
+        {
+          "$ref": "#/parameters/archived"
         }
       ],
       "get": {
@@ -1597,7 +1897,7 @@
         "summary": "Add an new annotation to a cell.",
         "description": "Adds an annotation to a cell. Annotations with the same type and value will be merged.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "add-cell-annotation",
         "parameters": [
@@ -1646,7 +1946,7 @@
         "summary": "Get annotations of this cell.",
         "description": "Get annotations of this cell",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "get-cell-annotation",
         "responses": {
@@ -1678,7 +1978,7 @@
         "summary": "Remove an annotation from a cell.",
         "description": "Removes an annotation for all language tags from a cell.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "clear-cell-annotation",
         "responses": {
@@ -1713,9 +2013,77 @@
         "summary": "Remove annotation for a language from a cell.",
         "description": "Removes an annotation for a specific language tag from a cell.",
         "tags": [
-          "content"
+          "annotation"
         ],
         "operationId": "clear-cell-annotation-language-tag",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/permissions": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        }
+      ],
+      "patch": {
+        "summary": "Add permissions to this row.",
+        "description": "Add permissions to this row.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "add-row-permissions",
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowPermissionBody"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete all permissions of this row.",
+        "description": "Delete permissions of this row.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "delete-row-permissions",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace permissions of this row.",
+        "description": "Replace current permissions of this row. This overwrites all permissions of this row with the new provided permission array.",
+        "tags": [
+          "permission"
+        ],
+        "operationId": "replace-row-permissions",
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowPermissionBody"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/responses/ok-empty-body"
@@ -1870,6 +2238,7 @@
               "example": 100
             },
             "totalSize": {
+              "description": "Total number of rows depending on filter query parameters. If no filters are set, totalSize is the total number of rows in the table",
               "type": "integer",
               "example": 315
             }
@@ -2112,6 +2481,9 @@
       "allOf": [
         {
           "$ref": "#/definitions/Property:Status"
+        },
+        {
+          "$ref": "#/definitions/Property:RowLevelAnnotations"
         }
       ],
       "properties": {
@@ -2180,23 +2552,17 @@
           "enum": [
             "cell_changed",
             "row_created",
+            "row_deleted",
             "annotation_added",
-            "annotation_removed"
+            "annotation_removed",
+            "row_permissions_changed"
           ]
         },
         "historyType": {
-          "description": "The type of the history entry",
-          "type": "string",
-          "enum": [
-            "row",
-            "cell",
-            "comment",
-            "cell_flag",
-            "row_flag"
-          ]
+          "$ref": "#/definitions/Enum: HistoryType"
         },
         "languageType": {
-          "description": "Name of the user who has triggered a change",
+          "description": "The language type of the column",
           "type": "string",
           "enum": [
             "neutral",
@@ -2240,7 +2606,8 @@
             "datetime",
             "concat",
             "currency",
-            "group"
+            "group",
+            "permissions"
           ]
         }
       }
@@ -3033,6 +3400,7 @@
     },
     "Shared Response: Column": {
       "type": "object",
+      "description": "Information about a column",
       "required": [
         "id",
         "kind",
@@ -3040,6 +3408,16 @@
         "ordering"
       ],
       "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1,
+          "description": "Id of column"
+        },
+        "name": {
+          "type": "string",
+          "example": "Land"
+        },
         "kind": {
           "$ref": "#/definitions/Enum: Column type"
         },
@@ -3048,29 +3426,22 @@
           "format": "int32",
           "example": 1
         },
-        "name": {
-          "type": "string",
-          "example": "Land"
-        },
         "toTable": {
           "type": "integer",
           "format": "int32",
           "example": 2,
           "description": "Optional, only needed if kind is link."
         },
-        "id": {
-          "type": "integer",
-          "format": "int32",
-          "example": 1,
-          "description": "Id of column"
-        },
         "toColumn": {
           "type": "integer",
           "format": "int32",
-          "description": "Optional, only needed if kind is link."
+          "description": "Optional, only needed if kind is link.",
+          "example": 2
+        },
+        "constraint": {
+          "$ref": "#/definitions/constraint"
         }
-      },
-      "description": "Information about a column"
+      }
     },
     "Shared Response: Row": {
       "type": "object",
@@ -3079,28 +3450,50 @@
         "values"
       ],
       "properties": {
-        "values": {
-          "type": "array",
-          "example": "Baden-Württemberg",
-          "items": {
-            "type": "object"
-          }
-        },
         "id": {
           "type": "integer",
           "format": "int64",
           "example": 1,
           "description": "Id of row"
+        },
+        "values": {
+          "type": "array",
+          "example": [
+            "Baden-Württemberg",
+            "Stuttgart",
+            [
+              {
+                "id": 3,
+                "value": "Tübingen"
+              },
+              {
+                "id": 4,
+                "value": "Karlsruhe"
+              }
+            ]
+          ],
+          "items": {
+            "type": "object"
+          }
+        },
+        "final": {
+          "type": "boolean",
+          "example": true,
+          "description": "A flag describing whether the row is final or not. Only present if final is set to true."
+        },
+        "archived": {
+          "type": "boolean",
+          "example": true,
+          "description": "A flag describing whether the row is archived or not. Only present if archived is set to true."
+        },
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CellAnnotation"
+          }
         }
       },
-      "description": "A row contains all column values of this specific table.",
-      "example": {
-        "id": 1,
-        "values": [
-          "Baden-Württemberg",
-          35751
-        ]
-      }
+      "description": "A row contains all column values of this specific table."
     },
     "Shared Response: Service": {
       "type": "object",
@@ -3229,26 +3622,7 @@
           "example": "ok"
         }
       },
-      "description": "Array of columns",
-      "example": {
-        "status": "ok",
-        "columns": [
-          {
-            "id": 1,
-            "name": "Text column",
-            "kind": "text",
-            "ordering": 1
-          },
-          {
-            "id": 2,
-            "name": "Link Column",
-            "kind": "link",
-            "ordering": "2",
-            "toTable": 2,
-            "toColumn": 1
-          }
-        ]
-      }
+      "description": "Array of columns"
     },
     "Response: File": {
       "type": "object",
@@ -3382,46 +3756,7 @@
           "example": "ok"
         }
       },
-      "description": "Array of rows",
-      "example": {
-        "status": "ok",
-        "rows": [
-          {
-            "id": 1,
-            "values": [
-              "Baden-Württemberg",
-              "Stuttgart",
-              [
-                {
-                  "id": 3,
-                  "value": "Tübingen"
-                },
-                {
-                  "id": 4,
-                  "value": "Karlsruhe"
-                }
-              ]
-            ]
-          },
-          {
-            "id": 2,
-            "values": [
-              "Bayern",
-              "München",
-              [
-                {
-                  "id": 1,
-                  "value": "Oberbayern"
-                },
-                {
-                  "id": 2,
-                  "value": "Niederbayern"
-                }
-              ]
-            ]
-          }
-        ]
-      }
+      "description": "Array of rows"
     },
     "Enum: Column type": {
       "type": "string",
@@ -3445,6 +3780,18 @@
         "action",
         "filter",
         "listener"
+      ]
+    },
+    "Enum: HistoryType": {
+      "type": "string",
+      "description": "The type of the history entry",
+      "enum": [
+        "row",
+        "cell",
+        "comment",
+        "cell_flag",
+        "row_flag",
+        "row_permissions"
       ]
     },
     "Response: Subfolder": {
@@ -3535,6 +3882,29 @@
           "type": "string",
           "description": "Pattern for the frontend how to render the content of a group column",
           "example": "{{1}} × {{2}} × {{3}} mm (B × H × T)"
+        },
+        "showMemberColumns": {
+          "type": "boolean",
+          "description": "Flag if the member columns should be displayed in the frontend table view (They are always displayed in entity view).",
+          "example": true
+        },
+        "minLength": {
+          "type": "integer",
+          "description": "Minimum length of the value, only for text columns",
+          "format": "int32",
+          "example": 1
+        },
+        "maxLength": {
+          "type": "integer",
+          "description": "Maximum length of the value, only for text columns",
+          "format": "int32",
+          "example": 255
+        },
+        "decimalDigits": {
+          "type": "integer",
+          "description": "Number of decimal digits, only for numeric columns. Values between 0 and 10 are allowed. If not set, the default value is 3.",
+          "format": "int32",
+          "example": 2
         }
       },
       "description": "A column object, which is used to create a new column.",
@@ -3572,9 +3942,66 @@
             1,
             2
           ],
-          "formatPattern": "city {{1}} has {{2}} inhabitants"
+          "formatPattern": "city {{1}} has {{2}} inhabitants",
+          "showMemberColumns": true,
+          "decimalDigits": 6
         }
       ]
+    },
+    "RowPermission": {
+      "description": "A row annotation",
+      "type": "string",
+      "example": "onlyUserGroupA"
+    },
+    "constraint": {
+      "type": "object",
+      "description": "The constraint of the column",
+      "properties": {
+        "cardinality": {
+          "$ref": "#/definitions/cardinality"
+        },
+        "deleteCascade": {
+          "type": "boolean",
+          "example": true
+        },
+        "archiveCascade": {
+          "type": "boolean",
+          "example": true
+        },
+        "finalCascade": {
+          "type": "boolean",
+          "example": true
+        }
+      }
+    },
+    "cardinality": {
+      "type": "object",
+      "description": "The cardinality of the column",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "format": "int32",
+          "example": 0
+        },
+        "to": {
+          "type": "integer",
+          "format": "int32",
+          "example": 1
+        }
+      }
+    },
+    "Property:RowLevelAnnotations": {
+      "type": "object",
+      "properties": {
+        "final": {
+          "type": "boolean",
+          "example": true
+        },
+        "archived": {
+          "type": "boolean",
+          "example": true
+        }
+      }
     }
   },
   "parameters": {
@@ -3682,6 +4109,14 @@
         }
       }
     },
+    "forceHistoryOpt": {
+      "name": "forceHistory",
+      "description": "If set to true, a history entry will be created even if the value did not change.",
+      "in": "query",
+      "required": false,
+      "type": "boolean",
+      "default": false
+    },
     "fileuuid": {
       "name": "fileuuid",
       "in": "path",
@@ -3707,8 +4142,10 @@
       "description": "The type of the history to filter for.",
       "in": "query",
       "type": "string",
-      "format": "string",
-      "required": false
+      "required": false,
+      "items": {
+        "$ref": "#/definitions/Enum: HistoryType"
+      }
     },
     "groupId": {
       "name": "groupId",
@@ -3724,6 +4161,50 @@
       "in": "query",
       "type": "integer",
       "format": "int64",
+      "required": false
+    },
+    "rowPermissionBody": {
+      "name": "value",
+      "description": "An array of row permission to add, remove or replace.",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "example": [
+          "onlyUserGroupA",
+          "onlyUserGroupB"
+        ]
+      }
+    },
+    "limit": {
+      "name": "limit",
+      "description": "The maximum number of rows to return.",
+      "in": "query",
+      "type": "integer",
+      "required": false
+    },
+    "offset": {
+      "name": "offset",
+      "description": "The number of rows to skip.",
+      "in": "query",
+      "type": "integer",
+      "required": false
+    },
+    "final": {
+      "name": "final",
+      "description": "Filter for final rows.\n- If set to true, only final rows are returned.\n- If set to false, only non-final rows are returned.\n- If not set, all rows are returned. (default)",
+      "in": "query",
+      "type": "boolean",
+      "required": false
+    },
+    "archived": {
+      "name": "archived",
+      "description": "Filter for archived rows.\n- If set to true, only archived rows are returned.\n- If set to false, only non-archived rows are returned.\n- If not set, all rows are returned. (default)",
+      "in": "query",
+      "type": "boolean",
       "required": false
     }
   },
