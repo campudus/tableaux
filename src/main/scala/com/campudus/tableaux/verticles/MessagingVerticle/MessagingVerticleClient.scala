@@ -1,20 +1,15 @@
 package com.campudus.tableaux.verticles.MessagingVerticle
 
-import com.campudus.tableaux.database.domain.ColumnType
-import com.campudus.tableaux.database.domain.Table
+import com.campudus.tableaux.database.domain.{ColumnType, Table}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.VertxAccess
-import com.campudus.tableaux.verticles.Messaging.MessagingVerticle
 
 import io.vertx.core.json.JsonObject
 import io.vertx.scala.core.Vertx
-import io.vertx.scala.core.eventbus.Message
+import io.vertx.scala.core.eventbus.EventBus
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
 
 object MessagingVerticleClient {
 
@@ -26,7 +21,7 @@ object MessagingVerticleClient {
 class MessagingVerticleClient(val vertx: Vertx) extends VertxAccess {
   import MessagingVerticle._
 
-  val eventBus = vertx.eventBus()
+  val eventBus: EventBus = vertx.eventBus()
 
   private def sendMessage(address: String, jsonObj: JsonObject = Json.obj()): Future[Unit] = {
     // catch and ignore all exceptions here in order to not interrupt the main server

@@ -13,9 +13,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
-import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
-import org.vertx.scala.core.json.JsonArray
 
 import scala.concurrent.Future
 import scala.util.Try

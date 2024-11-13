@@ -1,36 +1,24 @@
-package com.campudus.tableaux.verticles.Messaging
+package com.campudus.tableaux.verticles.MessagingVerticle
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.DatabaseConnection
-import com.campudus.tableaux.database.domain.ColumnType
-import com.campudus.tableaux.database.domain.Service
-import com.campudus.tableaux.database.domain.ServiceType
-import com.campudus.tableaux.database.domain.Table
-import com.campudus.tableaux.database.model.ServiceModel
-import com.campudus.tableaux.database.model.StructureModel
-import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.database.domain.{Service, ServiceType}
+import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.VertxAccess
-import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux.router.auth.permission.TableauxUser
+import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
-import io.vertx.core.buffer.Buffer
 import io.vertx.core.json.JsonObject
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.eventbus.Message
-import io.vertx.scala.core.http.HttpClient
-import io.vertx.scala.core.http.HttpServer
-import io.vertx.scala.ext.web.client.HttpResponse
 import io.vertx.scala.ext.web.client.WebClient
 import org.vertx.scala.core.json.Json
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -38,7 +26,7 @@ object MessagingVerticle {
   val KEY_TABLE_ID = "tableId"
   val KEY_COLUMN_ID = "columnId"
   val KEY_ROW_ID = "rowId"
-  val ID_KEYS = Seq(KEY_TABLE_ID, KEY_COLUMN_ID, KEY_ROW_ID)
+  val ID_KEYS: Seq[String] = Seq(KEY_TABLE_ID, KEY_COLUMN_ID, KEY_ROW_ID)
 
   val ADDRESS_CELL_CHANGED = "message.cell.change"
   val ADDRESS_SERVICES_CHANGE = "message.services.change"
@@ -68,7 +56,7 @@ object MessagingVerticle {
   val EVENT_TYPE_CELL_ANNOTATION_CHANGED = "cell_annotation_changed"
   val EVENT_TYPE_CELL_CHANGED = "cell_changed"
 
-  val eventTypes = Seq(
+  val eventTypes: Seq[String] = Seq(
     EVENT_TYPE_TABLE_CREATE,
     EVENT_TYPE_TABLE_CHANGE,
     EVENT_TYPE_TABLE_DELETE,
@@ -83,7 +71,7 @@ object MessagingVerticle {
   )
 }
 
-class MessagingVerticle extends ScalaVerticle
+class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle
     with LazyLogging {
 
   import MessagingVerticle._
@@ -100,29 +88,31 @@ class MessagingVerticle extends ScalaVerticle
 
   private lazy val webClient: WebClient = WebClient.create(vertx)
 
+  private def getServiceConfigValues(service: Service): (Int, String, String, JsonObject) = {
+    val config = service.config
+
+    val port = config.getInteger("port")
+    val host = config.getString("host")
+    val route = config.getString("route")
+    val headers = config.getJsonObject("headers", Json.obj())
+
+    (port, host, route, headers)
+  }
+
   private def retrieveListeners(): Future[Map[String, Seq[Service]]] = {
     for {
       services <- serviceModel.retrieveAll()
     } yield {
       val listeners = services.filter(service => {
-
-        val hasRequiredConfigValues =
-          Try({
-            val config = service.config
-            val port = config.getInteger("port")
-            val host = config.getString("host")
-            val route = config.getString("route")
-            val headers = config.getJsonObject("headers", Json.obj())
-            (port, host, route, headers)
-          }).isSuccess
+        val hasRequiredConfigValues = Try(getServiceConfigValues(service)).isSuccess
 
         service.serviceType.toString == ServiceType.LISTENER && hasRequiredConfigValues
       })
       val listenerMap = eventTypes.foldLeft[Map[String, Seq[Service]]](Map()) { (acc, eventType) =>
         {
-          val listenersWithEventType = listeners.filter(service =>
+          val listenersWithEventType = listeners.filter(service => {
             service.config.getJsonArray("events", Json.arr()).asScala.toSeq.contains(eventType)
-          )
+          })
           acc + (eventType -> listenersWithEventType)
         }
       }
@@ -138,53 +128,52 @@ class MessagingVerticle extends ScalaVerticle
     val listenersForEventType = listeners getOrElse (eventType, Seq())
     val getFilterRules: (String, String, JsonObject) => Seq[JsonObject] =
       (objectType: String, ruleType: String, scope: JsonObject) => {
-        scope.getJsonObject(objectType, Json.obj()).getJsonArray(ruleType, Json.arr()).asScala.toSeq.map(obj =>
+        scope.getJsonObject(objectType, Json.obj()).getJsonArray(ruleType, Json.arr()).asScala.toSeq.map(obj => {
           obj.asInstanceOf[JsonObject]
-        )
+        })
       }
 
-    val filterFunction: (Service) => Boolean = (service: Service) => {
+    val filterFunction: Service => Boolean = (service: Service) => {
       val scope = service.scope
 
       val applyRules = (rules: Seq[JsonObject], objectJson: JsonObject) => {
-        rules.exists(rule =>
+        rules.exists(rule => {
           rule.fieldNames().asScala.toSeq.forall(key => {
             val str = rule.getValue(key, "").toString
-            // If the first character in the regular expression is a + or *, don't parse regex
-            // as this would result in an endless loop
-            Seq("+", "*").contains(str.substring(0, 1)) match {
-              case true => false
-              case false => {
-                val regex = str.r
-                objectJson.getValue(key, "").toString match {
-                  case regex() => true
-                  case _ => false
-                }
 
+            /*
+             * If the first character in the regular expression is a + or *, don't parse regex
+             * as this would result in an endless loop
+             */
+            if (Seq("+", "*").contains(str.substring(0, 1))) {
+              false
+            } else {
+              val regex = str.r
+
+              objectJson.getValue(key, "").toString match {
+                case regex() => true
+                case _ => false
               }
             }
           })
-        )
+        })
       }
       maybeTableJson match {
-        case Some(table) => {
+        case Some(table) =>
           val tableIncludes = getFilterRules("tables", "includes", scope)
           val tableExcludes = getFilterRules("tables", "excludes", scope)
           val shouldIncludeTable = applyRules(tableIncludes, table) && !applyRules(tableExcludes, table)
           maybeColumnJson match {
-            case Some(column) => {
+            case Some(column) =>
               val columnIncludes = getFilterRules("columns", "includes", scope)
               val columnExcludes = getFilterRules("columns", "excludes", scope)
               val colIn = applyRules(columnIncludes, column)
               val colEx = !applyRules(columnExcludes, column)
 
               shouldIncludeTable && colIn && colEx
-            }
-            case None => {
+            case None =>
               shouldIncludeTable
-            }
           }
-        }
         case None => true
       }
 
@@ -197,16 +186,22 @@ class MessagingVerticle extends ScalaVerticle
 
   override def startFuture(): Future[_] = {
     logger.info("start future")
-    val isAuthorization: Boolean = !config.getJsonObject("authConfig").isEmpty
-    val roles = config.getJsonObject("rolePermissions")
+    val isAuthorization: Boolean = !tableauxConfig.authConfig.isEmpty
+    val roles = tableauxConfig.rolePermissions
+
     implicit val roleModel: RoleModel = RoleModel(roles, isAuthorization)
-    val vertxAccess = new VertxAccess { override val vertx: Vertx = MessagingVerticle.this.vertx }
-    val connection = SQLConnection(vertxAccess, config.getJsonObject("databaseConfig"))
+
+    val vertxAccess = new VertxAccess {
+      override val vertx: Vertx = MessagingVerticle.this.vertx
+    }
+    val connection = SQLConnection(vertxAccess, tableauxConfig.databaseConfig)
     val dbConnection = DatabaseConnection(vertxAccess, connection)
+
     structureModel = StructureModel(dbConnection)
     user = TableauxUser("", roles.fieldNames().asScala.toSeq)
-    tableauxModel = TableauxModel(dbConnection, structureModel)
+    tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
     serviceModel = ServiceModel(dbConnection)
+
     for {
       listenersMap <- retrieveListeners()
       _ <- registerConsumers()
@@ -217,24 +212,23 @@ class MessagingVerticle extends ScalaVerticle
   }
 
   private def registerConsumers(): Future[Unit] = {
-    eventBus.consumer(ADDRESS_CELL_CHANGED, errorHandler(messageHandlerCellChange)).completionFuture()
+    def listen(address: String, handler: Message[JsonObject] => Future[Seq[Any]]): Future[Unit] = {
+      eventBus.consumer(address, errorHandler(handler) _).completionFuture()
+    }
+
+    listen(ADDRESS_CELL_CHANGED, messageHandlerCellChange)
+    listen(ADDRESS_COLUMN_CREATED, messageHandlerColumnCreated())
+    listen(ADDRESS_COLUMN_CHANGED, messageHandlerColumnChanged)
+    listen(ADDRESS_COLUMN_DELETED, messageHandlerColumnDeleted)
+    listen(ADDRESS_TABLE_CREATED, messageHandlerTableCreated())
+    listen(ADDRESS_TABLE_CHANGED, messageHandlerTableChanged)
+    listen(ADDRESS_TABLE_DELETED, messageHandlerTableDeleted)
+    listen(ADDRESS_ROW_CREATED, messageHandlerRowCreated)
+    listen(ADDRESS_ROW_DELETED, messageHandlerRowDeleted)
+    listen(ADDRESS_ROW_ANNOTATION_CHANGED, messageHandlerRowAnnotationChanged)
+    listen(ADDRESS_CELL_ANNOTATION_CHANGED, messageHandlerCellAnnotationChanged)
+
     eventBus.consumer(ADDRESS_SERVICES_CHANGE, messageHandlerUpdateListeners).completionFuture()
-    eventBus.consumer(ADDRESS_COLUMN_CREATED, errorHandler(messageHandlerColumnCreated())).completionFuture()
-    eventBus.consumer(ADDRESS_COLUMN_CHANGED, errorHandler(messageHandlerColumnChanged)).completionFuture()
-    eventBus.consumer(ADDRESS_COLUMN_DELETED, errorHandler(messageHandlerColumnDeleted)).completionFuture()
-    eventBus.consumer(ADDRESS_TABLE_CREATED, errorHandler(messageHandlerTableCreated())).completionFuture()
-    eventBus.consumer(ADDRESS_TABLE_CHANGED, errorHandler(messageHandlerTableChanged)).completionFuture()
-    eventBus.consumer(ADDRESS_TABLE_DELETED, errorHandler(messageHandlerTableDeleted)).completionFuture()
-    eventBus.consumer(ADDRESS_ROW_CREATED, errorHandler(messageHandlerRowCreated)).completionFuture()
-    eventBus.consumer(ADDRESS_ROW_DELETED, errorHandler(messageHandlerRowDeleted)).completionFuture()
-    eventBus.consumer(
-      ADDRESS_ROW_ANNOTATION_CHANGED,
-      errorHandler(messageHandlerRowAnnotationChanged)
-    ).completionFuture()
-    eventBus.consumer(
-      ADDRESS_CELL_ANNOTATION_CHANGED,
-      errorHandler(messageHandlerCellAnnotationChanged)
-    ).completionFuture()
   }
 
   private def messageHandlerUpdateListeners(message: Message[JsonObject]): Unit = {
@@ -253,19 +247,18 @@ class MessagingVerticle extends ScalaVerticle
     val columnId = body.getLong("columnId").asInstanceOf[ColumnId]
     val rowId = body.getLong("rowId").asInstanceOf[RowId]
     for {
-      table <- tableauxModel.retrieveTable(tableId, true)
+      table <- tableauxModel.retrieveTable(tableId, isInternalCall = true)
       column <- tableauxModel.retrieveColumn(table, columnId)
       cell <- tableauxModel.retrieveCell(table, column.id, rowId)
       dependentCells <- tableauxModel.retrieveDependentCells(table, rowId)
-      dependentCellValues <- Future.sequence(dependentCells.map({
-        case (table, linkColumn, rowIds) => {
-          rowIds.map(rowId =>
-            tableauxModel.retrieveCell(table, linkColumn.id, rowId, false).map(data =>
+      dependentCellValues <- Future.sequence(dependentCells.flatMap {
+        case (table, linkColumn, rowIds) =>
+          rowIds.map(rowId => {
+            tableauxModel.retrieveCell(table, linkColumn.id, rowId).map(data => {
               Json.obj("table" -> table.id, "column" -> linkColumn.id, "row" -> rowId).mergeIn(data.getJson)
-            )
-          )
-        }
-      }).flatten)
+            })
+          })
+      })
       data = Json.obj("cell" -> cell.getJson, "dependentCells" -> dependentCellValues)
       listeners = getApplicableListeners(EVENT_TYPE_CELL_CHANGED, Some(table.getJson), Some(column.getJson))
       listenerResponses <-
@@ -281,11 +274,7 @@ class MessagingVerticle extends ScalaVerticle
   ): Future[Seq[Any]] = {
     Future.sequence(listeners.map(listener => {
       val name = listener.name
-      val config = listener.config
-      val port = config.getInteger("port")
-      val host = config.getString("host")
-      val route = config.getString("route")
-      val headers = config.getJsonObject("headers", Json.obj())
+      val (port, host, route, _) = getServiceConfigValues(listener)
 
       webClient.post(port, host, route).sendJsonObjectFuture(payLoad).recover { case err: Throwable =>
         logger.error(s"Service Name: $name, Reason: ${err.getMessage}")
@@ -300,19 +289,23 @@ class MessagingVerticle extends ScalaVerticle
       rowId: Option[RowId] = None,
       data: JsonObject = Json.obj()
   ): JsonObject = {
-    var baseObj = Json.obj("event" -> event, "data" -> data)
+    val baseObj = Json.obj("event" -> event, "data" -> data)
+
     tableId match {
       case Some(id) => baseObj.put("tableId", id)
-      case _ => {}
+      case _ =>
     }
+
     columnId match {
       case Some(id) => baseObj.put("columnId", id)
-      case _ => {}
+      case _ =>
     }
+
     rowId match {
       case Some(id) => baseObj.put("rowId", id)
-      case _ => {}
+      case _ =>
     }
+
     baseObj
   }
 
@@ -325,7 +318,7 @@ class MessagingVerticle extends ScalaVerticle
     val tableId = body.getLong("tableId").asInstanceOf[TableId]
     val columnId = body.getLong("columnId")
     for {
-      table <- tableauxModel.retrieveTable(tableId, true)
+      table <- tableauxModel.retrieveTable(tableId, isInternalCall = true)
       column <- tableauxModel.retrieveColumn(table, columnId)
       listeners = getApplicableListeners(eventType, Some(table.getJson), Some(column.getJson))
       payload = createPayload(eventType, Some(tableId), Some(columnId), None, column.getJson)
@@ -344,7 +337,7 @@ class MessagingVerticle extends ScalaVerticle
     val body = message.body()
     val tableId = body.getLong("tableId").asInstanceOf[TableId]
     for {
-      table <- tableauxModel.retrieveTable(tableId, true)
+      table <- tableauxModel.retrieveTable(tableId, isInternalCall = true)
       listeners = getApplicableListeners(eventType, Some(table.getJson), None)
       payload = createPayload(eventType, Some(tableId), None, None, table.getJson)
       listenerResponses <- sendMessage(listeners, payload)
@@ -392,18 +385,20 @@ class MessagingVerticle extends ScalaVerticle
     val (tableId, columnId, rowId) = getIds(body)
     val deletedColumn = body.getJsonObject("column", Json.obj())
     for {
-      table <- tableauxModel.retrieveTable(tableId.get, true)
+      table <- tableauxModel.retrieveTable(tableId.get, isInternalCall = true)
       listeners = getApplicableListeners(EVENT_TYPE_COLUMN_DELETE, Some(table.getJson), Some(deletedColumn))
       listenerResponses <-
         sendMessage(listeners, createPayload(EVENT_TYPE_COLUMN_DELETE, tableId, columnId, rowId, deletedColumn))
-    } yield { listenerResponses }
+    } yield {
+      listenerResponses
+    }
   }
 
   private def messageHandlerRowDeleted(message: Message[JsonObject]): Future[Seq[Any]] = {
     val body = message.body()
     val (tableId, columnId, rowId) = getIds(body)
     for {
-      table <- tableauxModel.retrieveTable(tableId.get, true)
+      table <- tableauxModel.retrieveTable(tableId.get, isInternalCall = true)
       listeners = getApplicableListeners(EVENT_TYPE_ROW_DELETE, Some(table.getJson), None)
       listenerResponses <- sendMessage(listeners, createPayload(EVENT_TYPE_ROW_DELETE, tableId, columnId, rowId))
     } yield {
@@ -415,7 +410,7 @@ class MessagingVerticle extends ScalaVerticle
     val body = message.body()
     val (tableId, columnId, rowId) = getIds(body)
     for {
-      table <- tableauxModel.retrieveTable(tableId.get, true)
+      table <- tableauxModel.retrieveTable(tableId.get, isInternalCall = true)
       row <- tableauxModel.retrieveRow(table, rowId.get)
       listeners = getApplicableListeners(EVENT_TYPE_ROW_CREATED, Some(table.getJson), None)
       listenerResponses <-
@@ -429,7 +424,7 @@ class MessagingVerticle extends ScalaVerticle
     val body = message.body()
     val (tableId, columnId, rowId) = getIds(body)
     for {
-      table <- tableauxModel.retrieveTable(tableId.get, true)
+      table <- tableauxModel.retrieveTable(tableId.get, isInternalCall = true)
       column <- tableauxModel.retrieveColumn(table, columnId.get)
       cellAnnotations <- tableauxModel.retrieveCellAnnotations(table, columnId.get, rowId.get)
       listeners =
@@ -447,7 +442,7 @@ class MessagingVerticle extends ScalaVerticle
     val body = message.body()
     val (tableId, columnId, rowId) = getIds(body)
     for {
-      table <- tableauxModel.retrieveTable(tableId.get, true)
+      table <- tableauxModel.retrieveTable(tableId.get, isInternalCall = true)
       row <- tableauxModel.retrieveRow(table, rowId.get)
       listeners =
         getApplicableListeners(EVENT_TYPE_ROW_ANNOTATION_CHANGED, Some(table.getJson), None)
@@ -465,13 +460,11 @@ class MessagingVerticle extends ScalaVerticle
   )(message: Message[JsonObject]): Unit = {
 
     messageHandler(message).onComplete {
-      case Success(_) => {
+      case Success(_) =>
         message.reply("ok")
-      }
-      case Failure(exception) => {
+      case Failure(exception) =>
         logger.error(exception.getMessage)
         message.fail(500, exception.getMessage)
-      }
     }
   }
 }

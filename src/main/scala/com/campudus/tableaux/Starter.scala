@@ -5,7 +5,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
 import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, JsonSchemaValidatorVerticle}
-import com.campudus.tableaux.verticles.Messaging.MessagingVerticle
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticle
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
@@ -141,17 +141,8 @@ class Starter extends ScalaVerticle with LazyLogging {
   }
 
   private def deployMessagingVerticle(tableauxConfig: TableauxConfig): Future[String] = {
-
-    val config =
-      Json.obj(
-        "rolePermissions" -> tableauxConfig.rolePermissions,
-        "authConfig" -> tableauxConfig.authConfig,
-        "databaseConfig" -> tableauxConfig.databaseConfig
-      )
-    val options = DeploymentOptions()
-      .setConfig(config)
-
-    val deployFuture = vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[MessagingVerticle], options)
+    val options = DeploymentOptions().setConfig(Json.emptyObj()) // No options so far
+    val deployFuture = vertx.deployVerticleFuture(new MessagingVerticle(tableauxConfig), options)
 
     deployFuture.onComplete({
       case Success(id) =>
@@ -161,7 +152,6 @@ class Starter extends ScalaVerticle with LazyLogging {
     })
 
     deployFuture
-
   }
 
   private def deployCacheVerticle(cacheConfig: JsonObject, tableauxConfig: TableauxConfig): Future[String] = {

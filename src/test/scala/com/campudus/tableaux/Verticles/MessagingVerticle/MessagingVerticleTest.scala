@@ -1,34 +1,16 @@
 package com.campudus.tableaux.Verticles.MessagingVerticle
 
-import com.campudus.tableaux.{CustomException, Starter, TableauxConfig}
+import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheVerticle
-import com.campudus.tableaux.controller.StructureController
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
-import com.campudus.tableaux.database.TableauxDbType
-import com.campudus.tableaux.database.domain.{CreateSimpleColumn, GenericTable}
-import com.campudus.tableaux.database.domain.ColumnType
-import com.campudus.tableaux.database.domain.Constraint
-import com.campudus.tableaux.database.domain.CreateColumn
-import com.campudus.tableaux.database.domain.CreateLinkColumn
-import com.campudus.tableaux.database.domain.DefaultConstraint
-import com.campudus.tableaux.database.domain.FlagAnnotationType
-import com.campudus.tableaux.database.domain.LinkColumn
-import com.campudus.tableaux.database.domain.MultiLanguageValue
-import com.campudus.tableaux.database.domain.Service
-import com.campudus.tableaux.database.domain.ServiceType
-import com.campudus.tableaux.database.domain.Table
-import com.campudus.tableaux.database.model.ServiceModel
-import com.campudus.tableaux.database.model.StructureModel
-import com.campudus.tableaux.database.model.SystemModel
-import com.campudus.tableaux.database.model.TableauxModel
+import com.campudus.tableaux.database.domain._
+import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
-import com.campudus.tableaux.router.auth.permission.RoleModel
-import com.campudus.tableaux.testtools.TableauxTestBase
-import com.campudus.tableaux.testtools.TokenHelper
-import com.campudus.tableaux.verticles.Messaging.MessagingVerticle
+import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticle
 import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 import io.vertx.ext.unit.TestContext
@@ -42,15 +24,10 @@ import scala.collection.mutable.MutableList
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-import org.junit.{After, Before}
+import org.junit.{After, Before, Test}
 import org.junit.Assert.assertEquals
-import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.doAnswer
-import org.mockito.Mockito.spy
-import org.mockito.Mockito.when
-import org.mockito.MockitoAnnotations
+import org.mockito.Mockito.{doAnswer, spy}
 import org.mockito.captor.ArgCaptor
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -122,16 +99,16 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     val options = DeploymentOptions()
       .setConfig(verticleConfig)
 
-    val spiedMessagingVerticle = spy(new MessagingVerticle)
-    var listenersCaptor = ArgCaptor[Seq[Service]]
-    var payloadCaptor = ArgCaptor[JsonObject]
+    val spiedMessagingVerticle = spy(new MessagingVerticle(tableauxConfig))
+    val listenersCaptor = ArgCaptor[Seq[Service]]
+    val payloadCaptor = ArgCaptor[JsonObject]
+
     doAnswer(new Answer[Future[Seq[Any]]] {
       override def answer(i: InvocationOnMock): Future[Seq[Any]] = {
         val listeners = i.getArgument[Seq[Service]](0)
         val payload = i.getArgument[JsonObject](1)
         val futures = listeners.map(listener => {
           val name = listener.name
-          val config = listener.config
           val res =
             Json.obj(
               "listenerName" -> name,
@@ -154,16 +131,14 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val system = SystemModel(dbConnection)
-    logger.info("before deploy")
+
     for {
       _ <- system.uninstall()
       _ <- system.install()
-      _ <- vertx.deployVerticleFuture(ScalaVerticle.nameForVerticle[CacheVerticle], options)
+      _ <- vertx.deployVerticleFuture(new CacheVerticle(tableauxConfig), options)
     } yield {
-      vertx
-        .deployVerticleFuture(spiedMessagingVerticle, options)
+      vertx.deployVerticleFuture(spiedMessagingVerticle, options)
     }.onComplete(completionHandler)
-    logger.info("after deploy")
 
     val tokenHelper = TokenHelper(this.vertxAccess())
 
@@ -189,19 +164,23 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   }
 
   def createStructureModel(): StructureModel = {
-    logger.info("createStrucutreController")
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
     implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
+
     StructureModel(dbConnection)
   }
 
   def createTableauxModel(): TableauxModel = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
     implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
+
     val structureModel = createStructureModel()
-    TableauxModel(dbConnection, structureModel)
+
+    TableauxModel(dbConnection, structureModel, tableauxConfig)
   }
 
   def createSystemController(): SystemController = {
@@ -210,7 +189,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
     val structureModel = StructureModel(dbConnection)
     val systemModel = SystemModel(dbConnection)
-    val tableauxModel = TableauxModel(dbConnection, structureModel)
+    val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
     val serviceModel = ServiceModel(dbConnection)
 
     SystemController(tableauxConfig, systemModel, tableauxModel, structureModel, serviceModel, roleModel)
@@ -260,7 +239,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         None,
         MultiLanguageValue(),
         MultiLanguageValue(),
-        true,
+        active = true,
         Some(config),
         Some(scope)
       ).map(obj => obj.asInstanceOf[Service])
@@ -282,15 +261,15 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     )
     tableId match {
       case Some(id) => payload.put("tableId", id)
-      case _ => {}
+      case _ =>
     }
     columnId match {
       case Some(id) => payload.put("columnId", id)
-      case _ => {}
+      case _ =>
     }
     rowId match {
       case Some(id) => payload.put("rowId", id)
-      case _ => {}
+      case _ =>
     }
     Json.obj(
       "listenerName" -> name,
@@ -305,7 +284,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
-      _ <- createListener(listenerName, listenerConfig)
+      listener <- createListener(listenerName, listenerConfig)
+
       table <- structureModel.tableStruc.create(
         "test_table_1",
         hidden = false,
@@ -315,7 +295,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableGroupIdOpt = None,
         attributes = None
       )
-      res <- messagingClient.tableCreated(table.id)
+
+      _ <- messagingClient.tableCreated(table.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, table.getJson, Some(table.id))
       assertJSONEquals(expected, answers.head)
@@ -341,7 +322,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         attributes = None
       )
       _ <- structureModel.tableStruc.delete(table.id)
-      res <- messagingClient.tableDeleted(table.id, table)
+      _ <- messagingClient.tableDeleted(table.id, table)
     } yield {
       val expected = createExpectedJson(listenerName, event, table.getJson, Some(table.id))
       assertJSONEquals(expected, answers.head)
@@ -375,7 +356,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         None
       )
       updatedTable <- structureModel.tableStruc.retrieve(table.id)
-      res <- messagingClient.tableChanged(updatedTable.id)
+      _ <- messagingClient.tableChanged(updatedTable.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, updatedTable.getJson, Some(updatedTable.id))
       assertJSONEquals(expected, answers.head)
@@ -392,11 +373,10 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       None,
       TextType,
       LanguageNeutral,
-      false,
+      identifier = false,
       Seq(),
-      false,
-      None,
-      false
+      separator = false,
+      None
     )
 
     for {
@@ -411,7 +391,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         attributes = None
       )
       column <- structureModel.columnStruc.createColumn(table, columnToCreate)
-      res <- messagingClient.columnCreated(table.id, column.id)
+      _ <- messagingClient.columnCreated(table.id, column.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, column.getJson, Some(table.id), Some(column.id))
       assertJSONEquals(expected, answers.head)
@@ -429,22 +409,20 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       None,
       TextType,
       LanguageNeutral,
-      false,
+      identifier = false,
       Seq(),
-      false,
-      None,
-      false
+      separator = false,
+      None
     )
     val columnToCreate2 = CreateSimpleColumn(
       "test_column_2",
       None,
       TextType,
       LanguageNeutral,
-      false,
+      identifier = false,
       Seq(),
-      false,
-      None,
-      false
+      separator = false,
+      None
     )
 
     for {
@@ -461,7 +439,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       column <- structureModel.columnStruc.createColumn(table, columnToCreate)
       _ <- structureModel.columnStruc.createColumn(table, columnToCreate2)
       _ <- structureModel.columnStruc.delete(table, column.id)
-      res <- messagingClient.columnDeleted(table.id, column.id, column)
+      _ <- messagingClient.columnDeleted(table.id, column.id, column)
     } yield {
       val expected = createExpectedJson(listenerName, event, column.getJson, Some(table.id), Some(column.id))
       assertJSONEquals(expected, answers.head)
@@ -479,11 +457,10 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       None,
       TextType,
       LanguageNeutral,
-      false,
+      identifier = false,
       Seq(),
-      false,
-      None,
-      false
+      separator = false,
+      None
     )
 
     for {
@@ -511,9 +488,13 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
           None,
           None,
           None,
+          None,
+          None,
+          None,
+          None,
           None
         )
-      res <- messagingClient.columnChanged(table.id, updatedColumn.id)
+      _ <- messagingClient.columnChanged(table.id, updatedColumn.id)
     } yield {
       val expected =
         createExpectedJson(listenerName, event, updatedColumn.getJson, Some(table.id), Some(updatedColumn.id))
@@ -527,11 +508,10 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       None,
       TextType,
       LanguageNeutral,
-      true,
+      identifier = true,
       Seq(),
-      false,
-      None,
-      false
+      separator = false,
+      None
     )
     for {
       table <- structureModel.tableStruc.create(
@@ -556,9 +536,9 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
 
     for {
       _ <- createListener(listenerName, listenerConfig)
-      (table, column) <- createDefaultTableWithColumn()
-      createdRow <- tableauxModel.createRow(table)
-      res <- messagingClient.rowCreated(table.id, createdRow.id)
+      (table, _) <- createDefaultTableWithColumn()
+      createdRow <- tableauxModel.createRow(table, None)
+      _ <- messagingClient.rowCreated(table.id, createdRow.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, createdRow.getJson, Some(table.id))
       assertJSONEquals(expected, answers.head)
@@ -573,9 +553,9 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
 
     for {
       _ <- createListener(listenerName, listenerConfig)
-      (table, column) <- createDefaultTableWithColumn()
-      createdRow <- tableauxModel.createRow(table)
-      deletedRow <- tableauxModel.deleteRow(table, createdRow.id)
+      (table, _) <- createDefaultTableWithColumn()
+      createdRow <- tableauxModel.createRow(table, None)
+      _ <- tableauxModel.deleteRow(table, createdRow.id)
       _ <- messagingClient.rowDeleted(table.id, createdRow.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, Json.obj(), Some(table.id), None, Some(createdRow.id))
@@ -591,9 +571,9 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
 
     for {
       _ <- createListener(listenerName, listenerConfig)
-      (table, column) <- createDefaultTableWithColumn()
-      createdRow <- tableauxModel.createRow(table)
-      updatedRowWithAnnotation <- tableauxModel.updateRowAnnotations(table, createdRow.id, Some(true))
+      (table, _) <- createDefaultTableWithColumn()
+      createdRow <- tableauxModel.createRow(table, None)
+      updatedRowWithAnnotation <- tableauxModel.updateRowAnnotations(table, createdRow.id, Some(true), None)
       _ <- messagingClient.rowAnnotationChanged(table.id, createdRow.id)
     } yield {
       val expected = createExpectedJson(
@@ -617,7 +597,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     for {
       _ <- createListener(listenerName, listenerConfig)
       (table, column) <- createDefaultTableWithColumn()
-      createdRow <- tableauxModel.createRow(table)
+      createdRow <- tableauxModel.createRow(table, None)
       updatedCell <- tableauxModel.updateCellValue(table, column.id, createdRow.id, "new_test_value")
       _ <- messagingClient.cellChanged(table.id, column.id, createdRow.id)
     } yield {
@@ -646,8 +626,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       1,
       None,
       None,
-      true,
-      true,
+      singleDirection = true,
+      identifier = true,
       Seq(),
       DefaultConstraint,
       None
@@ -656,7 +636,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     for {
       _ <- createListener(listenerName, listenerConfig)
       (table, column) <- createDefaultTableWithColumn()
-      createdRowTable1 <- tableauxModel.createRow(table)
+      createdRowTable1 <- tableauxModel.createRow(table, None)
       table2 <- structureModel.tableStruc.create(
         "test_table_2",
         hidden = false,
@@ -667,24 +647,23 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         attributes = None
       )
       linkColumn <- structureModel.columnStruc.createColumn(table2, linkColumnToCreate)
-      createdRowTable2 <- tableauxModel.createRow(table2)
+      createdRowTable2 <- tableauxModel.createRow(table2, None)
       updatedCell <- tableauxModel.updateCellValue(table, column.id, createdRowTable1.id, "new_test_value")
-      updatedLinkCell <- tableauxModel.updateCellValue(
+      _ <- tableauxModel.updateCellValue(
         table2,
         linkColumn.id,
         createdRowTable2.id,
         Seq(createdRowTable1.id)
       )
       dependentCells <- tableauxModel.retrieveDependentCells(table, createdRowTable1.id)
-      dependentCellValues <- Future.sequence(dependentCells.map({
-        case (table, linkColumn, rowIds) => {
-          rowIds.map(rowId =>
-            tableauxModel.retrieveCell(table, linkColumn.id, rowId, false).map(data =>
+      dependentCellValues <- Future.sequence(dependentCells.flatMap {
+        case (table, linkColumn, rowIds) =>
+          rowIds.map(rowId => {
+            tableauxModel.retrieveCell(table, linkColumn.id, rowId).map(data => {
               Json.obj("table" -> table.id, "column" -> linkColumn.id, "row" -> rowId).mergeIn(data.getJson)
-            )
-          )
-        }
-      }).flatten)
+            })
+          })
+      })
       _ <- messagingClient.cellChanged(table.id, column.id, createdRowTable1.id)
     } yield {
       val payloadJson = Json.obj("cell" -> updatedCell.getJson, "dependentCells" -> dependentCellValues)
@@ -710,7 +689,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     for {
       _ <- createListener(listenerName, listenerConfig)
       (table, column) <- createDefaultTableWithColumn()
-      createdRow <- tableauxModel.createRow(table)
+      createdRow <- tableauxModel.createRow(table, None)
       addedCellAnnotation <-
         tableauxModel.addCellAnnotation(column, createdRow.id, Seq(), FlagAnnotationType, "important")
       _ <- messagingClient.cellAnnotationChanged(table.id, column.id, createdRow.id)
@@ -773,11 +752,11 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       None,
       TextType,
       LanguageNeutral,
-      false,
+      identifier = false,
       Seq(),
-      false,
+      separator = false,
       None,
-      false
+      hidden = false
     )
 
     val identifierColumnToCreate = CreateSimpleColumn(
@@ -785,17 +764,17 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       None,
       TextType,
       LanguageNeutral,
-      true,
+      identifier = true,
       Seq(),
-      false,
+      separator = false,
       None,
-      false
+      hidden = false
     )
 
     for {
-      listener <- createListener(listenerName, listenerConfig, scope)
+      _ <- createListener(listenerName, listenerConfig, scope)
       // listener should not be selected
-      (table, column) <- createDefaultTableWithColumn()
+      _ <- createDefaultTableWithColumn()
 
       settingsTableNonHidden <- structureModel.tableStruc.create(
         "test_table_1_settings",
