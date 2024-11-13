@@ -879,7 +879,7 @@ class LinkCardinalityTest extends LinkTestBase with Helper {
     okTest {
       for {
         tableId1 <- createEmptyDefaultTable(name = "table1")
-        tableId2 <- createEmptyDefaultTable(name = "table2", tableNum = 2)
+        tableId2 <- createEmptyDefaultTable(name = "table2")
 
         linkColumnId1 <- createCardinalityLinkColumn(tableId1, tableId2, "cardinality", 2, 3)
 

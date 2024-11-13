@@ -402,9 +402,9 @@ class LinkColumnTest extends LinkTestBase {
     okTest {
       for {
         table1 <-
-          createEmptyDefaultTable(name = "Test Table 1", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 1")), None)
+          createEmptyDefaultTable(name = "Test Table 1", Some(Json.obj("de" -> "Test Deutsch 1")), None)
         table2 <-
-          createEmptyDefaultTable(name = "Test Table 2", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 2")), None)
+          createEmptyDefaultTable(name = "Test Table 2", Some(Json.obj("de" -> "Test Deutsch 2")), None)
 
         linkColumn = Json.obj("kind" -> "link", "name" -> "link", "toTable" -> table2)
         columns = Json.obj("columns" -> Json.arr(linkColumn))
@@ -427,9 +427,9 @@ class LinkColumnTest extends LinkTestBase {
     okTest {
       for {
         table1 <-
-          createEmptyDefaultTable(name = "Test Table 1", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 1")), None)
+          createEmptyDefaultTable(name = "Test Table 1", Some(Json.obj("de" -> "Test Deutsch 1")), None)
         table2 <-
-          createEmptyDefaultTable(name = "Test Table 2", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 2")), None)
+          createEmptyDefaultTable(name = "Test Table 2", Some(Json.obj("de" -> "Test Deutsch 2")), None)
 
         linkColumn = Json.obj(
           "kind" -> "link",
@@ -461,9 +461,9 @@ class LinkColumnTest extends LinkTestBase {
     okTest {
       for {
         table1 <-
-          createEmptyDefaultTable(name = "Test Table 1", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 1")), None)
+          createEmptyDefaultTable(name = "Test Table 1", Some(Json.obj("de" -> "Test Deutsch 1")), None)
         table2 <-
-          createEmptyDefaultTable(name = "Test Table 2", tableNum = 1, Some(Json.obj("de" -> "Test Deutsch 2")), None)
+          createEmptyDefaultTable(name = "Test Table 2", Some(Json.obj("de" -> "Test Deutsch 2")), None)
 
         linkColumn = Json.obj(
           "kind" -> "link",
@@ -1207,17 +1207,17 @@ class LinkTest extends LinkTestBase {
   @Test
   def retrieveDependentRowsSingleDirection(implicit c: TestContext): Unit = okTest {
     for {
-      table1 <- createEmptyDefaultTable("Table 1", 1)
+      table1 <- createEmptyDefaultTable("Table 1")
       row11 <- addRow(table1, postDefaultTableRow("Row 1 in Table 1", 1))
       row12 <- addRow(table1, postDefaultTableRow("Row 2 in Table 1", 2))
       row13 <- addRow(table1, postDefaultTableRow("Row 3 in Table 1", 3))
 
-      table2 <- createEmptyDefaultTable("Table 2", 2)
+      table2 <- createEmptyDefaultTable("Table 2")
       row21 <- addRow(table2, postDefaultTableRow("Row 1 in Table 2", 1))
       row22 <- addRow(table2, postDefaultTableRow("Row 2 in Table 2", 2))
       row23 <- addRow(table2, postDefaultTableRow("Row 3 in Table 2", 3))
 
-      table3 <- createEmptyDefaultTable("Table 3", 3)
+      table3 <- createEmptyDefaultTable("Table 3")
       row31 <- addRow(table3, postDefaultTableRow("Row 1 in Table 3", 1))
       row32 <- addRow(table3, postDefaultTableRow("Row 2 in Table 3", 2))
       row33 <- addRow(table3, postDefaultTableRow("Row 3 in Table 3", 3))
@@ -1297,17 +1297,17 @@ class LinkTest extends LinkTestBase {
   @Test
   def retrieveDependentRowsBothDirection(implicit c: TestContext): Unit = okTest {
     for {
-      table1 <- createEmptyDefaultTable("Table 1", 1)
+      table1 <- createEmptyDefaultTable("Table 1")
       row11 <- addRow(table1, postDefaultTableRow("Row 1 in Table 1", 1))
       row12 <- addRow(table1, postDefaultTableRow("Row 2 in Table 1", 2))
       row13 <- addRow(table1, postDefaultTableRow("Row 3 in Table 1", 3))
 
-      table2 <- createEmptyDefaultTable("Table 2", 2)
+      table2 <- createEmptyDefaultTable("Table 2")
       row21 <- addRow(table2, postDefaultTableRow("Row 1 in Table 2", 1))
       row22 <- addRow(table2, postDefaultTableRow("Row 2 in Table 2", 2))
       row23 <- addRow(table2, postDefaultTableRow("Row 3 in Table 2", 3))
 
-      table3 <- createEmptyDefaultTable("Table 3", 3)
+      table3 <- createEmptyDefaultTable("Table 3")
       row31 <- addRow(table3, postDefaultTableRow("Row 1 in Table 3", 1))
       row32 <- addRow(table3, postDefaultTableRow("Row 2 in Table 3", 2))
       row33 <- addRow(table3, postDefaultTableRow("Row 3 in Table 3", 3))
@@ -1419,12 +1419,12 @@ class LinkTest extends LinkTestBase {
   @Test
   def retrieveDependentRowsWithTwoLinkColumns(implicit c: TestContext): Unit = okTest {
     for {
-      table1 <- createEmptyDefaultTable("Table 1", 1)
+      table1 <- createEmptyDefaultTable("Table 1")
       row11 <- addRow(table1, postDefaultTableRow("Row 1 in Table 1", 1))
       row12 <- addRow(table1, postDefaultTableRow("Row 2 in Table 1", 2))
       row13 <- addRow(table1, postDefaultTableRow("Row 3 in Table 1", 3))
 
-      table2 <- createEmptyDefaultTable("Table 2", 2)
+      table2 <- createEmptyDefaultTable("Table 2")
       row21 <- addRow(table2, postDefaultTableRow("Row 1 in Table 2", 1))
       row22 <- addRow(table2, postDefaultTableRow("Row 2 in Table 2", 2))
       row23 <- addRow(table2, postDefaultTableRow("Row 3 in Table 2", 3))
@@ -1474,7 +1474,7 @@ class LinkTest extends LinkTestBase {
   @Test
   def retrieveDependentRowsSelfLink(implicit c: TestContext): Unit = okTest {
     for {
-      table1 <- createEmptyDefaultTable("Table 1", 1)
+      table1 <- createEmptyDefaultTable("Table 1")
       row11 <- addRow(table1, postDefaultTableRow("Row 1 in Table 1", 1))
       row12 <- addRow(table1, postDefaultTableRow("Row 2 in Table 1", 2))
       row13 <- addRow(table1, postDefaultTableRow("Row 3 in Table 1", 3))
@@ -1541,7 +1541,7 @@ class LinkTest extends LinkTestBase {
   @Test
   def retrieveDependentRowsOfRowWithoutDependencies(implicit c: TestContext): Unit = okTest {
     for {
-      table1 <- createEmptyDefaultTable("Table 1", 1)
+      table1 <- createEmptyDefaultTable("Table 1")
       row11 <- addRow(table1)
       row12 <- addRow(table1)
       row13 <- addRow(table1)
@@ -1559,7 +1559,7 @@ class LinkTest extends LinkTestBase {
   @Test
   def retrieveDependentRowsOfTableWithoutLinks(implicit c: TestContext): Unit = okTest {
     for {
-      table1 <- createEmptyDefaultTable("Table 1", 1)
+      table1 <- createEmptyDefaultTable("Table 1")
       row11 <- addRow(table1)
       row12 <- addRow(table1)
       row13 <- addRow(table1)
