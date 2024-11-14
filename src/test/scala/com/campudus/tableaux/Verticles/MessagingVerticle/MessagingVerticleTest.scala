@@ -243,7 +243,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         Some(config),
         Some(scope)
       ).map(obj => obj.asInstanceOf[Service])
-      _ <- messagingClient.servicesChange()
+      _ <- messagingClient.servicesChanged()
     } yield service
   }
 
@@ -280,7 +280,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def createTableTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "table_creation_listener"
-    val event = MessagingVerticle.EVENT_TYPE_TABLE_CREATE
+    val event = MessagingVerticle.EVENT_TYPE_TABLE_CREATED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -307,7 +307,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def deleteTableTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "table_deletion_listener"
-    val event = MessagingVerticle.EVENT_TYPE_TABLE_DELETE
+    val event = MessagingVerticle.EVENT_TYPE_TABLE_DELETED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -332,7 +332,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def changeTableTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "table_change_listener"
-    val event = MessagingVerticle.EVENT_TYPE_TABLE_CHANGE
+    val event = MessagingVerticle.EVENT_TYPE_TABLE_CHANGED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -366,7 +366,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def createColumnTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "column_creation_listener"
-    val event = MessagingVerticle.EVENT_TYPE_COLUMN_CREATE
+    val event = MessagingVerticle.EVENT_TYPE_COLUMN_CREATED
     val listenerConfig = createListenerConfig(Seq(event))
     val columnToCreate = CreateSimpleColumn(
       "test_column_1",
@@ -402,7 +402,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def deleteColumnTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "column_deletion_listener"
-    val event = MessagingVerticle.EVENT_TYPE_COLUMN_DELETE
+    val event = MessagingVerticle.EVENT_TYPE_COLUMN_DELETED
     val listenerConfig = createListenerConfig(Seq(event))
     val columnToCreate = CreateSimpleColumn(
       "test_column_1",
@@ -450,7 +450,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def changeColumnTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "column_change_listener"
-    val event = MessagingVerticle.EVENT_TYPE_COLUMN_CHANGE
+    val event = MessagingVerticle.EVENT_TYPE_COLUMN_CHANGED
     val listenerConfig = createListenerConfig(Seq(event))
     val columnToCreate = CreateSimpleColumn(
       "test_column_1",
@@ -548,7 +548,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def deleteRowTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "row_deletion_listener"
-    val event = MessagingVerticle.EVENT_TYPE_ROW_DELETE
+    val event = MessagingVerticle.EVENT_TYPE_ROW_DELETED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -726,7 +726,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     // val event = MessagingVerticle.EVENT_TYPE_CELL_ANNOTATION_CHANGED
     // val listenerConfig = createListenerConfig(Seq(event))
     val events = Seq(
-      MessagingVerticle.EVENT_TYPE_COLUMN_CREATE
+      MessagingVerticle.EVENT_TYPE_COLUMN_CREATED
     )
     val excludedTableName = "exclude_this_table_settings"
     val scope = createScope(

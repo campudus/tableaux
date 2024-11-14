@@ -276,7 +276,7 @@ class TableauxController(
           for {
             createdRows <- repository.createRows(table, seq, rowPermissionsOpt)
           } yield {
-            createdRows.rows.foreach(singleCreatedRow => messagingClient.rowCreated(tableId, singleCreatedRow.id))
+            createdRows.rows.foreach(row => messagingClient.rowCreated(tableId, row.id))
             createdRows
           }
         case None =>

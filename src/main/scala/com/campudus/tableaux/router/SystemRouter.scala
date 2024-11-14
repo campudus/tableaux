@@ -277,7 +277,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
           service <-
             controller.createService(name, serviceType, ordering, displayName, description, active, config, scope)
         } yield {
-          messagingClient.servicesChange()
+          messagingClient.servicesChanged()
           service
         }
       }
@@ -292,7 +292,6 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     for {
       serviceId <- getServiceId(context)
     } yield {
-      messagingClient.servicesChange()
       sendReply(
         context,
         asyncGetReply {
@@ -308,8 +307,13 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
           val config = getNullableObject("config")(json)
           val scope = getNullableObject("scope")(json)
 
-          controller
-            .updateService(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
+          for {
+            service <- controller
+              .updateService(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
+          } yield {
+            messagingClient.servicesChanged()
+            service
+          }
         }
       )
     }
@@ -323,11 +327,15 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     for {
       serviceId <- getServiceId(context)
     } yield {
-      messagingClient.servicesChange()
       sendReply(
         context,
         asyncGetReply {
-          controller.deleteService(serviceId)
+          for {
+            service <- controller.deleteService(serviceId)
+          } yield {
+            messagingClient.servicesChanged()
+            service
+          }
         }
       )
     }
