@@ -11,6 +11,7 @@ import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import io.vertx.core.json.JsonObject
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
+import io.vertx.scala.core.MultiMap
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.core.eventbus.Message
 import io.vertx.scala.ext.web.client.WebClient
@@ -86,15 +87,22 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle
 
   private lazy val webClient: WebClient = WebClient.create(vertx)
 
-  private def getServiceConfigValues(service: Service): (Int, String, String, JsonObject) = {
+  private def getServiceConfigValues(service: Service): (String, Integer, String, String, MultiMap) = {
     val config = service.config
 
     val port = config.getInteger("port")
     val host = config.getString("host")
     val route = config.getString("route")
-    val headers = config.getJsonObject("headers", Json.obj())
 
-    (port, host, route, headers)
+    val url = config.getString("url")
+    val jsonHeaders = config.getJsonObject("headers", Json.emptyObj())
+    val headers = jsonHeaders.fieldNames().asScala
+      .foldLeft(MultiMap.caseInsensitiveMultiMap()) { (acc, key) =>
+        acc.add(key, jsonHeaders.getString(key))
+        acc
+      }
+
+    (host, port, route, url, headers)
   }
 
   private def retrieveListeners(): Future[Map[String, Seq[Service]]] = {
@@ -285,10 +293,19 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle
   ): Future[Seq[Any]] = {
     Future.sequence(listeners.map(listener => {
       val name = listener.name
-      val (port, host, route, _) = getServiceConfigValues(listener)
+      val (host, port, route, url, headers) = getServiceConfigValues(listener)
+      val baseErrorMsg = s"Send message failed Service Name: $name,"
 
-      webClient.post(port, host, route).sendJsonObjectFuture(payLoad).recover { case err: Throwable =>
-        logger.error(s"Service Name: $name, Reason: ${err.getMessage}")
+      url.isEmpty match {
+        case false =>
+          webClient.postAbs(url).putHeaders(headers).sendJsonObjectFuture(payLoad).recover { case err: Throwable =>
+            logger.error(s"$baseErrorMsg Absolut URL: $url, Reason: ${err.getMessage}")
+          }
+        case true =>
+          webClient.post(port, host, route).putHeaders(headers).sendJsonObjectFuture(payLoad).recover {
+            case err: Throwable =>
+              logger.error(s"$baseErrorMsg Relative URL: $host:$port$route, Reason: ${err.getMessage}")
+          }
       }
     }))
   }
