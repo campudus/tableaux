@@ -1,4 +1,4 @@
-package com.campudus.tableaux.Verticles.MessagingVerticle
+package com.campudus.tableaux.verticles.MessagingVerticle
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheVerticle
@@ -10,8 +10,6 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, Tabl
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
-import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticle
-import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
