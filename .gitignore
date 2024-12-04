@@ -63,3 +63,6 @@ project/plugins/project/
 local_logging.properties
 
 *.local*
+
+# VSCode specific
+.vscode/

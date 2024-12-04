@@ -6,10 +6,10 @@ import com.campudus.tableaux.database.domain.DomainObject
 import com.campudus.tableaux.database.model.SystemModel
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
-import com.campudus.tableaux.router.auth.KeycloakAuthHandler
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.RequestCreation.ColumnType
 
+import io.vertx.core.Handler
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpMethod
 import io.vertx.ext.unit.TestContext
@@ -21,11 +21,9 @@ import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import io.vertx.scala.core.file.{AsyncFile, OpenOptions}
 import io.vertx.scala.core.http._
 import io.vertx.scala.core.streams.Pump
-import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.{JsonObject, _}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.HashMap
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -109,16 +107,7 @@ trait TableauxTestBase
     val completionHandler = {
       case Success(id) =>
         logger.info(s"Verticle deployed with ID $id")
-
-        val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-        val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-        val system = SystemModel(dbConnection)
-
-        for {
-          _ <- system.uninstall()
-          _ <- system.installShortCutFunction()
-          _ <- system.install()
-        } yield async.complete()
+        async.complete()
 
       case Failure(e) =>
         logger.error("Verticle couldn't be deployed.", e)
@@ -126,9 +115,17 @@ trait TableauxTestBase
         async.complete()
     }: Try[String] => Unit
 
-    vertx
-      .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
-      .onComplete(completionHandler)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val system = SystemModel(dbConnection)
+    for {
+      _ <- system.uninstall()
+      _ <- system.installShortCutFunction()
+      _ <- system.install()
+    } yield {
+      vertx
+        .deployVerticleFuture(ScalaVerticle.nameForVerticle[Starter], options)
+    }.onComplete(completionHandler)
 
     val tokenHelper = TokenHelper(this.vertxAccess())
 
@@ -153,7 +150,10 @@ trait TableauxTestBase
   def initRoleModel(roleConfig: String): RoleModel = {
     val roleModel: RoleModel = RoleModel(Json.fromObjectString(roleConfig.stripMargin))
 
-    setRequestRoles(roleModel.role2permissions.keySet.toSeq)
+    val roles = collection.immutable.Seq(roleModel.role2permissions.keySet.toSeq: _*)
+
+    setRequestRoles(roles)
+
     roleModel
   }
 
@@ -165,15 +165,15 @@ trait TableauxTestBase
   /**
     * Helper method to set up Tests without running into permission problem (UnauthorizedException)
     *
-    * 1. Sets a userRole for requestContext 
-    * 2. Invokes a function block with this userRole 
+    * 1. Sets a userRole for requestContext
+    * 2. Invokes a function block with this userRole
     * 3. Resets the original userRoles defined by the test
     *
     * For this purpose there is a dummy test role "dev" in `role-permissions-test.json`.
     */
   protected def asDevUser[A](function: => Future[A]): Future[A] = {
     // format: on
-    val userRolesFromTest: Seq[String] = user.roles
+    val userRolesFromTest: Seq[String] = collection.immutable.Seq(user.roles: _*)
 
     setRequestRoles(Seq("dev"))
 
@@ -271,23 +271,25 @@ trait TableauxTestBase
       p: Promise[A],
       function: String => A
   ): (HttpClient, HttpClientResponse) => Unit = { (client: HttpClient, resp: HttpClientResponse) =>
-    def bodyHandler(buf: Buffer): Unit = {
-      val body = buf.toString()
+    def bodyHandler = new Handler[Buffer] {
+      override def handle(buf: Buffer): Unit = {
+        val body = buf.toString()
 
-      client.close()
+        client.close()
 
-      if (resp.statusCode() != 200) {
-        p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
-      } else {
-        try {
-          p.success(function(body))
-        } catch {
-          case ex: Exception => p.failure(ex)
+        if (resp.statusCode() != 200) {
+          p.failure(TestCustomException(body, resp.statusMessage(), resp.statusCode()))
+        } else {
+          try {
+            p.success(function(body))
+          } catch {
+            case ex: Exception => p.failure(ex)
+          }
         }
       }
     }
 
-    resp.bodyHandler(bodyHandler(_: Buffer))
+    resp.bodyHandler(bodyHandler)
   }
 
   private def createExceptionHandler[A](p: Promise[A]): (HttpClient, Throwable) => Unit = {
@@ -339,8 +341,12 @@ trait TableauxTestBase
     client
       .request(_method, port, host, path)
       .putHeader("Authorization", s"Bearer $token")
-      .handler(responseHandler(client, _: HttpClientResponse))
-      .exceptionHandler(exceptionHandler(client, _: Throwable))
+      .handler(new Handler[HttpClientResponse] {
+        override def handle(resp: HttpClientResponse): Unit = responseHandler(client, resp)
+      })
+      .exceptionHandler(new Handler[Throwable] {
+        override def handle(x: Throwable): Unit = exceptionHandler(client, x)
+      })
   }
 
   protected def uploadFile(method: String, url: String, file: String, mimeType: String): Future[JsonObject] = {
@@ -370,23 +376,27 @@ trait TableauxTestBase
         asyncFile.map({ file =>
           val pump = Pump.pump(file, req)
 
-          file.exceptionHandler({ e: Throwable =>
-            pump.stop()
-            req.end("")
-            p.failure(e)
+          file.exceptionHandler(new Handler[Throwable] {
+            override def handle(e: Throwable): Unit = {
+              pump.stop()
+              req.end("")
+              p.failure(e)
+            }
           })
 
-          file.endHandler({ _ =>
-            file
-              .closeFuture()
-              .onComplete({
-                case Success(_) =>
-                  logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
-                  req.end(footer)
-                case Failure(e) =>
-                  req.end("")
-                  p.failure(e)
-              })
+          file.endHandler(new Handler[Unit] {
+            override def handle(event: Unit): Unit = {
+              file
+                .closeFuture()
+                .onComplete({
+                  case Success(_) =>
+                    logger.info(s"File loaded, ending request, ${pump.numberPumped()} bytes pumped.")
+                    req.end(footer)
+                  case Failure(e) =>
+                    req.end("")
+                    p.failure(e)
+                })
+            }
           })
 
           pump.start()
@@ -424,12 +434,11 @@ trait TableauxTestBase
       Json.obj("columns" -> Json.arr(Json.obj("kind" -> "boolean", "name" -> "Test Column 4")))
 
     for {
-      column1 <- sendRequest("POST", s"/tables/$tableId/columns", createShortTextColumnJson)
-      column2 <- sendRequest("POST", s"/tables/$tableId/columns", createRichTextColumnJson)
-      column3 <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
-      column4 <- sendRequest("POST", s"/tables/$tableId/columns", createBooleanColumnJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createShortTextColumnJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createRichTextColumnJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createNumberColumnJson)
+      _ <- sendRequest("POST", s"/tables/$tableId/columns", createBooleanColumnJson)
     } yield ()
-
   }
 
   protected def createFullStatusTestTable(): Future[TableId] = {
@@ -455,7 +464,6 @@ trait TableauxTestBase
 
   protected def createEmptyDefaultTable(
       name: String = "Test Table 1",
-      tableNum: Int = 1,
       displayName: Option[JsonObject] = None,
       description: Option[JsonObject] = None
   ): Future[TableId] = {
@@ -499,7 +507,7 @@ trait TableauxTestBase
     val fillNumberCellJson2 = Json.obj("value" -> 2)
 
     for {
-      tableId <- createEmptyDefaultTable(name, tableNum, displayName, description)
+      tableId <- createEmptyDefaultTable(name, displayName, description)
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequest("POST", s"/tables/$tableId/rows")
       _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", fillStringCellJson)
@@ -563,7 +571,7 @@ trait TableauxTestBase
       rows <- sendRequest("POST", s"/tables/$tableId/rows", valuesRow(columnIds))
       _ = logger.info(s"Row is $rows")
       rowIds = rows.getJsonArray("rows").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
-    } yield (tableId, columnIds, rowIds)
+    } yield (tableId, columnIds, collection.immutable.Seq(rowIds: _*))
   }
 
   protected def createSimpleTableWithMultilanguageColumn(
@@ -606,7 +614,7 @@ trait TableauxTestBase
       columns <- sendRequest("POST", s"/tables/$tableId/columns", createMultilanguageColumn)
       columnIds = columns.getJsonArray("columns").asScala.map(_.asInstanceOf[JsonObject].getLong("id").toLong).toSeq
     } yield {
-      (tableId.toLong, columnIds)
+      (tableId.toLong, collection.immutable.Seq(columnIds: _*))
     }
   }
 

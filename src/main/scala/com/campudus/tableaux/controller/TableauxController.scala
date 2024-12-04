@@ -11,10 +11,9 @@ import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
 
-import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.Json
-import org.vertx.scala.core.json.JsonArray
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -33,6 +32,8 @@ class TableauxController(
     override protected val repository: TableauxModel,
     implicit protected val roleModel: RoleModel
 ) extends Controller[TableauxModel] {
+
+  val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def addCellAnnotation(
       tableId: TableId,
@@ -56,7 +57,10 @@ class TableauxController(
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
-    } yield cellAnnotation
+    } yield {
+      messagingClient.cellAnnotationChanged(tableId, columnId, rowId)
+      cellAnnotation
+    }
   }
 
   def deleteCellAnnotation(tableId: TableId, columnId: ColumnId, rowId: RowId, uuid: UUID)(
@@ -70,7 +74,10 @@ class TableauxController(
       column <- repository.retrieveColumn(table, columnId)
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
       _ <- repository.deleteCellAnnotation(column, rowId, uuid)
-    } yield EmptyObject()
+    } yield {
+      messagingClient.cellAnnotationChanged(tableId, columnId, rowId)
+      EmptyObject()
+    }
   }
 
   def deleteCellAnnotation(
@@ -266,10 +273,20 @@ class TableauxController(
         case Some(seq) =>
           checkArguments(nonEmpty(seq, "rows"))
           logger.info(s"createRows ${table.id} $values")
-          repository.createRows(table, seq, rowPermissionsOpt)
+          for {
+            createdRows <- repository.createRows(table, seq, rowPermissionsOpt)
+          } yield {
+            createdRows.rows.foreach(row => messagingClient.rowCreated(tableId, row.id))
+            createdRows
+          }
         case None =>
           logger.info(s"createRow ${table.id}")
-          repository.createRow(table, rowPermissionsOpt)
+          for {
+            createdRow <- repository.createRow(table, rowPermissionsOpt)
+          } yield {
+            messagingClient.rowCreated(tableId, createdRow.id)
+            createdRow
+          }
       }
     } yield row
   }
@@ -295,7 +312,10 @@ class TableauxController(
       _ <- roleModel.checkAuthorization(EditRowAnnotation, ComparisonObjects(table))
       _ = checkForTaxonomyTable(table, archivedFlagOpt)
       updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlagOpt, archivedFlagOpt)
-    } yield updatedRow
+    } yield {
+      messagingClient.rowAnnotationChanged(tableId, rowId)
+      updatedRow
+    }
   }
 
   def updateRowsAnnotations(tableId: TableId, finalFlagOpt: Option[Boolean], archivedFlagOpt: Option[Boolean])(
@@ -462,7 +482,10 @@ class TableauxController(
       table <- repository.retrieveTable(tableId)
       _ <- roleModel.checkAuthorization(DeleteRow, ComparisonObjects(table))
       _ <- repository.deleteRow(table, rowId, replacingRowIdOpt)
-    } yield EmptyObject()
+    } yield {
+      messagingClient.rowDeleted(tableId, rowId)
+      EmptyObject()
+    }
   }
 
   def deleteLink(tableId: TableId, columnId: ColumnId, rowId: RowId, toId: RowId)(
@@ -512,6 +535,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       updated <- repository.updateCellValue(table, columnId, rowId, value, forceHistory)
+      _ <- messagingClient.cellChanged(tableId, columnId, rowId)
     } yield updated
   }
 
