@@ -87,22 +87,28 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle
 
   private lazy val webClient: WebClient = WebClient.create(vertx)
 
-  private def getServiceConfigValues(service: Service): (String, Integer, String, String, MultiMap) = {
+  private def getServiceConfigValues(service: Service)
+      : ((Option[(String, Integer, String)]), Option[String], MultiMap) = {
     val config = service.config
 
-    val port = config.getInteger("port")
-    val host = config.getString("host")
-    val route = config.getString("route")
+    val port = Option(config.getInteger("port"))
+    val host = Option(config.getString("host"))
+    val route = Option(config.getString("route"))
 
-    val url = config.getString("url")
+    val relativeUrl = (host, port, route) match {
+      case (Some(h), Some(p), Some(r)) => Option(h, p, r)
+      case _ => None
+    }
+
+    val absolutUrl = Option(config.getString("url"))
     val jsonHeaders = config.getJsonObject("headers", Json.emptyObj())
-    val headers = jsonHeaders.fieldNames().asScala
+    val headers = Try(jsonHeaders.fieldNames().asScala
       .foldLeft(MultiMap.caseInsensitiveMultiMap()) { (acc, key) =>
-        acc.add(key, jsonHeaders.getString(key))
+        acc.add(key, jsonHeaders.getValue(key).toString())
         acc
-      }
+      }).getOrElse(MultiMap.caseInsensitiveMultiMap())
 
-    (host, port, route, url, headers)
+    (relativeUrl, absolutUrl, headers)
   }
 
   private def retrieveListeners(): Future[Map[String, Seq[Service]]] = {
@@ -110,8 +116,17 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle
       services <- serviceModel.retrieveAll()
     } yield {
       val listeners = services.filter(service => {
-        val hasRequiredConfigValues = Try(getServiceConfigValues(service)).isSuccess
+        val hasRequiredConfigValues = getServiceConfigValues(service) match {
+          case (_, Some(_), _) => true
+          case (Some((_, _, _)), _, _) => true
+          case _ => false
+        }
 
+        if (!hasRequiredConfigValues) {
+          logger.warn(
+            s"Service ${service.name} has invalid configuration values, either url or host, port and route must be set"
+          )
+        }
         service.serviceType.toString == ServiceType.LISTENER && hasRequiredConfigValues
       })
 
@@ -293,18 +308,25 @@ class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle
   ): Future[Seq[Any]] = {
     Future.sequence(listeners.map(listener => {
       val name = listener.name
-      val (host, port, route, url, headers) = getServiceConfigValues(listener)
-      val baseErrorMsg = s"Send message failed Service Name: $name,"
+      val (relativeUrl, absoluteUrl, headers) = getServiceConfigValues(listener)
+      val baseErrorMsg = s"Send message failed, Service: $name,"
 
-      url.isEmpty match {
-        case false =>
+      absoluteUrl match {
+        case Some(url) =>
+          logger.info(s"Sending message, Service: $name, Absolut URL: $url")
           webClient.postAbs(url).putHeaders(headers).sendJsonObjectFuture(payLoad).recover { case err: Throwable =>
             logger.error(s"$baseErrorMsg Absolut URL: $url, Reason: ${err.getMessage}")
           }
-        case true =>
-          webClient.post(port, host, route).putHeaders(headers).sendJsonObjectFuture(payLoad).recover {
-            case err: Throwable =>
-              logger.error(s"$baseErrorMsg Relative URL: $host:$port$route, Reason: ${err.getMessage}")
+        case None =>
+          relativeUrl match {
+            case Some((host, port, route)) =>
+              logger.info(s"Sending message, Service: $name, Relative URL: $host:$port$route")
+              webClient.post(port, host, route).putHeaders(headers).sendJsonObjectFuture(payLoad).recover {
+                case err: Throwable =>
+                  logger.error(s"$baseErrorMsg Relative URL: $host:$port$route, Reason: ${err.getMessage}")
+              }
+            case None =>
+              Future.failed(new Exception(s"$baseErrorMsg neither absolute nor relative URL is set"))
           }
       }
     }))
