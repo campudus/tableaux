@@ -200,7 +200,6 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       columnExcludes: Seq[JsonObject] = Seq()
   ): JsonObject = {
     Json.obj(
-      "scope" -> "global",
       "tables" -> Json.obj(
         "includes" -> tableIncludes,
         "excludes" -> tableExcludes
