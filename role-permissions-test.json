@@ -299,6 +299,15 @@
         "editServiceStructureProperty",
         "editServiceDisplayProperty"
       ]
+    },
+    {
+      "type": "grant",
+      "action": [
+        "createCellAnnotationConfig",
+        "viewCellAnnotationConfig",
+        "deleteCellAnnotationConfig",
+        "editCellAnnotationConfig"
+      ]
     }
   ]
 }

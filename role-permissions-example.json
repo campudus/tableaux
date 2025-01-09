@@ -273,7 +273,11 @@
         "editServiceDisplayProperty",
         "createMedia",
         "editMedia",
-        "deleteMedia"
+        "deleteMedia",
+        "createCellAnnotationConfig",
+        "viewCellAnnotationConfig",
+        "deleteCellAnnotationConfig",
+        "editCellAnnotationConfig"
       ]
     }
   ]

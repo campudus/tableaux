@@ -39,6 +39,10 @@ object Action {
       case EditServiceDisplayProperty.name => EditServiceDisplayProperty
       case EditServiceStructureProperty.name => EditServiceStructureProperty
       case EditSystem.name => EditSystem
+      case CreateCellAnnotationConfig.name => CreateCellAnnotationConfig
+      case DeleteCellAnnotationConfig.name => DeleteCellAnnotationConfig
+      case ViewCellAnnotationConfig.name => ViewCellAnnotationConfig
+      case EditCellAnnotationConfig.name => EditCellAnnotationConfig
       case _ => throw new IllegalArgumentException(s"Invalid argument for Action $action")
     }
   }
