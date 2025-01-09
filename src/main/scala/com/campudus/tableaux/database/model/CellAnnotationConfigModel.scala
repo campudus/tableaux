@@ -113,8 +113,8 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
       fgColor: String,
       bgColor: String,
       displayName: MultiLanguageValue[String],
-      isMultilang: Boolean,
-      isDashboard: Boolean
+      isMultilang: Option[Boolean],
+      isDashboard: Option[Boolean]
   )(implicit user: TableauxUser): Future[String] = {
 
     val insert = s"""INSERT INTO $table (
@@ -129,17 +129,19 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
                     |  (?, ?, ?, ?, ?, ?, ?) RETURNING name""".stripMargin
 
     for {
+      _ <- checkUniqueName(name)
+      newPriority <- getNewPriority()
       result <- connection.query(
         insert,
         Json
           .arr(
             name,
-            priority.orNull,
+            priority.getOrElse(newPriority),
             fgColor,
             bgColor,
             displayName.getJson.toString,
-            isMultilang,
-            isDashboard
+            isMultilang.getOrElse(false),
+            isDashboard.getOrElse(true)
           )
       )
 
@@ -169,5 +171,29 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
       arr.get[Boolean](6), // isDashboard
       arr.get[Boolean](7) // isCustom
     )
+  }
+
+  private def checkUniqueName(name: String): Future[Unit] = {
+    val sql = s"SELECT COUNT(*) = 0 FROM $table WHERE name = ?"
+
+    connection
+      .selectSingleValue[Boolean](sql, Json.arr(name))
+      .flatMap({
+        case true => Future.successful(())
+        case false => Future.failed(ShouldBeUniqueException(
+            s"Name of annotation config should be unique '$name'.",
+            "cellAnnotationConfig"
+          ))
+      })
+  }
+
+  private def getNewPriority(): Future[Int] = {
+    val sql = s"SELECT MAX(priority) FROM $table"
+
+    for {
+      maxPriority <- connection.selectSingleValue[Int](sql)
+    } yield {
+      maxPriority + 1
+    }
   }
 }

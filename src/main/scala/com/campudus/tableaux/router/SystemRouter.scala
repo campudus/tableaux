@@ -62,6 +62,9 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.getWithRegex(s"""/annotations/$annotationName""").handler(retrieveCellAnnotationConfig)
     router.deleteWithRegex(s"""/annotations/$annotationName""").handler(deleteCellAnnotationConfig)
 
+    router.post("/annotations").handler(bodyHandler)
+    router.post("/annotations").handler(createCellAnnotationConfig)
+
     router.patch("/annotations/*").handler(bodyHandler)
     router.patchWithRegex(s"""/annotations/$annotationName""").handler(updateCellAnnotationConfig)
 
@@ -473,5 +476,46 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         }
       )
     }
+  }
+
+  /**
+    * Create a cell annotation config
+    */
+  private def createCellAnnotationConfig(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+
+    sendReply(
+      context,
+      asyncGetReply {
+        val json = getJson(context)
+
+        // mandatory fields
+        val name = json.getString("name")
+        val fgColor = json.getString("fgColor")
+        val bgColor = json.getString("bgColor")
+        val displayName = MultiLanguageValue[String](getNullableObject("displayName")(json))
+        
+        // optional fields
+        val priority = Try(json.getInteger("priority").intValue()).toOption
+        val isMultilang = Option(json.getBoolean("isMultilang")).flatMap(Try[Boolean](_).toOption)
+        val isDashboard = Option(json.getBoolean("isDashboard")).flatMap(Try[Boolean](_).toOption)
+
+        for {
+          cellAnnotationConfig <-
+            controller.createCellAnnotationConfig(
+              name,
+              priority,
+              fgColor,
+              bgColor,
+              displayName,
+              isMultilang,
+              isDashboard
+            )
+        } yield {
+          // TODO: add messagingClient?
+          cellAnnotationConfig
+        }
+      }
+    )
   }
 }

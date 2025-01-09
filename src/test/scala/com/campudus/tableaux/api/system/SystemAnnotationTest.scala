@@ -141,7 +141,7 @@ class SystemAnnotationTest extends TableauxTestBase {
   @Test
   def updateSingleProperty(implicit c: TestContext): Unit = okTest {
     val configUpdate = Json.obj(
-      "fgColor" -> "#dddddd",
+      "fgColor" -> "#dddddd"
     ).toString();
 
     for {
@@ -181,5 +181,87 @@ class SystemAnnotationTest extends TableauxTestBase {
       assertJSONEquals(configUpdate, result.toString, JSONCompareMode.LENIENT)
     }
   }
+
+  // POST /system/annotations
+
+  @Test
+  def createWithAllProperties(implicit c: TestContext): Unit = okTest {
+    val configCreate = Json.obj(
+      "name" -> "new_annotation",
+      "priority" -> 5,
+      "fgColor" -> "#aaaaaa",
+      "bgColor" -> "#dddddd",
+      "displayName" -> Json.obj(
+        "de" -> "Neu",
+        "en" -> "New"
+      ),
+      "isMultilang" -> true,
+      "isDashboard" -> true
+    ).toString()
+
+    for {
+      annotationConfig <- sendRequest("POST", "/system/annotations", configCreate)
+    } yield {
+      assertJSONEquals(configCreate, annotationConfig.toString, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def createWithOnlyMandatoryProperties(implicit c: TestContext): Unit = okTest {
+    val configCreate = Json.obj(
+      "name" -> "new_annotation",
+      "priority" -> 5,
+      "fgColor" -> "#aaaaaa",
+      "bgColor" -> "#dddddd",
+      "displayName" -> Json.obj(
+        "de" -> "Neu",
+        "en" -> "New"
+      )
+    ).toString()
+
+    for {
+      annotationConfig <- sendRequest("POST", "/system/annotations", configCreate)
+    } yield {
+      assertJSONEquals(configCreate, annotationConfig.toString, JSONCompareMode.LENIENT)
+    }
+  }
+
+  @Test
+  def createWithInvalidName(implicit c: TestContext): Unit =
+    exceptionTest("error.request.unique.cellAnnotationConfig") {
+      for {
+        _ <- sendRequest(
+          "POST",
+          "/system/annotations",
+          Json.obj(
+            "name" -> "postpone", // already exists
+            "priority" -> 5,
+            "fgColor" -> "#aaaaaa",
+            "bgColor" -> "#dddddd",
+            "displayName" -> Json.obj(
+              "de" -> "Neu",
+              "en" -> "New"
+            )
+          ).toString()
+        )
+      } yield ()
+    }
+
+  @Test
+  def createWithMissingMandatoryProperties(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      sendRequest(
+        "POST",
+        "/system/annotations",
+        Json.obj(
+          "fgColor" -> "#aaaaaa",
+          "bgColor" -> "#dddddd",
+          "displayName" -> Json.obj(
+            "de" -> "Neu",
+            "en" -> "New"
+          )
+        ).toString()
+      )
+    }
 
 }

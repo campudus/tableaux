@@ -407,4 +407,32 @@ class SystemController(
       annotationConfig <- retrieveCellAnnotationConfig(name)
     } yield annotationConfig
   }
+
+  def createCellAnnotationConfig(
+      name: String,
+      priority: Option[Int],
+      fgColor: String,
+      bgColor: String,
+      displayName: MultiLanguageValue[String],
+      isMultilang: Option[Boolean],
+      isDashboard: Option[Boolean]
+  )(implicit user: TableauxUser): Future[DomainObject] = {
+
+    checkArguments(
+      notNull(name, "name"),
+      notNull(fgColor, "fgColor"),
+      notNull(bgColor, "bgColor"),
+      notNull(displayName, "displayName"),
+    )
+
+    logger.info(
+      s"createCellAnnotationConfig $name $priority $fgColor $bgColor $displayName $isMultilang $isDashboard"
+    )
+
+    for {
+      _ <- roleModel.checkAuthorization(CreateCellAnnotationConfig)
+      _ <- cellAnnotationConfigModel.create(name, priority, fgColor, bgColor, displayName, isMultilang, isDashboard)
+      annotationConfig <- retrieveCellAnnotationConfig(name)
+    } yield annotationConfig
+  }
 }
