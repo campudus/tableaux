@@ -656,6 +656,22 @@
             "$ref": "#/responses/not-found-in-database"
           }
         }
+      },
+      "delete": {
+        "summary": "Delete an annotation config",
+        "description": "Deletes the config of an annotation.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "delete-annotation-config",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
       }
     },
     "/system/update": {

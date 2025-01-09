@@ -54,10 +54,12 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.get("/settings/:settings").handler(retrieveSettings)
     router.get("/services").handler(retrieveServices)
     router.getWithRegex(s"""/services/$serviceId""").handler(retrieveService)
+    
+    router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
+
     router.get("/annotations").handler(retrieveCellAnnotationConfigs)
     router.getWithRegex(s"""/annotations/$annotationName""").handler(retrieveCellAnnotationConfig)
-
-    router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
+    router.deleteWithRegex(s"""/annotations/$annotationName""").handler(deleteCellAnnotationConfig)
 
     router.post("/reset").handler(reset)
     router.post("/resetDemo").handler(resetDemo)
@@ -394,7 +396,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     */
   private def retrieveCellAnnotationConfig(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-  
+
     for {
       annotationName <- getCellAnnotationConfigName(context)
     } yield {
@@ -402,6 +404,29 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         context,
         asyncGetReply {
           controller.retrieveCellAnnotationConfig(annotationName)
+        }
+      )
+    }
+  }
+
+  /**
+    * Delete a cell annotation config
+    */
+  private def deleteCellAnnotationConfig(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+
+    for {
+      annotationName <- getCellAnnotationConfigName(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          for {
+            cellAnnotationConfig <- controller.deleteCellAnnotationConfig(annotationName)
+          } yield {
+            // TODO: add messagingClient?
+            cellAnnotationConfig
+          }
         }
       )
     }

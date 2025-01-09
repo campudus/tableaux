@@ -112,4 +112,27 @@ class SystemAnnotationTest extends TableauxTestBase {
     }
   }
 
+  // DELETE /system/annotations/<annotationName>
+
+  @Test
+  def deleteSingleNonExisting(implicit c: TestContext): Unit =
+    exceptionTest("NOT FOUND") {
+      sendRequest("DELETE", "/system/annotations/does-not-exist")
+    }
+
+  @Test
+  def deleteSingle(implicit c: TestContext): Unit = okTest {
+    for {
+      configsBeforeDeletion <- sendRequest("GET", "/system/annotations").map(_.getJsonArray("annotations"))
+
+      deleteResult <- sendRequest("DELETE", s"/system/annotations/postpone")
+
+      configsAfterDeletion <- sendRequest("GET", "/system/annotations").map(_.getJsonArray("annotations"))
+    } yield {
+      assertEquals(4, configsBeforeDeletion.size)
+      assertJSONEquals("""{  "status": "ok" }""", deleteResult.toString)
+      assertEquals(3, configsAfterDeletion.size)
+    }
+  }
+
 }

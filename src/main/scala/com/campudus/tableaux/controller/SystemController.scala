@@ -369,4 +369,13 @@ class SystemController(
       annotation <- cellAnnotationConfigModel.retrieve(annotationName)
     } yield annotation
   }
+
+  def deleteCellAnnotationConfig(annotationName: String)(implicit user: TableauxUser): Future[DomainObject] = {
+    logger.info(s"deleteCellAnnotationConfig $annotationName")
+
+    for {
+      _ <- roleModel.checkAuthorization(DeleteCellAnnotationConfig)
+      _ <- cellAnnotationConfigModel.delete(annotationName)
+    } yield EmptyObject()
+  }
 }
