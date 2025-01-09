@@ -4,7 +4,7 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
+import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel, AnnotationModel}
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.JsonUtils
@@ -26,9 +26,10 @@ object SystemController {
       tableauxModel: TableauxModel,
       structureModel: StructureModel,
       serviceModel: ServiceModel,
-      roleModel: RoleModel
+      roleModel: RoleModel,
+      annotationModel: AnnotationModel,
   ): SystemController = {
-    new SystemController(config, repository, tableauxModel, structureModel, serviceModel, roleModel)
+    new SystemController(config, repository, tableauxModel, structureModel, serviceModel, roleModel, annotationModel)
   }
 }
 
@@ -40,7 +41,8 @@ class SystemController(
     protected val tableauxModel: TableauxModel,
     protected val structureModel: StructureModel,
     protected val serviceModel: ServiceModel,
-    implicit protected val roleModel: RoleModel
+    implicit protected val roleModel: RoleModel,
+    protected val annotationModel: AnnotationModel,
 ) extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
@@ -331,5 +333,16 @@ class SystemController(
       _ <- roleModel.checkAuthorization(DeleteService)
       _ <- serviceModel.delete(serviceId)
     } yield EmptyObject()
+  }
+
+  def retrieveAnnotations()(implicit user: TableauxUser): Future[DomainObject] = {
+    logger.info(s"retrieveAnnotations")
+    for {
+      annotations <- annotationModel.retrieveAll()
+    } yield {
+      val json = Json.obj("annotations" -> annotations.map(_.getJson))
+
+      PlainDomainObject(json)
+    }
   }
 }

@@ -246,3 +246,26 @@ case object RowAnnotationTypeFinal extends RowAnnotationType {
 case object RowAnnotationTypeArchived extends RowAnnotationType {
   override val typeName = RowAnnotationType.Archived
 }
+
+case class CellAnnotationConfig(
+    name: String,
+    priority: Integer,
+    fgColor: String,
+    bgColor: String,
+    displayName: MultiLanguageValue[String],
+    isMultilang: Boolean,
+    isDashboard: Boolean,
+    isCustom: Boolean
+) extends DomainObject {
+
+  override def getJson: JsonObject = Json.obj(
+    "name" -> name,
+    "priority" -> priority,
+    "fgColor" -> fgColor,
+    "bgColor" -> bgColor,
+    "displayName" -> displayName.getJson,
+    "isMultilang" -> isMultilang,
+    "isDashboard" -> isDashboard,
+    "isCustom" -> isCustom
+  )
+}

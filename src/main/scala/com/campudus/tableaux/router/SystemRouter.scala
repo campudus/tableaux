@@ -53,7 +53,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.get("/settings/:settings").handler(retrieveSettings)
     router.get("/services").handler(retrieveServices)
     router.getWithRegex(s"""/services/$serviceId""").handler(retrieveService)
-
+    router.get("/annotations").handler(retrieveAnnotations)
+    
     router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
 
     router.post("/reset").handler(reset)
@@ -367,5 +368,18 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       // so nonce was used, let's invalidate it
       SystemRouter.invalidateNonce()
     }
+  }
+
+  /**
+  * Retrieve all annotations
+  */
+  private def retrieveAnnotations(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveAnnotations()
+      }
+    )
   }
 }

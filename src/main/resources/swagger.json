@@ -603,6 +603,35 @@
         }
       }
     },
+    "/system/annotations": {
+      "get": {
+        "summary": "Get all annotation configs",
+        "description": "Returns an array containing all available annotation configs.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "get-all-annotations",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The annotations",
+            "schema": {
+              "$ref": "#/definitions/Response: Annotation Configs"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
+    },
     "/system/update": {
       "post": {
         "summary": "Update system tables",
@@ -2219,6 +2248,63 @@
         }
       }
     },
+    "CellAnnotationConfig": {
+      "type": "object",
+      "required": [
+        "name",
+        "priority",
+        "fgColor",
+        "bgColor",
+        "displayName",
+        "isMultilang",
+        "isDashboard"
+      ],
+      "properties": {
+        "name": {
+          "description": "name of the annotation",
+          "type": "string",
+          "example": "important"
+        },
+        "priority": {
+          "description": "priority of the annotation",
+          "type": "number",
+          "example": 1
+        },
+        "fgColor": {
+          "description": "foreground color of the annotation",
+          "type": "string",
+          "example": "#ffffff"
+        },
+        "bgColor": {
+          "description": "background color of the annotation",
+          "type": "string",
+          "example": "#ff7474"
+        },
+        "displayName": {
+          "description": "display name of the annotation as multilang obj",
+          "type": "object",
+          "example": {
+            "de": "Wichtig",
+            "en": "Important"
+          }
+        },
+        "isMultilang": {
+          "description": "multilang flag for the annotation",
+          "type": "boolean",
+          "example": false
+        },
+        "isDashboard": {
+          "description": "dashboard flag for the annotation",
+          "type": "boolean",
+          "example": true
+        },
+        "isCustom": {
+          "description": "custom flag for the annotation",
+          "type": "boolean",
+          "example": true
+        }
+      }
+    },
     "Pagination": {
       "type": "object",
       "required": [
@@ -2473,6 +2559,25 @@
       },
       "required": [
         "services"
+      ]
+    },
+    "Response: Annotation Configs": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CellAnnotationConfig"
+          }
+        }
+      },
+      "required": [
+        "annotations"
       ]
     },
     "Response:Cell": {
