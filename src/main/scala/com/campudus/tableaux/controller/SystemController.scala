@@ -345,4 +345,13 @@ class SystemController(
       PlainDomainObject(json)
     }
   }
+
+  def retrieveAnnotation(annotationName: String)(implicit user: TableauxUser): Future[CellAnnotationConfig] = {
+    logger.info(s"retrieveAnnotation $annotationName")
+
+    for {
+      _ <- roleModel.checkAuthorization(ViewCellAnnotationConfig)
+      annotation <- annotationModel.retrieve(annotationName)
+    } yield annotation
+  }
 }

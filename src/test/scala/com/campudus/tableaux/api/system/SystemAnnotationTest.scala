@@ -17,7 +17,6 @@ class SystemAnnotationTest extends TableauxTestBase {
 
   @Test
   def retrieveAll(implicit c: TestContext): Unit = okTest {
-
     for {
       annotationConfigs <- sendRequest("GET", "/system/annotations")
     } yield {
@@ -74,9 +73,41 @@ class SystemAnnotationTest extends TableauxTestBase {
             "isMultilang" -> true,
             "isDashboard" -> true,
             "isCustom" -> false
-          ),
+          )
         ),
         annotationConfigs.getJsonArray("annotations")
+      )
+    }
+  }
+
+  // GET /system/annotations/<annotationName>
+
+  @Test
+  def retrieveSingleNonExisting(implicit c: TestContext): Unit =
+    exceptionTest("NOT FOUND") {
+      sendRequest("GET", "/system/annotations/does-not-exist")
+    }
+
+  @Test
+  def retrieveSingle(implicit c: TestContext): Unit = okTest {
+    for {
+      annotationConfig <- sendRequest("GET", "/system/annotations/postpone")
+    } yield {
+      assertJSONEquals(
+        Json.obj(
+          "name" -> "postpone",
+          "priority" -> 3,
+          "fgColor" -> "#ffffff",
+          "bgColor" -> "#999999",
+          "displayName" -> Json.obj(
+            "de" -> "Später",
+            "en" -> "Later"
+          ),
+          "isMultilang" -> false,
+          "isDashboard" -> true,
+          "isCustom" -> false
+        ),
+        annotationConfig
       )
     }
   }

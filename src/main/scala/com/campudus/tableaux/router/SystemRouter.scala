@@ -44,6 +44,7 @@ object SystemRouter {
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
   private val serviceId = """(?<serviceId>[\d]+)"""
+  private val annotationName = """(?<annotationName>[a-zA-Z0-9_-]+)"""
   private val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def route: Router = {
@@ -54,7 +55,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.get("/services").handler(retrieveServices)
     router.getWithRegex(s"""/services/$serviceId""").handler(retrieveService)
     router.get("/annotations").handler(retrieveAnnotations)
-    
+    router.getWithRegex(s"""/annotations/$annotationName""").handler(retrieveAnnotation)
+
     router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
 
     router.post("/reset").handler(reset)
@@ -370,9 +372,13 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     }
   }
 
+  private def getAnnotationName(context: RoutingContext): Option[String] = {
+    getStringParam("annotationName", context)
+  }
+
   /**
-  * Retrieve all annotations
-  */
+    * Retrieve all annotations
+    */
   private def retrieveAnnotations(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
     sendReply(
@@ -381,5 +387,23 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         controller.retrieveAnnotations()
       }
     )
+  }
+
+  /**
+    * Retrieve single annotation
+    */
+  private def retrieveAnnotation(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+  
+    for {
+      annotationName <- getAnnotationName(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveAnnotation(annotationName)
+        }
+      )
+    }
   }
 }

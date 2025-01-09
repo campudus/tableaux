@@ -610,7 +610,7 @@
         "tags": [
           "system"
         ],
-        "operationId": "get-all-annotations",
+        "operationId": "get-all-annotation-configs",
         "consumes": [],
         "produces": [
           "application/json"
@@ -628,6 +628,32 @@
             "schema": {
               "$ref": "#/responses/unknown-error"
             }
+          }
+        }
+      }
+    },
+    "/system/annotations/{annotationName}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/annotationName"
+        }
+      ],
+      "get": {
+        "summary": "Get annotation config",
+        "description": "Returns the config of an annotation.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "get-annotation-config",
+        "responses": {
+          "200": {
+            "description": "Config of the annotation",
+            "schema": {
+              "$ref": "#/definitions/CellAnnotationConfig"
+            }
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
           }
         }
       }
@@ -4311,6 +4337,14 @@
       "in": "query",
       "type": "boolean",
       "required": false
+    },
+    "annotationName": {
+      "name": "annotationName",
+      "description": "The name of the annotation",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "example": "postpone"
     }
   },
   "responses": {
