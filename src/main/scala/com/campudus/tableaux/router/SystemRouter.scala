@@ -54,8 +54,8 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     router.get("/settings/:settings").handler(retrieveSettings)
     router.get("/services").handler(retrieveServices)
     router.getWithRegex(s"""/services/$serviceId""").handler(retrieveService)
-    router.get("/annotations").handler(retrieveAnnotations)
-    router.getWithRegex(s"""/annotations/$annotationName""").handler(retrieveAnnotation)
+    router.get("/annotations").handler(retrieveCellAnnotationConfigs)
+    router.getWithRegex(s"""/annotations/$annotationName""").handler(retrieveCellAnnotationConfig)
 
     router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
 
@@ -372,36 +372,36 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
     }
   }
 
-  private def getAnnotationName(context: RoutingContext): Option[String] = {
+  private def getCellAnnotationConfigName(context: RoutingContext): Option[String] = {
     getStringParam("annotationName", context)
   }
 
   /**
-    * Retrieve all annotations
+    * Retrieve all cell annotation configs
     */
-  private def retrieveAnnotations(context: RoutingContext): Unit = {
+  private def retrieveCellAnnotationConfigs(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
     sendReply(
       context,
       asyncGetReply {
-        controller.retrieveAnnotations()
+        controller.retrieveCellAnnotationConfigs()
       }
     )
   }
 
   /**
-    * Retrieve single annotation
+    * Retrieve single cell annotation config
     */
-  private def retrieveAnnotation(context: RoutingContext): Unit = {
+  private def retrieveCellAnnotationConfig(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
   
     for {
-      annotationName <- getAnnotationName(context)
+      annotationName <- getCellAnnotationConfigName(context)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveAnnotation(annotationName)
+          controller.retrieveCellAnnotationConfig(annotationName)
         }
       )
     }

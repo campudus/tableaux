@@ -4,7 +4,13 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel, AnnotationModel}
+import com.campudus.tableaux.database.model.{
+  CellAnnotationConfigModel,
+  ServiceModel,
+  StructureModel,
+  SystemModel,
+  TableauxModel
+}
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.JsonUtils
@@ -27,9 +33,17 @@ object SystemController {
       structureModel: StructureModel,
       serviceModel: ServiceModel,
       roleModel: RoleModel,
-      annotationModel: AnnotationModel,
+      cellAnnotationConfigModel: CellAnnotationConfigModel
   ): SystemController = {
-    new SystemController(config, repository, tableauxModel, structureModel, serviceModel, roleModel, annotationModel)
+    new SystemController(
+      config,
+      repository,
+      tableauxModel,
+      structureModel,
+      serviceModel,
+      roleModel,
+      cellAnnotationConfigModel
+    )
   }
 }
 
@@ -42,7 +56,7 @@ class SystemController(
     protected val structureModel: StructureModel,
     protected val serviceModel: ServiceModel,
     implicit protected val roleModel: RoleModel,
-    protected val annotationModel: AnnotationModel,
+    protected val cellAnnotationConfigModel: CellAnnotationConfigModel
 ) extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
@@ -335,10 +349,10 @@ class SystemController(
     } yield EmptyObject()
   }
 
-  def retrieveAnnotations()(implicit user: TableauxUser): Future[DomainObject] = {
-    logger.info(s"retrieveAnnotations")
+  def retrieveCellAnnotationConfigs()(implicit user: TableauxUser): Future[DomainObject] = {
+    logger.info(s"retrieveCellAnnotationConfigs")
     for {
-      annotations <- annotationModel.retrieveAll()
+      annotations <- cellAnnotationConfigModel.retrieveAll()
     } yield {
       val json = Json.obj("annotations" -> annotations.map(_.getJson))
 
@@ -346,12 +360,13 @@ class SystemController(
     }
   }
 
-  def retrieveAnnotation(annotationName: String)(implicit user: TableauxUser): Future[CellAnnotationConfig] = {
-    logger.info(s"retrieveAnnotation $annotationName")
+  def retrieveCellAnnotationConfig(annotationName: String)(implicit
+  user: TableauxUser): Future[CellAnnotationConfig] = {
+    logger.info(s"retrieveCellAnnotationConfig $annotationName")
 
     for {
       _ <- roleModel.checkAuthorization(ViewCellAnnotationConfig)
-      annotation <- annotationModel.retrieve(annotationName)
+      annotation <- cellAnnotationConfigModel.retrieve(annotationName)
     } yield annotation
   }
 }

@@ -4,7 +4,13 @@ import com.campudus.tableaux.UnauthorizedException
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue, ServiceTypeAction}
-import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel, AnnotationModel}
+import com.campudus.tableaux.database.model.{
+  CellAnnotationConfigModel,
+  ServiceModel,
+  StructureModel,
+  SystemModel,
+  TableauxModel
+}
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.testtools.TableauxTestBase
 
@@ -29,9 +35,17 @@ trait SystemControllerAuthTest extends TableauxTestBase {
     val structureModel = StructureModel(dbConnection)
     val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
     val serviceModel = ServiceModel(dbConnection)
-    val annotationModel = AnnotationModel(dbConnection)
+    val cellAnnotationConfigModel = CellAnnotationConfigModel(dbConnection)
 
-    SystemController(tableauxConfig, systemModel, tableauxModel, structureModel, serviceModel, roleModel, annotationModel)
+    SystemController(
+      tableauxConfig,
+      systemModel,
+      tableauxModel,
+      structureModel,
+      serviceModel,
+      roleModel,
+      cellAnnotationConfigModel
+    )
   }
 
   private def simpleDefaultService(name: String): String = s"""{

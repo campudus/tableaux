@@ -12,16 +12,16 @@ import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import scala.concurrent.Future
 
-object AnnotationModel {
+object CellAnnotationConfigModel {
 
   def apply(connection: DatabaseConnection)(
       implicit roleModel: RoleModel
-  ): AnnotationModel = {
-    new AnnotationModel(connection)
+  ): CellAnnotationConfigModel = {
+    new CellAnnotationConfigModel(connection)
   }
 }
 
-class AnnotationModel(override protected[this] val connection: DatabaseConnection)(
+class CellAnnotationConfigModel(override protected[this] val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
 ) extends DatabaseQuery {
   val table: String = "system_annotations"

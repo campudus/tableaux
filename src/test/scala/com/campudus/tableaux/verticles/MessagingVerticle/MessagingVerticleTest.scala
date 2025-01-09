@@ -5,7 +5,13 @@ import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel, AnnotationModel}
+import com.campudus.tableaux.database.model.{
+  CellAnnotationConfigModel,
+  ServiceModel,
+  StructureModel,
+  SystemModel,
+  TableauxModel
+}
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
@@ -189,9 +195,17 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
     val systemModel = SystemModel(dbConnection)
     val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
     val serviceModel = ServiceModel(dbConnection)
-    val annotationModel = AnnotationModel(dbConnection)
+    val cellAnnotationConfigModel = CellAnnotationConfigModel(dbConnection)
 
-    SystemController(tableauxConfig, systemModel, tableauxModel, structureModel, serviceModel, roleModel, annotationModel)
+    SystemController(
+      tableauxConfig,
+      systemModel,
+      tableauxModel,
+      structureModel,
+      serviceModel,
+      roleModel,
+      cellAnnotationConfigModel
+    )
   }
 
   def createScope(
