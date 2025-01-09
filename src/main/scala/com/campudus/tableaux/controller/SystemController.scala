@@ -378,4 +378,33 @@ class SystemController(
       _ <- cellAnnotationConfigModel.delete(annotationName)
     } yield EmptyObject()
   }
+
+  def updateCellAnnotationConfig(
+      name: String,
+      priority: Option[Int],
+      fgColor: Option[String],
+      bgColor: Option[String],
+      displayName: Option[MultiLanguageValue[String]],
+      isMultilang: Option[Boolean],
+      isDashboard: Option[Boolean]
+  )(implicit user: TableauxUser): Future[DomainObject] = {
+
+    checkArguments(
+      notNull(name, "name"),
+      isDefined(
+        Seq(priority, fgColor, bgColor, displayName, isMultilang, isDashboard),
+        "priority, fgColor, bgColor, displayName, isMultilang, isDashboard"
+      )
+    )
+
+    logger.info(
+      s"updateCellAnnotationConfig $name $priority $fgColor $bgColor $displayName $isMultilang $isDashboard"
+    )
+
+    for {
+      _ <- roleModel.checkAuthorization(EditCellAnnotationConfig)
+      _ <- cellAnnotationConfigModel.update(name, priority, fgColor, bgColor, displayName, isMultilang, isDashboard)
+      annotationConfig <- retrieveCellAnnotationConfig(name)
+    } yield annotationConfig
+  }
 }

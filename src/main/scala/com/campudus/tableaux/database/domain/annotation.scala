@@ -249,7 +249,7 @@ case object RowAnnotationTypeArchived extends RowAnnotationType {
 
 case class CellAnnotationConfig(
     name: String,
-    priority: Integer,
+    priority: Int,
     fgColor: String,
     bgColor: String,
     displayName: MultiLanguageValue[String],

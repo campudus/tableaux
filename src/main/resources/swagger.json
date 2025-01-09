@@ -657,6 +657,35 @@
           }
         }
       },
+      "patch": {
+        "summary": "Update annotation config",
+        "description": "Updates an annotation config.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "update-annotation-config",
+        "parameters": [
+          {
+            "name": "annotation config",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CellAnnotationConfig"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Config of the annotation",
+            "schema": {
+              "$ref": "#/definitions/CellAnnotationConfig"
+            }
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
       "delete": {
         "summary": "Delete an annotation config",
         "description": "Deletes the config of an annotation.",

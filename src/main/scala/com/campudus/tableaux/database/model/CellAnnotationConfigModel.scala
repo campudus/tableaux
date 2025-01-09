@@ -28,7 +28,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
 
   def update(
       name: String,
-      priority: Option[Integer],
+      priority: Option[Int],
       fgColor: Option[String],
       bgColor: Option[String],
       displayName: Option[MultiLanguageValue[String]],
@@ -109,7 +109,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
 
   def create(
       name: String,
-      priority: Option[Integer],
+      priority: Option[Int],
       fgColor: String,
       bgColor: String,
       displayName: MultiLanguageValue[String],
@@ -161,7 +161,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
   user: TableauxUser): CellAnnotationConfig = {
     CellAnnotationConfig(
       arr.get[String](0), // name
-      arr.get[Integer](1), // priority
+      arr.get[Int](1), // priority
       arr.get[String](2), // fgColor
       arr.get[String](3), // bgColor
       MultiLanguageValue.fromString(arr.get[String](4)), // displayName

@@ -49,17 +49,21 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
 
   def route: Router = {
     val router = Router.router(vertx)
+    val bodyHandler = BodyHandler.create()
 
     router.get("/versions").handler(retrieveVersions)
     router.get("/settings/:settings").handler(retrieveSettings)
     router.get("/services").handler(retrieveServices)
     router.getWithRegex(s"""/services/$serviceId""").handler(retrieveService)
-    
+
     router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
 
     router.get("/annotations").handler(retrieveCellAnnotationConfigs)
     router.getWithRegex(s"""/annotations/$annotationName""").handler(retrieveCellAnnotationConfig)
     router.deleteWithRegex(s"""/annotations/$annotationName""").handler(deleteCellAnnotationConfig)
+
+    router.patch("/annotations/*").handler(bodyHandler)
+    router.patchWithRegex(s"""/annotations/$annotationName""").handler(updateCellAnnotationConfig)
 
     router.post("/reset").handler(reset)
     router.post("/resetDemo").handler(resetDemo)
@@ -68,13 +72,10 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
 
     router.postWithRegex(s"/cache/invalidate/tables/$tableId/columns/$columnId").handler(invalidateColumnCache)
 
-    // init body handler for settings routes
-    router.post("/settings/*").handler(BodyHandler.create())
+    router.post("/settings/*").handler(bodyHandler)
 
     router.post("/settings/:settings").handler(updateSettings)
 
-    // init body handler for settings routes
-    val bodyHandler = BodyHandler.create()
     router.post("/services").handler(bodyHandler)
     router.patch("/services/*").handler(bodyHandler)
 
@@ -423,6 +424,48 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         asyncGetReply {
           for {
             cellAnnotationConfig <- controller.deleteCellAnnotationConfig(annotationName)
+          } yield {
+            // TODO: add messagingClient?
+            cellAnnotationConfig
+          }
+        }
+      )
+    }
+  }
+
+  /**
+    * Update a cell annotation config
+    */
+  private def updateCellAnnotationConfig(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+
+    for {
+      annotationName <- getCellAnnotationConfigName(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+
+          // optional fields
+          val priority = Try(json.getInteger("priority").intValue()).toOption
+          val fgColor = Option(json.getString("fgColor"))
+          val bgColor = Option(json.getString("bgColor"))
+          val displayName = getNullableObject("displayName")(json).map(MultiLanguageValue[String])
+          val isMultilang = Option(json.getBoolean("isMultilang")).flatMap(Try[Boolean](_).toOption)
+          val isDashboard = Option(json.getBoolean("isDashboard")).flatMap(Try[Boolean](_).toOption)
+
+          for {
+            cellAnnotationConfig <- controller
+              .updateCellAnnotationConfig(
+                annotationName,
+                priority,
+                fgColor,
+                bgColor,
+                displayName,
+                isMultilang,
+                isDashboard
+              )
           } yield {
             // TODO: add messagingClient?
             cellAnnotationConfig

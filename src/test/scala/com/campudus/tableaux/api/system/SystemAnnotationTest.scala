@@ -9,6 +9,7 @@ import org.vertx.scala.core.json.Json
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.skyscreamer.jsonassert.JSONCompareMode
 
 @RunWith(classOf[VertxUnitRunner])
 class SystemAnnotationTest extends TableauxTestBase {
@@ -125,13 +126,59 @@ class SystemAnnotationTest extends TableauxTestBase {
     for {
       configsBeforeDeletion <- sendRequest("GET", "/system/annotations").map(_.getJsonArray("annotations"))
 
-      deleteResult <- sendRequest("DELETE", s"/system/annotations/postpone")
+      deleteResult <- sendRequest("DELETE", "/system/annotations/postpone")
 
       configsAfterDeletion <- sendRequest("GET", "/system/annotations").map(_.getJsonArray("annotations"))
     } yield {
       assertEquals(4, configsBeforeDeletion.size)
       assertJSONEquals("""{  "status": "ok" }""", deleteResult.toString)
       assertEquals(3, configsAfterDeletion.size)
+    }
+  }
+
+  // PATCH /system/annotations/<annotationName>
+
+  @Test
+  def updateSingleProperty(implicit c: TestContext): Unit = okTest {
+    val configUpdate = Json.obj(
+      "fgColor" -> "#dddddd",
+    ).toString();
+
+    for {
+      configBeforeUpdate <- sendRequest("GET", "/system/annotations/postpone")
+      configAfterUpdate <- sendRequest("PATCH", "/system/annotations/postpone", configUpdate)
+    } yield {
+      assertEquals("#ffffff", configBeforeUpdate.getString("fgColor"))
+      assertEquals("#dddddd", configAfterUpdate.getString("fgColor"))
+    }
+  }
+
+  @Test
+  def updateInvalidProperty(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      for {
+        _ <- sendRequest("PATCH", s"/system/annotations/postpone", """{ "foo": "bar" }""")
+      } yield ()
+    }
+
+  @Test
+  def updateAllProperties(implicit c: TestContext): Unit = okTest {
+    val configUpdate = Json.obj(
+      "priority" -> 5,
+      "fgColor" -> "#dddddd",
+      "bgColor" -> "#888888",
+      "displayName" -> Json.obj(
+        "de" -> "Jetzt",
+        "en" -> "Now"
+      ),
+      "isMultilang" -> true,
+      "isDashboard" -> false
+    ).toString();
+
+    for {
+      result <- sendRequest("PATCH", "/system/annotations/postpone", configUpdate)
+    } yield {
+      assertJSONEquals(configUpdate, result.toString, JSONCompareMode.LENIENT)
     }
   }
 
