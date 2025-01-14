@@ -11,6 +11,7 @@ import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
 import io.vertx.scala.core.http.HttpServer
+import io.vertx.scala.core.http.HttpServerOptions
 import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
@@ -27,6 +28,10 @@ object Starter {
   val DEFAULT_ROLE_PERMISSIONS_PATH = "./role-permissions.json"
   val DEFAULT_IS_PUBLIC_FILE_SERVER_ENABLED = false
   val DEFAULT_IS_ROW_PERMISSION_CHECK_ENABLED = false
+
+  // We increased the default max header size because we hit the limit with large bearer tokens that
+  // include many realm roles and the server responded with misleading 400 Bad Request errors.
+  val DEFAULT_MAX_HEADER_SIZE = 8192
 }
 
 class Starter extends ScalaVerticle with LazyLogging {
@@ -113,8 +118,11 @@ class Starter extends ScalaVerticle with LazyLogging {
 
     val mainRouter = RouterRegistry.init(tableauxConfig, dbConnection)
 
+    val options = HttpServerOptions()
+      .setMaxHeaderSize(Starter.DEFAULT_MAX_HEADER_SIZE * 16)
+
     vertx
-      .createHttpServer()
+      .createHttpServer(options)
       .requestHandler(mainRouter.accept)
       .listenFuture(port, host)
   }
