@@ -494,7 +494,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
         val fgColor = json.getString("fgColor")
         val bgColor = json.getString("bgColor")
         val displayName = MultiLanguageValue[String](getNullableObject("displayName")(json))
-        
+
         // optional fields
         val priority = Try(json.getInteger("priority").intValue()).toOption
         val isMultilang = Option(json.getBoolean("isMultilang")).flatMap(Try[Boolean](_).toOption)

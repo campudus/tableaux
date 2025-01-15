@@ -422,7 +422,7 @@ class SystemController(
       notNull(name, "name"),
       notNull(fgColor, "fgColor"),
       notNull(bgColor, "bgColor"),
-      notNull(displayName, "displayName"),
+      notNull(displayName, "displayName")
     )
 
     logger.info(
