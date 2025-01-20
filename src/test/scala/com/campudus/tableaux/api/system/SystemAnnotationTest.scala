@@ -157,7 +157,33 @@ class SystemAnnotationTest extends TableauxTestBase {
   def updateInvalidProperty(implicit c: TestContext): Unit =
     exceptionTest("error.arguments") {
       for {
-        _ <- sendRequest("PATCH", s"/system/annotations/postpone", """{ "foo": "bar" }""")
+        _ <- sendRequest(
+          "PATCH",
+          s"/system/annotations/postpone",
+          Json.obj(
+            "foo" -> "bar"
+          ).toString()
+        )
+      } yield ()
+    }
+
+  @Test
+  def updateNoProperties(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      for {
+        _ <- sendRequest(
+          "PATCH",
+          s"/system/annotations/postpone",
+          Json.obj().toString()
+        )
+      } yield ()
+    }
+
+  @Test
+  def updateNoPayload(implicit c: TestContext): Unit =
+    exceptionTest("error.json.notfound") {
+      for {
+        _ <- sendRequest("PATCH", s"/system/annotations/postpone")
       } yield ()
     }
 
@@ -261,6 +287,25 @@ class SystemAnnotationTest extends TableauxTestBase {
             "en" -> "New"
           )
         ).toString()
+      )
+    }
+
+  @Test
+  def createWithNoProperties(implicit c: TestContext): Unit =
+    exceptionTest("error.arguments") {
+      sendRequest(
+        "POST",
+        "/system/annotations",
+        Json.obj().toString()
+      )
+    }
+
+  @Test
+  def createWithEmptyPayload(implicit c: TestContext): Unit =
+    exceptionTest("error.json.notfound") {
+      sendRequest(
+        "POST",
+        "/system/annotations"
       )
     }
 
