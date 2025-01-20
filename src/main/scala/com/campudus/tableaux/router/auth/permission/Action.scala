@@ -39,6 +39,10 @@ object Action {
       case EditServiceDisplayProperty.name => EditServiceDisplayProperty
       case EditServiceStructureProperty.name => EditServiceStructureProperty
       case EditSystem.name => EditSystem
+      case CreateCellAnnotationConfig.name => CreateCellAnnotationConfig
+      case DeleteCellAnnotationConfig.name => DeleteCellAnnotationConfig
+      case ViewCellAnnotationConfig.name => ViewCellAnnotationConfig
+      case EditCellAnnotationConfig.name => EditCellAnnotationConfig
       case _ => throw new IllegalArgumentException(s"Invalid argument for Action $action")
     }
   }
@@ -74,3 +78,7 @@ case object ViewService extends Action { override val name = "viewService" }
 case object EditServiceDisplayProperty extends Action { override val name = "editServiceDisplayProperty" }
 case object EditServiceStructureProperty extends Action { override val name = "editServiceStructureProperty" }
 case object EditSystem extends Action { override val name = "editSystem" }
+case object CreateCellAnnotationConfig extends Action { override val name = "createCellAnnotationConfig" }
+case object DeleteCellAnnotationConfig extends Action { override val name = "deleteCellAnnotationConfig" }
+case object ViewCellAnnotationConfig extends Action { override val name = "viewCellAnnotationConfig" }
+case object EditCellAnnotationConfig extends Action { override val name = "editCellAnnotationConfig" }

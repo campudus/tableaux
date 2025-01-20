@@ -71,7 +71,9 @@ case class ConditionContainer(
       case CreateTable | CreateMedia | EditMedia
           | DeleteMedia | CreateTableGroup | EditTableGroup | DeleteTableGroup
           | CreateService | DeleteService | ViewService | EditServiceDisplayProperty
-          | EditServiceStructureProperty | EditSystem => {
+          | EditServiceStructureProperty | EditSystem
+          | CreateCellAnnotationConfig | DeleteCellAnnotationConfig
+          | ViewCellAnnotationConfig | EditCellAnnotationConfig => {
         // global actions are already filtered by filterPermissions
         true
       }
