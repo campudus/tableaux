@@ -126,7 +126,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
                     |  is_multilang,
                     |  is_dashboard)
                     |VALUES
-                    |  (?, COALESCE(?, (SELECT MAX(priority) FROM $table), 0) + 1, ?, ?, ?, ?, ?) RETURNING name""".stripMargin
+                    |  (?, COALESCE(?, (SELECT MAX(priority) FROM $table) + 1, 1), ?, ?, ?, ?, ?) RETURNING name""".stripMargin
 
     for {
       _ <- checkUniqueName(name)
