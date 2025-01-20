@@ -126,17 +126,16 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
                     |  is_multilang,
                     |  is_dashboard)
                     |VALUES
-                    |  (?, ?, ?, ?, ?, ?, ?) RETURNING name""".stripMargin
+                    |  (?, COALESCE(?, (SELECT MAX(priority) FROM $table), 0) + 1, ?, ?, ?, ?, ?) RETURNING name""".stripMargin
 
     for {
       _ <- checkUniqueName(name)
-      newPriority <- getNewPriority()
       result <- connection.query(
         insert,
         Json
           .arr(
             name,
-            priority.getOrElse(newPriority),
+            priority.getOrElse(null),
             fgColor,
             bgColor,
             displayName.getJson.toString,
@@ -185,15 +184,5 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
             "cellAnnotationConfig"
           ))
       })
-  }
-
-  private def getNewPriority(): Future[Int] = {
-    val sql = s"SELECT MAX(priority) FROM $table"
-
-    for {
-      maxPriority <- connection.selectSingleValue[Int](sql)
-    } yield {
-      maxPriority + 1
-    }
   }
 }
