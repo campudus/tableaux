@@ -135,7 +135,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
         Json
           .arr(
             name,
-            priority.getOrElse(null),
+            priority.orNull,
             fgColor,
             bgColor,
             displayName.getJson.toString,
