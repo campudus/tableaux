@@ -428,7 +428,6 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
           for {
             cellAnnotationConfig <- controller.deleteCellAnnotationConfig(annotationName)
           } yield {
-            // TODO: add messagingClient?
             cellAnnotationConfig
           }
         }
@@ -470,7 +469,6 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
                 isDashboard
               )
           } yield {
-            // TODO: add messagingClient?
             cellAnnotationConfig
           }
         }
@@ -512,7 +510,6 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
               isDashboard
             )
         } yield {
-          // TODO: add messagingClient?
           cellAnnotationConfig
         }
       }
