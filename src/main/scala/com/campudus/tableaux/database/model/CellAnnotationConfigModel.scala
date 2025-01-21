@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.ShouldBeUniqueException
+import com.campudus.tableaux.{ShouldBeUniqueException, ForbiddenException}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.helper.JsonUtils
@@ -102,6 +102,7 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
     val delete = s"DELETE FROM $table WHERE name = ?"
 
     for {
+      _ <- checkIsCustom(name)
       result <- connection.query(delete, Json.arr(name))
       _ <- Future(deleteNotNull(result))
     } yield ()
@@ -181,6 +182,20 @@ class CellAnnotationConfigModel(override protected[this] val connection: Databas
         case true => Future.successful(())
         case false => Future.failed(ShouldBeUniqueException(
             s"Name of annotation config should be unique '$name'.",
+            "cellAnnotationConfig"
+          ))
+      })
+  }
+
+  private def checkIsCustom(name: String): Future[Unit] = {
+    val sql = s"SELECT is_custom FROM $table WHERE name = ?"
+
+    connection
+      .selectSingleValue[Boolean](sql, Json.arr(name))
+      .flatMap({
+        case true => Future.successful(())
+        case false => Future.failed(ForbiddenException(
+            s"Annotation config should be custom '$name'.",
             "cellAnnotationConfig"
           ))
       })

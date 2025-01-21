@@ -34,7 +34,7 @@ class SystemAnnotationTest extends TableauxTestBase {
             ),
             "isMultilang" -> false,
             "isDashboard" -> true,
-            "isCustom" -> false
+            "isCustom" -> true
           ),
           Json.obj(
             "name" -> "check-me",
@@ -47,7 +47,7 @@ class SystemAnnotationTest extends TableauxTestBase {
             ),
             "isMultilang" -> false,
             "isDashboard" -> true,
-            "isCustom" -> false
+            "isCustom" -> true
           ),
           Json.obj(
             "name" -> "postpone",
@@ -60,7 +60,7 @@ class SystemAnnotationTest extends TableauxTestBase {
             ),
             "isMultilang" -> false,
             "isDashboard" -> true,
-            "isCustom" -> false
+            "isCustom" -> true
           ),
           Json.obj(
             "name" -> "needs_translation",
@@ -106,7 +106,7 @@ class SystemAnnotationTest extends TableauxTestBase {
           ),
           "isMultilang" -> false,
           "isDashboard" -> true,
-          "isCustom" -> false
+          "isCustom" -> true
         ),
         annotationConfig
       )
@@ -135,6 +135,12 @@ class SystemAnnotationTest extends TableauxTestBase {
       assertEquals(3, configsAfterDeletion.size)
     }
   }
+  
+  @Test
+  def deleteNonCustom(implicit c: TestContext): Unit =
+    exceptionTest("error.request.forbidden.cellAnnotationConfig") {
+      sendRequest("DELETE", "/system/annotations/needs_translation")
+    }
 
   // PATCH /system/annotations/<annotationName>
 

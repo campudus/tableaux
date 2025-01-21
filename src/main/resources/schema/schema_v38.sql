@@ -11,10 +11,10 @@ CREATE TABLE system_annotations (
   PRIMARY KEY (name)
 );
 
-INSERT INTO system_annotations 
+INSERT INTO system_annotations
   (name, priority, fg_color, bg_color, display_name, is_multilang, is_dashboard, is_custom)
-VALUES 
-  ('important',         1, '#ffffff', '#ff7474', '{"de":"Wichtig","en":"Important"}',                       FALSE, TRUE, FALSE),
-  ('check-me',          2, '#ffffff', '#c274ff', '{"de":"Bitte überprüfen","en":"Please double-check"}',    FALSE, TRUE, FALSE),
-  ('postpone',          3, '#ffffff', '#999999', '{"de":"Später","en":"Later"}',                            FALSE, TRUE, FALSE),
+VALUES
+  ('important',         1, '#ffffff', '#ff7474', '{"de":"Wichtig","en":"Important"}',                       FALSE, TRUE, TRUE),
+  ('check-me',          2, '#ffffff', '#c274ff', '{"de":"Bitte überprüfen","en":"Please double-check"}',    FALSE, TRUE, TRUE),
+  ('postpone',          3, '#ffffff', '#999999', '{"de":"Später","en":"Later"}',                            FALSE, TRUE, TRUE),
   ('needs_translation', 4, '#ffffff', '#ffae74', '{"de":"Übersetzung nötig","en":"Translation necessary"}', TRUE,  TRUE, FALSE);
