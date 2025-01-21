@@ -18,3 +18,18 @@ VALUES
   ('check-me',          2, '#ffffff', '#c274ff', '{"de":"Bitte überprüfen","en":"Please double-check"}',    FALSE, TRUE, TRUE),
   ('postpone',          3, '#ffffff', '#999999', '{"de":"Später","en":"Later"}',                            FALSE, TRUE, TRUE),
   ('needs_translation', 4, '#ffffff', '#ffae74', '{"de":"Übersetzung nötig","en":"Translation necessary"}', TRUE,  TRUE, FALSE);
+
+CREATE OR REPLACE FUNCTION add_annotation_name_column(tableid BIGINT)
+  RETURNS TEXT AS $$
+BEGIN
+  EXECUTE 'ALTER TABLE user_table_annotations_' || tableid || ' ADD COLUMN annotation_name TEXT NULL';
+  EXECUTE 'ALTER TABLE user_table_annotations_' || tableid || ' ADD FOREIGN KEY (annotation_name) REFERENCES system_annotations (name)';
+  EXECUTE 'UPDATE user_table_annotations_' || tableid || ' SET value = NULL, annotation_name = subquery.value FROM (SELECT uuid, type, value FROM user_table_annotations_' || tableid || ') AS subquery WHERE user_table_annotations_' || tableid || '.uuid = subquery.uuid  AND user_table_annotations_' || tableid || '.type = ''flag''';
+  RETURN 'user_table_annotations_' || tableid :: TEXT;
+END
+$$ LANGUAGE plpgsql;
+
+SELECT add_annotation_name_column(table_id)
+FROM system_table;
+
+DROP FUNCTION add_annotation_name_column( BIGINT );

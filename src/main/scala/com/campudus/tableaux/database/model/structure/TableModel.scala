@@ -153,10 +153,12 @@ class TableModel(val connection: DatabaseConnection)(
                            |   langtags TEXT[] NOT NULL DEFAULT '{}'::text[],
                            |   type VARCHAR(255) NOT NULL,
                            |   value TEXT NULL,
+                           |   annotation_name TEXT NULL,
                            |   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
                            |
                            |   PRIMARY KEY (row_id, column_id, uuid),
-                           |   FOREIGN KEY (row_id) REFERENCES user_table_$id (id) ON DELETE CASCADE
+                           |   FOREIGN KEY (row_id) REFERENCES user_table_$id (id) ON DELETE CASCADE,
+                           |   FOREIGN KEY (annotation_name) REFERENCES system_annotations (name) ON DELETE CASCADE
                            | )
          """.stripMargin)
     } yield t
