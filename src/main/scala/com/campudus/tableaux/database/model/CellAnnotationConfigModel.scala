@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.{ShouldBeUniqueException, ForbiddenException}
+import com.campudus.tableaux.{ForbiddenException, ShouldBeUniqueException}
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.helper.JsonUtils

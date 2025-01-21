@@ -135,7 +135,7 @@ class SystemAnnotationTest extends TableauxTestBase {
       assertEquals(3, configsAfterDeletion.size)
     }
   }
-  
+
   @Test
   def deleteNonCustom(implicit c: TestContext): Unit =
     exceptionTest("error.request.forbidden.cellAnnotationConfig") {
