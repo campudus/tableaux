@@ -732,7 +732,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
          |    row_id = ? AND
          |    column_id = ? AND
          |    type = ? AND
-         |		annotation_name = ?
+         |    annotation_name = ?
          |) AS subquery
          |WHERE
          |  user_table_annotations_$tableId.row_id = subquery.row_id AND

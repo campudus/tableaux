@@ -158,7 +158,7 @@ class TableModel(val connection: DatabaseConnection)(
                            |
                            |   PRIMARY KEY (row_id, column_id, uuid),
                            |   FOREIGN KEY (row_id) REFERENCES user_table_$id (id) ON DELETE CASCADE,
-                           |   FOREIGN KEY (annotation_name) REFERENCES system_annotations (name) ON DELETE CASCADE
+                           |   FOREIGN KEY (annotation_name) REFERENCES system_annotations (name) ON DELETE CASCADE ON UPDATE CASCADE
                            | )
          """.stripMargin)
     } yield t
