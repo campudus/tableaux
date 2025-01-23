@@ -24,7 +24,8 @@ CREATE OR REPLACE FUNCTION add_annotation_name_column(tableid BIGINT)
 BEGIN
   EXECUTE 'ALTER TABLE user_table_annotations_' || tableid || ' ADD COLUMN annotation_name TEXT NULL';
   EXECUTE 'ALTER TABLE user_table_annotations_' || tableid || ' ADD FOREIGN KEY (annotation_name) REFERENCES system_annotations (name) ON DELETE CASCADE ON UPDATE CASCADE';
-  EXECUTE 'UPDATE user_table_annotations_' || tableid || ' SET value = NULL, annotation_name = subquery.value FROM (SELECT uuid, type, value FROM user_table_annotations_' || tableid || ') AS subquery WHERE user_table_annotations_' || tableid || '.uuid = subquery.uuid  AND user_table_annotations_' || tableid || '.type = ''flag''';
+  EXECUTE 'UPDATE user_table_annotations_' || tableid || ' SET annotation_name = value WHERE type = ''flag''';
+  EXECUTE 'UPDATE user_table_annotations_' || tableid || ' SET value = NULL WHERE type = ''flag''';
   RETURN 'user_table_annotations_' || tableid :: TEXT;
 END
 $$ LANGUAGE plpgsql;
