@@ -679,11 +679,20 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
     val tableId = column.table.id
     val newUuid = UUID.randomUUID()
 
+    val textValue = annotationType match {
+      case FlagAnnotationType => None
+      case _ => Some(value)
+    }
+    val annotationName = annotationType match {
+      case FlagAnnotationType => Some(value)
+      case _ => None
+    }
+
     val insertStatement =
       s"""
          |INSERT INTO
-         |  user_table_annotations_$tableId(row_id, column_id, uuid, langtags, type, value)
-         |VALUES (?, ?, ?, ?::text[], ?, ?)
+         |  user_table_annotations_$tableId(row_id, column_id, uuid, langtags, type, value, annotation_name)
+         |VALUES (?, ?, ?, ?::text[], ?, ?, ?)
          |RETURNING ${parseDateTimeSql("created_at")}""".stripMargin
 
     val insertBinds = Json.arr(
@@ -692,7 +701,8 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       newUuid.toString,
       langtags.mkString("{", ",", "}"),
       annotationType.toString,
-      value
+      textValue.orNull,
+      annotationName.orNull
     )
 
     // https://github.com/vert-x3/vertx-mysql-postgresql-client/pull/75
@@ -710,6 +720,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
          |    uuid,
          |    type,
          |    value,
+         |    annotation_name,
          |    (
          |      SELECT array(
          |        SELECT DISTINCT unnest(array_cat(langtags, ?::text[])) AS langtag ORDER BY langtag
@@ -721,12 +732,12 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
          |    row_id = ? AND
          |    column_id = ? AND
          |    type = ? AND
-         |    value = ?
+         |    annotation_name = ?
          |) AS subquery
          |WHERE
          |  user_table_annotations_$tableId.row_id = subquery.row_id AND
          |  user_table_annotations_$tableId.column_id = subquery.column_id AND
-         |  user_table_annotations_$tableId.value = subquery.value AND
+         |  user_table_annotations_$tableId.annotation_name = subquery.annotation_name AND
          |  user_table_annotations_$tableId.type = 'flag'
          |RETURNING
          |  user_table_annotations_$tableId.uuid,
@@ -738,7 +749,7 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
       rowId,
       column.id,
       annotationType.toString,
-      value
+      annotationName.orNull
     )
 
     connection.transactional(t => {
@@ -973,7 +984,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
              |ua.uuid,
              |array_to_json(ua.langtags::text[]) AS langtags,
              |ua.type,
-             |ua.value,
+             |CASE WHEN ua.type = 'flag' THEN annotation_name ELSE value END,
              |${parseDateTimeSql("ua.created_at")} AS created_at
              |FROM user_table_$id ut JOIN user_table_annotations_$id ua ON (ut.id = ua.row_id)""".stripMargin
       })
@@ -1056,21 +1067,21 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
     /**
       * If type is not flag we ignore the value. Other types (info, warning, error) are comment annotations. Their
-      * values are always different. The value of flag annotations is important because it describes what sort of flag
-      * annotation it is (needs_translation, important, check-me, later).
+      * values are always different. The annotation_name of flag annotations is important because it describes what sort
+      * of flag annotation it is (needs_translation, important, check-me, later).
       */
     val query = tables
       .map({ tableId =>
         s"""|SELECT
             |$tableId::bigint as table_id,
             |ua.type,
-            |CASE WHEN type = 'flag' THEN value END AS type_value,
+            |CASE WHEN type = 'flag' THEN annotation_name END AS type_value,
             |sub.langtag AS langtag,
             |COUNT(*),
             |${parseDateTimeSql("MAX(ua.created_at)")} AS last_created_at
             |FROM user_table_annotations_$tableId ua
             |LEFT JOIN LATERAL UNNEST(ua.langtags) AS sub(langtag) ON ua.langtags <> '{}'
-            |WHERE NOT (type = 'flag' AND value = 'needs_translation' AND (langtags = '{}' OR langtags IS NULL))
+            |WHERE NOT (type = 'flag' AND annotation_name = 'needs_translation' AND (langtags = '{}' OR langtags IS NULL))
             |GROUP BY type, type_value, langtag""".stripMargin
       })
       .mkString("", " UNION ALL ", " ORDER BY table_id, type, type_value, last_created_at DESC")
@@ -1473,10 +1484,10 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
         |    'uuid', uuid,
         |    'langtags', langtags::text[],
         |    'type', type,
-        |    'value', value,
+        |    'value', CASE WHEN type = 'flag' THEN annotation_name ELSE value END,
         |    'createdAt', ${parseDateTimeSql("created_at")}
         | )
-        |) FROM (SELECT column_id, uuid, langtags, type, value, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations,
+        |) FROM (SELECT column_id, uuid, langtags, type, value, annotation_name, created_at FROM user_table_annotations_$tableId WHERE row_id = ut.id ORDER BY created_at) sub) AS cell_annotations,
         |ut.row_permissions AS row_permissions""".stripMargin
   }
 

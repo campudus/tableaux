@@ -44,10 +44,12 @@ object SystemRouter {
 class SystemRouter(override val config: TableauxConfig, val controller: SystemController) extends BaseRouter {
 
   private val serviceId = """(?<serviceId>[\d]+)"""
+  private val annotationName = """(?<annotationName>[a-zA-Z0-9_-]+)"""
   private val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
 
   def route: Router = {
     val router = Router.router(vertx)
+    val bodyHandler = BodyHandler.create()
 
     router.get("/versions").handler(retrieveVersions)
     router.get("/settings/:settings").handler(retrieveSettings)
@@ -56,6 +58,16 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
 
     router.deleteWithRegex(s"""/services/$serviceId""").handler(deleteService)
 
+    router.get("/annotations").handler(retrieveCellAnnotationConfigs)
+    router.getWithRegex(s"""/annotations/$annotationName""").handler(retrieveCellAnnotationConfig)
+    router.deleteWithRegex(s"""/annotations/$annotationName""").handler(deleteCellAnnotationConfig)
+
+    router.post("/annotations").handler(bodyHandler)
+    router.post("/annotations").handler(createCellAnnotationConfig)
+
+    router.patch("/annotations/*").handler(bodyHandler)
+    router.patchWithRegex(s"""/annotations/$annotationName""").handler(updateCellAnnotationConfig)
+
     router.post("/reset").handler(reset)
     router.post("/resetDemo").handler(resetDemo)
     router.post("/update").handler(update)
@@ -63,13 +75,10 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
 
     router.postWithRegex(s"/cache/invalidate/tables/$tableId/columns/$columnId").handler(invalidateColumnCache)
 
-    // init body handler for settings routes
-    router.post("/settings/*").handler(BodyHandler.create())
+    router.post("/settings/*").handler(bodyHandler)
 
     router.post("/settings/:settings").handler(updateSettings)
 
-    // init body handler for settings routes
-    val bodyHandler = BodyHandler.create()
     router.post("/services").handler(bodyHandler)
     router.patch("/services/*").handler(bodyHandler)
 
@@ -367,5 +376,143 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
       // so nonce was used, let's invalidate it
       SystemRouter.invalidateNonce()
     }
+  }
+
+  private def getCellAnnotationConfigName(context: RoutingContext): Option[String] = {
+    getStringParam("annotationName", context)
+  }
+
+  /**
+    * Retrieve all cell annotation configs
+    */
+  private def retrieveCellAnnotationConfigs(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    sendReply(
+      context,
+      asyncGetReply {
+        controller.retrieveCellAnnotationConfigs()
+      }
+    )
+  }
+
+  /**
+    * Retrieve single cell annotation config
+    */
+  private def retrieveCellAnnotationConfig(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+
+    for {
+      annotationName <- getCellAnnotationConfigName(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveCellAnnotationConfig(annotationName)
+        }
+      )
+    }
+  }
+
+  /**
+    * Delete a cell annotation config
+    */
+  private def deleteCellAnnotationConfig(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+
+    for {
+      annotationName <- getCellAnnotationConfigName(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          for {
+            cellAnnotationConfig <- controller.deleteCellAnnotationConfig(annotationName)
+          } yield {
+            cellAnnotationConfig
+          }
+        }
+      )
+    }
+  }
+
+  /**
+    * Update a cell annotation config
+    */
+  private def updateCellAnnotationConfig(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+
+    for {
+      annotationName <- getCellAnnotationConfigName(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val json = getJson(context)
+
+          // optional fields
+          val priority = Try(json.getInteger("priority").intValue()).toOption
+          val fgColor = Option(json.getString("fgColor"))
+          val bgColor = Option(json.getString("bgColor"))
+          val displayName = getNullableObject("displayName")(json).map(MultiLanguageValue[String])
+          val isMultilang = Option(json.getBoolean("isMultilang")).flatMap(Try[Boolean](_).toOption)
+          val isDashboard = Option(json.getBoolean("isDashboard")).flatMap(Try[Boolean](_).toOption)
+
+          for {
+            cellAnnotationConfig <- controller
+              .updateCellAnnotationConfig(
+                annotationName,
+                priority,
+                fgColor,
+                bgColor,
+                displayName,
+                isMultilang,
+                isDashboard
+              )
+          } yield {
+            cellAnnotationConfig
+          }
+        }
+      )
+    }
+  }
+
+  /**
+    * Create a cell annotation config
+    */
+  private def createCellAnnotationConfig(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+
+    sendReply(
+      context,
+      asyncGetReply {
+        val json = getJson(context)
+
+        // mandatory fields
+        val name = json.getString("name")
+        val fgColor = json.getString("fgColor")
+        val bgColor = json.getString("bgColor")
+        val displayName = MultiLanguageValue[String](getNullableObject("displayName")(json))
+
+        // optional fields
+        val priority = Try(json.getInteger("priority").intValue()).toOption
+        val isMultilang = Option(json.getBoolean("isMultilang")).flatMap(Try[Boolean](_).toOption)
+        val isDashboard = Option(json.getBoolean("isDashboard")).flatMap(Try[Boolean](_).toOption)
+
+        for {
+          cellAnnotationConfig <-
+            controller.createCellAnnotationConfig(
+              name,
+              priority,
+              fgColor,
+              bgColor,
+              displayName,
+              isMultilang,
+              isDashboard
+            )
+        } yield {
+          cellAnnotationConfig
+        }
+      }
+    )
   }
 }

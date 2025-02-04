@@ -4,7 +4,13 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, SystemModel, TableauxModel}
+import com.campudus.tableaux.database.model.{
+  CellAnnotationConfigModel,
+  ServiceModel,
+  StructureModel,
+  SystemModel,
+  TableauxModel
+}
 import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.JsonUtils
@@ -26,9 +32,18 @@ object SystemController {
       tableauxModel: TableauxModel,
       structureModel: StructureModel,
       serviceModel: ServiceModel,
-      roleModel: RoleModel
+      roleModel: RoleModel,
+      cellAnnotationConfigModel: CellAnnotationConfigModel
   ): SystemController = {
-    new SystemController(config, repository, tableauxModel, structureModel, serviceModel, roleModel)
+    new SystemController(
+      config,
+      repository,
+      tableauxModel,
+      structureModel,
+      serviceModel,
+      roleModel,
+      cellAnnotationConfigModel
+    )
   }
 }
 
@@ -40,7 +55,8 @@ class SystemController(
     protected val tableauxModel: TableauxModel,
     protected val structureModel: StructureModel,
     protected val serviceModel: ServiceModel,
-    implicit protected val roleModel: RoleModel
+    implicit protected val roleModel: RoleModel,
+    protected val cellAnnotationConfigModel: CellAnnotationConfigModel
 ) extends Controller[SystemModel] {
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
@@ -331,5 +347,92 @@ class SystemController(
       _ <- roleModel.checkAuthorization(DeleteService)
       _ <- serviceModel.delete(serviceId)
     } yield EmptyObject()
+  }
+
+  def retrieveCellAnnotationConfigs()(implicit user: TableauxUser): Future[DomainObject] = {
+    logger.info(s"retrieveCellAnnotationConfigs")
+    for {
+      annotations <- cellAnnotationConfigModel.retrieveAll()
+    } yield {
+      val json = Json.obj("annotations" -> annotations.map(_.getJson))
+
+      PlainDomainObject(json)
+    }
+  }
+
+  def retrieveCellAnnotationConfig(annotationName: String)(implicit
+  user: TableauxUser): Future[CellAnnotationConfig] = {
+    logger.info(s"retrieveCellAnnotationConfig $annotationName")
+
+    for {
+      _ <- roleModel.checkAuthorization(ViewCellAnnotationConfig)
+      annotation <- cellAnnotationConfigModel.retrieve(annotationName)
+    } yield annotation
+  }
+
+  def deleteCellAnnotationConfig(annotationName: String)(implicit user: TableauxUser): Future[DomainObject] = {
+    logger.info(s"deleteCellAnnotationConfig $annotationName")
+
+    for {
+      _ <- roleModel.checkAuthorization(DeleteCellAnnotationConfig)
+      _ <- cellAnnotationConfigModel.delete(annotationName)
+    } yield EmptyObject()
+  }
+
+  def updateCellAnnotationConfig(
+      name: String,
+      priority: Option[Int],
+      fgColor: Option[String],
+      bgColor: Option[String],
+      displayName: Option[MultiLanguageValue[String]],
+      isMultilang: Option[Boolean],
+      isDashboard: Option[Boolean]
+  )(implicit user: TableauxUser): Future[DomainObject] = {
+
+    checkArguments(
+      notNull(name, "name"),
+      isDefined(
+        Seq(priority, fgColor, bgColor, displayName, isMultilang, isDashboard),
+        "priority, fgColor, bgColor, displayName, isMultilang, isDashboard"
+      )
+    )
+
+    logger.info(
+      s"updateCellAnnotationConfig $name $priority $fgColor $bgColor $displayName $isMultilang $isDashboard"
+    )
+
+    for {
+      _ <- roleModel.checkAuthorization(EditCellAnnotationConfig)
+      _ <- cellAnnotationConfigModel.update(name, priority, fgColor, bgColor, displayName, isMultilang, isDashboard)
+      annotationConfig <- retrieveCellAnnotationConfig(name)
+    } yield annotationConfig
+  }
+
+  def createCellAnnotationConfig(
+      name: String,
+      priority: Option[Int],
+      fgColor: String,
+      bgColor: String,
+      displayName: MultiLanguageValue[String],
+      isMultilang: Option[Boolean],
+      isDashboard: Option[Boolean]
+  )(implicit user: TableauxUser): Future[DomainObject] = {
+
+    checkArguments(
+      notNull(name, "name"),
+      notNull(fgColor, "fgColor"),
+      notNull(bgColor, "bgColor"),
+      notNull(displayName, "displayName")
+    )
+
+    logger.info(
+      s"createCellAnnotationConfig $name $priority $fgColor $bgColor $displayName $isMultilang $isDashboard"
+    )
+
+    for {
+      _ <- roleModel.checkAuthorization(CreateCellAnnotationConfig)
+      _ <- cellAnnotationConfigModel.create(name, priority, fgColor, bgColor, displayName, isMultilang, isDashboard)
+      annotationConfig <- retrieveCellAnnotationConfig(name)
+    } yield annotationConfig
   }
 }

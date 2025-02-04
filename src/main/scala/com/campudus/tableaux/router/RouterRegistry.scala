@@ -39,11 +39,20 @@ object RouterRegistry extends LazyLogging {
     val fileModel = FileModel(dbConnection)
     val attachmentModel = AttachmentModel(dbConnection, fileModel)
     val serviceModel = ServiceModel(dbConnection)
+    val cellAnnotationConfigModel = CellAnnotationConfigModel(dbConnection)
 
     val systemRouter =
       SystemRouter(
         tableauxConfig,
-        SystemController(_, systemModel, tableauxModel, structureModel, serviceModel, roleModel)
+        SystemController(
+          _,
+          systemModel,
+          tableauxModel,
+          structureModel,
+          serviceModel,
+          roleModel,
+          cellAnnotationConfigModel
+        )
       )
     val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel, roleModel))
     val mediaRouter =

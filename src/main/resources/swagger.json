@@ -603,6 +603,138 @@
         }
       }
     },
+    "/system/annotations": {
+      "get": {
+        "summary": "Get all annotation configs",
+        "description": "Returns an array containing all available annotation configs.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "get-all-annotation-configs",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The annotations",
+            "schema": {
+              "$ref": "#/definitions/Response: Annotation Configs"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new annotation config",
+        "description": "Creates the annotation config.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "create-new-annotation-config",
+        "parameters": [
+          {
+            "name": "annotation config",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Request: Create annotation config"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The new annotation config",
+            "schema": {
+              "$ref": "#/definitions/CellAnnotationConfig"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
+    },
+    "/system/annotations/{annotationName}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/annotationName"
+        }
+      ],
+      "get": {
+        "summary": "Get annotation config",
+        "description": "Returns the config of an annotation.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "get-annotation-config",
+        "responses": {
+          "200": {
+            "description": "Config of the annotation",
+            "schema": {
+              "$ref": "#/definitions/CellAnnotationConfig"
+            }
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update annotation config",
+        "description": "Updates an annotation config.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "update-annotation-config",
+        "parameters": [
+          {
+            "name": "annotation config",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CellAnnotationConfig"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Config of the annotation",
+            "schema": {
+              "$ref": "#/definitions/CellAnnotationConfig"
+            }
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete an annotation config",
+        "description": "Deletes the config of an annotation.",
+        "tags": [
+          "system"
+        ],
+        "operationId": "delete-annotation-config",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/system/update": {
       "post": {
         "summary": "Update system tables",
@@ -2219,6 +2351,63 @@
         }
       }
     },
+    "CellAnnotationConfig": {
+      "type": "object",
+      "required": [
+        "name",
+        "priority",
+        "fgColor",
+        "bgColor",
+        "displayName",
+        "isMultilang",
+        "isDashboard"
+      ],
+      "properties": {
+        "name": {
+          "description": "name of the annotation",
+          "type": "string",
+          "example": "important"
+        },
+        "priority": {
+          "description": "priority of the annotation",
+          "type": "number",
+          "example": 1
+        },
+        "fgColor": {
+          "description": "foreground color of the annotation",
+          "type": "string",
+          "example": "#ffffff"
+        },
+        "bgColor": {
+          "description": "background color of the annotation",
+          "type": "string",
+          "example": "#ff7474"
+        },
+        "displayName": {
+          "description": "display name of the annotation as multilang obj",
+          "type": "object",
+          "example": {
+            "de": "Wichtig",
+            "en": "Important"
+          }
+        },
+        "isMultilang": {
+          "description": "multilang flag for the annotation",
+          "type": "boolean",
+          "example": false
+        },
+        "isDashboard": {
+          "description": "dashboard flag for the annotation",
+          "type": "boolean",
+          "example": true
+        },
+        "isCustom": {
+          "description": "custom flag for the annotation",
+          "type": "boolean",
+          "example": true
+        }
+      }
+    },
     "Pagination": {
       "type": "object",
       "required": [
@@ -2473,6 +2662,25 @@
       },
       "required": [
         "services"
+      ]
+    },
+    "Response: Annotation Configs": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "annotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CellAnnotationConfig"
+          }
+        }
+      },
+      "required": [
+        "annotations"
       ]
     },
     "Response:Cell": {
@@ -3090,6 +3298,56 @@
           "type": "global"
         }
       }
+    },
+    "Request: Create annotation config": {
+      "type": "object",
+      "required": [
+        "name",
+        "fgColor",
+        "bgColor",
+        "displayName"
+      ],
+      "properties": {
+        "name": {
+          "description": "name of the annotation",
+          "type": "string",
+          "example": "important"
+        },
+        "priority": {
+          "description": "priority of the annotation",
+          "type": "number",
+          "example": 1
+        },
+        "fgColor": {
+          "description": "foreground color of the annotation",
+          "type": "string",
+          "example": "#ffffff"
+        },
+        "bgColor": {
+          "description": "background color of the annotation",
+          "type": "string",
+          "example": "#ff7474"
+        },
+        "displayName": {
+          "description": "display name of the annotation as multilang obj",
+          "type": "object",
+          "example": {
+            "de": "Wichtig",
+            "en": "Important"
+          }
+        },
+        "isMultilang": {
+          "description": "multilang flag for the annotation",
+          "type": "boolean",
+          "example": false
+        },
+        "isDashboard": {
+          "description": "dashboard flag for the annotation",
+          "type": "boolean",
+          "example": true
+        }
+      },
+      "description": "Creates a new annotation config."
     },
     "Response: Complete table": {
       "type": "object",
@@ -4206,6 +4464,14 @@
       "in": "query",
       "type": "boolean",
       "required": false
+    },
+    "annotationName": {
+      "name": "annotationName",
+      "description": "The name of the annotation",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "example": "postpone"
     }
   },
   "responses": {
