@@ -117,8 +117,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          # pattern: test-results
-          path: artifacts/test-results
+          path: artifacts
 
       - name: Debug Test Results
         run: ls -R artifacts
