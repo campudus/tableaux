@@ -119,9 +119,6 @@ jobs:
         with:
           path: artifacts
 
-      - name: Debug Test Results
-        run: ls -R artifacts
-
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
