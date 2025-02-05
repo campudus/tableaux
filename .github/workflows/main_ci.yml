@@ -122,7 +122,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: true
 
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
