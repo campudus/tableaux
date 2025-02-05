@@ -76,21 +76,21 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report
+          name: test-report-postgres-${{ matrix.postgres-version }}
           path: build/reports/tests/test
 
       - name: Archive test results (xml)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-postgres-${{ matrix.postgres-version }}
           path: build/test-results/test/TEST-*.xml
 
       - name: Archive code coverage results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: coverage-report-postgres-${{ matrix.postgres-version }}
           path: build/reports/scoverage
 
       - name: Test Report
@@ -121,9 +121,11 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
+          # we have to publish only one of the results of the matrix build (take postgres 16 result)
+          pattern: test-results-postgres-16
           path: artifacts
 
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          files: artifacts/test-results/**/*.xml
+          files: artifacts/test-results-postgres-16/**/*.xml
