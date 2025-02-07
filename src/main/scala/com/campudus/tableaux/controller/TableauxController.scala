@@ -43,8 +43,13 @@ class TableauxController(
       annotationType: CellAnnotationType,
       value: String
   )(implicit user: TableauxUser): Future[CellLevelAnnotation] = {
-    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"addCellAnnotation $tableId $columnId $rowId $langtags $annotationType $value")
+    checkArguments(
+      greaterZero(tableId),
+      greaterThan(columnId, -1, "columnId"),
+      greaterZero(rowId),
+      notNull(value, "value")
+    )
 
     for {
       table <- repository.retrieveTable(tableId)

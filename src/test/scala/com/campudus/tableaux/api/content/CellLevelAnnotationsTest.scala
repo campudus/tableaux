@@ -301,7 +301,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
-  def addInvalidAnnotations(implicit c: TestContext): Unit = {
+  def addInvalidAnnotations_invalidType(implicit c: TestContext): Unit = {
     exceptionTest("error.arguments") {
       for {
         tableId <- createDefaultTable("Test")
@@ -311,6 +311,22 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
         rowId = result.getLong("id")
 
         _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations", Json.obj("type" -> "invalid"))
+
+      } yield ()
+    }
+  }
+
+  @Test
+  def addInvalidAnnotations_invalidValue(implicit c: TestContext): Unit = {
+    exceptionTest("error.arguments") {
+      for {
+        tableId <- createDefaultTable("Test")
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations", Json.obj("type" -> "flag"))
 
       } yield ()
     }
