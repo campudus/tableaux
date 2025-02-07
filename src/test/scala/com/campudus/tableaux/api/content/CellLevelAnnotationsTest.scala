@@ -625,7 +625,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           Json.arr("en"),
           rowJson2.getJsonArray("annotations").getJsonArray(0).getJsonObject(0).getJsonArray("langtags")
         )
-        assertNull(rowJson3.getJsonArray("annotations").getJsonArray(0).getJsonObject(0))
+        assertNull(rowJson3.getJsonArray("annotations"))
       }
     }
   }

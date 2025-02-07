@@ -803,11 +803,20 @@ class UpdateRowModel(val connection: DatabaseConnection) extends DatabaseQuery w
   }
 
   def deleteCellAnnotation(column: ColumnType[_], rowId: RowId, uuid: UUID, langtag: String): Future[_] = {
-    val delete =
+    val deleteLangtag =
       s"UPDATE user_table_annotations_${column.table.id} SET langtags = ARRAY_REMOVE(langtags, ?) WHERE row_id = ? AND column_id = ? AND uuid = ?"
-    val binds = Json.arr(langtag, rowId, column.id, uuid.toString)
+    // we delete the annotation if langtag array is empty after update
+    val maybeDeleteWholeAnnotation =
+      s"DELETE FROM user_table_annotations_${column.table.id} WHERE row_id = ? AND column_id = ? AND uuid = ? AND CARDINALITY(ARRAY_REMOVE(langtags, ?)) < 1"
 
-    connection.query(delete, binds)
+    connection.transactional { t =>
+      {
+        for {
+          (t, result) <- t.query(deleteLangtag, Json.arr(langtag, rowId, column.id, uuid.toString))
+          (t, _) <- t.query(maybeDeleteWholeAnnotation, Json.arr(rowId, column.id, uuid.toString, langtag))
+        } yield (t, result)
+      }
+    }
   }
 
   def addRowPermissions(table: Table, row: Row, rowPermissions: RowPermissionSeq): Future[Option[RowPermissionSeq]] = {
