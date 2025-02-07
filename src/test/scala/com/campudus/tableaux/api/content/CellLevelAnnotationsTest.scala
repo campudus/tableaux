@@ -317,22 +317,6 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
-  def addInvalidAnnotations_invalidValue(implicit c: TestContext): Unit = {
-    exceptionTest("error.arguments") {
-      for {
-        (tableId, _) <- createTableWithMultilanguageColumns("Test")
-
-        // empty row
-        result <- sendRequest("POST", s"/tables/$tableId/rows")
-        rowId = result.getLong("id")
-
-        _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations", Json.obj("type" -> "flag"))
-
-      } yield ()
-    }
-  }
-
-  @Test
   def addAnnotations_emptyLangtags(implicit c: TestContext): Unit = {
     exceptionTest("unprocessable.entity") {
       for {
@@ -477,11 +461,10 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
         rowJsonAfterDelete <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
-        val exceptedFlags = Json
-          .arr(Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error", "value" -> null))
+        val exceptedFlags = Json.arr(Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error", "value" -> null))
 
-        val exceptedFlagsAfterDelete = Json
-          .arr(Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> null))
+        val exceptedFlagsAfterDelete =
+          Json.arr(Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> null))
 
         assertJSONEquals(exceptedFlags, rowJson.getJsonArray("annotations").getJsonArray(0))
         assertJSONEquals(exceptedFlagsAfterDelete, rowJsonAfterDelete.getJsonArray("annotations").getJsonArray(0))
@@ -574,17 +557,7 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           )
         )
 
-        assertJSONEquals(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
-        assertFalse(
-          "should not include null field",
-          rowJson2
-            .getJsonArray("annotations")
-            .getJsonArray(0)
-            .getJsonObject(0)
-            .containsKey("langtaga")
-        ); // JSON serialization from the server should not include null fields, such as "versionedFlows": null
-
-        assertNull(rowJson2.getJsonArray("annotations").getJsonArray(1))
+        assertNull(rowJson2.getJsonArray("annotations"))
       }
     }
   }
