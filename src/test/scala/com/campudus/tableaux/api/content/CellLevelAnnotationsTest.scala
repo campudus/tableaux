@@ -333,6 +333,26 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
+  def addAnnotations_emptyLangtags(implicit c: TestContext): Unit = {
+    exceptionTest("unprocessable.entity") {
+      for {
+        tableId <- createDefaultTable("Test")
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("type" -> "flag", "value" -> "needs_translation", "langtags" -> Json.emptyArr())
+        )
+
+      } yield ()
+    }
+  }
+
+  @Test
   def addSameAnnotationsWithDifferentLangtags(implicit c: TestContext): Unit = {
     okTest {
       // Tests what happens when annotation with same type and/or value is posted multiple times.

@@ -59,6 +59,9 @@ class TableauxController(
           s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)"
         )
       }
+      _ = if (annotationType == FlagAnnotationType && langtags.isEmpty) {
+        throw UnprocessableEntityException(s"Cannot add/change an 'needs_translation' annotation without langtags")
+      }
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
