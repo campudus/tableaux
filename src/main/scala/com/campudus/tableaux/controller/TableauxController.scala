@@ -55,7 +55,7 @@ class TableauxController(
         )
       }
       _ = if (annotationType == FlagAnnotationType && value == "needs_translation" && langtags.isEmpty) {
-        throw UnprocessableEntityException(s"Cannot add/change an 'needs_translation' annotation without langtags")
+        throw UnprocessableEntityException(s"Cannot add/change a 'needs_translation' annotation without langtags")
       }
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
 
