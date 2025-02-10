@@ -301,16 +301,36 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
   }
 
   @Test
-  def addInvalidAnnotations(implicit c: TestContext): Unit = {
+  def addInvalidAnnotations_invalidType(implicit c: TestContext): Unit = {
     exceptionTest("error.arguments") {
       for {
-        tableId <- createDefaultTable("Test")
+        (tableId, _) <- createTableWithMultilanguageColumns("Test")
 
         // empty row
         result <- sendRequest("POST", s"/tables/$tableId/rows")
         rowId = result.getLong("id")
 
         _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/$rowId/annotations", Json.obj("type" -> "invalid"))
+
+      } yield ()
+    }
+  }
+
+  @Test
+  def addAnnotations_emptyLangtags(implicit c: TestContext): Unit = {
+    exceptionTest("unprocessable.entity") {
+      for {
+        (tableId, _) <- createTableWithMultilanguageColumns("Test")
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/1/rows/$rowId/annotations",
+          Json.obj("type" -> "flag", "value" -> "needs_translation", "langtags" -> Json.emptyArr())
+        )
 
       } yield ()
     }
@@ -441,11 +461,10 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
 
         rowJsonAfterDelete <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
       } yield {
-        val exceptedFlags = Json
-          .arr(Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error", "value" -> null))
+        val exceptedFlags = Json.arr(Json.obj("langtags" -> Json.arr("de", "en"), "type" -> "error", "value" -> null))
 
-        val exceptedFlagsAfterDelete = Json
-          .arr(Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> null))
+        val exceptedFlagsAfterDelete =
+          Json.arr(Json.obj("langtags" -> Json.arr("de"), "type" -> "error", "value" -> null))
 
         assertJSONEquals(exceptedFlags, rowJson.getJsonArray("annotations").getJsonArray(0))
         assertJSONEquals(exceptedFlagsAfterDelete, rowJsonAfterDelete.getJsonArray("annotations").getJsonArray(0))
@@ -453,27 +472,27 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
     }
   }
 
+  def addLangtag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtag: String): Future[_] = {
+    sendRequest(
+      "POST",
+      s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations",
+      Json.obj("langtags" -> Json.arr(langtag), "type" -> "flag", "value" -> "needs_translation")
+    )
+  }
+
+  def removeLangtag(
+      tableId: TableId,
+      columnId: ColumnId,
+      rowId: RowId,
+      uuid: String,
+      langtag: String
+  ): Future[_] = {
+    sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuid/$langtag")
+  }
+
   @Test
   def addAndDeleteAnnotationWithLangtagsConcurrently(implicit c: TestContext): Unit = {
     okTest {
-
-      def addLangtag(tableId: TableId, columnId: ColumnId, rowId: RowId, langtag: String): Future[_] = {
-        sendRequest(
-          "POST",
-          s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations",
-          Json.obj("langtags" -> Json.arr(langtag), "type" -> "flag", "value" -> "needs_translation")
-        )
-      }
-
-      def removeLangtag(
-          tableId: TableId,
-          columnId: ColumnId,
-          rowId: RowId,
-          uuid: String,
-          langtag: String
-      ): Future[_] = {
-        sendRequest("DELETE", s"/tables/$tableId/columns/$columnId/rows/$rowId/annotations/$uuid/$langtag")
-      }
 
       for {
         (tableId, _) <- createTableWithMultilanguageColumns("test")
@@ -538,17 +557,48 @@ class CellLevelAnnotationsTest extends TableauxTestBase {
           )
         )
 
-        assertJSONEquals(exceptedColumn1FlagsAfterDelete, rowJson2.getJsonArray("annotations").getJsonArray(0))
-        assertFalse(
-          "should not include null field",
-          rowJson2
-            .getJsonArray("annotations")
-            .getJsonArray(0)
-            .getJsonObject(0)
-            .containsKey("langtaga")
-        ); // JSON serialization from the server should not include null fields, such as "versionedFlows": null
+        assertNull(rowJson2.getJsonArray("annotations"))
+      }
+    }
+  }
 
-        assertNull(rowJson2.getJsonArray("annotations").getJsonArray(1))
+  @Test
+  def deleteLastLangtagFromAnnotationShouldDeleteAnnotationCompletely(implicit c: TestContext): Unit = {
+    okTest {
+
+      for {
+        (tableId, _) <- createTableWithMultilanguageColumns("test")
+
+        // empty row
+        result <- sendRequest("POST", s"/tables/$tableId/rows")
+        rowId = result.getLong("id")
+
+        _ <- Future.sequence(
+          Seq(
+            addLangtag(tableId, 1, rowId, "de"),
+            addLangtag(tableId, 1, rowId, "en")
+          )
+        )
+
+        rowJson1 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+        annotationUuid = rowJson1.getJsonArray("annotations").getJsonArray(0).getJsonObject(0).getString("uuid")
+
+        _ <- removeLangtag(tableId, 1, rowId, annotationUuid, "de")
+        rowJson2 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+
+        _ <- removeLangtag(tableId, 1, rowId, annotationUuid, "en")
+        rowJson3 <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
+
+      } yield {
+        assertJSONEquals(
+          Json.arr("de", "en"),
+          rowJson1.getJsonArray("annotations").getJsonArray(0).getJsonObject(0).getJsonArray("langtags")
+        )
+        assertJSONEquals(
+          Json.arr("en"),
+          rowJson2.getJsonArray("annotations").getJsonArray(0).getJsonObject(0).getJsonArray("langtags")
+        )
+        assertNull(rowJson3.getJsonArray("annotations"))
       }
     }
   }

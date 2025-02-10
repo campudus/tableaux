@@ -43,8 +43,8 @@ class TableauxController(
       annotationType: CellAnnotationType,
       value: String
   )(implicit user: TableauxUser): Future[CellLevelAnnotation] = {
-    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"addCellAnnotation $tableId $columnId $rowId $langtags $annotationType $value")
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
 
     for {
       table <- repository.retrieveTable(tableId)
@@ -53,6 +53,9 @@ class TableauxController(
         throw UnprocessableEntityException(
           s"Cannot add an annotation with langtags to a language neutral cell (table: $tableId, column: $columnId)"
         )
+      }
+      _ = if (annotationType == FlagAnnotationType && value == "needs_translation" && langtags.isEmpty) {
+        throw UnprocessableEntityException(s"Cannot add/change a 'needs_translation' annotation without langtags")
       }
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
 
