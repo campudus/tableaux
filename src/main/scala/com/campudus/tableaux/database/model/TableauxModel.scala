@@ -255,31 +255,18 @@ class TableauxModel(
   ): Future[Seq[(Table, LinkColumn, Seq[RowId])]] = {
     for {
       links <- retrieveDependentLinks(table)
-
       result <- Future.sequence(
-        links.map({
+        links.map {
           case (linkId, linkDirection) =>
-            retrieveDependentTableAndRowIds(linkId, linkDirection, rowId)
-              .flatMap({
-                case (dependentTableId, dependentRows) =>
-                  for {
-                    dependentTable <- retrieveTable(dependentTableId)
-
-                    // retrieve the dependent column which must be exactly one in case of bidirectional links or none
-                    filteredColumns <- retrieveColumns(dependentTable).map(_.collect({
-                      case c: LinkColumn if c.linkId == linkId => c
-                    }))
-                    // Skip if filteredColumns is empty
-                    result <-
-                      if (filteredColumns.nonEmpty) {
-                        val linkedColumn = filteredColumns.head
-                        Future.successful(Some((dependentTable, linkedColumn, dependentRows)))
-                      } else {
-                        Future.successful(None)
-                      }
-                  } yield result
-              })
-        })
+            retrieveDependentTableAndRowIds(linkId, linkDirection, rowId).flatMap {
+              case (dependentTableId, dependentRows) =>
+                retrieveTable(dependentTableId).flatMap { dependentTable =>
+                  retrieveColumns(dependentTable).map(_.collectFirst {
+                    case c: LinkColumn if c.linkId == linkId => (dependentTable, c, dependentRows)
+                  })
+                }
+            }
+        }
       )
     } yield result.flatten
   }
