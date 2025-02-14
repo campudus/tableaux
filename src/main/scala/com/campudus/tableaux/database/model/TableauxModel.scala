@@ -265,16 +265,23 @@ class TableauxModel(
                   for {
                     dependentTable <- retrieveTable(dependentTableId)
 
-                    // retrieve the dependent column which must be exactly one
-                    linkedColumn <- retrieveColumns(dependentTable).map(_.collect({
+                    // retrieve the dependent column which must be exactly one in case of bidirectional links or none
+                    filteredColumns <- retrieveColumns(dependentTable).map(_.collect({
                       case c: LinkColumn if c.linkId == linkId => c
-                    }).head)
-
-                  } yield (dependentTable, linkedColumn, dependentRows)
+                    }))
+                    // Skip if filteredColumns is empty
+                    result <-
+                      if (filteredColumns.nonEmpty) {
+                        val linkedColumn = filteredColumns.head
+                        Future.successful(Some((dependentTable, linkedColumn, dependentRows)))
+                      } else {
+                        Future.successful(None)
+                      }
+                  } yield result
               })
         })
       )
-    } yield result
+    } yield result.flatten
   }
 
   def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int] = None)(
