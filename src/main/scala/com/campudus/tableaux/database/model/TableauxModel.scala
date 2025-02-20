@@ -255,26 +255,20 @@ class TableauxModel(
   ): Future[Seq[(Table, LinkColumn, Seq[RowId])]] = {
     for {
       links <- retrieveDependentLinks(table)
-
       result <- Future.sequence(
-        links.map({
+        links.map {
           case (linkId, linkDirection) =>
-            retrieveDependentTableAndRowIds(linkId, linkDirection, rowId)
-              .flatMap({
-                case (dependentTableId, dependentRows) =>
-                  for {
-                    dependentTable <- retrieveTable(dependentTableId)
-
-                    // retrieve the dependent column which must be exactly one
-                    linkedColumn <- retrieveColumns(dependentTable).map(_.collect({
-                      case c: LinkColumn if c.linkId == linkId => c
-                    }).head)
-
-                  } yield (dependentTable, linkedColumn, dependentRows)
-              })
-        })
+            retrieveDependentTableAndRowIds(linkId, linkDirection, rowId).flatMap {
+              case (dependentTableId, dependentRows) =>
+                retrieveTable(dependentTableId).flatMap { dependentTable =>
+                  retrieveColumns(dependentTable).map(_.collectFirst {
+                    case c: LinkColumn if c.linkId == linkId => (dependentTable, c, dependentRows)
+                  })
+                }
+            }
+        }
       )
-    } yield result
+    } yield result.flatten
   }
 
   def deleteRow(table: Table, rowId: RowId, replacingRowIdOpt: Option[Int] = None)(
