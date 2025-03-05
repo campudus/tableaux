@@ -955,7 +955,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         // select either identifier column and/or
         // ... grouped columns if GroupColumn is an identifier
         """
-          |AND identifier = TRUE OR
+          |AND (identifier = TRUE OR
           |(
           | SELECT COUNT(*)
           | FROM
@@ -965,7 +965,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           | LEFT JOIN system_columns sc2
           |   ON (sc2.table_id = g.table_id AND sc2.column_id = g.group_column_id)
           | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id AND sc.table_id = c.table_id
-          |) > 0""".stripMargin
+          |) > 0)""".stripMargin
       } else {
         ""
       }
