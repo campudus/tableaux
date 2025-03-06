@@ -141,10 +141,11 @@ class StructureController(
       displayInfos: Seq[DisplayInfo],
       tableType: TableType,
       tableGroupId: Option[TableGroupId],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String]
   )(implicit user: TableauxUser): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
-    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
+    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId $concatFormatPattern")
 
     def createTable(anything: Unit): Future[Table] = {
       val builder = tableType match {
@@ -152,7 +153,7 @@ class StructureController(
         case TaxonomyTable => createTaxonomyTable
         case _ => createGenericTable
       }
-      builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+      builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
     }
 
     (attributes match {
@@ -175,11 +176,12 @@ class StructureController(
         langtags: Option[Option[Seq[String]]],
         displayInfos: Seq[DisplayInfo],
         tableGroupId: Option[TableGroupId],
-        attributes: Option[JsonObject]
+        attributes: Option[JsonObject],
+        concatFormatPattern: Option[String]
     ) => {
       for {
         _ <- roleModel.checkAuthorization(CreateTable)
-        tableStub <- tableStruc.create(tableName, hidden, langtags, displayInfos, tableType, tableGroupId, attributes)
+        tableStub <- tableStruc.create(tableName, hidden, langtags, displayInfos, tableType, tableGroupId, attributes, concatFormatPattern)
         _ <- columns match {
           case None => Future.successful(())
           case Some(cols) => columnStruc.createColumns(tableStub, cols)
@@ -249,7 +251,8 @@ class StructureController(
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
       tableGroupId: Option[TableGroupId],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String]
   ) => {
     for {
 
@@ -290,7 +293,7 @@ class StructureController(
             )
           )
         )
-      ).apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+      ).apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
       _ <- columnStruc.createColumn(
         tableStub,
         CreateLinkColumn(
@@ -377,20 +380,21 @@ class StructureController(
       langtags: Option[Option[Seq[String]]],
       displayInfos: Option[Seq[DisplayInfo]],
       tableGroupId: Option[Option[TableGroupId]],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String]
   )(implicit user: TableauxUser): Future[Table] = {
     checkArguments(
       greaterZero(tableId),
       isDefined(
-        Seq(tableName, hidden, langtags, displayInfos, tableGroupId, attributes),
-        "name, hidden, langtags, displayName, description, group"
+        Seq(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern),
+        "name, hidden, langtags, displayName, description, group, concatFormatPattern"
       )
     )
 
     val structureProperties: Seq[Option[Any]] = Seq(tableName, hidden, langtags, tableGroupId)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
-    logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId")
+    logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId $concatFormatPattern")
 
     for {
       table <- tableStruc.retrieve(tableId)
@@ -410,7 +414,7 @@ class StructureController(
         } else {
           Future { Unit }
         }
-      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
       changedTable <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $changedTable")
