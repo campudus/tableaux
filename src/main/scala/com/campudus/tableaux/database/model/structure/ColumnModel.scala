@@ -1007,7 +1007,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       case x if x >= 2 =>
         // in case of two or more identifier columns we preserve the order of column
         // and a concatcolumn in front of all columns
-        columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns))
+        columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns, table.concatFormatPattern))
       case x if x == 1 =>
         // in case of one identifier column we don't get a concat column
         // but the identifier column will be the first
