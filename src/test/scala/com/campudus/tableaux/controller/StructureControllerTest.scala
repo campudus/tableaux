@@ -38,7 +38,8 @@ class StructureControllerTest extends TableauxTestBase {
         displayInfos = null,
         tableType = GenericTable,
         tableGroupId = None,
-        attributes = None
+        attributes = None,
+        concatFormatPattern = None
       )
     )
   }

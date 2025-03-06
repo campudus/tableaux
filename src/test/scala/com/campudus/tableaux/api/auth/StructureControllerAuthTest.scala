@@ -154,7 +154,8 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
         displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
         tableType = GenericTable,
         tableGroupId = None,
-        attributes = None
+        attributes = None,
+        concatFormatPattern = None
       )
     } yield {
       assertEquals(1: Long, table.id)
@@ -176,7 +177,8 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
           displayInfos = DisplayInfos.fromJson(Json.emptyObj()),
           tableType = GenericTable,
           tableGroupId = None,
-          attributes = None
+          attributes = None,
+          concatFormatPattern = None
         )
       } yield ()
     }
@@ -199,7 +201,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
     for {
       tableId <- createDefaultTable("Test")
 
-      _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None, None)
+      _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None, None, None)
     } yield ()
   }
 
@@ -211,7 +213,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
 
       for {
         tableId <- createDefaultTable("Test")
-        _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None, None)
+        _ <- controller.changeTable(tableId, None, None, None, Some(displayInfos), None, None, None)
       } yield ()
     }
 
@@ -231,7 +233,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
 
     for {
       tableId <- createDefaultTable("Test")
-      _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None, None)
+      _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None, None, None)
     } yield ()
   }
 
@@ -253,7 +255,7 @@ class StructureControllerTableAuthTest_checkAuthorization extends StructureContr
       for {
         tableId <- createDefaultTable("Test")
 
-        _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None, None)
+        _ <- controller.changeTable(tableId, Some("changeTableName"), None, None, None, None, None, None)
       } yield ()
     }
 
