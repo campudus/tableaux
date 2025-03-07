@@ -1003,11 +1003,23 @@ class ColumnModel(val connection: DatabaseConnection)(
   ): Seq[ColumnType[_]] = {
     val identifierColumns = columns.filter(_.identifier)
 
+    val formatPattern = if (!isColumnGroupMatchingToFormatPattern(table.concatFormatPattern, identifierColumns)) {
+      val columnsIds = identifierColumns.map(_.id).mkString(", ");
+      val formatPatternString = table.concatFormatPattern.map(_.toString).orNull;
+
+      logger.warn(s"IdentifierColumns ($columnsIds) don't match to formatPattern '$formatPatternString'")
+
+      None
+    } else {
+      table.concatFormatPattern
+    }
+
     identifierColumns.size match {
-      case x if x >= 2 =>
+      case x if x >= 2 => {
         // in case of two or more identifier columns we preserve the order of column
         // and a concatcolumn in front of all columns
-        columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns, table.concatFormatPattern))
+        columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns, formatPattern))
+      }
       case x if x == 1 =>
         // in case of one identifier column we don't get a concat column
         // but the identifier column will be the first
