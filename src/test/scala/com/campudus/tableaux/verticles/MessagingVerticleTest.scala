@@ -514,6 +514,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
           None,
           None,
           None,
+          None,
           None
         )
       _ <- eventClient.columnChanged(table.id, updatedColumn.id)

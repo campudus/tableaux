@@ -1,12 +1,13 @@
 package com.campudus.tableaux.controller
 
-import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig}
+import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateColumn, _}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
+import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 import com.campudus.tableaux.verticles.ValidatorKeys
@@ -470,7 +471,8 @@ class StructureController(
       maxLength: Option[Int] = None,
       minLength: Option[Int] = None,
       showMemberColumns: Option[Boolean] = None,
-      decimalDigits: Option[Int] = None
+      decimalDigits: Option[Int] = None,
+      formatPattern: Option[String] = None
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
@@ -490,10 +492,11 @@ class StructureController(
           maxLength,
           minLength,
           showMemberColumns,
-          decimalDigits
+          decimalDigits,
+          formatPattern
         ),
         "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, " +
-          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits"
+          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits, formatPattern"
       )
     )
 
@@ -523,7 +526,8 @@ class StructureController(
           maxLength,
           minLength,
           showMemberColumns,
-          decimalDigits
+          decimalDigits,
+          formatPattern
         )
 
     for {
@@ -552,6 +556,30 @@ class StructureController(
           } yield ()
         } else {
           Future { Unit }
+        }
+
+      _ <-
+        if (formatPattern.isDefined) {
+          column match {
+            case groupColumn: GroupColumn => {
+              if (!isColumnGroupMatchingToFormatPattern(formatPattern, groupColumn.columns)) {
+                val columnsIds = groupColumn.columns.map(_.id).mkString(", ");
+
+                Future.failed(UnprocessableEntityException(
+                  s"Invalid formatPattern: columns ($columnsIds) don't match with formatPattern '$formatPattern'"
+                ))
+              } else {
+                Future.successful(())
+              }
+            }
+            case _ =>
+              Future.failed(ForbiddenException(
+                s"Update of formatPattern '$formatPattern' is not allowed for column ${column.kind}.",
+                "column"
+              ))
+          }
+        } else {
+          Future.successful(())
         }
 
       _ <-

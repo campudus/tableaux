@@ -75,11 +75,11 @@ class ColumnModelTest {
   }
 
   @Test
-  def isColumnGroupMatchingToFormatPattern_twoColumns_oneWildcards_isNotValid(): Unit = {
+  def isColumnGroupMatchingToFormatPattern_twoColumns_oneWildcards_isValid(): Unit = {
     val formatPattern = "{{1}} mm"
     val columns = Seq(col1, col2)
 
-    assertFalse(isColumnGroupMatchingToFormatPattern(Some(formatPattern), columns))
+    assertTrue(isColumnGroupMatchingToFormatPattern(Some(formatPattern), columns))
   }
 
   @Test

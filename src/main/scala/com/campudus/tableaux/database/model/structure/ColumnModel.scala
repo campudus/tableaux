@@ -187,7 +187,8 @@ class CachedColumnModel(
       maxLength: Option[Int],
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
-      decimalDigits: Option[Int]
+      decimalDigits: Option[Int],
+      formatPattern: Option[String]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -208,7 +209,8 @@ class CachedColumnModel(
           maxLength,
           minLength,
           showMemberColumns,
-          decimalDigits
+          decimalDigits,
+          formatPattern
         )
     } yield r
   }
@@ -226,7 +228,7 @@ object ColumnModel extends LazyLogging {
       formatPattern: Option[String],
       groupedColumns: Seq[ColumnType[_]]
   ): Boolean = {
-    val formatVariable = "\\{\\{(\\d+)\\}\\}".r
+    val formatVariable = "\\{\\{(\\w+)\\}\\}".r
 
     formatPattern match {
       case Some(patternString) => {
@@ -236,17 +238,16 @@ object ColumnModel extends LazyLogging {
             .toSeq
             .flatMap(_.subgroups)
             .distinct
-            .map(_.toLong)
             .to[SortedSet]
 
-        val columnIDs = groupedColumns.map(_.id).to[SortedSet]
+        val columnIDs = groupedColumns.map(_.id).map(_.toString).to[SortedSet]
 
         logger.info(
           s"Compare distinct wildcards (${distinctWildcards.mkString(", ")}) " +
             s"with columnIDs (${columnIDs.mkString(", ")})"
         )
 
-        distinctWildcards == columnIDs
+        distinctWildcards.subsetOf(columnIDs)
       }
       case None => true
     }
@@ -1006,9 +1007,9 @@ class ColumnModel(val connection: DatabaseConnection)(
     val formatPattern =
       if (!isColumnGroupMatchingToFormatPattern(table.concatFormatPattern, identifierColumns)) {
         val columnsIds = identifierColumns.map(_.id).mkString(", ");
-        val formatPatternString = table.concatFormatPattern.map(_.toString).orNull;
+        val pattern = table.concatFormatPattern.map(_.toString).orNull;
 
-        logger.warn(s"IdentifierColumns ($columnsIds) don't match to formatPattern '$formatPatternString'")
+        logger.warn(s"IdentifierColumns ($columnsIds) don't match with formatPattern '$pattern'")
 
         None
       } else {
@@ -1510,7 +1511,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       maxLength: Option[Int],
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
-      decimalDigits: Option[Int]
+      decimalDigits: Option[Int],
+      formatPattern: Option[String]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 
@@ -1543,6 +1545,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)
       (t, resultShowMemberColumns) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
       (t, resultDecimalDigits) <- maybeUpdateColumn(t, "decimal_digits", decimalDigits)
+      (t, resultFormatPattern) <- maybeUpdateColumn(t, "format_pattern", formatPattern)
 
       // cannot use optionToValidFuture here, we need to be able to set these settings to null
       (t, resultMaxLength) <- maxLength match {
@@ -1582,7 +1585,8 @@ class ColumnModel(val connection: DatabaseConnection)(
           resultMaxLength,
           resultMinLength,
           resultShowMemberColumns,
-          resultDecimalDigits
+          resultDecimalDigits,
+          resultFormatPattern
         )
       )
         .recoverWith(t.rollbackAndFail())

@@ -296,7 +296,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             maxLength,
             minLength,
             showMemberColumns,
-            decimalDigits
+            decimalDigits,
+            formatPattern
           ) =
             toColumnChanges(json)
 
@@ -316,7 +317,8 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
             maxLength,
             minLength,
             showMemberColumns,
-            decimalDigits
+            decimalDigits,
+            formatPattern
           )
         }
       )
