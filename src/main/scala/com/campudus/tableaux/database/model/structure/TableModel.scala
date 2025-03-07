@@ -424,14 +424,18 @@ class TableModel(val connection: DatabaseConnection)(
         t,
         { concatFormatPattern: String =>
           {
-            t.query(s"UPDATE system_table SET concat_format_pattern = ? WHERE table_id = ?", Json.arr(concatFormatPattern, tableId))
+            t.query(
+              s"UPDATE system_table SET concat_format_pattern = ? WHERE table_id = ?",
+              Json.arr(concatFormatPattern, tableId)
+            )
           }
         }
       )
 
       t <- insertOrUpdateTableDisplayInfo(t, tableId, displayInfos)
 
-      _ <- Future(checkUpdateResults(result1, result2, result3, result4, result5, result6)) recoverWith t.rollbackAndFail()
+      _ <-
+        Future(checkUpdateResults(result1, result2, result3, result4, result5, result6)) recoverWith t.rollbackAndFail()
 
       _ <- t.commit()
     } yield ()

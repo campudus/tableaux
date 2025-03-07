@@ -181,7 +181,16 @@ class StructureController(
     ) => {
       for {
         _ <- roleModel.checkAuthorization(CreateTable)
-        tableStub <- tableStruc.create(tableName, hidden, langtags, displayInfos, tableType, tableGroupId, attributes, concatFormatPattern)
+        tableStub <- tableStruc.create(
+          tableName,
+          hidden,
+          langtags,
+          displayInfos,
+          tableType,
+          tableGroupId,
+          attributes,
+          concatFormatPattern
+        )
         _ <- columns match {
           case None => Future.successful(())
           case Some(cols) => columnStruc.createColumns(tableStub, cols)
@@ -414,7 +423,16 @@ class StructureController(
         } else {
           Future { Unit }
         }
-      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
+      _ <- tableStruc.change(
+        tableId,
+        tableName,
+        hidden,
+        langtags,
+        displayInfos,
+        tableGroupId,
+        attributes,
+        concatFormatPattern
+      )
       changedTable <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $changedTable")

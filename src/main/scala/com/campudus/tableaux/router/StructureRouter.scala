@@ -172,7 +172,16 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
         val tableGroupId = booleanToValueOption(json.containsKey("group"), json.getLong("group")).map(_.toLong)
         val concatFormatPattern = Option(json.getString("concatFormatPattern"))
 
-        controller.createTable(name, hidden, langtags, displayInfos, tableType, tableGroupId, attributes, concatFormatPattern)
+        controller.createTable(
+          name,
+          hidden,
+          langtags,
+          displayInfos,
+          tableType,
+          tableGroupId,
+          attributes,
+          concatFormatPattern
+        )
       }
     )
   }
@@ -233,7 +242,16 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
           )
           val concatFormatPattern = Option(json.getString("concatFormatPattern"))
 
-          controller.changeTable(tableId, name, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
+          controller.changeTable(
+            tableId,
+            name,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern
+          )
         }
       )
     }

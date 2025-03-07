@@ -1003,16 +1003,17 @@ class ColumnModel(val connection: DatabaseConnection)(
   ): Seq[ColumnType[_]] = {
     val identifierColumns = columns.filter(_.identifier)
 
-    val formatPattern = if (!isColumnGroupMatchingToFormatPattern(table.concatFormatPattern, identifierColumns)) {
-      val columnsIds = identifierColumns.map(_.id).mkString(", ");
-      val formatPatternString = table.concatFormatPattern.map(_.toString).orNull;
+    val formatPattern =
+      if (!isColumnGroupMatchingToFormatPattern(table.concatFormatPattern, identifierColumns)) {
+        val columnsIds = identifierColumns.map(_.id).mkString(", ");
+        val formatPatternString = table.concatFormatPattern.map(_.toString).orNull;
 
-      logger.warn(s"IdentifierColumns ($columnsIds) don't match to formatPattern '$formatPatternString'")
+        logger.warn(s"IdentifierColumns ($columnsIds) don't match to formatPattern '$formatPatternString'")
 
-      None
-    } else {
-      table.concatFormatPattern
-    }
+        None
+      } else {
+        table.concatFormatPattern
+      }
 
     identifierColumns.size match {
       case x if x >= 2 => {
