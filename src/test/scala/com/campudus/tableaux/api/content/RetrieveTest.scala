@@ -50,6 +50,7 @@ class RetrieveTest extends TableauxTestBase {
         "totalSize" -> 0
       ),
       "attributes" -> Json.obj(),
+      "concatFormatPattern" -> null,
       "rows" -> Json.arr(),
       "langtags" -> Json.arr("de-DE", "en-GB"),
       "permission" -> Json.obj(
