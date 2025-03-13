@@ -26,6 +26,8 @@ trait TestConfig {
 
   var authConfig: JsonObject
 
+  var cdnConfig: JsonObject
+
   var tableauxConfig: TableauxConfig
 
   private def readTextFile(filePath: String): String = Source.fromFile(filePath).getLines().mkString

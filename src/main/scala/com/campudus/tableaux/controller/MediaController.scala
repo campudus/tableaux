@@ -7,6 +7,7 @@ import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderM
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.verticles.CdnVerticle.CdnVerticleClient
 
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.ext.web.RoutingContext
@@ -175,6 +176,9 @@ class MediaController(
                 )
                 .map(ExtendedFile)
             }
+
+            // invalidate cdn cache for old file
+            _ <- CdnVerticleClient(vertx).fileChanged(oldFile)
 
             // retrieve cells with this file for cache invalidation
             cellsForFiles <- attachmentModel.retrieveCells(uuid)

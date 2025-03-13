@@ -21,5 +21,9 @@
     "use-resource-role-mappings": true,
     "confidential-port": 0,
     "issuer": "campudus-test"
+  },
+  "cdn": {
+    "url": "https://<cdn-url>",
+    "apiKey": "<cdn-api-key>"
   }
 }

@@ -56,6 +56,8 @@ trait TableauxTestBase
 
   override var authConfig: JsonObject = _
 
+  override var cdnConfig: JsonObject = _
+
   override var host: String = _
 
   override var port: Int = _
@@ -82,6 +84,7 @@ trait TableauxTestBase
 
     databaseConfig = config.getJsonObject("database", Json.obj())
     authConfig = config.getJsonObject("auth", Json.obj())
+    cdnConfig = config.getJsonObject("cdn", Json.obj())
 
     val rolePermissionsPath = config.getString("rolePermissionsPath")
     val rolePermissions = FileUtils(this.vertxAccess()).readJsonFile(rolePermissionsPath, Json.emptyObj())
@@ -93,6 +96,7 @@ trait TableauxTestBase
       vertx,
       authConfig,
       databaseConfig,
+      cdnConfig,
       config.getString("workingDirectory"),
       config.getString("uploadsDirectory"),
       rolePermissions,

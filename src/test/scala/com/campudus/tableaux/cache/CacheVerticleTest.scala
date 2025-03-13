@@ -26,6 +26,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
 
   val databaseConfig = Json.emptyObj()
   val authConfig = Json.emptyObj()
+  val cdnConfig = Json.emptyObj()
   val rolePermissions = Json.emptyObj()
 
   val tableauxConfig =
@@ -33,6 +34,7 @@ class CacheVerticleTest extends VertxAccess with TestAssertionHelper {
       vertx,
       authConfig,
       databaseConfig,
+      cdnConfig,
       "workingDirectory",
       "uploadsDirectory",
       rolePermissions,

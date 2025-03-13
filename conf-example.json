@@ -18,5 +18,9 @@
     "isAutoDiscovery": true,
     "resource": "grud-backend",
     "issuer": "https://<path-to-keycloak>/auth/realms/<realm>"
+  },
+  "cdn": {
+    "url": "https://<cdn-url>",
+    "apiKey": "<cdn-api-key>"
   }
 }
