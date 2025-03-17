@@ -7,7 +7,6 @@ import com.campudus.tableaux.KeyNotFoundInJsonException
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, Ordering}
-import com.campudus.tableaux.verticles.JsonSchemaValidator.JsonSchemaValidatorClient
 
 import io.vertx.scala.core.Vertx
 import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
@@ -207,7 +206,6 @@ object JsonUtils extends LazyLogging {
                 )
 
               case StatusType =>
-                val validator = JsonSchemaValidatorClient(Vertx.currentContext().get.owner())
                 val rules = json.getJsonArray("rules", new JsonArray())
                 CreateStatusColumn(
                   name,

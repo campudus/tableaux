@@ -1,12 +1,13 @@
 package com.campudus.tableaux
 
-import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
-import com.campudus.tableaux.verticles.CdnVerticle.CdnVerticle
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, JsonSchemaValidatorVerticle}
-import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticle
+import com.campudus.tableaux.verticles.CacheVerticle
+import com.campudus.tableaux.verticles.CdnVerticle
+import com.campudus.tableaux.verticles.EventClient
+import com.campudus.tableaux.verticles.JsonSchemaValidatorVerticle
+import com.campudus.tableaux.verticles.MessagingVerticle
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
@@ -140,12 +141,12 @@ class Starter extends ScalaVerticle with LazyLogging {
   private def deployJsonSchemaValidatorVerticle(config: JsonObject): Future[String] = {
     val options = DeploymentOptions().setConfig(config)
 
-    val jsonSchemaValidatorClient = JsonSchemaValidatorClient(vertx)
+    val eventClient = EventClient(vertx)
     val deployFuture = for {
       deployedVerticle <- vertx
         .deployVerticleFuture(ScalaVerticle.nameForVerticle[JsonSchemaValidatorVerticle], options)
       schemas <- FileUtils(vertxAccessContainer()).getSchemaList()
-      _ <- jsonSchemaValidatorClient.registerMultipleSchemas(schemas)
+      _ <- eventClient.registerMultipleSchemas(schemas)
     } yield (deployedVerticle)
 
     deployFuture.onComplete({

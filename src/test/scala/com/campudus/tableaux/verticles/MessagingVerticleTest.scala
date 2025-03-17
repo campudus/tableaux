@@ -1,7 +1,6 @@
-package com.campudus.tableaux.verticles.MessagingVerticle
+package com.campudus.tableaux.verticles
 
 import com.campudus.tableaux.TableauxConfig
-import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database.{DatabaseConnection, LanguageNeutral, TextType}
 import com.campudus.tableaux.database.domain._
@@ -16,6 +15,8 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, Tabl
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
+import com.campudus.tableaux.verticles.CacheVerticle
+import com.campudus.tableaux.verticles.EventClient
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -40,7 +41,7 @@ import org.scalatestplus.mockito.MockitoSugar
 @RunWith(classOf[VertxUnitRunner])
 class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   val answers: MutableList[JsonObject] = MutableList()
-  var messagingClient: MessagingVerticleClient = _
+  var eventClient: EventClient = _
   var tableauxModel: TableauxModel = _
   var structureModel: StructureModel = _
 
@@ -56,7 +57,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       io.vertx.scala.core.Context(vertx.asJava.asInstanceOf[io.vertx.core.Vertx].getOrCreateContext())
     )
 
-    messagingClient = MessagingVerticleClient(vertx)
+    eventClient = EventClient(vertx)
 
     val config = Json
       .fromObjectString(fileConfig.encode())
@@ -257,7 +258,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         Some(config),
         Some(scope)
       ).map(obj => obj.asInstanceOf[Service])
-      _ <- messagingClient.servicesChanged()
+      _ <- eventClient.servicesChanged()
     } yield service
   }
 
@@ -310,7 +311,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         attributes = None
       )
 
-      _ <- messagingClient.tableCreated(table.id)
+      _ <- eventClient.tableCreated(table.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, table.getJson, Some(table.id))
       assertJSONEquals(expected, answers.head)
@@ -336,7 +337,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         attributes = None
       )
       _ <- structureModel.tableStruc.delete(table.id)
-      _ <- messagingClient.tableDeleted(table.id, table)
+      _ <- eventClient.tableDeleted(table.id, table)
     } yield {
       val expected = createExpectedJson(listenerName, event, table.getJson, Some(table.id))
       assertJSONEquals(expected, answers.head)
@@ -370,7 +371,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         None
       )
       updatedTable <- structureModel.tableStruc.retrieve(table.id)
-      _ <- messagingClient.tableChanged(updatedTable.id)
+      _ <- eventClient.tableChanged(updatedTable.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, updatedTable.getJson, Some(updatedTable.id))
       assertJSONEquals(expected, answers.head)
@@ -405,7 +406,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         attributes = None
       )
       column <- structureModel.columnStruc.createColumn(table, columnToCreate)
-      _ <- messagingClient.columnCreated(table.id, column.id)
+      _ <- eventClient.columnCreated(table.id, column.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, column.getJson, Some(table.id), Some(column.id))
       assertJSONEquals(expected, answers.head)
@@ -453,7 +454,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       column <- structureModel.columnStruc.createColumn(table, columnToCreate)
       _ <- structureModel.columnStruc.createColumn(table, columnToCreate2)
       _ <- structureModel.columnStruc.delete(table, column.id)
-      _ <- messagingClient.columnDeleted(table.id, column.id, column)
+      _ <- eventClient.columnDeleted(table.id, column.id, column)
     } yield {
       val expected = createExpectedJson(listenerName, event, column.getJson, Some(table.id), Some(column.id))
       assertJSONEquals(expected, answers.head)
@@ -508,7 +509,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
           None,
           None
         )
-      _ <- messagingClient.columnChanged(table.id, updatedColumn.id)
+      _ <- eventClient.columnChanged(table.id, updatedColumn.id)
     } yield {
       val expected =
         createExpectedJson(listenerName, event, updatedColumn.getJson, Some(table.id), Some(updatedColumn.id))
@@ -552,7 +553,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       _ <- createListener(listenerName, listenerConfig)
       (table, _) <- createDefaultTableWithColumn()
       createdRow <- tableauxModel.createRow(table, None)
-      _ <- messagingClient.rowCreated(table.id, createdRow.id)
+      _ <- eventClient.rowCreated(table.id, createdRow.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, createdRow.getJson, Some(table.id))
       assertJSONEquals(expected, answers.head)
@@ -570,7 +571,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       (table, _) <- createDefaultTableWithColumn()
       createdRow <- tableauxModel.createRow(table, None)
       _ <- tableauxModel.deleteRow(table, createdRow.id)
-      _ <- messagingClient.rowDeleted(table.id, createdRow.id)
+      _ <- eventClient.rowDeleted(table.id, createdRow.id)
     } yield {
       val expected = createExpectedJson(listenerName, event, Json.obj(), Some(table.id), None, Some(createdRow.id))
       assertJSONEquals(expected, answers.head)
@@ -588,7 +589,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       (table, _) <- createDefaultTableWithColumn()
       createdRow <- tableauxModel.createRow(table, None)
       updatedRowWithAnnotation <- tableauxModel.updateRowAnnotations(table, createdRow.id, Some(true), None)
-      _ <- messagingClient.rowAnnotationChanged(table.id, createdRow.id)
+      _ <- eventClient.rowAnnotationChanged(table.id, createdRow.id)
     } yield {
       val expected = createExpectedJson(
         listenerName,
@@ -613,7 +614,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       (table, column) <- createDefaultTableWithColumn()
       createdRow <- tableauxModel.createRow(table, None)
       updatedCell <- tableauxModel.updateCellValue(table, column.id, createdRow.id, "new_test_value")
-      _ <- messagingClient.cellChanged(table.id, column.id, createdRow.id)
+      _ <- eventClient.cellChanged(table.id, column.id, createdRow.id)
     } yield {
       val payloadJson = Json.obj("cell" -> updatedCell.getJson, "dependentCells" -> Seq())
 
@@ -678,7 +679,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
             })
           })
       })
-      _ <- messagingClient.cellChanged(table.id, column.id, createdRowTable1.id)
+      _ <- eventClient.cellChanged(table.id, column.id, createdRowTable1.id)
     } yield {
       val payloadJson = Json.obj("cell" -> updatedCell.getJson, "dependentCells" -> dependentCellValues)
 
@@ -706,10 +707,10 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       createdRow <- tableauxModel.createRow(table, None)
       addedCellAnnotation <-
         tableauxModel.addCellAnnotation(column, createdRow.id, Seq(), FlagAnnotationType, "important")
-      _ <- messagingClient.cellAnnotationChanged(table.id, column.id, createdRow.id)
+      _ <- eventClient.cellAnnotationChanged(table.id, column.id, createdRow.id)
       cellAnnotationsAfterAdd <- tableauxModel.retrieveCellAnnotations(table, column.id, createdRow.id)
       _ <- tableauxModel.deleteCellAnnotation(column, createdRow.id, addedCellAnnotation.uuid)
-      _ <- messagingClient.cellAnnotationChanged(table.id, column.id, createdRow.id)
+      _ <- eventClient.cellAnnotationChanged(table.id, column.id, createdRow.id)
       cellAnnotationsAfterDelete <- tableauxModel.retrieveCellAnnotations(table, column.id, createdRow.id)
     } yield {
       val expectedAfterAdd = createExpectedJson(
@@ -802,11 +803,11 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       // listener should be selected
       nonIdentifierNonHiddenTableColumn <-
         structureModel.columnStruc.createColumn(settingsTableNonHidden, nonIdentifierColumnToCreate)
-      _ <- messagingClient.columnCreated(settingsTableNonHidden.id, nonIdentifierNonHiddenTableColumn.id)
+      _ <- eventClient.columnCreated(settingsTableNonHidden.id, nonIdentifierNonHiddenTableColumn.id)
       // listener should NOT be selected
       identifierNonHiddenTableColumn <-
         structureModel.columnStruc.createColumn(settingsTableNonHidden, identifierColumnToCreate)
-      _ <- messagingClient.columnCreated(settingsTableNonHidden.id, identifierNonHiddenTableColumn.id)
+      _ <- eventClient.columnCreated(settingsTableNonHidden.id, identifierNonHiddenTableColumn.id)
 
       // table is hidden, listener should NOT be selected for ANY column
       settingsTableHidden <- structureModel.tableStruc.create(
@@ -821,11 +822,11 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
       // listener should NOT be selected
       nonIdentifierHiddenTableColumn <-
         structureModel.columnStruc.createColumn(settingsTableHidden, nonIdentifierColumnToCreate)
-      _ <- messagingClient.columnCreated(settingsTableHidden.id, nonIdentifierHiddenTableColumn.id)
+      _ <- eventClient.columnCreated(settingsTableHidden.id, nonIdentifierHiddenTableColumn.id)
       // listener should NOT be selected
       identifierHiddenTableColumn <-
         structureModel.columnStruc.createColumn(settingsTableHidden, identifierColumnToCreate)
-      _ <- messagingClient.columnCreated(settingsTableHidden.id, identifierHiddenTableColumn.id)
+      _ <- eventClient.columnCreated(settingsTableHidden.id, identifierHiddenTableColumn.id)
     } yield {
       val expected = createExpectedJson(
         listenerName,

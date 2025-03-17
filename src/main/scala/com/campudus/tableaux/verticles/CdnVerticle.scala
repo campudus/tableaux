@@ -1,4 +1,6 @@
-package com.campudus.tableaux.verticles.CdnVerticle
+package com.campudus.tableaux.verticles
+
+import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.eventbus.Message
@@ -10,13 +12,7 @@ import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
 
-object CdnVerticle {
-  val ADDRESS_FILE_CHANGED = "cdn.file.changed"
-}
-
 class CdnVerticle(cdnConfig: JsonObject) extends ScalaVerticle with LazyLogging {
-  import CdnVerticle._
-
   private lazy val eventBus = vertx.eventBus()
   private lazy val webClient: WebClient = WebClient.create(vertx)
 

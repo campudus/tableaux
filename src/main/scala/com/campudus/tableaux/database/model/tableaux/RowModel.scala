@@ -1,7 +1,6 @@
 package com.campudus.tableaux.database.model.tableaux
 
 import com.campudus.tableaux.{RowNotFoundException, UnknownServerException, UnprocessableEntityException}
-import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{MultiLanguageColumn, _}
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
@@ -9,6 +8,7 @@ import com.campudus.tableaux.database.model.{Attachment, AttachmentFile, Attachm
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
+import com.campudus.tableaux.verticles.EventClient
 
 import org.vertx.scala.core.json.{Json, _}
 
@@ -186,7 +186,7 @@ sealed trait UpdateCreateRowModelHelper extends LazyLogging {
 
     for {
       _ <- connection.query(updateQuery, Json.arr(value, rowId))
-      _ <- CacheClient(this.connection).invalidateRowPermissions(tableId, rowId)
+      _ <- EventClient(this.connection.vertx).invalidateRowPermissions(tableId, rowId)
     } yield rowPermissionsOpt
   }
 }
@@ -1161,7 +1161,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   def retrieveRowPermissions(tableId: TableId, rowId: RowId): Future[RowPermissions] = {
     for {
-      rowCache <- CacheClient(this.connection).retrieveRowPermissions(tableId, rowId)
+      rowCache <- EventClient(this.connection.vertx).retrieveRowPermissions(tableId, rowId)
       rowPermissions <- rowCache match {
         case Some(rowPermissions) => {
           // Cache hit
@@ -1175,7 +1175,7 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
                 (RowLevelAnnotations(false, false), RowPermissions(Json.arr()), CellLevelAnnotations(Seq(), Json.arr()))
             })
           } yield {
-            CacheClient(this.connection).setRowPermissions(tableId, rowId, rowPermissions)
+            EventClient(this.connection.vertx).setRowPermissions(tableId, rowId, rowPermissions)
             rowPermissions
           }
         }

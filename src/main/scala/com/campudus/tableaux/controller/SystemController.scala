@@ -2,7 +2,6 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
-import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{
   CellAnnotationConfigModel,
@@ -15,6 +14,7 @@ import com.campudus.tableaux.database.model.ServiceModel.ServiceId
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, TableId}
 import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.verticles.EventClient
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json.{Json, JsonObject}
@@ -58,6 +58,7 @@ class SystemController(
     implicit protected val roleModel: RoleModel,
     protected val cellAnnotationConfigModel: CellAnnotationConfigModel
 ) extends Controller[SystemModel] {
+  val eventClient: EventClient = EventClient(vertx)
 
   def retrieveSchemaVersion(): Future[SchemaVersion] = {
     for {
@@ -246,13 +247,13 @@ class SystemController(
   }
 
   def invalidateCache(): Future[DomainObject] = {
-    CacheClient(this)
+    eventClient
       .invalidateAll()
       .map(_ => EmptyObject())
   }
 
   def invalidateCache(tableId: TableId, columnId: ColumnId): Future[DomainObject] = {
-    CacheClient(this)
+    eventClient
       .invalidateColumn(tableId, columnId)
       .map(_ => EmptyObject())
   }

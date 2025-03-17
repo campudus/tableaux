@@ -5,7 +5,7 @@ import com.campudus.tableaux.controller.SystemController
 import com.campudus.tableaux.database.domain.{MultiLanguageValue, ServiceType}
 import com.campudus.tableaux.helper.JsonUtils.asCastedList
 import com.campudus.tableaux.router.auth.permission.TableauxUser
-import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
+import com.campudus.tableaux.verticles.EventClient
 
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
@@ -45,7 +45,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
 
   private val serviceId = """(?<serviceId>[\d]+)"""
   private val annotationName = """(?<annotationName>[a-zA-Z0-9_-]+)"""
-  private val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
+  private val eventClient: EventClient = EventClient(vertx)
 
   def route: Router = {
     val router = Router.router(vertx)
@@ -286,7 +286,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
           service <-
             controller.createService(name, serviceType, ordering, displayName, description, active, config, scope)
         } yield {
-          messagingClient.servicesChanged()
+          eventClient.servicesChanged()
           service
         }
       }
@@ -320,7 +320,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
             service <- controller
               .updateService(serviceId, name, serviceType, ordering, displayName, description, active, config, scope)
           } yield {
-            messagingClient.servicesChanged()
+            eventClient.servicesChanged()
             service
           }
         }
@@ -342,7 +342,7 @@ class SystemRouter(override val config: TableauxConfig, val controller: SystemCo
           for {
             service <- controller.deleteService(serviceId)
           } yield {
-            messagingClient.servicesChanged()
+            eventClient.servicesChanged()
             service
           }
         }

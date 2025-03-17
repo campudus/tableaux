@@ -3,7 +3,6 @@ package com.campudus.tableaux.controller
 import com.campudus.tableaux.{TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.ForbiddenException
-import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.{LanguageNeutral, LocationType}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
@@ -11,7 +10,7 @@ import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
+import com.campudus.tableaux.verticles.EventClient
 
 import org.vertx.scala.core.json.Json
 
@@ -33,7 +32,7 @@ class TableauxController(
     implicit protected val roleModel: RoleModel
 ) extends Controller[TableauxModel] {
 
-  val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
+  val eventClient: EventClient = EventClient(vertx)
 
   def addCellAnnotation(
       tableId: TableId,
@@ -61,7 +60,7 @@ class TableauxController(
 
       cellAnnotation <- repository.addCellAnnotation(column, rowId, langtags, annotationType, value)
     } yield {
-      messagingClient.cellAnnotationChanged(tableId, columnId, rowId)
+      eventClient.cellAnnotationChanged(tableId, columnId, rowId)
       cellAnnotation
     }
   }
@@ -78,7 +77,7 @@ class TableauxController(
       _ <- roleModel.checkAuthorization(EditCellAnnotation, ComparisonObjects(table))
       _ <- repository.deleteCellAnnotation(column, rowId, uuid)
     } yield {
-      messagingClient.cellAnnotationChanged(tableId, columnId, rowId)
+      eventClient.cellAnnotationChanged(tableId, columnId, rowId)
       EmptyObject()
     }
   }
@@ -279,7 +278,7 @@ class TableauxController(
           for {
             createdRows <- repository.createRows(table, seq, rowPermissionsOpt)
           } yield {
-            createdRows.rows.foreach(row => messagingClient.rowCreated(tableId, row.id))
+            createdRows.rows.foreach(row => eventClient.rowCreated(tableId, row.id))
             createdRows
           }
         case None =>
@@ -287,7 +286,7 @@ class TableauxController(
           for {
             createdRow <- repository.createRow(table, rowPermissionsOpt)
           } yield {
-            messagingClient.rowCreated(tableId, createdRow.id)
+            eventClient.rowCreated(tableId, createdRow.id)
             createdRow
           }
       }
@@ -316,7 +315,7 @@ class TableauxController(
       _ = checkForTaxonomyTable(table, archivedFlagOpt)
       updatedRow <- repository.updateRowAnnotations(table, rowId, finalFlagOpt, archivedFlagOpt)
     } yield {
-      messagingClient.rowAnnotationChanged(tableId, rowId)
+      eventClient.rowAnnotationChanged(tableId, rowId)
       updatedRow
     }
   }
@@ -486,7 +485,7 @@ class TableauxController(
       _ <- roleModel.checkAuthorization(DeleteRow, ComparisonObjects(table))
       _ <- repository.deleteRow(table, rowId, replacingRowIdOpt)
     } yield {
-      messagingClient.rowDeleted(tableId, rowId)
+      eventClient.rowDeleted(tableId, rowId)
       EmptyObject()
     }
   }
@@ -538,7 +537,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       updated <- repository.updateCellValue(table, columnId, rowId, value, forceHistory)
-      _ <- messagingClient.cellChanged(tableId, columnId, rowId)
+      _ <- eventClient.cellChanged(tableId, columnId, rowId)
     } yield updated
   }
 
@@ -569,7 +568,7 @@ class TableauxController(
 
       _ <- repository.createHistoryModel.createCellsInit(table, rowId, Seq((column, uuid)))
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
-      _ <- CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
+      _ <- eventClient.invalidateCellValue(tableId, columnId, rowId)
       _ <- repository.createHistoryModel.createCells(table, rowId, Seq((column, uuid)))
     } yield EmptyObject()
   }

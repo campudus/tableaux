@@ -1,8 +1,8 @@
 package com.campudus.tableaux.api.content
 
-import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.verticles.CacheVerticle
 
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext

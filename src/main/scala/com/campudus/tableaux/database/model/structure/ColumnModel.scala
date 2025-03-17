@@ -16,7 +16,8 @@ import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.RoleModel
 import com.campudus.tableaux.router.auth.permission.TableauxUser
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
+import com.campudus.tableaux.verticles.EventClient
+import com.campudus.tableaux.verticles.ValidatorKeys
 
 import io.vertx.scala.core.Vertx
 import io.vertx.scala.ext.web.RoutingContext
@@ -279,7 +280,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   ): Future[ColumnType[_]] = {
 
     val attributes = createColumn.attributes
-    val validator = JsonSchemaValidatorClient(Vertx.currentContext().get.owner())
+    val validator = EventClient(Vertx.currentContext().get.owner())
 
     def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
       BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
