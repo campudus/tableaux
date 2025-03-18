@@ -52,10 +52,13 @@ object MessagingVerticle {
     EVENT_TYPE_CELL_CHANGED,
     EVENT_TYPE_CELL_ANNOTATION_CHANGED
   )
+
+  def apply(tableauxConfig: TableauxConfig): MessagingVerticle = {
+    new MessagingVerticle(tableauxConfig)
+  }
 }
 
-class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle
-    with LazyLogging {
+class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with LazyLogging {
 
   import MessagingVerticle._
 

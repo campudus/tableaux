@@ -15,8 +15,8 @@ import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, Tabl
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.testtools.{TableauxTestBase, TokenHelper}
-import com.campudus.tableaux.verticles.CacheVerticle
-import com.campudus.tableaux.verticles.EventClient
+import com.campudus.tableaux.verticles._
+import com.campudus.tableaux.verticles.MessagingVerticle._
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
@@ -295,7 +295,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def createTableTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "table_creation_listener"
-    val event = MessagingVerticle.EVENT_TYPE_TABLE_CREATED
+    val event = EVENT_TYPE_TABLE_CREATED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -322,7 +322,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def deleteTableTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "table_deletion_listener"
-    val event = MessagingVerticle.EVENT_TYPE_TABLE_DELETED
+    val event = EVENT_TYPE_TABLE_DELETED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -347,7 +347,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def changeTableTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "table_change_listener"
-    val event = MessagingVerticle.EVENT_TYPE_TABLE_CHANGED
+    val event = EVENT_TYPE_TABLE_CHANGED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -381,7 +381,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def createColumnTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "column_creation_listener"
-    val event = MessagingVerticle.EVENT_TYPE_COLUMN_CREATED
+    val event = EVENT_TYPE_COLUMN_CREATED
     val listenerConfig = createListenerConfig(Seq(event))
     val columnToCreate = CreateSimpleColumn(
       "test_column_1",
@@ -417,7 +417,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def deleteColumnTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "column_deletion_listener"
-    val event = MessagingVerticle.EVENT_TYPE_COLUMN_DELETED
+    val event = EVENT_TYPE_COLUMN_DELETED
     val listenerConfig = createListenerConfig(Seq(event))
     val columnToCreate = CreateSimpleColumn(
       "test_column_1",
@@ -465,7 +465,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def changeColumnTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "column_change_listener"
-    val event = MessagingVerticle.EVENT_TYPE_COLUMN_CHANGED
+    val event = EVENT_TYPE_COLUMN_CHANGED
     val listenerConfig = createListenerConfig(Seq(event))
     val columnToCreate = CreateSimpleColumn(
       "test_column_1",
@@ -546,7 +546,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def addRowTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "row_creation_listener"
-    val event = MessagingVerticle.EVENT_TYPE_ROW_CREATED
+    val event = EVENT_TYPE_ROW_CREATED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -563,7 +563,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def deleteRowTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "row_deletion_listener"
-    val event = MessagingVerticle.EVENT_TYPE_ROW_DELETED
+    val event = EVENT_TYPE_ROW_DELETED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -581,7 +581,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def changeRowAnnotationTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "row_annotation_change_listener"
-    val event = MessagingVerticle.EVENT_TYPE_ROW_ANNOTATION_CHANGED
+    val event = EVENT_TYPE_ROW_ANNOTATION_CHANGED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -606,7 +606,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def changeCellTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "cell_change_listener"
-    val event = MessagingVerticle.EVENT_TYPE_CELL_CHANGED
+    val event = EVENT_TYPE_CELL_CHANGED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -633,7 +633,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def changeCellWithDependentCellsTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "cell_change_listener"
-    val event = MessagingVerticle.EVENT_TYPE_CELL_CHANGED
+    val event = EVENT_TYPE_CELL_CHANGED
     val listenerConfig = createListenerConfig(Seq(event))
     val linkColumnToCreate = CreateLinkColumn(
       "link_column_1",
@@ -698,7 +698,7 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def changeCellAnnotationTest(implicit c: TestContext): Unit = okTest {
     val listenerName = "cell_annotation_change_listener"
-    val event = MessagingVerticle.EVENT_TYPE_CELL_ANNOTATION_CHANGED
+    val event = EVENT_TYPE_CELL_ANNOTATION_CHANGED
     val listenerConfig = createListenerConfig(Seq(event))
 
     for {
@@ -738,10 +738,10 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
   @Test
   def listenerScopeTest(implicit c: TestContext): Unit = okTest {
     // val listenerName = "cell_annotation_change_listener"
-    // val event = MessagingVerticle.EVENT_TYPE_CELL_ANNOTATION_CHANGED
+    // val event = EVENT_TYPE_CELL_ANNOTATION_CHANGED
     // val listenerConfig = createListenerConfig(Seq(event))
     val events = Seq(
-      MessagingVerticle.EVENT_TYPE_COLUMN_CREATED
+      EVENT_TYPE_COLUMN_CREATED
     )
     val excludedTableName = "exclude_this_table_settings"
     val scope = createScope(

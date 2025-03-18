@@ -3,11 +3,7 @@ package com.campudus.tableaux
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
-import com.campudus.tableaux.verticles.CacheVerticle
-import com.campudus.tableaux.verticles.CdnVerticle
-import com.campudus.tableaux.verticles.EventClient
-import com.campudus.tableaux.verticles.JsonSchemaValidatorVerticle
-import com.campudus.tableaux.verticles.MessagingVerticle
+import com.campudus.tableaux.verticles._
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection

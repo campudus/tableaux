@@ -2,7 +2,7 @@ package com.campudus.tableaux.api.content
 
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
-import com.campudus.tableaux.verticles.CacheVerticle
+import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
@@ -713,14 +713,14 @@ class IdentifierTest extends TableauxTestBase {
       _ <- vertx
         .eventBus()
         .sendFuture[JsonObject](
-          CacheVerticle.ADDRESS_INVALIDATE_TABLE,
+          ADDRESS_INVALIDATE_TABLE,
           Json.obj("tableId" -> 1)
         )
 
       _ <- vertx
         .eventBus()
         .sendFuture[JsonObject](
-          CacheVerticle.ADDRESS_INVALIDATE_TABLE,
+          ADDRESS_INVALIDATE_TABLE,
           Json.obj("tableId" -> 2)
         )
 
