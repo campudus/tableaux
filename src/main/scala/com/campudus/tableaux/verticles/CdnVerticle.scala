@@ -14,8 +14,8 @@ import com.typesafe.scalalogging.LazyLogging
 
 class CdnVerticle(cdnConfig: JsonObject, customWebClient: Option[WebClient] = None) extends ScalaVerticle
     with LazyLogging {
-  
   private lazy val eventBus = vertx.eventBus()
+
   private lazy val webClient: WebClient = customWebClient match {
     case Some(webClient) => webClient
     case None => WebClient.create(vertx)
@@ -34,17 +34,18 @@ class CdnVerticle(cdnConfig: JsonObject, customWebClient: Option[WebClient] = No
 
     logger.info(s"Purging CDN File URL: $cdnFileUrl")
 
-    webClient
-      .postAbs(cdnPurgeUrl)
-      .addQueryParam("url", cdnFileUrl)
-      .putHeader("AccessKey", cdnApiKey)
-      .sendFuture().onComplete {
-        case Success(_) =>
-          message.reply("ok")
-        case Failure(exception) =>
-          val error = s"Failed purging CDN File URL: $cdnFileUrl, Reason: ${exception.getMessage()}"
-          logger.error(error)
-          message.fail(500, error)
-      }
+    val request = webClient.postAbs(cdnPurgeUrl)
+
+    request.addQueryParam("url", cdnFileUrl)
+    request.putHeader("AccessKey", cdnApiKey)
+
+    request.sendFuture().onComplete {
+      case Success(_) =>
+        message.reply("ok")
+      case Failure(exception) =>
+        val error = s"Failed purging CDN File URL: $cdnFileUrl, Reason: ${exception.getMessage()}"
+        logger.error(error)
+        message.fail(500, error)
+    }
   }
 }

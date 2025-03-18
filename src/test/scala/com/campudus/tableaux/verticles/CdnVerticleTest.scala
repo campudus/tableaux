@@ -64,6 +64,9 @@ class CdnVerticleTest extends VertxAccess with MockitoSugar {
   def after(context: TestContext) {
     val async = context.async()
 
+    reset(mockClient)
+    reset(mockRequest)
+
     vertx
       .undeployFuture(deploymentId)
       .onComplete({
@@ -76,9 +79,6 @@ class CdnVerticleTest extends VertxAccess with MockitoSugar {
           context.fail(e)
           async.complete()
       })
-
-    reset(mockClient)
-    reset(mockRequest)
   }
 
   def okTest(f: => Future[_])(implicit context: TestContext): Unit = {
@@ -112,7 +112,10 @@ class CdnVerticleTest extends VertxAccess with MockitoSugar {
 
     val extendedFile = ExtendedFile(file)
 
+    val mockResponse = mock[HttpResponse[Buffer]]
+
     when(mockClient.postAbs("http://my.cdn.url/purge")).thenReturn(mockRequest)
+    when(mockRequest.sendFuture()).thenReturn(Future.successful(mockResponse))
 
     okTest {
       for {
