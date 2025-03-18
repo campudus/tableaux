@@ -12,9 +12,14 @@ import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
 
-class CdnVerticle(cdnConfig: JsonObject) extends ScalaVerticle with LazyLogging {
+class CdnVerticle(cdnConfig: JsonObject, customWebClient: Option[WebClient] = None) extends ScalaVerticle
+    with LazyLogging {
+  
   private lazy val eventBus = vertx.eventBus()
-  private lazy val webClient: WebClient = WebClient.create(vertx)
+  private lazy val webClient: WebClient = customWebClient match {
+    case Some(webClient) => webClient
+    case None => WebClient.create(vertx)
+  }
 
   override def startFuture(): Future[_] = {
     eventBus.consumer(ADDRESS_FILE_CHANGED, purgeCdnFileUrl).completionFuture()
