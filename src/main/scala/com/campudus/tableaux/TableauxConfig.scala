@@ -11,6 +11,7 @@ class TableauxConfig(
     override val vertx: Vertx,
     val authConfig: JsonObject,
     val databaseConfig: JsonObject,
+    val cdnConfig: JsonObject,
     val workingDirectory: String,
     val uploadsDirectory: String,
     val rolePermissions: JsonObject,

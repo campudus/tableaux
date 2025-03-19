@@ -1,11 +1,9 @@
 package com.campudus.tableaux
 
-import com.campudus.tableaux.cache.CacheVerticle
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.router._
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, JsonSchemaValidatorVerticle}
-import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticle
+import com.campudus.tableaux.verticles._
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.SQLConnection
@@ -60,6 +58,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       val workingDirectory = getStringDefault(config, "workingDirectory", Starter.DEFAULT_WORKING_DIRECTORY)
       val uploadsDirectory = getStringDefault(config, "uploadsDirectory", Starter.DEFAULT_UPLOADS_DIRECTORY)
       val authConfig = config.getJsonObject("auth", Json.obj())
+      val cdnConfig = config.getJsonObject("cdn", Json.obj())
       val rolePermissionsPath = getStringDefault(config, "rolePermissionsPath", Starter.DEFAULT_ROLE_PERMISSIONS_PATH)
       val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
 
@@ -75,6 +74,7 @@ class Starter extends ScalaVerticle with LazyLogging {
         vertx = this.vertx,
         databaseConfig = databaseConfig,
         authConfig = authConfig,
+        cdnConfig = cdnConfig,
         workingDirectory = workingDirectory,
         uploadsDirectory = uploadsDirectory,
         rolePermissions = rolePermissions,
@@ -91,6 +91,13 @@ class Starter extends ScalaVerticle with LazyLogging {
         _ <- deployJsonSchemaValidatorVerticle(jsonSchemaConfig)
         _ <- deployCacheVerticle(cacheConfig, tableauxConfig)
         _ <- deployMessagingVerticle(tableauxConfig)
+        _ <- cdnConfig match {
+          case obj if !obj.isEmpty() => deployCdnVerticle(cdnConfig)
+          case _ => {
+            logger.info(s"CdnVerticle not deployed due to missing cdn config")
+            Future.successful({})
+          }
+        }
       } yield {
         this.server = server
       }
@@ -130,12 +137,12 @@ class Starter extends ScalaVerticle with LazyLogging {
   private def deployJsonSchemaValidatorVerticle(config: JsonObject): Future[String] = {
     val options = DeploymentOptions().setConfig(config)
 
-    val jsonSchemaValidatorClient = JsonSchemaValidatorClient(vertx)
+    val eventClient = EventClient(vertx)
     val deployFuture = for {
       deployedVerticle <- vertx
         .deployVerticleFuture(ScalaVerticle.nameForVerticle[JsonSchemaValidatorVerticle], options)
       schemas <- FileUtils(vertxAccessContainer()).getSchemaList()
-      _ <- jsonSchemaValidatorClient.registerMultipleSchemas(schemas)
+      _ <- eventClient.registerMultipleSchemas(schemas)
     } yield (deployedVerticle)
 
     deployFuture.onComplete({
@@ -172,6 +179,20 @@ class Starter extends ScalaVerticle with LazyLogging {
         logger.info(s"CacheVerticle deployed with ID $id")
       case Failure(e) =>
         logger.error("CacheVerticle couldn't be deployed.", e)
+    })
+
+    deployFuture
+  }
+
+  private def deployCdnVerticle(cdnConfig: JsonObject): Future[String] = {
+    val options = DeploymentOptions().setConfig(Json.emptyObj())
+    val deployFuture = vertx.deployVerticleFuture(new CdnVerticle(cdnConfig), options)
+
+    deployFuture.onComplete({
+      case Success(id) =>
+        logger.info(s"CdnVerticle deployed with ID $id")
+      case Failure(e) =>
+        logger.error("CdnVerticle couldn't be deployed.", e)
     })
 
     deployFuture

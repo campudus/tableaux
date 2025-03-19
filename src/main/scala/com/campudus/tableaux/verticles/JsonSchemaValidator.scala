@@ -1,4 +1,6 @@
-package com.campudus.tableaux.verticles.JsonSchemaValidator
+package com.campudus.tableaux.verticles
+
+import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.lang.scala.ScalaVerticle
 import io.vertx.scala.core.eventbus.Message
@@ -14,6 +16,11 @@ import org.everit.json.schema.ValidationException
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.{JSONArray, JSONObject};
 
+object ValidatorKeys {
+  val ATTRIBUTES = "attributes"
+  val STATUS = "status"
+}
+
 class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
 
   private lazy val eventBus = vertx.eventBus()
@@ -24,8 +31,8 @@ class JsonSchemaValidatorVerticle extends ScalaVerticle with LazyLogging {
   }
 
   override def startFuture(): Future[_] = {
-    eventBus.consumer("json.schema.validate", messageHandlerValidateJson).completionFuture()
-    eventBus.consumer("json.schema.register", messageHandlerRegisterSchema).completionFuture()
+    eventBus.consumer(ADDRESS_JSON_SCHEMA_VALIDATE, messageHandlerValidateJson).completionFuture()
+    eventBus.consumer(ADDRESS_JSON_SCHEMA_REGISTER, messageHandlerRegisterSchema).completionFuture()
   }
 
   private def messageHandlerRegisterSchema(message: Message[JsonObject]): Unit = {

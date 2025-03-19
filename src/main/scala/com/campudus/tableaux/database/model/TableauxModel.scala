@@ -1,13 +1,13 @@
 package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux._
-import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.tableaux.{CreateRowModel, RetrieveRowModel, UpdateRowModel}
 import com.campudus.tableaux.helper.JsonUtils.asSeqOf
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.verticles.EventClient
 
 import io.vertx.scala.ext.web.RoutingContext
 import org.vertx.scala.core.json._
@@ -140,6 +140,7 @@ class TableauxModel(
   val attachmentModel = AttachmentModel(connection)
   val retrieveHistoryModel = RetrieveHistoryModel(connection)
   val createHistoryModel = CreateHistoryModel(this, connection)
+  val eventClient = EventClient(connection.vertx)
 
   def retrieveBacklink(column: LinkColumn)(implicit user: TableauxUser): Future[Option[LinkColumn]] = {
     val select =
@@ -372,7 +373,7 @@ class TableauxModel(
         }
 
         // invalidate row
-        _ <- CacheClient(this.connection).invalidateRow(table.id, rowId)
+        _ <- eventClient.invalidateRow(table.id, rowId)
 
         _ <- Future.sequence(
           linkList.map({
@@ -532,7 +533,7 @@ class TableauxModel(
         } yield ()
       })
 
-      _ <- CacheClient(this.connection).invalidateRowLevelAnnotations(table.id, rowId)
+      _ <- eventClient.invalidateRowLevelAnnotations(table.id, rowId)
     } yield ()
 
   };
@@ -565,7 +566,7 @@ class TableauxModel(
       _ <- Future.sequence(
         rowSeq.map(row => updateRowAnnotations(table, row.id, finalFlagOpt, archivedFlagOpt))
       )
-      _ <- CacheClient(this.connection).invalidateTableRowLevelAnnotations(table.id)
+      _ <- eventClient.invalidateTableRowLevelAnnotations(table.id)
     } yield ()
   }
 
@@ -871,7 +872,7 @@ class TableauxModel(
       statusColumns <- retrieveAllStatusColumnsForTable(column.table)
       _ = statusColumns.foreach((statusColumn: StatusColumn) => {
         if (statusColumn.columns.map(column => column.id).contains(column.id)) {
-          CacheClient(this.connection).invalidateCellValue(statusColumn.table.id, statusColumn.id, rowId)
+          eventClient.invalidateCellValue(statusColumn.table.id, statusColumn.id, rowId)
         }
       })
     } yield ()
@@ -880,11 +881,11 @@ class TableauxModel(
   def invalidateCellAndDependentColumns(column: ColumnType[_], rowId: RowId)(
       implicit user: TableauxUser
   ): Future[Unit] = {
-    def invalidateColumn: (TableId, ColumnId) => Future[_] = CacheClient(this.connection).invalidateColumn
+    def invalidateColumn: (TableId, ColumnId) => Future[_] = eventClient.invalidateColumn
 
     for {
       // invalidate the cell itself
-      _ <- CacheClient(this.connection).invalidateCellValue(column.table.id, column.id, rowId)
+      _ <- eventClient.invalidateCellValue(column.table.id, column.id, rowId)
 
       // invalidate Status cell if it exists and has dependency on this column
       _ <- maybeInvalidateStatusCells(column, rowId)
@@ -892,7 +893,7 @@ class TableauxModel(
       // invalidate the concat cell if column is an identifier
       _ <-
         if (column.identifier) {
-          CacheClient(this.connection).invalidateCellValue(column.table.id, 0, rowId)
+          eventClient.invalidateCellValue(column.table.id, 0, rowId)
         } else {
           Future.successful(())
         }
@@ -966,8 +967,8 @@ class TableauxModel(
     }
 
     for {
-      rowLevelAnnotationsCache <- CacheClient(this.connection).retrieveRowLevelAnnotations(column.table.id, rowId)
-      valueCache <- CacheClient(this.connection).retrieveCellValue(column.table.id, column.id, rowId)
+      rowLevelAnnotationsCache <- eventClient.retrieveRowLevelAnnotations(column.table.id, rowId)
+      valueCache <- eventClient.retrieveCellValue(column.table.id, column.id, rowId)
 
       value <- valueCache match {
         case Some(obj) => {
@@ -999,7 +1000,7 @@ class TableauxModel(
             val value = rowSeq.head.values.head
 
             // fire-and-forget don't need to wait for this to return
-            CacheClient(this.connection).setCellValue(column.table.id, column.id, rowId, value)
+            eventClient.setCellValue(column.table.id, column.id, rowId, value)
             value
           }
       }
@@ -1024,7 +1025,7 @@ class TableauxModel(
             (rowLevelAnnotations, _, _) <- retrieveRowModel.retrieveAnnotations(column.table.id, rowId, Seq(column))
           } yield {
             // fire-and-forget don't need to wait for this to return
-            CacheClient(this.connection).setRowLevelAnnotations(column.table.id, rowId, rowLevelAnnotations)
+            eventClient.setRowLevelAnnotations(column.table.id, rowId, rowLevelAnnotations)
             rowLevelAnnotations
           }
 

@@ -1,4 +1,4 @@
-package com.campudus.tableaux.verticles.MessagingVerticle
+package com.campudus.tableaux.verticles
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.DatabaseConnection
@@ -7,6 +7,7 @@ import com.campudus.tableaux.database.model.{ServiceModel, StructureModel, Table
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
+import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.core.json.JsonObject
 import io.vertx.lang.scala.ScalaVerticle
@@ -24,24 +25,7 @@ import scala.util.{Failure, Success, Try}
 import com.typesafe.scalalogging.LazyLogging
 
 object MessagingVerticle {
-  val KEY_TABLE_ID = "tableId"
-  val KEY_COLUMN_ID = "columnId"
-  val KEY_ROW_ID = "rowId"
-
-  val ID_KEYS: Seq[String] = Seq(KEY_TABLE_ID, KEY_COLUMN_ID, KEY_ROW_ID)
-
-  val ADDRESS_CELL_CHANGED = "message.cell.changed"
-  val ADDRESS_SERVICES_CHANGED = "message.services.changed"
-  val ADDRESS_COLUMN_CREATED = "message.column.created"
-  val ADDRESS_COLUMN_CHANGED = "message.column.changed"
-  val ADDRESS_COLUMN_DELETED = "message.column.deleted"
-  val ADDRESS_TABLE_CREATED = "message.table.created"
-  val ADDRESS_TABLE_CHANGED = "message.table.changed"
-  val ADDRESS_TABLE_DELETED = "message.table.deleted"
-  val ADDRESS_ROW_CREATED = "message.row.created"
-  val ADDRESS_ROW_DELETED = "message.row.deleted"
-  val ADDRESS_ROW_ANNOTATION_CHANGED = "message.row.annotation.changed"
-  val ADDRESS_CELL_ANNOTATION_CHANGED = "message.cell.annotation.changed"
+  val ID_KEYS: Seq[String] = Seq("tableId", "columnId", "rowId")
 
   val EVENT_TYPE_TABLE_CREATED = "table_created"
   val EVENT_TYPE_TABLE_CHANGED = "table_changed"
@@ -68,10 +52,13 @@ object MessagingVerticle {
     EVENT_TYPE_CELL_CHANGED,
     EVENT_TYPE_CELL_ANNOTATION_CHANGED
   )
+
+  def apply(tableauxConfig: TableauxConfig): MessagingVerticle = {
+    new MessagingVerticle(tableauxConfig)
+  }
 }
 
-class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle
-    with LazyLogging {
+class MessagingVerticle(tableauxConfig: TableauxConfig) extends ScalaVerticle with LazyLogging {
 
   import MessagingVerticle._
 

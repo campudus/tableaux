@@ -1,12 +1,12 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
-import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
+import com.campudus.tableaux.verticles.EventClient
 
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.ext.web.RoutingContext
@@ -44,6 +44,8 @@ class MediaController(
 ) extends Controller[FolderModel] {
 
   import MediaController.ROOT_FOLDER
+
+  val eventClient: EventClient = EventClient(vertx)
 
   lazy val uploadsDirectory: Path = config.uploadsDirectoryPath()
 
@@ -176,11 +178,14 @@ class MediaController(
                 .map(ExtendedFile)
             }
 
+            // invalidate cdn cache for old file
+            _ <- eventClient.fileChanged(oldFile)
+
             // retrieve cells with this file for cache invalidation
             cellsForFiles <- attachmentModel.retrieveCells(uuid)
             // invalidate cache for cells with this file
             _ <- Future.sequence(cellsForFiles.map({
-              case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
+              case (tableId, columnId, rowId) => eventClient.invalidateCellValue(tableId, columnId, rowId)
             }))
           } yield {
             p.success(updatedFile)
@@ -254,7 +259,7 @@ class MediaController(
       cellsForFiles <- attachmentModel.retrieveCells(uuid)
       // invalidate cache for cells with this file
       _ <- Future.sequence(cellsForFiles.map({
-        case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
+        case (tableId, columnId, rowId) => eventClient.invalidateCellValue(tableId, columnId, rowId)
       }))
     } yield ExtendedFile(file)
   }
@@ -295,7 +300,7 @@ class MediaController(
 
       // invalidate cache for cells with this file
       _ <- Future.sequence(cellsForFiles.map({
-        case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
+        case (tableId, columnId, rowId) => eventClient.invalidateCellValue(tableId, columnId, rowId)
       }))
     } yield {
       // return only File not
@@ -327,7 +332,7 @@ class MediaController(
 
       // invalidate cache for cells with this file
       _ <- Future.sequence(cellsForFiles.map({
-        case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
+        case (tableId, columnId, rowId) => eventClient.invalidateCellValue(tableId, columnId, rowId)
       }))
 
       (file, _) <- retrieveFile(uuid, withTmp = true)
@@ -401,7 +406,7 @@ class MediaController(
       // invalidate cache for cells with this file
       cellsForFiles = cellsForFile1 ++ cellsForFile2
       _ <- Future.sequence(cellsForFiles.map({
-        case (tableId, columnId, rowId) => CacheClient(this).invalidateCellValue(tableId, columnId, rowId)
+        case (tableId, columnId, rowId) => eventClient.invalidateCellValue(tableId, columnId, rowId)
       }))
     } yield ExtendedFile(mergedFile)
   }

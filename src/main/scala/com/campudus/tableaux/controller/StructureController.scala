@@ -2,15 +2,14 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig}
 import com.campudus.tableaux.ArgumentChecker._
-import com.campudus.tableaux.cache.CacheClient
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateColumn, _}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
 import com.campudus.tableaux.router.auth.permission._
-import com.campudus.tableaux.verticles.JsonSchemaValidator.{JsonSchemaValidatorClient, ValidatorKeys}
-import com.campudus.tableaux.verticles.MessagingVerticle.MessagingVerticleClient
+import com.campudus.tableaux.verticles.EventClient
+import com.campudus.tableaux.verticles.ValidatorKeys
 
 import org.vertx.scala.core.json._
 
@@ -32,7 +31,7 @@ class StructureController(
   val tableStruc: TableModel = repository.tableStruc
   val columnStruc: CachedColumnModel = repository.columnStruc
   val tableGroupStruc: TableGroupModel = repository.tableGroupStruc
-  val messagingClient: MessagingVerticleClient = MessagingVerticleClient(vertx)
+  val eventClient: EventClient = EventClient(vertx)
 
   def retrieveTable(tableId: TableId)(implicit user: TableauxUser): Future[Table] = {
     checkArguments(greaterZero(tableId))
@@ -70,7 +69,7 @@ class StructureController(
       retrieved <- Future.sequence(created.map(c => retrieveColumn(c.table.id, c.id)))
       sorted = retrieved.sortBy(_.ordering)
     } yield {
-      sorted.foreach(col => messagingClient.columnCreated(tableId, col.id))
+      sorted.foreach(col => eventClient.columnCreated(tableId, col.id))
       ColumnSeq(sorted)
     }
   }
@@ -156,17 +155,15 @@ class StructureController(
       builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
     }
 
-    val validator = JsonSchemaValidatorClient(vertx)
-
     (attributes match {
       case Some(s) => {
-        validator.validateJson(ValidatorKeys.ATTRIBUTES, s).flatMap(createTable).recover {
+        eventClient.validateJson(ValidatorKeys.ATTRIBUTES, s).flatMap(createTable).recover {
           case ex => throw InvalidJsonException(ex.getMessage(), "attributes")
         }
       }
       case None => createTable(Unit)
     }) map { table =>
-      messagingClient.tableCreated(table.id)
+      eventClient.tableCreated(table.id)
       table
     }
   }
@@ -338,11 +335,11 @@ class StructureController(
 
       _ <- Future.sequence(columns.map({ column =>
         {
-          CacheClient(this).invalidateColumn(tableId, column.id)
+          eventClient.invalidateColumn(tableId, column.id)
         }
       }))
     } yield {
-      messagingClient.tableDeleted(tableId, table)
+      eventClient.tableDeleted(tableId, table)
       EmptyObject()
     }
   }
@@ -366,9 +363,9 @@ class StructureController(
           Future.failed(ForbiddenException("can't delete a column from a settings table", "column"))
       }
 
-      _ <- CacheClient(this).invalidateColumn(tableId, columnId)
+      _ <- eventClient.invalidateColumn(tableId, columnId)
     } yield {
-      messagingClient.columnDeleted(table.id, column.id, column)
+      eventClient.columnDeleted(table.id, column.id, column)
       EmptyObject()
     }
   }
@@ -395,8 +392,6 @@ class StructureController(
 
     logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId")
 
-    val validator = JsonSchemaValidatorClient(vertx)
-
     for {
       table <- tableStruc.retrieve(tableId)
       _ <-
@@ -407,7 +402,7 @@ class StructureController(
         }
       _ <-
         if (attributes.nonEmpty) {
-          validator
+          eventClient
             .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
             .recover({
               case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
@@ -419,7 +414,7 @@ class StructureController(
       changedTable <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $changedTable")
-      messagingClient.tableChanged(tableId)
+      eventClient.tableChanged(tableId)
       changedTable
     }
   }
@@ -487,7 +482,6 @@ class StructureController(
       s"changeColumn $tableId $columnId name=$columnName ordering=$ordering kind=$kind identifier=$identifier separator=$separator" +
         s"displayInfos=$displayInfos, countryCodes=$countryCodes"
     )
-    val validator = JsonSchemaValidatorClient(vertx)
 
     val performChangeFx = (table: Table) =>
       columnStruc
@@ -515,7 +509,7 @@ class StructureController(
       column <- columnStruc.retrieve(table, columnId)
       _ <-
         if (attributes.nonEmpty) {
-          validator
+          eventClient
             .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
             .recover({
               case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
@@ -527,7 +521,7 @@ class StructureController(
       _ <-
         if (rules.nonEmpty) {
           for {
-            _ <- validator
+            _ <- eventClient
               .validateJson(ValidatorKeys.STATUS, rules.get)
               .recover({
                 case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
@@ -553,7 +547,7 @@ class StructureController(
           else Future.failed(ForbiddenException("can't change a default column of a taxonomy table", "column"))
       }
 
-      _ <- CacheClient(this).invalidateColumn(tableId, columnId)
+      _ <- eventClient.invalidateColumn(tableId, columnId)
     } yield changedColumn
   }
 

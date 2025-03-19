@@ -1,7 +1,8 @@
-package com.campudus.tableaux.cache
+package com.campudus.tableaux.verticles
 
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.model.TableauxModel.{ColumnId, RowId, TableId}
+import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.core.Handler
 import io.vertx.lang.scala.ScalaVerticle
@@ -34,26 +35,6 @@ object CacheVerticle {
 
   val NOT_FOUND_FAILURE: Int = 404
   val INVALID_MESSAGE: Int = 400
-
-  // cell based addresses
-  val ADDRESS_SET_CELL: String = "cache.set.cell"
-  val ADDRESS_RETRIEVE_CELL: String = "cache.retrieve.cell"
-  val ADDRESS_INVALIDATE_CELL: String = "cache.invalidate.cell"
-  val ADDRESS_INVALIDATE_COLUMN: String = "cache.invalidate.column"
-  val ADDRESS_INVALIDATE_ROW: String = "cache.invalidate.row"
-  val ADDRESS_INVALIDATE_TABLE: String = "cache.invalidate.table"
-  val ADDRESS_INVALIDATE_ALL: String = "cache.invalidate.all"
-
-  // row permissions based addresses
-  val ADDRESS_SET_ROW_PERMISSIONS: String = "cache.set.row_permissions"
-  val ADDRESS_RETRIEVE_ROW_PERMISSIONS: String = "cache.retrieve.row_permissions"
-  val ADDRESS_INVALIDATE_ROW_PERMISSIONS: String = "cache.invalidate.row_permissions"
-
-  // row level annotations based addresses
-  val ADDRESS_SET_ROW_LEVEL_ANNOTATIONS: String = "cache.set.row_level_annotations"
-  val ADDRESS_RETRIEVE_ROW_LEVEL_ANNOTATIONS: String = "cache.retrieve.row_level_annotations"
-  val ADDRESS_INVALIDATE_ROW_LEVEL_ANNOTATIONS: String = "cache.invalidate.row_level_annotations"
-  val ADDRESS_INVALIDATE_TABLE_ROW_LEVEL_ANNOTATIONS: String = "cache.invalidate.table.row_level_annotations"
 
   val TIMEOUT_AFTER_MILLISECONDS: Int = 400
 
