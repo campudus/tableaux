@@ -252,6 +252,48 @@ class RetrieveHistoryTest extends TableauxTestBase {
     }
   }
 
+  @Test
+  def retrieveColumnHistory(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        _ <- createEmptyDefaultTable()
+
+        // manually insert rows
+        _ <- dbConnection.query(
+          """INSERT INTO
+            |  user_table_history_1
+            |  (row_id, column_id, event, history_type, value_type, language_type, value)
+            |VALUES
+            |  (1, null, 'row_created',      'row',    null,               null,       null),
+            |  (1, 1,    'cell_changed',     'cell',  'numeric',           'language', '{"value": {"de": "change2"}}'),
+            |  (1, 2,    'annotation_added', 'cell',  'needs_translation', 'language', '{"value":{"de":"needs_translation"}, "uuid":"9f4eef42-0476-44d8-ae10-0cdfd802a292"}'),
+            |  (2, null, 'row_created',      'row',    null,               null,       null),
+            |  (2, 1,    'cell_changed',     'cell',  'numeric',           'language', '{"value": {"de": "change5"}}'),
+            |  (2, 2,    'annotation_added', 'cell',  'needs_translation', 'language', '{"value":{"de":"needs_translation"}, "uuid":"e3d371a4-e3cc-4697-83fe-ef32bcddd3e6"}')
+            |  """.stripMargin
+        )
+
+        allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
+        createdRows <- sendRequest("GET", "/tables/1/columns/1/history?historyType=row").map(_.getJsonArray("rows"))
+        columnHistory <- sendRequest("GET", "/tables/1/columns/1/history").map(_.getJsonArray("rows"))
+        changedCells <- sendRequest("GET", "/tables/1/columns/1/history?historyType=cell").map(_.getJsonArray("rows"))
+        addedAnnotations <-
+          sendRequest("GET", "/tables/1/columns/1/history?historyType=annotation_added").map(_.getJsonArray("rows"))
+
+      } yield {
+        assertEquals(6, allRows.size())
+        // historyType=row makes no sense for columns endpoint, so it should return empty
+        assertEquals(0, createdRows.size())
+        assertEquals(2, columnHistory.size())
+        assertEquals(1, changedCells.size())
+        assertEquals(1, addedAnnotations.size())
+      }
+    }
+  }
+
   def filterByType(historyType: String)(jsonArray: JsonArray): Seq[JsonObject] = {
     import scala.collection.JavaConverters._
 
