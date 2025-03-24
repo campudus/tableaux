@@ -30,6 +30,16 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
     retrieve(table, where, binds)
   }
 
+  def retrieveColumn(
+      table: Table,
+      column: ColumnType[_],
+      langtagOpt: Option[String],
+      typeOpt: Option[String]
+  ): Future[Seq[History]] = {
+    val (where, binds) = generateWhereAndBinds(Some(column.id), None, langtagOpt, typeOpt, true)
+    retrieve(table, where, binds)
+  }
+
   def retrieveRow(
       table: Table,
       rowId: RowId,
@@ -68,24 +78,24 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
   private def retrieve(table: Table, where: String, binds: Seq[Any]): Future[Seq[History]] = {
     val select =
       s"""
-         |  SELECT
-         |    revision,
-         |    row_id,
-         |    column_id,
-         |    event,
-         |    history_type,
-         |    value_type,
-         |    language_type,
-         |    author,
-         |    timestamp,
-         |    value
-         |  FROM
-         |    user_table_history_${table.id}
-         |  WHERE
-         |    1 = 1
-         |    $where
-         |  ORDER BY
-         |    revision ASC
+         |SELECT
+         |  revision,
+         |  row_id,
+         |  column_id,
+         |  event,
+         |  history_type,
+         |  value_type,
+         |  language_type,
+         |  author,
+         |  timestamp,
+         |  value
+         |FROM
+         |  user_table_history_${table.id}
+         |WHERE
+         |  1 = 1
+         |  $where
+         |ORDER BY
+         |  revision ASC
          """.stripMargin
     // order by must base on revision, because a lower revision could have a minimal later timestamp
 
@@ -100,9 +110,13 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       columnIdOpt: Option[ColumnId],
       rowIdOpt: Option[RowId],
       langtagOpt: Option[String],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      isStrictColumnId: Boolean = false
   ): (String, Seq[Any]) = {
-    val whereColumnId: Option[(String, ColumnId)] = columnIdOpt.map((s" AND (column_id = ? OR column_id IS NULL)", _))
+    val whereColumnId: Option[(String, ColumnId)] = isStrictColumnId match {
+      case true => columnIdOpt.map((s" AND column_id = ?", _))
+      case false => columnIdOpt.map((s" AND (column_id = ? OR column_id IS NULL)", _))
+    }
     val whereRowId: Option[(String, RowId)] = rowIdOpt.map((s" AND row_id = ?", _))
 
     val whereLangtag: Option[(String, String)] = langtagOpt.map(

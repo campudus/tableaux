@@ -634,6 +634,21 @@ class TableauxController(
     } yield SeqHistory(historySequence)
   }
 
+  def retrieveColumnHistory(
+      tableId: TableId,
+      columnId: ColumnId,
+      langtagOpt: Option[Langtag],
+      typeOpt: Option[String]
+  )(implicit user: TableauxUser): Future[SeqHistory] = {
+    checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"))
+    logger.info(s"retrieveColumnHistory $tableId $columnId $langtagOpt $typeOpt")
+
+    for {
+      table <- repository.retrieveTable(tableId)
+      historySequence <- repository.retrieveColumnHistory(table, columnId, langtagOpt, typeOpt)
+    } yield SeqHistory(historySequence)
+  }
+
   def retrieveRowHistory(
       tableId: TableId,
       rowId: RowId,

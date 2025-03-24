@@ -1602,6 +1602,20 @@ class TableauxModel(
     } yield cellHistorySeq
   }
 
+  def retrieveColumnHistory(
+      table: Table,
+      columnId: ColumnId,
+      langtagOpt: Option[String],
+      typeOpt: Option[String]
+  )(implicit user: TableauxUser): Future[Seq[History]] = {
+    for {
+      column <- retrieveColumn(table, columnId)
+      _ <- checkColumnTypeForLangtag(column, langtagOpt)
+      _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
+      columnHistorySeq <- retrieveHistoryModel.retrieveColumn(table, column, langtagOpt, typeOpt)
+    } yield columnHistorySeq
+  }
+
   def retrieveRowHistory(
       table: Table,
       rowId: RowId,
