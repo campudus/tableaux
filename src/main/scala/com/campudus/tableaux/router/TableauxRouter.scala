@@ -60,6 +60,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
   private val cellHistory: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/history"
   private val cellHistoryWithLangtag: String = s"/tables/$tableId/columns/$columnId/rows/$rowId/history/$langtagRegex"
+  private val columnHistory: String = s"/tables/$tableId/columns/$columnId/history"
+  private val columnHistoryWithLangtag: String = s"/tables/$tableId/columns/$columnId/history/$langtagRegex"
   private val rowHistory: String = s"/tables/$tableId/rows/$rowId/history"
   private val rowHistoryWithLangtag: String = s"/tables/$tableId/rows/$rowId/history/$langtagRegex"
   private val tableHistory: String = s"/tables/$tableId/history"
@@ -87,6 +89,8 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
 
     router.getWithRegex(cellHistory).handler(retrieveCellHistory)
     router.getWithRegex(cellHistoryWithLangtag).handler(retrieveCellHistoryWithLangtag)
+    router.getWithRegex(columnHistory).handler(retrieveColumnHistory)
+    router.getWithRegex(columnHistoryWithLangtag).handler(retrieveColumnHistoryWithLangtag)
     router.getWithRegex(rowHistory).handler(retrieveRowHistory)
     router.getWithRegex(rowHistoryWithLangtag).handler(retrieveRowHistoryWithLangtag)
     router.getWithRegex(tableHistory).handler(retrieveTableHistory)
@@ -432,7 +436,46 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveCellHistory(tableId.toLong, columnId.toLong, rowId.toLong, Some(langtag), typeOpt)
+          controller.retrieveCellHistory(tableId, columnId, rowId, Some(langtag), typeOpt)
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve Column History
+    */
+  private def retrieveColumnHistory(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      typeOpt = getStringParam("historyType", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveColumnHistory(tableId, columnId, None, typeOpt)
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve Column History with langtag
+    */
+  private def retrieveColumnHistoryWithLangtag(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      tableId <- getTableId(context)
+      columnId <- getColumnId(context)
+      langtag <- getLangtag(context)
+      typeOpt = getStringParam("historyType", context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveColumnHistory(tableId, columnId, Some(langtag), typeOpt)
         }
       )
     }
@@ -451,7 +494,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveRowHistory(tableId.toLong, rowId.toLong, None, typeOpt)
+          controller.retrieveRowHistory(tableId, rowId, None, typeOpt)
         }
       )
     }
@@ -471,7 +514,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveRowHistory(tableId.toLong, rowId.toLong, Some(langtag), typeOpt)
+          controller.retrieveRowHistory(tableId, rowId, Some(langtag), typeOpt)
         }
       )
     }
@@ -489,7 +532,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveTableHistory(tableId.toLong, None, typeOpt)
+          controller.retrieveTableHistory(tableId, None, typeOpt)
         }
       )
     }
@@ -508,7 +551,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveTableHistory(tableId.toLong, Some(langtag), typeOpt)
+          controller.retrieveTableHistory(tableId, Some(langtag), typeOpt)
         }
       )
     }
@@ -637,7 +680,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
           val finalFlagOpt = getBooleanOption("final", false, json)
           val archivedFlagOpt = getBooleanOption("archived", false, json)
           for {
-            updated <- controller.updateRowsAnnotations(tableId.toLong, finalFlagOpt, archivedFlagOpt)
+            updated <- controller.updateRowsAnnotations(tableId, finalFlagOpt, archivedFlagOpt)
           } yield updated
         }
       )
@@ -837,7 +880,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       sendReply(
         context,
         asyncEmptyReply {
-          controller.deleteAttachment(tableId.toLong, columnId.toLong, rowId.toLong, uuid)
+          controller.deleteAttachment(tableId, columnId, rowId, uuid)
         }
       )
     }
