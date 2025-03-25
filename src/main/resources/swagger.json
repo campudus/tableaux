@@ -1276,6 +1276,32 @@
         }
       }
     },
+    "/tables/{tableId}/history": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/historyType"
+        }
+      ],
+      "get": {
+        "summary": "Retrieves the history entries of a table",
+        "description": "Returns the history entries of a table.",
+        "tags": [
+          "history"
+        ],
+        "operationId": "retrieve-table-history-cell",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/history-cell"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/tables/{tableId}/history/{languageTag}": {
       "parameters": [
         {
@@ -1294,7 +1320,36 @@
         "tags": [
           "history"
         ],
-        "operationId": "retrieve-table-history-cell",
+        "operationId": "retrieve-table-history-cell-language-tag",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/history-cell"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/rows/{rowId}/history": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/historyType"
+        }
+      ],
+      "get": {
+        "summary": "Retrieves the history entries of a row",
+        "description": "Returns the history entries of a row.",
+        "tags": [
+          "history"
+        ],
+        "operationId": "retrieve-row-history-cell",
         "responses": {
           "200": {
             "$ref": "#/responses/history-cell"
@@ -1326,7 +1381,100 @@
         "tags": [
           "history"
         ],
-        "operationId": "retrieve-row-history-cell",
+        "operationId": "retrieve-row-history-cell-language-tag",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/history-cell"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/history": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/historyType"
+        }
+      ],
+      "get": {
+        "summary": "Retrieves the history entries of a cell",
+        "description": "Returns the history entries of a specified cell.",
+        "tags": [
+          "history"
+        ],
+        "operationId": "retrieve-column-history-cell",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/history-cell"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/history/{languageTag}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/languageTagOpt"
+        },
+        {
+          "$ref": "#/parameters/historyType"
+        }
+      ],
+      "get": {
+        "summary": "Retrieves the history entries of a cell",
+        "description": "Returns the history entries of a specified cell.",
+        "tags": [
+          "history"
+        ],
+        "operationId": "retrieve-column-history-cell-language-tag",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/history-cell"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
+    "/tables/{tableId}/columns/{columnId}/rows/{rowId}/history": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/tableId"
+        },
+        {
+          "$ref": "#/parameters/columnId"
+        },
+        {
+          "$ref": "#/parameters/rowId"
+        },
+        {
+          "$ref": "#/parameters/historyType"
+        }
+      ],
+      "get": {
+        "summary": "Retrieves the history entries of a cell",
+        "description": "Returns the history entries of a specified cell.",
+        "tags": [
+          "history"
+        ],
+        "operationId": "retrieve-cell-history-cell",
         "responses": {
           "200": {
             "$ref": "#/responses/history-cell"
@@ -1361,7 +1509,7 @@
         "tags": [
           "history"
         ],
-        "operationId": "retrieve-cell-history-cell",
+        "operationId": "retrieve-cell-history-cell-language-tag",
         "responses": {
           "200": {
             "$ref": "#/responses/history-cell"
