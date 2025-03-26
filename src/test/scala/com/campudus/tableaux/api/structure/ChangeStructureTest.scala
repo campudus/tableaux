@@ -117,6 +117,17 @@ class ChangeStructureTest extends TableauxTestBase {
   }
 
   @Test
+  def changeColumnFormatPatternForbiddenForNonGroupColumns(implicit c: TestContext): Unit =
+    exceptionTest("error.request.forbidden.column") {
+      val postJson = Json.obj("formatPattern" -> "{{1}} {{2}}")
+
+      for {
+        _ <- createDefaultTable()
+        resultPost <- sendRequest("POST", "/tables/1/columns/2", postJson)
+      } yield ()
+    }
+
+  @Test
   def changeColumnKindWhichShouldFail(implicit c: TestContext): Unit = {
     okTest {
       val kindTextJson = Json.obj("kind" -> "text")

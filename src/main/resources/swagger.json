@@ -2636,6 +2636,11 @@
         "hidden": {
           "type": "boolean",
           "example": false
+        },
+        "concatFormatPattern": {
+          "type": "string",
+          "description": "Pattern for the frontend how to render the content of the concat column",
+          "example": "{{1}} | {{2}} | {{3}}"
         }
       }
     },
