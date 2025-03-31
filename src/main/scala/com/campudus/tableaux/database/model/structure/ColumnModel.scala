@@ -86,7 +86,7 @@ class CachedColumnModel(
     } yield ()
   }
 
-  private def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
+  def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
 
     for {
       // remove retrieveAll cache

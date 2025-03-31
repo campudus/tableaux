@@ -438,6 +438,7 @@ class StructureController(
     } yield {
       logger.info(s"retrieved table after change $changedTable")
       eventClient.tableChanged(tableId)
+      columnStruc.removeCache(table.id, None)
       changedTable
     }
   }
