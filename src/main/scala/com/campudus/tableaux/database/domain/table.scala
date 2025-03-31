@@ -61,7 +61,7 @@ case class Table(
       "hidden" -> hidden,
       "displayName" -> Json.obj(),
       "description" -> Json.obj(),
-      "attributes" -> attributes.getOrElse(new JsonObject("{}")),
+      "attributes" -> attributes.getOrElse(new JsonObject("{}"))
     )
 
     langtags.foreach(lt => tableJson.mergeIn(Json.obj("langtags" -> lt)))
