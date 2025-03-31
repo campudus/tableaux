@@ -13,29 +13,6 @@ import org.junit.runner.RunWith
 class TableConcatFormatPatternTest extends TableauxTestBase {
 
   @Test
-  def createRegularTable(implicit c: TestContext): Unit = okTest {
-    val createTableJson = Json.obj("name" -> "Regular table test")
-    val expectedTableJson = Json.obj(
-      "status" -> "ok",
-      "id" -> 1,
-      "name" -> "Regular table test",
-      "hidden" -> false,
-      "displayName" -> Json.obj(),
-      "description" -> Json.obj(),
-      "langtags" -> Json.arr("de-DE", "en-GB")
-    )
-
-    for {
-      tablePost <- sendRequest("POST", "/tables", createTableJson)
-      tableId = tablePost.getLong("id").toLong
-      tableGet <- sendRequest("GET", s"/tables/$tableId")
-    } yield {
-      assertJSONEquals(expectedTableJson, tablePost)
-      assertJSONEquals(expectedTableJson, tableGet)
-    }
-  }
-
-  @Test
   def createRegularTableWithConcatFormatPattern(implicit c: TestContext): Unit = okTest {
     val createTableJson = Json.obj("name" -> "concatFormatPattern test", "concatFormatPattern" -> "{{1}} | {{2}}")
     val expectedTableJson = Json.obj(

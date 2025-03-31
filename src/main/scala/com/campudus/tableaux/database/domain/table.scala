@@ -62,7 +62,6 @@ case class Table(
       "displayName" -> Json.obj(),
       "description" -> Json.obj(),
       "attributes" -> attributes.getOrElse(new JsonObject("{}")),
-      "concatFormatPattern" -> concatFormatPattern.orNull
     )
 
     langtags.foreach(lt => tableJson.mergeIn(Json.obj("langtags" -> lt)))
@@ -85,6 +84,13 @@ case class Table(
     if (tableType != GenericTable) {
       tableJson.mergeIn(Json.obj("type" -> tableType.NAME))
     }
+
+    val concatFormatPatternJson = concatFormatPattern match {
+      case Some(pattern) => Json.obj("concatFormatPattern" -> pattern)
+      case None => Json.obj()
+    }
+
+    tableJson.mergeIn(concatFormatPatternJson)
 
     tableGroup.foreach(tg => tableJson.put("group", tg.getJson))
 

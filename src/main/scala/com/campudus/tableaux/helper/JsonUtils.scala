@@ -190,7 +190,7 @@ object JsonUtils extends LazyLogging {
                   .map(_.toLong)
                   .toSeq
 
-                val formatPattern = Try(Option(json.getString("formatPattern"))).toOption.flatten
+                val formatPattern = Try(json.getString("formatPattern")).toOption
                 val showMemberColumns = json.getBoolean("showMemberColumns", false)
 
                 CreateGroupColumn(
@@ -393,7 +393,7 @@ object JsonUtils extends LazyLogging {
     val maxLength = getNullableJsonIntegerValue("maxLength", json).toOption
     val minLength = getNullableJsonIntegerValue("minLength", json).toOption
     val decimalDigits = parseDecimalDigits(json)
-    val formatPattern = Try(Option(json.getString("formatPattern"))).toOption.flatten
+    val formatPattern = Try(json.getString("formatPattern")).toOption
 
     (
       name,
