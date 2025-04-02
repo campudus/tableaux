@@ -709,15 +709,23 @@ sealed trait ConcatenateColumn extends ColumnType[JsonArray] {
 
 case class ConcatColumn(
     override val columnInformation: ConcatColumnInformation,
-    override val columns: Seq[ColumnType[_]]
+    override val columns: Seq[ColumnType[_]],
+    formatPattern: Option[String]
 )(implicit override val roleModel: RoleModel, val user: TableauxUser) extends ConcatenateColumn {
   override val kind: ConcatType.type = ConcatType
 
-  override def getJson: JsonObject =
-    super.getJson.mergeIn(
-      Json.obj("concats" -> columns.map(_.getJson))
-    )
+  override def getJson: JsonObject = {
+    val concatsJson = Json.obj("concats" -> columns.map(_.getJson))
 
+    val formatPatternJson = formatPattern match {
+      case Some(pattern) => Json.obj("formatPattern" -> pattern)
+      case None => Json.emptyObj()
+    }
+
+    super.getJson
+      .mergeIn(concatsJson)
+      .mergeIn(formatPatternJson)
+  }
 }
 
 case class GroupColumn(

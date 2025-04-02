@@ -506,6 +506,79 @@ class GroupColumnTest extends TableauxTestBase {
   }
 
   @Test
+  def createAndChangeTripleGroupColumnWithValidFormat(implicit c: TestContext): Unit = {
+    okTest {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textCol1 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn1"))
+        textCol2 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn2"))
+        textCol3 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn3"))
+
+        groupColumnCreated <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnWithFormatPatternJson(
+            "groupcolumn",
+            Seq(textCol1, textCol2, textCol3),
+            "{{1}} × {{2}} × {{3}} mm (B × H × T)"
+          )
+        ).map(_.getJsonArray("columns").getJsonObject(0))
+
+        groupColumnChanged <- sendRequest(
+          "POST",
+          s"/tables/1/columns/${groupColumnCreated.getInteger("id")}",
+          Json.obj(
+            "formatPattern" -> "{{1}} × {{2}} mm (B × H)"
+          )
+        )
+      } yield {
+        val expected = """{
+                         |  "groups": [
+                         |    {"id": 1},
+                         |    {"id": 2},
+                         |    {"id": 3}
+                         |  ],
+                         |  "formatPattern": "{{1}} × {{2}} mm (B × H)"
+                         |}""".stripMargin
+
+        assertJSONEquals(expected, groupColumnChanged.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
+  def createAndChangeTripleGroupColumnWithInvalidFormat(implicit c: TestContext): Unit = {
+    exceptionTest("unprocessable.entity") {
+      for {
+        _ <- sendRequest("POST", "/tables", createTableJson)
+
+        textCol1 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn1"))
+        textCol2 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn2"))
+        textCol3 <- sendCreateColumnRequest(1, createTextColumnJson("textcolumn3"))
+
+        groupColumnCreated <- sendRequest(
+          "POST",
+          "/tables/1/columns",
+          createGroupColumnWithFormatPatternJson(
+            "groupcolumn",
+            Seq(textCol1, textCol2, textCol3),
+            "{{1}} × {{2}} × {{3}} mm (B × H × T)"
+          )
+        ).map(_.getJsonArray("columns").getJsonObject(0))
+
+        groupColumnChanged <- sendRequest(
+          "POST",
+          s"/tables/1/columns/${groupColumnCreated.getInteger("id")}",
+          Json.obj(
+            "formatPattern" -> "{{1}} × {{33}} mm (B × H)"
+          )
+        )
+      } yield ()
+    }
+  }
+
+  @Test
   def createSingleGroupColumnWithInvalidFormat(implicit c: TestContext): Unit = {
     exceptionTest("unprocessable.entity") {
       for {

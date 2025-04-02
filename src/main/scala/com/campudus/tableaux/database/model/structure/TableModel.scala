@@ -29,7 +29,8 @@ class TableModel(val connection: DatabaseConnection)(
       displayInfos: Seq[DisplayInfo],
       tableType: TableType,
       tableGroupIdOpt: Option[TableGroupId],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String]
   )(
       implicit user: TableauxUser
   ): Future[Table] = {
@@ -49,7 +50,7 @@ class TableModel(val connection: DatabaseConnection)(
 
           (t, result) <- t
             .query(
-              s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id, attributes) VALUES (?, ?, ?, ?, ?, ?) RETURNING table_id",
+              s"INSERT INTO system_table (user_table_name, is_hidden, langtags, type, group_id, attributes, concat_format_pattern) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING table_id",
               Json
                 .arr(
                   name,
@@ -60,7 +61,8 @@ class TableModel(val connection: DatabaseConnection)(
                   attributes match {
                     case Some(obj) => obj.encode()
                     case None => "{}"
-                  }
+                  },
+                  concatFormatPattern.orNull
                 )
             )
           id = insertNotNull(result).head.get[TableId](0)
@@ -105,7 +107,8 @@ class TableModel(val connection: DatabaseConnection)(
             displayInfos,
             tableType,
             tableGroup,
-            attributes
+            attributes,
+            concatFormatPattern
           )
         )
       }
@@ -220,7 +223,7 @@ class TableModel(val connection: DatabaseConnection)(
       t <- connection.begin()
 
       (t, tableResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes FROM system_table WHERE table_id = ?",
+        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes, concat_format_pattern FROM system_table WHERE table_id = ?",
         Json.arr(tableId)
       )
       (t, displayInfoResult) <- t.query(
@@ -251,7 +254,7 @@ class TableModel(val connection: DatabaseConnection)(
       t <- connection.begin()
 
       (t, tablesResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes FROM system_table ORDER BY ordering, table_id"
+        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes, concat_format_pattern FROM system_table ORDER BY ordering, table_id"
       )
       (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
 
@@ -312,7 +315,8 @@ class TableModel(val connection: DatabaseConnection)(
       List(),
       TableType(row.getString(4)),
       Option(row.getLong(5)).map(_.longValue()).flatMap(tableGroups.get),
-      Option(row.getString(6)).map(jsonString => new JsonObject(jsonString))
+      Option(row.getString(6)).map(jsonString => new JsonObject(jsonString)),
+      Option(row.getString(7))
     )
   }
 
@@ -342,7 +346,8 @@ class TableModel(val connection: DatabaseConnection)(
       langtags: Option[Option[Seq[String]]],
       displayInfos: Option[Seq[DisplayInfo]],
       tableGroupId: Option[Option[TableGroupId]],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String]
   ): Future[Unit] = {
     for {
       t <- connection.begin()
@@ -414,10 +419,23 @@ class TableModel(val connection: DatabaseConnection)(
           }
         }
       )
+      (t, result6) <- optionToValidFuture(
+        concatFormatPattern,
+        t,
+        { concatFormatPattern: String =>
+          {
+            t.query(
+              s"UPDATE system_table SET concat_format_pattern = ? WHERE table_id = ?",
+              Json.arr(concatFormatPattern, tableId)
+            )
+          }
+        }
+      )
 
       t <- insertOrUpdateTableDisplayInfo(t, tableId, displayInfos)
 
-      _ <- Future(checkUpdateResults(result1, result2, result3, result4, result5)) recoverWith t.rollbackAndFail()
+      _ <-
+        Future(checkUpdateResults(result1, result2, result3, result4, result5, result6)) recoverWith t.rollbackAndFail()
 
       _ <- t.commit()
     } yield ()
