@@ -136,8 +136,8 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
     for {
       result <- values.size match {
-        case 0 =>  connection.query(selectStatement(Some("1 = 0")))
-        case _ =>  connection.query(selectStatement(Some(s"id in ($placeholders)")), values)
+        case 0 => connection.query(selectStatement(Some("1 = 0")))
+        case _ => connection.query(selectStatement(Some(s"id in ($placeholders)")), values)
       }
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
