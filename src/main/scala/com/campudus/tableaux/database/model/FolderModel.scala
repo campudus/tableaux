@@ -9,6 +9,7 @@ import com.campudus.tableaux.helper.ResultChecker._
 
 import org.vertx.scala.core.json.{Json, JsonArray}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 object FolderModel {
@@ -22,7 +23,7 @@ object FolderModel {
 class FolderModel(override protected[this] val connection: DatabaseConnection) extends DatabaseQuery {
   val table: String = "folder"
 
-  def add(name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
+  def add(name: String, description: String, parentId: Option[FolderId]): Future[Folder] = {
     val insert =
       s"""INSERT INTO $table (
          |name,
@@ -32,16 +33,16 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
          |updated_at) VALUES (?,?,?,CURRENT_TIMESTAMP,NULL) RETURNING id, created_at""".stripMargin
 
     for {
-      _ <- checkUniqueName(parent, None, name)
+      _ <- checkUniqueName(parentId, None, name)
 
-      result <- connection.query(insert, Json.arr(name, description, parent.orNull))
+      result <- connection.query(insert, Json.arr(name, description, parentId.orNull))
       id = insertNotNull(result).head.get[Long](0)
 
       folder <- retrieve(id)
     } yield folder
   }
 
-  def update(id: FolderId, name: String, description: String, parent: Option[FolderId]): Future[Folder] = {
+  def update(id: FolderId, name: String, description: String, parentId: Option[FolderId]): Future[Folder] = {
     val update =
       s"""UPDATE $table SET
          |name = ?,
@@ -50,9 +51,9 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
          |updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING created_at, updated_at""".stripMargin
 
     for {
-      _ <- checkUniqueName(parent, Some(id), name)
+      _ <- checkUniqueName(parentId, Some(id), name)
 
-      result <- connection.query(update, Json.arr(name, description, parent.orNull, id))
+      result <- connection.query(update, Json.arr(name, description, parentId.orNull, id))
       _ = updateNotNull(result)
 
       folder <- retrieve(id)
@@ -93,7 +94,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
   private def convertJsonArrayToFolder(arr: JsonArray): Folder = {
     import scala.collection.JavaConverters._
-    val parents = Json
+    val parentIds = Json
       .fromArrayString(arr.getString(3))
       .asScala
       .toSeq
@@ -105,7 +106,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
       arr.get[FolderId](0), // id
       arr.get[String](1), // name
       arr.get[String](2), // description
-      parents, // parents
+      parentIds, // parents
       convertStringToDateTime(arr.get[String](4)), // created_at
       convertStringToDateTime(arr.get[String](5)) // updated_at
     )
@@ -123,6 +124,21 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
   def retrieveAll(): Future[Seq[Folder]] = {
     for {
       result <- connection.query(selectStatement(None))
+      resultArr <- Future(resultObjectToJsonArray(result))
+    } yield {
+      resultArr.map(convertJsonArrayToFolder)
+    }
+  }
+
+  def retrieveParentfolders(folder: Folder): Future[Seq[Folder]] = {
+    val placeholders = folder.parentIds.map(_ => "?").mkString(", ");
+    val values = new JsonArray(folder.parentIds.asJava);
+
+    for {
+      result <- values.size match {
+        case 0 =>  connection.query(selectStatement(Some("1 = 0")))
+        case _ =>  connection.query(selectStatement(Some(s"id in ($placeholders)")), values)
+      }
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToFolder)

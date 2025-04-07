@@ -103,8 +103,8 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         val json = getJson(context)
         val name = json.getString("name")
         val description = json.getString("description")
-        val parent = getNullableLong("parent")(json)
-        controller.addNewFolder(name, description, parent)
+        val parentId = getNullableLong("parentId")(json)
+        controller.addNewFolder(name, description, parentId)
       }
     )
   }
@@ -146,8 +146,8 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
           val json = getJson(context)
           val name = json.getString("name")
           val description = json.getString("description")
-          val parent = getNullableLong("parent")(json)
-          controller.changeFolder(folderId, name, description, parent)
+          val parentId = getNullableLong("parentId")(json)
+          controller.changeFolder(folderId, name, description, parentId)
         }
       )
     }
