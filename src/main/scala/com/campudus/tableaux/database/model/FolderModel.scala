@@ -134,14 +134,14 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     val placeholders = folder.parentIds.map(_ => "?").mkString(", ");
     val values = new JsonArray(folder.parentIds.asJava);
 
-    for {
-      result <- values.size match {
-        case 0 => connection.query(selectStatement(Some("1 = 0")))
-        case _ => connection.query(selectStatement(Some(s"id in ($placeholders)")), values)
+    values.size match {
+      case 0 => Future(Seq.empty)
+      case _ => for {
+        result <- connection.query(selectStatement(Some(s"id in ($placeholders)")), values)
+        resultArr <- Future(resultObjectToJsonArray(result))
+      } yield {
+        resultArr.map(convertJsonArrayToFolder)
       }
-      resultArr <- Future(resultObjectToJsonArray(result))
-    } yield {
-      resultArr.map(convertJsonArrayToFolder)
     }
   }
 
