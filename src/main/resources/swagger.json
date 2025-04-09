@@ -3157,7 +3157,8 @@
         "parentId": {
           "type": "integer",
           "format": "int64",
-          "example": 1
+          "example": 1,
+          "description": "id of the parent folder"
         },
         "parentIds": {
           "type": "array",
@@ -3167,7 +3168,8 @@
               1,
               2,
               3
-            ]
+            ],
+            "description": "ids of parent folders up to root folder (excluded)"
           }
         },
         "createdAt": {
@@ -3195,7 +3197,8 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/Response: Basefolder"
-          }
+          },
+          "description": "parent folders up to root folder (excluded)"
         },
         "subfolders": {
           "type": "array",
@@ -3211,7 +3214,7 @@
           "example": "ok"
         }
       },
-      "description": "Complete folder with subfolders and files.",
+      "description": "Complete folder with parents, subfolders and files.",
       "example": {
         "id": 1,
         "name": "root",
