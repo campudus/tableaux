@@ -137,11 +137,11 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     values.size match {
       case 0 => Future(Seq.empty)
       case _ => for {
-        result <- connection.query(selectStatement(Some(s"id in ($placeholders)")), values)
-        resultArr <- Future(resultObjectToJsonArray(result))
-      } yield {
-        resultArr.map(convertJsonArrayToFolder)
-      }
+          result <- connection.query(selectStatement(Some(s"id in ($placeholders)")), values)
+          resultArr <- Future(resultObjectToJsonArray(result))
+        } yield {
+          resultArr.map(convertJsonArrayToFolder)
+        }
     }
   }
 
