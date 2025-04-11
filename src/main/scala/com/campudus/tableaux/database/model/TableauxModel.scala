@@ -74,7 +74,7 @@ sealed trait StructureDelegateModel extends DatabaseQuery {
   protected[this] implicit def roleModel: RoleModel
 
   def createTable(name: String, hidden: Boolean)(implicit user: TableauxUser): Future[Table] = {
-    structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None, None)
+    structureModel.tableStruc.create(name, hidden, None, List(), GenericTable, None, None, None)
   }
 
   def retrieveTable(tableId: TableId, isInternalCall: Boolean = false)(
@@ -583,7 +583,7 @@ class TableauxModel(
   }
 
   def retrieveTablesWithCellAnnotationCount(tables: Seq[Table]): Future[Seq[TableWithCellAnnotationCount]] = {
-    val tableIds = tables.map({ case Table(id, _, _, _, _, _, _, _) => id })
+    val tableIds = tables.map({ case Table(id, _, _, _, _, _, _, _, _) => id })
 
     for {
       annotationCountMap <- retrieveRowModel.retrieveCellAnnotationCount(tableIds)

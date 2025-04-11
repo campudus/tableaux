@@ -1,12 +1,13 @@
 package com.campudus.tableaux.controller
 
-import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig}
+import com.campudus.tableaux.{ForbiddenException, InvalidJsonException, TableauxConfig, UnprocessableEntityException}
 import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.database._
 import com.campudus.tableaux.database.domain.{CreateColumn, _}
 import com.campudus.tableaux.database.model.StructureModel
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.database.model.structure.{CachedColumnModel, TableGroupModel, TableModel}
+import com.campudus.tableaux.database.model.structure.ColumnModel.isColumnGroupMatchingToFormatPattern
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 import com.campudus.tableaux.verticles.ValidatorKeys
@@ -141,10 +142,11 @@ class StructureController(
       displayInfos: Seq[DisplayInfo],
       tableType: TableType,
       tableGroupId: Option[TableGroupId],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String]
   )(implicit user: TableauxUser): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
-    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId")
+    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId $concatFormatPattern")
 
     def createTable(anything: Unit): Future[Table] = {
       val builder = tableType match {
@@ -152,7 +154,7 @@ class StructureController(
         case TaxonomyTable => createTaxonomyTable
         case _ => createGenericTable
       }
-      builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+      builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
     }
 
     (attributes match {
@@ -175,11 +177,21 @@ class StructureController(
         langtags: Option[Option[Seq[String]]],
         displayInfos: Seq[DisplayInfo],
         tableGroupId: Option[TableGroupId],
-        attributes: Option[JsonObject]
+        attributes: Option[JsonObject],
+        concatFormatPattern: Option[String]
     ) => {
       for {
         _ <- roleModel.checkAuthorization(CreateTable)
-        tableStub <- tableStruc.create(tableName, hidden, langtags, displayInfos, tableType, tableGroupId, attributes)
+        tableStub <- tableStruc.create(
+          tableName,
+          hidden,
+          langtags,
+          displayInfos,
+          tableType,
+          tableGroupId,
+          attributes,
+          concatFormatPattern
+        )
         _ <- columns match {
           case None => Future.successful(())
           case Some(cols) => columnStruc.createColumns(tableStub, cols)
@@ -249,7 +261,8 @@ class StructureController(
       langtags: Option[Option[Seq[String]]],
       displayInfos: Seq[DisplayInfo],
       tableGroupId: Option[TableGroupId],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String]
   ) => {
     for {
 
@@ -290,7 +303,7 @@ class StructureController(
             )
           )
         )
-      ).apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+      ).apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
       _ <- columnStruc.createColumn(
         tableStub,
         CreateLinkColumn(
@@ -377,20 +390,21 @@ class StructureController(
       langtags: Option[Option[Seq[String]]],
       displayInfos: Option[Seq[DisplayInfo]],
       tableGroupId: Option[Option[TableGroupId]],
-      attributes: Option[JsonObject]
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String]
   )(implicit user: TableauxUser): Future[Table] = {
     checkArguments(
       greaterZero(tableId),
       isDefined(
-        Seq(tableName, hidden, langtags, displayInfos, tableGroupId, attributes),
-        "name, hidden, langtags, displayName, description, group"
+        Seq(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern),
+        "name, hidden, langtags, displayName, description, group, concatFormatPattern"
       )
     )
 
     val structureProperties: Seq[Option[Any]] = Seq(tableName, hidden, langtags, tableGroupId)
     val isAtLeastOneStructureProperty: Boolean = structureProperties.exists(_.isDefined)
 
-    logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId")
+    logger.info(s"changeTable $tableId $tableName $hidden $langtags $displayInfos $tableGroupId $concatFormatPattern")
 
     for {
       table <- tableStruc.retrieve(tableId)
@@ -410,11 +424,21 @@ class StructureController(
         } else {
           Future { Unit }
         }
-      _ <- tableStruc.change(tableId, tableName, hidden, langtags, displayInfos, tableGroupId, attributes)
+      _ <- tableStruc.change(
+        tableId,
+        tableName,
+        hidden,
+        langtags,
+        displayInfos,
+        tableGroupId,
+        attributes,
+        concatFormatPattern
+      )
       changedTable <- tableStruc.retrieve(tableId)
     } yield {
       logger.info(s"retrieved table after change $changedTable")
       eventClient.tableChanged(tableId)
+      columnStruc.removeCache(table.id, None)
       changedTable
     }
   }
@@ -448,7 +472,8 @@ class StructureController(
       maxLength: Option[Int] = None,
       minLength: Option[Int] = None,
       showMemberColumns: Option[Boolean] = None,
-      decimalDigits: Option[Int] = None
+      decimalDigits: Option[Int] = None,
+      formatPattern: Option[String] = None
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     checkArguments(
       greaterZero(tableId),
@@ -468,10 +493,11 @@ class StructureController(
           maxLength,
           minLength,
           showMemberColumns,
-          decimalDigits
+          decimalDigits,
+          formatPattern
         ),
         "name, ordering, kind, identifier, displayInfos, countryCodes, separator, attributes, " +
-          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits"
+          "rules, hidden, maxLength, minLength, showMemberColumns, decimalDigits, formatPattern"
       )
     )
 
@@ -501,7 +527,8 @@ class StructureController(
           maxLength,
           minLength,
           showMemberColumns,
-          decimalDigits
+          decimalDigits,
+          formatPattern
         )
 
     for {
@@ -530,6 +557,30 @@ class StructureController(
           } yield ()
         } else {
           Future { Unit }
+        }
+
+      _ <-
+        if (formatPattern.isDefined) {
+          column match {
+            case groupColumn: GroupColumn => {
+              if (!isColumnGroupMatchingToFormatPattern(formatPattern, groupColumn.columns)) {
+                val columnsIds = groupColumn.columns.map(_.id).mkString(", ");
+
+                Future.failed(UnprocessableEntityException(
+                  s"Invalid formatPattern: columns ($columnsIds) don't match with formatPattern '$formatPattern'"
+                ))
+              } else {
+                Future.successful(())
+              }
+            }
+            case _ =>
+              Future.failed(ForbiddenException(
+                s"Update of formatPattern '$formatPattern' is not allowed for column ${column.kind}.",
+                "column"
+              ))
+          }
+        } else {
+          Future.successful(())
         }
 
       _ <-

@@ -86,7 +86,7 @@ class CachedColumnModel(
     } yield ()
   }
 
-  private def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
+  def removeCache(tableId: TableId, columnIdOpt: Option[ColumnId]): Future[Unit] = {
 
     for {
       // remove retrieveAll cache
@@ -187,7 +187,8 @@ class CachedColumnModel(
       maxLength: Option[Int],
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
-      decimalDigits: Option[Int]
+      decimalDigits: Option[Int],
+      formatPattern: Option[String]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     for {
       _ <- removeCache(table.id, Some(columnId))
@@ -208,7 +209,8 @@ class CachedColumnModel(
           maxLength,
           minLength,
           showMemberColumns,
-          decimalDigits
+          decimalDigits,
+          formatPattern
         )
     } yield r
   }
@@ -226,7 +228,7 @@ object ColumnModel extends LazyLogging {
       formatPattern: Option[String],
       groupedColumns: Seq[ColumnType[_]]
   ): Boolean = {
-    val formatVariable = "\\{\\{(\\d+)\\}\\}".r
+    val formatVariable = "\\{\\{(\\w+)\\}\\}".r
 
     formatPattern match {
       case Some(patternString) => {
@@ -236,17 +238,16 @@ object ColumnModel extends LazyLogging {
             .toSeq
             .flatMap(_.subgroups)
             .distinct
-            .map(_.toLong)
             .to[SortedSet]
 
-        val columnIDs = groupedColumns.map(_.id).to[SortedSet]
+        val columnIDs = groupedColumns.map(_.id).map(_.toString).to[SortedSet]
 
         logger.info(
           s"Compare distinct wildcards (${distinctWildcards.mkString(", ")}) " +
             s"with columnIDs (${columnIDs.mkString(", ")})"
         )
 
-        distinctWildcards == columnIDs
+        distinctWildcards.subsetOf(columnIDs)
       }
       case None => true
     }
@@ -955,7 +956,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         // select either identifier column and/or
         // ... grouped columns if GroupColumn is an identifier
         """
-          |AND identifier = TRUE OR
+          |AND (identifier = TRUE OR
           |(
           | SELECT COUNT(*)
           | FROM
@@ -965,7 +966,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           | LEFT JOIN system_columns sc2
           |   ON (sc2.table_id = g.table_id AND sc2.column_id = g.group_column_id)
           | WHERE sc2.identifier = TRUE AND sc.column_id = c.column_id AND sc.table_id = c.table_id
-          |) > 0""".stripMargin
+          |) > 0)""".stripMargin
       } else {
         ""
       }
@@ -1004,10 +1005,11 @@ class ColumnModel(val connection: DatabaseConnection)(
     val identifierColumns = columns.filter(_.identifier)
 
     identifierColumns.size match {
-      case x if x >= 2 =>
+      case x if x >= 2 => {
         // in case of two or more identifier columns we preserve the order of column
         // and a concatcolumn in front of all columns
-        columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns))
+        columns.+:(ConcatColumn(ConcatColumnInformation(table), identifierColumns, table.concatFormatPattern))
+      }
       case x if x == 1 =>
         // in case of one identifier column we don't get a concat column
         // but the identifier column will be the first
@@ -1497,7 +1499,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       maxLength: Option[Int],
       minLength: Option[Int],
       showMemberColumns: Option[Boolean],
-      decimalDigits: Option[Int]
+      decimalDigits: Option[Int],
+      formatPattern: Option[String]
   )(implicit user: TableauxUser): Future[ColumnType[_]] = {
     val tableId = table.id
 
@@ -1530,6 +1533,7 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t, resultHidden) <- maybeUpdateColumn(t, "hidden", hidden)
       (t, resultShowMemberColumns) <- maybeUpdateColumn(t, "show_member_columns", showMemberColumns)
       (t, resultDecimalDigits) <- maybeUpdateColumn(t, "decimal_digits", decimalDigits)
+      (t, resultFormatPattern) <- maybeUpdateColumn(t, "format_pattern", formatPattern)
 
       // cannot use optionToValidFuture here, we need to be able to set these settings to null
       (t, resultMaxLength) <- maxLength match {
@@ -1569,7 +1573,8 @@ class ColumnModel(val connection: DatabaseConnection)(
           resultMaxLength,
           resultMinLength,
           resultShowMemberColumns,
-          resultDecimalDigits
+          resultDecimalDigits,
+          resultFormatPattern
         )
       )
         .recoverWith(t.rollbackAndFail())

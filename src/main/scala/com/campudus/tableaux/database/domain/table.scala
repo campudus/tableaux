@@ -38,7 +38,7 @@ case object TaxonomyTable extends TableType {
 object Table {
 
   def apply(id: TableId)(implicit roleModel: RoleModel, user: TableauxUser): Table = {
-    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None)
+    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None, None)
   }
 }
 
@@ -50,7 +50,8 @@ case class Table(
     displayInfos: Seq[DisplayInfo],
     tableType: TableType,
     tableGroup: Option[TableGroup],
-    attributes: Option[JsonObject]
+    attributes: Option[JsonObject],
+    concatFormatPattern: Option[String]
 )(implicit roleModel: RoleModel = RoleModel(), user: TableauxUser) extends DomainObject {
 
   override def getJson: JsonObject = {
@@ -83,6 +84,13 @@ case class Table(
     if (tableType != GenericTable) {
       tableJson.mergeIn(Json.obj("type" -> tableType.NAME))
     }
+
+    val concatFormatPatternJson = concatFormatPattern match {
+      case Some(pattern) => Json.obj("concatFormatPattern" -> pattern)
+      case None => Json.obj()
+    }
+
+    tableJson.mergeIn(concatFormatPatternJson)
 
     tableGroup.foreach(tg => tableJson.put("group", tg.getJson))
 
