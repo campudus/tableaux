@@ -66,26 +66,27 @@ class MediaController(
       implicit user: TableauxUser
   ): Future[ExtendedFolder] = {
     for {
+      parents <- repository.retrieveParentfolders(folder)
       subfolders <- repository.retrieveSubfolders(folder)
       files <- fileModel.retrieveFromFolder(folder, sortByLangtag)
-    } yield ExtendedFolder(folder, subfolders, files.map(ExtendedFile))
+    } yield ExtendedFolder(folder, parents, subfolders, files.map(ExtendedFile))
   }
 
-  def addNewFolder(name: String, description: String, parent: Option[FolderId])(
+  def addNewFolder(name: String, description: String, parentId: Option[FolderId])(
       implicit user: TableauxUser
   ): Future[Folder] = {
     for {
       _ <- roleModel.checkAuthorization(CreateMedia)
-      folder <- repository.add(name, description, parent)
+      folder <- repository.add(name, description, parentId)
     } yield folder
   }
 
-  def changeFolder(id: FolderId, name: String, description: String, parent: Option[FolderId])(
+  def changeFolder(id: FolderId, name: String, description: String, parentId: Option[FolderId])(
       implicit user: TableauxUser
   ): Future[Folder] = {
     for {
       _ <- roleModel.checkAuthorization(EditMedia)
-      folder <- repository.update(id, name, description, parent)
+      folder <- repository.update(id, name, description, parentId)
     } yield folder
   }
 

@@ -803,7 +803,7 @@ class FolderTest extends MediaTestBase {
     } yield {
       assertEquals(null, rootFolder.getInteger("id"))
       assertEquals("root", rootFolder.getString("name"))
-      assertNull(rootFolder.getString("parent"))
+      assertNull(rootFolder.getString("parentId"))
     }
   }
 
@@ -812,7 +812,7 @@ class FolderTest extends MediaTestBase {
     okTest {
 
       def createFolderPutJson(name: String): JsonObject = {
-        Json.obj("name" -> name, "description" -> "Test Description", "parent" -> null)
+        Json.obj("name" -> name, "description" -> "Test Description", "parentId" -> null)
       }
 
       for {
@@ -839,8 +839,8 @@ class FolderTest extends MediaTestBase {
   def testCreateAndRetrieveFolderWithParents(implicit c: TestContext): Unit = {
     okTest {
 
-      def createFolderPutJson(name: String, parent: Option[Int]): JsonObject = {
-        Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parent.orNull)
+      def createFolderPutJson(name: String, parentId: Option[Int]): JsonObject = {
+        Json.obj("name" -> name, "description" -> "Test Description", "parentId" -> parentId.orNull)
       }
 
       for {
@@ -860,13 +860,13 @@ class FolderTest extends MediaTestBase {
         sub1 <- sendRequest("GET", s"/folders/$rootSubSubSubSub1Id?langtag=de-DE")
         sub2 <- sendRequest("GET", s"/folders/$rootSubSubSubSub2Id?langtag=de-DE")
       } yield {
-        assertEquals(Json.arr(rootId, rootSubId, rootSubSubId, rootSubSubSubId), sub1.getJsonArray("parents"))
-        assertEquals(Json.arr(rootId, rootSubId, rootSubSubId, rootSubSubSubId), sub2.getJsonArray("parents"))
+        assertEquals(Json.arr(rootId, rootSubId, rootSubSubId, rootSubSubSubId), sub1.getJsonArray("parentIds"))
+        assertEquals(Json.arr(rootId, rootSubId, rootSubSubId, rootSubSubSubId), sub2.getJsonArray("parentIds"))
 
-        assertEquals(sub1.getJsonArray("parents"), sub2.getJsonArray("parents"))
+        assertEquals(sub1.getJsonArray("parentIds"), sub2.getJsonArray("parentIds"))
 
         // for compatibility reasons
-        assertEquals(sub1.getInteger("parent"), sub2.getInteger("parent"))
+        assertEquals(sub1.getInteger("parentId"), sub2.getInteger("parentId"))
       }
     }
   }
@@ -875,8 +875,8 @@ class FolderTest extends MediaTestBase {
   def testCreateAndRetrieveDeepFolderHierarchy(implicit c: TestContext): Unit = {
     okTest {
 
-      def createFolderPutJson(name: String, parent: Option[Int]): JsonObject = {
-        Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parent.orNull)
+      def createFolderPutJson(name: String, parentId: Option[Int]): JsonObject = {
+        Json.obj("name" -> name, "description" -> "Test Description", "parentId" -> parentId.orNull)
       }
 
       for {
@@ -926,7 +926,7 @@ class FolderTest extends MediaTestBase {
       } yield {
         assertEquals(
           Json.arr(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20),
-          sub21.getJsonArray("parents")
+          sub21.getJsonArray("parentIds")
         )
       }
     }
@@ -937,7 +937,7 @@ class FolderTest extends MediaTestBase {
     exceptionTest("error.request.unique.foldername") {
 
       def createFolderPutJson(name: String): JsonObject = {
-        Json.obj("name" -> name, "description" -> "Test Description", "parent" -> null)
+        Json.obj("name" -> name, "description" -> "Test Description", "parentId" -> null)
       }
 
       for {
@@ -952,7 +952,7 @@ class FolderTest extends MediaTestBase {
     exceptionTest("error.request.unique.foldername") {
 
       def createFolderPutJson(name: String, parentId: Option[FolderId]): JsonObject = {
-        Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parentId.orNull)
+        Json.obj("name" -> name, "description" -> "Test Description", "parentId" -> parentId.orNull)
       }
 
       for {
@@ -969,7 +969,7 @@ class FolderTest extends MediaTestBase {
     exceptionTest("error.request.unique.foldername") {
 
       def createFolderPutJson(name: String, parentId: Option[FolderId]): JsonObject = {
-        Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parentId.orNull)
+        Json.obj("name" -> name, "description" -> "Test Description", "parentId" -> parentId.orNull)
       }
 
       for {
@@ -1235,8 +1235,8 @@ class FileTest extends MediaTestBase {
       val filePath = "/com/campudus/tableaux/uploads/Screen Shöt.jpg"
       val mimetype = "image/jpeg"
 
-      def createFolderPutJson(name: String, parent: Option[Int] = None): JsonObject = {
-        Json.obj("name" -> name, "description" -> "Test Description", "parent" -> parent.orNull)
+      def createFolderPutJson(name: String, parentId: Option[Int] = None): JsonObject = {
+        Json.obj("name" -> name, "description" -> "Test Description", "parentId" -> parentId.orNull)
       }
 
       def createFilePutJson(folder: Int): JsonObject = {
