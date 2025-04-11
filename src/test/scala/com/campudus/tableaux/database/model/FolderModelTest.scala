@@ -28,11 +28,11 @@ class FolderModelTest extends TableauxTestBase {
     for {
       model <- Future.successful(createFolderModel())
 
-      insertedFolder1 <- model.add(name = "Hallo 1", description = "Test", parent = None)
-      insertedFolder2 <- model.add(name = "Hallo 2", description = "Test", parent = None)
+      insertedFolder1 <- model.add(name = "Hallo 1", description = "Test", parentId = None)
+      insertedFolder2 <- model.add(name = "Hallo 2", description = "Test", parentId = None)
 
       retrievedFolder <- model.retrieve(insertedFolder1.id)
-      updatedFolder <- model.update(retrievedFolder.id, name = "blub", description = "flab", parent = None)
+      updatedFolder <- model.update(retrievedFolder.id, name = "blub", description = "flab", parentId = None)
 
       folders <- model.retrieveAll()
 
@@ -60,26 +60,26 @@ class FolderModelTest extends TableauxTestBase {
     for {
       model <- Future.successful(createFolderModel())
 
-      root <- model.add(name = "root", description = "Test", parent = None)
+      root <- model.add(name = "root", description = "Test", parentId = None)
 
-      root_lustig <- model.add(name = "root.lustig", description = "Test", parent = Some(root.id))
+      root_lustig <- model.add(name = "root.lustig", description = "Test", parentId = Some(root.id))
 
-      root_lustig_peter <- model.add(name = "root.lustig.peter", description = "Test", parent = Some(root_lustig.id))
-      root_lustig_sepp <- model.add(name = "root.lustig.sepp", description = "Test", parent = Some(root_lustig.id))
+      root_lustig_peter <- model.add(name = "root.lustig.peter", description = "Test", parentId = Some(root_lustig.id))
+      root_lustig_sepp <- model.add(name = "root.lustig.sepp", description = "Test", parentId = Some(root_lustig.id))
 
-      root_hallo <- model.add(name = "root.hallo", description = "Test", parent = Some(root.id))
+      root_hallo <- model.add(name = "root.hallo", description = "Test", parentId = Some(root.id))
 
-      root_hallo_mueller <- model.add(name = "root.hallo.müller", description = "Test", parent = Some(root_hallo.id))
+      root_hallo_mueller <- model.add(name = "root.hallo.müller", description = "Test", parentId = Some(root_hallo.id))
 
       root_hallo_mueller_folder <- model.retrieve(root_hallo_mueller.id)
 
       root_lustig_peter_folder <- model.retrieve(root_lustig_peter.id)
       root_lustig_sepp_folder <- model.retrieve(root_lustig_sepp.id)
     } yield {
-      assertEquals(Seq(root.id, root_hallo.id), root_hallo_mueller_folder.parents)
+      assertEquals(Seq(root.id, root_hallo.id), root_hallo_mueller_folder.parentIds)
 
-      assertEquals(Seq(root.id, root_lustig.id), root_lustig_peter_folder.parents)
-      assertEquals(Seq(root.id, root_lustig.id), root_lustig_sepp_folder.parents)
+      assertEquals(Seq(root.id, root_lustig.id), root_lustig_peter_folder.parentIds)
+      assertEquals(Seq(root.id, root_lustig.id), root_lustig_sepp_folder.parentIds)
     }
   }
 }

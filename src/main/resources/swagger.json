@@ -3127,7 +3127,7 @@
           "type": "string",
           "description": "Description of the folder"
         },
-        "parent": {
+        "parentId": {
           "type": "int64",
           "description": "id of the parent folder"
         }
@@ -3148,13 +3148,29 @@
         "name",
         "status",
         "subfolders",
-        "updatedAt"
+        "updatedAt",
+        "parentId",
+        "parentIds",
+        "parents"
       ],
       "properties": {
-        "parent": {
+        "parentId": {
           "type": "integer",
           "format": "int64",
-          "example": 1
+          "example": 1,
+          "description": "id of the parent folder"
+        },
+        "parentIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "example": [
+              1,
+              2,
+              3
+            ],
+            "description": "ids of parent folders up to root folder (excluded)"
+          }
         },
         "createdAt": {
           "type": "object"
@@ -3177,10 +3193,17 @@
           "format": "int64",
           "example": 1
         },
+        "parents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Response: Basefolder"
+          },
+          "description": "parent folders up to root folder (excluded)"
+        },
         "subfolders": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Response: Subfolder"
+            "$ref": "#/definitions/Response: Basefolder"
           }
         },
         "updatedAt": {
@@ -3191,16 +3214,31 @@
           "example": "ok"
         }
       },
-      "description": "Complete folder with subfolders and files.",
+      "description": "Complete folder with parents, subfolders and files.",
       "example": {
         "id": 1,
         "name": "root",
         "description": "",
+        "parentId": 2,
+        "parentIds": [2],
+        "parents": [
+          {
+            "id": 2,
+            "name": "Folder 2",
+            "description": "Folder 2 is awesome",
+            "parentId": 9,
+            "parentIds": [9],
+            "createdAt": "2016-01-13T17:23:18.402+01:00",
+            "updatedAt": "2016-01-14T10:57:29.845+01:00"
+          }
+        ],
         "subfolders": [
           {
             "id": 1,
-            "name": "Subfolder 123",
-            "description": "Subfolder 123 is awesome",
+            "name": "Folder 1",
+            "description": "Folder 1 is awesome",
+            "parentId": 8,
+            "parentIds": [8],
             "createdAt": "2016-01-13T17:23:18.402+01:00",
             "updatedAt": "2016-01-14T10:57:29.845+01:00"
           }
@@ -4205,19 +4243,32 @@
         "row_permissions"
       ]
     },
-    "Response: Subfolder": {
+    "Response: Basefolder": {
       "type": "object",
       "required": [
         "createdAt",
         "description",
         "id",
         "name",
-        "parent",
+        "parentId",
+        "parentIds",
         "updatedAt"
       ],
       "properties": {
-        "parent": {
-          "type": "object"
+        "parentId": {
+          "type": "integer",
+          "example": 1
+        },
+        "parentIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "example": [
+              1,
+              2,
+              3
+            ]
+          }
         },
         "createdAt": {
           "type": "string",

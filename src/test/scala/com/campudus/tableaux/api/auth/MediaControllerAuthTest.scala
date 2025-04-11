@@ -51,7 +51,7 @@ trait MediaControllerAuthTestBase extends MediaTestBase {
   }
 
   def insertTestFolder() = {
-    val folderJson = Json.obj("name" -> "TestFolder", "description" -> "Test Description", "parent" -> null)
+    val folderJson = Json.obj("name" -> "TestFolder", "description" -> "Test Description", "parentId" -> null)
     sendRequest("POST", s"/folders", folderJson).map(_.getLong("id"))
   }
 

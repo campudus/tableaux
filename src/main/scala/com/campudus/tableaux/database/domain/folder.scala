@@ -13,7 +13,7 @@ case class Folder(
     id: FolderId,
     name: String,
     description: String,
-    parents: Seq[FolderId],
+    parentIds: Seq[FolderId],
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime]
 ) extends DomainObject {
@@ -25,8 +25,8 @@ case class Folder(
     }),
     "name" -> name,
     "description" -> description,
-    "parent" -> parents.lastOption.orNull, // for compatibility
-    "parents" -> compatibilityGet(parents),
+    "parentId" -> parentIds.lastOption.orNull, // for compatibility
+    "parentIds" -> compatibilityGet(parentIds),
     "createdAt" -> optionToString(createdAt),
     "updatedAt" -> optionToString(updatedAt)
   )
@@ -34,6 +34,7 @@ case class Folder(
 
 case class ExtendedFolder(
     folder: Folder,
+    parents: Seq[Folder],
     subfolders: Seq[Folder],
     files: Seq[ExtendedFile]
 )(implicit roleModel: RoleModel, user: TableauxUser) extends DomainObject {
@@ -44,6 +45,7 @@ case class ExtendedFolder(
     val extendedFolderJson = folderJson
       .mergeIn(
         Json.obj(
+          "parents" -> compatibilityGet(parents),
           "subfolders" -> compatibilityGet(subfolders),
           "files" -> compatibilityGet(files)
         )
