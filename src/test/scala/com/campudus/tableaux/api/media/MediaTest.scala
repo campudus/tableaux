@@ -791,6 +791,74 @@ class AttachmentTest extends MediaTestBase {
       }
     }
   }
+
+  @Test
+  def testAttachmentdependentRowCount(implicit c: TestContext): Unit = {
+    okTest {
+      val column = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "kind" -> "attachment",
+            "name" -> "Downloads"
+          )
+        )
+      )
+
+      val fileName = "Scr$en Shot.pdf"
+      val file = s"/com/campudus/tableaux/uploads/$fileName"
+      val mimetype = "application/pdf"
+      val putFile = Json.obj(
+        "title" -> Json.obj("de-DE" -> "Test PDF"),
+        "description" -> Json.obj("de-DE" -> "A description about that PDF.")
+      )
+
+      for {
+        tableId <- createDefaultTable()
+
+        columnId <- sendRequest("POST", s"/tables/$tableId/columns", column)
+          .map(_.getJsonArray("columns").get[JsonObject](0).getInteger("id"))
+
+        rowId1 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
+        rowId2 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
+        rowId3 <- sendRequest("POST", s"/tables/$tableId/rows") map (_.getInteger("id"))
+
+        fileUuid1 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
+        _ <- sendRequest("PUT", s"/files/$fileUuid1", putFile)
+        fileUuid2 <- createFile("de-DE", file, mimetype, None) map (_.getString("uuid"))
+        _ <- sendRequest("PUT", s"/files/$fileUuid2", putFile)
+
+        // Add attachment to multiple rows
+        resultRow1 <- sendRequest(
+          "PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId1",
+          Json.obj("value" -> Json.obj("uuid" -> fileUuid1))
+        )
+        resultRow2 <- sendRequest(
+          "PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId2",
+          Json.obj("value" -> Json.obj("uuid" -> fileUuid1))
+        )
+        resultRow3 <- sendRequest(
+          "PUT",
+          s"/tables/$tableId/columns/$columnId/rows/$rowId3",
+          Json.obj("value" -> Json.obj("uuid" -> fileUuid1))
+        )
+
+        // Retrieve file
+        resultFile1 <- sendRequest("GET", s"/files/$fileUuid1")
+        resultFile2 <- sendRequest("GET", s"/files/$fileUuid2")
+
+        // Delete file
+        _ <- sendRequest("DELETE", s"/files/$fileUuid1")
+      } yield {
+        assertEquals(1, resultRow1.getJsonArray("value").getJsonObject(0).getNumber("dependentRowCount"))
+        assertEquals(2, resultRow2.getJsonArray("value").getJsonObject(0).getNumber("dependentRowCount"))
+        assertEquals(3, resultRow3.getJsonArray("value").getJsonObject(0).getNumber("dependentRowCount"))
+        assertEquals(3, resultFile1.getNumber("dependentRowCount"))
+        assertEquals(0, resultFile2.getNumber("dependentRowCount"))
+      }
+    }
+  }
 }
 
 @RunWith(classOf[VertxUnitRunner])

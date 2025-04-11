@@ -4085,7 +4085,8 @@
         "title",
         "updatedAt",
         "url",
-        "uuid"
+        "uuid",
+        "dependentRowCount"
       ],
       "properties": {
         "internalName": {
@@ -4171,6 +4172,11 @@
         "updatedAt": {
           "type": "string",
           "example": "2016-01-13T11:22:07.044+01:00"
+        },
+        "dependentRowCount": {
+          "type": "integer",
+          "description": "Count of dependent table rows",
+          "example": 4
         },
         "status": {
           "type": "string",

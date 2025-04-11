@@ -121,8 +121,11 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
        | ${jsonObjectAgg("fl", "description")},
        | ${jsonObjectAgg("fl", "internal_name")},
        | ${jsonObjectAgg("fl", "external_name")},
-       | ${jsonObjectAgg("fl", "mime_type")}
-       |FROM file f LEFT JOIN file_lang fl ON (f.uuid = fl.uuid)
+       | ${jsonObjectAgg("fl", "mime_type")},
+       | COUNT(sa.*) as dependent_count
+       |FROM file f
+       |LEFT JOIN file_lang fl ON (f.uuid = fl.uuid)
+       |LEFT JOIN system_attachment sa ON (f.uuid = sa.attachment_uuid)
        |WHERE $where
        |GROUP BY f.uuid""".stripMargin
   }
@@ -215,7 +218,8 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
       MultiLanguageValue.fromString(row.get[String](8)), // external_name
       MultiLanguageValue.fromString(row.get[String](9)), // mime_type
       convertStringToDateTime(row.get[String](3)), // created_at
-      convertStringToDateTime(row.get[String](4)) // updated_at
+      convertStringToDateTime(row.get[String](4)), // updated_at
+      Option(row.get[Int](10)) // dependent_row_count
     )
   }
 

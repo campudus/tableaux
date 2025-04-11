@@ -17,7 +17,8 @@ case class TableauxFile(
     externalName: MultiLanguageValue[String],
     mimeType: MultiLanguageValue[String],
     createdAt: Option[DateTime],
-    updatedAt: Option[DateTime]
+    updatedAt: Option[DateTime],
+    dependentRowCount: Option[Int] = None
 ) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
@@ -30,7 +31,8 @@ case class TableauxFile(
     "externalName" -> externalName.getJson,
     "mimeType" -> mimeType.getJson,
     "createdAt" -> optionToString(createdAt),
-    "updatedAt" -> optionToString(updatedAt)
+    "updatedAt" -> optionToString(updatedAt),
+    "dependentRowCount" -> dependentRowCount.getOrElse(0)
   )
 
   /**
@@ -62,6 +64,8 @@ case class TemporaryFile(file: TableauxFile) extends DomainObject {
   val createdAt: Option[DateTime] = _file.createdAt
   val updatedAt: Option[DateTime] = _file.updatedAt
 
+  val dependentRowCount: Option[Int] = _file.dependentRowCount
+
   override def getJson: JsonObject = Json.obj("tmp" -> true).mergeIn(_file.getJson)
 }
 
@@ -80,6 +84,8 @@ case class ExtendedFile(file: TableauxFile) extends DomainObject {
 
   val createdAt: Option[DateTime] = file.createdAt
   val updatedAt: Option[DateTime] = file.updatedAt
+
+  val dependentRowCount: Option[Int] = file.dependentRowCount
 
   override def getJson: JsonObject = Json.obj("url" -> getUrl.getJson).mergeIn(file.getJson)
 
