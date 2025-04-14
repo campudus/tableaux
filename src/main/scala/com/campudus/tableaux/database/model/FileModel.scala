@@ -2,7 +2,7 @@ package com.campudus.tableaux.database.model
 
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
-import com.campudus.tableaux.database.domain.{Folder, MultiLanguageValue, TableauxFile}
+import com.campudus.tableaux.database.domain.{DependentRowsSeq, Folder, MultiLanguageValue, TableauxFile}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.helper.ResultChecker._
 

@@ -239,6 +239,29 @@
         }
       }
     },
+    "/files/{fileuuid}/dependent": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/fileuuid"
+        }
+      ],
+      "get": {
+        "summary": "Retrieve dependent rows for file.",
+        "description": "Retrieve all rows of tables that link to this file.",
+        "tags": [
+          "media"
+        ],
+        "operationId": "retrieve-dependent-rows-for-file",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/dependentRows"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/files/{fileuuid}/{langtag}": {
       "parameters": [
         {

@@ -1701,4 +1701,53 @@ class TableauxModel(
       _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissionsOpt)
     } yield ()
   }
+
+  def retrieveDependentRowsForFile(uuid: UUID)(
+      implicit user: TableauxUser
+  ): Future[DependentRowsSeq] = {
+    logger.info(s"retrieveDependentRowsForFile $uuid")
+
+    for {
+      cellsForFiles <- attachmentModel.retrieveCells(uuid)
+      result <- {
+        val futures = cellsForFiles.sortBy({
+          case (tableId, columnId, rowId) => (tableId, columnId, rowId)
+        }).map({
+          case (tableId, columnId, rowId) =>
+            for {
+              table <- retrieveTable(tableId, isInternalCall = true)
+              columns <- retrieveColumns(table, isInternalCall = true)
+              cell <- retrieveCell(columns.head, rowId, true)
+            } yield (table, columns.head, Seq(Json.obj("id" -> rowId, "value" -> cell.value)))
+        })
+
+        Future.sequence(futures)
+      }
+    } yield {
+      val objects = result
+        .groupBy({ case (dependentTable, column, _) => (dependentTable, column) })
+        .map({
+          case ((groupedByTable, groupedByColumn), dependentRowInformation) =>
+            (
+              groupedByTable,
+              groupedByColumn,
+              dependentRowInformation
+                .flatMap({
+                  case (_, _, values) => values
+                })
+                .distinct
+            )
+        })
+        .filter({
+          case (_, _, values) => values.nonEmpty
+        })
+        .map({
+          case (groupedByTable, groupedByColumn, dependentRows) =>
+            DependentRows(groupedByTable, groupedByColumn, dependentRows)
+        })
+        .toSeq
+
+      DependentRowsSeq(objects)
+    }
+  }
 }
