@@ -105,3 +105,29 @@ case class ExtendedFile(file: TableauxFile) extends DomainObject {
     MultiLanguageValue[String](urls)
   }
 }
+
+case class FileDependentRow(column: ColumnType[_], row: Row) extends DomainObject {
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      "row" -> compatibilityGet(row),
+      "toColumn" -> compatibilityGet(column)
+    )
+  }
+}
+
+case class FileDependentRows(table: Table, column: ColumnType[_], rows: Seq[FileDependentRow]) extends DomainObject {
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      "table" -> table.getJson,
+      "column" -> compatibilityGet(column),
+      "rows" -> compatibilityGet(rows)
+    )
+  }
+}
+
+case class FileDependentRowsSeq(dependentRowsSeq: Seq[FileDependentRows]) extends DomainObject {
+
+  override def getJson: JsonObject = Json.obj("dependentRows" -> compatibilityGet(dependentRowsSeq))
+}

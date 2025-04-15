@@ -1702,10 +1702,10 @@ class TableauxModel(
     } yield ()
   }
 
-  def retrieveDependentRowsForFile(uuid: UUID)(
+  def retrieveFileDependentRows(uuid: UUID)(
       implicit user: TableauxUser
-  ): Future[DependentRowsSeq] = {
-    logger.info(s"retrieveDependentRowsForFile $uuid")
+  ): Future[FileDependentRowsSeq] = {
+    logger.info(s"retrieveFileDependentRows $uuid")
 
     for {
       cellsForFiles <- attachmentModel.retrieveCells(uuid)
@@ -1717,8 +1717,20 @@ class TableauxModel(
             for {
               table <- retrieveTable(tableId, isInternalCall = true)
               columns <- retrieveColumns(table, isInternalCall = true)
-              cell <- retrieveCell(columns.head, rowId, true)
-            } yield (table, columns.head, Seq(Json.obj("id" -> rowId, "value" -> cell.value)))
+              cell <- retrieveCell(columns.head, rowId, isInternalCall = true)
+            } yield {
+              val column = columns.find(_.id == columnId).getOrElse(columns.head)
+              val row = Row(
+                table,
+                rowId,
+                RowLevelAnnotations(false, false),
+                RowPermissions(Json.arr()),
+                CellLevelAnnotations(Seq(), Json.arr()),
+                Seq(cell.value)
+              )
+
+              (table, columns.head, Seq(FileDependentRow(column, row)))
+            }
         })
 
         Future.sequence(futures)
@@ -1743,11 +1755,11 @@ class TableauxModel(
         })
         .map({
           case (groupedByTable, groupedByColumn, dependentRows) =>
-            DependentRows(groupedByTable, groupedByColumn, dependentRows)
+            FileDependentRows(groupedByTable, groupedByColumn, dependentRows)
         })
         .toSeq
 
-      DependentRowsSeq(objects)
+      FileDependentRowsSeq(objects)
     }
   }
 }

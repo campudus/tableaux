@@ -254,7 +254,7 @@
         "operationId": "retrieve-dependent-rows-for-file",
         "responses": {
           "200": {
-            "$ref": "#/responses/dependentRows"
+            "$ref": "#/responses/fileDependentRows"
           },
           "404": {
             "$ref": "#/responses/not-found-in-database"
@@ -2762,27 +2762,6 @@
         }
       ]
     },
-    "DependentRow": {
-      "description": "The complete row containing the values of the cells.",
-      "type": "object",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Property:Id"
-        }
-      ],
-      "properties": {
-        "value": {
-          "description": "The value of the ID column linking here.",
-          "schema": {
-            "$ref": "#/definitions/CellValue"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "value"
-      ]
-    },
     "Response:Status": {
       "type": "object",
       "allOf": [
@@ -3060,36 +3039,20 @@
     "Response:DependentRow": {
       "description": "A row that links to a specified row.",
       "type": "object",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Property:Status"
-        }
-      ],
       "properties": {
         "table": {
-          "schema": {
-            "$ref": "#/definitions/TableWithId"
-          }
+          "$ref": "#/definitions/TableWithId"
         },
         "column": {
-          "schema": {
-            "$ref": "#/definitions/ColumnWithId"
-          }
+          "$ref": "#/definitions/ColumnWithId"
         },
         "rows": {
-          "schema": {
+          "type": "array",
+          "items": {
             "$ref": "#/definitions/Response:Row"
           }
-        },
-        "final": {
-          "description": "A flag describing whether the row is final or not.",
-          "type": "boolean"
         }
-      },
-      "required": [
-        "values",
-        "final"
-      ]
+      }
     },
     "Response:DependentRows": {
       "description": "All rows that link to the specified row.",
@@ -3104,7 +3067,54 @@
           "description": "An array with all rows depending on the selected row",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/DependentRow"
+            "$ref": "#/definitions/Response:DependentRow"
+          }
+        }
+      },
+      "required": [
+        "dependentRows"
+      ]
+    },
+    "Response:FileDependentRow": {
+      "description": "A row that links to a file.",
+      "type": "object",
+      "properties": {
+        "table": {
+          "$ref": "#/definitions/TableWithId"
+        },
+        "column": {
+          "$ref": "#/definitions/ColumnWithId"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "row": {
+                "$ref": "#/definitions/Shared Response: Row"
+              },
+              "toColumn": {
+                "$ref": "#/definitions/ColumnWithId"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Response:FileDependentRows": {
+      "description": "All rows with column that link to a file.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "dependentRows": {
+          "description": "An array with all rows depending on a file",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Response:FileDependentRow"
           }
         }
       },
@@ -3243,14 +3253,18 @@
         "name": "root",
         "description": "",
         "parentId": 2,
-        "parentIds": [2],
+        "parentIds": [
+          2
+        ],
         "parents": [
           {
             "id": 2,
             "name": "Folder 2",
             "description": "Folder 2 is awesome",
             "parentId": 9,
-            "parentIds": [9],
+            "parentIds": [
+              9
+            ],
             "createdAt": "2016-01-13T17:23:18.402+01:00",
             "updatedAt": "2016-01-14T10:57:29.845+01:00"
           }
@@ -3261,7 +3275,9 @@
             "name": "Folder 1",
             "description": "Folder 1 is awesome",
             "parentId": 8,
-            "parentIds": [8],
+            "parentIds": [
+              8
+            ],
             "createdAt": "2016-01-13T17:23:18.402+01:00",
             "updatedAt": "2016-01-14T10:57:29.845+01:00"
           }
@@ -4736,6 +4752,12 @@
       "description": "A list of rows that depend on a selected row",
       "schema": {
         "$ref": "#/definitions/Response:DependentRows"
+      }
+    },
+    "fileDependentRows": {
+      "description": "A list of rows with columns that depend on a file",
+      "schema": {
+        "$ref": "#/definitions/Response:FileDependentRows"
       }
     },
     "foreignRows": {

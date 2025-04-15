@@ -414,11 +414,11 @@ class MediaController(
     } yield ExtendedFile(mergedFile)
   }
 
-  def retrieveDependentRows(uuid: UUID)(
+  def retrieveFileDependentRows(uuid: UUID)(
       implicit user: TableauxUser
-  ): Future[DependentRowsSeq] = {
-    logger.info(s"retrieveDependentRows $uuid")
+  ): Future[FileDependentRowsSeq] = {
+    logger.info(s"retrieveFileDependentRows $uuid")
 
-    tableauxModel.retrieveDependentRowsForFile(uuid)
+    tableauxModel.retrieveFileDependentRows(uuid)
   }
 }

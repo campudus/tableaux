@@ -38,10 +38,37 @@ class FileModelTest extends TableauxTestBase {
     AttachmentModel(dbConnection)
   }
 
+  private def createStructureModel(): StructureModel = {
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+    implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
+
+    StructureModel(dbConnection)
+  }
+
+  private def createTableauxModel(): TableauxModel = {
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+    implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
+
+    val structureModel = createStructureModel()
+
+    TableauxModel(dbConnection, structureModel, tableauxConfig)
+  }
+
   private def createMediaController(): MediaController = {
     val roleModel = RoleModel(tableauxConfig.rolePermissions)
     setRequestRoles(Seq("dev"))
-    MediaController(tableauxConfig, createFolderModel(), createFileModel(), createAttachmentModel(), roleModel)
+    MediaController(
+      tableauxConfig,
+      createFolderModel(),
+      createFileModel(),
+      createAttachmentModel(),
+      roleModel,
+      createTableauxModel()
+    )
   }
 
   @Test
