@@ -1957,7 +1957,7 @@ class FileTest extends MediaTestBase {
               Json.obj(
                 "row" -> Json.obj("id" -> rowId2),
                 "toColumn" -> Json.obj("id" -> downloadColumnId)
-              ),
+              )
             )
           ),
           fileDependents2.get[JsonObject](0)
