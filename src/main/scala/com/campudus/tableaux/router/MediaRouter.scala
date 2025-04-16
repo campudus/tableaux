@@ -210,19 +210,19 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   /**
     * Retrieve file dependent rows
     */
-    private def retrieveFileDependentRows(context: RoutingContext): Unit = {
-      implicit val user = TableauxUser(context)
-      for {
-        fileUuid <- getUUID(context)
-      } yield {
-        sendReply(
-          context,
-          asyncGetReply {
-            controller.retrieveFileDependentRows(UUID.fromString(fileUuid))
-          }
-        )
-      }
+  private def retrieveFileDependentRows(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      fileUuid <- getUUID(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveFileDependentRows(UUID.fromString(fileUuid))
+        }
+      )
     }
+  }
 
   private def serveFile(context: RoutingContext): Unit = {
     for {

@@ -5,7 +5,7 @@ import com.campudus.tableaux.api.media.MediaTestBase
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
-import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
+import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel, StructureModel, TableauxModel}
 import com.campudus.tableaux.router.auth.permission.{DeleteMedia, EditMedia, RoleModel, TableauxUser}
 
 import io.vertx.ext.unit.TestContext
@@ -22,12 +22,16 @@ import org.skyscreamer.jsonassert.JSONCompareMode
 
 trait MediaControllerAuthTestBase extends MediaTestBase {
 
-  def createMediaController(roleModel: RoleModel = RoleModel(Json.emptyObj())): MediaController = {
+  def createMediaController(implicit roleModel: RoleModel = RoleModel(Json.emptyObj())): MediaController = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
     val attachmentModel = AttachmentModel(dbConnection)
+    val fileModel = FileModel(dbConnection)
+    val folderModel = FolderModel(dbConnection)
+    val structureModel = StructureModel(dbConnection)
+    val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
 
-    MediaController(tableauxConfig, createFolderModel, createFileModel, attachmentModel, roleModel)
+    MediaController(tableauxConfig, folderModel, fileModel, attachmentModel, roleModel, tableauxModel)
   }
 
   def createFileModel: FileModel = {
@@ -35,13 +39,6 @@ trait MediaControllerAuthTestBase extends MediaTestBase {
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
     FileModel(dbConnection)
-  }
-
-  def createFolderModel: FolderModel = {
-    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-
-    FolderModel(dbConnection)
   }
 
   def insertTestFile() = {

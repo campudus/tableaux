@@ -17,64 +17,32 @@ import org.junit.runner.RunWith
 @RunWith(classOf[VertxUnitRunner])
 class FileModelTest extends TableauxTestBase {
 
-  private def createFileModel(): FileModel = {
+  private def createMediaController(): MediaController = {
+    implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
+    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+    val folderModel = FolderModel(dbConnection)
+    val fileModel = FileModel(dbConnection)
+    val attachmentModel = AttachmentModel(dbConnection)
+    val structureModel = StructureModel(dbConnection)
+    val tableauxModel = TableauxModel(dbConnection, structureModel, tableauxConfig)
+
+    setRequestRoles(Seq("dev"))
+
+    MediaController(tableauxConfig, folderModel, fileModel, attachmentModel, roleModel, tableauxModel)
+  }
+
+  def createFileModel: FileModel = {
     val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
     val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
     FileModel(dbConnection)
   }
 
-  private def createFolderModel(): FolderModel = {
-    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-
-    FolderModel(dbConnection)
-  }
-
-  private def createAttachmentModel(): AttachmentModel = {
-    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-
-    AttachmentModel(dbConnection)
-  }
-
-  private def createStructureModel(): StructureModel = {
-    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-
-    implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
-
-    StructureModel(dbConnection)
-  }
-
-  private def createTableauxModel(): TableauxModel = {
-    val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
-    val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
-
-    implicit val roleModel = RoleModel(tableauxConfig.rolePermissions)
-
-    val structureModel = createStructureModel()
-
-    TableauxModel(dbConnection, structureModel, tableauxConfig)
-  }
-
-  private def createMediaController(): MediaController = {
-    val roleModel = RoleModel(tableauxConfig.rolePermissions)
-    setRequestRoles(Seq("dev"))
-    MediaController(
-      tableauxConfig,
-      createFolderModel(),
-      createFileModel(),
-      createAttachmentModel(),
-      roleModel,
-      createTableauxModel()
-    )
-  }
-
   @Test
   def testCreateAndUpdateOfFile(implicit c: TestContext): Unit = {
     okTest {
-      val model = createFileModel()
+      val model = createFileModel
 
       for {
         insertedFile <- model.add(

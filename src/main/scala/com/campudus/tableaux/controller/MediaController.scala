@@ -42,7 +42,7 @@ class MediaController(
     protected val fileModel: FileModel,
     protected val attachmentModel: AttachmentModel,
     implicit protected val roleModel: RoleModel,
-    protected val tableauxModel: TableauxModel,
+    protected val tableauxModel: TableauxModel
 ) extends Controller[FolderModel] {
 
   import MediaController.ROOT_FOLDER
