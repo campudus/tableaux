@@ -56,7 +56,7 @@ object RouterRegistry extends LazyLogging {
       )
     val tableauxRouter = TableauxRouter(tableauxConfig, TableauxController(_, tableauxModel, roleModel))
     val mediaRouter =
-      MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel, roleModel))
+      MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel, roleModel, tableauxModel))
     val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel, roleModel))
     val documentationRouter = DocumentationRouter(tableauxConfig)
 

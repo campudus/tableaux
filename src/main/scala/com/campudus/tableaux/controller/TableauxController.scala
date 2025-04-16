@@ -340,6 +340,7 @@ class TableauxController(
     for {
       table <- repository.retrieveTable(tableId)
       duplicated <- repository.duplicateRow(table, rowId, duplicateOptions)
+      _ <- eventClient.invalidateRow(table.id, rowId)
     } yield duplicated
   }
 

@@ -11,7 +11,7 @@ import com.campudus.tableaux.testtools.TableauxTestBase
 
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
-import org.vertx.scala.core.json.Json
+import org.vertx.scala.core.json.{Json, JsonObject}
 
 import scala.concurrent.Future
 
@@ -155,8 +155,8 @@ class DuplicateRowTest extends TableauxTestBase {
         uploadedFile <- uploadFile("PUT", s"/files/${file.getString("uuid")}/$de", filePath, mimeType)
         row <- sendRequest("POST", s"/tables/$tableId/rows", insertRow(file.getString("uuid")))
         rowId = row.getJsonArray("rows").getJsonObject(0).getInteger("id")
-        expected <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
         duplicatedPost <- sendRequest("POST", s"/tables/$tableId/rows/$rowId/duplicate")
+        expected <- sendRequest("GET", s"/tables/$tableId/rows/$rowId")
         result <- sendRequest("GET", s"/tables/$tableId/rows/${duplicatedPost.getNumber("id")}")
       } yield {
         logger.info(s"expected=${expected.encode()}")
