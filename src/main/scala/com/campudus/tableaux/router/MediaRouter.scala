@@ -4,16 +4,20 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
-import com.campudus.tableaux.helper.{AsyncReply, Header, SendFile}
+import com.campudus.tableaux.helper.{AsyncReply, Header, ImageUtils, OkBuffer, SendFile}
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
+import io.vertx.core.buffer.Buffer
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
 
 import scala.concurrent.{Future, Promise}
 
+import java.awt.image.BufferedImage
+import java.io.{ByteArrayOutputStream, File}
 import java.util.UUID
+import javax.imageio.ImageIO
 
 sealed trait FileAction
 
@@ -206,6 +210,8 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def serveFile(context: RoutingContext): Unit = {
+    val width = getIntQuery("width", context)
+
     for {
       fileUuid <- getUUID(context)
       langtag <- getLangtag(context)
@@ -221,7 +227,34 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
             val mimeType = file.file.mimeType.get(langtag)
             val path = paths(langtag)
 
-            Header("Content-type", mimeType.get, SendFile(path.toString(), absolute))
+            (mimeType.get, width) match {
+              case ("image/jpeg" | "image/png", Some(widthValue)) => {
+                val baseFile = new File(path.toString)
+                val baseImage = ImageIO.read(baseFile)
+                val baseWidth = baseImage.getWidth;
+                val baseHeight = baseImage.getHeight;
+                val targetWidth = widthValue
+                val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
+                val targetImage = ImageUtils.resizeImageSmooth(baseImage, targetWidth, targetHeight.toInt)
+                val targetOutputStream = new ByteArrayOutputStream()
+
+                ImageIO.write(targetImage, "png", targetOutputStream)
+
+                val targetBytes = targetOutputStream.toByteArray
+                val targetBuffer = Buffer.buffer(targetBytes)
+
+                Header(
+                  "Content-type",
+                  "image/png",
+                  Header(
+                    "Content-Length",
+                    targetBytes.length.toString,
+                    OkBuffer(targetBuffer)
+                  )
+                )
+              }
+              case _ => Header("Content-type", mimeType.get, SendFile(path.toString(), absolute))
+            }
           }
         }
       )
