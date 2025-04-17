@@ -228,7 +228,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
             val path = paths(langtag)
 
             (mimeType.get, width) match {
-              case ("image/jpeg" | "image/png", Some(widthValue)) => {
+              case ("image/jpeg" | "image/png" | "image/webp" | "image/tiff", Some(widthValue)) => {
                 val baseFile = new File(path.toString)
                 val baseImage = ImageIO.read(baseFile)
                 val baseWidth = baseImage.getWidth;
