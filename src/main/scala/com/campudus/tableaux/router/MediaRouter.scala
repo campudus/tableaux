@@ -4,7 +4,7 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
-import com.campudus.tableaux.helper.{AsyncReply, Header, ImageUtils, OkBuffer, SendFile}
+import com.campudus.tableaux.helper.{AsyncReply, Error, Header, ImageUtils, OkBuffer, SendFile}
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.core.buffer.Buffer
@@ -15,7 +15,7 @@ import io.vertx.scala.ext.web.handler.BodyHandler
 import scala.concurrent.{Future, Promise}
 
 import java.awt.image.BufferedImage
-import java.io.{ByteArrayOutputStream, File}
+import java.io.{ByteArrayOutputStream, File, IOException}
 import java.util.UUID
 import javax.imageio.ImageIO
 
@@ -232,31 +232,45 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
               case true => {
                 mimeType match {
                   case "image/jpeg" | "image/png" | "image/webp" | "image/tiff" => {
-                    // generate from original
-                    val baseFile = new File(path.toString)
-                    val baseImage = ImageIO.read(baseFile)
-                    val baseWidth = baseImage.getWidth;
-                    val baseHeight = baseImage.getHeight;
-                    val targetWidth = thumbnailWidth;
-                    val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
-                    val targetImage = ImageUtils.resizeImageSmooth(baseImage, targetWidth, targetHeight.toInt)
-                    val targetOutputStream = new ByteArrayOutputStream()
+                    try {
+                      // generate from original
+                      val baseFile = new File(path.toString)
+                      val baseImage = ImageIO.read(baseFile)
+                      val baseWidth = baseImage.getWidth;
+                      val baseHeight = baseImage.getHeight;
+                      val targetWidth = thumbnailWidth;
+                      val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
+                      val targetImage = ImageUtils.resizeImageSmooth(baseImage, targetWidth, targetHeight.toInt)
+                      val targetOutputStream = new ByteArrayOutputStream()
 
-                    ImageIO.write(targetImage, "png", targetOutputStream)
+                      ImageIO.write(targetImage, "png", targetOutputStream)
 
-                    val targetBytes = targetOutputStream.toByteArray
-                    val targetBuffer = Buffer.buffer(targetBytes)
+                      val targetBytes = targetOutputStream.toByteArray
+                      val targetBuffer = Buffer.buffer(targetBytes)
 
-                    Header(
-                      "Content-type",
-                      "image/png",
                       Header(
-                        "Content-Length",
-                        targetBytes.length.toString,
-                        OkBuffer(targetBuffer)
+                        "Content-type",
+                        "image/png",
+                        Header(
+                          "Content-Length",
+                          targetBytes.length.toString,
+                          OkBuffer(targetBuffer)
+                        )
                       )
-                    )
+                    } catch {
+                      case ex: IOException =>
+                        Error(RouterException("File not found", ex, "errors.routing.fileNotFound", 404))
+                      case ex: Throwable =>
+                        Error(RouterException("Send file exception", ex, "errors.routing.sendFile"))
+                    }
                   }
+                  case _ =>
+                    Error(RouterException(
+                      s"MimeType '$mimeType' not supported for thumbnail",
+                      null,
+                      "errors.routing.thumbnailMimeType",
+                      400
+                    ))
                 }
               }
             }
