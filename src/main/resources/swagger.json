@@ -278,6 +278,58 @@
         }
       }
     },
+    "/files/{fileuuid}/{langtag}/{filename}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/fileuuid"
+        },
+        {
+          "name": "filename",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "langtag",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "get": {
+        "summary": "Get file",
+        "description": "Gets a language specific file for this file handle.",
+        "tags": [
+          "media"
+        ],
+        "operationId": "get-file",
+        "parameters": [
+          {
+            "name": "thumbnail",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "thumbnailWidth",
+            "in": "query",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/folders": {
       "get": {
         "summary": "Get root folder",

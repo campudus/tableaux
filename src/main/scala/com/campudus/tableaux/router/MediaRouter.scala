@@ -210,7 +210,8 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def serveFile(context: RoutingContext): Unit = {
-    val width = getIntQuery("width", context)
+    val shouldServeThumbnail = getBoolQuery("thumbnail", context).getOrElse(false)
+    val thumbnailWidth = getIntQuery("thumbnailWidth", context).getOrElse(400)
 
     for {
       fileUuid <- getUUID(context)
@@ -223,37 +224,41 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
             (file, paths) <- controller.retrieveFile(UUID.fromString(fileUuid))
           } yield {
             val absolute = config.isWorkingDirectoryAbsolute
-
-            val mimeType = file.file.mimeType.get(langtag)
+            val mimeType = file.file.mimeType.get(langtag).get
             val path = paths(langtag)
 
-            (mimeType.get, width) match {
-              case ("image/jpeg" | "image/png" | "image/webp" | "image/tiff", Some(widthValue)) => {
-                val baseFile = new File(path.toString)
-                val baseImage = ImageIO.read(baseFile)
-                val baseWidth = baseImage.getWidth;
-                val baseHeight = baseImage.getHeight;
-                val targetWidth = widthValue
-                val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
-                val targetImage = ImageUtils.resizeImageSmooth(baseImage, targetWidth, targetHeight.toInt)
-                val targetOutputStream = new ByteArrayOutputStream()
+            shouldServeThumbnail match {
+              case false => Header("Content-type", mimeType, SendFile(path.toString(), absolute))
+              case true => {
+                mimeType match {
+                  case "image/jpeg" | "image/png" | "image/webp" | "image/tiff" => {
+                    // generate from original
+                    val baseFile = new File(path.toString)
+                    val baseImage = ImageIO.read(baseFile)
+                    val baseWidth = baseImage.getWidth;
+                    val baseHeight = baseImage.getHeight;
+                    val targetWidth = thumbnailWidth;
+                    val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
+                    val targetImage = ImageUtils.resizeImageSmooth(baseImage, targetWidth, targetHeight.toInt)
+                    val targetOutputStream = new ByteArrayOutputStream()
 
-                ImageIO.write(targetImage, "png", targetOutputStream)
+                    ImageIO.write(targetImage, "png", targetOutputStream)
 
-                val targetBytes = targetOutputStream.toByteArray
-                val targetBuffer = Buffer.buffer(targetBytes)
+                    val targetBytes = targetOutputStream.toByteArray
+                    val targetBuffer = Buffer.buffer(targetBytes)
 
-                Header(
-                  "Content-type",
-                  "image/png",
-                  Header(
-                    "Content-Length",
-                    targetBytes.length.toString,
-                    OkBuffer(targetBuffer)
-                  )
-                )
+                    Header(
+                      "Content-type",
+                      "image/png",
+                      Header(
+                        "Content-Length",
+                        targetBytes.length.toString,
+                        OkBuffer(targetBuffer)
+                      )
+                    )
+                  }
+                }
               }
-              case _ => Header("Content-type", mimeType.get, SendFile(path.toString(), absolute))
             }
           }
         }
