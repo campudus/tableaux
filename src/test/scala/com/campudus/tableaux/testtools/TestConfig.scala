@@ -28,6 +28,8 @@ trait TestConfig {
 
   var cdnConfig: JsonObject
 
+  var thumbnailsConfig: JsonObject
+
   var tableauxConfig: TableauxConfig
 
   private def readTextFile(filePath: String): String = Source.fromFile(filePath).getLines().mkString

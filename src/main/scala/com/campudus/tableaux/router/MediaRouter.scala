@@ -17,6 +17,7 @@ import scala.concurrent.{Future, Promise}
 import java.awt.image.BufferedImage
 import java.io.{ByteArrayOutputStream, File, IOException}
 import java.util.UUID
+import java.util.concurrent.TimeoutException
 import javax.imageio.ImageIO
 
 sealed trait FileAction
@@ -210,70 +211,30 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def serveFile(context: RoutingContext): Unit = {
+    val isWorkingDirectoryAbsolute = config.isWorkingDirectoryAbsolute
     val shouldServeThumbnail = getBoolQuery("thumbnail", context).getOrElse(false)
     val thumbnailWidth = getIntQuery("thumbnailWidth", context).getOrElse(400)
 
     for {
-      fileUuid <- getUUID(context)
+      uuid <- getUUID(context)
+      fileUUid = UUID.fromString(uuid)
       langtag <- getLangtag(context)
     } yield {
       sendReply(
         context,
         AsyncReply {
           for {
-            (file, paths) <- controller.retrieveFile(UUID.fromString(fileUuid))
-          } yield {
-            val absolute = config.isWorkingDirectoryAbsolute
-            val mimeType = file.file.mimeType.get(langtag).get
-            val path = paths(langtag)
-
-            shouldServeThumbnail match {
-              case false => Header("Content-type", mimeType, SendFile(path.toString(), absolute))
-              case true => {
-                mimeType match {
-                  case "image/jpeg" | "image/png" | "image/webp" | "image/tiff" => {
-                    try {
-                      // generate from original
-                      val baseFile = new File(path.toString)
-                      val baseImage = ImageIO.read(baseFile)
-                      val baseWidth = baseImage.getWidth;
-                      val baseHeight = baseImage.getHeight;
-                      val targetWidth = thumbnailWidth;
-                      val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
-                      val targetImage = ImageUtils.resizeImageSmooth(baseImage, targetWidth, targetHeight.toInt)
-                      val targetOutputStream = new ByteArrayOutputStream()
-
-                      ImageIO.write(targetImage, "png", targetOutputStream)
-
-                      val targetBytes = targetOutputStream.toByteArray
-                      val targetBuffer = Buffer.buffer(targetBytes)
-
-                      Header(
-                        "Content-type",
-                        "image/png",
-                        Header(
-                          "Content-Length",
-                          targetBytes.length.toString,
-                          OkBuffer(targetBuffer)
-                        )
-                      )
-                    } catch {
-                      case ex: IOException =>
-                        Error(RouterException("File not found", ex, "errors.routing.fileNotFound", 404))
-                      case ex: Throwable =>
-                        Error(RouterException("Send file exception", ex, "errors.routing.sendFile"))
-                    }
-                  }
-                  case _ =>
-                    Error(RouterException(
-                      s"MimeType '$mimeType' not supported for thumbnail",
-                      null,
-                      "errors.routing.thumbnailMimeType",
-                      400
-                    ))
-                }
-              }
+            (file, filePaths) <- controller.retrieveFile(fileUUid)
+            path <- shouldServeThumbnail match {
+              case true => controller.retrieveThumbnailPath(fileUUid, langtag, thumbnailWidth)
+              case false => Future.successful(filePaths(langtag))
             }
+            mimeType = shouldServeThumbnail match {
+              case true => "image/png"
+              case false => file.mimeType.get(langtag).get
+            }
+          } yield {
+            Header("Content-type", mimeType, SendFile(path.toString(), isWorkingDirectoryAbsolute))
           }
         }
       )

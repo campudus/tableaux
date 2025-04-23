@@ -359,6 +359,7 @@ trait BaseRouter extends VertxAccess {
         future.onComplete {
           case Success(r) => sendReply(context, r)
           case Failure(x: RouterException) => endResponse(req.response(), errorReplyFromException(x))
+          case Failure(x: CustomException) => endResponse(req.response(), Error(x.toRouterException))
           case Failure(x: Throwable) => endResponse(req.response(), Error(routerException(x)))
         }
       case SetCookie(key, value, nextReply) =>

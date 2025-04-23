@@ -4,10 +4,12 @@ import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownSe
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.router.RouterException
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
+import io.vertx.core.eventbus.ReplyException
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.ext.web.RoutingContext
 
@@ -16,6 +18,7 @@ import scala.reflect.io.Path
 import scala.util.{Failure, Success}
 
 import java.util.UUID
+import io.vertx.core.eventbus.ReplyFailure
 
 object MediaController {
 
@@ -281,6 +284,17 @@ class MediaController(
         (ExtendedFile(f), filePaths)
       }
     }
+  }
+
+  def retrieveThumbnailPath(uuid: UUID, langtag: String, width: Int): Future[Path] = {
+    eventClient.retrieveThumbnailPath(uuid, langtag, width).recoverWith({
+      case ex: ReplyException if ex.failureCode() == 400 =>
+        Future.failed(InvalidRequestException(s"Invalid thumbnail request: ${ex.getMessage}"))
+      case ex: ReplyException if ex.failureType() == ReplyFailure.TIMEOUT =>
+        Future.failed(UnknownServerException("Error retrieving thumbnail: timeout"))
+      case ex: Throwable =>
+        Future.failed(UnknownServerException("Error retrieving thumbnail"))
+    })
   }
 
   def deleteFile(uuid: UUID)(implicit user: TableauxUser): Future[TableauxFile] = {

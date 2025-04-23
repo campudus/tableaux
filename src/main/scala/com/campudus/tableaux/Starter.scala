@@ -59,6 +59,7 @@ class Starter extends ScalaVerticle with LazyLogging {
       val uploadsDirectory = getStringDefault(config, "uploadsDirectory", Starter.DEFAULT_UPLOADS_DIRECTORY)
       val authConfig = config.getJsonObject("auth", Json.obj())
       val cdnConfig = config.getJsonObject("cdn", Json.obj())
+      val thumbnailsConfig = config.getJsonObject("thumbnails", Json.obj())
       val rolePermissionsPath = getStringDefault(config, "rolePermissionsPath", Starter.DEFAULT_ROLE_PERMISSIONS_PATH)
       val openApiUrl = Option(getStringDefault(config, "openApiUrl", null))
 
@@ -75,6 +76,7 @@ class Starter extends ScalaVerticle with LazyLogging {
         databaseConfig = databaseConfig,
         authConfig = authConfig,
         cdnConfig = cdnConfig,
+        thumbnailsConfig = thumbnailsConfig,
         workingDirectory = workingDirectory,
         uploadsDirectory = uploadsDirectory,
         rolePermissions = rolePermissions,
@@ -87,10 +89,12 @@ class Starter extends ScalaVerticle with LazyLogging {
 
       for {
         _ <- createUploadsDirectories(tableauxConfig)
+        _ <- createThumbnailsDirectories(tableauxConfig)
         server <- deployHttpServer(port, host, tableauxConfig, connection)
         _ <- deployJsonSchemaValidatorVerticle(jsonSchemaConfig)
         _ <- deployCacheVerticle(cacheConfig, tableauxConfig)
         _ <- deployMessagingVerticle(tableauxConfig)
+        _ <- deployThumbnailVerticle(thumbnailsConfig, tableauxConfig)
         _ <- cdnConfig match {
           case obj if !obj.isEmpty() => deployCdnVerticle(cdnConfig)
           case _ => {
@@ -113,6 +117,10 @@ class Starter extends ScalaVerticle with LazyLogging {
 
   private def createUploadsDirectories(config: TableauxConfig): Future[Unit] = {
     FileUtils(vertxAccessContainer()).mkdirs(config.uploadsDirectoryPath())
+  }
+
+  private def createThumbnailsDirectories(config: TableauxConfig): Future[Unit] = {
+    FileUtils(vertxAccessContainer()).mkdirs(config.thumbnailsDirectoryPath())
   }
 
   private def deployHttpServer(
@@ -193,6 +201,20 @@ class Starter extends ScalaVerticle with LazyLogging {
         logger.info(s"CdnVerticle deployed with ID $id")
       case Failure(e) =>
         logger.error("CdnVerticle couldn't be deployed.", e)
+    })
+
+    deployFuture
+  }
+
+  private def deployThumbnailVerticle(thumbnailConfig: JsonObject, tableauxConfig: TableauxConfig): Future[String] = {
+    val options = DeploymentOptions().setConfig(Json.emptyObj())
+    val deployFuture = vertx.deployVerticleFuture(new ThumbnailVerticle(thumbnailConfig, tableauxConfig), options)
+
+    deployFuture.onComplete({
+      case Success(id) =>
+        logger.info(s"ThumbnailVerticle deployed with ID $id")
+      case Failure(e) =>
+        logger.error("ThumbnailVerticle couldn't be deployed.", e)
     })
 
     deployFuture
