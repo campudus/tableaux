@@ -20,13 +20,14 @@ import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
 import java.io.File
-import java.util.UUID
-import javax.imageio.ImageIO
 import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 import java.time.Instant
+import java.util.UUID
+import javax.imageio.ImageIO
 
-class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxConfig) extends ScalaVerticle with LazyLogging {
+class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxConfig) extends ScalaVerticle
+    with LazyLogging {
   private lazy val eventBus = vertx.eventBus()
 
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
@@ -46,7 +47,6 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     fileModel = FileModel(dbConnection)
 
     eventBus.consumer(ADDRESS_THUMBNAIL_RETRIEVE, retrieveThumbnailPath).completionFuture()
-
 
   }
 
@@ -95,7 +95,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         }
         case (false, true) => {
           logger.info(s"Creating thumbnail $thumbnailName")
-          
+
           val baseFile = new File(filePath.toString)
           val baseImage = ImageIO.read(baseFile)
           val baseWidth = baseImage.getWidth;
@@ -104,7 +104,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
           val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
           val targetImage = ImageUtils.resizeImageSmooth(baseImage, targetWidth, targetHeight.toInt)
           val targetFile = new File(thumbnailPath.toString)
-    
+
           ImageIO.write(targetImage, "png", targetFile)
 
           message.reply(thumbnailPath.toString)

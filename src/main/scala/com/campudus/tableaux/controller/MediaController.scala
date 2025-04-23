@@ -9,7 +9,7 @@ import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
-import io.vertx.core.eventbus.ReplyException
+import io.vertx.core.eventbus.{ReplyException, ReplyFailure}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.ext.web.RoutingContext
 
@@ -18,7 +18,6 @@ import scala.reflect.io.Path
 import scala.util.{Failure, Success}
 
 import java.util.UUID
-import io.vertx.core.eventbus.ReplyFailure
 
 object MediaController {
 
