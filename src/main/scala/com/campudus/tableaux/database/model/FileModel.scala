@@ -219,7 +219,7 @@ class FileModel(override protected[this] val connection: DatabaseConnection) ext
       MultiLanguageValue.fromString(row.get[String](9)), // mime_type
       convertStringToDateTime(row.get[String](3)), // created_at
       convertStringToDateTime(row.get[String](4)), // updated_at
-      row.get[Int](10) // dependent_row_count
+      row.getInteger(10) // dependent_row_count
     )
   }
 
