@@ -142,11 +142,13 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     logger.info(s"Clearing thumbnails older than $maxAgeReadable")
 
     for (oldFile <- oldFiles) {
-      try {
-        Files.delete(oldFile.toPath)
-        logger.info(s"Successfully deleted thumbnail ${oldFile.getName}")
-      } catch {
-        case ex: Exception => logger.info(s"Failed to delete thumbnail ${oldFile.getName}: ${ex.getMessage}")
+      val deleteResult = Try(Files.delete(oldFile.toPath))
+
+      deleteResult match {
+        case Success(_) =>
+          logger.info(s"Successfully deleted thumbnail ${oldFile.getName}")
+        case Failure(ex) =>
+          logger.info(s"Failed to delete thumbnail ${oldFile.getName}: ${ex.getMessage}")
       }
     }
   }
