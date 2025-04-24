@@ -19,23 +19,48 @@ import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
 import com.typesafe.scalalogging.LazyLogging
-import java.io.File
+import java.io.{File, FileFilter}
 import java.nio.file.Files
 import java.nio.file.attribute.FileTime
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.util.UUID
 import javax.imageio.ImageIO
+import org.joda.time.Period
+import org.joda.time.PeriodType
+import org.joda.time.format.PeriodFormat
 
 class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxConfig) extends ScalaVerticle
     with LazyLogging {
   private lazy val eventBus = vertx.eventBus()
 
-  private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
-
   private var fileModel: FileModel = _
+
+  private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
+  private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
+
+  private val secondsIn30Days = 30 * 24 * 60 * 60 // 2592000
+  private val maxAgeSeconds = Option(thumbnailsConfig.getInteger("maxAge")).map(_.intValue).getOrElse(secondsIn30Days)
+  private val maxAgePeriod = Period.seconds(maxAgeSeconds).normalizedStandard(PeriodType.dayTime());
+  private val maxAgeReadable = PeriodFormat.getDefault.print(maxAgePeriod) // e.g. "30 days"
+
+  private val oldFileFilter = new FileFilter {
+
+    override def accept(file: File): Boolean = {
+      val now = Instant.now()
+      val fileLastModified = Instant.ofEpochMilli(file.lastModified)
+      val fileAgeSeconds = Duration.between(fileLastModified, now).toSeconds.intValue
+
+      fileAgeSeconds > maxAgeSeconds
+    }
+  }
 
   override def startFuture(): Future[_] = {
     logger.info("start future")
+
+    vertx.setPeriodic(
+      6 * 60 * 60 * 1000, // every 6 hours (in milliseconds)
+      _ => clearOldThumbnails()
+    )
 
     val vertxAccess = new VertxAccess {
       override val vertx: Vertx = ThumbnailVerticle.this.vertx
@@ -47,11 +72,6 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     fileModel = FileModel(dbConnection)
 
     eventBus.consumer(ADDRESS_THUMBNAIL_RETRIEVE, retrieveThumbnailPath).completionFuture()
-
-  }
-
-  private def thumbnailsDirectoryPath(): Path = {
-    uploadsDirectoryPath / Path("thumbnails/")
   }
 
   private def checkExistence(thumbnailPath: Path): Future[Boolean] = {
@@ -112,6 +132,21 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         case (_, false) => {
           message.fail(400, s"Unsupported mimeType '$mimeType'")
         }
+      }
+    }
+  }
+
+  private def clearOldThumbnails(): Unit = {
+    val oldFiles = thumbnailsDirectoryPath.jfile.listFiles(oldFileFilter)
+
+    logger.info(s"Clearing thumbnails older than $maxAgeReadable")
+
+    for (oldFile <- oldFiles) {
+      try {
+        Files.delete(oldFile.toPath)
+        logger.info(s"Successfully deleted thumbnail ${oldFile.getName}")
+      } catch {
+        case ex: Exception => logger.info(s"Failed to delete thumbnail ${oldFile.getName}: ${ex.getMessage}")
       }
     }
   }
