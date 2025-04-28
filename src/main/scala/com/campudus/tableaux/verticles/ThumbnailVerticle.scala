@@ -83,7 +83,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         logger.info(s"Cache warmup for thumbnails complete")
       }
     }
-    
+
     eventBus.consumer(ADDRESS_THUMBNAIL_RETRIEVE, retrieveThumbnailPath).completionFuture()
   }
 
