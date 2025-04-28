@@ -14,6 +14,7 @@ import io.vertx.scala.core.eventbus.Message
 import io.vertx.scala.ext.web.client.WebClient
 import org.vertx.scala.core.json.{Json, JsonObject}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
@@ -37,9 +38,13 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
+  private val widths = thumbnailsConfig.getJsonArray("widths", Json.arr(200)).asScala.map(_.asInstanceOf[Int]).toSeq
+
+  private val enableCacheWarmup =
+    Option(thumbnailsConfig.getBoolean("enableCacheWarmup")).map(_.booleanValue).getOrElse(false)
 
   private val secondsIn30Days = 30 * 24 * 60 * 60 // 2592000
-  private val maxAgeSeconds = Option(thumbnailsConfig.getInteger("maxAge")).map(_.intValue).getOrElse(secondsIn30Days)
+  private val maxAgeSeconds = Option(thumbnailsConfig.getInteger("maxAge")).map(_.intValue).getOrElse(secondsIn30Days);
   private val maxAgePeriod = Period.seconds(maxAgeSeconds).normalizedStandard(PeriodType.dayTime());
   private val maxAgeReadable = PeriodFormat.getDefault.print(maxAgePeriod) // e.g. "30 days"
 
@@ -71,6 +76,14 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
     fileModel = FileModel(dbConnection)
 
+    if (enableCacheWarmup) {
+      for {
+        _ <- this.generateThumbnailsForExistingImages()
+      } yield {
+        logger.info(s"Cache warmup for thumbnails complete")
+      }
+    }
+    
     eventBus.consumer(ADDRESS_THUMBNAIL_RETRIEVE, retrieveThumbnailPath).completionFuture()
   }
 
@@ -87,12 +100,12 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
     }
   }
 
-  private def retrieveThumbnailPath(message: Message[JsonObject]): Unit = {
-    val uuid = message.body().getString("uuid")
-    val fileUuid = UUID.fromString(uuid);
-    val langtag = message.body().getString("langtag")
-    val width = message.body().getInteger("width").intValue()
-
+  private def retrieveThumbnailPath(
+      fileUuid: UUID,
+      langtag: String,
+      width: Int,
+      enableLogs: Boolean = true
+  ): Future[Option[Path]] = {
     for {
       file <- fileModel.retrieve(fileUuid)
       mimeType = file.mimeType.get(langtag).getOrElse("")
@@ -102,19 +115,20 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       filePath = uploadsDirectoryPath / Path(internalName)
       thumbnailName = s"${internalUuid}_$width.png" // thumbnail is always png
       thumbnailPath = thumbnailsDirectoryPath / Path(thumbnailName)
+      doesFileExist <- checkExistence(filePath)
       doesThumbnailExist <- checkExistence(thumbnailPath)
       isMimeTypeValid = isValidMimeType(mimeType)
     } yield {
-      (doesThumbnailExist, isMimeTypeValid) match {
-        case (true, true) => {
-          logger.info(s"Updating timestamps for thumbnail $thumbnailName")
+      (doesFileExist, doesThumbnailExist, isMimeTypeValid) match {
+        case (true, true, true) => {
+          if (enableLogs) logger.info(s"Updating timestamps for thumbnail $thumbnailName")
 
           Files.setLastModifiedTime(thumbnailPath.jfile.toPath, FileTime.from(Instant.now()))
 
-          message.reply(thumbnailPath.toString)
+          Some(thumbnailPath.toString)
         }
-        case (false, true) => {
-          logger.info(s"Creating thumbnail $thumbnailName")
+        case (true, false, true) => {
+          if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
 
           val baseFile = new File(filePath.toString)
           val baseImage = ImageIO.read(baseFile)
@@ -127,11 +141,26 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
           ImageIO.write(targetImage, "png", targetFile)
 
-          message.reply(thumbnailPath.toString)
+          Some(thumbnailPath.toString)
         }
-        case (_, false) => {
-          message.fail(400, s"Unsupported mimeType '$mimeType'")
-        }
+        case (false, _, _) => None // file doesn't exist (only in dev)
+        case (_, _, false) => None // unsupported mime type
+      }
+    }
+  }
+
+  private def retrieveThumbnailPath(message: Message[JsonObject]): Unit = {
+    val uuid = message.body().getString("uuid")
+    val fileUuid = UUID.fromString(uuid);
+    val langtag = message.body().getString("langtag")
+    val width = message.body().getInteger("width").intValue()
+
+    for {
+      thumbnailPath <- retrieveThumbnailPath(fileUuid, langtag, width)
+    } yield {
+      thumbnailPath match {
+        case Some(path) => message.reply(thumbnailPath.toString)
+        case None => message.fail(400, s"Unsupported mimeType")
       }
     }
   }
@@ -151,5 +180,22 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
           logger.info(s"Failed to delete thumbnail ${oldFile.getName}: ${ex.getMessage}")
       }
     }
+  }
+
+  private def generateThumbnailsForExistingImages(): Future[Seq[Option[Path]]] = {
+    logger.info(s"Generating thumbnails for existing images")
+
+    for {
+      allFiles <- fileModel.retrieveAll()
+      paths <- Future.sequence {
+        for {
+          file <- allFiles
+          langtag <- file.internalName.langtags
+          width <- widths
+        } yield {
+          retrieveThumbnailPath(file.uuid, langtag, width, enableLogs = false)
+        }
+      }
+    } yield paths
   }
 }

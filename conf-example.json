@@ -22,5 +22,10 @@
   "cdn": {
     "url": "https://<cdn-url>",
     "apiKey": "<cdn-api-key>"
+  },
+  "thumbnails": {
+    "widths": [200, 400],
+    "maxAge": 2592000, // 30 days in seconds,
+    "enableCacheWarmup": true
   }
 }
