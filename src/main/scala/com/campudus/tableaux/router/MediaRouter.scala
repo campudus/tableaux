@@ -231,7 +231,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
             }
             mimeType = shouldServeThumbnail match {
               case true => "image/png"
-              case false => file.mimeType.get(langtag).get
+              case false => file.mimeType.get(langtag).getOrElse("")
             }
           } yield {
             Header("Content-type", mimeType, SendFile(path.toString(), isWorkingDirectoryAbsolute))

@@ -95,8 +95,8 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
     for {
       file <- fileModel.retrieve(fileUuid)
-      mimeType = file.mimeType.get(langtag).get
-      internalName = file.internalName.get(langtag).get
+      mimeType = file.mimeType.get(langtag).getOrElse("")
+      internalName = file.internalName.get(langtag).getOrElse("")
       extension = Path(internalName).extension
       internalUuid = internalName.replace(s".$extension", "")
       filePath = uploadsDirectoryPath / Path(internalName)
