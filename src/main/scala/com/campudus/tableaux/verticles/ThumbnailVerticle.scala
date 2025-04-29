@@ -40,7 +40,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
   private val thumbnailWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("widths", Json.arr()))
-  private val thumbnailWidthDefault = Option(thumbnailWidths.head).map(_.intValue()).getOrElse(400)
+  private val thumbnailWidthDefault = thumbnailWidths.headOption.getOrElse(400)
 
   private val enableCacheWarmup =
     Option(thumbnailsConfig.getBoolean("enableCacheWarmup")).map(_.booleanValue).getOrElse(false)

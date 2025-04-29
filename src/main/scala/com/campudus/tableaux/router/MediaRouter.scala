@@ -53,7 +53,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
   private val thumbnailsConfig = config.thumbnailsConfig
   private val thumbnailWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("widths", Json.emptyArr))
-  private val thumbnailWidthDefault = Option(thumbnailWidths.head).map(_.intValue()).getOrElse(400)
+  private val thumbnailWidthDefault = thumbnailWidths.headOption.getOrElse(400)
 
   def route: Router = {
     val router = Router.router(vertx)
