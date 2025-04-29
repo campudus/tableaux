@@ -4,8 +4,8 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.FileModel
 import com.campudus.tableaux.helper.ImageUtils
-import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.helper.JsonUtils._
+import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.lang.scala.ScalaVerticle
@@ -30,7 +30,6 @@ import javax.imageio.ImageIO
 import org.joda.time.Period
 import org.joda.time.PeriodType
 import org.joda.time.format.PeriodFormat
-import com.campudus.tableaux.helper.JsonUtils
 
 class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxConfig) extends ScalaVerticle
     with LazyLogging {

@@ -41,7 +41,8 @@ class ThumbnailVerticleTest extends TableauxTestBase {
       val thumbnailWidth = 400
       val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
       val thumbnailPathExpected = s"/com/campudus/tableaux/uploads/Screen.Shot_$thumbnailWidth.png"
-      val thumbnailBufferExpected = vertx.fileSystem.readFileBlocking(getClass.getResource(thumbnailPathExpected).toURI.getPath)
+      val thumbnailBufferExpected =
+        vertx.fileSystem.readFileBlocking(getClass.getResource(thumbnailPathExpected).toURI.getPath)
 
       val meta = Json.obj(
         "title" -> Json.obj("de-DE" -> "Test Image"),
