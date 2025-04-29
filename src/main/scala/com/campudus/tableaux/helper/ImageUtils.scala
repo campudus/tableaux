@@ -30,22 +30,21 @@ object ImageUtils {
       targetHeight: Int,
       imageType: Int = BufferedImage.TYPE_INT_ARGB
   ): BufferedImage = {
-    var currentImage = image
-    var currentWidth = image.getWidth
-    var currentHeight = image.getHeight
 
-    // resize image in multiple steps for better quality
-    while (currentWidth > targetWidth * 1.5 || currentHeight > targetHeight * 1.5) {
-      val nextWidth = Math.max(targetWidth, currentWidth / 1.5)
-      val nextHeight = Math.max(targetHeight, currentHeight / 1.5)
-
-      currentWidth = nextWidth.toInt
-      currentHeight = nextHeight.toInt
-      currentImage = resizeImage(currentImage, currentWidth, currentHeight, imageType)
+    def downscaleSteps(width: Int, height: Int, acc: List[(Int, Int)]): List[(Int, Int)] = {
+      if (width > targetWidth * 1.5 || height > targetHeight * 1.5) {
+        val nextWidth = Math.max(targetWidth, (width / 1.5).toInt)
+        val nextHeight = Math.max(targetHeight, (height / 1.5).toInt)
+        downscaleSteps(nextWidth, nextHeight, (nextWidth, nextHeight) :: acc)
+      } else acc.reverse
     }
 
-    val finalImage = resizeImage(currentImage, targetWidth, targetHeight, imageType)
+    val steps = downscaleSteps(image.getWidth, image.getHeight, Nil)
 
-    finalImage
+    val intermediate = steps.foldLeft(image) { case (img, (width, height)) =>
+      resizeImage(img, width, height, imageType)
+    }
+
+    resizeImage(intermediate, targetWidth, targetHeight, imageType)
   }
 }
