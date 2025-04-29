@@ -24,8 +24,8 @@
     "apiKey": "<cdn-api-key>"
   },
   "thumbnails": {
-    "widths": [200, 400],
-    "maxAge": 2592000, // 30 days in seconds,
+    "widths": [400, 200],
+    "maxAge": 2592000,
     "enableCacheWarmup": true
   }
 }
