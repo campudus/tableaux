@@ -5,12 +5,14 @@ import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
 import com.campudus.tableaux.helper.{AsyncReply, Error, Header, ImageUtils, OkBuffer, SendFile}
+import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
 import io.vertx.core.buffer.Buffer
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
+import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
 
@@ -48,6 +50,10 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   private val fileMerge: String = s"/files/$uuidRegex/merge"
   private val fileLang: String = s"/files/$uuidRegex/$langtagRegex"
   private val fileLangStatic: String = s"/files/$uuidRegex/$langtagRegex/.*"
+
+  private val thumbnailsConfig = config.thumbnailsConfig
+  private val thumbnailWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("widths", Json.emptyArr))
+  private val thumbnailWidthDefault = Option(thumbnailWidths.head).map(_.intValue()).getOrElse(400)
 
   def route: Router = {
     val router = Router.router(vertx)
@@ -213,7 +219,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   private def serveFile(context: RoutingContext): Unit = {
     val isWorkingDirectoryAbsolute = config.isWorkingDirectoryAbsolute
     val shouldServeThumbnail = getBoolQuery("thumbnail", context).getOrElse(false)
-    val thumbnailWidth = getIntQuery("thumbnailWidth", context).getOrElse(400)
+    val thumbnailWidth = getIntQuery("thumbnailWidth", context).getOrElse(thumbnailWidthDefault)
 
     for {
       uuid <- getUUID(context)

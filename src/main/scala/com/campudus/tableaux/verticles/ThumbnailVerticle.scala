@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.FileModel
 import com.campudus.tableaux.helper.ImageUtils
 import com.campudus.tableaux.helper.VertxAccess
+import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.verticles.EventClient._
 
 import io.vertx.lang.scala.ScalaVerticle
@@ -29,6 +30,7 @@ import javax.imageio.ImageIO
 import org.joda.time.Period
 import org.joda.time.PeriodType
 import org.joda.time.format.PeriodFormat
+import com.campudus.tableaux.helper.JsonUtils
 
 class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxConfig) extends ScalaVerticle
     with LazyLogging {
@@ -38,7 +40,8 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
-  private val widths = thumbnailsConfig.getJsonArray("widths", Json.arr(400)).asScala.map(_.asInstanceOf[Int]).toSeq
+  private val thumbnailWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("widths", Json.arr()))
+  private val thumbnailWidthDefault = Option(thumbnailWidths.head).map(_.intValue()).getOrElse(400)
 
   private val enableCacheWarmup =
     Option(thumbnailsConfig.getBoolean("enableCacheWarmup")).map(_.booleanValue).getOrElse(false)
@@ -191,7 +194,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
         for {
           file <- allFiles
           langtag <- file.internalName.langtags
-          width <- widths
+          width <- thumbnailWidths
         } yield {
           retrieveThumbnailPath(file.uuid, langtag, width, enableLogs = false)
         }
