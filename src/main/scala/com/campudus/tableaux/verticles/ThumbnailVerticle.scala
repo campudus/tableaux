@@ -38,7 +38,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
 
   private val uploadsDirectoryPath = tableauxConfig.uploadsDirectoryPath
   private val thumbnailsDirectoryPath = tableauxConfig.thumbnailsDirectoryPath
-  private val widths = thumbnailsConfig.getJsonArray("widths", Json.arr(200)).asScala.map(_.asInstanceOf[Int]).toSeq
+  private val widths = thumbnailsConfig.getJsonArray("widths", Json.arr(400)).asScala.map(_.asInstanceOf[Int]).toSeq
 
   private val enableCacheWarmup =
     Option(thumbnailsConfig.getBoolean("enableCacheWarmup")).map(_.booleanValue).getOrElse(false)
@@ -159,7 +159,7 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
       thumbnailPath <- retrieveThumbnailPath(fileUuid, langtag, width)
     } yield {
       thumbnailPath match {
-        case Some(path) => message.reply(thumbnailPath.toString)
+        case Some(path) => message.reply(path.toString)
         case None => message.fail(400, s"Unsupported mimeType")
       }
     }
