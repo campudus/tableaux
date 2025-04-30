@@ -306,7 +306,7 @@
         "parameters": [
           {
             "name": "width",
-            "description": "Target width for resizing an image.",
+            "description": "Target width for image resizing.",
             "in": "query",
             "required": false,
             "type": "integer"
@@ -318,6 +318,9 @@
               "type": "string",
               "format": "binary"
             }
+          },
+          "400": {
+            "description": "If a width is specified and the mimeType of the source file is not supported for resizing, this error is thrown."
           },
           "404": {
             "$ref": "#/responses/not-found-in-database"
