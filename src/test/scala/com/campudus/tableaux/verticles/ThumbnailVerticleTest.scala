@@ -64,7 +64,7 @@ class ThumbnailVerticleTest extends TableauxTestBase {
         thumbnailBuffer <- futurify((p: Promise[Buffer]) =>
           httpRequest(
             "GET",
-            s"/files/$fileUuid/de-DE/$fileName?thumbnail=true&thumbnailWidth=$thumbnailWidth",
+            s"/files/$fileUuid/de-DE/$fileName?width=$thumbnailWidth",
             (client: HttpClient, resp: HttpClientResponse) => {
               assertEquals(200, resp.statusCode())
               assertEquals("Should get the correct MIME type", Some(thumbnailMimeType), resp.getHeader("content-type"))
