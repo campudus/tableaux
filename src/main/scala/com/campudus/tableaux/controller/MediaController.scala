@@ -288,19 +288,24 @@ class MediaController(
   def retrieveThumbnailPath(uuid: UUID, langtag: String, width: Int): Future[Path] = {
     val timeout = Option(config.thumbnailsConfig.getInteger("timeout")).map(_.intValue).getOrElse(10000);
 
-    eventClient.retrieveThumbnailPath(uuid, langtag, width, timeout).recoverWith({
-      case ex: ReplyException if ex.failureCode() == 400 =>
-        logger.error(s"Invalid thumbnail request: ${ex.getMessage}", ex)
-        Future.failed(InvalidRequestException(s"Invalid thumbnail request: ${ex.getMessage}"))
+    width match {
+      case w if w <= 0 =>
+        logger.error(s"Invalid thumbnail request: width must be positive")
+        Future.failed(InvalidRequestException(s"Invalid thumbnail request: width must be positive"))
+      case _ => eventClient.retrieveThumbnailPath(uuid, langtag, width, timeout).recoverWith({
+          case ex: ReplyException if ex.failureCode() == 400 =>
+            logger.error(s"Invalid thumbnail request: ${ex.getMessage}", ex)
+            Future.failed(InvalidRequestException(s"Invalid thumbnail request: ${ex.getMessage}"))
 
-      case ex: ReplyException if ex.failureType() == ReplyFailure.TIMEOUT =>
-        logger.error(s"Thumbnail request timed out: ${ex.getMessage}", ex)
-        Future.failed(UnknownServerException("Thumbnail request timed out"))
+          case ex: ReplyException if ex.failureType() == ReplyFailure.TIMEOUT =>
+            logger.error(s"Thumbnail request timed out: ${ex.getMessage}", ex)
+            Future.failed(UnknownServerException("Thumbnail request timed out"))
 
-      case ex: Throwable =>
-        logger.error(s"Unexpected error retrieving thumbnail: ${ex.getMessage}", ex)
-        Future.failed(UnknownServerException("Unexpected error retrieving thumbnail"))
-    })
+          case ex: Throwable =>
+            logger.error(s"Unexpected error retrieving thumbnail: ${ex.getMessage}", ex)
+            Future.failed(UnknownServerException("Unexpected error retrieving thumbnail"))
+        })
+    }
   }
 
   def deleteFile(uuid: UUID)(implicit user: TableauxUser): Future[TableauxFile] = {

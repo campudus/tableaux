@@ -154,21 +154,31 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
           Some(thumbnailPath.toString)
         }
         case (true, false, true) => {
-          if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
-
           val baseFile = new File(filePath.toString)
           val baseImage = ImageIO.read(baseFile)
           val baseWidth = baseImage.getWidth;
           val baseHeight = baseImage.getHeight;
           val targetWidth = width;
           val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
-          val resizeOp = new ResampleOp(targetWidth, targetHeight.toInt, ResampleOp.FILTER_LANCZOS);
-          val targetImage = resizeOp.filter(baseImage, null)
-          val targetFile = new File(thumbnailPath.toString)
 
-          ImageIO.write(targetImage, "png", targetFile)
+          (targetWidth, targetHeight.toInt) match {
+            case (resizeWidth, resizeHeight) if resizeWidth > 0 && resizeHeight > 0 => {
+              if (enableLogs) logger.info(s"Creating thumbnail $thumbnailName")
 
-          Some(thumbnailPath.toString)
+              val resizeOp = new ResampleOp(resizeWidth, resizeHeight, ResampleOp.FILTER_LANCZOS);
+              val resizeImage = resizeOp.filter(baseImage, null)
+              val resizeFile = new File(thumbnailPath.toString)
+
+              ImageIO.write(resizeImage, "png", resizeFile)
+
+              Some(thumbnailPath.toString)
+            }
+            case _ => {
+              logger.warn("Skipping thumbnail creation: width and height must be positive")
+              None
+            }
+          }
+
         }
         case (false, _, _) => None // file doesn't exist (only in dev)
         case (_, _, false) => None // unsupported mime type
