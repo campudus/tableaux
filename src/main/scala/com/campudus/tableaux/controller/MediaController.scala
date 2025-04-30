@@ -286,13 +286,20 @@ class MediaController(
   }
 
   def retrieveThumbnailPath(uuid: UUID, langtag: String, width: Int): Future[Path] = {
-    eventClient.retrieveThumbnailPath(uuid, langtag, width).recoverWith({
+    val timeout = Option(config.thumbnailsConfig.getInteger("timeout")).map(_.intValue).getOrElse(10000);
+
+    eventClient.retrieveThumbnailPath(uuid, langtag, width, timeout).recoverWith({
       case ex: ReplyException if ex.failureCode() == 400 =>
+        logger.error(s"Invalid thumbnail request: ${ex.getMessage}", ex)
         Future.failed(InvalidRequestException(s"Invalid thumbnail request: ${ex.getMessage}"))
+
       case ex: ReplyException if ex.failureType() == ReplyFailure.TIMEOUT =>
-        Future.failed(UnknownServerException("Error retrieving thumbnail: timeout"))
+        logger.error(s"Thumbnail request timed out: ${ex.getMessage}", ex)
+        Future.failed(UnknownServerException("Thumbnail request timed out"))
+
       case ex: Throwable =>
-        Future.failed(UnknownServerException("Error retrieving thumbnail"))
+        logger.error(s"Unexpected error retrieving thumbnail: ${ex.getMessage}", ex)
+        Future.failed(UnknownServerException("Unexpected error retrieving thumbnail"))
     })
   }
 

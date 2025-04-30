@@ -24,8 +24,11 @@
     "apiKey": "<cdn-api-key>"
   },
   "thumbnails": {
-    "widths": [400, 200],
-    "maxAge": 2592000,
-    "enableCacheWarmup": true
+    "enableCacheWarmup": true,
+    "cacheWarmupWidths": [200, 400],
+    "cacheWarmupChunkSize": 100,
+    "cacheMaxAge": 2592000,
+    "cacheClearPollingInterval": 21600000,
+    "cacheCreateTimeout": 10000
   }
 }

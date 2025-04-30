@@ -89,7 +89,6 @@ class Starter extends ScalaVerticle with LazyLogging {
 
       for {
         _ <- createUploadsDirectories(tableauxConfig)
-        _ <- createThumbnailsDirectories(tableauxConfig)
         server <- deployHttpServer(port, host, tableauxConfig, connection)
         _ <- deployJsonSchemaValidatorVerticle(jsonSchemaConfig)
         _ <- deployCacheVerticle(cacheConfig, tableauxConfig)
@@ -117,10 +116,6 @@ class Starter extends ScalaVerticle with LazyLogging {
 
   private def createUploadsDirectories(config: TableauxConfig): Future[Unit] = {
     FileUtils(vertxAccessContainer()).mkdirs(config.uploadsDirectoryPath())
-  }
-
-  private def createThumbnailsDirectories(config: TableauxConfig): Future[Unit] = {
-    FileUtils(vertxAccessContainer()).mkdirs(config.thumbnailsDirectoryPath())
   }
 
   private def deployHttpServer(

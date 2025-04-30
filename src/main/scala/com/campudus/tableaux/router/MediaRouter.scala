@@ -51,10 +51,6 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   private val fileLang: String = s"/files/$uuidRegex/$langtagRegex"
   private val fileLangStatic: String = s"/files/$uuidRegex/$langtagRegex/.*"
 
-  private val thumbnailsConfig = config.thumbnailsConfig
-  private val thumbnailWidths = asSeqOf[Int](thumbnailsConfig.getJsonArray("widths", Json.emptyArr))
-  private val thumbnailWidthDefault = thumbnailWidths.headOption.getOrElse(400)
-
   def route: Router = {
     val router = Router.router(vertx)
 
@@ -218,8 +214,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
   private def serveFile(context: RoutingContext): Unit = {
     val isWorkingDirectoryAbsolute = config.isWorkingDirectoryAbsolute
-    val shouldServeThumbnail = getBoolQuery("thumbnail", context).getOrElse(false)
-    val thumbnailWidth = getIntQuery("thumbnailWidth", context).getOrElse(thumbnailWidthDefault)
+    val thumbnailWidth = getIntQuery("width", context)
 
     for {
       uuid <- getUUID(context)
@@ -231,13 +226,13 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         AsyncReply {
           for {
             (file, filePaths) <- controller.retrieveFile(fileUUid)
-            path <- shouldServeThumbnail match {
-              case true => controller.retrieveThumbnailPath(fileUUid, langtag, thumbnailWidth)
-              case false => Future.successful(filePaths(langtag))
+            path <- thumbnailWidth match {
+              case Some(width) => controller.retrieveThumbnailPath(fileUUid, langtag, width)
+              case _ => Future.successful(filePaths(langtag))
             }
-            mimeType = shouldServeThumbnail match {
-              case true => "image/png"
-              case false => file.mimeType.get(langtag).getOrElse("")
+            mimeType = thumbnailWidth match {
+              case Some(width) => "image/png"
+              case _ => file.mimeType.get(langtag).getOrElse("")
             }
           } yield {
             Header("Content-type", mimeType, SendFile(path.toString(), isWorkingDirectoryAbsolute))

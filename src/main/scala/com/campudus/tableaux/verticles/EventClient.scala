@@ -153,9 +153,9 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     sendMessage(ADDRESS_FILE_CHANGED, message)
   }
 
-  def retrieveThumbnailPath(fileUuid: UUID, langtag: String, width: Int): Future[Path] = {
+  def retrieveThumbnailPath(fileUuid: UUID, langtag: String, width: Int, timeout: Int): Future[Path] = {
     val message = Json.obj("uuid" -> fileUuid.toString, "langtag" -> langtag, "width" -> width)
-    val thumbnailOptions = DeliveryOptions().setSendTimeout(10000)
+    val thumbnailOptions = DeliveryOptions().setSendTimeout(timeout)
 
     eventBus
       .sendFuture[String](ADDRESS_THUMBNAIL_RETRIEVE, message, thumbnailOptions).map(message => Path(message.body()))

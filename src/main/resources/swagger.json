@@ -305,13 +305,8 @@
         "operationId": "get-file",
         "parameters": [
           {
-            "name": "thumbnail",
-            "in": "query",
-            "required": false,
-            "type": "boolean"
-          },
-          {
-            "name": "thumbnailWidth",
+            "name": "width",
+            "description": "Target width for resizing an image.",
             "in": "query",
             "required": false,
             "type": "integer"
