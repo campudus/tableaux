@@ -4,7 +4,7 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
-import com.campudus.tableaux.helper.{AsyncReply, Error, Header, ImageUtils, OkBuffer, SendFile}
+import com.campudus.tableaux.helper.{AsyncReply, Error, Header, OkBuffer, SendFile}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
@@ -19,8 +19,6 @@ import scala.concurrent.{Future, Promise}
 import java.awt.image.BufferedImage
 import java.io.{ByteArrayOutputStream, File, IOException}
 import java.util.UUID
-import java.util.concurrent.TimeoutException
-import javax.imageio.ImageIO
 
 sealed trait FileAction
 

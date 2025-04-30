@@ -3,7 +3,7 @@ package com.campudus.tableaux.verticles
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model.FileModel
-import com.campudus.tableaux.helper.{FileUtils, ImageUtils, VertxAccess}
+import com.campudus.tableaux.helper.{FileUtils, VertxAccess}
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.verticles.EventClient._
 
@@ -19,6 +19,7 @@ import scala.concurrent.Future
 import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
+import com.twelvemonkeys.image.ResampleOp
 import com.typesafe.scalalogging.LazyLogging
 import java.io.{File, FileFilter}
 import java.nio.file.Files
@@ -161,7 +162,8 @@ class ThumbnailVerticle(thumbnailsConfig: JsonObject, tableauxConfig: TableauxCo
           val baseHeight = baseImage.getHeight;
           val targetWidth = width;
           val targetHeight = (baseHeight.toFloat / baseWidth.toFloat) * targetWidth
-          val targetImage = ImageUtils.resizeImageSmooth(baseImage, targetWidth, targetHeight.toInt)
+          val resizeOp = new ResampleOp(targetWidth, targetHeight.toInt, ResampleOp.FILTER_LANCZOS);
+          val targetImage = resizeOp.filter(baseImage, null)
           val targetFile = new File(thumbnailPath.toString)
 
           ImageIO.write(targetImage, "png", targetFile)
