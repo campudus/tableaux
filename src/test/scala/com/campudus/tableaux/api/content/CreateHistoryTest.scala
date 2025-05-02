@@ -364,6 +364,73 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
   }
 
   @Test
+  def changeMultilanguageValue_multipleCurrencyValues(implicit c: TestContext): Unit = {
+    okTest {
+      val expected =
+        """
+          |[
+          |  {
+          |    "event": "cell_changed",
+          |    "historyType": "cell",
+          |    "valueType": "currency",
+          |    "languageType": "country",
+          |    "value": {
+          |      "DE": 2999.99
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "historyType": "cell",
+          |    "valueType": "currency",
+          |    "languageType": "country",
+          |    "value": {
+          |      "GB": 1000
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "historyType": "cell",
+          |    "valueType": "currency",
+          |    "languageType": "country",
+          |    "value": {
+          |      "FR": 1500
+          |    }
+          |  }, {
+          |    "event": "cell_changed",
+          |    "historyType": "cell",
+          |    "valueType": "currency",
+          |    "languageType": "country",
+          |    "value": {
+          |      "DE": 4000
+          |    }
+          |  }
+          |]
+        """.stripMargin
+
+      val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB", "FR"))
+
+      for {
+        _ <- createSimpleTableWithCell("table1", multiCountryCurrencyColumn)
+
+        _ <- sendRequest(
+          "PUT",
+          s"/tables/1/columns/1/rows/1",
+          Json.obj("value" -> Json.obj("DE" -> 2999.99, "GB" -> 1000))
+        )
+
+        // change DE, but keep GB value
+        _ <- sendRequest(
+          "POST",
+          s"/tables/1/columns/1/rows/1",
+          Json.obj("value" -> Json.obj("DE" -> 4000, "GB" -> 1000, "FR" -> 1500))
+        )
+        historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
+          .map(toRowsArray)
+      } yield {
+        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+      }
+    }
+  }
+
+  @Test
   def changeMultilanguageValue_multipleLanguagesAtOnce(implicit c: TestContext): Unit = {
     okTest {
       val expected =

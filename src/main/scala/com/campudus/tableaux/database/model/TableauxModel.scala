@@ -769,11 +769,12 @@ class TableauxModel(
       _ <- invalidateCellAndDependentColumns(column, rowId)
       newCell <- retrieveCell(column, rowId, true)
 
-      shouldCreateHistory = forceHistory || hasCellChanged(oldCell, newCell)
+      shouldCreateHistory =
+        forceHistory || hasCellChanged(oldCell, newCell) // does not work for multi language/currency cells
 
       _ <-
         if (shouldCreateHistory) {
-          createHistoryModel.createCells(table, rowId, Seq((column, value)))
+          createHistoryModel.createCells(table, rowId, Seq((column, value)), Some(oldCell))
         } else {
           Future.successful(())
         }

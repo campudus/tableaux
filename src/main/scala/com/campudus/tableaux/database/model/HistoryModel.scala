@@ -299,8 +299,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   private def createTranslation(
       table: Table,
       rowId: RowId,
-      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])]
-  )(implicit user: TableauxUser): Future[Seq[RowId]] = {
+      values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])],
+      oldCell: Option[Cell[_]]
+  )(implicit user: TableauxUser): Future[Unit] = {
 
     def wrapLanguageValue(langtag: String, value: Any): JsonObject = Json.obj("value" -> Json.obj(langtag -> value))
 
@@ -314,13 +315,45 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
       .toSeq
 
-    Future.sequence(
-      columnsForLang
-        .flatMap({
-          case (langtag, columnValueOptSeq) =>
-            columnValueOptSeq
-              .map({
-                case (column: SimpleValueColumn[_], valueOpt) =>
+    val oldCellJson = oldCell.map(_.getJson).getOrElse(Json.emptyObj())
+    val oldCellValueMap = oldCellJson match {
+      case null => Map.empty[String, Option[Any]]
+      case _ =>
+        oldCellJson.getJsonObject("value") match {
+          case null => Map.empty[String, Option[Any]]
+          case jsonObject =>
+            jsonObject.getMap.asScala.map({
+              case (langtag: String, value: Any) =>
+                langtag -> Option(value)
+            })
+        }
+    }
+
+    def atomicValueHasChanged(langtag: String, value: Option[Any]): Boolean = {
+      if (oldCellValueMap.isEmpty) {
+        true
+      } else {
+        val newValue = value
+        val oldValue = oldCellValueMap.get(langtag).flatten
+
+        (newValue, oldValue) match {
+          case (Some(newVal), Some(oldVal)) => newVal != oldVal
+          case (Some(newVal), None) => true
+          case _ => false
+        }
+      }
+    }
+
+    columnsForLang.foldLeft(Future.successful(())) {
+      case (accFut, (langtag, columnValueOptSeq)) =>
+        accFut.flatMap { _ =>
+          columnValueOptSeq.foldLeft(Future.successful(())) {
+            case (innerAccFut, (column: SimpleValueColumn[_], valueOpt)) =>
+              innerAccFut.flatMap { _ =>
+                if (atomicValueHasChanged(langtag, valueOpt)) {
+                  logger.info(
+                    "value has changed: " + langtag + " " + column.id + " " + valueOpt + " oldCellValueMap: " + oldCellValueMap
+                  )
                   insertCellHistory(
                     table,
                     rowId,
@@ -328,10 +361,17 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
                     column.kind,
                     column.languageType,
                     wrapLanguageValue(langtag, valueOpt.orNull)
+                  ).map(_ => ())
+                } else {
+                  logger.info(
+                    "value has not changed: " + langtag + " " + column.id + " " + valueOpt + " oldCellValueMap: " + oldCellValueMap
                   )
-              })
-        })
-    )
+                  Future.successful(())
+                }
+              }
+          }
+        }
+    }
   }
 
   private def createSimple(
@@ -637,7 +677,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       for {
         value <- retrieveCellValue(table, column, rowId, Option(langtag))
         _ <- value match {
-          case Some(v) => createTranslation(table, rowId, Seq((column, Map(langtag -> Option(v)))))
+          case Some(v) => createTranslation(table, rowId, Seq((column, Map(langtag -> Option(v)))), None)
           case None => Future.successful(())
         }
       } yield ()
@@ -870,7 +910,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simplesWithEmptyValues)
-      _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multisWithEmptyValues)
+      _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multisWithEmptyValues, None)
       _ <- if (links.isEmpty) Future.successful(()) else createClearLink(table, rowId, links)
       _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
     } yield ()
@@ -886,7 +926,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(futureSequence)
   }
 
-  def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)])(
+  // oldCell makes sense only if we have a values sequence with a single cell
+  // in all other cases it defaults to None
+  def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)], oldCell: Option[Cell[_]] = None)(
       implicit user: TableauxUser
   ): Future[Unit] = {
     ColumnType.splitIntoTypesWithValues(values) match {
@@ -896,7 +938,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       case Success((simples, multis, links, attachments)) =>
         for {
           _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simples)
-          _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis)
+          _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multis, oldCell)
           _ <- if (links.isEmpty) Future.successful(()) else createLinks(table, rowId, links, allowRecursion = true)
           _ <-
             if (attachments.isEmpty) Future.successful(())
