@@ -339,6 +339,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
         (newValue, oldValue) match {
           case (Some(newVal), Some(oldVal)) => newVal != oldVal
           case (Some(newVal), None) => true
+          case (None, Some(oldVal)) => true
           case _ => false
         }
       }
@@ -896,7 +897,9 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(futureSequence)
   }
 
-  def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]])(
+  // oldCell makes sense only if we have a values sequence with a single cell
+  // in all other cases it defaults to None
+  def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]], oldCell: Option[Cell[_]])(
       implicit user: TableauxUser
   ): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
@@ -910,7 +913,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simplesWithEmptyValues)
-      _ <- if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multisWithEmptyValues, None)
+      _ <-
+        if (multis.isEmpty) Future.successful(()) else createTranslation(table, rowId, multisWithEmptyValues, oldCell)
       _ <- if (links.isEmpty) Future.successful(()) else createClearLink(table, rowId, links)
       _ <- if (attachments.isEmpty) Future.successful(()) else clearAttachments(table, rowId, attachments)
     } yield ()
