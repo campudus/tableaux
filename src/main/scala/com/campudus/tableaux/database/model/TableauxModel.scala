@@ -798,7 +798,7 @@ class TableauxModel(
       _ <- checkForSettingsTable(table, columnId, "can't clear key cell of a settings table")
 
       column <- retrieveColumn(table, columnId)
-
+      oldCell <- retrieveCell(column, rowId, true)
       _ <-
         if (column.languageType == MultiLanguage) {
           val enrichedValue = roleModel.generateLangtagCheckValue(table)
@@ -808,7 +808,7 @@ class TableauxModel(
         }
 
       _ <- createHistoryModel.createClearCellInit(table, rowId, Seq(column))
-      _ <- createHistoryModel.createClearCell(table, rowId, Seq(column))
+      _ <- createHistoryModel.createClearCell(table, rowId, Seq(column), Some(oldCell))
       _ <- updateRowModel.clearRow(table, rowId, Seq(column), deleteRow)
       _ <- invalidateCellAndDependentColumns(column, rowId)
 
