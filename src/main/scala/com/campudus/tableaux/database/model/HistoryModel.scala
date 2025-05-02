@@ -908,7 +908,10 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
     val multisWithEmptyValues = for {
       column <- multis
-      langtag <- table.langtags.getOrElse(Seq.empty[String])
+      langtag <- column.languageType match {
+        case MultiLanguage => table.langtags.getOrElse(Seq.empty[String])
+        case MultiCountry(countryCodes) => countryCodes.codes
+      }
     } yield (column, Map(langtag -> None))
 
     for {
