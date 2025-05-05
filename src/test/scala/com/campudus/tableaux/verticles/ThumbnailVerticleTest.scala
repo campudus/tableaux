@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.domain.{ExtendedFile, MultiLanguageValue, 
 import com.campudus.tableaux.helper.FileUtils
 import com.campudus.tableaux.helper.VertxAccess
 import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.TestCustomException
 import com.campudus.tableaux.verticles._
 
 import io.vertx.core.buffer.Buffer
@@ -21,6 +22,7 @@ import scala.concurrent.{Future, Promise}
 import scala.reflect.io.Path
 import scala.util.{Failure, Success, Try}
 
+import java.net.URLEncoder
 import java.util.UUID
 import org.joda.time.DateTime
 import org.junit.{After, Before, Test}
@@ -88,10 +90,107 @@ class ThumbnailVerticleTest extends TableauxTestBase {
         _ <- sendRequest("DELETE", s"/files/$fileUuid")
         _ <- vertx.fileSystem().deleteFuture(thumbnailPath.toString())
       } yield {
-        assertEquals(doesThumbnailExistBeforeRequest, false)
+        assertEquals(false, doesThumbnailExistBeforeRequest)
         assertEquals("Should be the expected file", thumbnailBufferExpected, thumbnailBuffer)
-        assertEquals(doesThumbnailExistAfterRequest, true)
+        assertEquals(true, doesThumbnailExistAfterRequest)
       }
+    }
+  }
+
+  @Test
+  def testThumbnailCreationInvalidWidth(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.invalid") {
+      val fileName = "Screen.Shot.png"
+      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+      val fileMimeType = "image/png"
+
+      val thumbnailWidth = -400
+
+      val meta = Json.obj(
+        "title" -> Json.obj("de-DE" -> "Test Image"),
+        "description" -> Json.obj("de-DE" -> "A screenshot")
+      )
+
+      for {
+        file <- sendRequest("POST", "/files", meta)
+        fileUuid = file.getString("uuid")
+        _ <- uploadFile("PUT", s"/files/$fileUuid/de-DE", filePath, fileMimeType)
+
+        _ <- futurify((p: Promise[Buffer]) =>
+          httpRequest(
+            "GET",
+            s"/files/$fileUuid/de-DE/$fileName?width=$thumbnailWidth",
+            (client: HttpClient, resp: HttpClientResponse) => {
+              resp.bodyHandler((buffer: Buffer) => {
+                assertEquals(400, resp.statusCode())
+
+                client.close()
+
+                if (resp.statusCode() != 200) {
+                  p.failure(TestCustomException(buffer.toString(), resp.statusMessage(), resp.statusCode()))
+                } else {
+                  p.success(buffer)
+                }
+              })
+            },
+            (client: HttpClient, x: Throwable) => {
+              client.close()
+              c.fail(x)
+              p.failure(x)
+            },
+            None
+          ).end()
+        )
+      } yield ()
+    }
+  }
+
+  @Test
+  def testThumbnailCreationUnsupportedMimeType(implicit c: TestContext): Unit = {
+    exceptionTest("error.request.invalid") {
+      val fileName = "Scr$en Shot.pdf"
+      val encodedFileName = URLEncoder.encode(fileName, "UTF-8")
+      val filePath = s"/com/campudus/tableaux/uploads/$fileName"
+      val fileMimeType = "application/pdf"
+
+      val thumbnailWidth = 400
+
+      val meta = Json.obj(
+        "title" -> Json.obj("de-DE" -> "Test PDF"),
+        "description" -> Json.obj("de-DE" -> "A pdf")
+      )
+
+      for {
+        file <- sendRequest("POST", "/files", meta)
+        fileUuid = file.getString("uuid")
+        _ <- uploadFile("PUT", s"/files/$fileUuid/de-DE", filePath, fileMimeType)
+
+        _ <- futurify((p: Promise[Buffer]) =>
+          httpRequest(
+            "GET",
+            s"/files/$fileUuid/de-DE/$encodedFileName?width=$thumbnailWidth",
+            (client: HttpClient, resp: HttpClientResponse) => {
+              resp.bodyHandler((buffer: Buffer) => {
+                assertEquals(400, resp.statusCode())
+
+                client.close()
+
+                if (resp.statusCode() != 200) {
+                  p.failure(TestCustomException(buffer.toString(), resp.statusMessage(), resp.statusCode()))
+                } else {
+                  p.success(buffer)
+                }
+              })
+            },
+            (client: HttpClient, x: Throwable) => {
+              client.close()
+              c.fail(x)
+              p.failure(x)
+            },
+            None
+          ).end()
+        )
+      } yield ()
     }
   }
 }
