@@ -296,11 +296,13 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(linkedCellSeq)
   }
 
+  // oldCell makes only sense if we have a values sequence with a single cell
+  // in all other cases it defaults to None
   private def createTranslation(
       table: Table,
       rowId: RowId,
       values: Seq[(SimpleValueColumn[_], Map[String, Option[_]])],
-      oldCell: Option[Cell[_]]
+      oldCell: Option[Cell[_]] = None
   )(implicit user: TableauxUser): Future[Unit] = {
 
     def wrapLanguageValue(langtag: String, value: Any): JsonObject = Json.obj("value" -> Json.obj(langtag -> value))
@@ -316,18 +318,11 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       .toSeq
 
     val oldCellJson = oldCell.map(_.getJson).getOrElse(Json.emptyObj())
-    val oldCellValueMap = oldCellJson match {
-      case null => Map.empty[String, Option[Any]]
-      case _ =>
-        oldCellJson.getJsonObject("value") match {
-          case null => Map.empty[String, Option[Any]]
-          case jsonObject =>
-            jsonObject.getMap.asScala.map({
-              case (langtag: String, value: Any) =>
-                langtag -> Option(value)
-            })
-        }
-    }
+    val oldCellValueMap = Option(oldCellJson.getJsonObject("value"))
+      .map(_.getMap.asScala.map {
+        case (langtag: String, value: Any) => langtag -> Option(value)
+      })
+      .getOrElse(Map.empty[String, Option[Any]])
 
     def atomicValueHasChanged(langtag: String, value: Option[Any]): Boolean = {
       if (oldCellValueMap.isEmpty) {
@@ -352,9 +347,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
             case (innerAccFut, (column: SimpleValueColumn[_], valueOpt)) =>
               innerAccFut.flatMap { _ =>
                 if (atomicValueHasChanged(langtag, valueOpt)) {
-                  logger.info(
-                    "value has changed: " + langtag + " " + column.id + " " + valueOpt + " oldCellValueMap: " + oldCellValueMap
-                  )
                   insertCellHistory(
                     table,
                     rowId,
@@ -364,9 +356,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
                     wrapLanguageValue(langtag, valueOpt.orNull)
                   ).map(_ => ())
                 } else {
-                  logger.info(
-                    "value has not changed: " + langtag + " " + column.id + " " + valueOpt + " oldCellValueMap: " + oldCellValueMap
-                  )
                   Future.successful(())
                 }
               }
@@ -678,7 +667,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       for {
         value <- retrieveCellValue(table, column, rowId, Option(langtag))
         _ <- value match {
-          case Some(v) => createTranslation(table, rowId, Seq((column, Map(langtag -> Option(v)))), None)
+          case Some(v) => createTranslation(table, rowId, Seq((column, Map(langtag -> Option(v)))))
           case None => Future.successful(())
         }
       } yield ()
@@ -897,8 +886,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(futureSequence)
   }
 
-  // oldCell makes sense only if we have a values sequence with a single cell
-  // in all other cases it defaults to None
   def createClearCell(table: Table, rowId: RowId, columns: Seq[ColumnType[_]], oldCell: Option[Cell[_]])(
       implicit user: TableauxUser
   ): Future[Unit] = {
@@ -933,8 +920,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(futureSequence)
   }
 
-  // oldCell makes sense only if we have a values sequence with a single cell
-  // in all other cases it defaults to None
   def createCells(table: Table, rowId: RowId, values: Seq[(ColumnType[_], _)], oldCell: Option[Cell[_]] = None)(
       implicit user: TableauxUser
   ): Future[Unit] = {

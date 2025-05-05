@@ -570,7 +570,7 @@ class TableauxController(
       _ <- repository.createHistoryModel.createCellsInit(table, rowId, Seq((column, uuid)))
       _ <- repository.attachmentModel.delete(Attachment(tableId, columnId, rowId, UUID.fromString(uuid), None))
       _ <- eventClient.invalidateCellValue(tableId, columnId, rowId)
-      _ <- repository.createHistoryModel.createCells(table, rowId, Seq((column, uuid)), None)
+      _ <- repository.createHistoryModel.createCells(table, rowId, Seq((column, uuid)))
     } yield EmptyObject()
   }
 
