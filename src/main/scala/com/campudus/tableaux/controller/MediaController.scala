@@ -2,7 +2,7 @@ package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownServerException}
 import com.campudus.tableaux.database.domain._
-import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel}
+import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel, StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
@@ -29,9 +29,10 @@ object MediaController {
       folderModel: FolderModel,
       fileModel: FileModel,
       attachmentModel: AttachmentModel,
-      roleModel: RoleModel
+      roleModel: RoleModel,
+      tableauxModel: TableauxModel
   ): MediaController = {
-    new MediaController(config, folderModel, fileModel, attachmentModel, roleModel: RoleModel)
+    new MediaController(config, folderModel, fileModel, attachmentModel, roleModel, tableauxModel)
   }
 }
 
@@ -40,7 +41,8 @@ class MediaController(
     override protected val repository: FolderModel,
     protected val fileModel: FileModel,
     protected val attachmentModel: AttachmentModel,
-    implicit protected val roleModel: RoleModel
+    implicit protected val roleModel: RoleModel,
+    protected val tableauxModel: TableauxModel
 ) extends Controller[FolderModel] {
 
   import MediaController.ROOT_FOLDER
@@ -410,5 +412,13 @@ class MediaController(
         case (tableId, columnId, rowId) => eventClient.invalidateCellValue(tableId, columnId, rowId)
       }))
     } yield ExtendedFile(mergedFile)
+  }
+
+  def retrieveFileDependentRows(uuid: UUID)(
+      implicit user: TableauxUser
+  ): Future[FileDependentRowsSeq] = {
+    logger.info(s"retrieveFileDependentRows $uuid")
+
+    tableauxModel.retrieveFileDependentRows(uuid)
   }
 }

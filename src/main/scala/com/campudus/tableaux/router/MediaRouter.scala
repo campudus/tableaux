@@ -41,6 +41,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
 
   private val file: String = s"/files/$uuidRegex"
   private val fileMerge: String = s"/files/$uuidRegex/merge"
+  private val fileDependentRows: String = s"/files/$uuidRegex/dependent"
   private val fileLang: String = s"/files/$uuidRegex/$langtagRegex"
   private val fileLangStatic: String = s"/files/$uuidRegex/$langtagRegex/.*"
 
@@ -51,6 +52,7 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
     router.get(folders).handler(retrieveRootFolder)
     router.getWithRegex(folder).handler(retrieveFolder)
     router.getWithRegex(file).handler(retrieveFile)
+    router.getWithRegex(fileDependentRows).handler(retrieveFileDependentRows)
     if (!config.isPublicFileServerEnabled) {
       router.getWithRegex(fileLangStatic).handler(serveFile)
     }
@@ -200,6 +202,23 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
         context,
         asyncGetReply {
           controller.retrieveFile(UUID.fromString(fileUuid)).map({ case (file, _) => file })
+        }
+      )
+    }
+  }
+
+  /**
+    * Retrieve file dependent rows
+    */
+  private def retrieveFileDependentRows(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    for {
+      fileUuid <- getUUID(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.retrieveFileDependentRows(UUID.fromString(fileUuid))
         }
       )
     }

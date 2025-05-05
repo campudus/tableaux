@@ -1701,4 +1701,65 @@ class TableauxModel(
       _ <- createHistoryModel.updateRowPermission(table, rowId, newRowPermissionsOpt)
     } yield ()
   }
+
+  def retrieveFileDependentRows(uuid: UUID)(
+      implicit user: TableauxUser
+  ): Future[FileDependentRowsSeq] = {
+    logger.info(s"retrieveFileDependentRows $uuid")
+
+    for {
+      cellsForFiles <- attachmentModel.retrieveCells(uuid)
+      result <- {
+        val futures = cellsForFiles.sortBy({
+          case (tableId, columnId, rowId) => (tableId, columnId, rowId)
+        }).map({
+          case (tableId, columnId, rowId) =>
+            for {
+              table <- retrieveTable(tableId, isInternalCall = true)
+              columns <- retrieveColumns(table, isInternalCall = true)
+              cell <- retrieveCell(columns.head, rowId, isInternalCall = true)
+            } yield {
+              val column = columns.find(_.id == columnId).getOrElse(columns.head)
+              val row = Row(
+                table,
+                rowId,
+                RowLevelAnnotations(false, false),
+                RowPermissions(Json.arr()),
+                CellLevelAnnotations(Seq(), Json.arr()),
+                Seq(cell.value)
+              )
+
+              (table, columns.head, Seq(FileDependentRow(column, row)))
+            }
+        })
+
+        Future.sequence(futures)
+      }
+    } yield {
+      val objects = result
+        .groupBy({ case (dependentTable, column, _) => (dependentTable, column) })
+        .map({
+          case ((groupedByTable, groupedByColumn), dependentRowInformation) =>
+            (
+              groupedByTable,
+              groupedByColumn,
+              dependentRowInformation
+                .flatMap({
+                  case (_, _, values) => values
+                })
+                .distinct
+            )
+        })
+        .filter({
+          case (_, _, values) => values.nonEmpty
+        })
+        .map({
+          case (groupedByTable, groupedByColumn, dependentRows) =>
+            FileDependentRows(groupedByTable, groupedByColumn, dependentRows)
+        })
+        .toSeq
+
+      FileDependentRowsSeq(objects)
+    }
+  }
 }

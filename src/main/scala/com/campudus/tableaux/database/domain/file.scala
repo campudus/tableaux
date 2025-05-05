@@ -17,7 +17,8 @@ case class TableauxFile(
     externalName: MultiLanguageValue[String],
     mimeType: MultiLanguageValue[String],
     createdAt: Option[DateTime],
-    updatedAt: Option[DateTime]
+    updatedAt: Option[DateTime],
+    dependentRowCount: Int = 0
 ) extends DomainObject {
 
   override def getJson: JsonObject = Json.obj(
@@ -30,7 +31,8 @@ case class TableauxFile(
     "externalName" -> externalName.getJson,
     "mimeType" -> mimeType.getJson,
     "createdAt" -> optionToString(createdAt),
-    "updatedAt" -> optionToString(updatedAt)
+    "updatedAt" -> optionToString(updatedAt),
+    "dependentRowCount" -> dependentRowCount
   )
 
   /**
@@ -62,6 +64,8 @@ case class TemporaryFile(file: TableauxFile) extends DomainObject {
   val createdAt: Option[DateTime] = _file.createdAt
   val updatedAt: Option[DateTime] = _file.updatedAt
 
+  val dependentRowCount: Int = _file.dependentRowCount
+
   override def getJson: JsonObject = Json.obj("tmp" -> true).mergeIn(_file.getJson)
 }
 
@@ -81,6 +85,8 @@ case class ExtendedFile(file: TableauxFile) extends DomainObject {
   val createdAt: Option[DateTime] = file.createdAt
   val updatedAt: Option[DateTime] = file.updatedAt
 
+  val dependentRowCount: Int = file.dependentRowCount
+
   override def getJson: JsonObject = Json.obj("url" -> getUrl.getJson).mergeIn(file.getJson)
 
   private def getUrl: MultiLanguageValue[String] = {
@@ -98,4 +104,30 @@ case class ExtendedFile(file: TableauxFile) extends DomainObject {
 
     MultiLanguageValue[String](urls)
   }
+}
+
+case class FileDependentRow(column: ColumnType[_], row: Row) extends DomainObject {
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      "row" -> compatibilityGet(row),
+      "toColumn" -> compatibilityGet(column)
+    )
+  }
+}
+
+case class FileDependentRows(table: Table, column: ColumnType[_], rows: Seq[FileDependentRow]) extends DomainObject {
+
+  override def getJson: JsonObject = {
+    Json.obj(
+      "table" -> table.getJson,
+      "column" -> compatibilityGet(column),
+      "rows" -> compatibilityGet(rows)
+    )
+  }
+}
+
+case class FileDependentRowsSeq(dependentRowsSeq: Seq[FileDependentRows]) extends DomainObject {
+
+  override def getJson: JsonObject = Json.obj("dependentRows" -> compatibilityGet(dependentRowsSeq))
 }
