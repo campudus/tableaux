@@ -1584,7 +1584,8 @@ class TableauxModel(
       columnId: ColumnId,
       rowId: RowId,
       langtagOpt: Option[String],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean
   )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
       _ <-
@@ -1599,7 +1600,7 @@ class TableauxModel(
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
-      cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt)
+      cellHistorySeq <- retrieveHistoryModel.retrieveCell(table, column, rowId, langtagOpt, typeOpt, includeDeleted)
     } yield cellHistorySeq
   }
 
@@ -1607,13 +1608,14 @@ class TableauxModel(
       table: Table,
       columnId: ColumnId,
       langtagOpt: Option[String],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean
   )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
       column <- retrieveColumn(table, columnId)
       _ <- checkColumnTypeForLangtag(column, langtagOpt)
       _ <- roleModel.checkAuthorization(ViewCellValue, ComparisonObjects(table, column))
-      columnHistorySeq <- retrieveHistoryModel.retrieveColumn(table, column, langtagOpt, typeOpt)
+      columnHistorySeq <- retrieveHistoryModel.retrieveColumn(table, column, langtagOpt, typeOpt, includeDeleted)
     } yield columnHistorySeq
   }
 
@@ -1621,7 +1623,8 @@ class TableauxModel(
       table: Table,
       rowId: RowId,
       langtagOpt: Option[String],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean
   )(implicit user: TableauxUser): Future[Seq[History]] = {
     for {
       _ <-
@@ -1634,17 +1637,17 @@ class TableauxModel(
           Future.successful(())
         }
       columns <- retrieveColumns(table)
-      cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt)
+      cellHistorySeq <- retrieveHistoryModel.retrieveRow(table, rowId, langtagOpt, typeOpt, includeDeleted)
       filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
     } yield filteredCellHistorySeq
   }
 
-  def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String])(
+  def retrieveTableHistory(table: Table, langtagOpt: Option[String], typeOpt: Option[String], includeDeleted: Boolean)(
       implicit user: TableauxUser
   ): Future[Seq[History]] = {
     for {
       columns <- retrieveColumns(table)
-      cellHistorySeq <- retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt)
+      cellHistorySeq <- retrieveHistoryModel.retrieveTable(table, langtagOpt, typeOpt, includeDeleted)
       filteredCellHistorySeq = filterCellHistoriesForColumns(cellHistorySeq, columns)
     } yield filteredCellHistorySeq
   }

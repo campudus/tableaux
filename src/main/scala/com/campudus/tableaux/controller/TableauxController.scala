@@ -624,14 +624,15 @@ class TableauxController(
       columnId: ColumnId,
       rowId: RowId,
       langtagOpt: Option[Langtag],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean = false
   )(implicit user: TableauxUser): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"), greaterZero(rowId))
     logger.info(s"retrieveCellHistory $tableId $columnId $rowId $langtagOpt $typeOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      historySequence <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, typeOpt)
+      historySequence <- repository.retrieveCellHistory(table, columnId, rowId, langtagOpt, typeOpt, includeDeleted)
     } yield SeqHistory(historySequence)
   }
 
@@ -639,14 +640,15 @@ class TableauxController(
       tableId: TableId,
       columnId: ColumnId,
       langtagOpt: Option[Langtag],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean = false
   )(implicit user: TableauxUser): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId), greaterThan(columnId, -1, "columnId"))
     logger.info(s"retrieveColumnHistory $tableId $columnId $langtagOpt $typeOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      historySequence <- repository.retrieveColumnHistory(table, columnId, langtagOpt, typeOpt)
+      historySequence <- repository.retrieveColumnHistory(table, columnId, langtagOpt, typeOpt, includeDeleted)
     } yield SeqHistory(historySequence)
   }
 
@@ -654,14 +656,15 @@ class TableauxController(
       tableId: TableId,
       rowId: RowId,
       langtagOpt: Option[Langtag],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean = false
   )(implicit user: TableauxUser): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId), greaterZero(rowId))
     logger.info(s"retrieveRowHistory $tableId $rowId $langtagOpt $typeOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      historySequence <- repository.retrieveRowHistory(table, rowId, langtagOpt, typeOpt)
+      historySequence <- repository.retrieveRowHistory(table, rowId, langtagOpt, typeOpt, includeDeleted)
     } yield {
       SeqHistory(historySequence)
     }
@@ -670,14 +673,15 @@ class TableauxController(
   def retrieveTableHistory(
       tableId: TableId,
       langtagOpt: Option[Langtag],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean = false
   )(implicit user: TableauxUser): Future[SeqHistory] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"retrieveTableHistory $tableId $typeOpt")
 
     for {
       table <- repository.retrieveTable(tableId)
-      historySequence <- repository.retrieveTableHistory(table, langtagOpt, typeOpt)
+      historySequence <- repository.retrieveTableHistory(table, langtagOpt, typeOpt, includeDeleted)
     } yield SeqHistory(historySequence)
   }
 

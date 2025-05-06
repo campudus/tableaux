@@ -181,6 +181,8 @@ class TableModel(val connection: DatabaseConnection)(
                            |   author VARCHAR(255),
                            |   timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
                            |   value JSON NULL,
+                           |   deleted_at timestamp without time zone,
+                           |
                            |   PRIMARY KEY (revision)
                            | )
            """.stripMargin)
