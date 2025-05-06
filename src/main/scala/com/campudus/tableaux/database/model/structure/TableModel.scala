@@ -69,15 +69,15 @@ class TableModel(val connection: DatabaseConnection)(
 
           (t, _) <- t.query(
             s"""
-               | CREATE TABLE user_table_$id (
-               |   id BIGSERIAL,
-               |   final BOOLEAN DEFAULT false,
-               |   archived BOOLEAN DEFAULT false,
-               |   row_permissions jsonb DEFAULT NULL,
-               |   replaced_ids jsonb DEFAULT NULL,
+               |CREATE TABLE user_table_$id (
+               |  id BIGSERIAL,
+               |  final BOOLEAN DEFAULT false,
+               |  archived BOOLEAN DEFAULT false,
+               |  row_permissions jsonb DEFAULT NULL,
+               |  replaced_ids jsonb DEFAULT NULL,
                |
-               |   PRIMARY KEY (id)
-               | )
+               |  PRIMARY KEY (id)
+               |)
             """.stripMargin
           )
           t <- createLanguageTable(t, id)
@@ -131,61 +131,74 @@ class TableModel(val connection: DatabaseConnection)(
 
   private def createLanguageTable(t: DbTransaction, id: TableId): Future[DbTransaction] = {
     for {
-      (t, _) <- t.query(s"""
-                           | CREATE TABLE user_table_lang_$id (
-                           |   id BIGINT,
-                           |   langtag VARCHAR(255),
-                           |
-                           |   PRIMARY KEY (id, langtag),
-                           |
-                           |   FOREIGN KEY(id)
-                           |   REFERENCES user_table_$id(id)
-                           |   ON DELETE CASCADE
-                           | )
-         """.stripMargin)
+      (t, _) <- t.query(
+        s"""
+           |CREATE TABLE user_table_lang_$id (
+           |  id BIGINT,
+           |  langtag VARCHAR(255),
+           |
+           |  PRIMARY KEY (id, langtag),
+           |
+           |  FOREIGN KEY(id)
+           |  REFERENCES user_table_$id(id)
+           |  ON DELETE CASCADE
+           |)
+         """.stripMargin
+      )
     } yield t
   }
 
   private def createCellAnnotationsTable(t: DbTransaction, id: TableId): Future[DbTransaction] = {
     for {
-      (t, _) <- t.query(s"""
-                           | CREATE TABLE user_table_annotations_$id (
-                           |   row_id BIGINT NOT NULL,
-                           |   column_id BIGINT NOT NULL,
-                           |   uuid UUID NOT NULL,
-                           |   langtags TEXT[] NOT NULL DEFAULT '{}'::text[],
-                           |   type VARCHAR(255) NOT NULL,
-                           |   value TEXT NULL,
-                           |   annotation_name TEXT NULL,
-                           |   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
-                           |
-                           |   PRIMARY KEY (row_id, column_id, uuid),
-                           |   FOREIGN KEY (row_id) REFERENCES user_table_$id (id) ON DELETE CASCADE,
-                           |   FOREIGN KEY (annotation_name) REFERENCES system_annotations (name) ON DELETE CASCADE ON UPDATE CASCADE
-                           | )
-         """.stripMargin)
+      (t, _) <- t.query(
+        s"""
+           |CREATE TABLE user_table_annotations_$id (
+           |  row_id BIGINT NOT NULL,
+           |  column_id BIGINT NOT NULL,
+           |  uuid UUID NOT NULL,
+           |  langtags TEXT[] NOT NULL DEFAULT '{}'::text[],
+           |  type VARCHAR(255) NOT NULL,
+           |  value TEXT NULL,
+           |  annotation_name TEXT NULL,
+           |  created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+           |
+           |  PRIMARY KEY (row_id, column_id, uuid),
+           |  FOREIGN KEY (row_id) REFERENCES user_table_$id (id) ON DELETE CASCADE,
+           |  FOREIGN KEY (annotation_name) REFERENCES system_annotations (name) ON DELETE CASCADE ON UPDATE CASCADE
+           |)
+         """.stripMargin
+      )
     } yield t
   }
 
   private def createHistoryTable(t: DbTransaction, id: TableId): Future[DbTransaction] = {
     for {
-      (t, _) <- t.query(s"""
-                           | CREATE TABLE user_table_history_$id (
-                           |   revision BIGSERIAL,
-                           |   row_id BIGINT NOT NULL,
-                           |   column_id BIGINT,
-                           |   event VARCHAR(255) NOT NULL DEFAULT 'cell_changed',
-                           |   history_type VARCHAR(255),
-                           |   value_type VARCHAR(255),
-                           |   language_type VARCHAR(255) DEFAULT 'neutral',
-                           |   author VARCHAR(255),
-                           |   timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
-                           |   value JSON NULL,
-                           |   deleted_at timestamp without time zone,
-                           |
-                           |   PRIMARY KEY (revision)
-                           | )
-           """.stripMargin)
+      (t, _) <- t.query(
+        s"""
+           |CREATE TABLE user_table_history_$id (
+           |  revision BIGSERIAL,
+           |  row_id BIGINT NOT NULL,
+           |  column_id BIGINT,
+           |  event VARCHAR(255) NOT NULL DEFAULT 'cell_changed',
+           |  history_type VARCHAR(255),
+           |  value_type VARCHAR(255),
+           |  language_type VARCHAR(255) DEFAULT 'neutral',
+           |  author VARCHAR(255),
+           |  timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+           |  value JSON NULL,
+           |  deleted_at timestamp without time zone,
+           |
+           |  PRIMARY KEY (revision)
+           |)
+           """.stripMargin
+      )
+      (t, _) <- t.query(
+        s"""
+           |CREATE INDEX idx_user_table_history_${id}_row_id ON user_table_history_${id}(row_id);
+           |CREATE INDEX idx_user_table_history_${id}_col_id ON user_table_history_${id}(column_id);
+           |CREATE INDEX idx_user_table_history_${id}_row_col_id ON user_table_history_${id}(row_id, column_id);
+           """.stripMargin
+      )
     } yield t
   }
 
