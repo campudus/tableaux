@@ -1356,6 +1356,9 @@
         },
         {
           "$ref": "#/parameters/historyType"
+        },
+        {
+          "$ref": "#/parameters/includeDeleted"
         }
       ],
       "get": {
@@ -1385,6 +1388,9 @@
         },
         {
           "$ref": "#/parameters/historyType"
+        },
+        {
+          "$ref": "#/parameters/includeDeleted"
         }
       ],
       "get": {
@@ -1414,6 +1420,9 @@
         },
         {
           "$ref": "#/parameters/historyType"
+        },
+        {
+          "$ref": "#/parameters/includeDeleted"
         }
       ],
       "get": {
@@ -1446,6 +1455,9 @@
         },
         {
           "$ref": "#/parameters/historyType"
+        },
+        {
+          "$ref": "#/parameters/includeDeleted"
         }
       ],
       "get": {
@@ -1475,6 +1487,9 @@
         },
         {
           "$ref": "#/parameters/historyType"
+        },
+        {
+          "$ref": "#/parameters/includeDeleted"
         }
       ],
       "get": {
@@ -1507,6 +1522,9 @@
         },
         {
           "$ref": "#/parameters/historyType"
+        },
+        {
+          "$ref": "#/parameters/includeDeleted"
         }
       ],
       "get": {
@@ -1539,6 +1557,9 @@
         },
         {
           "$ref": "#/parameters/historyType"
+        },
+        {
+          "$ref": "#/parameters/includeDeleted"
         }
       ],
       "get": {
@@ -1574,6 +1595,9 @@
         },
         {
           "$ref": "#/parameters/historyType"
+        },
+        {
+          "$ref": "#/parameters/includeDeleted"
         }
       ],
       "get": {
@@ -2946,7 +2970,8 @@
         "event",
         "historyType",
         "author",
-        "timestamp"
+        "timestamp",
+        "deletedAt"
       ],
       "properties": {
         "author": {
@@ -2958,6 +2983,11 @@
           "description": "The id of the column",
           "type": "integer",
           "example": 1
+        },
+        "deletedAt": {
+          "description": "Timestamp of the deletion",
+          "type": "string",
+          "example": "2025-05-06T11:42:00+01:00"
         },
         "event": {
           "description": "The event of the change",
@@ -4771,6 +4801,15 @@
       "required": true,
       "type": "string",
       "example": "postpone"
+    },
+    "includeDeleted": {
+      "name": "includeDeleted",
+      "description": "Filter to include deleted entities. (default: false)",
+      "in": "query",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "example": true
     }
   },
   "responses": {
