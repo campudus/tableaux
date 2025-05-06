@@ -24,9 +24,10 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       column: ColumnType[_],
       rowId: RowId,
       langtagOpt: Option[String],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean
   ): Future[Seq[History]] = {
-    val (where, binds) = generateWhereAndBinds(Some(column.id), Some(rowId), langtagOpt, typeOpt)
+    val (where, binds) = generateWhereAndBinds(Some(column.id), Some(rowId), langtagOpt, typeOpt, includeDeleted)
     retrieve(table, where, binds)
   }
 
@@ -34,9 +35,10 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       table: Table,
       column: ColumnType[_],
       langtagOpt: Option[String],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean
   ): Future[Seq[History]] = {
-    val (where, binds) = generateWhereAndBinds(Some(column.id), None, langtagOpt, typeOpt, true)
+    val (where, binds) = generateWhereAndBinds(Some(column.id), None, langtagOpt, typeOpt, includeDeleted, true)
     retrieve(table, where, binds)
   }
 
@@ -44,18 +46,20 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       table: Table,
       rowId: RowId,
       langtagOpt: Option[String],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean
   ): Future[Seq[History]] = {
-    val (where, binds) = generateWhereAndBinds(None, Some(rowId), langtagOpt, typeOpt)
+    val (where, binds) = generateWhereAndBinds(None, Some(rowId), langtagOpt, typeOpt, includeDeleted)
     retrieve(table, where, binds)
   }
 
   def retrieveTable(
       table: Table,
       langtagOpt: Option[String],
-      typeOpt: Option[String]
+      typeOpt: Option[String],
+      includeDeleted: Boolean
   ): Future[Seq[History]] = {
-    val (where, binds) = generateWhereAndBinds(None, None, langtagOpt, typeOpt)
+    val (where, binds) = generateWhereAndBinds(None, None, langtagOpt, typeOpt, includeDeleted)
     retrieve(table, where, binds)
   }
 
@@ -71,7 +75,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       LanguageType(Option(row.getString(6))),
       row.getString(7),
       convertStringToDateTime(row.getString(8)),
-      JsonUtils.parseJson(row.getString(9))
+      JsonUtils.parseJson(row.getString(9)),
+      convertStringToDateTime(row.getString(10))
     )
   }
 
@@ -88,7 +93,8 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
          |  language_type,
          |  author,
          |  timestamp,
-         |  value
+         |  value,
+         |  deleted_at
          |FROM
          |  user_table_history_${table.id}
          |WHERE
@@ -111,15 +117,15 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
       rowIdOpt: Option[RowId],
       langtagOpt: Option[String],
       typeOpt: Option[String],
+      includeDeleted: Boolean,
       isStrictColumnId: Boolean = false
   ): (String, Seq[Any]) = {
-    val whereColumnId: Option[(String, ColumnId)] = isStrictColumnId match {
-      case true => columnIdOpt.map((s" AND column_id = ?", _))
-      case false => columnIdOpt.map((s" AND (column_id = ? OR column_id IS NULL)", _))
+    val whereColumnId: Option[(String, Option[ColumnId])] = isStrictColumnId match {
+      case true => columnIdOpt.map(c => (s" AND column_id = ?", Some(c)))
+      case false => columnIdOpt.map(c => (s" AND (column_id = ? OR column_id IS NULL)", Some(c)))
     }
-    val whereRowId: Option[(String, RowId)] = rowIdOpt.map((s" AND row_id = ?", _))
-
-    val whereLangtag: Option[(String, String)] = langtagOpt.map(
+    val whereRowId: Option[(String, Option[RowId])] = rowIdOpt.map(r => (s" AND row_id = ?", Some(r)))
+    val whereLangtag: Option[(String, Option[String])] = langtagOpt.map(l =>
       (
         s"""
            |AND (
@@ -128,19 +134,28 @@ case class RetrieveHistoryModel(protected[this] val connection: DatabaseConnecti
            |  (language_type = 'language' AND (value -> 'value' -> ?)::json IS NOT NULL)
            |)
          """.stripMargin,
-        _
+        Some(l)
       )
     )
-
-    val whereType: Option[(String, String)] = typeOpt.map((s" AND history_type = ?", _))
-
-    val opts: List[Option[(String, Any)]] = List(whereColumnId, whereRowId, whereLangtag, whereType)
+    val whereType: Option[(String, Option[String])] = typeOpt.map(t => (s" AND history_type = ?", Some(t)))
+    val whereIncludeDeleted: Option[(String, Option[_])] = includeDeleted match {
+      case true => None
+      case false => Some(s" AND deleted_at IS NULL", None)
+    }
+    val opts: List[Option[(String, Option[Any])]] =
+      List(whereColumnId, whereRowId, whereLangtag, whereType, whereIncludeDeleted)
 
     opts.foldLeft(("", Seq.empty[Any])) { (acc, op) =>
       {
         val (foldWhere, foldBind) = acc
         op match {
-          case Some((where, bind: Any)) => (s"$foldWhere $where", foldBind :+ bind)
+          case Some((where, bind: Option[Any])) => (
+              s"$foldWhere $where",
+              bind match {
+                case Some(b) => foldBind :+ b
+                case None => foldBind
+              }
+            )
           case None => acc
         }
       }

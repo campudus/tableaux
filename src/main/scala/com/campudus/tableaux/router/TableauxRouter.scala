@@ -411,11 +411,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       columnId <- getColumnId(context)
       rowId <- getRowId(context)
       typeOpt = getStringParam("historyType", context)
+      includeDeleted = getBoolParam("includeDeleted", context).getOrElse(false)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveCellHistory(tableId, columnId, rowId, None, typeOpt)
+          controller.retrieveCellHistory(tableId, columnId, rowId, None, typeOpt, includeDeleted)
         }
       )
     }
@@ -432,11 +433,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       rowId <- getRowId(context)
       langtag <- getLangtag(context)
       typeOpt = getStringParam("historyType", context)
+      includeDeleted = getBoolParam("includeDeleted", context).getOrElse(false)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveCellHistory(tableId, columnId, rowId, Some(langtag), typeOpt)
+          controller.retrieveCellHistory(tableId, columnId, rowId, Some(langtag), typeOpt, includeDeleted)
         }
       )
     }
@@ -451,11 +453,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       tableId <- getTableId(context)
       columnId <- getColumnId(context)
       typeOpt = getStringParam("historyType", context)
+      includeDeleted = getBoolParam("includeDeleted", context).getOrElse(false)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveColumnHistory(tableId, columnId, None, typeOpt)
+          controller.retrieveColumnHistory(tableId, columnId, None, typeOpt, includeDeleted)
         }
       )
     }
@@ -471,11 +474,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       columnId <- getColumnId(context)
       langtag <- getLangtag(context)
       typeOpt = getStringParam("historyType", context)
+      includeDeleted = getBoolParam("includeDeleted", context).getOrElse(false)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveColumnHistory(tableId, columnId, Some(langtag), typeOpt)
+          controller.retrieveColumnHistory(tableId, columnId, Some(langtag), typeOpt, includeDeleted)
         }
       )
     }
@@ -490,11 +494,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       tableId <- getTableId(context)
       rowId <- getRowId(context)
       typeOpt = getStringParam("historyType", context)
+      includeDeleted = getBoolParam("includeDeleted", context).getOrElse(false)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveRowHistory(tableId, rowId, None, typeOpt)
+          controller.retrieveRowHistory(tableId, rowId, None, typeOpt, includeDeleted)
         }
       )
     }
@@ -510,11 +515,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       rowId <- getRowId(context)
       langtag <- getLangtag(context)
       typeOpt = getStringParam("historyType", context)
+      includeDeleted = getBoolParam("includeDeleted", context).getOrElse(false)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveRowHistory(tableId, rowId, Some(langtag), typeOpt)
+          controller.retrieveRowHistory(tableId, rowId, Some(langtag), typeOpt, includeDeleted)
         }
       )
     }
@@ -528,11 +534,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     for {
       tableId <- getTableId(context)
       typeOpt = getStringParam("historyType", context)
+      includeDeleted = getBoolParam("includeDeleted", context).getOrElse(false)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveTableHistory(tableId, None, typeOpt)
+          controller.retrieveTableHistory(tableId, None, typeOpt, includeDeleted)
         }
       )
     }
@@ -547,11 +554,12 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       tableId <- getTableId(context)
       langtag <- getLangtag(context)
       typeOpt = getStringParam("historyType", context)
+      includeDeleted = getBoolParam("includeDeleted", context).getOrElse(false)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.retrieveTableHistory(tableId, Some(langtag), typeOpt)
+          controller.retrieveTableHistory(tableId, Some(langtag), typeOpt, includeDeleted)
         }
       )
     }

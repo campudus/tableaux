@@ -25,9 +25,10 @@ object History {
       languageType: LanguageType,
       author: String,
       timestamp: Option[DateTime],
-      value: JsonObject
+      value: JsonObject,
+      deletedAt: Option[DateTime]
   ): History = {
-    val baseHistory = BaseHistory(revision, rowId, event, historyType, author, timestamp)
+    val baseHistory = BaseHistory(revision, rowId, event, historyType, author, timestamp, deletedAt)
     historyType match {
       case HistoryTypeCell | HistoryTypeCellComment =>
         CellHistory(baseHistory, columnId, valueType, languageType, value)
@@ -46,7 +47,8 @@ case class BaseHistory(
     event: String,
     historyType: HistoryType,
     author: String,
-    timestamp: Option[DateTime]
+    timestamp: Option[DateTime],
+    deletedAt: Option[DateTime]
 ) extends History {
 
   override def getJson: JsonObject = {
@@ -56,7 +58,8 @@ case class BaseHistory(
       "event" -> event,
       "historyType" -> historyType.toString,
       "author" -> author,
-      "timestamp" -> optionToString(timestamp)
+      "timestamp" -> optionToString(timestamp),
+      "deletedAt" -> optionToString(deletedAt)
     )
   }
 
