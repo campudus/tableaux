@@ -165,29 +165,35 @@ class RetrieveHistoryTest extends TableauxTestBase {
     }
   }
 
+  def createDefaultHistoryTable(dbConnection: DatabaseConnection) =
+    for {
+      _ <- createEmptyDefaultTable()
+      res <- dbConnection.query(
+        """INSERT INTO
+          |  user_table_history_1
+          |  (row_id, column_id, event, history_type, value_type, language_type, value, deleted_at)
+          |VALUES
+          |  (1, null, 'row_created',  'row',    null,     null,       null,                           null),
+          |  (1, 1,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change2"}}', null),
+          |  (1, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change3"}}', null),
+          |  (2, null, 'row_created',  'row',    null,     null,       null,                           null),
+          |  (2, 1,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change5"}}', null),
+          |  (2, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change6"}}', null),
+          |  (3, null, 'row_created',  'row',    null,     null,       null,                           now()),
+          |  (3, 1,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change7"}}', now()),
+          |  (3, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change8"}}', now())
+          |  """.stripMargin
+      )
+    } yield res
+
   @Test
-  def retrieveTableHistory(implicit c: TestContext): Unit = {
+  def retrieveTableHistory_includeDeletedFalse(implicit c: TestContext): Unit = {
     okTest {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
       for {
-        _ <- createEmptyDefaultTable()
-
-        // manually insert rows
-        _ <- dbConnection.query(
-          """INSERT INTO
-            |  user_table_history_1
-            |  (row_id, column_id, event, history_type, value_type, language_type, value)
-            |VALUES
-            |  (1, null, 'row_created',  'row',    null,     null,       null),
-            |  (1, 1,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change2"}}'),
-            |  (1, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change3"}}'),
-            |  (2, null, 'row_created',  'row',    null,     null,       null),
-            |  (2, 1,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change5"}}'),
-            |  (2, 2,    'cell_changed', 'cell',  'numeric', 'language', '{"value": {"de": "change6"}}')
-            |  """.stripMargin
-        )
+        _ <- createDefaultHistoryTable(dbConnection)
 
         allRows <- sendRequest("GET", "/tables/1/history").map(_.getJsonArray("rows"))
         createdRows <- sendRequest("GET", "/tables/1/history?historyType=row").map(_.getJsonArray("rows"))
@@ -196,6 +202,28 @@ class RetrieveHistoryTest extends TableauxTestBase {
         assertEquals(6, allRows.size())
         assertEquals(2, createdRows.size())
         assertEquals(4, changedCells.size())
+      }
+    }
+  }
+
+  @Test
+  def retrieveTableHistory_includeDeletedTrue(implicit c: TestContext): Unit = {
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      for {
+        _ <- createDefaultHistoryTable(dbConnection)
+
+        allRows <- sendRequest("GET", "/tables/1/history?includeDeleted=true").map(_.getJsonArray("rows"))
+        createdRows <-
+          sendRequest("GET", "/tables/1/history?historyType=row&includeDeleted=true").map(_.getJsonArray("rows"))
+        changedCells <-
+          sendRequest("GET", "/tables/1/history?historyType=cell&includeDeleted=true").map(_.getJsonArray("rows"))
+      } yield {
+        assertEquals(9, allRows.size())
+        assertEquals(3, createdRows.size())
+        assertEquals(6, changedCells.size())
       }
     }
   }
