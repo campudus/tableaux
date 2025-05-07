@@ -296,7 +296,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     Future.sequence(linkedCellSeq)
   }
 
-  // oldCell makes only sense if we have a values sequence with a single cell
+  // oldCell only makes sense if we have a values sequence with a single cell
   // in all other cases it defaults to None
   private def createTranslation(
       table: Table,
