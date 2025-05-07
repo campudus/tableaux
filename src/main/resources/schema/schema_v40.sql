@@ -57,3 +57,20 @@ $$ LANGUAGE plpgsql;
 
 SELECT add_indexes_to_history_table(table_id) FROM system_table;
 DROP FUNCTION add_indexes_to_history_table( BIGINT );
+
+CREATE OR REPLACE FUNCTION migrate_json_to_jsonb(tableid BIGINT)
+  RETURNS TEXT AS $$
+DECLARE
+  tablename TEXT := 'user_table_history_' || tableid;
+
+BEGIN
+  EXECUTE FORMAT($f$
+    ALTER TABLE %I ALTER COLUMN value TYPE jsonb USING value::jsonb
+  $f$, tablename);
+
+  RETURN tablename;
+END
+$$ LANGUAGE plpgsql;
+
+SELECT migrate_json_to_jsonb(table_id) FROM system_table;
+DROP FUNCTION migrate_json_to_jsonb( BIGINT );

@@ -185,7 +185,7 @@ class TableModel(val connection: DatabaseConnection)(
            |  language_type VARCHAR(255) DEFAULT 'neutral',
            |  author VARCHAR(255),
            |  timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
-           |  value JSON NULL,
+           |  value JSONB,
            |  deleted_at timestamp without time zone,
            |
            |  PRIMARY KEY (revision)
