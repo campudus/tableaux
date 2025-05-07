@@ -52,15 +52,19 @@ case class BaseHistory(
 ) extends History {
 
   override def getJson: JsonObject = {
+    val deletedAtJson = optionToString(deletedAt) match {
+      case null => Json.emptyObj()
+      case v => Json.obj("deletedAt" -> v)
+    }
+
     Json.obj(
       "revision" -> revision,
       "rowId" -> rowId,
       "event" -> event,
       "historyType" -> historyType.toString,
       "author" -> author,
-      "timestamp" -> optionToString(timestamp),
-      "deletedAt" -> optionToString(deletedAt)
-    )
+      "timestamp" -> optionToString(timestamp)
+    ).mergeIn(deletedAtJson)
   }
 
   override val columnIdOpt: Option[ColumnId] = None

@@ -202,6 +202,9 @@ class RetrieveHistoryTest extends TableauxTestBase {
         assertEquals(6, allRows.size())
         assertEquals(2, createdRows.size())
         assertEquals(4, changedCells.size())
+
+        val deletedRowResult = createdRows.getJsonObject(0)
+        assertFalse(deletedRowResult.containsKey("deletedAt"))
       }
     }
   }
@@ -224,6 +227,22 @@ class RetrieveHistoryTest extends TableauxTestBase {
         assertEquals(9, allRows.size())
         assertEquals(3, createdRows.size())
         assertEquals(6, changedCells.size())
+
+        val deletedRowResult = createdRows.getJsonObject(2)
+        assertJSONEquals(
+          """
+            |{
+            |  "revision": 7,
+            |  "rowId": 3,
+            |  "event": "row_created",
+            |  "historyType": "row",
+            |}
+          """.stripMargin,
+          deletedRowResult,
+          JSONCompareMode.LENIENT
+        )
+        assertTrue(deletedRowResult.containsKey("deletedAt"))
+        assertNotNull(deletedRowResult.getString("deletedAt"))
       }
     }
   }
