@@ -301,6 +301,56 @@
         }
       }
     },
+    "/files/{fileuuid}/{langtag}/{filename}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/fileuuid"
+        },
+        {
+          "name": "filename",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "langtag",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "get": {
+        "summary": "Get file",
+        "description": "Gets a language specific file for this file handle.",
+        "tags": [
+          "media"
+        ],
+        "operationId": "get-file",
+        "parameters": [
+          {
+            "name": "width",
+            "description": "Target width for image resizing.",
+            "in": "query",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          },
+          "400": {
+            "description": "If a width is specified and the mimeType of the source file is not supported for resizing, this error is thrown."
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
+          }
+        }
+      }
+    },
     "/folders": {
       "get": {
         "summary": "Get root folder",

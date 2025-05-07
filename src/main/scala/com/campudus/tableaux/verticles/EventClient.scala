@@ -13,6 +13,9 @@ import io.vertx.scala.core.eventbus.DeliveryOptions
 import org.vertx.scala.core.json._
 
 import scala.concurrent.Future
+import scala.reflect.io.Path
+
+import java.util.UUID
 
 object EventClient {
   val ADDRESS_CELL_CHANGED = "cell.changed"
@@ -28,6 +31,7 @@ object EventClient {
   val ADDRESS_ROW_ANNOTATION_CHANGED = "row.annotation.changed"
   val ADDRESS_CELL_ANNOTATION_CHANGED = "cell.annotation.changed"
   val ADDRESS_FILE_CHANGED = "file.changed"
+  val ADDRESS_THUMBNAIL_RETRIEVE = "thumbnail.retrieve"
 
   // json
   val ADDRESS_JSON_SCHEMA_VALIDATE = "json.schema.validate"
@@ -147,6 +151,14 @@ class EventClient(val vertx: Vertx) extends VertxAccess {
     val message = oldFile.getJson
 
     sendMessage(ADDRESS_FILE_CHANGED, message)
+  }
+
+  def retrieveThumbnailPath(fileUuid: UUID, langtag: String, width: Int, timeout: Int): Future[Path] = {
+    val message = Json.obj("uuid" -> fileUuid.toString, "langtag" -> langtag, "width" -> width)
+    val thumbnailOptions = DeliveryOptions().setSendTimeout(timeout)
+
+    eventBus
+      .sendFuture[String](ADDRESS_THUMBNAIL_RETRIEVE, message, thumbnailOptions).map(message => Path(message.body()))
   }
 
   def validateJson(key: String, json: JsonObject): Future[Unit] = {

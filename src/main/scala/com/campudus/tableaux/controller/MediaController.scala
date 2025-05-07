@@ -4,10 +4,12 @@ import com.campudus.tableaux.{InvalidRequestException, TableauxConfig, UnknownSe
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.{AttachmentModel, FileModel, FolderModel, StructureModel, TableauxModel}
 import com.campudus.tableaux.database.model.FolderModel.FolderId
+import com.campudus.tableaux.router.RouterException
 import com.campudus.tableaux.router.UploadAction
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
+import io.vertx.core.eventbus.{ReplyException, ReplyFailure}
 import io.vertx.scala.FutureHelper._
 import io.vertx.scala.ext.web.RoutingContext
 
@@ -282,6 +284,30 @@ class MediaController(
 
         (ExtendedFile(f), filePaths)
       }
+    }
+  }
+
+  def retrieveThumbnailPath(uuid: UUID, langtag: String, width: Int): Future[Path] = {
+    val timeout = Option(config.thumbnailsConfig.getInteger("timeout")).map(_.intValue).getOrElse(10000);
+    val context = s"(uuid: ${uuid.toString}, langtag: $langtag, width: ${width.toString})"
+
+    width match {
+      case w if w <= 0 =>
+        logger.error(s"Invalid thumbnail request $context: width must be positive")
+        Future.failed(InvalidRequestException(s"Invalid thumbnail request: width must be positive"))
+      case _ => eventClient.retrieveThumbnailPath(uuid, langtag, width, timeout).recoverWith({
+          case ex: ReplyException if ex.failureCode() == 400 =>
+            logger.error(s"Invalid thumbnail request $context: ${ex.getMessage}", ex)
+            Future.failed(InvalidRequestException(s"Invalid thumbnail request: ${ex.getMessage}"))
+
+          case ex: ReplyException if ex.failureType() == ReplyFailure.TIMEOUT =>
+            logger.error(s"Thumbnail request timed out $context: ${ex.getMessage}", ex)
+            Future.failed(UnknownServerException("Thumbnail request timed out"))
+
+          case ex: Throwable =>
+            logger.error(s"Unexpected error retrieving thumbnail $context: ${ex.getMessage}", ex)
+            Future.failed(UnknownServerException("Unexpected error retrieving thumbnail"))
+        })
     }
   }
 

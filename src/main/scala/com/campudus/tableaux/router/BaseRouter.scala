@@ -162,6 +162,10 @@ trait BaseRouter extends VertxAccess {
     context.queryParams().get(name).map(_.toBoolean)
   }
 
+  def getIntQuery(name: String, context: RoutingContext): Option[Int] = {
+    context.queryParams().get(name).map(_.toInt)
+  }
+
   def getStringParam(name: String, context: RoutingContext): Option[String] = {
     context.request().getParam(name)
   }
@@ -256,6 +260,11 @@ trait BaseRouter extends VertxAccess {
         resp.setStatusMessage("OK")
         resp.putHeader("Content-type", contentType)
         resp.end(string)
+      case OkBuffer(buffer, contentType) =>
+        resp.setStatusCode(200)
+        resp.setStatusMessage("OK")
+        resp.putHeader("Content-type", contentType)
+        resp.end(buffer)
       case Ok(js) =>
         resp.setStatusCode(200)
         resp.setStatusMessage("OK")
@@ -350,6 +359,7 @@ trait BaseRouter extends VertxAccess {
         future.onComplete {
           case Success(r) => sendReply(context, r)
           case Failure(x: RouterException) => endResponse(req.response(), errorReplyFromException(x))
+          case Failure(x: CustomException) => endResponse(req.response(), Error(x.toRouterException))
           case Failure(x: Throwable) => endResponse(req.response(), Error(routerException(x)))
         }
       case SetCookie(key, value, nextReply) =>

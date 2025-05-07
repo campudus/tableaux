@@ -4,15 +4,20 @@ import com.campudus.tableaux.ArgumentChecker._
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.MediaController
 import com.campudus.tableaux.database.domain.{DomainObject, MultiLanguageValue}
-import com.campudus.tableaux.helper.{AsyncReply, Header, SendFile}
+import com.campudus.tableaux.helper.{AsyncReply, Error, Header, OkBuffer, SendFile}
+import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 
+import io.vertx.core.buffer.Buffer
 import io.vertx.scala.core.http.{HttpServerFileUpload, HttpServerRequest}
 import io.vertx.scala.ext.web.{Router, RoutingContext}
 import io.vertx.scala.ext.web.handler.BodyHandler
+import org.vertx.scala.core.json.Json
 
 import scala.concurrent.{Future, Promise}
 
+import java.awt.image.BufferedImage
+import java.io.{ByteArrayOutputStream, File, IOException}
 import java.util.UUID
 
 sealed trait FileAction
@@ -225,22 +230,29 @@ class MediaRouter(override val config: TableauxConfig, val controller: MediaCont
   }
 
   private def serveFile(context: RoutingContext): Unit = {
+    val isWorkingDirectoryAbsolute = config.isWorkingDirectoryAbsolute
+    val thumbnailWidth = getIntQuery("width", context)
+
     for {
-      fileUuid <- getUUID(context)
+      uuid <- getUUID(context)
+      fileUUid = UUID.fromString(uuid)
       langtag <- getLangtag(context)
     } yield {
       sendReply(
         context,
         AsyncReply {
           for {
-            (file, paths) <- controller.retrieveFile(UUID.fromString(fileUuid))
+            (file, filePaths) <- controller.retrieveFile(fileUUid)
+            path <- thumbnailWidth match {
+              case Some(width) => controller.retrieveThumbnailPath(fileUUid, langtag, width)
+              case _ => Future.successful(filePaths(langtag))
+            }
+            mimeType = thumbnailWidth match {
+              case Some(width) => "image/png"
+              case _ => file.mimeType.get(langtag).getOrElse("")
+            }
           } yield {
-            val absolute = config.isWorkingDirectoryAbsolute
-
-            val mimeType = file.file.mimeType.get(langtag)
-            val path = paths(langtag)
-
-            Header("Content-type", mimeType.get, SendFile(path.toString(), absolute))
+            Header("Content-type", mimeType, SendFile(path.toString(), isWorkingDirectoryAbsolute))
           }
         }
       )

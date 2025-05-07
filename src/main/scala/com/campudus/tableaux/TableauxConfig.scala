@@ -12,6 +12,7 @@ class TableauxConfig(
     val authConfig: JsonObject,
     val databaseConfig: JsonObject,
     val cdnConfig: JsonObject,
+    val thumbnailsConfig: JsonObject,
     val workingDirectory: String,
     val uploadsDirectory: String,
     val rolePermissions: JsonObject,
@@ -22,6 +23,10 @@ class TableauxConfig(
 
   def uploadsDirectoryPath(): Path = {
     retrievePath(uploadsDirectory)
+  }
+
+  def thumbnailsDirectoryPath(): Path = {
+    uploadsDirectoryPath / Path("thumbnails/")
   }
 
   def retrievePath(subpath: String): Path = {

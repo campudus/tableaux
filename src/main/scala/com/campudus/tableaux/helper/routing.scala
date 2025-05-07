@@ -2,6 +2,7 @@ package com.campudus.tableaux.helper
 
 import com.campudus.tableaux.router.RouterException
 
+import io.vertx.core.buffer.Buffer
 import io.vertx.lang.scala.json.JsonObject
 
 import scala.concurrent.Future
@@ -15,6 +16,8 @@ case object NoBody extends SyncReply
 case class Ok(json: JsonObject) extends SyncReply
 
 case class OkString(string: String, contentType: String = "application/json") extends SyncReply
+
+case class OkBuffer(buffer: Buffer, contentType: String = "image/png") extends SyncReply
 
 case class SendFile(file: String, absolute: Boolean = false) extends SyncReply
 
