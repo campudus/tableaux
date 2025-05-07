@@ -35,13 +35,13 @@ trait TestAssertionHelper {
     assertEquals(indices.length, indices.distinct.length)
   }
 
-  def assertJSONEquals[T: JsonAssertable](
+  def assertJSONEquals[T: JsonAssertable, U: JsonAssertable](
       expected: T,
-      actual: T,
+      actual: U,
       compareMode: JSONCompareMode = JSONCompareMode.LENIENT
   ) {
     val expectedString = implicitly[JsonAssertable[T]].serialize(expected)
-    val actualString = implicitly[JsonAssertable[T]].serialize(actual)
+    val actualString = implicitly[JsonAssertable[U]].serialize(actual)
 
     JSONAssert.assertEquals(expectedString, actualString, compareMode)
   }
