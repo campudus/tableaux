@@ -483,4 +483,27 @@ object JsonUtils extends LazyLogging {
     jsonArray.asScala.map(_.asInstanceOf[A]).toSeq
   }
 
+  /**
+    * Helper to reject non-changes between two maps. The base map is always the new map.
+    *
+    * @param newMap
+    *   The new map to compare against the old map.
+    * @param oldMap
+    *   The original map.
+    * @return
+    *   A map containing only the entries that have changed.
+    */
+  def rejectNonChanges(
+      newMap: Map[String, Option[Any]],
+      oldMap: Map[String, Option[Any]]
+  ): Map[String, Option[Any]] = {
+    newMap.foldLeft(Map.empty[String, Option[Any]]) {
+      case (acc, (langtag, newValue)) =>
+        oldMap.get(langtag) match {
+          case Some(oldValue) if oldValue == newValue => acc
+          case _ => acc + (langtag -> newValue)
+        }
+    }
+  }
+
 }
