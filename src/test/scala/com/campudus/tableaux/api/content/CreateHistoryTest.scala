@@ -1472,8 +1472,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
-      val initialValueDE = """{ "value": { "de-DE": "de-DE init" } }"""
-      val initialValueEN = """{ "value": { "en-GB": "en-GB init" } }"""
+      val initialValue = """{ "value": { "de-DE": "de-DE init", "en-GB": "en-GB init" } }"""
       val change1 = """{ "value": { "de-DE": "de-DE first change" } }"""
       val change2 = """{ "value": { "de-DE": "de-DE second change" } }"""
       val change3 = """{ "value": { "en-GB": "en-GB first change" } }"""
@@ -1494,17 +1493,15 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change3)
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
 
-        initialHistoryDE = rows.getJsonObject(0)
+        initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
-        initialHistoryEN = rows.getJsonObject(3)
-        history3 = rows.getJsonObject(4)
+        history3 = rows.getJsonObject(3)
       } yield {
-        JSONAssert.assertEquals(initialValueDE, initialHistoryDE.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(change1, history1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(change2, history2.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(initialValueEN, initialHistoryEN.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(change3, history3.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(initialValue, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(change1, history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(change2, history2, JSONCompareMode.LENIENT)
+        assertJSONEquals(change3, history3, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1551,10 +1548,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
       val expectedValues =
         """[
-          |  {"value": {"DE": 11}},
-          |  {"value": {"GB": 22}},
-          |  {"value": {"DE": 33}},
-          |  {"value": {"GB": 44}}
+          |  {"value": {"DE": 11, "GB": 22}},
+          |  {"value": {"DE": 33, "GB": 44}}
           |]""".stripMargin
 
       val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB"))
