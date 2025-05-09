@@ -506,4 +506,11 @@ object JsonUtils extends LazyLogging {
     }
   }
 
+  def multiLangValueToMap(valueJson: JsonObject): Map[String, Option[Any]] = {
+    Option(valueJson)
+      .map(_.getMap.asScala.toMap.map {
+        case (langtag: String, value: Any) => langtag -> Option(value)
+      })
+      .getOrElse(Map.empty[String, Option[Any]])
+  }
 }

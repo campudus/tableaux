@@ -321,11 +321,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   )(implicit user: TableauxUser): Future[Unit] = {
 
     val oldCellJson = oldCell.map(_.getJson).getOrElse(Json.emptyObj())
-    val oldCellValueMap = Option(oldCellJson.getJsonObject("value"))
-      .map(_.getMap.asScala.map {
-        case (langtag: String, value: Any) => langtag -> Option(value)
-      })
-      .getOrElse(Map.empty[String, Option[Any]])
+    val oldCellValueMap = JsonUtils.multiLangValueToMap(oldCellJson)
 
     values.foldLeft(Future.successful(())) {
       case (accFut, (column, value)) =>
@@ -520,26 +516,34 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       implicit user: TableauxUser
   ): Future[Unit] = {
     val columns = values.map({ case (col: ColumnType[_], _) => col })
-    val (simples, _, links, attachments) = ColumnType.splitIntoTypes(columns)
+    val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
-    ColumnType.splitIntoTypesWithValues(values) match {
-      case Failure(ex) =>
-        Future.failed(ex)
+    // ColumnType.splitIntoTypesWithValues(values) match {
+    //   case Failure(ex) =>
+    //     Future.failed(ex)
 
-      case Success((_, multis, _, _)) =>
-        // for changes on multi language cells create init values only for langtags to be changed
-        val langtagColumns = for {
-          (column, langtags) <- multis
-          langtagSeq = langtags.toSeq.map({ case (langtag, _) => langtag })
-        } yield (langtagSeq, column)
+    // case Success((_, multis, _, _)) =>
+    // for changes on multi language cells create init values only for langtags to be changed
+    // val langtagColumns2 = for {
+    //   (column, langtags) <- multis
+    //   langtagSeq = langtags.toSeq.map({ case (langtag, _) => langtag })
+    // } yield (column, langtagSeq)
+    // val langtagColumns = for {
+    //   (column, langtags) <- multis
+    //   langtagSeq = langtags.toSeq.map({ case (langtag, _) => langtag })
+    // } yield (langtagSeq, column)
 
-        for {
-          _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
-          _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, langtagColumns)
-          _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links)
-          _ <- if (attachments.isEmpty) Future.successful(()) else createAttachmentsInit(table, rowId, attachments)
-        } yield ()
-    }
+    // logger.info(s"createCellsInit langtagColumns2: ${langtagColumns2}")
+    // logger.info(s"createCellsInit langtagColumns: ${langtagColumns}")
+    // // createIfNotEmpty
+
+    for {
+      _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
+      _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multis)
+      _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links)
+      _ <- if (attachments.isEmpty) Future.successful(()) else createAttachmentsInit(table, rowId, attachments)
+    } yield ()
+    // }
   }
 
   /**
@@ -554,14 +558,21 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
     // for clearing of multi language cells create init values for all langtags
-    val langtagColumns = for {
+    val langtagColumns2 = for {
       column <- multis
       langtag = table.langtags.getOrElse(Seq.empty[String])
     } yield (langtag, column)
 
+    val langtagColumns = for {
+      column <- multis
+      langtag = table.langtags.getOrElse(Seq.empty[String])
+      // convert Seq[String] to Map[String, null]
+      langtagMap = langtag.map(l => l -> null).toMap
+    } yield (column, langtagMap)
+
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
-      _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, langtagColumns)
+      _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multis)
       _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links)
       _ <- if (attachments.isEmpty) Future.successful(()) else createAttachmentsInit(table, rowId, attachments)
     } yield ()
@@ -636,45 +647,62 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     }))
   }
 
-  private def createTranslationInit(
-      table: Table,
-      rowId: RowId,
-      langtagColumns: Seq[(Seq[String], SimpleValueColumn[_])]
-  )(implicit user: TableauxUser): Future[Seq[Unit]] = {
+  private def createTranslationInit(table: Table, rowId: RowId, langtagColumns: List[SimpleValueColumn[_]])(implicit
+  user: TableauxUser): Future[Seq[Unit]] = {
 
-    val entries = for {
-      (langtags, column) <- langtagColumns
-      langtag <- langtags
-    } yield (langtag, column)
-
-    val columnsForLang = entries
-      .groupBy({ case (langtag, _) => langtag })
-      .mapValues(_.map({ case (_, columns) => columns }))
-      .toSeq
-
-    def createIfNotEmpty(column: SimpleValueColumn[_], langtag: String): Future[Unit] = {
+    def createIfNotEmpty(column: SimpleValueColumn[_]): Future[Unit] = {
       for {
-        value <- retrieveCellValue(table, column, rowId, Option(langtag))
+        value <- retrieveCellValue(table, column, rowId)
         _ <- value match {
-          case Some(v) => createTranslation(table, rowId, Seq((column, Map(langtag -> Option(v)))))
+          case Some(v: Map[_, _]) =>
+            createTranslation(table, rowId, Seq((column, v.asInstanceOf[Map[String, Option[_]]])))
           case None => Future.successful(())
         }
       } yield ()
-    }
 
+    }
     Future.sequence(
-      columnsForLang
-        .flatMap({
-          case (langtag, columns) =>
-            columns
-              .map({ column =>
-                for {
-                  historyEntryExists <- historyExists(table.id, column.id, rowId, Option(langtag))
-                  _ <- if (!historyEntryExists) createIfNotEmpty(column, langtag) else Future.successful(())
-                } yield ()
-              })
+      langtagColumns
+        .map({ column =>
+          for {
+            historyEntryExists <- historyExists(table.id, column.id, rowId, None)
+            _ <- if (!historyEntryExists) createIfNotEmpty(column) else Future.successful(())
+          } yield ()
         })
     )
+
+    // langtagColumns.foldLeft(Future.successful(())) {
+    //   case (accFut, column) =>
+    //     accFut.flatMap { _ =>
+    //       val valueJson: JsonObject = value.foldLeft(Json.emptyObj()) {
+    //         case (obj, (langtag, value)) =>
+    //           obj.mergeIn(Json.obj(langtag -> value.getOrElse(null)))
+    //       }
+
+    //       insertCellHistory(
+    //         table,
+    //         rowId,
+    //         column.id,
+    //         column.kind,
+    //         column.languageType,
+    //         Json.obj("value" -> valueJson)
+    //       ).map(_ => ())
+    //     }
+    // }
+
+    // Future.sequence(
+    //   columnsForLang
+    //     .flatMap({
+    //       case (langtag, columns) =>
+    //         columns
+    //           .map({ column =>
+    //             for {
+    //               historyEntryExists <- historyExists(table.id, column.id, rowId, Option(langtag))
+    //               _ <- if (!historyEntryExists) createIfNotEmpty(column, langtag) else Future.successful(())
+    //             } yield ()
+    //           })
+    //     })
+    // )
   }
 
   private def historyExists(
@@ -693,24 +721,36 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     )
   }
 
-  private def retrieveCellValue(
-      table: Table,
-      column: ColumnType[_],
-      rowId: RowId,
-      langtagCountryOpt: Option[String] = None
-  )(implicit user: TableauxUser): Future[Option[Any]] = {
+  private def retrieveCellValue(table: Table, column: ColumnType[_], rowId: RowId)(implicit
+  user: TableauxUser): Future[Option[Any]] = {
     for {
       cell <- tableauxModel.retrieveCell(table, column.id, rowId, isInternalCall = true)
     } yield {
       Option(cell.value) match {
         case Some(v) =>
           column match {
-            case MultiLanguageColumn(_) =>
+            case MultiLanguageColumn(_) => {
               val rawValue = cell.getJson.getJsonObject("value")
               column match {
-                case _: BooleanColumn => Option(rawValue.getBoolean(langtagCountryOpt.getOrElse(""), false))
-                case _ => Option(rawValue.getValue(langtagCountryOpt.getOrElse("")))
+                case _ => {
+                  logger.info(s"Processing value map rawValue: $rawValue")
+                  // if (rawValue.isEmpty()) {
+                  //   None
+                  // } else {
+                  //   // Option(JsonUtils.multiLangValueToMap(rawValue))
+                  //   val xxx = JsonUtils.multiLangValueToMap(rawValue)
+                  //   logger.info(s"Processing value map: $xxx")
+                  //   Option(xxx)
+                  // }
+
+                  if (rawValue.isEmpty()) {
+                    None
+                  } else {
+                    Option(JsonUtils.multiLangValueToMap(rawValue))
+                  }
+                }
               }
+            }
             case _: SimpleValueColumn[_] => Some(v)
           }
         case _ => None
