@@ -320,18 +320,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       oldCell: Option[Cell[_]] = None
   )(implicit user: TableauxUser): Future[Unit] = {
 
-    def wrapLanguageValue(langtag: String, value: Any): JsonObject = Json.obj("value" -> Json.obj(langtag -> value))
-
-    val entries = for {
-      (column, langtagValueOptMap) <- values
-      (langtag: String, valueOpt) <- langtagValueOptMap
-    } yield (langtag, (column, valueOpt))
-
-    val columnsForLang = entries
-      .groupBy({ case (langtag, _) => langtag })
-      .mapValues(_.map({ case (_, columnValueOpt) => columnValueOpt }))
-      .toSeq
-
     val oldCellJson = oldCell.map(_.getJson).getOrElse(Json.emptyObj())
     val oldCellValueMap = Option(oldCellJson.getJsonObject("value"))
       .map(_.getMap.asScala.map {
@@ -339,42 +327,28 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       })
       .getOrElse(Map.empty[String, Option[Any]])
 
-    def atomicValueHasChanged(langtag: String, value: Option[Any]): Boolean = {
-      if (oldCellValueMap.isEmpty) {
-        true
-      } else {
-        val newValue = value
-        val oldValue = oldCellValueMap.get(langtag).flatten
-
-        (newValue, oldValue) match {
-          case (Some(newVal), Some(oldVal)) => newVal != oldVal
-          case (Some(newVal), None) => true
-          case (None, Some(oldVal)) => true
-          case _ => false
-        }
-      }
-    }
-
-    columnsForLang.foldLeft(Future.successful(())) {
-      case (accFut, (langtag, columnValueOptSeq)) =>
+    values.foldLeft(Future.successful(())) {
+      case (accFut, (column, value)) =>
         accFut.flatMap { _ =>
-          columnValueOptSeq.foldLeft(Future.successful(())) {
-            case (innerAccFut, (column: SimpleValueColumn[_], valueOpt)) =>
-              innerAccFut.flatMap { _ =>
-                if (atomicValueHasChanged(langtag, valueOpt)) {
-                  insertCellHistory(
-                    table,
-                    rowId,
-                    column.id,
-                    column.kind,
-                    column.languageType,
-                    wrapLanguageValue(langtag, valueOpt.orNull)
-                  ).map(_ => ())
-                } else {
-                  Future.successful(())
-                }
-              }
+          val cleanMap = JsonUtils.rejectNonChanges(value, oldCellValueMap.toMap)
+
+          if (cleanMap.isEmpty) {
+            return Future.successful(())
           }
+
+          val valueJson: JsonObject = cleanMap.foldLeft(Json.emptyObj()) {
+            case (obj, (langtag, value)) =>
+              obj.mergeIn(Json.obj(langtag -> value.getOrElse(null)))
+          }
+
+          insertCellHistory(
+            table,
+            rowId,
+            column.id,
+            column.kind,
+            column.languageType,
+            Json.obj("value" -> valueJson)
+          ).map(_ => ())
         }
     }
   }
