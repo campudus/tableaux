@@ -186,19 +186,11 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
   @Test
   def changeMultilanguageValue_boolean(implicit c: TestContext): Unit = {
     okTest {
-      // Booleans always gets a initial history entry on first change
+      // Booleans only get initial history entries if there is at least one value set
       val expected =
         """
           |[
           |  {
-          |    "event": "cell_changed",
-          |    "historyType": "cell",
-          |    "valueType": "boolean",
-          |    "languageType": "language",
-          |    "value": {
-          |      "de-DE": false
-          |    }
-          |  }, {
           |    "event": "cell_changed",
           |    "historyType": "cell",
           |    "valueType": "boolean",
@@ -1527,10 +1519,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
       val expectedValues =
         """[
-          |  {"value": {"DE": 11}},
-          |  {"value": {"GB": 22}},
-          |  {"value": {"DE": 33}},
-          |  {"value": {"GB": 44}}
+          |  {"value": {"DE": 11, "GB": 22}},
+          |  {"value": {"DE": 33, "GB": 44}}
           |]""".stripMargin
 
       val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB"))
@@ -1855,11 +1845,10 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
   }
 
   @Test
-  def changeMultilanguageValue_boolean(implicit c: TestContext): Unit = {
+  def changeMultilanguageValue_booleanXX(implicit c: TestContext): Unit = {
     okTest {
-      // Booleans always gets a initial history entry on first change
-      val expectedInitialLinks = """{ "value": {"de-DE": false} }"""
-      val expectedAfterPost1 = """{ "value": {"de-DE": true} }"""
+      // Booleans only get initial history entries if there is at least one value set
+      val expectedAfterPost1 = """{ "value": {"de-DE": true, "en-GB": false} }"""
       val expectedAfterPost2 = """{ "value": {"de-DE": false} }"""
 
       for {
@@ -1869,11 +1858,9 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", expectedAfterPost2)
         rows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
 
-        initialHistory = rows.getJsonObject(0)
-        history1 = rows.getJsonObject(1)
-        history2 = rows.getJsonObject(2)
+        history1 = rows.getJsonObject(0)
+        history2 = rows.getJsonObject(1)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
         JSONAssert.assertEquals(expectedAfterPost2, history2.toString, JSONCompareMode.LENIENT)
       }
