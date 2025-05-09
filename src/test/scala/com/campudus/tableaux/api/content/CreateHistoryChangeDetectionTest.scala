@@ -74,12 +74,11 @@ class CreateHistoryChangeDetectionTest extends LinkTestBase with TestHelper {
     for {
       _ <- createTableWithMultilanguageColumns("history test")
       _ <- sendRequest("POST", "/tables/1/rows")
-      // Booleans always gets a initial history entry on first change, so +1 history row
       _ <- sendRequest("PATCH", "/tables/1/columns/2/rows/1", newValue)
       _ <- sendRequest("PATCH", "/tables/1/columns/2/rows/1", newValue)
       rows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
     } yield {
-      assertEquals(2, rows.size())
+      assertEquals(1, rows.size())
     }
   }
 
