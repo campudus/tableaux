@@ -321,12 +321,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   )(implicit user: TableauxUser): Future[Unit] = {
 
     val oldCellJson = oldCell.map(_.getJson).getOrElse(Json.emptyObj())
-    val oldCellValueMap = JsonUtils.multiLangValueToMap(oldCellJson)
+    val oldCellValueMap = JsonUtils.multiLangValueToMap(oldCellJson.getJsonObject("value"))
 
     values.foldLeft(Future.successful(())) {
       case (accFut, (column, value)) =>
         accFut.flatMap { _ =>
-          val cleanMap = JsonUtils.rejectNonChanges(value, oldCellValueMap.toMap)
+          val cleanMap = JsonUtils.omitNonChanges(value, oldCellValueMap.toMap)
 
           if (cleanMap.isEmpty) {
             return Future.successful(())
@@ -518,32 +518,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     val columns = values.map({ case (col: ColumnType[_], _) => col })
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
-    // ColumnType.splitIntoTypesWithValues(values) match {
-    //   case Failure(ex) =>
-    //     Future.failed(ex)
-
-    // case Success((_, multis, _, _)) =>
-    // for changes on multi language cells create init values only for langtags to be changed
-    // val langtagColumns2 = for {
-    //   (column, langtags) <- multis
-    //   langtagSeq = langtags.toSeq.map({ case (langtag, _) => langtag })
-    // } yield (column, langtagSeq)
-    // val langtagColumns = for {
-    //   (column, langtags) <- multis
-    //   langtagSeq = langtags.toSeq.map({ case (langtag, _) => langtag })
-    // } yield (langtagSeq, column)
-
-    // logger.info(s"createCellsInit langtagColumns2: ${langtagColumns2}")
-    // logger.info(s"createCellsInit langtagColumns: ${langtagColumns}")
-    // // createIfNotEmpty
-
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multis)
       _ <- if (links.isEmpty) Future.successful(()) else createLinksInit(table, rowId, links)
       _ <- if (attachments.isEmpty) Future.successful(()) else createAttachmentsInit(table, rowId, attachments)
     } yield ()
-    // }
   }
 
   /**
@@ -656,6 +636,12 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
         _ <- value match {
           case Some(v: Map[_, _]) =>
             createTranslation(table, rowId, Seq((column, v.asInstanceOf[Map[String, Option[_]]])))
+          case Some(v) => {
+            logger.warn(
+              s"createTranslationInit: value is not a Map, but $v for column ${column.id} in table ${table.id}"
+            )
+            Future.successful(())
+          }
           case None => Future.successful(())
         }
       } yield ()
@@ -670,39 +656,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
           } yield ()
         })
     )
-
-    // langtagColumns.foldLeft(Future.successful(())) {
-    //   case (accFut, column) =>
-    //     accFut.flatMap { _ =>
-    //       val valueJson: JsonObject = value.foldLeft(Json.emptyObj()) {
-    //         case (obj, (langtag, value)) =>
-    //           obj.mergeIn(Json.obj(langtag -> value.getOrElse(null)))
-    //       }
-
-    //       insertCellHistory(
-    //         table,
-    //         rowId,
-    //         column.id,
-    //         column.kind,
-    //         column.languageType,
-    //         Json.obj("value" -> valueJson)
-    //       ).map(_ => ())
-    //     }
-    // }
-
-    // Future.sequence(
-    //   columnsForLang
-    //     .flatMap({
-    //       case (langtag, columns) =>
-    //         columns
-    //           .map({ column =>
-    //             for {
-    //               historyEntryExists <- historyExists(table.id, column.id, rowId, Option(langtag))
-    //               _ <- if (!historyEntryExists) createIfNotEmpty(column, langtag) else Future.successful(())
-    //             } yield ()
-    //           })
-    //     })
-    // )
   }
 
   private def historyExists(
@@ -733,16 +686,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
               val rawValue = cell.getJson.getJsonObject("value")
               column match {
                 case _ => {
-                  logger.info(s"Processing value map rawValue: $rawValue")
-                  // if (rawValue.isEmpty()) {
-                  //   None
-                  // } else {
-                  //   // Option(JsonUtils.multiLangValueToMap(rawValue))
-                  //   val xxx = JsonUtils.multiLangValueToMap(rawValue)
-                  //   logger.info(s"Processing value map: $xxx")
-                  //   Option(xxx)
-                  // }
-
                   if (rawValue.isEmpty()) {
                     None
                   } else {
@@ -929,6 +872,8 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
         case MultiCountry(countryCodes) => countryCodes.codes
       }
     } yield (column, Map(langtag -> None))
+
+    logger.info(s"createClearCell ${table.id} $rowId multisWithEmptyValues $multisWithEmptyValues")
 
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simplesWithEmptyValues)

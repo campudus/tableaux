@@ -493,15 +493,14 @@ object JsonUtils extends LazyLogging {
     * @return
     *   A map containing only the entries that have changed.
     */
-  def rejectNonChanges(
-      newMap: Map[String, Option[Any]],
-      oldMap: Map[String, Option[Any]]
-  ): Map[String, Option[Any]] = {
+  def omitNonChanges(newMap: Map[String, Option[Any]], oldMap: Map[String, Option[Any]]): Map[String, Option[Any]] = {
     newMap.foldLeft(Map.empty[String, Option[Any]]) {
       case (acc, (langtag, newValue)) =>
-        oldMap.get(langtag) match {
-          case Some(oldValue) if oldValue == newValue => acc
-          case _ => acc + (langtag -> newValue)
+        (oldMap.get(langtag), newValue) match {
+          case (Some(oldValue), _) if oldValue == newValue => acc
+          case (None, Some(v)) if v == null => acc
+          case (None, None) => acc
+          case (_, _) => acc + (langtag -> newValue)
         }
     }
   }
