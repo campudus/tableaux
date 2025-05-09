@@ -537,19 +537,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
   ): Future[Unit] = {
     val (simples, multis, links, attachments) = ColumnType.splitIntoTypes(columns)
 
-    // for clearing of multi language cells create init values for all langtags
-    val langtagColumns2 = for {
-      column <- multis
-      langtag = table.langtags.getOrElse(Seq.empty[String])
-    } yield (langtag, column)
-
-    val langtagColumns = for {
-      column <- multis
-      langtag = table.langtags.getOrElse(Seq.empty[String])
-      // convert Seq[String] to Map[String, null]
-      langtagMap = langtag.map(l => l -> null).toMap
-    } yield (column, langtagMap)
-
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimpleInit(table, rowId, simples)
       _ <- if (multis.isEmpty) Future.successful(()) else createTranslationInit(table, rowId, multis)
@@ -682,18 +669,13 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
       Option(cell.value) match {
         case Some(v) =>
           column match {
-            case MultiLanguageColumn(_) => {
+            case MultiLanguageColumn(_) =>
               val rawValue = cell.getJson.getJsonObject("value")
-              column match {
-                case _ => {
-                  if (rawValue.isEmpty()) {
-                    None
-                  } else {
-                    Option(JsonUtils.multiLangValueToMap(rawValue))
-                  }
-                }
+              if (rawValue.isEmpty()) {
+                None
+              } else {
+                Option(JsonUtils.multiLangValueToMap(rawValue))
               }
-            }
             case _: SimpleValueColumn[_] => Some(v)
           }
         case _ => None
@@ -872,8 +854,6 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
         case MultiCountry(countryCodes) => countryCodes.codes
       }
     } yield (column, Map(langtag -> None))
-
-    logger.info(s"createClearCell ${table.id} $rowId multisWithEmptyValues $multisWithEmptyValues")
 
     for {
       _ <- if (simples.isEmpty) Future.successful(()) else createSimple(table, rowId, simplesWithEmptyValues)
