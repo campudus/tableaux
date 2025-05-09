@@ -1174,17 +1174,15 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
 
       } yield {
-        assertJSONEquals(            """[{"id": 4, "value": "table2RowId2"}]""",
-            historyAfterCreation,
-            JSONCompareMode.STRICT
-          )
+        assertJSONEquals("""[{"id": 4, "value": "table2RowId2"}]""", historyAfterCreation, JSONCompareMode.STRICT)
 
         assertEquals(2, backLinkRow3.size())
         assertEquals(2, backLinkRow4.size())
         assertEquals(2, backLinkRow5.size())
 
         assertJSONEquals("[]", getLinksValue(backLinkRow3, 1), JSONCompareMode.LENIENT)
-        assertJSONEquals(          """[{"id": 1, "value": "table1row1"}]""",
+        assertJSONEquals(
+          """[{"id": 1, "value": "table1row1"}]""",
           getLinksValue(backLinkRow4, 1),
           JSONCompareMode.STRICT
         )
@@ -1216,14 +1214,12 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         assertEquals(1, linksTable1Rows4.size())
         assertEquals(1, linksTable1Rows5.size())
 
-        assertJSONEquals(            """[{"id": 3}, {"id": 4}]""",
-            getLinksValue(linksTable2Rows, 0),
-            JSONCompareMode.STRICT_ORDER
-          )
-        assertJSONEquals(            """[{"id": 3}, {"id": 4}, {"id": 5}]""",
-            getLinksValue(linksTable2Rows, 1),
-            JSONCompareMode.STRICT_ORDER
-          )
+        assertJSONEquals("""[{"id": 3}, {"id": 4}]""", getLinksValue(linksTable2Rows, 0), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(
+          """[{"id": 3}, {"id": 4}, {"id": 5}]""",
+          getLinksValue(linksTable2Rows, 1),
+          JSONCompareMode.STRICT_ORDER
+        )
       }
     }
   }

@@ -329,7 +329,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
           val cleanMap = JsonUtils.omitNonChanges(value, oldCellValueMap.toMap)
 
           if (cleanMap.isEmpty) {
-            return Future.successful(())
+            Future.successful(())
           }
 
           val valueJson: JsonObject = cleanMap.foldLeft(Json.emptyObj()) {
