@@ -1107,12 +1107,12 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       historyRows <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
     } yield {
-      assertEquals(7, historyRows.size())
+      assertEquals(5, historyRows.size())
     }
   }
 
   @Test
-  def retrieveRowHistory_onlyTextColumnsViewable_returnFourHistoryEntries(implicit c: TestContext): Unit = okTest {
+  def retrieveRowHistory_onlyTextColumnsViewable_returnThreeHistoryEntries(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
                                     |  "view-all-cells": [
@@ -1138,11 +1138,8 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       historyRows <- controller.retrieveRowHistory(1, 1, None, None).map(_.getJson.getJsonArray("rows"))
     } yield {
-      assertEquals(4, historyRows.size())
-      assertJSONEquals(
-        Json.fromObjectString("""{"revision": 1, "event": "row_created"}"""),
-        historyRows.getJsonObject(0)
-      )
+      assertEquals(3, historyRows.size())
+      assertJSONEquals("""{"revision": 1, "event": "row_created"}""", historyRows.getJsonObject(0))
     }
   }
 
@@ -1160,7 +1157,7 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
   }
 
   @Test
-  def retrieveTableHistory_onlyTextColumnsViewable_returnEightHistoryEntries(implicit c: TestContext): Unit = okTest {
+  def retrieveTableHistory_onlyTextColumnsViewable_returnSixHistoryEntries(implicit c: TestContext): Unit = okTest {
     val roleModel = initRoleModel("""
                                     |{
                                     |  "view-cells": [
@@ -1186,12 +1183,12 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       _ <- createTestTable()
       histories <- controller.retrieveTableHistory(1, None, None).map(_.getJson.getJsonArray("rows"))
     } yield {
-      /* histories for two rows with each
+      /* histories for two rows (only text columns) with each
          - 1 x rowCreated
          - 1 x single language changes
-         - 2 x multi language changes
+         - 1 x multi language changes
        */
-      assertEquals(8, histories.size())
+      assertEquals(6, histories.size())
     }
   }
 
@@ -1220,9 +1217,9 @@ class TableauxControllerAuthTest_history extends TableauxControllerAuthTest {
       /* histories for two rows with each
              - 1 x rowCreated
              - 2 x single language changes
-             - 4 x multi language changes
+             - 2 x multi language changes
        */
-      assertEquals(14, histories.size())
+      assertEquals(10, histories.size())
     }
   }
 

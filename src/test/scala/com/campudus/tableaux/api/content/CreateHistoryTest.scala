@@ -16,7 +16,7 @@ import scala.concurrent.Future
 import org.junit.{Ignore, Test}
 import org.junit.Assert._
 import org.junit.runner.RunWith
-import org.skyscreamer.jsonassert.{JSONAssert, JSONCompareMode}
+import org.skyscreamer.jsonassert.JSONCompareMode
 
 trait TestHelper extends MediaTestBase {
 
@@ -65,7 +65,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = rows.get[JsonObject](0)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -93,7 +93,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = rows.get[JsonObject](0)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -135,7 +135,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", Json.obj("value" -> 1123581321))
         historyRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
-        JSONAssert.assertEquals(expected, historyRows.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyRows, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -178,7 +178,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           toRowsArray
         )
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -186,19 +186,11 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
   @Test
   def changeMultilanguageValue_boolean(implicit c: TestContext): Unit = {
     okTest {
-      // Booleans always gets a initial history entry on first change
+      // Booleans only get initial history entries if there is at least one value set
       val expected =
         """
           |[
           |  {
-          |    "event": "cell_changed",
-          |    "historyType": "cell",
-          |    "valueType": "boolean",
-          |    "languageType": "language",
-          |    "value": {
-          |      "de-DE": false
-          |    }
-          |  }, {
           |    "event": "cell_changed",
           |    "historyType": "cell",
           |    "valueType": "boolean",
@@ -230,7 +222,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           toRowsArray
         )
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -273,7 +265,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           toRowsArray
         )
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -316,7 +308,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           toRowsArray
         )
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -358,7 +350,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           toRowsArray
         )
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -375,7 +367,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           |    "valueType": "currency",
           |    "languageType": "country",
           |    "value": {
-          |      "DE": 2999.99
+          |      "DE": 2999.99, "GB": 1000
           |    }
           |  }, {
           |    "event": "cell_changed",
@@ -383,23 +375,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           |    "valueType": "currency",
           |    "languageType": "country",
           |    "value": {
-          |      "GB": 1000
-          |    }
-          |  }, {
-          |    "event": "cell_changed",
-          |    "historyType": "cell",
-          |    "valueType": "currency",
-          |    "languageType": "country",
-          |    "value": {
-          |      "FR": 1500
-          |    }
-          |  }, {
-          |    "event": "cell_changed",
-          |    "historyType": "cell",
-          |    "valueType": "currency",
-          |    "languageType": "country",
-          |    "value": {
-          |      "DE": 4000
+          |      "FR": 1500, "DE": 4000
           |    }
           |  }
           |]
@@ -425,7 +401,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
           .map(toRowsArray)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -442,15 +418,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           |    "valueType": "currency",
           |    "languageType": "country",
           |    "value": {
-          |      "DE": 2999.99
-          |    }
-          |  }, {
-          |    "event": "cell_changed",
-          |    "historyType": "cell",
-          |    "valueType": "currency",
-          |    "languageType": "country",
-          |    "value": {
-          |      "GB": 1000
+          |      "DE": 2999.99, "GB": 1000
           |    }
           |  }, {
           |    "event": "cell_changed",
@@ -481,10 +449,12 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           s"/tables/1/columns/1/rows/1",
           Json.obj("value" -> Json.obj("DE" -> null, "FR" -> null))
         )
-        historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
+        historyAfterChange <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
           .map(toRowsArray)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterChange, JSONCompareMode.LENIENT)
+        val historyValues = historyAfterChange.getJsonObject(1).getJsonObject("value")
+        assertFalse(historyValues.containsKey("FR"))
       }
     }
   }
@@ -501,15 +471,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           |    "valueType": "currency",
           |    "languageType": "country",
           |    "value": {
-          |      "DE": 2999.99
-          |    }
-          |  }, {
-          |    "event": "cell_changed",
-          |    "historyType": "cell",
-          |    "valueType": "currency",
-          |    "languageType": "country",
-          |    "value": {
-          |      "GB": 1000
+          |      "DE": 2999.99, "GB": 1000
           |    }
           |  }, {
           |    "event": "cell_changed",
@@ -547,7 +509,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         historyAfterCreation <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell")
           .map(toRowsArray)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        // assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -560,11 +522,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           |[
           |  {
           |    "value": {
-          |      "de-DE": "first de-DE change"
-          |    }
-          |  }, {
-          |    "value": {
-          |      "en-GB": "first en-GB change"
+          |      "de-DE": "first de-DE change", "en-GB": "first en-GB change"
           |    }
           |  }
           |]
@@ -580,7 +538,7 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
           toRowsArray
         )
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -607,9 +565,9 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
                       |  }]
                       |}""".stripMargin
 
-      val expectedText = """[ {"value":{"de-DE": "value de"}}, {"value":{"en-GB": "value en"}} ]"""
-      val expectedBoolean = """[ {"value":{"de-DE": true}}, {"value":{"en-GB": false}} ]"""
-      val expectedNumeric = """[ {"value":{"de-DE": 111}}, {"value":{"en-GB": 222}} ]"""
+      val expectedText = """[ {"value":{"de-DE": "value de", "en-GB": "value en"}} ]"""
+      val expectedBoolean = """[ {"value":{"de-DE": true, "en-GB": false}} ]"""
+      val expectedNumeric = """[ {"value":{"de-DE": 111, "en-GB": 222}} ]"""
 
       for {
         _ <- createTableWithMultilanguageColumns("history test")
@@ -619,9 +577,9 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         booleanRows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
         numericRows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
-        JSONAssert.assertEquals(expectedText, textRows.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedBoolean, booleanRows.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedNumeric, numericRows.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedText, textRows, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedBoolean, booleanRows, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedNumeric, numericRows, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -653,10 +611,10 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         numericRows1 = numericHistory1.getJsonObject(0)
         numericRows2 = numericHistory2.getJsonObject(0)
       } yield {
-        JSONAssert.assertEquals("""{"value": "Test Field 1"}""", textRows1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{"value": "Test Field 2"}""", textRows2.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{"value": 1}""", numericRows1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{"value": 2}""", numericRows2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": "Test Field 1"}""", textRows1, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": "Test Field 2"}""", textRows2, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": 1}""", numericRows1, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": 2}""", numericRows2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -675,8 +633,8 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         textHistory = textHistoryRows.get[JsonObject](1)
         numericHistory = numericHistoryRows.get[JsonObject](1)
       } yield {
-        JSONAssert.assertEquals("""{"value": null}""", textHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{"value": null}""", numericHistory.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": null}""", textHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": null}""", numericHistory, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -710,9 +668,9 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         booleanHistory = booleanHistoryRows.get[JsonObject](2)
         numericHistory = numericHistoryRows.get[JsonObject](1)
       } yield {
-        JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", textHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", booleanHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{"value": {"de-DE": null}}""", numericHistory.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": {"de-DE": null}}""", textHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": {"de-DE": null}}""", booleanHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{"value": {"de-DE": null}}""", numericHistory, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -733,8 +691,8 @@ class CreateHistoryTest extends TableauxTestBase with TestHelper {
         rowCreated = rows.get[JsonObject](0)
         cellChanged = rows.get[JsonObject](1)
       } yield {
-        JSONAssert.assertEquals(expectedRowCreated, rowCreated.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedCellChanged, cellChanged.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedRowCreated, rowCreated, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedCellChanged, cellChanged, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -763,7 +721,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 0)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -789,7 +747,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 0)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.STRICT_ORDER)
       }
     }
   }
@@ -817,7 +775,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 0)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -845,7 +803,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         test <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(test, 1)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.STRICT_ORDER)
       }
     }
   }
@@ -874,7 +832,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 1)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.STRICT_ORDER)
       }
     }
   }
@@ -900,7 +858,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 1)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -926,7 +884,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 1)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.STRICT_ORDER)
       }
     }
   }
@@ -945,7 +903,7 @@ class CreateSimpleLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         history = getLinksValue(rows, 1)
       } yield {
-        JSONAssert.assertEquals("[]", history.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", history, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -972,8 +930,8 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         historyLinks = getLinksValue(history, 0)
         historyTargetLinks = getLinksValue(targetHistory, 0)
       } yield {
-        JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(targetLinkTable, historyTargetLinks.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(linkTable, historyLinks, JSONCompareMode.LENIENT)
+        assertJSONEquals(targetLinkTable, historyTargetLinks, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -999,9 +957,9 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         historyTargetLinks1 = getLinksValue(targetHistory1, 0)
         historyTargetLinks2 = getLinksValue(targetHistory2, 0)
       } yield {
-        JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.STRICT)
-        JSONAssert.assertEquals(targetLinkTable1, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(targetLinkTable2, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(linkTable, historyLinks, JSONCompareMode.STRICT)
+        assertJSONEquals(targetLinkTable1, historyTargetLinks1, JSONCompareMode.LENIENT)
+        assertJSONEquals(targetLinkTable2, historyTargetLinks2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1034,10 +992,10 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         historyTargetLinks1 = getLinksValue(targetHistory1, 0)
         historyTargetLinks2 = getLinksValue(targetHistory2, 0)
       } yield {
-        JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.STRICT)
-        JSONAssert.assertEquals(backLink, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(linkTable, historyLinks, JSONCompareMode.STRICT)
+        assertJSONEquals(backLink, historyTargetLinks1, JSONCompareMode.LENIENT)
         assertEquals(1, targetHistory1.size())
-        JSONAssert.assertEquals(backLink, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(backLink, historyTargetLinks2, JSONCompareMode.LENIENT)
         assertEquals(1, targetHistory2.size())
       }
     }
@@ -1077,15 +1035,15 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
       } yield {
         assertEquals(1, initialHistoryLinks.size())
         assertEquals(3, historyLinks.size())
-        JSONAssert.assertEquals(linkTable, historyLinks.toString, JSONCompareMode.STRICT)
+        assertJSONEquals(linkTable, historyLinks, JSONCompareMode.STRICT)
 
         assertEquals(1, targetHistoryRows1.size())
         assertEquals(1, targetHistoryRows2.size())
         assertEquals(1, targetHistoryRows3.size())
 
-        JSONAssert.assertEquals(backLink, historyTargetLinks1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(backLink, historyTargetLinks2.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(backLink, historyTargetLinks3.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(backLink, historyTargetLinks1, JSONCompareMode.LENIENT)
+        assertJSONEquals(backLink, historyTargetLinks2, JSONCompareMode.LENIENT)
+        assertJSONEquals(backLink, historyTargetLinks3, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1122,7 +1080,7 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", s"/tables/1/columns/3/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 2)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.STRICT_ORDER)
         assertEquals(0, backLinkHistory.size())
       }
     }
@@ -1154,14 +1112,14 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
 
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.STRICT_ORDER)
 
         assertEquals(1, backLinkRow3.size())
         assertEquals(2, backLinkRow4.size())
         assertEquals(1, backLinkRow5.size())
 
-        JSONAssert.assertEquals("""[{"id": 1}]""", getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals("""[{"id": 1}]""", getLinksValue(backLinkRow4, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow4, 1), JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1184,15 +1142,15 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
 
       } yield {
-        JSONAssert.assertEquals("[]", historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", historyAfterCreation, JSONCompareMode.LENIENT)
 
         assertEquals(2, backLinkRow3.size())
         assertEquals(2, backLinkRow4.size())
         assertEquals(2, backLinkRow5.size())
 
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow5, 1).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow3, 1), JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow4, 1), JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow5, 1), JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1216,24 +1174,19 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         backLinkRow5 <- sendRequest("GET", "/tables/2/columns/3/rows/5/history?historyType=cell").map(toRowsArray)
 
       } yield {
-        JSONAssert
-          .assertEquals(
-            """[{"id": 4, "value": "table2RowId2"}]""",
-            historyAfterCreation.toString,
-            JSONCompareMode.STRICT
-          )
+        assertJSONEquals("""[{"id": 4, "value": "table2RowId2"}]""", historyAfterCreation, JSONCompareMode.STRICT)
 
         assertEquals(2, backLinkRow3.size())
         assertEquals(2, backLinkRow4.size())
         assertEquals(2, backLinkRow5.size())
 
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(
+        assertJSONEquals("[]", getLinksValue(backLinkRow3, 1), JSONCompareMode.LENIENT)
+        assertJSONEquals(
           """[{"id": 1, "value": "table1row1"}]""",
-          getLinksValue(backLinkRow4, 1).toString,
+          getLinksValue(backLinkRow4, 1),
           JSONCompareMode.STRICT
         )
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow5, 1).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow5, 1), JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1261,18 +1214,12 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         assertEquals(1, linksTable1Rows4.size())
         assertEquals(1, linksTable1Rows5.size())
 
-        JSONAssert
-          .assertEquals(
-            """[{"id": 3}, {"id": 4}]""",
-            getLinksValue(linksTable2Rows, 0).toString,
-            JSONCompareMode.STRICT_ORDER
-          )
-        JSONAssert
-          .assertEquals(
-            """[{"id": 3}, {"id": 4}, {"id": 5}]""",
-            getLinksValue(linksTable2Rows, 1).toString,
-            JSONCompareMode.STRICT_ORDER
-          )
+        assertJSONEquals("""[{"id": 3}, {"id": 4}]""", getLinksValue(linksTable2Rows, 0), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(
+          """[{"id": 3}, {"id": 4}, {"id": 5}]""",
+          getLinksValue(linksTable2Rows, 1),
+          JSONCompareMode.STRICT_ORDER
+        )
       }
     }
   }
@@ -1324,15 +1271,13 @@ class CreateBidirectionalLinkHistoryTest extends LinkTestBase with TestHelper {
         assertEquals(1, linksTable2Rows4.size())
         assertEquals(1, linksTable2Rows5.size())
 
-        JSONAssert
-          .assertEquals(expectedLinksT1R3, getLinksValue(linksTable1Rows3, 1).toString, JSONCompareMode.STRICT_ORDER)
-        JSONAssert.assertEquals(linkToTable2Row3, getLinksValue(linksTable1Rows4, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(linkToTable2Row3, getLinksValue(linksTable1Rows5, 0).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedLinksT1R3, getLinksValue(linksTable1Rows3, 1), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(linkToTable2Row3, getLinksValue(linksTable1Rows4, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals(linkToTable2Row3, getLinksValue(linksTable1Rows5, 0), JSONCompareMode.LENIENT)
 
-        JSONAssert
-          .assertEquals(expectedLinksT2R3, getLinksValue(linksTable2Rows3, 1).toString, JSONCompareMode.STRICT_ORDER)
-        JSONAssert.assertEquals(linkToTable1Row3, getLinksValue(linksTable2Rows4, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(linkToTable1Row3, getLinksValue(linksTable2Rows5, 0).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedLinksT2R3, getLinksValue(linksTable2Rows3, 1), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(linkToTable1Row3, getLinksValue(linksTable2Rows4, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals(linkToTable1Row3, getLinksValue(linksTable2Rows5, 0), JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1379,7 +1324,7 @@ class CreateSimpleLinkOrderHistoryTest extends LinkTestBase with TestHelper {
           List(5, 4, 3),
           links.getJsonArray("value").asScala.map({ case obj: JsonObject => obj.getLong("id") })
         )
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1426,7 +1371,7 @@ class CreateMultiLanguageLinkHistoryTest extends LinkTestBase with TestHelper {
         rows <- sendRequest("GET", "/tables/1/columns/8/rows/1/history?historyType=cell").map(toRowsArray)
         historyAfterCreation = getLinksValue(rows, 0)
       } yield {
-        JSONAssert.assertEquals(expected, historyAfterCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expected, historyAfterCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1462,8 +1407,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistoryCreation = rows.get[JsonObject](0)
         firstHistoryCreation = rows.get[JsonObject](1)
       } yield {
-        JSONAssert.assertEquals(initialValue, initialHistoryCreation.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(firstChangedValue, firstHistoryCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(initialValue, initialHistoryCreation, JSONCompareMode.LENIENT)
+        assertJSONEquals(firstChangedValue, firstHistoryCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1498,9 +1443,9 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         history1 = rows.get[JsonObject](1)
         history2 = rows.get[JsonObject](2)
       } yield {
-        JSONAssert.assertEquals(initialValue, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(change1, history1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(change2, history2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(initialValue, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(change1, history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(change2, history2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1513,8 +1458,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
       val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
       val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
 
-      val initialValueDE = """{ "value": { "de-DE": "de-DE init" } }"""
-      val initialValueEN = """{ "value": { "en-GB": "en-GB init" } }"""
+      val initialValue = """{ "value": { "de-DE": "de-DE init", "en-GB": "en-GB init" } }"""
       val change1 = """{ "value": { "de-DE": "de-DE first change" } }"""
       val change2 = """{ "value": { "de-DE": "de-DE second change" } }"""
       val change3 = """{ "value": { "en-GB": "en-GB first change" } }"""
@@ -1535,17 +1479,15 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/1/rows/1", change3)
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
 
-        initialHistoryDE = rows.getJsonObject(0)
+        initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
-        initialHistoryEN = rows.getJsonObject(3)
-        history3 = rows.getJsonObject(4)
+        history3 = rows.getJsonObject(3)
       } yield {
-        JSONAssert.assertEquals(initialValueDE, initialHistoryDE.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(change1, history1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(change2, history2.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(initialValueEN, initialHistoryEN.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(change3, history3.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(initialValue, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(change1, history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(change2, history2, JSONCompareMode.LENIENT)
+        assertJSONEquals(change3, history3, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1560,10 +1502,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
       val expectedValues =
         """[
-          |  {"value": {"DE": 11}},
-          |  {"value": {"GB": 22}},
-          |  {"value": {"DE": 33}},
-          |  {"value": {"GB": 44}}
+          |  {"value": {"DE": 11, "GB": 22}},
+          |  {"value": {"DE": 33, "GB": 44}}
           |]""".stripMargin
 
       val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB"))
@@ -1581,7 +1521,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", s"/tables/1/columns/1/rows/1", """{"value": {"DE": 33, "GB": 44}}""")
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
-        JSONAssert.assertEquals(expectedValues, rows.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedValues, rows, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1594,10 +1534,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
 
       val expectedValues =
         """[
-          |  {"value": {"DE": 11}},
-          |  {"value": {"GB": 22}},
-          |  {"value": {"DE": 33}},
-          |  {"value": {"GB": 44}}
+          |  {"value": {"DE": 11, "GB": 22}},
+          |  {"value": {"DE": 33, "GB": 44}}
           |]""".stripMargin
 
       val multiCountryCurrencyColumn = MultiCountry(CurrencyCol("currency-column"), Seq("DE", "GB"))
@@ -1615,7 +1553,7 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("PUT", s"/tables/1/columns/1/rows/1", """{"value": {"DE": 33, "GB": 44}}""")
         rows <- sendRequest("GET", "/tables/1/columns/1/rows/1/history?historyType=cell").map(toRowsArray)
       } yield {
-        JSONAssert.assertEquals(expectedValues, rows.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedValues, rows, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1644,8 +1582,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPostLinks, history1.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPostLinks, history1, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1677,9 +1615,9 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPostLinks2, history2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPostLinks1, history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPostLinks2, history2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1710,8 +1648,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPostLinks1, history1, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1746,9 +1684,9 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPostLinks2, history2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPostLinks1, history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPostLinks2, history2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1782,9 +1720,9 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPostLinks1, history1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPostLinks2, history2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPostLinks1, history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPostLinks2, history2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1812,8 +1750,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPost1, history1, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1848,8 +1786,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistory = rows.getJsonObject(0)
         history1 = rows.getJsonObject(1)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPost1, history1, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1880,19 +1818,18 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         history1 = rows.getJsonObject(1)
         history2 = rows.getJsonObject(2)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPost2, history2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPost1, history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPost2, history2, JSONCompareMode.LENIENT)
       }
     }
   }
 
   @Test
-  def changeMultilanguageValue_boolean(implicit c: TestContext): Unit = {
+  def changeMultilanguageValue_booleanXX(implicit c: TestContext): Unit = {
     okTest {
-      // Booleans always gets a initial history entry on first change
-      val expectedInitialLinks = """{ "value": {"de-DE": false} }"""
-      val expectedAfterPost1 = """{ "value": {"de-DE": true} }"""
+      // Booleans only get initial history entries if there is at least one value set
+      val expectedAfterPost1 = """{ "value": {"de-DE": true, "en-GB": false} }"""
       val expectedAfterPost2 = """{ "value": {"de-DE": false} }"""
 
       for {
@@ -1902,13 +1839,11 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         _ <- sendRequest("POST", "/tables/1/columns/2/rows/1", expectedAfterPost2)
         rows <- sendRequest("GET", "/tables/1/columns/2/rows/1/history?historyType=cell").map(toRowsArray)
 
-        initialHistory = rows.getJsonObject(0)
-        history1 = rows.getJsonObject(1)
-        history2 = rows.getJsonObject(2)
+        history1 = rows.getJsonObject(0)
+        history2 = rows.getJsonObject(1)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPost1, history1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedAfterPost2, history2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPost1, history1, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedAfterPost2, history2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1938,8 +1873,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistoryCreation = rows.get[JsonObject](0)
         firstHistoryCreation = rows.get[JsonObject](1)
       } yield {
-        JSONAssert.assertEquals(initialValue, initialHistoryCreation.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{ "value": null }""", firstHistoryCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(initialValue, initialHistoryCreation, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{ "value": null }""", firstHistoryCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -1971,8 +1906,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistoryDE = rows.getJsonObject(0)
         history = rows.getJsonObject(1)
       } yield {
-        JSONAssert.assertEquals(initialValueDE, initialHistoryDE.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("""{ "value": { "de-DE": null } }""", history.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(initialValueDE, initialHistoryDE, JSONCompareMode.LENIENT)
+        assertJSONEquals("""{ "value": { "de-DE": null } }""", history, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -2002,8 +1937,8 @@ class CreateHistoryCompatibilityTest extends LinkTestBase with TestHelper {
         initialHistory = getLinksValue(rows, 0)
         history = getLinksValue(rows, 1)
       } yield {
-        JSONAssert.assertEquals(expectedInitialLinks, initialHistory.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("[]", history.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialLinks, initialHistory, JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", history, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -2324,8 +2259,8 @@ class CreateAnnotationHistoryTest extends TableauxTestBase with TestHelper {
         testHistory1 = rows.get[JsonObject](2)
         testHistory2 = rows.get[JsonObject](3)
       } yield {
-        assertJSONEquals(s"""{"value": "Test 1", "uuid": "$uuid1"}""", testHistory1.toString, JSONCompareMode.LENIENT)
-        assertJSONEquals(s"""{"value": "Test 2", "uuid": "$uuid2"}""", testHistory2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{"value": "Test 1", "uuid": "$uuid1"}""", testHistory1, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{"value": "Test 2", "uuid": "$uuid2"}""", testHistory2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -2829,7 +2764,7 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
 
         rowHistoryCreation = rows.get[JsonObject](0)
       } yield {
-        JSONAssert.assertEquals(rowCreated, rowHistoryCreation.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(rowCreated, rowHistoryCreation, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -2850,9 +2785,9 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
 
         allRows <- sendRequest("GET", "/tables/1/history").map(toRowsArray)
       } yield {
-        JSONAssert.assertEquals(rowCreated, test1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(rowCreated, test2.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(rowCreated, test3.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(rowCreated, test1, JSONCompareMode.LENIENT)
+        assertJSONEquals(rowCreated, test2, JSONCompareMode.LENIENT)
+        assertJSONEquals(rowCreated, test3, JSONCompareMode.LENIENT)
 
         assertEquals(3, allRows.size())
       }
@@ -2910,8 +2845,8 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
         row2 = rowsCreated.get[JsonObject](1)
       } yield {
         assertEquals(2, rowsCreated.size())
-        JSONAssert.assertEquals(s"""{ "rowId": 1, "event": "row_created" }""", row1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(s"""{ "rowId": 2, "event": "row_created" }""", row2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{ "rowId": 1, "event": "row_created" }""", row1, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{ "rowId": 2, "event": "row_created" }""", row2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -2930,8 +2865,8 @@ class CreateRowHistoryTest extends TableauxTestBase with TestHelper {
         row2 = rowHistories.get[JsonObject](1)
       } yield {
         assertEquals(2, rowHistories.size())
-        JSONAssert.assertEquals(s"""{ "rowId": 1, "event": "row_created" }""", row1.toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(s"""{ "rowId": 1, "event": "row_deleted" }""", row2.toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{ "rowId": 1, "event": "row_created" }""", row1, JSONCompareMode.LENIENT)
+        assertJSONEquals(s"""{ "rowId": 1, "event": "row_deleted" }""", row2, JSONCompareMode.LENIENT)
       }
     }
   }
@@ -3004,9 +2939,9 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         assertEquals(1, backLinkRow4.size())
         assertEquals(1, backLinkRow5.size())
 
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow3, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow5, 0).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedBacklink, getLinksValue(backLinkRow3, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedBacklink, getLinksValue(backLinkRow4, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedBacklink, getLinksValue(backLinkRow5, 0), JSONCompareMode.LENIENT)
       }
     }
   }
@@ -3036,11 +2971,11 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         assertEquals(2, backLinkRow3.size())
         assertEquals(2, backLinkRow4.size())
 
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow3, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedBacklink, getLinksValue(backLinkRow3, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow3, 1), JSONCompareMode.LENIENT)
 
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals(expectedBacklink, getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedBacklink, getLinksValue(backLinkRow4, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedBacklink, getLinksValue(backLinkRow4, 1), JSONCompareMode.LENIENT)
       }
     }
   }
@@ -3070,13 +3005,11 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         assertEquals(2, backLinkRow3.size())
         assertEquals(2, backLinkRow4.size())
 
-        JSONAssert
-          .assertEquals(expectedInitialBacklink, getLinksValue(backLinkRow3, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialBacklink, getLinksValue(backLinkRow3, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow3, 1), JSONCompareMode.LENIENT)
 
-        JSONAssert
-          .assertEquals(expectedInitialBacklink, getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.LENIENT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.LENIENT)
+        assertJSONEquals(expectedInitialBacklink, getLinksValue(backLinkRow4, 0), JSONCompareMode.LENIENT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow4, 1), JSONCompareMode.LENIENT)
       }
     }
   }
@@ -3134,10 +3067,10 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         assertEquals(2, backLinkRow4.size())
 
         val initBacklink = """[{"id": 1, "value": "table1row1"}]"""
-        JSONAssert.assertEquals(initBacklink, getLinksValue(backLinkRow3, 0).toString, JSONCompareMode.STRICT)
+        assertJSONEquals(initBacklink, getLinksValue(backLinkRow3, 0), JSONCompareMode.STRICT)
 
-        JSONAssert.assertEquals(initBacklink, getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.STRICT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.STRICT)
+        assertJSONEquals(initBacklink, getLinksValue(backLinkRow4, 0), JSONCompareMode.STRICT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow4, 1), JSONCompareMode.STRICT)
       }
     }
   }
@@ -3166,11 +3099,11 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         assertEquals(2, backLinkRow4.size())
 
         val initBacklink = """[{"id": 1, "value": "table1row1"}]"""
-        JSONAssert.assertEquals(initBacklink, getLinksValue(backLinkRow3, 0).toString, JSONCompareMode.STRICT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow3, 1).toString, JSONCompareMode.STRICT)
+        assertJSONEquals(initBacklink, getLinksValue(backLinkRow3, 0), JSONCompareMode.STRICT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow3, 1), JSONCompareMode.STRICT)
 
-        JSONAssert.assertEquals(initBacklink, getLinksValue(backLinkRow4, 0).toString, JSONCompareMode.STRICT)
-        JSONAssert.assertEquals("[]", getLinksValue(backLinkRow4, 1).toString, JSONCompareMode.STRICT)
+        assertJSONEquals(initBacklink, getLinksValue(backLinkRow4, 0), JSONCompareMode.STRICT)
+        assertJSONEquals("[]", getLinksValue(backLinkRow4, 1), JSONCompareMode.STRICT)
       }
     }
   }
@@ -3205,17 +3138,17 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
 
         val expectedTable2Row3 = """[{"id": 3}, {"id": 4}, {"id": 5}]"""
         val linkToTable1Row3 = """[{"id": 3}]"""
-        JSONAssert.assertEquals(expectedTable2Row3, getLinksValue(table2Row3, 0).toString, JSONCompareMode.STRICT_ORDER)
-        JSONAssert.assertEquals(linkToTable1Row3, getLinksValue(table2Row4, 0).toString, JSONCompareMode.STRICT_ORDER)
-        JSONAssert.assertEquals("""[]""", getLinksValue(table2Row4, 1).toString, JSONCompareMode.STRICT_ORDER)
-        JSONAssert.assertEquals(linkToTable1Row3, getLinksValue(table2Row5, 0).toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(expectedTable2Row3, getLinksValue(table2Row3, 0), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(linkToTable1Row3, getLinksValue(table2Row4, 0), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals("""[]""", getLinksValue(table2Row4, 1), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals(linkToTable1Row3, getLinksValue(table2Row5, 0), JSONCompareMode.STRICT_ORDER)
 
-        JSONAssert.assertEquals(
+        assertJSONEquals(
           """[{"id": 3}, {"id": 4}, {"id": 5}]""",
           getLinksValue(table1Row3, 0).toString,
           JSONCompareMode.STRICT_ORDER
         )
-        JSONAssert.assertEquals(
+        assertJSONEquals(
           """[{"id": 3}, {"id": 5}]""",
           getLinksValue(table1Row3, 1).toString,
           JSONCompareMode.STRICT_ORDER
@@ -3253,11 +3186,11 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
 
         assertEquals(2, t1r3.size())
 
-        assertJSONEquals("""[{"id": 3}, {"id": 4}]""", getLinksValue(t2r3, 0).toString, JSONCompareMode.STRICT_ORDER)
-        assertJSONEquals("""[{"id": 3}]""", getLinksValue(t2r4, 0).toString, JSONCompareMode.STRICT_ORDER)
-        assertJSONEquals("""[{"id": 3}]""", getLinksValue(t2r5, 0).toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals("""[{"id": 3}, {"id": 4}]""", getLinksValue(t2r3, 0), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals("""[{"id": 3}]""", getLinksValue(t2r4, 0), JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals("""[{"id": 3}]""", getLinksValue(t2r5, 0), JSONCompareMode.STRICT_ORDER)
 
-        assertJSONEquals("""[{"id": 3}, {"id": 4}]""", getLinksValue(t1r3, 0).toString, JSONCompareMode.STRICT_ORDER)
+        assertJSONEquals("""[{"id": 3}, {"id": 4}]""", getLinksValue(t1r3, 0), JSONCompareMode.STRICT_ORDER)
         assertJSONEquals(
           """[{"id": 3}, {"id": 4}, {"id": 5}]""",
           getLinksValue(t1r3, 1).toString,
@@ -3288,10 +3221,10 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
       } yield {
         assertEquals(2, linkRow1.size())
         val initLink = """[{"id":3,"value":"table2RowId1"},{"id":4,"value":"table2RowId2"}]"""
-        JSONAssert.assertEquals(initLink, getLinksValue(linkRow1, 0).toString, JSONCompareMode.STRICT)
+        assertJSONEquals(initLink, getLinksValue(linkRow1, 0), JSONCompareMode.STRICT)
 
         val linkAfterDeletion = """[{"id":4,"value":"table2RowId2"}]"""
-        JSONAssert.assertEquals(linkAfterDeletion, getLinksValue(linkRow1, 1).toString, JSONCompareMode.STRICT)
+        assertJSONEquals(linkAfterDeletion, getLinksValue(linkRow1, 1), JSONCompareMode.STRICT)
       }
     }
   }
@@ -3321,12 +3254,12 @@ class CreateBidirectionalCompatibilityLinkHistoryTest extends LinkTestBase with 
         assertEquals(2, linkRow1.size())
         assertEquals(2, linkRow2.size())
         val initLink = """[{"id":3,"value":"table2RowId1"},{"id":4,"value":"table2RowId2"}]"""
-        JSONAssert.assertEquals(initLink, getLinksValue(linkRow1, 0).toString, JSONCompareMode.STRICT)
-        JSONAssert.assertEquals(initLink, getLinksValue(linkRow2, 0).toString, JSONCompareMode.STRICT)
+        assertJSONEquals(initLink, getLinksValue(linkRow1, 0), JSONCompareMode.STRICT)
+        assertJSONEquals(initLink, getLinksValue(linkRow2, 0), JSONCompareMode.STRICT)
 
         val linkAfterDeletion = """[{"id":4,"value":"table2RowId2"}]"""
-        JSONAssert.assertEquals(linkAfterDeletion, getLinksValue(linkRow1, 1).toString, JSONCompareMode.STRICT)
-        JSONAssert.assertEquals(linkAfterDeletion, getLinksValue(linkRow2, 1).toString, JSONCompareMode.STRICT)
+        assertJSONEquals(linkAfterDeletion, getLinksValue(linkRow1, 1), JSONCompareMode.STRICT)
+        assertJSONEquals(linkAfterDeletion, getLinksValue(linkRow2, 1), JSONCompareMode.STRICT)
       }
     }
   }
