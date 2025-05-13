@@ -47,7 +47,7 @@ class SystemAnnotationTest extends TableauxTestBase {
             ),
             "isMultilang" -> false,
             "isDashboard" -> true,
-            "isCustom" -> true
+            "isCustom" -> false
           ),
           Json.obj(
             "name" -> "postpone",
