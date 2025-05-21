@@ -35,6 +35,10 @@ case object TaxonomyTable extends TableType {
   override val NAME = "taxonomy"
 }
 
+case object UnionTable extends TableType {
+  override val NAME = "union"
+}
+
 object Table {
 
   def apply(id: TableId)(implicit roleModel: RoleModel, user: TableauxUser): Table = {
