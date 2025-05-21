@@ -149,6 +149,15 @@ class CachedColumnModel(
     } yield r
   }
 
+  override def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
+      implicit user: TableauxUser
+  ): Future[Seq[ColumnType[_]]] = {
+    for {
+      r <- super.createUnionTableColumns(table, createColumns)
+      _ <- removeCache(table.id, None)
+    } yield r
+  }
+
   override def createColumn(table: Table, createColumn: CreateColumn)(
       implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
@@ -362,6 +371,111 @@ class ColumnModel(val connection: DatabaseConnection)(
     } yield {
       columnCreate
     }
+  }
+
+  // TODO
+  def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
+      implicit user: TableauxUser
+  ): Future[Seq[ColumnType[_]]] = {
+    createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
+      case (future, next) =>
+        for {
+          createdColumns <- future
+          createdColumn <- createUnionTableColumn(table, next)
+        } yield {
+          createdColumns :+ createdColumn
+        }
+    }
+  }
+
+  // TODO
+  def createUnionTableColumn(table: Table, createColumn: CreateColumn)(
+      implicit user: TableauxUser
+  ): Future[ColumnType[_]] = {
+    ???
+
+    // val attributes = createColumn.attributes
+    // val validator = EventClient(Vertx.currentContext().get.owner())
+
+    // def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
+    //   BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
+
+    // for {
+    //   _ <-
+    //     if (attributes.nonEmpty) {
+    //       validator
+    //         .validateJson(ValidatorKeys.ATTRIBUTES, attributes.get)
+    //         .recover({
+    //           case ex => throw new InvalidJsonException(ex.getMessage(), "attributes")
+    //         })
+    //     } else {
+    //       Future { Unit }
+    //     }
+    //   columnCreate <- createColumn match {
+    //     case simpleColumnInfo: CreateSimpleColumn =>
+    //       createValueColumn(table.id, simpleColumnInfo)
+    //         .map({
+    //           case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+    //             SimpleValueColumn(
+    //               simpleColumnInfo.kind,
+    //               simpleColumnInfo.languageType,
+    //               applyColumnInformation(id, ordering, displayInfos)
+    //             )
+    //         })
+
+    //     case linkColumnInfo: CreateLinkColumn =>
+    //       createLinkColumn(table, linkColumnInfo)
+    //         .map({
+    //           case (linkId, toCol, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
+    //             val linkDirection = LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
+    //             LinkColumn(applyColumnInformation(id, ordering, displayInfos), toCol, linkId, linkDirection)
+    //         })
+
+    //     case attachmentColumnInfo: CreateAttachmentColumn =>
+    //       createAttachmentColumn(table.id, attachmentColumnInfo)
+    //         .map({
+    //           case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+    //             AttachmentColumn(applyColumnInformation(id, ordering, displayInfos))
+    //         })
+
+    //     case groupColumnInfo: CreateGroupColumn => {
+    //       println("groupColumnInfo: " + groupColumnInfo)
+    //       createGroupColumn(table, groupColumnInfo)
+    //         .map({
+    //           case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+    //             // For simplification we return GroupColumn without grouped columns...
+    //             // ... StructureController will retrieve these anyway
+    //             GroupColumn(
+    //               applyColumnInformation(id, ordering, displayInfos),
+    //               Seq.empty,
+    //               groupColumnInfo.formatPattern,
+    //               groupColumnInfo.showMemberColumns
+    //             )
+    //         })
+    //     }
+
+    //     case statusColumnInfo: CreateStatusColumn =>
+    //       for {
+    //         _ <- validator.validateJson(ValidatorKeys.STATUS, statusColumnInfo.rules).recover {
+    //           case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
+    //         }
+
+    //         statusColumn <- createStatusColumn(table, statusColumnInfo).map({
+    //           case (dependentColumns, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
+    //             StatusColumn(
+    //               StatusColumnInformation(table, id, ordering, displayInfos, statusColumnInfo),
+    //               statusColumnInfo.rules,
+    //               dependentColumns
+    //             )
+
+    //         })
+    //       } yield {
+    //         statusColumn
+    //       }
+    //   }
+    // } yield {
+    //   columnCreate
+    // }
   }
 
   private def createStatusColumn(
@@ -1337,6 +1451,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
           case c: LinkColumn => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
+          case c: UnionSimpleColumn[_] => deleteUnionSimpleColumn(c)
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
       }
@@ -1453,6 +1568,17 @@ class ColumnModel(val connection: DatabaseConnection)(
       (t) <- deleteSystemColumn(t, tableId, columnId)
       (t) <- deleteAnnotations(t, tableId, columnId)
 
+      _ <- t.commit()
+    } yield ()
+  }
+
+  private def deleteUnionSimpleColumn(column: ColumnType[_]): Future[Unit] = {
+    val tableId = column.table.id
+    val columnId = column.id
+
+    for {
+      t <- connection.begin()
+      (t) <- deleteSystemColumn(t, tableId, columnId)
       _ <- t.commit()
     } yield ()
   }
