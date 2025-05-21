@@ -756,6 +756,13 @@ case class GroupColumn(
   }
 }
 
+sealed abstract class UnionSimpleColumn[+A](override val languageType: LanguageType)(
+    override val columnInformation: ColumnInformation
+)(implicit override val roleModel: RoleModel, val user: TableauxUser)
+    extends ColumnType[A] {
+  // TODO
+}
+
 /**
   * Column seq is just a sequence of columns.
   *
