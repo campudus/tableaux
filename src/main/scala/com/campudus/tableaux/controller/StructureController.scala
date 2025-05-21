@@ -64,6 +64,7 @@ class StructureController(
       _ <- roleModel.checkAuthorization(CreateColumn, ComparisonObjects(table))
       created <- table.tableType match {
         case SettingsTable => Future.failed(ForbiddenException("can't add a column to a settings table", "column"))
+        case UnionTable => columnStruc.createUnionTableColumns(table, columns)
         case _ => columnStruc.createColumns(table, columns)
       }
 
@@ -165,6 +166,7 @@ class StructureController(
       val builder = tableType match {
         case SettingsTable => createSettingsTable
         case TaxonomyTable => createTaxonomyTable
+        case UnionTable => createUnionTable
         case _ => createGenericTable
       }
       builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
@@ -278,7 +280,6 @@ class StructureController(
       concatFormatPattern: Option[String]
   ) => {
     for {
-
       tableStub <- buildTable(
         TaxonomyTable,
         Some(
@@ -337,6 +338,27 @@ class StructureController(
     } yield table
   }
 
+  private def createUnionTable(implicit user: TableauxUser) = buildTable(
+    UnionTable,
+    Some(
+      Seq(
+        CreateSimpleColumn(
+          "name",
+          None,
+          ShortTextType,
+          MultiLanguage,
+          identifier = true,
+          Seq(
+            NameAndDescription("de", "Ursprungstabelle", "Der Tabellenname, aus der die Daten stammen"),
+            NameAndDescription("en", "Origin Table", "The name of the table from which the data is taken")
+          ),
+          false,
+          Option(Json.obj())
+        )
+      )
+    )
+  )
+
   def deleteTable(tableId: TableId)(implicit user: TableauxUser): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
     logger.info(s"deleteTable $tableId")
@@ -381,7 +403,7 @@ class StructureController(
       column <- columnStruc.retrieve(table, columnId)
       _ <- roleModel.checkAuthorization(DeleteColumn, ComparisonObjects(table, column))
       _ <- table.tableType match {
-        case GenericTable => columnStruc.delete(table, columnId)
+        case GenericTable | UnionTable => columnStruc.delete(table, columnId)
         case TaxonomyTable =>
           if (columnId > 4) columnStruc.delete(table, columnId)
           else Future.failed(ForbiddenException("can't delete a default column from a taxonomy table", "column"))
@@ -606,6 +628,7 @@ class StructureController(
       changedColumn <- table.tableType match {
         case GenericTable => performChangeFx(table)
         case SettingsTable => Future.failed(ForbiddenException("can't change a column of a settings table", "column"))
+        case UnionTable => Future.failed(ForbiddenException("TODO not implemented yet", "column"))
         case TaxonomyTable =>
           if (columnId > 4) performChangeFx(table)
           else Future.failed(ForbiddenException("can't change a default column of a taxonomy table", "column"))
