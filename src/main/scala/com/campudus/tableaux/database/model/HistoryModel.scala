@@ -326,7 +326,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
     values.foldLeft(Future.successful(())) {
       case (accFut, (column, value)) =>
         accFut.flatMap { _ =>
-          val cleanMap = JsonUtils.omitNonChanges(value, oldCellValueMap.toMap)
+          val cleanMap = JsonUtils.omitNonChanges(value, oldCellValueMap)
 
           if (cleanMap.isEmpty) {
             Future.successful(())
@@ -334,7 +334,7 @@ case class CreateHistoryModel(tableauxModel: TableauxModel, connection: Database
 
           val valueJson: JsonObject = cleanMap.foldLeft(Json.emptyObj()) {
             case (obj, (langtag, value)) =>
-              obj.mergeIn(Json.obj(langtag -> value.getOrElse(null)))
+              obj.mergeIn(Json.obj(langtag -> value.orNull))
           }
 
           insertCellHistory(
