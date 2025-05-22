@@ -14,6 +14,7 @@ object TableType {
       case GenericTable.NAME => GenericTable
       case SettingsTable.NAME => SettingsTable
       case TaxonomyTable.NAME => TaxonomyTable
+      case UnionTable.NAME => UnionTable
       case _ => throw new IllegalArgumentException("Unknown table type")
     }
   }
