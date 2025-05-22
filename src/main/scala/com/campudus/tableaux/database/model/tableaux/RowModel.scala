@@ -1246,6 +1246,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
     val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
+    println(s"### CCC ### 3: $projection")
+    println(s"### CCC ### 4: $fromClause")
+    println(s"### CCC ### 5: $rowAnnotationFilter")
 
     for {
       result <-
@@ -1384,6 +1387,9 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
 
   private def generateProjection(tableId: TableId, columns: Seq[ColumnType[_]]): String = {
     val projection = columns map {
+      // values are generated in post-processing when when we fetch the rows of the origin table
+      case c if c.table.tableType == UnionTable => "NULL"
+
       case _: ConcatColumn | _: AttachmentColumn | _: GroupColumn =>
         // Values will be generated/fetched while post-processing raw rows
         // see TableauxModel.mapRawRows
