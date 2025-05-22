@@ -330,7 +330,7 @@ class StructureController(
     Some(
       Seq(
         CreateSimpleColumn(
-          "name",
+          "originTable",
           None,
           ShortTextType,
           MultiLanguage,

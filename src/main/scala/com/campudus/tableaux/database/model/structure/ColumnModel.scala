@@ -308,7 +308,7 @@ class ColumnModel(val connection: DatabaseConnection)(
         }
       columnCreate <- createColumn match {
         case simpleColumnInfo: CreateSimpleColumn =>
-          createValueColumn(table.id, simpleColumnInfo)
+          createValueColumn(table, simpleColumnInfo)
             .map({
               case CreatedColumnInformation(_, id, ordering, displayInfos) =>
                 SimpleValueColumn(
@@ -377,6 +377,8 @@ class ColumnModel(val connection: DatabaseConnection)(
   def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
+    println("createUnionTableColumns: " + createColumns)
+
     createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
       case (future, next) =>
         for {
@@ -538,24 +540,67 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
+  private def maybeInsertColumnInUserTable(
+      t: DbTransaction,
+      table: Table,
+      simpleColumnInfo: CreateSimpleColumn,
+      columnId: ColumnId
+  ): Future[(DbTransaction, JsonObject)] = {
+    val tableId = table.id
+
+    val tableSql = simpleColumnInfo.languageType match {
+      case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
+      case LanguageNeutral => s"user_table_$tableId"
+    }
+    // for {
+    //   (t, res) <- simpleColumnInfo.kind match {
+    //     case BooleanType =>
+    //       t.query(s"ALTER TABLE $tableSql ADD column_${columnId} BOOLEAN DEFAULT false")
+    //     case _ =>
+    //       t.query(s"ALTER TABLE $tableSql ADD column_${columnId} ${simpleColumnInfo.kind.toDbType}")
+    //   }
+    // } yield {
+    //   (t, res)
+    // }
+
+    table.tableType match {
+      case UnionTable => (Future.successful(t, Json.emptyObj()))
+      case _ => {
+        simpleColumnInfo.kind match {
+          case BooleanType => t.query(s"ALTER TABLE $tableSql ADD column_${columnId} BOOLEAN DEFAULT false")
+          case _ =>
+            t.query(s"ALTER TABLE $tableSql ADD column_${columnId} ${simpleColumnInfo.kind.toDbType}")
+        }
+      }
+    }
+  }
+
   private def createValueColumn(
-      tableId: TableId,
+      table: Table,
       simpleColumnInfo: CreateSimpleColumn
   ): Future[CreatedColumnInformation] = {
+    val tableId = table.id
     connection.transactional { t =>
       for {
         (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None, None, false)
-        tableSql = simpleColumnInfo.languageType match {
-          case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
-          case LanguageNeutral => s"user_table_$tableId"
-        }
+        // tableSql = simpleColumnInfo.languageType match {
+        //   case MultiLanguage | _: MultiCountry => s"user_table_lang_$tableId"
+        //   case LanguageNeutral => s"user_table_$tableId"
+        // }
 
-        (t, _) <- simpleColumnInfo.kind match {
-          case BooleanType =>
-            t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} BOOLEAN DEFAULT false")
-          case _ =>
-            t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
-        }
+        // (t, _) <- simpleColumnInfo.kind match {
+        //   case BooleanType =>
+        //     t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} BOOLEAN DEFAULT false")
+        //   case _ =>
+        //     t.query(s"ALTER TABLE $tableSql ADD column_${columnInfo.columnId} ${simpleColumnInfo.kind.toDbType}")
+        // }
+
+        (t, _) <- maybeInsertColumnInUserTable(
+          t,
+          table,
+          simpleColumnInfo,
+          columnInfo.columnId
+        )
       } yield {
         (t, columnInfo)
       }
@@ -1039,6 +1084,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
+    println("### CCC ### 1")
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
 
@@ -1048,6 +1094,8 @@ class ColumnModel(val connection: DatabaseConnection)(
 
         Future.sequence(futures)
       }
+
+      _ = println("### CCC ### 2")
     } yield {
       val columns = mappedColumns
         .map({
