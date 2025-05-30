@@ -144,20 +144,58 @@ class StructureController(
       tableType: TableType,
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject],
-      concatFormatPattern: Option[String]
+      concatFormatPattern: Option[String],
+      originTables: Option[Seq[TableId]] = None
   )(implicit user: TableauxUser): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
-    logger.info(s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId $concatFormatPattern")
+    logger.info(
+      s"createTable $tableName $hidden $langtags $displayInfos $tableType $tableGroupId $concatFormatPattern $originTables"
+    )
 
-    def createTable(anything: Unit): Future[Table] = {
-      val builder = tableType match {
-        case SettingsTable => createSettingsTable
-        case TaxonomyTable => createTaxonomyTable
-        case UnionTable => createUnionTable
-        case _ => createGenericTable
+    def createTable(anything: Unit): Future[Table] =
+      tableType match {
+        case SettingsTable => {
+          createSettingsTable.apply(
+            tableName,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern
+          )
+        }
+        case TaxonomyTable => createTaxonomyTable.apply(
+            tableName,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern
+          )
+        case UnionTable =>
+          createUnionTable(
+            tableName,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern,
+            originTables
+          )
+        case _ =>
+          createGenericTable.apply(
+            tableName,
+            hidden,
+            langtags,
+            displayInfos,
+            tableGroupId,
+            attributes,
+            concatFormatPattern
+          )
       }
-      builder.apply(tableName, hidden, langtags, displayInfos, tableGroupId, attributes, concatFormatPattern)
-    }
 
     (attributes match {
       case Some(s) => {
@@ -192,7 +230,8 @@ class StructureController(
           tableType,
           tableGroupId,
           attributes,
-          concatFormatPattern
+          concatFormatPattern,
+          None
         )
         _ <- columns match {
           case None => Future.successful(())
@@ -325,10 +364,46 @@ class StructureController(
     } yield table
   }
 
-  private def createUnionTable(implicit user: TableauxUser) = buildTable(
-    UnionTable,
-    Some(
-      Seq(
+  private def checkOriginTables(originTables: Option[Seq[TableId]])(implicit user: TableauxUser): Future[Unit] = {
+    originTables match {
+      case Some(tables) if tables.nonEmpty =>
+        tables.foreach(tableId => checkArguments(greaterZero(tableId)))
+
+        Future.sequence(tables.map(id => tableStruc.retrieve(id))).map(_ => ())
+
+        Future.successful(())
+      case _ => Future.failed(
+          UnprocessableEntityException("originTables must be a non-empty sequence of valid table IDs")
+        )
+    }
+  }
+
+  private def createUnionTable(
+      tableName: String,
+      hidden: Boolean,
+      langtags: Option[Option[Seq[String]]],
+      displayInfos: Seq[DisplayInfo],
+      tableGroupId: Option[TableGroupId],
+      attributes: Option[JsonObject],
+      concatFormatPattern: Option[String],
+      originTables: Option[Seq[TableId]]
+  )(implicit user: TableauxUser): Future[Table] = {
+    for {
+      _ <- roleModel.checkAuthorization(CreateTable)
+      _ <- checkOriginTables(originTables)
+      created <- tableStruc.create(
+        tableName,
+        hidden,
+        langtags,
+        displayInfos,
+        UnionTable,
+        tableGroupId,
+        attributes,
+        concatFormatPattern,
+        originTables
+      )
+      _ <- columnStruc.createColumn(
+        created,
         CreateSimpleColumn(
           "originTable",
           None,
@@ -343,8 +418,9 @@ class StructureController(
           Option(Json.obj())
         )
       )
-    )
-  )
+      retrieved <- tableStruc.retrieve(created.id)
+    } yield retrieved
+  }
 
   def deleteTable(tableId: TableId)(implicit user: TableauxUser): Future[EmptyObject] = {
     checkArguments(greaterZero(tableId))
