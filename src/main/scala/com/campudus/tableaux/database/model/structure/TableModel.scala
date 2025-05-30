@@ -30,7 +30,8 @@ class TableModel(val connection: DatabaseConnection)(
       tableType: TableType,
       tableGroupIdOpt: Option[TableGroupId],
       attributes: Option[JsonObject],
-      concatFormatPattern: Option[String]
+      concatFormatPattern: Option[String],
+      originTables: Option[Seq[TableId]]
   )(
       implicit user: TableauxUser
   ): Future[Table] = {
@@ -80,6 +81,13 @@ class TableModel(val connection: DatabaseConnection)(
                |)
             """.stripMargin
           )
+          t <-
+            if (tableType == UnionTable) {
+              insertIntoSystemUnionTable(t, id, originTables.getOrElse(Seq.empty))
+            } else {
+              Future.successful(t)
+            }
+
           t <- createLanguageTable(t, id)
           t <- createCellAnnotationsTable(t, id)
           t <- createHistoryTable(t, id)
@@ -127,6 +135,22 @@ class TableModel(val connection: DatabaseConnection)(
     } else {
       Future.successful((t, Json.obj()))
     }
+  }
+
+  private def insertIntoSystemUnionTable(
+      t: DbTransaction,
+      id: TableId,
+      originTableIds: Seq[TableId]
+  ): Future[DbTransaction] = {
+    val stmt = s"""
+                  |INSERT INTO system_union_table (table_id, origin_table_id)
+                  |VALUES ${originTableIds.map(_ => "(?, ?)").mkString(", ")}
+                  """.stripMargin
+    val binds = Json.arr(originTableIds.flatMap(oid => Seq(id, oid)): _*)
+
+    for {
+      (t, _) <- t.query(stmt, binds)
+    } yield t
   }
 
   private def createLanguageTable(t: DbTransaction, id: TableId): Future[DbTransaction] = {

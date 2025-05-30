@@ -4094,32 +4094,86 @@
         "name"
       ],
       "properties": {
-        "name": {
-          "type": "string",
-          "example": "states of germany"
+        "attributes": {
+          "type": "object",
+          "description": "An object that describes additional attributes of the table."
         },
-        "displayName": {
-          "$ref": "#/definitions/Multi-language object"
+        "concatFormatPattern": {
+          "type": "string",
+          "description": "Pattern for the frontend how to render the content of the concat column"
         },
         "description": {
           "$ref": "#/definitions/Multi-language object"
         },
+        "displayName": {
+          "$ref": "#/definitions/Multi-language object"
+        },
         "hidden": {
           "type": "boolean"
+        },
+        "langtags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LanguageTag"
+          },
+          "description": "An array of language tags that are used in this table. If empty, global language tags are used."
+        },
+        "name": {
+          "type": "string"
+        },
+        "originTables": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": "An array of table ids that are used as origin tables."
+        },
+        "tableGroupId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "The id of the table group this table belongs to."
+        },
+        "tableType": {
+          "type": "string",
+          "enum": [
+            "generic",
+            "settings",
+            "taxonomy",
+            "union"
+          ],
+          "description": "The type of the table to"
         }
       },
       "description": "Creates a new empty table.",
       "example": {
-        "name": "germany_states",
+        "attributes": {
+          "someAttribute": {
+            "type": "boolean",
+            "value": true
+          }
+        },
+        "concatFormatPattern": "{{1}} | {{2}} | {{3}}",
         "displayName": {
           "en": "States of Germany",
           "de": "Bundesländer Deutschlands"
         },
         "description": {
-          "en": "This table holds a list of all states of germany",
-          "de": "diese Tabelle beinhaltet alle Bundesländer Deutschlands"
+          "en": "This table holds a list of all states of Germany",
+          "de": "Diese Tabelle beinhaltet alle Bundesländer Deutschlands"
         },
-        "hidden": false
+        "hidden": false,
+        "langtags": [
+          "de",
+          "en"
+        ],
+        "name": "germany_states",
+        "originTables": [
+          1,
+          2
+        ],
+        "tableGroupId": 1,
+        "tableType": "generic"
       }
     },
     "Request: create update table group": {
