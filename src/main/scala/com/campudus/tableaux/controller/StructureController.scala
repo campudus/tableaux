@@ -158,7 +158,7 @@ class StructureController(
       tableGroupId: Option[TableGroupId],
       attributes: Option[JsonObject],
       concatFormatPattern: Option[String],
-      originTables: Option[Seq[TableId]] = None
+      originTables: Option[Seq[TableId]]
   )(implicit user: TableauxUser): Future[Table] = {
     checkArguments(notNull(tableName, "name"))
     logger.info(
@@ -386,7 +386,9 @@ class StructureController(
 
         Future.successful(())
       case _ => Future.failed(
-          UnprocessableEntityException("originTables must be a non-empty sequence of valid table IDs")
+          UnprocessableEntityException(
+            s"originTables must be a non-empty sequence of valid table IDs, was: $originTables"
+          )
         )
     }
   }

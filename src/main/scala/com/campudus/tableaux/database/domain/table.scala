@@ -43,7 +43,7 @@ case object UnionTable extends TableType {
 object Table {
 
   def apply(id: TableId)(implicit roleModel: RoleModel, user: TableauxUser): Table = {
-    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None, None)
+    Table(id, "unknown", hidden = false, None, Seq.empty, GenericTable, None, None, None, None)
   }
 }
 
@@ -56,7 +56,8 @@ case class Table(
     tableType: TableType,
     tableGroup: Option[TableGroup],
     attributes: Option[JsonObject],
-    concatFormatPattern: Option[String]
+    concatFormatPattern: Option[String],
+    originTables: Option[Seq[TableId]]
 )(implicit roleModel: RoleModel = RoleModel(), user: TableauxUser) extends DomainObject {
 
   override def getJson: JsonObject = {
@@ -98,6 +99,10 @@ case class Table(
     tableJson.mergeIn(concatFormatPatternJson)
 
     tableGroup.foreach(tg => tableJson.put("group", tg.getJson))
+
+    if (originTables.isDefined) {
+      tableJson.mergeIn(Json.obj("originTables" -> originTables.get))
+    }
 
     tableJson
   }

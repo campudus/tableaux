@@ -20,7 +20,7 @@ class ColumnModelTest {
     val sc1 = CreateSimpleColumn("c1", null, null, LanguageNeutral, identifier = false, Nil, separator = false, None)
     val sc2 = CreateSimpleColumn("c2", null, null, LanguageNeutral, identifier = false, Nil, separator = false, None)
 
-    val testTable = Table(1, "table", hidden = false, null, null, null, null, None, None)
+    val testTable = Table(1, "table", hidden = false, null, null, null, null, None, None, None)
     val bci1 = BasicColumnInformation(testTable, 1, 1, null, sc1)
     val bci2 = BasicColumnInformation(testTable, 2, 1, null, sc2)
 
@@ -109,7 +109,7 @@ class ColumnModelTest {
   def isColumnGroupMatchingToFormatPattern_oneHigherColumnId_patternWithHigherWildcard_isValid(): Unit = {
     val sc42 =
       CreateSimpleColumn("c42", null, null, LanguageNeutral, identifier = false, List(), separator = false, None)
-    val testTable = Table(1, "table", hidden = false, null, null, null, null, None, None)
+    val testTable = Table(1, "table", hidden = false, null, null, null, null, None, None, None)
     val bci42 = BasicColumnInformation(testTable, 42, 1, null, sc42)
 
     val col42 = SimpleValueColumn(ShortTextType, LanguageNeutral, bci42)

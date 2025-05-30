@@ -311,7 +311,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
 
       _ <- eventClient.tableCreated(table.id)
@@ -338,7 +339,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       _ <- structureModel.tableStruc.delete(table.id)
       _ <- eventClient.tableDeleted(table.id, table)
@@ -364,7 +366,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       _ <- structureModel.tableStruc.change(
         table.id,
@@ -410,7 +413,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       column <- structureModel.columnStruc.createColumn(table, columnToCreate)
       _ <- eventClient.columnCreated(table.id, column.id)
@@ -457,7 +461,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       column <- structureModel.columnStruc.createColumn(table, columnToCreate)
       _ <- structureModel.columnStruc.createColumn(table, columnToCreate2)
@@ -496,7 +501,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       column <- structureModel.columnStruc.createColumn(table, columnToCreate)
       updatedColumn <-
@@ -547,7 +553,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       column <- structureModel.columnStruc.createColumn(table, defaultColumnToCreate)
     } yield (table, column)
@@ -671,7 +678,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       linkColumn <- structureModel.columnStruc.createColumn(table2, linkColumnToCreate)
       createdRowTable2 <- tableauxModel.createRow(table2, None)
@@ -811,7 +819,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       // listener should be selected
       nonIdentifierNonHiddenTableColumn <-
@@ -831,7 +840,8 @@ class MessagingVerticleTest extends TableauxTestBase with MockitoSugar {
         tableType = GenericTable,
         tableGroupIdOpt = None,
         attributes = None,
-        concatFormatPattern = None
+        concatFormatPattern = None,
+        originTables = None
       )
       // listener should NOT be selected
       nonIdentifierHiddenTableColumn <-

@@ -116,7 +116,8 @@ class TableModel(val connection: DatabaseConnection)(
             tableType,
             tableGroup,
             attributes,
-            concatFormatPattern
+            concatFormatPattern,
+            originTables
           )
         )
       }
@@ -255,16 +256,40 @@ class TableModel(val connection: DatabaseConnection)(
     } yield table
   }
 
+  private def getTableStatement(tableIdOpt: Option[TableId]): String = {
+    val baseStatement =
+      """
+        |SELECT
+        |  table_id,
+        |  user_table_name,
+        |  is_hidden,
+        |  array_to_json(langtags) AS langtags,
+        |  type,
+        |  group_id,
+        |  attributes,
+        |  concat_format_pattern,
+        |  array_to_json((
+        |    SELECT array_agg(sut.origin_table_id)
+        |    FROM system_union_table sut
+        |    WHERE sut.table_id = st.table_id)) AS origin_tables
+        |FROM system_table st
+        """.stripMargin
+
+    tableIdOpt match {
+      case Some(tableId) =>
+        s"$baseStatement WHERE table_id = ?"
+      case None =>
+        s"$baseStatement ORDER BY ordering, table_id"
+    }
+  }
+
   private def getTableWithDisplayInfos(tableId: TableId, defaultLangtags: Seq[String])(
       implicit user: TableauxUser
   ): Future[Table] = {
     for {
       t <- connection.begin()
 
-      (t, tableResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes, concat_format_pattern FROM system_table WHERE table_id = ?",
-        Json.arr(tableId)
-      )
+      (t, tableResult) <- t.query(getTableStatement(Some(tableId)), Json.arr(tableId))
       (t, displayInfoResult) <- t.query(
         "SELECT table_id, langtag, name, description FROM system_table_lang WHERE table_id = ?",
         Json.arr(tableId)
@@ -292,9 +317,7 @@ class TableModel(val connection: DatabaseConnection)(
     for {
       t <- connection.begin()
 
-      (t, tablesResult) <- t.query(
-        "SELECT table_id, user_table_name, is_hidden, array_to_json(langtags), type, group_id, attributes, concat_format_pattern FROM system_table ORDER BY ordering, table_id"
-      )
+      (t, tablesResult) <- t.query(getTableStatement(None))
       (t, displayInfosResult) <- t.query("SELECT table_id, langtag, name, description FROM system_table_lang")
 
       _ <- t.commit()
@@ -355,7 +378,11 @@ class TableModel(val connection: DatabaseConnection)(
       TableType(row.getString(4)),
       Option(row.getLong(5)).map(_.longValue()).flatMap(tableGroups.get),
       Option(row.getString(6)).map(jsonString => new JsonObject(jsonString)),
-      Option(row.getString(7))
+      Option(row.getString(7)),
+      Option(row.getString(8)).map(arrayString =>
+        Json.fromArrayString(arrayString).asScala.toSeq
+          .map({ case f: java.lang.Integer => f.longValue() })
+      )
     )
   }
 
