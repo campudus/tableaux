@@ -623,7 +623,7 @@ class TableauxModel(
   }
 
   def retrieveTablesWithCellAnnotationCount(tables: Seq[Table]): Future[Seq[TableWithCellAnnotationCount]] = {
-    val tableIds = tables.map({ case Table(id, _, _, _, _, _, _, _, _) => id })
+    val tableIds = tables.map({ case Table(id, _, _, _, _, _, _, _, _, _) => id })
 
     for {
       annotationCountMap <- retrieveRowModel.retrieveCellAnnotationCount(tableIds)
