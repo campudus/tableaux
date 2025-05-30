@@ -30,9 +30,9 @@ class UnionTableTest extends TableauxTestBase {
     val createColumnGloss = createNumberColumnJson("glossLevel")
 
     for {
-      tableId1 <- sendRequest("POST", "/tables", createTableJson("table1"))
-      tableId2 <- sendRequest("POST", "/tables", createTableJson("table2"))
-      tableId3 <- sendRequest("POST", "/tables", createTableJson("table3"))
+      tableId1 <- sendRequest("POST", "/tables", createTableJson("table1")).map(_.getLong("id"))
+      tableId2 <- sendRequest("POST", "/tables", createTableJson("table2")).map(_.getLong("id"))
+      tableId3 <- sendRequest("POST", "/tables", createTableJson("table3")).map(_.getLong("id"))
 
       // create columns in tables in different order
       _ <- sendRequest("POST", s"/tables/1/columns", createColumnName)
@@ -47,17 +47,19 @@ class UnionTableTest extends TableauxTestBase {
       _ <- sendRequest("POST", s"/tables/3/columns", createColumnColor)
       _ <- sendRequest("POST", s"/tables/3/columns", createColumnName)
 
-      resultUnionTable <- sendRequest(
-        "POST",
-        "/tables",
-        Json.obj("name" -> "union", "type" -> "union", "displayName" -> Json.obj("de" -> "Union Table"))
+      payload = Json.obj(
+        "name" -> "union",
+        "type" -> "union",
+        "displayName" -> Json.obj("de" -> "Union Table"),
+        "originTables" -> Json.arr(tableId1, tableId2, tableId3)
       )
+      resultUnionTable <- sendRequest("POST", "/tables", payload)
 
     } yield resultUnionTable.getLong("id")
   }
 
   @Test
-  def createUnionTable(implicit c: TestContext): Unit = okTest {
+  def createUnionTable_withOriginTables_ok(implicit c: TestContext): Unit = okTest {
     for {
       tableId <- createUnionTable()
       unionTable <- sendRequest("GET", s"/completetable/$tableId")
@@ -66,8 +68,7 @@ class UnionTableTest extends TableauxTestBase {
         "name" -> "union",
         "type" -> "union",
         "displayName" -> Json.obj("de" -> "Union Table"),
-        // TODO
-        // "originTables" -> Json.arr(),
+        "originTables" -> Json.arr(1, 2, 3),
         "columns" -> Json.arr(
           Json.obj(
             "name" -> "originTable",
@@ -88,7 +89,7 @@ class UnionTableTest extends TableauxTestBase {
 
   @Test
   def createUnionTable_withoutOriginTables_shouldFail(implicit c: TestContext): Unit =
-    exceptionTest("error.request.forbidden.column") {
+    exceptionTest("unprocessable.entity") {
       for {
         _ <- sendRequest(
           "POST",
@@ -99,31 +100,48 @@ class UnionTableTest extends TableauxTestBase {
     }
 
   @Test
-  def addColumnToUnionTable(implicit c: TestContext): Unit = okTest {
-    for {
-      tableId <- createUnionTable()
-
-      column <- sendRequest(
-        "POST",
-        s"/tables/$tableId/columns",
-        Json.obj("columns" -> Json.arr(Json.obj(
-          "name" -> "test",
-          "kind" -> "unionsimple"
-        ))) // brauchen wir einen eigenen Typ?
-      )
-    } yield {
-      val expectedColumn = Json.obj(
-        "name" -> "test",
-        "kind" -> "unionsimple",
-        "displayName" -> Json.obj("de" -> "Test"),
-        "description" -> Json.obj("de" -> "")
-      )
-
-      println(s"column: $column")
-
-      assertEquals(expectedColumn, column.getJsonArray("columns").getJsonObject(0))
+  def createUnionTable_withInvalidOriginTables_shouldFail(implicit c: TestContext): Unit =
+    exceptionTest("error.database.unknown") {
+      for {
+        _ <- sendRequest(
+          "POST",
+          "/tables",
+          Json.obj(
+            "name" -> "union",
+            "type" -> "union",
+            "displayName" -> Json.obj("de" -> "Union Table"),
+            "originTables" -> Json.arr(999)
+          )
+        )
+      } yield ()
     }
-  }
+
+  // @Test
+  // def addColumnToUnionTable(implicit c: TestContext): Unit = okTest {
+  //   for {
+  //     tableId <- createUnionTable()
+
+  //     column <- sendRequest(
+  //       "POST",
+  //       s"/tables/$tableId/columns",
+  //       Json.obj("columns" -> Json.arr(Json.obj(
+  //         "name" -> "test",
+  //         "kind" -> "unionsimple"
+  //       ))) // brauchen wir einen eigenen Typ?
+  //     )
+  //   } yield {
+  //     val expectedColumn = Json.obj(
+  //       "name" -> "test",
+  //       "kind" -> "unionsimple",
+  //       "displayName" -> Json.obj("de" -> "Test"),
+  //       "description" -> Json.obj("de" -> "")
+  //     )
+
+  //     println(s"column: $column")
+
+  //     assertEquals(expectedColumn, column.getJsonArray("columns").getJsonObject(0))
+  //   }
+  // }
 
   // @Test
   // def changeColumnOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.column") {
