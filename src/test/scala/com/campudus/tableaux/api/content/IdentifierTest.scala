@@ -730,4 +730,63 @@ class IdentifierTest extends TableauxTestBase {
       assertTrue(true)
     }
   }
+
+  @Test
+  def retrieveLinkWithIdentifierColumnNull(implicit c: TestContext): Unit = okTest {
+    for {
+      baseTableId <- createDefaultTable("Base Table")
+      linkTableId <- createEmptyDefaultTable("Link Table")
+
+      // first row in base Table
+      baseTableRowId = 1
+
+      // create row in link table
+      linkTableRowId <- sendRequest("POST", s"/tables/$linkTableId/rows") map {
+        _.getLong("id")
+      }
+
+      baseTableLinkColumn = Json.obj(
+        "columns" -> Json.arr(
+          Json.obj(
+            "name" -> "Test Link 1",
+            "kind" -> "link",
+            "toTable" -> linkTableId
+          )
+        )
+      )
+
+      // create link column in base table
+      baseTableLinkColumnId <- sendRequest("POST", s"/tables/$baseTableId/columns", baseTableLinkColumn) map {
+        _.getJsonArray("columns").get[JsonObject](0).getLong("id")
+      }
+
+      testCellValueBeforeLink <-
+        sendRequest("GET", s"/tables/$baseTableId/columns/$baseTableLinkColumnId/rows/$baseTableRowId") map {
+          _.getJsonArray("value")
+        }
+
+      // add link from baseTable to linkTable
+      _ <- sendRequest(
+        "PUT",
+        s"/tables/$baseTableId/columns/$baseTableLinkColumnId/rows/$baseTableRowId",
+        Json.obj("value" -> Json.arr(Json.obj("id" -> linkTableRowId)))
+      )
+
+      testCellValueAfterLink <-
+        sendRequest("GET", s"/tables/$baseTableId/columns/$baseTableLinkColumnId/rows/$baseTableRowId") map {
+          _.getJsonArray("value")
+        }
+    } yield {
+      val expectedCellValueBeforeLink = Json.emptyArr()
+      val expectedCellValueAfterLink = Json.arr(
+        Json.obj(
+          "id" -> linkTableRowId,
+          "value" -> null
+        )
+      )
+
+      assertJSONEquals(expectedCellValueBeforeLink, testCellValueBeforeLink)
+      assertJSONEquals(expectedCellValueAfterLink, testCellValueAfterLink)
+    }
+  }
 }
