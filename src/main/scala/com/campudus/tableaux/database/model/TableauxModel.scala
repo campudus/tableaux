@@ -1380,15 +1380,15 @@ class TableauxModel(
 
       _ <- createHistoryModel.createRow(table, duplicatedRowId, Option(row.rowPermissions.value))
       _ <- createHistoryModel.createCells(table, rowId, columnsToDuplicate.zip(rowValues))
-
-      // Retrieve duplicated row with all columns
-      duplicatedRow <- retrieveRow(table, duplicatedRowId)
       _ <-
         if (shouldAnnotateSkipped) {
           Future.sequence(skippedColumns.filter(canBeDuplicated).map(col =>
-            addCellAnnotation(col, duplicatedRow.id, Seq.empty, CellAnnotationType(CellAnnotationType.FLAG), "check-me")
+            addCellAnnotation(col, duplicatedRowId, Seq.empty, CellAnnotationType(CellAnnotationType.FLAG), "check-me")
           ))
         } else Future.successful(())
+
+      // Retrieve duplicated row with all columns
+      duplicatedRow <- retrieveRow(table, duplicatedRowId)
     } yield duplicatedRow
   }
 
