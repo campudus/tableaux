@@ -4,7 +4,7 @@ final String BRANCH = params.BRANCH
 final boolean NOTIFY_SLACK_ON_FAILURE = params.NOTIFY_SLACK_ON_FAILURE
 final boolean NOTIFY_SLACK_ON_SUCCESS = params.NOTIFY_SLACK_ON_SUCCESS
 
-final String CLEAN_GIT_BRANCH = BRANCH ? BRANCH.replaceAll("[\\.\\_\\#]", "-").tokenize('/').last() : ""
+final String CLEAN_GIT_BRANCH = BRANCH ? BRANCH.replaceAll("[\\.\\_\\#]", "-").tokenize('/').last().toLowerCase() : ""
 
 final String IMAGE_NAME = "campudus/grud-backend"
 final String IMAGE_TAG = CLEAN_GIT_BRANCH && CLEAN_GIT_BRANCH != "master" ? CLEAN_GIT_BRANCH : "latest"
@@ -23,7 +23,7 @@ pipeline {
   environment {
     BUILD_DATE = sh(returnStdout: true, script: 'date \"+%Y-%m-%d %H:%M:%S\"').trim()
     GIT_COMMIT_DATE = sh(returnStdout: true, script: "git show -s --format=%ci").trim()
-    COMPOSE_PROJECT_NAME = "${IMAGE_NAME}-${CLEAN_GIT_BRANCH}"
+    COMPOSE_PROJECT_NAME = "campudus-grud-backend-${CLEAN_GIT_BRANCH}"
   }
 
   triggers {
