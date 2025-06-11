@@ -1476,7 +1476,6 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
        |    link_table_$linkId lt$linkId
        |    JOIN user_table_$toTableId ut$toTableId ON (lt$linkId.${direction.toSql} = ut$toTableId.id)
        |    LEFT JOIN user_table_lang_$toTableId utl$toTableId ON (ut$toTableId.id = utl$toTableId.id)
-       |  WHERE $column IS NOT NULL
        |  GROUP BY ut$toTableId.id, lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
        |  ORDER BY lt$linkId.${direction.fromSql}, lt$linkId.${direction.orderingSql}
        |) sub
