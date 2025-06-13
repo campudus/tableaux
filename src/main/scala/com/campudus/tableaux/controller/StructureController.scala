@@ -422,7 +422,7 @@ class StructureController(
         CreateSimpleColumn(
           "originTable",
           None,
-          ShortTextType,
+          OriginTableType,
           MultiLanguage,
           identifier = true,
           Seq(

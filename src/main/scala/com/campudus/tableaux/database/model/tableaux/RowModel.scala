@@ -1246,18 +1246,12 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
     val projection = generateProjection(tableId, columns)
     val fromClause = generateFromClause(tableId)
     val rowAnnotationFilter = generateRowAnnotationFilter(finalFlagOpt, archivedFlagOpt)
-    println(s"### CCC ### 3: $projection")
-    println(s"### CCC ### 4: $fromClause")
-    println(s"### CCC ### 5: $rowAnnotationFilter")
-
+    val stmt = s"""|SELECT $projection
+                   |FROM $fromClause
+                   |WHERE TRUE $rowAnnotationFilter
+                   |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin
     for {
-      result <-
-        connection.query(
-          s"""|SELECT $projection
-              |FROM $fromClause
-              |WHERE TRUE $rowAnnotationFilter
-              |GROUP BY ut.id ORDER BY ut.id $pagination""".stripMargin
-        )
+      result <- connection.query(stmt)
     } yield {
       resultObjectToJsonArray(result).map(jsonArrayToSeq).map(mapRowToRawRow(columns))
     }
