@@ -144,10 +144,13 @@ class TableModel(val connection: DatabaseConnection)(
       originTableIds: Seq[TableId]
   ): Future[DbTransaction] = {
     val stmt = s"""
-                  |INSERT INTO system_union_table (table_id, origin_table_id)
-                  |VALUES ${originTableIds.map(_ => "(?, ?)").mkString(", ")}
+                  |INSERT INTO system_union_table (table_id, origin_table_id, ordering)
+                  |VALUES ${originTableIds.map(_ => "(?, ?, ?)").mkString(", ")}
                   """.stripMargin
-    val binds = Json.arr(originTableIds.flatMap(oid => Seq(id, oid)): _*)
+    val binds = Json.arr(originTableIds.zipWithIndex.flatMap {
+      // ensure to keep the order of the incoming originTableIds
+      case (oid, index) => Seq(id, oid, index * 10 + 10)
+    }: _*)
 
     for {
       (t, _) <- t.query(stmt, binds)
@@ -269,7 +272,7 @@ class TableModel(val connection: DatabaseConnection)(
         |  attributes,
         |  concat_format_pattern,
         |  array_to_json((
-        |    SELECT array_agg(sut.origin_table_id)
+        |    SELECT array_agg(sut.origin_table_id ORDER BY sut.ordering ASC)
         |    FROM system_union_table sut
         |    WHERE sut.table_id = st.table_id)) AS origin_tables
         |FROM system_table st

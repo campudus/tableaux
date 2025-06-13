@@ -3232,6 +3232,14 @@
           "type": "string",
           "description": "Pattern for the frontend how to render the content of the concat column",
           "example": "{{1}} | {{2}} | {{3}}"
+        },
+        "originTables": {
+          "type": "array",
+          "description": "The table ids which are used as origin tables (property only available for union tables)",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
         }
       }
     },
