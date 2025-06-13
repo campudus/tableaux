@@ -1305,25 +1305,30 @@ class TableauxModel(
       archivedFlagOpt: Option[Boolean],
       pagination: Pagination
   )(implicit user: TableauxUser): Future[RowSeq] = {
-    for {
-      columns <- retrieveColumns(table)
-      filteredColumns = roleModel
-        .filterDomainObjects[ColumnType[_]](
-          ViewCellValue,
-          columns,
-          ComparisonObjects(table),
-          isInternalCall = false
-        )
-      rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
-      resultRows <-
-        if (config.isRowPermissionCheckEnabled) {
-          removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
-        } else {
-          Future.successful(rowSeq.rows)
-        }
-    } yield {
-      val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
-      RowSeq(filteredRows, rowSeq.page)
+    // TODO: if the table is of kind UnionTable, we need to retrieve the rows from the underlying original tables in a completely different way
+    if (table.tableType == UnionTable) {
+      Future.successful(RowSeq(Seq.empty, Page(pagination, Some(0))))
+    } else {
+      for {
+        columns <- retrieveColumns(table)
+        filteredColumns = roleModel
+          .filterDomainObjects[ColumnType[_]](
+            ViewCellValue,
+            columns,
+            ComparisonObjects(table),
+            isInternalCall = false
+          )
+        rowSeq <- retrieveRows(table, filteredColumns, finalFlagOpt, archivedFlagOpt, pagination)
+        resultRows <-
+          if (config.isRowPermissionCheckEnabled) {
+            removeUnauthorizedForeignValuesFromRows(filteredColumns, rowSeq.rows)
+          } else {
+            Future.successful(rowSeq.rows)
+          }
+      } yield {
+        val filteredRows = roleModel.filterDomainObjects(ViewRow, resultRows, ComparisonObjects(), false)
+        RowSeq(filteredRows, rowSeq.page)
+      }
     }
   }
 

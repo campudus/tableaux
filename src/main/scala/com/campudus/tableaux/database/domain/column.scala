@@ -384,6 +384,7 @@ object SimpleValueColumn {
       case DateType => DateColumn.apply
       case DateTimeType => DateTimeColumn.apply
       case IntegerType => IntegerColumn.apply
+      case OriginTableType => TextColumn.apply // we can reuse TextColumn internally
 
       case _ => throw new IllegalArgumentException("Can only map type to SimpleValueColumn")
     }
