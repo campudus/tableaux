@@ -51,7 +51,7 @@ class UnionTableTest extends TableauxTestBase {
         "name" -> "union",
         "type" -> "union",
         "displayName" -> Json.obj("de" -> "Union Table"),
-        "originTables" -> Json.arr(tableId1, tableId2, tableId3)
+        "originTables" -> Json.arr(tableId1, tableId3, tableId2)
       )
       resultUnionTable <- sendRequest("POST", "/tables", payload)
 
@@ -68,7 +68,7 @@ class UnionTableTest extends TableauxTestBase {
         "name" -> "union",
         "type" -> "union",
         "displayName" -> Json.obj("de" -> "Union Table"),
-        "originTables" -> Json.arr(1, 2, 3),
+        "originTables" -> Json.arr(1, 3, 2),
         "columns" -> Json.arr(
           Json.obj(
             "name" -> "originTable",
