@@ -77,7 +77,7 @@ class UnionTableTest extends TableauxTestBase {
               "de" -> "Der Tabellenname, aus der die Daten stammen",
               "en" -> "The name of the table from which the data is taken"
             ),
-            "kind" -> "shorttext"
+            "kind" -> "text" // internally "origintable"
           )
         ),
         "rows" -> Json.emptyArr()
