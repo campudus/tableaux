@@ -1,6 +1,7 @@
 CREATE TABLE system_union_table (
   table_id BIGINT REFERENCES system_table(table_id) ON DELETE CASCADE,
   origin_table_id BIGINT REFERENCES system_table(table_id) ON DELETE CASCADE,
+  ordering BIGINT,
   CONSTRAINT system_union_table_pkey PRIMARY KEY (table_id, origin_table_id)
 );
 
