@@ -1,7 +1,13 @@
 package com.campudus.tableaux.router
 
 import com.campudus.tableaux.TableauxConfig
-import com.campudus.tableaux.controller.{MediaController, StructureController, SystemController, TableauxController}
+import com.campudus.tableaux.controller.{
+  MediaController,
+  StructureController,
+  SystemController,
+  TableauxController,
+  UserController
+}
 import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.model._
 import com.campudus.tableaux.router.auth.KeycloakAuthHandler
@@ -40,6 +46,7 @@ object RouterRegistry extends LazyLogging {
     val attachmentModel = AttachmentModel(dbConnection, fileModel)
     val serviceModel = ServiceModel(dbConnection)
     val cellAnnotationConfigModel = CellAnnotationConfigModel(dbConnection)
+    val userModel = UserModel(dbConnection)
 
     val systemRouter =
       SystemRouter(
@@ -59,6 +66,7 @@ object RouterRegistry extends LazyLogging {
       MediaRouter(tableauxConfig, MediaController(_, folderModel, fileModel, attachmentModel, roleModel, tableauxModel))
     val structureRouter = StructureRouter(tableauxConfig, StructureController(_, structureModel, roleModel))
     val documentationRouter = DocumentationRouter(tableauxConfig)
+    val userRouter = UserRouter(tableauxConfig, UserController(_, userModel, roleModel))
 
     mainRouter.route().handler(CookieHandler.create())
 
@@ -68,6 +76,7 @@ object RouterRegistry extends LazyLogging {
       router.mountSubRouter("/", tableauxRouter.route)
       router.mountSubRouter("/", mediaRouter.route)
       router.mountSubRouter("/docs", documentationRouter.route)
+      router.mountSubRouter("/user", userRouter.route)
 
       router.get("/").handler(systemRouter.defaultRoute)
       router.get("/index.html").handler(systemRouter.defaultRoute)

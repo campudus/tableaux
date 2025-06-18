@@ -2470,6 +2470,35 @@
           }
         }
       }
+    },
+    "/user/settings/global": {
+      "get": {
+        "summary": "Get global user settings",
+        "description": "Returns an array containing all global user settings.",
+        "tags": [
+          "user"
+        ],
+        "operationId": "get-user-settings-global",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Global user settings.",
+            "schema": {
+              "$ref": "#/definitions/Response:UserSettingsGlobal"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -3224,6 +3253,49 @@
       },
       "required": [
         "rows"
+      ]
+    },
+    "Response:UserSettingGlobal": {
+      "description": "A row that links to a file.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "description": "value of setting as Json",
+          "example": "true"
+        },
+        "createdAt": {
+          "type": "string",
+          "example": "2015-11-24T14:13:32.936+01:00"
+        },
+        "updatedAt": {
+          "type": "string",
+          "example": "2015-11-24T14:13:32.936+01:00"
+        }
+      }
+    },
+    "Response:UserSettingsGlobal": {
+      "description": "All rows that link to the specified row.",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Property:Status"
+        }
+      ],
+      "properties": {
+        "settings": {
+          "description": "An array with all global user settings",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Response:UserSettingGlobal"
+          }
+        }
+      },
+      "required": [
+        "settings"
       ]
     },
     "Request:Folder": {
