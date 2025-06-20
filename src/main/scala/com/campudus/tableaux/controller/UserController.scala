@@ -1,7 +1,8 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
-import com.campudus.tableaux.database.domain.{UserSettingGlobal, UserSettingGlobalSeq}
+import com.campudus.tableaux.database.domain.{UserSettingGlobal, UserSettingGlobalSeq, UserSettingKind}
+import com.campudus.tableaux.database.domain.UserSettingKindGlobal
 import com.campudus.tableaux.database.model.UserModel
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.verticles.EventClient
