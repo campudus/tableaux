@@ -1,10 +1,16 @@
+CREATE TABLE user_setting_kinds (
+  kind          VARCHAR(255) NOT NULL,
+
+  PRIMARY KEY (kind)
+);
+
 CREATE TABLE user_setting_schemas (
   key           VARCHAR(255) NOT NULL,
+  kind          VARCHAR(255) NOT NULL,
   schema        JSONB,
-  created_at    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP WITHOUT TIME ZONE,
 
-  PRIMARY KEY (key)
+  PRIMARY KEY (key),
+  FOREIGN KEY (kind) REFERENCES user_setting_kinds (kind) ON DELETE CASCADE
 );
 
 CREATE TABLE user_settings_global (
@@ -115,7 +121,7 @@ DECLARE
           "additionalProperties": false
         }
       }
-    },
+    }
   }';
   filter_schema jsonb := '{
     "$schema": "http://json-schema.org/draft-07/schema",
@@ -188,21 +194,31 @@ DECLARE
   }';
 
 BEGIN
+  INSERT INTO user_setting_kinds
+    (kind)
+  VALUES
+    ('global'),
+    ('table'),
+    ('filter')
+  ;
+
   INSERT INTO user_setting_schemas
-    (key, schema)
+    (key, kind, schema)
   VALUES
     -- global setting schemas
-    ('filterReset', boolean_schema),
-    ('columnsReset', boolean_schema),
-    ('annotationReset', boolean_schema),
-    ('sortingReset', boolean_schema),
-    ('sortingDesc', boolean_schema),
-    ('markdownEditor', string_schema),
-    -- tableView setting schemas
-    ('columnWidths', integer_record_schema),
-    ('annotationHighlight', string_schema),
-    ('visibleColumns', integer_array_schema),
-    ('columnOrdering', id_index_array_schema),
-    ('rowsFilter', filter_schema)
+    ('filterReset', 'global', boolean_schema),
+    ('columnsReset', 'global', boolean_schema),
+    ('annotationReset', 'global', boolean_schema),
+    ('sortingReset', 'global', boolean_schema),
+    ('sortingDesc', 'global', boolean_schema),
+    ('markdownEditor', 'global', string_schema),
+    -- table setting schemas
+    ('columnWidths', 'table', integer_record_schema),
+    ('annotationHighlight', 'table', string_schema),
+    ('visibleColumns', 'table', integer_array_schema),
+    ('columnOrdering', 'table', id_index_array_schema),
+    ('rowsFilter', 'table', filter_schema),
+    -- filter setting schema
+    ('presetFilter', 'filter', filter_schema)
   ;
 END $$ LANGUAGE plpgsql;

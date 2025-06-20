@@ -1,7 +1,8 @@
 package com.campudus.tableaux.database.model
 
+import com.campudus.tableaux.InvalidUserSettingException
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
-import com.campudus.tableaux.database.domain.UserSettingGlobal
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.helper.ResultChecker.resultObjectToJsonArray
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
@@ -29,6 +30,31 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
       convertStringToDateTime(arr.get[String](2)), // created_at
       convertStringToDateTime(arr.get[String](3)) // updated_at
     )
+  }
+
+  private def checkSettingKind(settingKey: String, settingKind: UserSettingKind)(implicit
+  user: TableauxUser): Future[Unit] = {
+    val select =
+      s"""
+         |SELECT
+         |  COUNT(*) = 1
+         |FROM
+         |  user_setting_schemas
+         |WHERE
+         |  key = ?
+         |AND
+         |  kind = ?
+         """.stripMargin
+
+    connection
+      .selectSingleValue[Boolean](select, Json.arr(settingKey, settingKind.toString()))
+      .flatMap({
+        case true => Future.successful(())
+        case false =>
+          Future.failed(
+            new InvalidUserSettingException(s"User setting $settingKey does not exist for kind $settingKind.")
+          )
+      })
   }
 
   def retrieveSettingSchema(settingKey: String)(implicit user: TableauxUser): Future[String] = {
@@ -89,6 +115,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
          """.stripMargin
 
     for {
+      _ <- checkSettingKind(settingKey, UserSettingKindGlobal)
       result <- connection.query(select, Json.arr(user.name, settingKey))
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
@@ -112,6 +139,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
          """.stripMargin
 
     for {
+      _ <- checkSettingKind(settingKey, UserSettingKindGlobal)
       result <- connection.query(update, Json.arr(settingValue, user.name, settingKey))
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
