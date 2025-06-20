@@ -8,7 +8,7 @@ import org.joda.time.DateTime
 
 case class UserSettingGlobal(
     key: String,
-    value: String,
+    value: Object, // json value (array, object, boolean)
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime]
 )(implicit roleModel: RoleModel, user: TableauxUser) extends DomainObject {
