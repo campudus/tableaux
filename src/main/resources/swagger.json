@@ -2499,6 +2499,44 @@
           }
         }
       }
+    },
+    "/user/settings/global/{userSettingKey}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/userSettingKey"
+        }
+      ],
+      "patch": {
+        "summary": "Update global user setting",
+        "description": "Updates a specific global user setting.",
+        "tags": [
+          "user"
+        ],
+        "operationId": "update-user-setting-global",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingBody"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Global user setting.",
+            "schema": {
+              "$ref": "#/definitions/Response:UserSettingGlobal"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -3263,9 +3301,9 @@
           "type": "string"
         },
         "value": {
-          "type": "string",
+          "type": "any",
           "description": "value of setting as Json",
-          "example": "true"
+          "example": true
         },
         "createdAt": {
           "type": "string",
@@ -4882,6 +4920,28 @@
       "required": false,
       "default": false,
       "example": true
+    },
+    "userSettingKey": {
+      "name": "userSettingKey",
+      "in": "path",
+      "required": true,
+      "type": "string"
+    },
+    "userSettingBody": {
+      "name": "value",
+      "description": "User setting body.",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "type": "",
+        "properties": {
+          "value": {
+            "type": "any",
+            "description": "The value of a user setting as json.",
+            "example": true
+          }
+        }
+      }
     }
   },
   "responses": {
