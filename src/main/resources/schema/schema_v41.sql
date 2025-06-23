@@ -5,12 +5,20 @@ CREATE TABLE user_setting_kinds (
 );
 
 CREATE TABLE user_setting_schemas (
-  key           VARCHAR(255) NOT NULL,
-  kind          VARCHAR(255) NOT NULL,
+  name          VARCHAR(255) NOT NULL,
   schema        JSONB,
 
+  PRIMARY KEY (name)
+);
+
+CREATE TABLE user_setting_keys (
+  key           VARCHAR(255) NOT NULL,
+  kind          VARCHAR(255) NOT NULL,
+  schema        VARCHAR(255) NOT NULL,
+
   PRIMARY KEY (key),
-  FOREIGN KEY (kind) REFERENCES user_setting_kinds (kind) ON DELETE CASCADE
+  FOREIGN KEY (kind) REFERENCES user_setting_kinds (kind) ON DELETE CASCADE,
+  FOREIGN KEY (schema) REFERENCES user_setting_schemas (name) ON DELETE CASCADE
 );
 
 CREATE TABLE user_settings_global (
@@ -21,7 +29,7 @@ CREATE TABLE user_settings_global (
   updated_at    TIMESTAMP WITHOUT TIME ZONE,
 
   PRIMARY KEY (key, user_id),
-  FOREIGN KEY (key) REFERENCES user_setting_schemas (key) ON DELETE CASCADE
+  FOREIGN KEY (key) REFERENCES user_setting_keys (key) ON DELETE CASCADE
 );
 
 CREATE TABLE user_settings_table (
@@ -33,7 +41,7 @@ CREATE TABLE user_settings_table (
   updated_at    TIMESTAMP WITHOUT TIME ZONE,
 
   PRIMARY KEY (key, user_id, table_id),
-  FOREIGN KEY (key) REFERENCES user_setting_schemas (key) ON DELETE CASCADE
+  FOREIGN KEY (key) REFERENCES user_setting_keys (key) ON DELETE CASCADE
 );
 
 CREATE TABLE user_settings_filter (
@@ -46,7 +54,7 @@ CREATE TABLE user_settings_filter (
   updated_at    TIMESTAMP WITHOUT TIME ZONE,
 
   PRIMARY KEY (id),
-  FOREIGN KEY (key) REFERENCES user_setting_schemas (key) ON DELETE CASCADE
+  FOREIGN KEY (key) REFERENCES user_setting_keys (key) ON DELETE CASCADE
 );
 
 DO $$
@@ -192,22 +200,33 @@ BEGIN
   ;
 
   INSERT INTO user_setting_schemas
+    (name, schema)
+  VALUES
+    ('string', string_schema),
+    ('boolean', boolean_schema),
+    ('integer_record', integer_record_schema),
+    ('integer_array', integer_array_schema),
+    ('id_index_array', id_index_array_schema),
+    ('filter', filter_schema)
+  ;
+
+  INSERT INTO user_setting_keys
     (key, kind, schema)
   VALUES
     -- global setting schemas
-    ('filterReset', 'global', boolean_schema),
-    ('columnsReset', 'global', boolean_schema),
-    ('annotationReset', 'global', boolean_schema),
-    ('sortingReset', 'global', boolean_schema),
-    ('sortingDesc', 'global', boolean_schema),
-    ('markdownEditor', 'global', string_schema),
+    ('filterReset', 'global', 'boolean'),
+    ('columnsReset', 'global', 'boolean'),
+    ('annotationReset', 'global', 'boolean'),
+    ('sortingReset', 'global', 'boolean'),
+    ('sortingDesc', 'global', 'boolean'),
+    ('markdownEditor', 'global', 'string'),
     -- table setting schemas
-    ('columnWidths', 'table', integer_record_schema),
-    ('annotationHighlight', 'table', string_schema),
-    ('visibleColumns', 'table', integer_array_schema),
-    ('columnOrdering', 'table', id_index_array_schema),
-    ('rowsFilter', 'table', filter_schema),
+    ('columnWidths', 'table', 'integer_record'),
+    ('annotationHighlight', 'table', 'string'),
+    ('visibleColumns', 'table', 'integer_array'),
+    ('columnOrdering', 'table', 'id_index_array'),
+    ('rowsFilter', 'table', 'filter'),
     -- filter setting schema
-    ('presetFilter', 'filter', filter_schema)
+    ('presetFilter', 'filter', 'filter')
   ;
 END $$ LANGUAGE plpgsql;
