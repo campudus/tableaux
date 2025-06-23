@@ -39,7 +39,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   }
 
   def checkSettingKey(settingKey: String)(implicit user: TableauxUser): Future[Unit] = {
-    val select = "SELECT COUNT(*) = 1 FROM user_setting_schemas WHERE key = ?"
+    val select = "SELECT COUNT(*) = 1 FROM user_setting_keys WHERE key = ?"
 
     connection.selectSingleValue[Boolean](select, Json.arr(settingKey)).flatMap({
       case true => Future.successful(())
@@ -48,7 +48,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   }
 
   def retrieveSettingKind(settingKey: String)(implicit user: TableauxUser): Future[String] = {
-    val select = "SELECT kind FROM user_setting_schemas WHERE key = ?"
+    val select = "SELECT kind FROM user_setting_keys WHERE key = ?"
 
     for {
       result <- connection.selectSingleValue[String](select, Json.arr(settingKey))
@@ -58,7 +58,15 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   }
 
   def retrieveSettingSchema(settingKey: String)(implicit user: TableauxUser): Future[String] = {
-    val select = "SELECT schema FROM user_setting_schemas WHERE key = ?"
+    val select =
+      """SELECT
+        |  uss.schema
+        |FROM
+        |  user_setting_keys usk
+        |LEFT JOIN
+        |  user_setting_schemas uss ON usk.schema = uss.name
+        |WHERE usk.key = ?
+        |""".stripMargin
 
     for {
       result <- connection.selectSingleValue[String](select, Json.arr(settingKey))
@@ -77,8 +85,8 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
-         |  uss.key,
-         |  uss.kind,
+         |  usk.key,
+         |  usk.kind,
          |  COALESCE(usg.value, ust.value, usf.value) AS value,
          |  COALESCE(usg.created_at, ust.created_at, usf.created_at) AS created_at,
          |  COALESCE(usg.updated_at, ust.updated_at, usf.updated_at) AS updated_at,
@@ -86,13 +94,13 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
          |  usf.name,
          |  usf.id
          |FROM
-         |  user_setting_schemas uss
+         |  user_setting_keys usk
          |LEFT JOIN
-         |  user_settings_global usg ON usg.key = uss.key
+         |  user_settings_global usg ON usg.key = usk.key
          |LEFT JOIN
-         |  user_settings_table ust ON ust.key = uss.key
+         |  user_settings_table ust ON ust.key = usk.key
          |LEFT JOIN
-         |  user_settings_filter usf ON usf.key = uss.key
+         |  user_settings_filter usf ON usf.key = usk.key
          |$where
          |ORDER BY key, table_id, id
          """.stripMargin
@@ -109,19 +117,19 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
-         |  uss.key,
-         |  uss.kind,
+         |  usk.key,
+         |  usk.kind,
          |  usg.value,
          |  usg.created_at,
          |  usg.updated_at
          |FROM
-         |  user_setting_schemas uss
+         |  user_setting_keys usk
          |LEFT JOIN
-         |  user_settings_global usg ON usg.key = uss.key
+         |  user_settings_global usg ON usg.key = usk.key
          |WHERE
          |  usg.user_id = ?
          |AND
-         |  uss.key = ?
+         |  usk.key = ?
          """.stripMargin
 
     for {
@@ -164,20 +172,20 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
-         |  uss.key,
-         |  uss.kind,
+         |  usk.key,
+         |  usk.kind,
          |  ust.value,
          |  ust.created_at,
          |  ust.updated_at,
          |  ust.table_id
          |FROM
-         |  user_setting_schemas uss
+         |  user_setting_keys usk
          |LEFT JOIN
-         |  user_settings_table ust ON ust.key = uss.key
+         |  user_settings_table ust ON ust.key = usk.key
          |WHERE
          |  ust.user_id = ?
          |AND
-         |  uss.key = ?
+         |  usk.key = ?
          |AND
          |  ust.table_id = ?
          """.stripMargin
@@ -224,8 +232,8 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
-         |  uss.key,
-         |  uss.kind,
+         |  usk.key,
+         |  usk.kind,
          |  usf.value,
          |  usf.created_at,
          |  usf.updated_at,
@@ -233,13 +241,13 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
          |  usf.name,
          |  usf.id
          |FROM
-         |  user_setting_schemas uss
+         |  user_setting_keys usk
          |LEFT JOIN
-         |  user_settings_filter usf ON usf.key = uss.key
+         |  user_settings_filter usf ON usf.key = usk.key
          |WHERE
          |  usf.user_id = ?
          |AND
-         |  uss.key = ?
+         |  usk.key = ?
          |AND
          |  usf.id = ?
          """.stripMargin
