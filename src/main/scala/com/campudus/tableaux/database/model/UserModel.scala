@@ -32,9 +32,9 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
       Json.fromObjectString(arr.get[String](2)).getValue("value"), // value
       convertStringToDateTime(arr.get[String](3)), // created_at
       convertStringToDateTime(arr.get[String](4)), // updated_at
-      Try(arr.getLong(5)).toOption.map(_.longValue()), // tableId
+      Try(arr.getLong(5).longValue()).toOption, // tableId
       Try(arr.getString(6)).toOption, // name
-      Try(arr.getLong(7)).toOption.map(_.longValue()) // id
+      Try(arr.getLong(7).longValue()).toOption // id
     )
   }
 
