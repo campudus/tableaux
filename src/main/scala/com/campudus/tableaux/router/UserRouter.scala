@@ -23,38 +23,52 @@ object UserRouter {
 
 class UserRouter(override val config: TableauxConfig, val controller: UserController) extends BaseRouter {
 
-  private val settingKey = """(?<settingKey>[a-zA-Z0-9_-]+)"""
+  private val settingKey = """(?<key>[a-zA-Z0-9_-]+)"""
   private val eventClient: EventClient = EventClient(vertx)
 
   def route: Router = {
     val router = Router.router(vertx)
     val bodyHandler = BodyHandler.create()
-    router.patch("/settings/*").handler(bodyHandler)
+    router.put("/settings/*").handler(bodyHandler)
 
-    router.get("/settings/global").handler(retrieveGlobalSettings)
-    router.patchWithRegex(s"/settings/global/$settingKey").handler(updateGlobalSetting)
+    router.get("/settings").handler(retrieveSettings)
+    router.putWithRegex(s"/settings/$settingKey").handler(upsertSetting)
 
     router
   }
 
   private def getSettingKey(context: RoutingContext): Option[String] = {
-    getStringParam("settingKey", context)
+    getStringParam("key", context)
   }
 
-  private def retrieveGlobalSettings(context: RoutingContext): Unit = {
+  private def getSettingTableId(context: RoutingContext): Option[Int] = {
+    getIntQuery("tableId", context)
+  }
+
+  private def getSettingName(context: RoutingContext): Option[String] = {
+    getStringQuery("name", context)
+  }
+
+  private def getSettingKind(context: RoutingContext): Option[String] = {
+    getStringQuery("kind", context)
+  }
+
+  private def retrieveSettings(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
     sendReply(
       context,
       asyncGetReply {
-        controller.retrieveGlobalSettings()
+        val settingKind = getSettingKind(context);
+        controller.retrieveSettings(settingKind)
       }
     )
+
   }
 
-  private def updateGlobalSetting(context: RoutingContext): Unit = {
+  private def upsertSetting(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
 
-    logger.info(s"updateGlobalSetting user: ${user.name}")
+    logger.info(s"upsertSetting user: ${user.name}")
 
     for {
       settingKey <- getSettingKey(context)
@@ -63,13 +77,15 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
         context,
         asyncGetReply {
           val settingJson = getJson(context)
+          val settingTableId = getSettingTableId(context).map(_.toLong)
+          val settingName = getSettingName(context)
 
           if (!settingJson.containsKey("value")) {
             Future.failed(InvalidJsonException("request must contain a value property", "value_prop_is_missing"))
           } else if (settingJson.fieldNames().size() > 1) {
             Future.failed(InvalidJsonException("request must only contain a value property", "value_prop_only"))
           } else {
-            controller.updateGlobalSetting(settingKey, settingJson.encode())
+            controller.upsertSetting(settingKey, settingJson.encode(), settingTableId, settingName)
           }
         }
       )

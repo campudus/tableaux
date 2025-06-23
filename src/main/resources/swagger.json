@@ -2471,24 +2471,28 @@
         }
       }
     },
-    "/user/settings/global": {
+    "/user/settings": {
       "get": {
-        "summary": "Get global user settings",
-        "description": "Returns an array containing all global user settings.",
+        "summary": "Get user settings",
+        "description": "Returns an array containing all user settings.",
         "tags": [
           "user"
         ],
-        "operationId": "get-user-settings-global",
+        "operationId": "get-user-settings",
         "consumes": [],
         "produces": [
           "application/json"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingKind"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Global user settings.",
+            "description": "User settings.",
             "schema": {
-              "$ref": "#/definitions/Response:UserSettingsGlobal"
+              "$ref": "#/definitions/Response:UserSettings"
             }
           },
           "default": {
@@ -2500,19 +2504,19 @@
         }
       }
     },
-    "/user/settings/global/{userSettingKey}": {
+    "/user/settings/{key}": {
       "parameters": [
         {
           "$ref": "#/parameters/userSettingKey"
         }
       ],
-      "patch": {
-        "summary": "Update global user setting",
-        "description": "Updates a specific global user setting.",
+      "put": {
+        "summary": "Create/Update user setting",
+        "description": "Create/Update a specific user setting.",
         "tags": [
           "user"
         ],
-        "operationId": "update-user-setting-global",
+        "operationId": "create-update-user-setting-global",
         "consumes": [],
         "produces": [
           "application/json"
@@ -2520,13 +2524,19 @@
         "parameters": [
           {
             "$ref": "#/parameters/userSettingBody"
+          },
+          {
+            "$ref": "#/parameters/userSettingTableId"
+          },
+          {
+            "$ref": "#/parameters/userSettingName"
           }
         ],
         "responses": {
           "200": {
             "description": "Global user setting.",
             "schema": {
-              "$ref": "#/definitions/Response:UserSettingGlobal"
+              "$ref": "#/definitions/Response:UserSetting"
             }
           },
           "default": {
@@ -3293,8 +3303,8 @@
         "rows"
       ]
     },
-    "Response:UserSettingGlobal": {
-      "description": "A row that links to a file.",
+    "Response:UserSetting": {
+      "description": "User setting response.",
       "type": "object",
       "properties": {
         "key": {
@@ -3312,11 +3322,19 @@
         "updatedAt": {
           "type": "string",
           "example": "2015-11-24T14:13:32.936+01:00"
+        },
+        "tableId": {
+          "type": "integer",
+          "required": false
+        },
+        "name": {
+          "type": "string",
+          "required": false
         }
       }
     },
-    "Response:UserSettingsGlobal": {
-      "description": "All rows that link to the specified row.",
+    "Response:UserSettings": {
+      "description": "User settings response.",
       "type": "object",
       "allOf": [
         {
@@ -3325,10 +3343,10 @@
       ],
       "properties": {
         "settings": {
-          "description": "An array with all global user settings",
+          "description": "An array with all user settings",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Response:UserSettingGlobal"
+            "$ref": "#/definitions/Response:UserSetting"
           }
         }
       },
@@ -4922,9 +4940,27 @@
       "example": true
     },
     "userSettingKey": {
-      "name": "userSettingKey",
+      "name": "key",
       "in": "path",
       "required": true,
+      "type": "string"
+    },
+    "userSettingKind": {
+      "name": "kind",
+      "in": "query",
+      "required": false,
+      "type": "string"
+    },
+    "userSettingTableId": {
+      "name": "tableId",
+      "in": "query",
+      "required": false,
+      "type": "integer"
+    },
+    "userSettingName": {
+      "name": "name",
+      "in": "query",
+      "required": false,
       "type": "string"
     },
     "userSettingBody": {

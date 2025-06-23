@@ -158,6 +158,10 @@ trait BaseRouter extends VertxAccess {
     context.request().getParam(name).map(_.toBoolean)
   }
 
+  def getStringQuery(name: String, context: RoutingContext): Option[String] = {
+    context.queryParams().get(name)
+  }
+
   def getBoolQuery(name: String, context: RoutingContext): Option[Boolean] = {
     context.queryParams().get(name).map(_.toBoolean)
   }
