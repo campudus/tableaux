@@ -178,6 +178,6 @@ case class LengthOutOfRangeException() extends CustomException {
 }
 
 case class InvalidUserSettingException(override val message: String) extends CustomException {
-  override val id: String = s"error.request.user.setting"
+  override val id: String = s"error.request.usersetting.invalid"
   override val statusCode: Int = 400
 }

@@ -155,22 +155,11 @@ DECLARE
         "anyOf": [
           {
             "type": "array",
-            "minItems": 4,
+            "minItems": 3,
             "maxItems": 4,
-            "items": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ]
+            "items": {
+              "type": "string"
+            }
           },
           {
             "type": "array",

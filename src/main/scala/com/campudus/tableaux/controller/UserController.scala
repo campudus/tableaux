@@ -61,7 +61,7 @@ class UserController(
       settingValidator = SchemaLoader.load(new JSONObject(settingSchema))
       _ <- Try(settingValidator.validate(new JSONObject(settingValue))) match {
         case Success(v) => Future.successful(())
-        case Failure(e) => Future.failed(InvalidJsonException("setting value did not match schema", "value_is_invalid"))
+        case Failure(e) => Future.failed(InvalidJsonException("setting value did not match schema", "invalid"))
       }
       settingKind <- repository.retrieveSettingKind(settingKey)
       setting <- settingKind match {
@@ -76,7 +76,7 @@ class UserController(
           checkArguments(isDefined(name, "name"))
           repository.upsertFilterSetting(settingKey, settingValue, name.get)
         }
-        case _ => Future.failed(NotFoundInDatabaseException("setting not found", "setting-not-found"))
+        case _ => Future.failed(NotFoundInDatabaseException("setting not found", "user-setting"))
       }
     } yield {
       setting
