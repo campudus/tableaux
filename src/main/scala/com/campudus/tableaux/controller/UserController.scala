@@ -1,8 +1,10 @@
 package com.campudus.tableaux.controller
 
 import com.campudus.tableaux.{InvalidJsonException, TableauxConfig}
-import com.campudus.tableaux.database.domain.{UserSettingGlobal, UserSettingGlobalSeq, UserSettingKind}
-import com.campudus.tableaux.database.domain.UserSettingKindGlobal
+import com.campudus.tableaux.ArgumentChecker._
+import com.campudus.tableaux.InvalidUserSettingException
+import com.campudus.tableaux.NotFoundInDatabaseException
+import com.campudus.tableaux.database.domain.{UserSetting, UserSettingKind, UserSettingSeq}
 import com.campudus.tableaux.database.model.UserModel
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.verticles.EventClient
@@ -40,31 +42,44 @@ class UserController(
 ) extends Controller[UserModel] {
   val eventClient: EventClient = EventClient(vertx)
 
-  def retrieveGlobalSettings()(implicit user: TableauxUser): Future[UserSettingGlobalSeq] = {
-    logger.info(s"retrieveGlobalSettings user: ${user.name}")
+  def retrieveSettings(kind: Option[String])(implicit user: TableauxUser): Future[UserSettingSeq] = {
+    logger.info(s"retrieveSettings user: ${user.name}")
 
     for {
-      globalSettingsSeq <- repository.retrieveGlobalSettings()
+      settingsSeq <- repository.retrieveSettings(kind)
     } yield {
-      UserSettingGlobalSeq(globalSettingsSeq)
+      UserSettingSeq(settingsSeq)
     }
   }
 
-  def updateGlobalSetting(settingKey: String, settingValue: String)(implicit
-  user: TableauxUser): Future[UserSettingGlobal] = {
-    logger.info(s"updateGlobalSetting user: ${user.name} setting: $settingKey")
+  def upsertSetting(settingKey: String, settingValue: String, tableId: Option[Long], name: Option[String])(implicit
+  user: TableauxUser): Future[UserSetting] = {
 
     for {
+      _ <- repository.checkSettingKey(settingKey)
       settingSchema <- repository.retrieveSettingSchema(settingKey)
       settingValidator = SchemaLoader.load(new JSONObject(settingSchema))
       _ <- Try(settingValidator.validate(new JSONObject(settingValue))) match {
         case Success(v) => Future.successful(())
         case Failure(e) => Future.failed(InvalidJsonException("setting value did not match schema", "value_is_invalid"))
       }
-      _ <- repository.updateGlobalSetting(settingKey, settingValue)
-      globalSetting <- repository.retrieveGlobalSetting(settingKey)
+      settingKind <- repository.retrieveSettingKind(settingKey)
+      setting <- settingKind match {
+        case UserSettingKind.GLOBAL => {
+          repository.upsertGlobalSetting(settingKey, settingValue)
+        }
+        case UserSettingKind.TABLE => {
+          checkArguments(isDefined(tableId, "tableId"))
+          repository.upsertTableSetting(settingKey, settingValue, tableId.get)
+        }
+        case UserSettingKind.FILTER => {
+          checkArguments(isDefined(name, "name"))
+          repository.upsertFilterSetting(settingKey, settingValue, name.get)
+        }
+        case _ => Future.failed(NotFoundInDatabaseException("setting not found", "setting-not-found"))
+      }
     } yield {
-      globalSetting
+      setting
     }
   }
 }
