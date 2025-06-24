@@ -21,12 +21,40 @@ class UnionTableTest extends TableauxTestBase {
 
   def createTextColumnJson(name: String) = RequestCreation.Columns().add(RequestCreation.TextCol(name)).getJson
 
+  def createMultilangTextColumnJson(name: String) =
+    RequestCreation.Columns().add(RequestCreation.Multilanguage(RequestCreation.TextCol(name))).getJson
+
   def createNumberColumnJson(name: String, decimalDigits: Option[Int] = None) =
     RequestCreation.Columns().add(RequestCreation.NumericCol(name, decimalDigits)).getJson
 
+  // format: off
+  /**
+   * Creates three almost identical tables but with different column order.
+   * 
+   * - column "name" is of type text, single language
+   * - column "color" is of type text, multi language
+   * - column "glossLevel" is of type number, single language
+   *
+   * table1 ┌──┬────┬─────┬──────────┐
+   *        │id│name│color│glossLevel│
+   *        ├──┼────┼─────┼──────────┤
+   *        │0 │1   │2    │3         │
+   *        └──┴────┴─────┴──────────┘
+   * table2 ┌──┬────┬─────┬──────────┐
+   *        │id│name│color│glossLevel│
+   *        ├──┼────┼─────┼──────────┤
+   *        │0 │1   │3    │2         │
+   *        └──┴────┴─────┴──────────┘
+   * table3 ┌──┬────┬─────┬──────────┐
+   *        │id│name│color│glossLevel│
+   *        ├──┼────┼─────┼──────────┤
+   *        │0 │3   │2    │1         │
+   *        └──┴────┴─────┴──────────┘
+   */
+  // format: on
   private def createUnionTable(): Future[TableId] = {
     val createColumnName = createTextColumnJson("name")
-    val createColumnColor = createTextColumnJson("color")
+    val createColumnColor = createMultilangTextColumnJson("color")
     val createColumnGloss = createNumberColumnJson("glossLevel")
 
     for {
@@ -116,208 +144,64 @@ class UnionTableTest extends TableauxTestBase {
       } yield ()
     }
 
-  // @Test
-  // def addColumnToUnionTable(implicit c: TestContext): Unit = okTest {
-  //   for {
-  //     tableId <- createUnionTable()
+  @Test
+  def addSimpleColumnsToUnionTable(implicit c: TestContext): Unit = okTest {
+    val unionTableCol1 = Json.obj(
+      "name" -> "name",
+      "kind" -> "text",
+      "ordering" -> 1,
+      "displayName" -> Json.obj("de" -> "Marketing Name", "en" -> "Marketing Name"),
+      "description" -> Json.obj("de" -> "Marketingname der Farbe", "en" -> "marketing name of the color"),
+      "originColumns" -> Json.obj(
+        "1" -> Json.obj("id" -> 1),
+        "2" -> Json.obj("id" -> 1),
+        "3" -> Json.obj("id" -> 3)
+      )
+    )
+    val unionTableCol2 = Json.obj(
+      "name" -> "color",
+      "kind" -> "text",
+      "ordering" -> 2,
+      "displayName" -> Json.obj("de" -> "Name der Farbe", "en" -> "Color Name"),
+      "description" -> Json.obj("de" -> "Name der Farbe", "en" -> "Name of the color"),
+      "originColumns" -> Json.obj(
+        "1" -> Json.obj("id" -> 2),
+        "2" -> Json.obj("id" -> 3),
+        "3" -> Json.obj("id" -> 2)
+      )
+    )
+    val unionTableCol3 = Json.obj(
+      "name" -> "glossLevel",
+      "kind" -> "numeric",
+      "ordering" -> 3,
+      "displayName" -> Json.obj("de" -> "Glanzgrad", "en" -> "Gloss Level"),
+      "description" -> Json.obj("de" -> "Der Glanzgrad der Farbe", "en" -> "The gloss level of the color"),
+      "originColumns" -> Json.obj(
+        "1" -> Json.obj("id" -> 3),
+        "2" -> Json.obj("id" -> 2),
+        "3" -> Json.obj("id" -> 1)
+      )
+    )
 
-  //     column <- sendRequest(
-  //       "POST",
-  //       s"/tables/$tableId/columns",
-  //       Json.obj("columns" -> Json.arr(Json.obj(
-  //         "name" -> "test",
-  //         "kind" -> "unionsimple"
-  //       ))) // brauchen wir einen eigenen Typ?
-  //     )
-  //   } yield {
-  //     val expectedColumn = Json.obj(
-  //       "name" -> "test",
-  //       "kind" -> "unionsimple",
-  //       "displayName" -> Json.obj("de" -> "Test"),
-  //       "description" -> Json.obj("de" -> "")
-  //     )
+    for {
+      tableId <- createUnionTable()
 
-  //     println(s"column: $column")
+      columns <- sendRequest(
+        "POST",
+        s"/tables/$tableId/columns",
+        Json.obj("columns" -> Json.arr(unionTableCol1, unionTableCol2, unionTableCol3))
+      )
+    } yield {
+      // val expectedColumn = Json.obj(
+      //   "name" -> "test",
+      //   "kind" -> "unionsimple",
+      //   "displayName" -> Json.obj("de" -> "Test"),
+      //   "description" -> Json.obj("de" -> "")
+      // )
 
-  //     assertEquals(expectedColumn, column.getJsonArray("columns").getJsonObject(0))
-  //   }
-  // }
+      // println(s"column: $column")
 
-  // @Test
-  // def changeColumnOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.column") {
-  //   for {
-  //     tableId <- createSettingsTable()
-
-  //     _ <- sendRequest("POST", s"/tables/$tableId/columns/1", Json.obj("name" -> "test"))
-  //   } yield ()
-  // }
-
-  // @Test
-  // def deleteColumnOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.column") {
-  //   for {
-  //     tableId <- createSettingsTable()
-
-  //     _ <- sendRequest("DELETE", s"/tables/$tableId/columns/1")
-  //   } yield ()
-  // }
-
-  // @Test
-  // def updateKeyCellOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.cell") {
-  //   for {
-  //     tableId <- createSettingsTable()
-
-  //     _ <- sendRequest("POST", s"/tables/$tableId/rows")
-
-  //     _ <- sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", Json.obj("value" -> "another value"))
-  //   } yield ()
-  // }
-
-  // @Test
-  // def replaceKeyCellOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.cell") {
-  //   for {
-  //     tableId <- createSettingsTable()
-
-  //     _ <- sendRequest("POST", s"/tables/$tableId/rows")
-
-  //     _ <- sendRequest("PUT", s"/tables/$tableId/columns/1/rows/1", Json.obj("value" -> "another value"))
-  //   } yield ()
-  // }
-
-  // @Test
-  // def clearKeyCellOfSettingsTable(implicit c: TestContext): Unit = exceptionTest("error.request.forbidden.cell") {
-  //   for {
-  //     tableId <- createSettingsTable()
-
-  //     _ <- sendRequest("POST", s"/tables/$tableId/rows")
-
-  //     _ <- sendRequest("DELETE", s"/tables/$tableId/columns/1/rows/1")
-  //   } yield ()
-  // }
-
-  // @Test
-  // def changeDisplayKeyCellOfSettingsTable(implicit c: TestContext): Unit = {
-  //   exceptionTest("error.request.forbidden.cell") {
-  //     for {
-  //       tableId <- createSettingsTable()
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows")
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/columns/2/rows/1", Json.obj("value" -> "another value"))
-  //     } yield ()
-  //   }
-  // }
-
-  // @Test
-  // def deleteRowOfSettingsTable(implicit c: TestContext): Unit =
-  //   okTest {
-  //     val expectedOkJson = Json.obj("status" -> "ok")
-
-  //     for {
-  //       tableId <- createSettingsTable()
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows")
-
-  //       test <- sendRequest("DELETE", s"/tables/$tableId/rows/1")
-  //     } yield assertEquals(expectedOkJson, test)
-  //   }
-
-  // @Test
-  // def insertKeyIntoSettingsTable(implicit c: TestContext): Unit =
-  //   okTest {
-  //     def settingsRow = Json.obj(
-  //       "columns" -> Json.arr(Json.obj("id" -> 1)),
-  //       "rows" -> Json.arr(Json.obj("values" -> Json.arr("key")))
-  //     )
-
-  //     for {
-  //       tableId <- createSettingsTable()
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow)
-  //       test <- sendRequest("GET", s"/tables/$tableId/rows")
-  //     } yield {
-  //       assertEquals(test.getJsonArray("rows").size(), 1)
-  //     }
-  //   }
-
-  // @Test
-  // def insertDuplicateKeyIntoSettingsTable(implicit c: TestContext): Unit =
-  //   exceptionTest("error.request.unique.cell") {
-  //     def settingsRow = Json.obj(
-  //       "columns" -> Json.arr(Json.obj("id" -> 1)),
-  //       "rows" -> Json.arr(Json.obj("values" -> Json.arr("already_existing_key")))
-  //     )
-
-  //     for {
-  //       tableId <- createSettingsTable()
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow)
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow)
-  //     } yield ()
-  //   }
-
-  // @Test
-  // def insertDuplicateKeyIntoSettingsTableWithKeyColumnIsNotFirstColumn(implicit c: TestContext): Unit =
-  //   exceptionTest("error.request.unique.cell") {
-  //     def settingsRow1 = Json.obj(
-  //       "columns" -> Json.arr(Json.obj("id" -> 3), Json.obj("id" -> 1)),
-  //       "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "value"), "already_existing_key")))
-  //     )
-
-  //     def settingsRow2 = Json.obj(
-  //       "columns" -> Json.arr(Json.obj("id" -> 3), Json.obj("id" -> 1)),
-  //       "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "another_value"), "already_existing_key")))
-  //     )
-
-  //     for {
-  //       tableId <- createSettingsTable()
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow1)
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRow2)
-  //     } yield ()
-  //   }
-
-  // @Test
-  // def insertEmptyKeyIntoSettingsTable(implicit c: TestContext): Unit =
-  //   exceptionTest("error.request.invalid") {
-  //     def settingsRowWithEmptyKey = Json.obj(
-  //       "columns" -> Json.arr(Json.obj("id" -> 1)),
-  //       "rows" -> Json.arr(Json.obj("values" -> Json.arr("")))
-  //     )
-
-  //     for {
-  //       tableId <- createSettingsTable()
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRowWithEmptyKey)
-  //     } yield ()
-  //   }
-
-  // @Test
-  // def insertNullKeyIntoSettingsTable(implicit c: TestContext): Unit =
-  //   exceptionTest("error.request.invalid") {
-  //     def settingsRowWithNullKey = Json.obj(
-  //       "columns" -> Json.arr(Json.obj("id" -> 1)),
-  //       "rows" -> Json.arr(Json.obj("values" -> Json.arr(null)))
-  //     )
-
-  //     for {
-  //       tableId <- createSettingsTable()
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRowWithNullKey)
-  //     } yield ()
-  //   }
-
-  // @Test
-  // def insertWithoutKeyIntoSettingsTable(implicit c: TestContext): Unit =
-  //   exceptionTest("error.request.invalid") {
-  //     def settingsRowWithoutKeyColumn = Json.obj(
-  //       "columns" -> Json.arr(Json.obj("id" -> 3)),
-  //       "rows" -> Json.arr(Json.obj("values" -> Json.arr(Json.obj("de-DE" -> "any_value"))))
-  //     )
-
-  //     for {
-  //       tableId <- createSettingsTable()
-
-  //       _ <- sendRequest("POST", s"/tables/$tableId/rows", settingsRowWithoutKeyColumn)
-  //     } yield ()
-  //   }
+      // assertEquals(expectedColumn, column.getJsonArray("columns").getJsonObject(0))
+    }
+  }
 }
