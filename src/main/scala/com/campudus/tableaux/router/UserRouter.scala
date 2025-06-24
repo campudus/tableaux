@@ -3,6 +3,7 @@ package com.campudus.tableaux.router
 import com.campudus.tableaux.InvalidJsonException
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.UserController
+import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
 import com.campudus.tableaux.verticles.EventClient
 
@@ -23,7 +24,15 @@ object UserRouter {
 
 class UserRouter(override val config: TableauxConfig, val controller: UserController) extends BaseRouter {
 
-  private val settingKey = """(?<key>[a-zA-Z0-9_-]+)"""
+  private val settingKeyRegex = """(?<key>[a-zA-Z0-9_-]+)"""
+  private val settingTableIdRegex = """(?<tableId>[\d]+)"""
+  private val settingIdRegex = """(?<id>[\d]+)"""
+  private val settingNameRegex = """(?<name>[a-zA-Z0-9_-+]+)"""
+
+  private val settingKindGlobal = UserSettingKindGlobal.name
+  private val settingKindTable = UserSettingKindTable.name
+  private val settingKindFilter = UserSettingKindFilter.name
+
   private val eventClient: EventClient = EventClient(vertx)
 
   def route: Router = {
@@ -32,79 +41,92 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     router.put("/settings/*").handler(bodyHandler)
 
     router.get("/settings").handler(retrieveSettings)
-    router.putWithRegex(s"/settings/$settingKey").handler(upsertSetting)
-    router.deleteWithRegex(s"/settings/$settingKey").handler(deleteSetting)
+    router.get(s"/settings/$settingKindGlobal").handler(retrieveGlobalSettings)
+    router.get(s"/settings/$settingKindTable").handler(retrieveTableSettings)
+    router.get(s"/settings/$settingKindFilter").handler(retrieveFilterSettings)
+
+    // router.putWithRegex(s"/settings/$settingKindGlobal/$settingKeyRegex").handler(upsertGlobalSetting)
+    // router.putWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(upsertTableSetting)
+    // router.putWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex/$settingNameRegex").handler(upsertFilterSetting)
+
+    // router.deleteWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(deleteTableSetting)
+    // router.deleteWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex/$settingIdRegex").handler(deleteFilterSetting)
 
     router
+  }
+
+  private def getSettingKind(context: RoutingContext): Option[UserSettingKind] = {
+    getStringParam("kind", context).map(UserSettingKind(_))
   }
 
   private def getSettingKey(context: RoutingContext): Option[String] = {
     getStringParam("key", context)
   }
 
-  private def getSettingTableId(context: RoutingContext): Option[Long] = {
-    getLongQuery("tableId", context)
-  }
+  // private def getSettingTableId(context: RoutingContext): Option[Long] = {
+  //   getLongQuery("tableId", context)
+  // }
 
-  private def getSettingName(context: RoutingContext): Option[String] = {
-    getStringQuery("name", context)
-  }
+  // private def getSettingName(context: RoutingContext): Option[String] = {
+  //   getStringQuery("name", context)
+  // }
 
-  private def getSettingId(context: RoutingContext): Option[Long] = {
-    getLongQuery("id", context)
-  }
-
-  private def getSettingKind(context: RoutingContext): Option[String] = {
-    getStringQuery("kind", context)
-  }
+  // private def getSettingId(context: RoutingContext): Option[Long] = {
+  //   getLongQuery("id", context)
+  // }
 
   private def retrieveSettings(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-
-    sendReply(
-      context,
-      asyncGetReply {
-        val settingKind = getSettingKind(context);
-        controller.retrieveSettings(settingKind)
-      }
-    )
-
+    sendReply(context, asyncGetReply(controller.retrieveSettings(None)))
   }
 
-  private def upsertSetting(context: RoutingContext): Unit = {
+  private def retrieveGlobalSettings(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-
-    for {
-      settingKey <- getSettingKey(context)
-    } yield {
-      sendReply(
-        context,
-        asyncGetReply {
-          val settingJson = getJson(context)
-          val settingTableId = getSettingTableId(context)
-          val settingName = getSettingName(context)
-
-          controller.upsertSetting(settingKey, settingJson, settingTableId, settingName)
-        }
-      )
-    }
+    sendReply(context, asyncGetReply(controller.retrieveSettings(Some(UserSettingKindGlobal))))
   }
 
-  private def deleteSetting(context: RoutingContext): Unit = {
+  private def retrieveTableSettings(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-
-    for {
-      settingKey <- getSettingKey(context)
-    } yield {
-      sendReply(
-        context,
-        asyncGetReply {
-          val settingTableId = getSettingTableId(context)
-          val settingId = getSettingId(context)
-
-          controller.deleteSetting(settingKey, settingTableId, settingId)
-        }
-      )
-    }
+    sendReply(context, asyncGetReply(controller.retrieveSettings(Some(UserSettingKindTable))))
   }
+
+  private def retrieveFilterSettings(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    sendReply(context, asyncGetReply(controller.retrieveSettings(Some(UserSettingKindFilter))))
+  }
+
+  // private def upsertGlobalSetting(context: RoutingContext): Unit = {
+  //   implicit val user = TableauxUser(context)
+
+  //   for {
+  //     settingKey <- getSettingKey(context)
+  //   } yield {
+  //     sendReply(
+  //       context,
+  //       asyncGetReply {
+  //         val settingJson = getJson(context)
+
+  //         controller.upsertGlobalSetting(settingKey, settingJson)
+  //       }
+  //     )
+  //   }
+  // }
+
+  // private def deleteSetting(context: RoutingContext): Unit = {
+  //   implicit val user = TableauxUser(context)
+
+  //   for {
+  //     settingKey <- getSettingKey(context)
+  //   } yield {
+  //     sendReply(
+  //       context,
+  //       asyncGetReply {
+  //         val settingTableId = getSettingTableId(context)
+  //         val settingId = getSettingId(context)
+
+  //         controller.deleteSetting(settingKey, settingTableId, settingId)
+  //       }
+  //     )
+  //   }
+  // }
 }
