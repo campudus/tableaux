@@ -3,32 +3,111 @@ package com.campudus.tableaux.database.domain
 import com.campudus.tableaux.database.model.TableauxModel._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
-import org.vertx.scala.core.json.{Json, JsonObject}
+import org.vertx.scala.core.json.{Json, JsonArray, JsonObject}
 
 import org.joda.time.DateTime
 
-object UserSettingKind {
-
-  final val GLOBAL = "global"
-  final val TABLE = "table"
-  final val FILTER = "filter"
+sealed trait UserSettingKey {
+  val name: String
 }
 
-case class UserSetting(
-    key: String,
-    kind: String,
-    value: Object, // json value (array, object, boolean)
-    createdAt: Option[DateTime],
-    updatedAt: Option[DateTime],
-    tableId: Option[Long],
-    name: Option[String],
-    id: Option[Long]
-)(implicit roleModel: RoleModel, user: TableauxUser) extends DomainObject {
+sealed trait UserSettingKeyGlobal extends UserSettingKey
+sealed trait UserSettingKeyTable extends UserSettingKey
+sealed trait UserSettingKeyFilter extends UserSettingKey
 
-  override def getJson: JsonObject = {
-    val settingJson: JsonObject = Json.obj(
-      "key" -> key,
-      "kind" -> kind,
+object UserSettingKeyGlobal {
+
+  case object FilterReset extends UserSettingKeyGlobal { val name = "filterReset" }
+  case object SortingReset extends UserSettingKeyGlobal { val name = "sortingReset" }
+  case object SortingDesc extends UserSettingKeyGlobal { val name = "sortingDesc" }
+  case object AnnotationReset extends UserSettingKeyGlobal { val name = "annotationReset" }
+  case object ColumnsReset extends UserSettingKeyGlobal { val name = "columnsReset" }
+  case object MarkdownEditor extends UserSettingKeyGlobal { val name = "markdownEditor" }
+
+  val keys: Set[UserSettingKeyGlobal] =
+    Set(
+      FilterReset,
+      SortingReset,
+      SortingDesc,
+      AnnotationReset,
+      ColumnsReset,
+      MarkdownEditor
+    )
+
+  def fromKey(key: String): Option[UserSettingKeyGlobal] =
+    keys.find(_.name == key)
+
+  def isGlobalKey(key: String): Boolean =
+    fromKey(key).isDefined
+}
+
+object UserSettingKeyTable {
+
+  case object AnnotationHighlight extends UserSettingKeyTable { val name = "annotationHighlight" }
+  case object ColumnOrdering extends UserSettingKeyTable { val name = "columnOrdering" }
+  case object ColumnWidths extends UserSettingKeyTable { val name = "columnWidths" }
+  case object RowsFilter extends UserSettingKeyTable { val name = "rowsFilter" }
+  case object VisibleColumns extends UserSettingKeyTable { val name = "visibleColumns" }
+
+  val keys: Set[UserSettingKeyTable] = Set(
+    AnnotationHighlight,
+    ColumnOrdering,
+    ColumnWidths,
+    RowsFilter,
+    VisibleColumns
+  )
+
+  def fromKey(key: String): Option[UserSettingKeyTable] =
+    keys.find(_.name == key)
+
+  def isTableKey(key: String): Boolean =
+    fromKey(key).isDefined
+}
+
+object UserSettingKeyFilter {
+
+  case object PresetFilter extends UserSettingKeyFilter { val name = "presetFilter" }
+
+  val keys: Set[UserSettingKeyFilter] = Set(PresetFilter)
+
+  def fromKey(key: String): Option[UserSettingKeyFilter] =
+    keys.find(_.name == key)
+
+  def isFilterKey(key: String): Boolean =
+    fromKey(key).isDefined
+}
+
+sealed trait UserSettingKind {
+  val name: String
+}
+
+object UserSettingKind {
+
+  def apply(kind: String): UserSettingKind = {
+    kind match {
+      case UserSettingKindGlobal.name => UserSettingKindGlobal
+      case UserSettingKindTable.name => UserSettingKindTable
+      case UserSettingKindFilter.name => UserSettingKindFilter
+    }
+  }
+}
+
+case object UserSettingKindGlobal extends UserSettingKind { val name = "global" }
+case object UserSettingKindTable extends UserSettingKind { val name = "table" }
+case object UserSettingKindFilter extends UserSettingKind { val name = "filter" }
+
+sealed abstract class UserSetting[T](
+    key: UserSettingKey,
+    value: T,
+    createdAt: Option[DateTime],
+    updatedAt: Option[DateTime]
+) extends DomainObject {
+  val kind: UserSettingKind
+
+  def getJson: JsonObject = {
+    val settingJson = Json.obj(
+      "key" -> key.name,
+      "kind" -> kind.name,
       "value" -> value
     )
 
@@ -40,23 +119,197 @@ case class UserSetting(
       settingJson.mergeIn(Json.obj("updatedAt" -> optionToString(updatedAt)))
     }
 
-    if (tableId.isDefined) {
-      settingJson.mergeIn(Json.obj("tableId" -> tableId.get))
-    }
-
-    if (name.isDefined) {
-      settingJson.mergeIn(Json.obj("name" -> name.get))
-    }
-
-    if (id.isDefined) {
-      settingJson.mergeIn(Json.obj("id" -> id.get))
-    }
-
     settingJson
   }
 }
 
-case class UserSettingSeq(settings: Seq[UserSetting])(implicit roleModel: RoleModel, user: TableauxUser)
+case class UserSettingGlobal[T](
+    key: UserSettingKeyGlobal,
+    value: T,
+    createdAt: Option[DateTime],
+    updatedAt: Option[DateTime]
+) extends UserSetting[T](key, value, createdAt, updatedAt) {
+  override val kind = UserSettingKindGlobal
+}
+
+case class UserSettingTable[T](
+    key: UserSettingKeyTable,
+    value: T,
+    createdAt: Option[DateTime],
+    updatedAt: Option[DateTime],
+    tableId: Long
+) extends UserSetting[T](key, value, createdAt, updatedAt) {
+  override val kind = UserSettingKindTable
+
+  override def getJson: JsonObject = {
+    super.getJson.mergeIn(Json.obj("tableId" -> tableId))
+  }
+}
+
+case class UserSettingFilter[T](
+    key: UserSettingKeyFilter,
+    value: T,
+    createdAt: Option[DateTime],
+    updatedAt: Option[DateTime],
+    name: String,
+    id: Long
+) extends UserSetting[T](key, value, createdAt, updatedAt) {
+  override val kind = UserSettingKindFilter
+
+  override def getJson: JsonObject = {
+    super.getJson.mergeIn(Json.obj("id" -> id, "name" -> name))
+  }
+}
+
+// case class UserSettingFilterReset(
+//     value: Boolean,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime]
+// ) extends UserSettingGlobal[Boolean](
+//       UserSettingKeyGlobal.FilterReset,
+//       value,
+//       createdAt,
+//       updatedAt
+//     )
+
+// case class UserSettingSortingReset(
+//     value: Boolean,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime]
+// ) extends UserSettingGlobal[Boolean](
+//       UserSettingKeyGlobal.SortingReset,
+//       value,
+//       createdAt,
+//       updatedAt
+//     )
+
+// case class UserSettingSortingDesc(
+//     value: Boolean,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime]
+// ) extends UserSettingGlobal[Boolean](
+//       UserSettingKeyGlobal.SortingDesc,
+//       value,
+//       createdAt,
+//       updatedAt
+//     )
+
+// case class UserSettingAnnotationReset(
+//     value: Boolean,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime]
+// ) extends UserSettingGlobal[Boolean](
+//       UserSettingKeyGlobal.AnnotationReset,
+//       value,
+//       createdAt,
+//       updatedAt
+//     )
+
+// case class UserSettingColumnsReset(
+//     value: Boolean,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime]
+// ) extends UserSettingGlobal[Boolean](
+//       UserSettingKeyGlobal.ColumnsReset,
+//       value,
+//       createdAt,
+//       updatedAt
+//     )
+
+// case class UserSettingMarkdownEditor(
+//     value: String,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime]
+// ) extends UserSettingGlobal[String](
+//       UserSettingKeyGlobal.MarkdownEditor,
+//       value,
+//       createdAt,
+//       updatedAt
+//     )
+
+// case class UserSettingAnnotationHighlight(
+//     value: String,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime],
+//     tableId: Long
+// ) extends UserSettingTable[String](
+//       UserSettingKeyTable.AnnotationHighlight,
+//       value,
+//       createdAt,
+//       updatedAt,
+//       tableId
+//     )
+
+// case class UserSettingColumnOrdering(
+//     value: JsonArray,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime],
+//     tableId: Long
+// ) extends UserSettingTable[JsonArray](
+//       UserSettingKeyTable.ColumnOrdering,
+//       value,
+//       createdAt,
+//       updatedAt,
+//       tableId
+//     )
+
+// case class UserSettingColumnWidths(
+//     value: JsonObject,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime],
+//     tableId: Long
+// ) extends UserSettingTable[JsonObject](
+//       UserSettingKeyTable.ColumnWidths,
+//       value,
+//       createdAt,
+//       updatedAt,
+//       tableId
+//     )
+
+// case class UserSettingRowsFilter(
+//     value: JsonObject,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime],
+//     tableId: Long
+// ) extends UserSettingTable[JsonObject](
+//       UserSettingKeyTable.RowsFilter,
+//       value,
+//       createdAt,
+//       updatedAt,
+//       tableId
+//     )
+
+// case class UserSettingVisibleColumns(
+//     value: JsonArray,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime],
+//     tableId: Long
+// ) extends UserSettingTable[JsonArray](
+//       UserSettingKeyTable.VisibleColumns,
+//       value,
+//       createdAt,
+//       updatedAt,
+//       tableId
+//     )
+
+// case class UserSettingPresetFilter(
+//     value: JsonObject,
+//     createdAt: Option[DateTime],
+//     updatedAt: Option[DateTime],
+//     name: String,
+//     id: Long
+// ) extends UserSettingFilter[JsonObject](
+//       UserSettingKeyFilter.PresetFilter,
+//       value,
+//       createdAt,
+//       updatedAt,
+//       name,
+//       id
+//     )
+
+case class UserSettingSeq(
+    settings: Seq[UserSetting[_]]
+)(implicit roleModel: RoleModel, user: TableauxUser)
     extends DomainObject {
 
   override def getJson: JsonObject = {
