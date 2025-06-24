@@ -169,6 +169,15 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
+  def deleteGlobalSetting(settingKey: String): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_global WHERE key = ?"
+
+    for {
+      result <- connection.query(delete, Json.arr(settingKey))
+      _ <- Future(deleteNotNull(result))
+    } yield ()
+  }
+
   def retrieveTableSetting(settingKey: String, tableId: Long)(implicit user: TableauxUser): Future[UserSetting] = {
     val select =
       s"""
@@ -229,6 +238,15 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
+  def deleteTableSetting(settingKey: String, tableId: Long): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_table WHERE key = ? AND table_id = ?"
+
+    for {
+      result <- connection.query(delete, Json.arr(settingKey, tableId))
+      _ <- Future(deleteNotNull(result))
+    } yield ()
+  }
+
   def retrieveFilterSetting(settingKey: String, id: Long)(implicit user: TableauxUser): Future[UserSetting] = {
     val select =
       s"""
@@ -279,5 +297,14 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     } yield {
       setting
     }
+  }
+
+  def deleteFilterSetting(settingKey: String, id: Long): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_filter WHERE key = ? AND id = ?"
+
+    for {
+      result <- connection.query(delete, Json.arr(settingKey, id))
+      _ <- Future(deleteNotNull(result))
+    } yield ()
   }
 }
