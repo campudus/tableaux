@@ -4,6 +4,7 @@ import com.campudus.tableaux.InvalidUserSettingException
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.TableId
+import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.helper.ResultChecker._
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 
@@ -29,7 +30,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     UserSetting(
       arr.get[String](0), // key
       arr.get[String](1), // kind
-      Json.fromObjectString(arr.get[String](2)).getValue("value"), // value
+      Json.fromObjectString(s"""{"value":${arr.getValue(2)}}""").getValue("value"), // value (parsed)
       convertStringToDateTime(arr.get[String](3)), // created_at
       convertStringToDateTime(arr.get[String](4)), // updated_at
       Try(arr.getLong(5).longValue()).toOption, // tableId
