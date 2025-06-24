@@ -2516,7 +2516,7 @@
         "tags": [
           "user"
         ],
-        "operationId": "create-update-user-setting-global",
+        "operationId": "create-update-user-setting",
         "consumes": [],
         "produces": [
           "application/json"
@@ -2539,11 +2539,41 @@
               "$ref": "#/definitions/Response:UserSetting"
             }
           },
+          "400": {
+            "$ref": "#/responses/invalid-json-exception"
+          },
           "default": {
             "description": "Unexpected error",
             "schema": {
               "$ref": "#/responses/unknown-error"
             }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete user setting",
+        "description": "Delete a specific user setting.",
+        "tags": [
+          "user"
+        ],
+        "operationId": "delete-user-setting",
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingTableId"
+          },
+          {
+            "$ref": "#/parameters/userSettingId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          },
+          "400": {
+            "$ref": "#/responses/not-enough-arguments-exception"
+          },
+          "404": {
+            "$ref": "#/responses/not-found-in-database"
           }
         }
       }
@@ -4953,12 +4983,21 @@
     },
     "userSettingTableId": {
       "name": "tableId",
+      "description": "required for setting of kind table",
+      "in": "query",
+      "required": false,
+      "type": "integer"
+    },
+    "userSettingId": {
+      "name": "id",
+      "description": "required for setting of kind filter",
       "in": "query",
       "required": false,
       "type": "integer"
     },
     "userSettingName": {
       "name": "name",
+      "description": "required for setting of kind filter",
       "in": "query",
       "required": false,
       "type": "string"

@@ -20,6 +20,7 @@ import org.everit.json.schema.Schema
 import org.everit.json.schema.ValidationException
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
+import com.campudus.tableaux.database.domain.EmptyObject
 
 object UserController {
 
@@ -43,8 +44,10 @@ class UserController(
 ) extends Controller[UserModel] {
   val eventClient: EventClient = EventClient(vertx)
 
-  def retrieveSettings(kind: Option[String])(implicit user: TableauxUser): Future[UserSettingSeq] = {
-    logger.info(s"retrieveSettings user: ${user.name}")
+  def retrieveSettings(
+      kind: Option[String]
+  )(implicit user: TableauxUser): Future[UserSettingSeq] = {
+    logger.info(s"retrieveSettings user: ${user.name}, kind: $kind")
 
     for {
       settingsSeq <- repository.retrieveSettings(kind)
@@ -53,8 +56,13 @@ class UserController(
     }
   }
 
-  def upsertSetting(settingKey: String, settingJson: JsonObject, tableId: Option[Long], name: Option[String])(implicit
-  user: TableauxUser): Future[UserSetting] = {
+  def upsertSetting(
+      settingKey: String,
+      settingJson: JsonObject,
+      tableId: Option[Long],
+      name: Option[String]
+  )(implicit user: TableauxUser): Future[UserSetting] = {
+    logger.info(s"upsertSetting user: ${user.name}, key: $settingKey, tableId: $tableId, name: $name, json: $settingJson")
 
     for {
       _ <- repository.checkSettingKey(settingKey)
@@ -100,5 +108,32 @@ class UserController(
     } yield {
       setting
     }
+  }
+
+  def deleteSetting(
+      settingKey: String,
+      tableId: Option[Long],
+      id: Option[Long]
+  )(implicit user: TableauxUser): Future[EmptyObject] = {
+    logger.info(s"deleteSetting user: ${user.name}, key: $settingKey, tableId: $tableId, id: $id")
+
+    for {
+      _ <- repository.checkSettingKey(settingKey)
+      settingKind <- repository.retrieveSettingKind(settingKey)
+      setting <- settingKind match {
+        case UserSettingKind.GLOBAL => {
+          repository.deleteGlobalSetting(settingKey)
+        }
+        case UserSettingKind.TABLE => {
+          checkArguments(isDefined(tableId, "tableId"))
+          repository.deleteTableSetting(settingKey, tableId.get)
+        }
+        case UserSettingKind.FILTER => {
+          checkArguments(isDefined(id, "id"))
+          repository.deleteFilterSetting(settingKey, id.get)
+        }
+        case _ => Future.failed(NotFoundInDatabaseException("setting not found", "user-setting"))
+      }
+    } yield EmptyObject()
   }
 }

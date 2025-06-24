@@ -170,6 +170,10 @@ trait BaseRouter extends VertxAccess {
     context.queryParams().get(name).map(_.toInt)
   }
 
+  def getLongQuery(name: String, context: RoutingContext): Option[Long] = {
+    context.queryParams().get(name).map(_.toLong)
+  }
+
   def getStringParam(name: String, context: RoutingContext): Option[String] = {
     context.request().getParam(name)
   }
