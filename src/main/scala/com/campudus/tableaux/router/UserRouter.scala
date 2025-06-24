@@ -80,13 +80,7 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
           val settingTableId = getSettingTableId(context).map(_.toLong)
           val settingName = getSettingName(context)
 
-          if (!settingJson.containsKey("value")) {
-            Future.failed(InvalidJsonException("request must contain a value property", "value_prop_is_missing"))
-          } else if (settingJson.fieldNames().size() > 1) {
-            Future.failed(InvalidJsonException("request must only contain a value property", "value_prop_only"))
-          } else {
-            controller.upsertSetting(settingKey, settingJson.encode(), settingTableId, settingName)
-          }
+          controller.upsertSetting(settingKey, settingJson, settingTableId, settingName)
         }
       )
     }

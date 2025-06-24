@@ -6,6 +6,7 @@ import com.campudus.tableaux.InvalidUserSettingException
 import com.campudus.tableaux.NotFoundInDatabaseException
 import com.campudus.tableaux.database.domain.{UserSetting, UserSettingKind, UserSettingSeq}
 import com.campudus.tableaux.database.model.UserModel
+import com.campudus.tableaux.helper.JsonUtils
 import com.campudus.tableaux.router.auth.permission.{RoleModel, TableauxUser}
 import com.campudus.tableaux.verticles.EventClient
 
@@ -52,16 +53,34 @@ class UserController(
     }
   }
 
-  def upsertSetting(settingKey: String, settingValue: String, tableId: Option[Long], name: Option[String])(implicit
+  def upsertSetting(settingKey: String, settingJson: JsonObject, tableId: Option[Long], name: Option[String])(implicit
   user: TableauxUser): Future[UserSetting] = {
 
     for {
       _ <- repository.checkSettingKey(settingKey)
       settingSchema <- repository.retrieveSettingSchema(settingKey)
-      settingValidator = SchemaLoader.load(new JSONObject(settingSchema))
-      _ <- Try(settingValidator.validate(new JSONObject(settingValue))) match {
+
+      settingValue <-
+        if (!settingJson.containsKey("value"))
+          Future.failed(InvalidJsonException("request must contain a value property", "value_prop_is_missing"))
+        else if (settingJson.fieldNames().size() > 1)
+          Future.failed(InvalidJsonException("request must only contain a value property", "value_prop_only"))
+        else Future.successful(settingJson.getValue("value") match {
+          case obj: JsonObject => obj.encode()
+          case arr: JsonArray => arr.encode()
+          case value => value.toString
+        })
+
+      settingValidatorLoader = SchemaLoader.builder().schemaJson(new JSONObject(settingSchema)).draftV7Support().build()
+      settingValidator = settingValidatorLoader.load().build()
+      // we need to use JSONObject as base for validation
+      settingValidationValue = new JSONObject(settingJson.encode()).get("value")
+      _ <- Try(settingValidator.validate(settingValidationValue)) match {
         case Success(v) => Future.successful(())
-        case Failure(e) => Future.failed(InvalidJsonException("setting value did not match schema", "invalid"))
+        case Failure(e) => {
+          logger.error(s"error $e")
+          Future.failed(InvalidJsonException("setting value did not match schema", "invalid"))
+        }
       }
       settingKind <- repository.retrieveSettingKind(settingKey)
       setting <- settingKind match {

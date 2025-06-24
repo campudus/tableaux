@@ -60,102 +60,52 @@ CREATE TABLE user_settings_filter (
 DO $$
 DECLARE
   boolean_schema jsonb := '{
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "type":"object",
-    "required": ["value"],
-    "additionalProperties": false,
-    "properties": {
-      "value": {
-        "type": "boolean"
-      }
-    }
+    "type":"boolean"
   }';
   string_schema jsonb := '{
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "type":"object",
-    "required": ["value"],
-    "additionalProperties": false,
-    "properties": {
-      "value": {
-        "type": "string"
-      }
-    }
+    "type":"string"
   }';
   integer_record_schema jsonb := '{
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "type":"object",
-    "required": ["value"],
-    "additionalProperties": false,
-    "properties": {
-      "value": {
-        "type": "object",
-        "patternProperties": {
-          "^[0-9]+$": {
-            "type": "integer"
-          }
-        }
+    "type": "object",
+    "patternProperties": {
+      "^[0-9]+$": {
+        "type": "integer"
       }
     }
   }';
   integer_array_schema jsonb := '{
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "type":"object",
-    "required": ["value"],
-    "additionalProperties": false,
-    "properties": {
-      "value": {
-        "type": "array",
-        "items": {
-          "type": "integer"
-        }
-      }
+    "type": "array",
+    "items": {
+       "type": "integer"
     }
   }';
   id_index_array_schema jsonb := '{
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "type":"object",
-    "required": ["value"],
-    "additionalProperties": false,
-    "properties": {
-      "value": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "id": { "type": "integer" },
-            "idx": { "type": "integer" }
-          },
-          "required": ["id", "idx"],
-          "additionalProperties": false
-        }
-      }
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "idx": { "type": "integer" }
+      },
+      "required": ["id", "idx"],
+      "additionalProperties": false
     }
   }';
   filter_schema jsonb := '{
-    "$schema": "http://json-schema.org/draft-07/schema",
     "type": "object",
-    "required": [
-      "value"
-    ],
-    "additionalProperties": false,
     "properties": {
-      "value": {
-        "type": "object",
-        "properties": {
-          "sortDirection": {
-            "type": "string",
-            "enum": [
-              "asc",
-              "desc"
-            ]
-          },
-          "sortColumnName": {
-            "type": "string"
-          },
-          "filters": {
-            "$ref": "#/definitions/filter"
-          }
-        }
+      "sortDirection": {
+        "type": "string",
+        "enum": [
+          "asc",
+          "desc"
+        ]
+      },
+      "sortColumnName": {
+        "type": "string"
+      },
+      "filters": {
+        "$ref": "#/definitions/filter"
       }
     },
     "definitions": {
