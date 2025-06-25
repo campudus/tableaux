@@ -734,30 +734,58 @@ class IdentifierTest extends TableauxTestBase {
   @Test
   def retrieveLinkWithIdentifierColumnNull(implicit c: TestContext): Unit = okTest {
     for {
-      baseTableId <- createDefaultTable("Base Table")
-      linkTableId <- createEmptyDefaultTable("Link Table")
+      // create link table with column
+      linkTable <- sendRequest("POST", "/tables", Json.obj("name" -> "Link Table"))
+      linkTableId = linkTable.getLong("id").toLong
+      linkColumns <- sendRequest(
+        "POST",
+        s"/tables/$linkTableId/columns",
+        Json.obj(
+          "columns" -> Json.arr(
+            Json.obj(
+              "name" -> "identifier",
+              "kind" -> "shorttext",
+              "identifier" -> true,
+              "languageType" -> "language"
+            )
+          )
+        )
+      )
+      linkTableIdentifierColumnId = linkColumns.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
 
-      // first row in base Table
-      baseTableRowId = 1
+      // create base table with column
+      baseTable <- sendRequest("POST", "/tables", Json.obj("name" -> "Base Table"))
+      baseTableId = baseTable.getLong("id").toLong
+      baseColumns <- sendRequest(
+        "POST",
+        s"/tables/$baseTableId/columns",
+        Json.obj(
+          "columns" -> Json.arr(
+            Json.obj(
+              "name" -> "link",
+              "kind" -> "link",
+              "languageType" -> "language",
+              "toTable" -> linkTableId
+            ),
+            Json.obj(
+              "name" -> "identifier",
+              "kind" -> "shorttext",
+              "identifier" -> true,
+              "languageType" -> "language"
+            )
+          )
+        )
+      )
+      baseTableLinkColumnId = baseColumns.getJsonArray("columns").getJsonObject(0).getLong("id").toLong
+
+      // create row in base table
+      baseTableRowId <- sendRequest("POST", s"/tables/$baseTableId/rows") map {
+        _.getLong("id")
+      }
 
       // create row in link table
       linkTableRowId <- sendRequest("POST", s"/tables/$linkTableId/rows") map {
         _.getLong("id")
-      }
-
-      baseTableLinkColumn = Json.obj(
-        "columns" -> Json.arr(
-          Json.obj(
-            "name" -> "Test Link 1",
-            "kind" -> "link",
-            "toTable" -> linkTableId
-          )
-        )
-      )
-
-      // create link column in base table
-      baseTableLinkColumnId <- sendRequest("POST", s"/tables/$baseTableId/columns", baseTableLinkColumn) map {
-        _.getJsonArray("columns").get[JsonObject](0).getLong("id")
       }
 
       testCellValueBeforeLink <-
