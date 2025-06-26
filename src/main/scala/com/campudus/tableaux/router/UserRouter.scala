@@ -45,7 +45,7 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     router.get(s"/settings/$settingKindTable").handler(retrieveTableSettings)
     router.get(s"/settings/$settingKindFilter").handler(retrieveFilterSettings)
 
-    // router.putWithRegex(s"/settings/$settingKindGlobal/$settingKeyRegex").handler(upsertGlobalSetting)
+    router.putWithRegex(s"/settings/$settingKindGlobal/$settingKeyRegex").handler(upsertGlobalSetting)
     // router.putWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(upsertTableSetting)
     // router.putWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex/$settingNameRegex").handler(upsertFilterSetting)
 
@@ -55,9 +55,9 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     router
   }
 
-  private def getSettingKind(context: RoutingContext): Option[UserSettingKind] = {
-    getStringParam("kind", context).map(UserSettingKind(_))
-  }
+  // private def getSettingKind(context: RoutingContext): Option[UserSettingKind] = {
+  //   getStringParam("kind", context).map(UserSettingKind(_))
+  // }
 
   private def getSettingKey(context: RoutingContext): Option[String] = {
     getStringParam("key", context)
@@ -95,22 +95,22 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     sendReply(context, asyncGetReply(controller.retrieveSettings(Some(UserSettingKindFilter))))
   }
 
-  // private def upsertGlobalSetting(context: RoutingContext): Unit = {
-  //   implicit val user = TableauxUser(context)
+  private def upsertGlobalSetting(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
 
-  //   for {
-  //     settingKey <- getSettingKey(context)
-  //   } yield {
-  //     sendReply(
-  //       context,
-  //       asyncGetReply {
-  //         val settingJson = getJson(context)
+    for {
+      settingKey <- getSettingKey(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          val settingJson = getJson(context)
 
-  //         controller.upsertGlobalSetting(settingKey, settingJson)
-  //       }
-  //     )
-  //   }
-  // }
+          controller.upsertGlobalSetting(settingKey, settingJson)
+        }
+      )
+    }
+  }
 
   // private def deleteSetting(context: RoutingContext): Unit = {
   //   implicit val user = TableauxUser(context)

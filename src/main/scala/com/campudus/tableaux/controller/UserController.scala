@@ -43,6 +43,13 @@ class UserController(
 ) extends Controller[UserModel] {
   val eventClient: EventClient = EventClient(vertx)
 
+  private def parseSettingValue[T](block: => T): Future[T] = {
+    Try(block) match {
+      case Success(value) => Future.successful(value)
+      case Failure(_) => Future.failed(InvalidJsonException("setting value is invalid", "invalid"))
+    }
+  }
+
   def retrieveSettings(
       kind: Option[UserSettingKind]
   )(implicit user: TableauxUser): Future[UserSettingSeq] = {
@@ -72,69 +79,36 @@ class UserController(
     }
   }
 
-  // def upsertGlobalSetting(settingKey: String, settingJson: JsonObject) {
-  //   logger.info(s"upsertGlobalSetting user: ${user.name}, key: $settingKey, json: $settingJson")
+  def upsertGlobalSetting(
+      settingKey: String,
+      settingJson: JsonObject
+  )(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
+    logger.info(s"upsertGlobalSetting user: ${user.name}, key: $settingKey, json: $settingJson")
 
-  //   settingKey match {
-  //     case UserSettingGlobal.
-  //   }
-  // }
+    val settingKeyGlobal = UserSettingKeyGlobal.fromKey(settingKey)
 
-  // def upsertSetting(
-  //     settingKey: String,
-  //     settingJson: JsonObject,
-  //     tableId: Option[Long],
-  //     name: Option[String]
-  // )(implicit user: TableauxUser): Future[UserSetting] = {
-  //   logger.info(
-  //     s"upsertSetting user: ${user.name}, key: $settingKey, tableId: $tableId, name: $name, json: $settingJson"
-  //   )
+    for {
+      settingValue <- settingKeyGlobal match {
+        case Some(UserSettingKeyGlobal.MarkdownEditor) =>
+          parseSettingValue(settingJson.getJsonObject("value")).map(_.encode())
+        case Some(UserSettingKeyGlobal.FilterReset) =>
+          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+        case Some(UserSettingKeyGlobal.ColumnsReset) =>
+          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+        case Some(UserSettingKeyGlobal.AnnotationReset) =>
+          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+        case Some(UserSettingKeyGlobal.SortingReset) =>
+          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+        case Some(UserSettingKeyGlobal.SortingDesc) =>
+          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+        case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
+      }
+      setting <- repository.upsertGlobalSetting(settingKey, settingValue)
 
-  //   for {
-  //     _ <- repository.checkSettingKey(settingKey)
-  //     settingSchema <- repository.retrieveSettingSchema(settingKey)
-
-  //     settingValue <-
-  //       if (!settingJson.containsKey("value"))
-  //         Future.failed(InvalidJsonException("request must contain a value property", "value_prop_is_missing"))
-  //       else if (settingJson.fieldNames().size() > 1)
-  //         Future.failed(InvalidJsonException("request must only contain a value property", "value_prop_only"))
-  //       else Future.successful(settingJson.getValue("value") match {
-  //         case obj: JsonObject => obj.encode()
-  //         case arr: JsonArray => arr.encode()
-  //         case value => value.toString
-  //       })
-
-  //     settingValidatorLoader = SchemaLoader.builder().schemaJson(new JSONObject(settingSchema)).draftV7Support().build()
-  //     settingValidator = settingValidatorLoader.load().build()
-  //     // we need to use JSONObject as base for validation
-  //     settingValidationValue = new JSONObject(settingJson.encode()).get("value")
-  //     _ <- Try(settingValidator.validate(settingValidationValue)) match {
-  //       case Success(v) => Future.successful(())
-  //       case Failure(e) => {
-  //         logger.error(s"error $e")
-  //         Future.failed(InvalidJsonException("setting value did not match schema", "invalid"))
-  //       }
-  //     }
-  //     settingKind <- repository.retrieveSettingKind(settingKey)
-  //     setting <- settingKind match {
-  //       case UserSettingKind.GLOBAL => {
-  //         repository.upsertGlobalSetting(settingKey, settingValue)
-  //       }
-  //       case UserSettingKind.TABLE => {
-  //         checkArguments(isDefined(tableId, "tableId"))
-  //         repository.upsertTableSetting(settingKey, settingValue, tableId.get)
-  //       }
-  //       case UserSettingKind.FILTER => {
-  //         checkArguments(isDefined(name, "name"))
-  //         repository.upsertFilterSetting(settingKey, settingValue, name.get)
-  //       }
-  //       case _ => Future.failed(NotFoundInDatabaseException("setting not found", "user-setting"))
-  //     }
-  //   } yield {
-  //     setting
-  //   }
-  // }
+    } yield {
+      setting
+    }
+  }
 
   // def deleteSetting(
   //     settingKey: String,
