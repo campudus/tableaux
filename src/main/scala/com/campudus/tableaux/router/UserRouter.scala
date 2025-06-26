@@ -45,12 +45,18 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     router.get(s"/settings/$settingKindFilter").handler(retrieveFilterSettings)
 
     router.putWithRegex(s"/settings/$settingKindGlobal/$settingKeyRegex").handler(upsertGlobalSetting)
-    router.putWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(upsertTableSetting)
+    router.putWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(
+      upsertTableSetting
+    )
     router.putWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex").handler(upsertFilterSetting)
 
     router.deleteWithRegex(s"/settings/$settingKindTable/$settingTableIdRegex").handler(deleteTableSettings)
-    router.deleteWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(deleteTableSetting)
-    router.deleteWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex/$settingIdRegex").handler(deleteFilterSetting)
+    router.deleteWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(
+      deleteTableSetting
+    )
+    router.deleteWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex/$settingIdRegex").handler(
+      deleteFilterSetting
+    )
 
     router
   }
@@ -103,7 +109,7 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
       )
     }
   }
-  
+
   private def upsertTableSetting(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
 
