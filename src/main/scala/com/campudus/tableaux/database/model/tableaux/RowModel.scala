@@ -1442,8 +1442,11 @@ class RetrieveRowModel(val connection: DatabaseConnection)(
             s"utl$toTableId.column_${c.to.id}"
         }
 
-        // No distinct needed, just one rawValues
-        (s"column_${c.to.id}", s"json_object_agg(utl$toTableId.langtag, $linkedColumn)")
+        (
+          s"column_${c.to.id}",
+          // only build multilanguage value if possible
+          s"CASE WHEN COUNT(utl$toTableId.id) = 0 THEN NULL ELSE json_object_agg(DISTINCT COALESCE(utl$toTableId.langtag, 'IGNORE'), $linkedColumn) FILTER (WHERE $linkedColumn IS NOT NULL) END"
+        )
 
       case _: DateTimeColumn =>
         (s"column_${c.to.id}", parseDateTimeSql(s"ut$toTableId.column_${c.id}") + s" AS column_${c.id}")
