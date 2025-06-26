@@ -56,43 +56,6 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     )
   }
 
-  // def checkSettingKey(settingKey: String)(implicit user: TableauxUser): Future[Unit] = {
-  //   val select = "SELECT COUNT(*) = 1 FROM user_setting_keys WHERE key = ?"
-
-  //   connection.selectSingleValue[Boolean](select, Json.arr(settingKey)).flatMap({
-  //     case true => Future.successful(())
-  //     case false => Future.failed(InvalidUserSettingException(s"setting $settingKey doesn't exist."))
-  //   })
-  // }
-
-  // def retrieveSettingKind(settingKey: String)(implicit user: TableauxUser): Future[String] = {
-  //   val select = "SELECT kind FROM user_setting_keys WHERE key = ?"
-
-  //   for {
-  //     result <- connection.selectSingleValue[String](select, Json.arr(settingKey))
-  //   } yield {
-  //     result
-  //   }
-  // }
-
-  // def retrieveSettingSchema(settingKey: String)(implicit user: TableauxUser): Future[String] = {
-  //   val select =
-  //     """SELECT
-  //       |  uss.schema
-  //       |FROM
-  //       |  user_setting_keys usk
-  //       |LEFT JOIN
-  //       |  user_setting_schemas uss ON usk.schema = uss.name
-  //       |WHERE usk.key = ?
-  //       |""".stripMargin
-
-  //   for {
-  //     result <- connection.selectSingleValue[String](select, Json.arr(settingKey))
-  //   } yield {
-  //     result
-  //   }
-  // }
-
   def retrieveGlobalSetting(settingKey: String)(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
     val select =
       s"""
@@ -141,6 +104,37 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
+  def retrieveTableSetting(
+      settingKey: String,
+      tableId: Long
+  )(implicit user: TableauxUser): Future[UserSettingTable[_]] = {
+    val select =
+      s"""
+         |SELECT
+         |  key,
+         |  value,
+         |  created_at,
+         |  updated_at,
+         |  table_id
+         |FROM
+         |  user_settings_table
+         |WHERE
+         |  user_id = ?
+         |AND
+         |  key = ?
+         |AND
+         |  table_id = ?
+         |ORDER BY table_id, key
+         """.stripMargin
+
+    for {
+      result <- connection.query(select, Json.arr(user.name, settingKey, tableId))
+      resultArr <- Future(selectNotNull(result))
+    } yield {
+      convertJsonArrayToUserSettingTable(resultArr.head)
+    }
+  }
+
   def retrieveTableSettings()(implicit user: TableauxUser): Future[Seq[UserSettingTable[_]]] = {
     val select =
       s"""
@@ -162,6 +156,38 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToUserSettingTable)
+    }
+  }
+
+  def retrieveFilterSetting(
+      settingKey: String,
+      id: Long
+  )(implicit user: TableauxUser): Future[UserSettingFilter[_]] = {
+    val select =
+      s"""
+         |SELECT
+         |  key,
+         |  value,
+         |  created_at,
+         |  updated_at,
+         |  name,
+         |  id
+         |FROM
+         |  user_settings_filter
+         |WHERE
+         |  user_id = ?
+         |AND
+         |  key = ?
+         |AND
+         |  id = ?
+         |ORDER BY key, name
+         """.stripMargin
+
+    for {
+      result <- connection.query(select, Json.arr(user.name, settingKey, id))
+      resultArr <- Future(selectNotNull(result))
+    } yield {
+      convertJsonArrayToUserSettingFilter(resultArr.head)
     }
   }
 
@@ -190,63 +216,9 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
-  // def retrieveSettings(kind: Option[UserSettingKind])(implicit user: TableauxUser): Future[UserSettingSeq] = {
-  //   val (where, values) = kind match {
-  //     case None => ("WHERE COALESCE(usg.user_id, ust.user_id, usf.user_id) = ?", Json.arr(user.name))
-  //     case Some(value) =>
-  //       ("WHERE COALESCE(usg.user_id, ust.user_id, usf.user_id) = ? AND kind = ?", Json.arr(user.name, value.name))
-  //   }
-
-  //   val select =
-  //     s"""
-  //        |SELECT
-  //        |  key,
-  //        |  kind,
-  //        |  value, ust.value, usf.value) AS value,
-  //        |  COALESCE(usg.created_at, ust.created_at, usf.created_at) AS created_at,
-  //        |  COALESCE(usg.updated_at, ust.updated_at, usf.updated_at) AS updated_at,
-  //        |FROM
-  //        |  user_settings_global
-  //        """.stripMargin
-
-  //   for {
-  //     result <- connection.query(select, values)
-  //     resultArr <- Future(resultObjectToJsonArray(result))
-  //   } yield {
-  //     resultArr.map(convertJsonArrayToUserSetting)
-  //   }
-  // }
-
-  // def retrieveGlobalSetting(settingKey: String)(implicit user: TableauxUser): Future[UserSetting] = {
-  //   val select =
-  //     s"""
-  //        |SELECT
-  //        |  usk.key,
-  //        |  usk.kind,
-  //        |  usg.value,
-  //        |  usg.created_at,
-  //        |  usg.updated_at
-  //        |FROM
-  //        |  user_setting_keys usk
-  //        |LEFT JOIN
-  //        |  user_settings_global usg ON usg.key = usk.key
-  //        |WHERE
-  //        |  usg.user_id = ?
-  //        |AND
-  //        |  usk.key = ?
-  //        """.stripMargin
-
-  //   for {
-  //     result <- connection.query(select, Json.arr(user.name, settingKey))
-  //     resultArr <- Future(selectNotNull(result))
-  //   } yield {
-  //     convertJsonArrayToUserSetting(resultArr.head)
-  //   }
-  // }
-
   def upsertGlobalSetting(
       settingKey: String,
-      settingValue: Object
+      settingValue: String
   )(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
     for {
       result <- connection.query(
@@ -274,142 +246,77 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
-  // def deleteGlobalSetting(settingKey: String): Future[Unit] = {
-  //   val delete = s"DELETE FROM user_settings_global WHERE key = ?"
+  def upsertTableSetting(
+      settingKey: String,
+      settingValue: String,
+      tableId: Long
+  )(implicit user: TableauxUser): Future[UserSettingTable[_]] = {
+    for {
+      result <- connection.query(
+        s"""
+           |INSERT INTO user_settings_table AS ust
+           |  (key, value, user_id, table_id)
+           |VALUES
+           |  (?, ?, ?, ?)
+           |ON CONFLICT (key, user_id, table_id)
+           |DO UPDATE SET
+           |  value = EXCLUDED.value,
+           |  updated_at = CURRENT_TIMESTAMP
+           |WHERE
+           |  ust.key = EXCLUDED.key
+           |AND
+           |  ust.user_id = EXCLUDED.user_id
+           |AND
+           |  ust.table_id = EXCLUDED.table_id
+           |RETURNING ust.key, ust.created_at
+          """.stripMargin,
+        Json.arr(settingKey, settingValue, user.name, tableId)
+      )
+      _ = insertNotNull(result)
+      setting <- retrieveTableSetting(settingKey, tableId)
+    } yield {
+      setting
+    }
+  }
 
-  //   for {
-  //     result <- connection.query(delete, Json.arr(settingKey))
-  //     _ <- Future(deleteNotNull(result))
-  //   } yield ()
-  // }
+  def upsertFilterSetting(
+      settingKey: String,
+      settingValue: String,
+      settingName: String
+  )(implicit user: TableauxUser): Future[UserSettingFilter[_]] = {
+    for {
+      result <- connection.query(
+        s"""
+           |INSERT INTO user_settings_filter
+           |  (key, value, user_id, name)
+           |VALUES
+           |  (?, ?, ?, ?)
+           |RETURNING id
+          """.stripMargin,
+        Json.arr(settingKey, settingValue, user.name, settingName)
+      )
+      id = insertNotNull(result).head.get[Long](0)
+      setting <- retrieveFilterSetting(settingKey, id)
+    } yield {
+      setting
+    }
+  }
 
-  // def retrieveTableSetting(settingKey: String, tableId: Long)(implicit user: TableauxUser): Future[UserSetting] = {
-  //   val select =
-  //     s"""
-  //        |SELECT
-  //        |  usk.key,
-  //        |  usk.kind,
-  //        |  ust.value,
-  //        |  ust.created_at,
-  //        |  ust.updated_at,
-  //        |  ust.table_id
-  //        |FROM
-  //        |  user_setting_keys usk
-  //        |LEFT JOIN
-  //        |  user_settings_table ust ON ust.key = usk.key
-  //        |WHERE
-  //        |  ust.user_id = ?
-  //        |AND
-  //        |  usk.key = ?
-  //        |AND
-  //        |  ust.table_id = ?
-  //        """.stripMargin
+  def deleteTableSetting(settingKey: String, tableId: Long): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_table WHERE key = ? AND table_id = ?"
 
-  //   for {
-  //     result <- connection.query(select, Json.arr(user.name, settingKey, tableId))
-  //     resultArr <- Future(selectNotNull(result))
-  //   } yield {
-  //     convertJsonArrayToUserSetting(resultArr.head)
-  //   }
-  // }
+    for {
+      result <- connection.query(delete, Json.arr(settingKey, tableId))
+      _ <- Future(deleteNotNull(result))
+    } yield ()
+  }
 
-  // def upsertTableSetting(settingKey: String, settingValue: Object, tableId: Long)(implicit
-  // user: TableauxUser): Future[UserSetting] = {
-  //   for {
-  //     result <- connection.query(
-  //       s"""
-  //          |INSERT INTO user_settings_table AS ust
-  //          |  (key, value, user_id, table_id)
-  //          |VALUES
-  //          |  (?, ?, ?, ?)
-  //          |ON CONFLICT (key, user_id, table_id)
-  //          |DO UPDATE SET
-  //          |  value = EXCLUDED.value,
-  //          |  updated_at = CURRENT_TIMESTAMP
-  //          |WHERE
-  //          |  ust.key = EXCLUDED.key
-  //          |AND
-  //          |  ust.user_id = EXCLUDED.user_id
-  //          |AND
-  //          |  ust.table_id = EXCLUDED.table_id
-  //          |RETURNING ust.key, ust.created_at
-  //         """.stripMargin,
-  //       Json.arr(settingKey, settingValue, user.name, tableId)
-  //     )
-  //     _ = insertNotNull(result)
-  //     setting <- retrieveTableSetting(settingKey, tableId)
-  //   } yield {
-  //     setting
-  //   }
-  // }
+  def deleteFilterSetting(settingKey: String, id: Long): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_filter WHERE key = ? AND id = ?"
 
-  // def deleteTableSetting(settingKey: String, tableId: Long): Future[Unit] = {
-  //   val delete = s"DELETE FROM user_settings_table WHERE key = ? AND table_id = ?"
-
-  //   for {
-  //     result <- connection.query(delete, Json.arr(settingKey, tableId))
-  //     _ <- Future(deleteNotNull(result))
-  //   } yield ()
-  // }
-
-  // def retrieveFilterSetting(settingKey: String, id: Long)(implicit user: TableauxUser): Future[UserSetting] = {
-  //   val select =
-  //     s"""
-  //        |SELECT
-  //        |  usk.key,
-  //        |  usk.kind,
-  //        |  usf.value,
-  //        |  usf.created_at,
-  //        |  usf.updated_at,
-  //        |  null as table_id, -- ignore tableId column
-  //        |  usf.name,
-  //        |  usf.id
-  //        |FROM
-  //        |  user_setting_keys usk
-  //        |LEFT JOIN
-  //        |  user_settings_filter usf ON usf.key = usk.key
-  //        |WHERE
-  //        |  usf.user_id = ?
-  //        |AND
-  //        |  usk.key = ?
-  //        |AND
-  //        |  usf.id = ?
-  //        """.stripMargin
-
-  //   for {
-  //     result <- connection.query(select, Json.arr(user.name, settingKey, id))
-  //     resultArr <- Future(selectNotNull(result))
-  //   } yield {
-  //     convertJsonArrayToUserSetting(resultArr.head)
-  //   }
-  // }
-
-  // def upsertFilterSetting(settingKey: String, settingValue: Object, settingName: String)(implicit
-  // user: TableauxUser): Future[UserSetting] = {
-  //   for {
-  //     result <- connection.query(
-  //       s"""
-  //          |INSERT INTO user_settings_filter
-  //          |  (key, value, user_id, name)
-  //          |VALUES
-  //          |  (?, ?, ?, ?)
-  //          |RETURNING id, created_at
-  //         """.stripMargin,
-  //       Json.arr(settingKey, settingValue, user.name, settingName)
-  //     )
-  //     id = insertNotNull(result).head.get[Long](0)
-  //     setting <- retrieveFilterSetting(settingKey, id)
-  //   } yield {
-  //     setting
-  //   }
-  // }
-
-  // def deleteFilterSetting(settingKey: String, id: Long): Future[Unit] = {
-  //   val delete = s"DELETE FROM user_settings_filter WHERE key = ? AND id = ?"
-
-  //   for {
-  //     result <- connection.query(delete, Json.arr(settingKey, id))
-  //     _ <- Future(deleteNotNull(result))
-  //   } yield ()
-  // }
+    for {
+      result <- connection.query(delete, Json.arr(settingKey, id))
+      _ <- Future(deleteNotNull(result))
+    } yield ()
+  }
 }
