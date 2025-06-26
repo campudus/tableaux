@@ -2483,6 +2483,34 @@
         "produces": [
           "application/json"
         ],
+        "responses": {
+          "200": {
+            "description": "User settings.",
+            "schema": {
+              "$ref": "#/definitions/Response:UserSettings"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
+    },
+    "/user/settings/{kind}": {
+      "get": {
+        "summary": "Get user settings by kind",
+        "description": "Returns an array containing user settings of specific kind.",
+        "tags": [
+          "user"
+        ],
+        "operationId": "get-user-settings-by-kind",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
         "parameters": [
           {
             "$ref": "#/parameters/userSettingKind"
@@ -2504,76 +2532,38 @@
         }
       }
     },
-    "/user/settings/{key}": {
-      "parameters": [
-        {
-          "$ref": "#/parameters/userSettingKey"
-        }
-      ],
+    "/user/settings/global/{key}": {
       "put": {
-        "summary": "Create/Update user setting",
-        "description": "Create/Update a specific user setting.",
+        "summary": "Create/Update user setting global",
+        "description": "Create/Update user setting global.",
         "tags": [
           "user"
         ],
-        "operationId": "create-update-user-setting",
+        "operationId": "create-update-user-setting-global",
         "consumes": [],
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
+            "$ref": "#/parameters/userSettingKey"
+          },
+          {
             "$ref": "#/parameters/userSettingBody"
-          },
-          {
-            "$ref": "#/parameters/userSettingTableId"
-          },
-          {
-            "$ref": "#/parameters/userSettingName"
           }
         ],
         "responses": {
           "200": {
-            "description": "Global user setting.",
+            "description": "User setting.",
             "schema": {
               "$ref": "#/definitions/Response:UserSetting"
             }
-          },
-          "400": {
-            "$ref": "#/responses/invalid-json-exception"
           },
           "default": {
             "description": "Unexpected error",
             "schema": {
               "$ref": "#/responses/unknown-error"
             }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete user setting",
-        "description": "Delete a specific user setting.",
-        "tags": [
-          "user"
-        ],
-        "operationId": "delete-user-setting",
-        "parameters": [
-          {
-            "$ref": "#/parameters/userSettingTableId"
-          },
-          {
-            "$ref": "#/parameters/userSettingId"
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/ok-empty-body"
-          },
-          "400": {
-            "$ref": "#/responses/not-enough-arguments-exception"
-          },
-          "404": {
-            "$ref": "#/responses/not-found-in-database"
           }
         }
       }
@@ -3338,12 +3328,16 @@
       "type": "object",
       "properties": {
         "key": {
-          "type": "string"
+          "type": "string",
+          "description": "key of setting"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["global", "table", "filter"]
         },
         "value": {
           "type": "any",
-          "description": "value of setting as Json",
-          "example": true
+          "description": "value of setting"
         },
         "createdAt": {
           "type": "string",
@@ -3359,6 +3353,10 @@
         },
         "name": {
           "type": "string",
+          "required": false
+        },
+        "id": {
+          "type": "integer",
           "required": false
         }
       }
@@ -4977,9 +4975,10 @@
     },
     "userSettingKind": {
       "name": "kind",
-      "in": "query",
+      "in": "path",
       "required": false,
-      "type": "string"
+      "type": "string",
+      "enum": ["global", "table", "filter"]
     },
     "userSettingTableId": {
       "name": "tableId",

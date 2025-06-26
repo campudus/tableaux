@@ -93,6 +93,31 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   //   }
   // }
 
+  def retrieveGlobalSetting(settingKey: String)(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
+    val select =
+      s"""
+         |SELECT
+         |  key,
+         |  value,
+         |  created_at,
+         |  updated_at
+         |FROM
+         |  user_settings_global
+         |WHERE
+         |  user_id = ?
+         |AND
+         |  key = ?
+         |ORDER BY key
+         """.stripMargin
+
+    for {
+      result <- connection.query(select, Json.arr(user.name, settingKey))
+      resultArr <- Future(selectNotNull(result))
+    } yield {
+      convertJsonArrayToUserSettingGlobal(resultArr.head)
+    }
+  }
+
   def retrieveGlobalSettings()(implicit user: TableauxUser): Future[Seq[UserSettingGlobal[_]]] = {
     val select =
       s"""
@@ -219,33 +244,35 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   //   }
   // }
 
-  // def upsertGlobalSetting(settingKey: String, settingValue: Object)(implicit
-  // user: TableauxUser): Future[UserSetting] = {
-  //   for {
-  //     result <- connection.query(
-  //       s"""
-  //          |INSERT INTO user_settings_global AS usg
-  //          |  (key, value, user_id)
-  //          |VALUES
-  //          |  (?, ?, ?)
-  //          |ON CONFLICT (key, user_id)
-  //          |DO UPDATE SET
-  //          |  value = EXCLUDED.value,
-  //          |  updated_at = CURRENT_TIMESTAMP
-  //          |WHERE
-  //          |  usg.key = EXCLUDED.key
-  //          |AND
-  //          |  usg.user_id = EXCLUDED.user_id
-  //          |RETURNING usg.key, usg.created_at
-  //         """.stripMargin,
-  //       Json.arr(settingKey, settingValue, user.name)
-  //     )
-  //     _ = insertNotNull(result)
-  //     setting <- retrieveGlobalSetting(settingKey)
-  //   } yield {
-  //     setting
-  //   }
-  // }
+  def upsertGlobalSetting(
+      settingKey: String,
+      settingValue: Object
+  )(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
+    for {
+      result <- connection.query(
+        s"""
+           |INSERT INTO user_settings_global AS usg
+           |  (key, value, user_id)
+           |VALUES
+           |  (?, ?, ?)
+           |ON CONFLICT (key, user_id)
+           |DO UPDATE SET
+           |  value = EXCLUDED.value,
+           |  updated_at = CURRENT_TIMESTAMP
+           |WHERE
+           |  usg.key = EXCLUDED.key
+           |AND
+           |  usg.user_id = EXCLUDED.user_id
+           |RETURNING usg.key, usg.created_at
+          """.stripMargin,
+        Json.arr(settingKey, settingValue, user.name)
+      )
+      _ = insertNotNull(result)
+      setting <- retrieveGlobalSetting(settingKey)
+    } yield {
+      setting
+    }
+  }
 
   // def deleteGlobalSetting(settingKey: String): Future[Unit] = {
   //   val delete = s"DELETE FROM user_settings_global WHERE key = ?"
