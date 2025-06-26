@@ -251,6 +251,41 @@ class UserSettingsTest extends TableauxTestBase {
   }
 
   @Test
+  def testDeleteTableSettings(implicit c: TestContext): Unit = okTest {
+    for {
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/visibleColumns/1",
+        Json.obj("value" -> Json.arr(1, 2, 3))
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/columnOrdering/1",
+        Json.obj("value" -> Json.arr(
+          Json.obj("id" -> 1, "idx" -> 1),
+          Json.obj("id" -> 2, "idx" -> 0)
+        ))
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/rowsFilter/1",
+        Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Dusk")))
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/annotationHighlight/1",
+        Json.obj("value" -> "important")
+      )
+      tableSettingsAfterCreate <- sendRequest("GET", "/user/settings/table")
+      _ <- sendRequest("DELETE", "/user/settings/table/1")
+      tableSettingsAfterDelete <- sendRequest("GET", "/user/settings/table")
+    } yield {
+      assertEquals(4, tableSettingsAfterCreate.getJsonArray("settings").size())
+      assertEquals(0, tableSettingsAfterDelete.getJsonArray("settings").size())
+    }
+  }
+
+  @Test
   def testDeleteFilterSetting(implicit c: TestContext): Unit = okTest {
     for {
       settingId <- sendRequest(

@@ -180,6 +180,16 @@ class UserController(
     }
   }
 
+  def deleteTableSettings(tableId: Long)(implicit user: TableauxUser): Future[EmptyObject] = {
+    logger.info(s"deleteTableSettings user: ${user.name}, tableId: $tableId")
+
+    for {
+      _ <- repository.deleteTableSettings(tableId)
+    } yield {
+      EmptyObject()
+    }
+  }
+
   def deleteFilterSetting(
       settingKey: String,
       id: Long

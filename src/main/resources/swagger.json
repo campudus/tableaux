@@ -2661,6 +2661,26 @@
         }
       }
     },
+    "/user/settings/table/{tableId}": {
+      "delete": {
+        "summary": "Delete user settings table",
+        "description": "Delete user settings table",
+        "tags": [
+          "user"
+        ],
+        "operationId": "delete-user-settings-table",
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingTableId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
     "/user/settings/filter/{key}": {
       "put": {
         "summary": "Create user setting filter",
