@@ -5,7 +5,7 @@ CREATE TABLE user_settings_global (
   created_at    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP WITHOUT TIME ZONE,
 
-  PRIMARY KEY (key, user_id),
+  PRIMARY KEY (key, user_id)
 );
 
 CREATE TABLE user_settings_table (
@@ -16,7 +16,7 @@ CREATE TABLE user_settings_table (
   created_at    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP WITHOUT TIME ZONE,
 
-  PRIMARY KEY (key, user_id, table_id),
+  PRIMARY KEY (key, user_id, table_id)
 );
 
 CREATE TABLE user_settings_filter (
