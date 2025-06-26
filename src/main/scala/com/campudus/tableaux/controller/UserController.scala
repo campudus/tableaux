@@ -43,10 +43,10 @@ class UserController(
 ) extends Controller[UserModel] {
   val eventClient: EventClient = EventClient(vertx)
 
-  private def parseSettingValue[T](block: => T): Future[T] = {
-    Try(block) match {
-      case Success(value) => Future.successful(value)
-      case Failure(_) => Future.failed(InvalidJsonException("setting value is invalid", "invalid"))
+  private def parseSettingJson[T](parseFn: => T): Future[T] = {
+    Try(parseFn) match {
+      case Success(value) if value != null => Future.successful(value)
+      case _ => Future.failed(InvalidJsonException("json is invalid", "invalid"))
     }
   }
 
@@ -90,21 +90,20 @@ class UserController(
     for {
       settingValue <- settingKeyGlobal match {
         case Some(UserSettingKeyGlobal.MarkdownEditor) =>
-          parseSettingValue(settingJson.getJsonObject("value")).map(_.encode())
+          parseSettingJson(settingJson.getJsonObject("value")).map(_.encode())
         case Some(UserSettingKeyGlobal.FilterReset) =>
-          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
         case Some(UserSettingKeyGlobal.ColumnsReset) =>
-          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
         case Some(UserSettingKeyGlobal.AnnotationReset) =>
-          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
         case Some(UserSettingKeyGlobal.SortingReset) =>
-          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
         case Some(UserSettingKeyGlobal.SortingDesc) =>
-          parseSettingValue(settingJson.getBoolean("value")).map(_.toString())
+          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
         case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
       }
       setting <- repository.upsertGlobalSetting(settingKey, settingValue)
-
     } yield {
       setting
     }
@@ -122,19 +121,18 @@ class UserController(
     for {
       settingValue <- settingKeyTable match {
         case Some(UserSettingKeyTable.AnnotationHighlight) =>
-          parseSettingValue(settingJson.getString("value"))
+          parseSettingJson(settingJson.getString("value"))
         case Some(UserSettingKeyTable.ColumnOrdering) =>
-          parseSettingValue(settingJson.getJsonArray("value")).map(_.encode())
+          parseSettingJson(settingJson.getJsonArray("value")).map(_.encode())
         case Some(UserSettingKeyTable.ColumnWidths) =>
-          parseSettingValue(settingJson.getJsonObject("value")).map(_.encode())
+          parseSettingJson(settingJson.getJsonObject("value")).map(_.encode())
         case Some(UserSettingKeyTable.RowsFilter) =>
-          parseSettingValue(settingJson.getJsonObject("value")).map(_.encode())
+          parseSettingJson(settingJson.getJsonObject("value")).map(_.encode())
         case Some(UserSettingKeyTable.VisibleColumns) =>
-          parseSettingValue(settingJson.getJsonArray("value")).map(_.encode())
+          parseSettingJson(settingJson.getJsonArray("value")).map(_.encode())
         case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
       }
       setting <- repository.upsertTableSetting(settingKey, settingValue, tableId)
-
     } yield {
       setting
     }
@@ -152,14 +150,13 @@ class UserController(
       (settingValue, settingName) <- settingKeyFilter match {
         case Some(UserSettingKeyFilter.PresetFilter) => {
           for {
-            value <- parseSettingValue(settingJson.getJsonObject("value")).map(_.encode())
-            name <- parseSettingValue(settingJson.getString("name"))
+            value <- parseSettingJson(settingJson.getJsonObject("value")).map(_.encode())
+            name <- parseSettingJson(settingJson.getString("name"))
           } yield (value, name)
         }
         case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
       }
       setting <- repository.upsertFilterSetting(settingKey, settingValue, settingName)
-
     } yield {
       setting
     }

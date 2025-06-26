@@ -16,7 +16,7 @@ class UserSettingsTest extends TableauxTestBase {
   @Test
   def testCreateGlobalSetting(implicit c: TestContext): Unit = okTest {
     for {
-      setting <- sendRequest("PUT", "/user/settings/filterReset", Json.obj("value" -> true))
+      setting <- sendRequest("PUT", "/user/settings/global/filterReset", Json.obj("value" -> true))
     } yield {
       assertEquals("filterReset", setting.getString("key"))
       assertEquals("global", setting.getString("kind"))
@@ -25,13 +25,27 @@ class UserSettingsTest extends TableauxTestBase {
   }
 
   @Test
+  def testCreateGlobalSettingNoJson(implicit c: TestContext): Unit = exceptionTest("error.json.notfound") {
+    for {
+      setting <- sendRequest("PUT", "/user/settings/global/filterReset")
+    } yield ()
+  }
+
+  @Test
+  def testCreateGlobalSettingNoValue(implicit c: TestContext): Unit = exceptionTest("error.json.invalid") {
+    for {
+      setting <- sendRequest("PUT", "/user/settings/global/filterReset", Json.obj())
+    } yield ()
+  }
+
+  @Test
   def testCreateGlobalSettingInvalidJson(implicit c: TestContext): Unit = exceptionTest("error.json.invalid") {
-    sendRequest("PUT", "/user/settings/filterReset", Json.obj("value" -> "some text"))
+    sendRequest("PUT", "/user/settings/global/filterReset", Json.obj("value" -> "some text"))
   }
 
   @Test
   def testCreateSettingInvalidKey(implicit c: TestContext): Unit = exceptionTest("error.request.usersetting.invalid") {
-    sendRequest("PUT", "/user/settings/doesNotExist", Json.obj("value" -> true))
+    sendRequest("PUT", "/user/settings/global/doesNotExist", Json.obj("value" -> true))
   }
 
   @Test
@@ -39,7 +53,7 @@ class UserSettingsTest extends TableauxTestBase {
     for {
       setting <- sendRequest(
         "PUT",
-        "/user/settings/rowsFilter?tableId=1",
+        "/user/settings/table/rowsFilter/1",
         Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Sunset")))
       )
     } yield {
@@ -73,7 +87,7 @@ class UserSettingsTest extends TableauxTestBase {
     for {
       setting <- sendRequest(
         "PUT",
-        "/user/settings/rowsFilter?tableId=1",
+        "/user/settings/table/rowsFilter/1",
         Json.obj("value" -> settingValue)
       )
     } yield {
@@ -85,10 +99,10 @@ class UserSettingsTest extends TableauxTestBase {
   }
 
   @Test
-  def testCreateTableSettingNoTableId(implicit c: TestContext): Unit = exceptionTest("error.arguments") {
+  def testCreateTableSettingNoTableId(implicit c: TestContext): Unit = exceptionTest("NOT FOUND") {
     sendRequest(
       "PUT",
-      "/user/settings/rowsFilter",
+      "/user/settings/table/rowsFilter",
       Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Sunset")))
     )
   }
@@ -97,8 +111,8 @@ class UserSettingsTest extends TableauxTestBase {
   def testCreateTableSettingInvalidJson(implicit c: TestContext): Unit = exceptionTest("error.json.invalid") {
     sendRequest(
       "PUT",
-      "/user/settings/rowsFilter?tableId=1",
-      Json.obj("value" -> Json.obj("filters" -> Json.obj("value" -> true)))
+      "/user/settings/table/rowsFilter/1",
+      Json.obj("value" -> true)
     )
   }
 
@@ -107,13 +121,16 @@ class UserSettingsTest extends TableauxTestBase {
     for {
       setting <- sendRequest(
         "PUT",
-        s"/user/settings/presetFilter?name=simple",
-        Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black")))
+        s"/user/settings/filter/presetFilter",
+        Json.obj(
+          "name" -> "Simple Filter 1",
+          "value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black"))
+        )
       )
     } yield {
       assertEquals("presetFilter", setting.getString("key"))
       assertEquals("filter", setting.getString("kind"))
-      assertEquals("simple", setting.getString("name"))
+      assertEquals("Simple Filter 1", setting.getString("name"))
       assertJSONEquals(
         Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black")),
         setting.getJsonObject("value")
@@ -143,22 +160,25 @@ class UserSettingsTest extends TableauxTestBase {
     for {
       setting <- sendRequest(
         "PUT",
-        s"/user/settings/presetFilter?name=complex",
-        Json.obj("value" -> settingValue)
+        s"/user/settings/filter/presetFilter",
+        Json.obj(
+          "name" -> "Complex Filter 1",
+          "value" -> settingValue
+        )
       )
     } yield {
       assertEquals("presetFilter", setting.getString("key"))
       assertEquals("filter", setting.getString("kind"))
-      assertEquals("complex", setting.getString("name"))
+      assertEquals("Complex Filter 1", setting.getString("name"))
       assertJSONEquals(settingValue, setting.getJsonObject("value"))
     }
   }
 
   @Test
-  def testCreateFilterSettingNoName(implicit c: TestContext): Unit = exceptionTest("error.arguments") {
+  def testCreateFilterSettingNoName(implicit c: TestContext): Unit = exceptionTest("error.json.invalid") {
     sendRequest(
       "PUT",
-      "/user/settings/presetFilter",
+      "/user/settings/filter/presetFilter",
       Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black")))
     )
   }
@@ -167,11 +187,11 @@ class UserSettingsTest extends TableauxTestBase {
   def testCreateFilterSettingInvalidJson(implicit c: TestContext): Unit = exceptionTest("error.json.invalid") {
     sendRequest(
       "PUT",
-      "/user/settings/presetFilter?name=invalid",
-      Json.obj("value" -> Json.obj(
-        "filters" -> Json.arr("value", "identifier", "starts-with", "black"),
-        "sortDirection" -> "none" // invalid direction
-      ))
+      "/user/settings/filter/presetFilter",
+      Json.obj(
+        "name" -> "Filter Invalid",
+        "value" -> true
+      )
     )
   }
 
@@ -179,29 +199,32 @@ class UserSettingsTest extends TableauxTestBase {
   def testRetrieveSettings(implicit c: TestContext): Unit = okTest {
     for {
       // create some settings
-      _ <- sendRequest("PUT", "/user/settings/filterReset", Json.obj("value" -> true))
-      _ <- sendRequest("PUT", "/user/settings/sortingReset", Json.obj("value" -> false))
-      _ <- sendRequest("PUT", "/user/settings/sortingDesc", Json.obj("value" -> false))
+      _ <- sendRequest("PUT", "/user/settings/global/filterReset", Json.obj("value" -> true))
+      _ <- sendRequest("PUT", "/user/settings/global/sortingReset", Json.obj("value" -> false))
+      _ <- sendRequest("PUT", "/user/settings/global/sortingDesc", Json.obj("value" -> false))
       _ <- sendRequest(
         "PUT",
-        "/user/settings/visibleColumns?tableId=1",
+        "/user/settings/table/visibleColumns/1",
         Json.obj("value" -> Json.arr(1, 2, 3))
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/rowsFilter?tableId=2",
+        "/user/settings/table/rowsFilter/2",
         Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Dusk")))
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/presetFilter?name=simple",
-        Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black")))
+        "/user/settings/filter/presetFilter",
+        Json.obj(
+          "name" -> "Simple Filter",
+          "value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black"))
+        )
       )
       // retrieve settings
       allSettings <- sendRequest("GET", "/user/settings")
-      globalSettings <- sendRequest("GET", "/user/settings?kind=global")
-      tableSettings <- sendRequest("GET", "/user/settings?kind=table")
-      filterSettings <- sendRequest("GET", "/user/settings?kind=filter")
+      globalSettings <- sendRequest("GET", "/user/settings/global")
+      tableSettings <- sendRequest("GET", "/user/settings/table")
+      filterSettings <- sendRequest("GET", "/user/settings/filter")
     } yield {
       assertEquals(6, allSettings.getJsonArray("settings").size())
       assertEquals(3, globalSettings.getJsonArray("settings").size())
@@ -211,29 +234,16 @@ class UserSettingsTest extends TableauxTestBase {
   }
 
   @Test
-  def testDeleteGlobalSetting(implicit c: TestContext): Unit = okTest {
-    for {
-      _ <- sendRequest("PUT", "/user/settings/filterReset", Json.obj("value" -> true))
-      globalSettingsAfterCreate <- sendRequest("GET", "/user/settings?kind=global")
-      _ <- sendRequest("DELETE", "/user/settings/filterReset")
-      globalSettingsAfterDelete <- sendRequest("GET", "/user/settings?kind=global")
-    } yield {
-      assertEquals(1, globalSettingsAfterCreate.getJsonArray("settings").size())
-      assertEquals(0, globalSettingsAfterDelete.getJsonArray("settings").size())
-    }
-  }
-
-  @Test
   def testDeleteTableSetting(implicit c: TestContext): Unit = okTest {
     for {
       _ <- sendRequest(
         "PUT",
-        "/user/settings/visibleColumns?tableId=1",
+        "/user/settings/table/visibleColumns/1",
         Json.obj("value" -> Json.arr(1, 2, 3))
       )
-      tableSettingsAfterCreate <- sendRequest("GET", "/user/settings?kind=table")
-      _ <- sendRequest("DELETE", "/user/settings/visibleColumns?tableId=1")
-      tableSettingsAfterDelete <- sendRequest("GET", "/user/settings?kind=table")
+      tableSettingsAfterCreate <- sendRequest("GET", "/user/settings/table")
+      _ <- sendRequest("DELETE", "/user/settings/table/visibleColumns/1")
+      tableSettingsAfterDelete <- sendRequest("GET", "/user/settings/table")
     } yield {
       assertEquals(1, tableSettingsAfterCreate.getJsonArray("settings").size())
       assertEquals(0, tableSettingsAfterDelete.getJsonArray("settings").size())
@@ -241,43 +251,22 @@ class UserSettingsTest extends TableauxTestBase {
   }
 
   @Test
-  def testDeleteTableSettingNoTableId(implicit c: TestContext): Unit = exceptionTest("error.arguments") {
-    for {
-      _ <- sendRequest(
-        "PUT",
-        "/user/settings/visibleColumns?tableId=1",
-        Json.obj("value" -> Json.arr(1, 2, 3))
-      )
-      _ <- sendRequest("DELETE", "/user/settings/visibleColumns")
-    } yield ()
-  }
-
-  @Test
   def testDeleteFilterSetting(implicit c: TestContext): Unit = okTest {
     for {
       settingId <- sendRequest(
         "PUT",
-        "/user/settings/presetFilter?name=simple",
-        Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black")))
+        "/user/settings/filter/presetFilter",
+        Json.obj(
+          "name" -> "Simple Filter 1",
+          "value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black"))
+        )
       ).map(_.getLong(("id")))
-      filterSettingsAfterCreate <- sendRequest("GET", "/user/settings?kind=filter")
-      _ <- sendRequest("DELETE", s"/user/settings/presetFilter?id=$settingId")
-      filterSettingsAfterDelete <- sendRequest("GET", "/user/settings?kind=filter")
+      filterSettingsAfterCreate <- sendRequest("GET", "/user/settings/filter")
+      _ <- sendRequest("DELETE", s"/user/settings/filter/presetFilter/$settingId")
+      filterSettingsAfterDelete <- sendRequest("GET", "/user/settings/filter")
     } yield {
       assertEquals(1, filterSettingsAfterCreate.getJsonArray("settings").size())
       assertEquals(0, filterSettingsAfterDelete.getJsonArray("settings").size())
     }
-  }
-
-  @Test
-  def testDeleteFilterSettingNoId(implicit c: TestContext): Unit = exceptionTest("error.arguments") {
-    for {
-      _ <- sendRequest(
-        "PUT",
-        "/user/settings/presetFilter?name=simple",
-        Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "identifier", "starts-with", "black")))
-      )
-      _ <- sendRequest("DELETE", s"/user/settings/presetFilter")
-    } yield ()
   }
 }
