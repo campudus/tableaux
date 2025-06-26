@@ -48,6 +48,7 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     router.putWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(upsertTableSetting)
     router.putWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex").handler(upsertFilterSetting)
 
+    router.deleteWithRegex(s"/settings/$settingKindTable/$settingTableIdRegex").handler(deleteTableSettings)
     router.deleteWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(deleteTableSetting)
     router.deleteWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex/$settingIdRegex").handler(deleteFilterSetting)
 
@@ -149,6 +150,21 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
         context,
         asyncGetReply {
           controller.deleteTableSetting(settingKey, settingTableId)
+        }
+      )
+    }
+  }
+
+  private def deleteTableSettings(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+
+    for {
+      settingTableId <- getSettingTableId(context)
+    } yield {
+      sendReply(
+        context,
+        asyncGetReply {
+          controller.deleteTableSettings(settingTableId)
         }
       )
     }
