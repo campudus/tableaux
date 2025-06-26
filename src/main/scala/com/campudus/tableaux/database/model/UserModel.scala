@@ -26,10 +26,14 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     implicit roleModel: RoleModel
 ) extends DatabaseQuery {
 
+  private def parseJsonString(value: String): Object = {
+    Json.fromObjectString(s"""{"value":${value}}""").getValue("value")
+  }
+
   private def convertJsonArrayToUserSettingGlobal(arr: JsonArray)(implicit user: TableauxUser): UserSettingGlobal[_] = {
     UserSettingGlobal(
       UserSettingKeyGlobal.fromKey(arr.get[String](0)).get, // key
-      Json.fromObjectString(s"""{"value":${arr.getValue(1)}}""").getValue("value"), // value (parsed)
+      parseJsonString(arr.getString(1)), // value
       convertStringToDateTime(arr.get[String](2)), // created_at
       convertStringToDateTime(arr.get[String](3)) // updated_at
     )
@@ -38,7 +42,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   private def convertJsonArrayToUserSettingTable(arr: JsonArray)(implicit user: TableauxUser): UserSettingTable[_] = {
     UserSettingTable(
       UserSettingKeyTable.fromKey(arr.get[String](0)).get, // key
-      Json.fromObjectString(s"""{"value":${arr.getValue(1)}}""").getValue("value"), // value (parsed)
+      parseJsonString(arr.getString(1)), // value
       convertStringToDateTime(arr.get[String](2)), // created_at
       convertStringToDateTime(arr.get[String](3)), // updated_at
       arr.getLong(4).longValue() // tableId
@@ -48,7 +52,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   private def convertJsonArrayToUserSettingFilter(arr: JsonArray)(implicit user: TableauxUser): UserSettingFilter[_] = {
     UserSettingFilter(
       UserSettingKeyFilter.fromKey(arr.get[String](0)).get, // key
-      Json.fromObjectString(s"""{"value":${arr.getValue(1)}}""").getValue("value"), // value (parsed)
+      parseJsonString(arr.getString(1)), // value
       convertStringToDateTime(arr.get[String](2)), // created_at
       convertStringToDateTime(arr.get[String](3)), // updated_at
       arr.getString(4), // name

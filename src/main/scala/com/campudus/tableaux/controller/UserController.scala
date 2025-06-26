@@ -16,11 +16,6 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 import scala.util.Try
 
-import org.everit.json.schema.Schema
-import org.everit.json.schema.ValidationException
-import org.everit.json.schema.loader.SchemaLoader
-import org.json.JSONObject
-
 object UserController {
 
   def apply(
@@ -43,10 +38,24 @@ class UserController(
 ) extends Controller[UserModel] {
   val eventClient: EventClient = EventClient(vertx)
 
-  private def parseSettingJson[T](parseFn: => T): Future[T] = {
-    Try(parseFn) match {
+  private def extractFromJson[T](extractFn: => T): Future[T] = {
+    Try(extractFn) match {
       case Success(value) if value != null => Future.successful(value)
       case _ => Future.failed(InvalidJsonException("json is invalid", "invalid"))
+    }
+  }
+
+  private def encode(value: Any): String = {
+    value match {
+      case s: String => "\"" + s.replace("\"", "\\\"") + "\""
+      case b: Boolean => b.toString()
+      case n: Int => n.toString()
+      case n: Long => n.toString()
+      case n: Double => n.toString()
+      case n: Float => n.toString()
+      case jo: JsonObject => jo.encode()
+      case ja: JsonArray => ja.encode()
+      case other => "\"" + other.toString().replace("\"", "\\\"") + "\""
     }
   }
 
@@ -83,6 +92,11 @@ class UserController(
       settingKey: String,
       settingJson: JsonObject
   )(implicit user: TableauxUser): Future[UserSettingGlobal[_]] = {
+    checkArguments(
+      notNull(settingKey, "key"),
+      notNull(settingJson, "json")
+    )
+
     logger.info(s"upsertGlobalSetting user: ${user.name}, key: $settingKey, json: $settingJson")
 
     val settingKeyGlobal = UserSettingKeyGlobal.fromKey(settingKey)
@@ -90,17 +104,17 @@ class UserController(
     for {
       settingValue <- settingKeyGlobal match {
         case Some(UserSettingKeyGlobal.MarkdownEditor) =>
-          parseSettingJson(settingJson.getJsonObject("value")).map(_.encode())
+          extractFromJson(settingJson.getString("value")).map(encode(_))
         case Some(UserSettingKeyGlobal.FilterReset) =>
-          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
+          extractFromJson(settingJson.getBoolean("value")).map(encode(_))
         case Some(UserSettingKeyGlobal.ColumnsReset) =>
-          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
+          extractFromJson(settingJson.getBoolean("value")).map(encode(_))
         case Some(UserSettingKeyGlobal.AnnotationReset) =>
-          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
+          extractFromJson(settingJson.getBoolean("value")).map(encode(_))
         case Some(UserSettingKeyGlobal.SortingReset) =>
-          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
+          extractFromJson(settingJson.getBoolean("value")).map(encode(_))
         case Some(UserSettingKeyGlobal.SortingDesc) =>
-          parseSettingJson(settingJson.getBoolean("value")).map(_.toString())
+          extractFromJson(settingJson.getBoolean("value")).map(encode(_))
         case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
       }
       setting <- repository.upsertGlobalSetting(settingKey, settingValue)
@@ -114,6 +128,12 @@ class UserController(
       settingJson: JsonObject,
       tableId: Long
   )(implicit user: TableauxUser): Future[UserSettingTable[_]] = {
+    checkArguments(
+      notNull(settingKey, "key"),
+      notNull(settingJson, "json"),
+      greaterZero(tableId)
+    )
+
     logger.info(s"upsertTableSetting user: ${user.name}, key: $settingKey, json: $settingJson, tableId: $tableId")
 
     val settingKeyTable = UserSettingKeyTable.fromKey(settingKey)
@@ -121,15 +141,15 @@ class UserController(
     for {
       settingValue <- settingKeyTable match {
         case Some(UserSettingKeyTable.AnnotationHighlight) =>
-          parseSettingJson(settingJson.getString("value"))
+          extractFromJson(settingJson.getString("value")).map(encode(_))
         case Some(UserSettingKeyTable.ColumnOrdering) =>
-          parseSettingJson(settingJson.getJsonArray("value")).map(_.encode())
+          extractFromJson(settingJson.getJsonArray("value")).map(encode(_))
         case Some(UserSettingKeyTable.ColumnWidths) =>
-          parseSettingJson(settingJson.getJsonObject("value")).map(_.encode())
+          extractFromJson(settingJson.getJsonObject("value")).map(encode(_))
         case Some(UserSettingKeyTable.RowsFilter) =>
-          parseSettingJson(settingJson.getJsonObject("value")).map(_.encode())
+          extractFromJson(settingJson.getJsonObject("value")).map(encode(_))
         case Some(UserSettingKeyTable.VisibleColumns) =>
-          parseSettingJson(settingJson.getJsonArray("value")).map(_.encode())
+          extractFromJson(settingJson.getJsonArray("value")).map(encode(_))
         case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
       }
       setting <- repository.upsertTableSetting(settingKey, settingValue, tableId)
@@ -142,6 +162,11 @@ class UserController(
       settingKey: String,
       settingJson: JsonObject
   )(implicit user: TableauxUser): Future[UserSettingFilter[_]] = {
+    checkArguments(
+      notNull(settingKey, "key"),
+      notNull(settingJson, "json")
+    )
+
     logger.info(s"upsertFilterSetting user: ${user.name}, key: $settingKey, json: $settingJson")
 
     val settingKeyFilter = UserSettingKeyFilter.fromKey(settingKey)
@@ -150,8 +175,9 @@ class UserController(
       (settingValue, settingName) <- settingKeyFilter match {
         case Some(UserSettingKeyFilter.PresetFilter) => {
           for {
-            value <- parseSettingJson(settingJson.getJsonObject("value")).map(_.encode())
-            name <- parseSettingJson(settingJson.getString("name"))
+            value <- extractFromJson(settingJson.getJsonObject("value")).map(encode(_))
+            // no encoding needed because it ends up in separate column of type varchar
+            name <- extractFromJson(settingJson.getString("name"))
           } yield (value, name)
         }
         case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
@@ -166,6 +192,11 @@ class UserController(
       settingKey: String,
       tableId: Long
   )(implicit user: TableauxUser): Future[EmptyObject] = {
+    checkArguments(
+      notNull(settingKey, "key"),
+      greaterZero(tableId)
+    )
+
     logger.info(s"deleteTableSetting user: ${user.name}, key: $settingKey, tableId: $tableId")
 
     val settingKeyTable = UserSettingKeyTable.fromKey(settingKey)
@@ -181,6 +212,10 @@ class UserController(
   }
 
   def deleteTableSettings(tableId: Long)(implicit user: TableauxUser): Future[EmptyObject] = {
+    checkArguments(
+      greaterZero(tableId)
+    )
+
     logger.info(s"deleteTableSettings user: ${user.name}, tableId: $tableId")
 
     for {
@@ -194,6 +229,11 @@ class UserController(
       settingKey: String,
       id: Long
   )(implicit user: TableauxUser): Future[EmptyObject] = {
+    checkArguments(
+      notNull(settingKey, "key"),
+      greaterZero(id)
+    )
+
     logger.info(s"deleteFilterSetting user: ${user.name}, key: $settingKey, id: $id")
 
     val settingKeyFilter = UserSettingKeyFilter.fromKey(settingKey)
