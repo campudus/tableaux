@@ -110,30 +110,94 @@ class UserController(
     }
   }
 
-  // def deleteSetting(
-  //     settingKey: String,
-  //     tableId: Option[Long],
-  //     id: Option[Long]
-  // )(implicit user: TableauxUser): Future[EmptyObject] = {
-  //   logger.info(s"deleteSetting user: ${user.name}, key: $settingKey, tableId: $tableId, id: $id")
+  def upsertTableSetting(
+      settingKey: String,
+      settingJson: JsonObject,
+      tableId: Long
+  )(implicit user: TableauxUser): Future[UserSettingTable[_]] = {
+    logger.info(s"upsertTableSetting user: ${user.name}, key: $settingKey, json: $settingJson, tableId: $tableId")
 
-  //   for {
-  //     _ <- repository.checkSettingKey(settingKey)
-  //     settingKind <- repository.retrieveSettingKind(settingKey)
-  //     setting <- settingKind match {
-  //       case UserSettingKind.GLOBAL => {
-  //         repository.deleteGlobalSetting(settingKey)
-  //       }
-  //       case UserSettingKind.TABLE => {
-  //         checkArguments(isDefined(tableId, "tableId"))
-  //         repository.deleteTableSetting(settingKey, tableId.get)
-  //       }
-  //       case UserSettingKind.FILTER => {
-  //         checkArguments(isDefined(id, "id"))
-  //         repository.deleteFilterSetting(settingKey, id.get)
-  //       }
-  //       case _ => Future.failed(NotFoundInDatabaseException("setting not found", "user-setting"))
-  //     }
-  //   } yield EmptyObject()
-  // }
+    val settingKeyTable = UserSettingKeyTable.fromKey(settingKey)
+
+    for {
+      settingValue <- settingKeyTable match {
+        case Some(UserSettingKeyTable.AnnotationHighlight) =>
+          parseSettingValue(settingJson.getString("value"))
+        case Some(UserSettingKeyTable.ColumnOrdering) =>
+          parseSettingValue(settingJson.getJsonArray("value")).map(_.encode())
+        case Some(UserSettingKeyTable.ColumnWidths) =>
+          parseSettingValue(settingJson.getJsonObject("value")).map(_.encode())
+        case Some(UserSettingKeyTable.RowsFilter) =>
+          parseSettingValue(settingJson.getJsonObject("value")).map(_.encode())
+        case Some(UserSettingKeyTable.VisibleColumns) =>
+          parseSettingValue(settingJson.getJsonArray("value")).map(_.encode())
+        case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
+      }
+      setting <- repository.upsertTableSetting(settingKey, settingValue, tableId)
+
+    } yield {
+      setting
+    }
+  }
+
+  def upsertFilterSetting(
+      settingKey: String,
+      settingJson: JsonObject
+  )(implicit user: TableauxUser): Future[UserSettingFilter[_]] = {
+    logger.info(s"upsertFilterSetting user: ${user.name}, key: $settingKey, json: $settingJson")
+
+    val settingKeyFilter = UserSettingKeyFilter.fromKey(settingKey)
+
+    for {
+      (settingValue, settingName) <- settingKeyFilter match {
+        case Some(UserSettingKeyFilter.PresetFilter) => {
+          for {
+            value <- parseSettingValue(settingJson.getJsonObject("value")).map(_.encode())
+            name <- parseSettingValue(settingJson.getString("name"))
+          } yield (value, name)
+        }
+        case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
+      }
+      setting <- repository.upsertFilterSetting(settingKey, settingValue, settingName)
+
+    } yield {
+      setting
+    }
+  }
+
+  def deleteTableSetting(
+      settingKey: String,
+      tableId: Long
+  )(implicit user: TableauxUser): Future[EmptyObject] = {
+    logger.info(s"deleteTableSetting user: ${user.name}, key: $settingKey, tableId: $tableId")
+
+    val settingKeyTable = UserSettingKeyTable.fromKey(settingKey)
+
+    for {
+      _ <- settingKeyTable match {
+        case Some(_) => repository.deleteTableSetting(settingKey, tableId)
+        case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
+      }
+    } yield {
+      EmptyObject()
+    }
+  }
+
+  def deleteFilterSetting(
+      settingKey: String,
+      id: Long
+  )(implicit user: TableauxUser): Future[EmptyObject] = {
+    logger.info(s"deleteFilterSetting user: ${user.name}, key: $settingKey, id: $id")
+
+    val settingKeyFilter = UserSettingKeyFilter.fromKey(settingKey)
+
+    for {
+      _ <- settingKeyFilter match {
+        case Some(_) => repository.deleteFilterSetting(settingKey, id)
+        case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
+      }
+    } yield {
+      EmptyObject()
+    }
+  }
 }

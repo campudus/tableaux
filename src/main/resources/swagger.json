@@ -2474,7 +2474,7 @@
     "/user/settings": {
       "get": {
         "summary": "Get user settings",
-        "description": "Returns an array containing all user settings.",
+        "description": "Returns an array containing all user settings",
         "tags": [
           "user"
         ],
@@ -2485,7 +2485,7 @@
         ],
         "responses": {
           "200": {
-            "description": "User settings.",
+            "description": "User settings",
             "schema": {
               "$ref": "#/definitions/Response:UserSettings"
             }
@@ -2502,7 +2502,7 @@
     "/user/settings/{kind}": {
       "get": {
         "summary": "Get user settings by kind",
-        "description": "Returns an array containing user settings of specific kind.",
+        "description": "Returns an array containing user settings of specific kind",
         "tags": [
           "user"
         ],
@@ -2518,7 +2518,7 @@
         ],
         "responses": {
           "200": {
-            "description": "User settings.",
+            "description": "User settings",
             "schema": {
               "$ref": "#/definitions/Response:UserSettings"
             }
@@ -2535,7 +2535,7 @@
     "/user/settings/global/{key}": {
       "put": {
         "summary": "Create/Update user setting global",
-        "description": "Create/Update user setting global.",
+        "description": "Create/Update user setting global",
         "tags": [
           "user"
         ],
@@ -2546,10 +2546,165 @@
         ],
         "parameters": [
           {
-            "$ref": "#/parameters/userSettingKey"
+            "$ref": "#/parameters/userSettingKeyGlobal"
           },
           {
-            "$ref": "#/parameters/userSettingBody"
+            "name": "json",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "any",
+                  "description": "value of global setting",
+                  "example": true
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User setting",
+            "schema": {
+              "$ref": "#/definitions/Response:UserSetting"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      }
+    },
+    "/user/settings/table/{key}/{tableId}": {
+      "put": {
+        "summary": "Create/Update user setting table",
+        "description": "Create/Update user setting table",
+        "tags": [
+          "user"
+        ],
+        "operationId": "create-update-user-setting-table",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingKeyTable"
+          },
+          {
+            "$ref": "#/parameters/userSettingTableId"
+          },
+          {
+            "name": "json",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "any",
+                  "description": "value of table setting",
+                  "example": {
+                    "sortDirection": "desc",
+                    "sortColumnName": "ID",
+                    "filters": [
+                      "value",
+                      "ID",
+                      "contains",
+                      "Sunset"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User setting",
+            "schema": {
+              "$ref": "#/definitions/Response:UserSetting"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete user setting table",
+        "description": "Delete user setting table",
+        "tags": [
+          "user"
+        ],
+        "operationId": "delete-user-setting-table",
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingKeyTable"
+          },
+          {
+            "$ref": "#/parameters/userSettingTableId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
+    "/user/settings/filter/{key}": {
+      "put": {
+        "summary": "Create user setting filter",
+        "description": "Create user setting filter",
+        "tags": [
+          "user"
+        ],
+        "operationId": "create-user-setting-filter",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingKeyFilter"
+          },
+          {
+            "name": "json",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "the name of the filter setting",
+                  "example": "Filter 1"
+                },
+                "value": {
+                  "type": "object",
+                  "description": "the filter setting",
+                  "example": {
+                    "sortDirection": "desc",
+                    "sortColumnName": "ID",
+                    "filters": [
+                      "value",
+                      "ID",
+                      "contains",
+                      "Sunset"
+                    ]
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -2564,6 +2719,33 @@
             "schema": {
               "$ref": "#/responses/unknown-error"
             }
+          }
+        }
+      }
+    },
+    "/user/settings/filter/{key}/{id}": {
+      "delete": {
+        "summary": "Delete user setting filter",
+        "description": "Delete user setting filter",
+        "tags": [
+          "user"
+        ],
+        "operationId": "delete-user-setting-filter",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingKeyFilter"
+          },
+          {
+            "$ref": "#/parameters/userSettingId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
           }
         }
       }
@@ -3326,6 +3508,12 @@
     "Response:UserSetting": {
       "description": "User setting response.",
       "type": "object",
+      "required": [
+        "key",
+        "kind",
+        "value",
+        "createdAt"
+      ],
       "properties": {
         "key": {
           "type": "string",
@@ -3333,7 +3521,11 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["global", "table", "filter"]
+          "enum": [
+            "global",
+            "table",
+            "filter"
+          ]
         },
         "value": {
           "type": "any",
@@ -4967,55 +5159,64 @@
       "default": false,
       "example": true
     },
-    "userSettingKey": {
+    "userSettingKeyGlobal": {
       "name": "key",
       "in": "path",
       "required": true,
-      "type": "string"
+      "type": "string",
+      "enum": [
+        "filterReset",
+        "sortingReset",
+        "sortingDesc",
+        "annotationReset",
+        "columnsReset",
+        "markdownEditor"
+      ]
+    },
+    "userSettingKeyTable": {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "enum": [
+        "annotationHighlight",
+        "columnOrdering",
+        "columnWidths",
+        "rowsFilter",
+        "visibleColumns"
+      ]
+    },
+    "userSettingKeyFilter": {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "enum": [
+        "presetFilter"
+      ]
     },
     "userSettingKind": {
       "name": "kind",
       "in": "path",
       "required": false,
       "type": "string",
-      "enum": ["global", "table", "filter"]
+      "enum": [
+        "global",
+        "table",
+        "filter"
+      ]
     },
     "userSettingTableId": {
       "name": "tableId",
-      "description": "required for setting of kind table",
-      "in": "query",
-      "required": false,
+      "in": "path",
+      "required": true,
       "type": "integer"
     },
     "userSettingId": {
       "name": "id",
-      "description": "required for setting of kind filter",
-      "in": "query",
-      "required": false,
-      "type": "integer"
-    },
-    "userSettingName": {
-      "name": "name",
-      "description": "required for setting of kind filter",
-      "in": "query",
-      "required": false,
-      "type": "string"
-    },
-    "userSettingBody": {
-      "name": "value",
-      "description": "User setting body.",
-      "in": "body",
+      "in": "path",
       "required": true,
-      "schema": {
-        "type": "",
-        "properties": {
-          "value": {
-            "type": "any",
-            "description": "The value of a user setting as json.",
-            "example": true
-          }
-        }
-      }
+      "type": "integer"
     }
   },
   "responses": {
