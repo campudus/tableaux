@@ -1,6 +1,6 @@
 package com.campudus.tableaux.database.model
 
-import com.campudus.tableaux.InvalidUserSettingException
+import com.campudus.tableaux.UnknownServerException
 import com.campudus.tableaux.database.{DatabaseConnection, DatabaseQuery}
 import com.campudus.tableaux.database.domain._
 import com.campudus.tableaux.database.model.TableauxModel.TableId
@@ -32,7 +32,9 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
 
   private def convertJsonArrayToUserSettingGlobal(arr: JsonArray)(implicit user: TableauxUser): UserSettingGlobal[_] = {
     UserSettingGlobal(
-      UserSettingKeyGlobal.fromKey(arr.get[String](0)).get, // key
+      UserSettingKeyGlobal.fromKey(arr.get[String](0)).getOrElse(
+        throw UnknownServerException(s"invalid global setting key ${arr.get[String](0)}")
+      ), // key
       parseJsonString(arr.get[String](1)), // value
       convertStringToDateTime(arr.get[String](2)), // created_at
       convertStringToDateTime(arr.get[String](3)) // updated_at
@@ -42,7 +44,9 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   private def convertJsonArrayToUserSettingTable(arr: JsonArray)(implicit user: TableauxUser): UserSettingTable[_] = {
     UserSettingTable(
       arr.get[Long](0).longValue(), // tableId
-      UserSettingKeyTable.fromKey(arr.get[String](1)).get, // key
+      UserSettingKeyTable.fromKey(arr.get[String](1)).getOrElse(
+        throw UnknownServerException(s"invalid table setting key ${arr.get[String](1)}")
+      ), // key
       parseJsonString(arr.get[String](2)), // value
       convertStringToDateTime(arr.get[String](3)), // created_at
       convertStringToDateTime(arr.get[String](4)) // updated_at
@@ -53,7 +57,9 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     UserSettingFilter(
       arr.get[Long](0).longValue(), // id
       arr.get[String](1), // name
-      UserSettingKeyFilter.fromKey(arr.get[String](2)).get, // key
+      UserSettingKeyFilter.fromKey(arr.get[String](2)).getOrElse(
+        throw UnknownServerException(s"invalid filter setting key ${arr.get[String](2)}")
+      ), // key
       parseJsonString(arr.get[String](3)), // value
       convertStringToDateTime(arr.get[String](4)), // created_at
       convertStringToDateTime(arr.get[String](5)) // updated_at
