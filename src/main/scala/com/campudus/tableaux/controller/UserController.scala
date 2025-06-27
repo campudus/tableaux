@@ -41,7 +41,8 @@ class UserController(
   private def extractFromJson[T](extractFn: => T): Future[T] = {
     Try(extractFn) match {
       case Success(value) if value != null => Future.successful(value)
-      case _ => Future.failed(InvalidJsonException("json is invalid", "invalid"))
+      case Success(value) if value == null => Future.failed(InvalidJsonException("value is null", "invalid"))
+      case Failure(exception) => Future.failed(InvalidJsonException(exception.getMessage(), "invalid"))
     }
   }
 
