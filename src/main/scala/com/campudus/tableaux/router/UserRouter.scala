@@ -41,6 +41,7 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     router.get("/settings").handler(retrieveSettings)
     router.get(s"/settings/$settingKindGlobal").handler(retrieveGlobalSettings)
     router.get(s"/settings/$settingKindTable").handler(retrieveTableSettings)
+    router.getWithRegex(s"/settings/$settingKindTable/$settingTableIdRegex").handler(retrieveTableSettings)
     router.get(s"/settings/$settingKindFilter").handler(retrieveFilterSettings)
 
     router.putWithRegex(s"/settings/$settingKindGlobal/$settingKeyRegex").handler(upsertGlobalSetting)
@@ -74,22 +75,23 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
 
   private def retrieveSettings(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-    sendReply(context, asyncGetReply(controller.retrieveSettings(None)))
+    sendReply(context, asyncGetReply(controller.retrieveSettings()))
   }
 
   private def retrieveGlobalSettings(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-    sendReply(context, asyncGetReply(controller.retrieveSettings(Some(UserSettingKindGlobal))))
+    sendReply(context, asyncGetReply(controller.retrieveGlobalSettings()))
   }
 
   private def retrieveTableSettings(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-    sendReply(context, asyncGetReply(controller.retrieveSettings(Some(UserSettingKindTable))))
+    val settingTableId = getSettingTableId(context)
+    sendReply(context, asyncGetReply(controller.retrieveTableSettings(settingTableId)))
   }
 
   private def retrieveFilterSettings(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
-    sendReply(context, asyncGetReply(controller.retrieveSettings(Some(UserSettingKindFilter))))
+    sendReply(context, asyncGetReply(controller.retrieveFilterSettings()))
   }
 
   private def upsertGlobalSetting(context: RoutingContext): Unit = {

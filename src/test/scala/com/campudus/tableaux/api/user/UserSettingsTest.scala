@@ -234,6 +234,49 @@ class UserSettingsTest extends TableauxTestBase {
   }
 
   @Test
+  def testRetrieveTableSettingsById(implicit c: TestContext): Unit = okTest {
+    for {
+      // create some table settings for different tables
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/columnOrdering/1",
+        Json.obj("value" -> Json.arr(
+          Json.obj("id" -> 1, "idx" -> 1),
+          Json.obj("id" -> 2, "idx" -> 0)
+        ))
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/visibleColumns/1",
+        Json.obj("value" -> Json.arr(1, 2, 3))
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/rowsFilter/1",
+        Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Dusk")))
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/annotationHighlight/2",
+        Json.obj("value" -> "important")
+      )
+      _ <- sendRequest(
+        "PUT",
+        "/user/settings/table/columnWidths/2",
+        Json.obj("value" ->  Json.obj("1" -> 250, "2" -> 300))
+      )
+      // retrieve settings
+      tableSettings <- sendRequest("GET", "/user/settings/table")
+      tableSettingsId1 <- sendRequest("GET", "/user/settings/table/1")
+      tableSettingsId2 <- sendRequest("GET", "/user/settings/table/2")
+    } yield {
+      assertEquals(5, tableSettings.getJsonArray("settings").size())
+      assertEquals(3, tableSettingsId1.getJsonArray("settings").size())
+      assertEquals(2, tableSettingsId2.getJsonArray("settings").size())
+    }
+  }
+
+  @Test
   def testDeleteTableSetting(implicit c: TestContext): Unit = okTest {
     for {
       _ <- sendRequest(
