@@ -245,24 +245,15 @@ class UserController(
     }
   }
 
-  def deleteFilterSetting(
-      settingKey: String,
-      id: Long
-  )(implicit user: TableauxUser): Future[EmptyObject] = {
+  def deleteFilterSetting(id: Long)(implicit user: TableauxUser): Future[EmptyObject] = {
     checkArguments(
-      notNull(settingKey, "key"),
       greaterZero(id)
     )
 
-    logger.info(s"deleteFilterSetting user: ${user.name}, key: $settingKey, id: $id")
-
-    val settingKeyFilter = UserSettingKeyFilter.fromKey(settingKey)
+    logger.info(s"deleteFilterSetting user: ${user.name}, id: $id")
 
     for {
-      _ <- settingKeyFilter match {
-        case Some(_) => repository.deleteFilterSetting(settingKey, id)
-        case None => Future.failed(InvalidUserSettingException("user setting key is invalid."))
-      }
+      _ <- repository.deleteFilterSetting(id)
     } yield {
       EmptyObject()
     }

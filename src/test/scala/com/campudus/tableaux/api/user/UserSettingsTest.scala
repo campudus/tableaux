@@ -53,7 +53,7 @@ class UserSettingsTest extends TableauxTestBase {
     for {
       setting <- sendRequest(
         "PUT",
-        "/user/settings/table/rowsFilter/1",
+        "/user/settings/table/1/rowsFilter",
         Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Sunset")))
       )
     } yield {
@@ -87,7 +87,7 @@ class UserSettingsTest extends TableauxTestBase {
     for {
       setting <- sendRequest(
         "PUT",
-        "/user/settings/table/rowsFilter/1",
+        "/user/settings/table/1/rowsFilter",
         Json.obj("value" -> settingValue)
       )
     } yield {
@@ -102,7 +102,7 @@ class UserSettingsTest extends TableauxTestBase {
   def testCreateTableSettingNoTableId(implicit c: TestContext): Unit = exceptionTest("NOT FOUND") {
     sendRequest(
       "PUT",
-      "/user/settings/table/rowsFilter",
+      "/user/settings/table",
       Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Sunset")))
     )
   }
@@ -111,7 +111,7 @@ class UserSettingsTest extends TableauxTestBase {
   def testCreateTableSettingInvalidJson(implicit c: TestContext): Unit = exceptionTest("error.json.invalid") {
     sendRequest(
       "PUT",
-      "/user/settings/table/rowsFilter/1",
+      "/user/settings/table/1/rowsFilter",
       Json.obj("value" -> true)
     )
   }
@@ -204,12 +204,12 @@ class UserSettingsTest extends TableauxTestBase {
       _ <- sendRequest("PUT", "/user/settings/global/sortingDesc", Json.obj("value" -> false))
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/visibleColumns/1",
+        "/user/settings/table/1/visibleColumns",
         Json.obj("value" -> Json.arr(1, 2, 3))
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/rowsFilter/2",
+        "/user/settings/table/2/rowsFilter",
         Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Dusk")))
       )
       _ <- sendRequest(
@@ -239,7 +239,7 @@ class UserSettingsTest extends TableauxTestBase {
       // create some table settings for different tables
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/columnOrdering/1",
+        "/user/settings/table/1/columnOrdering",
         Json.obj("value" -> Json.arr(
           Json.obj("id" -> 1, "idx" -> 1),
           Json.obj("id" -> 2, "idx" -> 0)
@@ -247,22 +247,22 @@ class UserSettingsTest extends TableauxTestBase {
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/visibleColumns/1",
+        "/user/settings/table/1/visibleColumns",
         Json.obj("value" -> Json.arr(1, 2, 3))
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/rowsFilter/1",
+        "/user/settings/table/1/rowsFilter",
         Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Dusk")))
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/annotationHighlight/2",
+        "/user/settings/table/2/annotationHighlight",
         Json.obj("value" -> "important")
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/columnWidths/2",
+        "/user/settings/table/2/columnWidths",
         Json.obj("value" -> Json.obj("1" -> 250, "2" -> 300))
       )
       // retrieve settings
@@ -281,11 +281,11 @@ class UserSettingsTest extends TableauxTestBase {
     for {
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/visibleColumns/1",
+        "/user/settings/table/1/visibleColumns",
         Json.obj("value" -> Json.arr(1, 2, 3))
       )
       tableSettingsAfterCreate <- sendRequest("GET", "/user/settings/table")
-      _ <- sendRequest("DELETE", "/user/settings/table/visibleColumns/1")
+      _ <- sendRequest("DELETE", "/user/settings/table/1/visibleColumns")
       tableSettingsAfterDelete <- sendRequest("GET", "/user/settings/table")
     } yield {
       assertEquals(1, tableSettingsAfterCreate.getJsonArray("settings").size())
@@ -298,12 +298,12 @@ class UserSettingsTest extends TableauxTestBase {
     for {
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/visibleColumns/1",
+        "/user/settings/table/1/visibleColumns",
         Json.obj("value" -> Json.arr(1, 2, 3))
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/columnOrdering/1",
+        "/user/settings/table/1/columnOrdering",
         Json.obj("value" -> Json.arr(
           Json.obj("id" -> 1, "idx" -> 1),
           Json.obj("id" -> 2, "idx" -> 0)
@@ -311,12 +311,12 @@ class UserSettingsTest extends TableauxTestBase {
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/rowsFilter/1",
+        "/user/settings/table/1/rowsFilter",
         Json.obj("value" -> Json.obj("filters" -> Json.arr("value", "ID", "contains", "Dusk")))
       )
       _ <- sendRequest(
         "PUT",
-        "/user/settings/table/annotationHighlight/1",
+        "/user/settings/table/1/annotationHighlight",
         Json.obj("value" -> "important")
       )
       tableSettingsAfterCreate <- sendRequest("GET", "/user/settings/table")
@@ -340,7 +340,7 @@ class UserSettingsTest extends TableauxTestBase {
         )
       ).map(_.getLong(("id")))
       filterSettingsAfterCreate <- sendRequest("GET", "/user/settings/filter")
-      _ <- sendRequest("DELETE", s"/user/settings/filter/presetFilter/$settingId")
+      _ <- sendRequest("DELETE", s"/user/settings/filter/$settingId")
       filterSettingsAfterDelete <- sendRequest("GET", "/user/settings/filter")
     } yield {
       assertEquals(1, filterSettingsAfterCreate.getJsonArray("settings").size())

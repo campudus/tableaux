@@ -23,13 +23,13 @@ object UserRouter {
 
 class UserRouter(override val config: TableauxConfig, val controller: UserController) extends BaseRouter {
 
-  private val settingKeyRegex = """(?<key>[a-zA-Z0-9_-]+)"""
-  private val settingTableIdRegex = """(?<tableId>[\d]+)"""
-  private val settingIdRegex = """(?<id>[\d]+)"""
+  private val keyRegex = """(?<key>[a-zA-Z0-9_-]+)"""
+  private val tableIdRegex = """(?<tableId>[\d]+)"""
+  private val idRegex = """(?<id>[\d]+)"""
 
-  private val settingKindGlobal = UserSettingKindGlobal.name
-  private val settingKindTable = UserSettingKindTable.name
-  private val settingKindFilter = UserSettingKindFilter.name
+  private val kindGlobal = UserSettingKindGlobal.name
+  private val kindTable = UserSettingKindTable.name
+  private val kindFilter = UserSettingKindFilter.name
 
   private val eventClient: EventClient = EventClient(vertx)
 
@@ -39,24 +39,22 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     router.put("/settings/*").handler(bodyHandler)
 
     router.get("/settings").handler(retrieveSettings)
-    router.get(s"/settings/$settingKindGlobal").handler(retrieveGlobalSettings)
-    router.get(s"/settings/$settingKindTable").handler(retrieveTableSettings)
-    router.getWithRegex(s"/settings/$settingKindTable/$settingTableIdRegex").handler(retrieveTableSettings)
-    router.get(s"/settings/$settingKindFilter").handler(retrieveFilterSettings)
 
-    router.putWithRegex(s"/settings/$settingKindGlobal/$settingKeyRegex").handler(upsertGlobalSetting)
-    router.putWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(
-      upsertTableSetting
-    )
-    router.putWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex").handler(upsertFilterSetting)
+    // global
+    router.get(s"/settings/$kindGlobal").handler(retrieveGlobalSettings)
+    router.putWithRegex(s"/settings/$kindGlobal/$keyRegex").handler(upsertGlobalSetting)
 
-    router.deleteWithRegex(s"/settings/$settingKindTable/$settingTableIdRegex").handler(deleteTableSettings)
-    router.deleteWithRegex(s"/settings/$settingKindTable/$settingKeyRegex/$settingTableIdRegex").handler(
-      deleteTableSetting
-    )
-    router.deleteWithRegex(s"/settings/$settingKindFilter/$settingKeyRegex/$settingIdRegex").handler(
-      deleteFilterSetting
-    )
+    // table
+    router.get(s"/settings/$kindTable").handler(retrieveTableSettings)
+    router.getWithRegex(s"/settings/$kindTable/$tableIdRegex").handler(retrieveTableSettings)
+    router.putWithRegex(s"/settings/$kindTable/$tableIdRegex/$keyRegex").handler(upsertTableSetting)
+    router.deleteWithRegex(s"/settings/$kindTable/$tableIdRegex").handler(deleteTableSettings)
+    router.deleteWithRegex(s"/settings/$kindTable/$tableIdRegex/$keyRegex").handler(deleteTableSetting)
+
+    // filter
+    router.get(s"/settings/$kindFilter").handler(retrieveFilterSettings)
+    router.putWithRegex(s"/settings/$kindFilter/$keyRegex").handler(upsertFilterSetting)
+    router.deleteWithRegex(s"/settings/$kindFilter/$idRegex").handler(deleteFilterSetting)
 
     router
   }
@@ -181,13 +179,12 @@ class UserRouter(override val config: TableauxConfig, val controller: UserContro
     implicit val user = TableauxUser(context)
 
     for {
-      settingKey <- getSettingKey(context)
       settingId <- getSettingId(context)
     } yield {
       sendReply(
         context,
         asyncGetReply {
-          controller.deleteFilterSetting(settingKey, settingId)
+          controller.deleteFilterSetting(settingId)
         }
       )
     }

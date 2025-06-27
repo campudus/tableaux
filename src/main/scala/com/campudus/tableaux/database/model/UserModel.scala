@@ -327,11 +327,11 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     } yield ()
   }
 
-  def deleteFilterSetting(settingKey: String, id: Long): Future[Unit] = {
-    val delete = s"DELETE FROM user_settings_filter WHERE key = ? AND id = ?"
+  def deleteFilterSetting(id: Long): Future[Unit] = {
+    val delete = s"DELETE FROM user_settings_filter WHERE id = ?"
 
     for {
-      result <- connection.query(delete, Json.arr(settingKey, id))
+      result <- connection.query(delete, Json.arr(id))
       _ <- Future(deleteNotNull(result))
     } yield ()
   }
