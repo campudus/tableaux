@@ -2534,12 +2534,12 @@
     },
     "/user/settings/global/{key}": {
       "put": {
-        "summary": "Create/Update user setting global",
-        "description": "Create/Update user setting global",
+        "summary": "Create/Update global user setting",
+        "description": "Create/Update global user setting",
         "tags": [
           "user"
         ],
-        "operationId": "create-update-user-setting-global",
+        "operationId": "create-update-global-user-setting",
         "consumes": [],
         "produces": [
           "application/json"
@@ -2557,7 +2557,7 @@
               "properties": {
                 "value": {
                   "type": "any",
-                  "description": "value of global setting",
+                  "description": "value of global user setting",
                   "example": true
                 }
               }
@@ -2576,87 +2576,6 @@
             "schema": {
               "$ref": "#/responses/unknown-error"
             }
-          }
-        }
-      }
-    },
-    "/user/settings/table/{key}/{tableId}": {
-      "put": {
-        "summary": "Create/Update user setting table",
-        "description": "Create/Update user setting table",
-        "tags": [
-          "user"
-        ],
-        "operationId": "create-update-user-setting-table",
-        "consumes": [],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/parameters/userSettingKeyTable"
-          },
-          {
-            "$ref": "#/parameters/userSettingTableId"
-          },
-          {
-            "name": "json",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "value": {
-                  "type": "any",
-                  "description": "value of table setting",
-                  "example": {
-                    "sortDirection": "desc",
-                    "sortColumnName": "ID",
-                    "filters": [
-                      "value",
-                      "ID",
-                      "contains",
-                      "Sunset"
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "User setting",
-            "schema": {
-              "$ref": "#/definitions/Response:UserSetting"
-            }
-          },
-          "default": {
-            "description": "Unexpected error",
-            "schema": {
-              "$ref": "#/responses/unknown-error"
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete user setting table",
-        "description": "Delete user setting table",
-        "tags": [
-          "user"
-        ],
-        "operationId": "delete-user-setting-table",
-        "parameters": [
-          {
-            "$ref": "#/parameters/userSettingKeyTable"
-          },
-          {
-            "$ref": "#/parameters/userSettingTableId"
-          }
-        ],
-        "responses": {
-          "200": {
-            "$ref": "#/responses/ok-empty-body"
           }
         }
       }
@@ -2712,14 +2631,95 @@
         }
       }
     },
-    "/user/settings/filter/{key}": {
+    "/user/settings/table/{tableId}/{key}": {
       "put": {
-        "summary": "Create user setting filter",
-        "description": "Create user setting filter",
+        "summary": "Create/Update table user setting",
+        "description": "Create/Update table user setting",
         "tags": [
           "user"
         ],
-        "operationId": "create-user-setting-filter",
+        "operationId": "create-update-table-user-setting",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingKeyTable"
+          },
+          {
+            "$ref": "#/parameters/userSettingTableId"
+          },
+          {
+            "name": "json",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "any",
+                  "description": "value of table setting",
+                  "example": {
+                    "sortDirection": "desc",
+                    "sortColumnName": "ID",
+                    "filters": [
+                      "value",
+                      "ID",
+                      "contains",
+                      "Sunset"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User setting",
+            "schema": {
+              "$ref": "#/definitions/Response:UserSetting"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete table user setting",
+        "description": "Delete table user setting",
+        "tags": [
+          "user"
+        ],
+        "operationId": "delete-table-user-setting",
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingKeyTable"
+          },
+          {
+            "$ref": "#/parameters/userSettingTableId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ok-empty-body"
+          }
+        }
+      }
+    },
+    "/user/settings/filter/{key}": {
+      "put": {
+        "summary": "Create filter user setting",
+        "description": "Create filter user setting",
+        "tags": [
+          "user"
+        ],
+        "operationId": "create-filter-user-setting",
         "consumes": [],
         "produces": [
           "application/json"
@@ -2774,22 +2774,19 @@
         }
       }
     },
-    "/user/settings/filter/{key}/{id}": {
+    "/user/settings/filter/{id}": {
       "delete": {
-        "summary": "Delete user setting filter",
-        "description": "Delete user setting filter",
+        "summary": "Delete filter user setting",
+        "description": "Delete filter user setting",
         "tags": [
           "user"
         ],
-        "operationId": "delete-user-setting-filter",
+        "operationId": "delete-filter-user-setting",
         "consumes": [],
         "produces": [
           "application/json"
         ],
         "parameters": [
-          {
-            "$ref": "#/parameters/userSettingKeyFilter"
-          },
           {
             "$ref": "#/parameters/userSettingId"
           }
