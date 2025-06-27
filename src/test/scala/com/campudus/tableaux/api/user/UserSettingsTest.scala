@@ -263,7 +263,7 @@ class UserSettingsTest extends TableauxTestBase {
       _ <- sendRequest(
         "PUT",
         "/user/settings/table/columnWidths/2",
-        Json.obj("value" ->  Json.obj("1" -> 250, "2" -> 300))
+        Json.obj("value" -> Json.obj("1" -> 250, "2" -> 300))
       )
       // retrieve settings
       tableSettings <- sendRequest("GET", "/user/settings/table")
