@@ -1,6 +1,5 @@
 package com.campudus.tableaux.router
 
-import com.campudus.tableaux.InvalidJsonException
 import com.campudus.tableaux.TableauxConfig
 import com.campudus.tableaux.controller.UserController
 import com.campudus.tableaux.database.domain._

@@ -33,7 +33,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
   private def convertJsonArrayToUserSettingGlobal(arr: JsonArray)(implicit user: TableauxUser): UserSettingGlobal[_] = {
     UserSettingGlobal(
       UserSettingKeyGlobal.fromKey(arr.get[String](0)).get, // key
-      parseJsonString(arr.getString(1)), // value
+      parseJsonString(arr.get[String](1)), // value
       convertStringToDateTime(arr.get[String](2)), // created_at
       convertStringToDateTime(arr.get[String](3)) // updated_at
     )
@@ -41,22 +41,22 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
 
   private def convertJsonArrayToUserSettingTable(arr: JsonArray)(implicit user: TableauxUser): UserSettingTable[_] = {
     UserSettingTable(
-      UserSettingKeyTable.fromKey(arr.get[String](0)).get, // key
-      parseJsonString(arr.getString(1)), // value
-      convertStringToDateTime(arr.get[String](2)), // created_at
-      convertStringToDateTime(arr.get[String](3)), // updated_at
-      arr.getLong(4).longValue() // tableId
+      arr.get[Long](0).longValue(), // tableId
+      UserSettingKeyTable.fromKey(arr.get[String](1)).get, // key
+      parseJsonString(arr.get[String](2)), // value
+      convertStringToDateTime(arr.get[String](3)), // created_at
+      convertStringToDateTime(arr.get[String](4)), // updated_at
     )
   }
 
   private def convertJsonArrayToUserSettingFilter(arr: JsonArray)(implicit user: TableauxUser): UserSettingFilter[_] = {
     UserSettingFilter(
-      UserSettingKeyFilter.fromKey(arr.get[String](0)).get, // key
-      parseJsonString(arr.getString(1)), // value
-      convertStringToDateTime(arr.get[String](2)), // created_at
-      convertStringToDateTime(arr.get[String](3)), // updated_at
-      arr.getString(4), // name
-      arr.getLong(5).longValue() // id
+      arr.get[Long](0).longValue(), // id
+      arr.get[String](1), // name
+      UserSettingKeyFilter.fromKey(arr.get[String](2)).get, // key
+      parseJsonString(arr.get[String](3)), // value
+      convertStringToDateTime(arr.get[String](4)), // created_at
+      convertStringToDateTime(arr.get[String](5)), // updated_at
     )
   }
 
@@ -115,11 +115,11 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
+         |  table_id,
          |  key,
          |  value,
          |  created_at,
-         |  updated_at,
-         |  table_id
+         |  updated_at
          |FROM
          |  user_settings_table
          |WHERE
@@ -143,11 +143,11 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
+         |  table_id,
          |  key,
          |  value,
          |  created_at,
-         |  updated_at,
-         |  table_id
+         |  updated_at
          |FROM
          |  user_settings_table
          |WHERE
@@ -170,12 +170,12 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
+         |  id,
+         |  name,
          |  key,
          |  value,
          |  created_at,
-         |  updated_at,
-         |  name,
-         |  id
+         |  updated_at
          |FROM
          |  user_settings_filter
          |WHERE
@@ -199,12 +199,12 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     val select =
       s"""
          |SELECT
+         |  id,
+         |  name,
          |  key,
          |  value,
          |  created_at,
-         |  updated_at,
-         |  name,
-         |  id
+         |  updated_at
          |FROM
          |  user_settings_filter
          |WHERE
@@ -233,8 +233,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
            |  (?, ?, ?)
            |ON CONFLICT (key, user_id)
            |DO UPDATE SET
-           |  value = EXCLUDED.value,
-           |  updated_at = CURRENT_TIMESTAMP
+           |  value = EXCLUDED.value
            |WHERE
            |  usg.key = EXCLUDED.key
            |AND
@@ -264,8 +263,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
            |  (?, ?, ?, ?)
            |ON CONFLICT (key, user_id, table_id)
            |DO UPDATE SET
-           |  value = EXCLUDED.value,
-           |  updated_at = CURRENT_TIMESTAMP
+           |  value = EXCLUDED.value
            |WHERE
            |  ust.key = EXCLUDED.key
            |AND

@@ -133,11 +133,11 @@ case class UserSettingGlobal[T](
 }
 
 case class UserSettingTable[T](
+    tableId: Long,
     key: UserSettingKeyTable,
     value: T,
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime],
-    tableId: Long
 ) extends UserSetting[T](key, value, createdAt, updatedAt) {
   override val kind = UserSettingKindTable
 
@@ -147,12 +147,12 @@ case class UserSettingTable[T](
 }
 
 case class UserSettingFilter[T](
+    id: Long,
+    name: String,
     key: UserSettingKeyFilter,
     value: T,
     createdAt: Option[DateTime],
     updatedAt: Option[DateTime],
-    name: String,
-    id: Long
 ) extends UserSetting[T](key, value, createdAt, updatedAt) {
   override val kind = UserSettingKindFilter
 

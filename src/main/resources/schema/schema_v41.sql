@@ -30,3 +30,33 @@ CREATE TABLE user_settings_filter (
 
   PRIMARY KEY (id)
 );
+
+CREATE OR REPLACE FUNCTION public.trigger__set_updated_at__if_modified()
+  RETURNS trigger
+  LANGUAGE plpgsql
+AS $function$
+BEGIN
+  IF ROW (NEW.*) IS DISTINCT FROM ROW (OLD.*) THEN
+    NEW.updated_at = now();
+    RETURN NEW;
+  ELSE
+    RETURN OLD;
+  END IF;
+END;
+$function$
+;
+
+CREATE TRIGGER user_settings_global__trigger__updated_at
+  BEFORE UPDATE ON public.user_settings_global
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.trigger__set_updated_at__if_modified();
+
+CREATE TRIGGER user_settings_table__trigger__updated_at
+  BEFORE UPDATE ON public.user_settings_table
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.trigger__set_updated_at__if_modified();
+
+CREATE TRIGGER user_settings_filter__trigger__updated_at
+  BEFORE UPDATE ON public.user_settings_filter
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.trigger__set_updated_at__if_modified();
