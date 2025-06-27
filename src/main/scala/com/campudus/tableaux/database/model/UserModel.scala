@@ -45,7 +45,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
       UserSettingKeyTable.fromKey(arr.get[String](1)).get, // key
       parseJsonString(arr.get[String](2)), // value
       convertStringToDateTime(arr.get[String](3)), // created_at
-      convertStringToDateTime(arr.get[String](4)), // updated_at
+      convertStringToDateTime(arr.get[String](4)) // updated_at
     )
   }
 
@@ -56,7 +56,7 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
       UserSettingKeyFilter.fromKey(arr.get[String](2)).get, // key
       parseJsonString(arr.get[String](3)), // value
       convertStringToDateTime(arr.get[String](4)), // created_at
-      convertStringToDateTime(arr.get[String](5)), // updated_at
+      convertStringToDateTime(arr.get[String](5)) // updated_at
     )
   }
 
@@ -139,7 +139,14 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
     }
   }
 
-  def retrieveTableSettings()(implicit user: TableauxUser): Future[Seq[UserSettingTable[_]]] = {
+  def retrieveTableSettings(
+      tableId: Option[Long] = None
+  )(implicit user: TableauxUser): Future[Seq[UserSettingTable[_]]] = {
+    val (condition, values) = tableId match {
+      case None => ("WHERE user_id = ?", Json.arr(user.name))
+      case Some(tId) => ("WHERE user_id = ? AND table_id = ?", Json.arr(user.name, tId))
+    }
+
     val select =
       s"""
          |SELECT
@@ -150,13 +157,12 @@ class UserModel(override protected[this] val connection: DatabaseConnection)(
          |  updated_at
          |FROM
          |  user_settings_table
-         |WHERE
-         |  user_id = ?
+         |$condition
          |ORDER BY table_id, key
          """.stripMargin
 
     for {
-      result <- connection.query(select, Json.arr(user.name))
+      result <- connection.query(select, values)
       resultArr <- Future(resultObjectToJsonArray(result))
     } yield {
       resultArr.map(convertJsonArrayToUserSettingTable)

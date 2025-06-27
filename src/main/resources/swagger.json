@@ -2662,13 +2662,44 @@
       }
     },
     "/user/settings/table/{tableId}": {
-      "delete": {
-        "summary": "Delete user settings table",
-        "description": "Delete user settings table",
+      "get": {
+        "summary": "Get user settings for table",
+        "description": "Returns an array containing user settings for a specific table",
         "tags": [
           "user"
         ],
-        "operationId": "delete-user-settings-table",
+        "operationId": "get-user-settings-for table",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/parameters/userSettingTableId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User settings",
+            "schema": {
+              "$ref": "#/definitions/Response:UserSettings"
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/responses/unknown-error"
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete user settings for table",
+        "description": "Delete user settings for a specific table",
+        "tags": [
+          "user"
+        ],
+        "operationId": "get-user-settings-table",
         "parameters": [
           {
             "$ref": "#/parameters/userSettingTableId"

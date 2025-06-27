@@ -60,32 +60,51 @@ class UserController(
     }
   }
 
-  def retrieveSettings(
-      kind: Option[UserSettingKind]
-  )(implicit user: TableauxUser): Future[UserSettingSeq] = {
-    logger.info(s"retrieveSettings user: ${user.name}, kind: $kind")
+  def retrieveSettings()(implicit user: TableauxUser): Future[UserSettingSeq] = {
+    logger.info(s"retrieveSettings user: ${user.name}")
 
     for {
-      settingsSeq <- kind match {
-        case None => {
-          for {
-            globalSettings <- repository.retrieveGlobalSettings()
-            tableSettings <- repository.retrieveTableSettings()
-            filterSettings <- repository.retrieveFilterSettings()
-          } yield {
-            Seq(
-              globalSettings.map(_.asInstanceOf[UserSetting[_]]),
-              tableSettings.map(_.asInstanceOf[UserSetting[_]]),
-              filterSettings.map(_.asInstanceOf[UserSetting[_]])
-            ).flatten
-          }
-        }
-        case Some(UserSettingKindGlobal) => repository.retrieveGlobalSettings()
-        case Some(UserSettingKindTable) => repository.retrieveTableSettings()
-        case Some(UserSettingKindFilter) => repository.retrieveFilterSettings()
-      }
+      globalSettings <- repository.retrieveGlobalSettings()
+      tableSettings <- repository.retrieveTableSettings()
+      filterSettings <- repository.retrieveFilterSettings()
     } yield {
-      UserSettingSeq(settingsSeq)
+      UserSettingSeq(Seq(
+        globalSettings.map(_.asInstanceOf[UserSetting[_]]),
+        tableSettings.map(_.asInstanceOf[UserSetting[_]]),
+        filterSettings.map(_.asInstanceOf[UserSetting[_]])
+      ).flatten)
+    }
+  }
+
+  def retrieveGlobalSettings()(implicit user: TableauxUser): Future[UserSettingSeq] = {
+    logger.info(s"retrieveGlobalSettings user: ${user.name}")
+
+    for {
+      globalSettings <- repository.retrieveGlobalSettings()
+    } yield {
+      UserSettingSeq(globalSettings)
+    }
+  }
+
+  def retrieveTableSettings(
+      tableId: Option[Long] = None
+  )(implicit user: TableauxUser): Future[UserSettingSeq] = {
+    logger.info(s"retrieveTableSettings user: ${user.name}, tableId: $tableId")
+
+    for {
+      tableSettings <- repository.retrieveTableSettings(tableId)
+    } yield {
+      UserSettingSeq(tableSettings)
+    }
+  }
+
+  def retrieveFilterSettings()(implicit user: TableauxUser): Future[UserSettingSeq] = {
+    logger.info(s"retrieveFilterSettings user: ${user.name}")
+
+    for {
+      filterSettings <- repository.retrieveFilterSettings()
+    } yield {
+      UserSettingSeq(filterSettings)
     }
   }
 
