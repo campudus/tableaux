@@ -4,6 +4,8 @@ import com.campudus.tableaux.{InvalidJsonException, NoJsonFoundException, Tablea
 import com.campudus.tableaux.OkArg
 import com.campudus.tableaux.controller.TableauxController
 import com.campudus.tableaux.database.domain.{CellAnnotationType, ColumnFilter, Pagination}
+import com.campudus.tableaux.database.domain.GenericTable
+import com.campudus.tableaux.database.domain.TableType
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.helper.JsonUtils._
 import com.campudus.tableaux.router.auth.permission.TableauxUser
@@ -575,7 +577,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Create table with columns and rows
+    * Create table with columns and rows. TableType is always "generic" for this endpoint
     */
   private def createCompleteTable(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
