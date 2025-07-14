@@ -394,7 +394,7 @@ class ColumnModel(val connection: DatabaseConnection)(
     val validator = EventClient(Vertx.currentContext().get.owner())
 
     def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
-      BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
+      BasicUnionTableColumnInformation(table, id, ordering, displayInfos, createColumn)
 
     for {
       columnCreate <- createColumn match {

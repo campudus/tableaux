@@ -100,6 +100,38 @@ object StatusColumnInformation {
   }
 }
 
+// very likely we don't need these helper classes
+object BasicUnionTableColumnInformation {
+
+  def apply(
+      table: Table,
+      columnId: ColumnId,
+      ordering: Ordering,
+      displayInfos: Seq[DisplayInfo],
+      createColumn: CreateColumn
+  ): BasicUnionTableColumnInformation = {
+    val attributes = createColumn.attributes match {
+      case Some(obj) => obj
+      case None => new JsonObject("{}")
+    }
+    BasicUnionTableColumnInformation(
+      table,
+      columnId,
+      createColumn.name,
+      ordering,
+      createColumn.identifier,
+      displayInfos,
+      Seq.empty,
+      createColumn.separator,
+      attributes,
+      createColumn.hidden,
+      createColumn.maxLength,
+      createColumn.minLength,
+      createColumn.decimalDigits
+    )
+  }
+}
+
 case class BasicColumnInformation(
     override val table: Table,
     override val id: ColumnId,
@@ -131,6 +163,22 @@ case class StatusColumnInformation(
     override val maxLength: Option[Int] = None,
     override val minLength: Option[Int] = None,
     override val decimalDigits: Option[Int] = None
+) extends ColumnInformation
+
+case class BasicUnionTableColumnInformation(
+    override val table: Table,
+    override val id: ColumnId,
+    override val name: String,
+    override val ordering: Ordering,
+    override val identifier: Boolean,
+    override val displayInfos: Seq[DisplayInfo],
+    override val groupColumnIds: Seq[ColumnId],
+    override val separator: Boolean,
+    override val attributes: JsonObject,
+    override val hidden: Boolean,
+    override val maxLength: Option[Int],
+    override val minLength: Option[Int],
+    override val decimalDigits: Option[Int]
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {

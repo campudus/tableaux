@@ -18,6 +18,7 @@ sealed trait CreateColumn {
   val maxLength: Option[Int] = None
   val minLength: Option[Int] = None
   val decimalDigits: Option[Int] = None
+  val originColumns: Option[CreateOriginColumns] = None
 }
 
 case class CreateSimpleColumn(
@@ -32,7 +33,8 @@ case class CreateSimpleColumn(
     override val hidden: Boolean = false,
     override val maxLength: Option[Int] = None,
     override val minLength: Option[Int] = None,
-    override val decimalDigits: Option[Int] = None
+    override val decimalDigits: Option[Int] = None,
+    override val originColumns: Option[CreateOriginColumns] = None
 ) extends CreateColumn
 
 case class CreateBackLinkColumn(
@@ -143,3 +145,88 @@ case class CreatedColumnInformation(
     ordering: Ordering,
     displayInfos: Seq[DisplayInfo] = List()
 )
+
+// case class CreateUnionTableColumn(
+//     override val name: String,
+//     override val kind: TableauxDbType,
+//     override val languageType: LanguageType,
+//     override val ordering: Option[Ordering],
+//     override val displayInfos: Seq[DisplayInfo],
+//     //
+//     override val identifier: Boolean,
+//     override val attributes: Option[JsonObject],
+//     override val hidden: Boolean = false,
+//     override val separator: Boolean = false,
+//     override val maxLength: Option[Int] = None,
+//     override val minLength: Option[Int] = None,
+//     override val decimalDigits: Option[Int] = None,
+//     originColumns: OriginColumns
+// ) extends CreateColumn
+
+// object CreateUnionTableLinkColumn {
+
+//   def apply(
+//       name: String,
+//       ordering: Option[Ordering],
+//       toTable: TableId,
+//       toName: Option[String],
+//       toDisplayInfos: Option[Seq[DisplayInfo]],
+//       singleDirection: Boolean,
+//       identifier: Boolean,
+//       displayInfos: Seq[DisplayInfo],
+//       constraint: Constraint,
+//       attributes: Option[JsonObject],
+//       hidden: Boolean = false
+//   ): CreateLinkColumn = {
+//     val createBackLinkColumn = CreateBackLinkColumn(
+//       name = toName,
+//       displayInfos = toDisplayInfos,
+//       ordering = ordering
+//     )
+
+//     CreateLinkColumn(
+//       name,
+//       ordering,
+//       toTable,
+//       singleDirection,
+//       identifier,
+//       displayInfos,
+//       constraint,
+//       createBackLinkColumn,
+//       attributes,
+//       hidden
+//     )
+//   }
+// }
+
+// case class CreateUnionTableLinkColumn(
+//     override val name: String,
+//     override val ordering: Option[Ordering],
+//     toTable: TableId,
+//     singleDirection: Boolean,
+//     override val identifier: Boolean,
+//     override val displayInfos: Seq[DisplayInfo],
+//     constraint: Constraint,
+//     foreignLinkColumn: CreateBackLinkColumn,
+//     override val attributes: Option[JsonObject],
+//     override val hidden: Boolean
+// ) extends CreateColumn {
+//   override val kind: LinkType.type = LinkType
+//   override val languageType: LanguageNeutral.type = LanguageNeutral
+//   override val separator: Boolean = false
+// }
+
+// sealed trait CreateUnionTableColumn {
+//   val name: String
+//   val kind: TableauxDbType
+//   val languageType: LanguageType
+//   val ordering: Option[Ordering]
+//   // val identifier: Boolean
+//   val displayInfos: Seq[DisplayInfo]
+//   // val separator: Boolean
+//   // val attributes: Option[JsonObject]
+//   // val hidden: Boolean
+//   // val maxLength: Option[Int] = None
+//   // val minLength: Option[Int] = None
+//   // val decimalDigits: Option[Int] = None
+// }
