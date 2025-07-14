@@ -113,6 +113,9 @@ object JsonUtils extends LazyLogging {
             // displayName and description; both multi-language objects
             val displayInfos = DisplayInfos.fromJson(json)
 
+            // val originColumns = CreateOriginColumns.fromJson(json)
+            val originColumns = Try(CreateOriginColumns.fromJson(json)).toOption
+
             dbType match {
               case AttachmentType =>
                 CreateAttachmentColumn(name, ordering, identifier, displayInfos, attributes, hidden)
@@ -230,7 +233,8 @@ object JsonUtils extends LazyLogging {
                   hidden,
                   maxLength,
                   minLength,
-                  decimalDigits
+                  decimalDigits,
+                  originColumns
                 )
             }
           }
