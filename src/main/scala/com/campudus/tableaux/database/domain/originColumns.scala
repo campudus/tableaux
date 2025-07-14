@@ -40,12 +40,16 @@ object CreateOriginColumns {
   }
 
   def fromJson(json: JsonObject): CreateOriginColumns = {
-    val jsonPart = json.getJsonObject(fieldName)
+    val jsonPart = json.getJsonObject(fieldName, Json.obj())
 
     val tableToColumn: Map[TableId, ColumnId] = getFieldNames(jsonPart).map { tableId =>
       val columnId = jsonPart.getJsonObject(tableId).getLong("id").toLong
       (tableId.toLong, columnId)
     }.toMap
+
+    if (tableToColumn.isEmpty) {
+      throw new IllegalArgumentException(s"Origin columns must not be empty in $json")
+    }
 
     CreateOriginColumns(tableToColumn)
   }

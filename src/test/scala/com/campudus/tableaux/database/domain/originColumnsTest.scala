@@ -7,11 +7,12 @@ import org.vertx.scala.core.json.Json
 
 import org.junit.Assert._
 import org.junit.Test
+import org.scalatest.Assertions._
 
 class CreateOriginColumnsTest extends TestAssertionHelper {
 
   @Test
-  def parseCreateOriginColumnsObject(): Unit = {
+  def parseCreateOriginColumns_validObject_ok(): Unit = {
     val jString = ("""
                       |{
                       |  "originColumns": {
@@ -26,5 +27,27 @@ class CreateOriginColumnsTest extends TestAssertionHelper {
 
     assertEquals(Map(1 -> 3, 2 -> 2, 3 -> 1), createOriginColumns.tableToColumn)
     assertJSONEquals(json, createOriginColumns.getJson)
+  }
+
+  @Test
+  def parseCreateOriginColumns_emptyObject_error(): Unit = {
+    val jString = ("""
+                      |{
+                      |  "originColumns": {
+                      |  }
+                      |}""".stripMargin)
+
+    val json = Json.fromObjectString(jString)
+    assertThrows[IllegalArgumentException] {
+      CreateOriginColumns.fromJson(json)
+    }
+  }
+
+  @Test
+  def parseCreateOriginColumns_missingObject_error(): Unit = {
+    val json = Json.emptyObj()
+    assertThrows[IllegalArgumentException] {
+      CreateOriginColumns.fromJson(json)
+    }
   }
 }
