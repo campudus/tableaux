@@ -119,6 +119,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.postWithRegex(cellAnnotations).handler(createCellAnnotation)
 
     // UPDATE
+    router.patchWithRegex(row).handler(updateRow)
     router.patchWithRegex(rowAnnotations).handler(updateRowAnnotations)
     router.patchWithRegex(rowsAnnotations).handler(updateRowsAnnotations)
 
@@ -126,6 +127,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     router.postWithRegex(cell).handler(updateCell)
     router.putWithRegex(cell).handler(replaceCell)
     router.putWithRegex(linkOrderOfCell).handler(changeLinkOrder)
+    router.putWithRegex(row).handler(setRow)
 
     router.patchWithRegex(rowPermissionsPath).handler(addRowPermissions)
     router.deleteWithRegex(rowPermissionsPath).handler(deleteRowPermissions)
@@ -618,8 +620,52 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     }
   }
 
+  private def updateRow(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    def getUpdate(json: JsonObject) =
+      if (json.containsKey("columns") && json.containsKey("values")) {
+        Some(toSingleRowColumnValueSeq(json))
+      } else {
+        None
+      }
+
+    val jsonBody = Try(getJson(context)).getOrElse(Json.emptyObj())
+    val update = getUpdate(jsonBody).getOrElse(List.empty)
+    val rowPermissions = getRowPermissionsOpt("rowPermissions", jsonBody)
+
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+      _ <- Some(logger.info(s"updateRow $rowId of table $tableId"))
+    } yield {
+      controller.updateRow(tableId, rowId, update, rowPermissions)
+    }
+  }
+
+  private def setRow(context: RoutingContext): Unit = {
+    implicit val user = TableauxUser(context)
+    def getUpdate(json: JsonObject) =
+      if (json.containsKey("columns") && json.containsKey("values")) {
+        Some(toSingleRowColumnValueSeq(json))
+      } else {
+        None
+      }
+
+    val jsonBody = Try(getJson(context)).getOrElse(Json.emptyObj())
+    val update = getUpdate(jsonBody).getOrElse(List.empty)
+    val rowPermissions = getRowPermissionsOpt("rowPermissions", jsonBody)
+
+    for {
+      tableId <- getTableId(context)
+      rowId <- getRowId(context)
+      _ <- Some(logger.info(s"setRow $rowId of table $tableId"))
+    } yield {
+      controller.setRow(tableId, rowId, update, rowPermissions)
+    }
+  }
+
   /**
-    * Duplicate row
+    * Duplicate row // //
     */
   private def duplicateRow(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)

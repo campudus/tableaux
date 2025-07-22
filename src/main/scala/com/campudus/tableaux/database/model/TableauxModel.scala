@@ -453,6 +453,44 @@ class TableauxModel(
     } yield RowSeq(rows)
   }
 
+  def updateRow(
+      table: Table,
+      rowId: RowId,
+      rowUpdate: Seq[(ColumnId, Any)],
+      rowpermissionOpt: Option[Seq[String]],
+      forceHistory: Boolean = false
+  )(implicit user: TableauxUser): Future[Seq[Cell[_]]] = {
+    for {
+      allColumns <- retrieveColumns(table)
+      columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
+      updateEffects = rowUpdate.collect {
+        case (columnId, value) if columns.exists(_.id == columnId) =>
+          val column = columns.find(_.id == columnId).get
+          updateCellValue(table, column.id, rowId, value, forceHistory)
+      }
+      seqOfFutures <- Future.sequence(updateEffects)
+    } yield seqOfFutures
+  }
+
+  def setRow(
+      table: Table,
+      rowId: RowId,
+      rowUpdate: Seq[(ColumnId, Any)],
+      rowpermissionOpt: Option[Seq[String]],
+      forceHistory: Boolean = false
+  )(implicit user: TableauxUser): Future[Seq[Cell[_]]] = {
+    for {
+      allColumns <- retrieveColumns(table)
+      columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
+      updateEffects = rowUpdate.collect {
+        case (columnId, value) if columns.exists(_.id == columnId) =>
+          val column = columns.find(_.id == columnId).get
+          replaceCellValue(table, column.id, rowId, value, forceHistory)
+      }
+      seqOfFutures <- Future.sequence(updateEffects)
+    } yield seqOfFutures
+  }
+
   def addCellAnnotation(
       column: ColumnType[_],
       rowId: RowId,
