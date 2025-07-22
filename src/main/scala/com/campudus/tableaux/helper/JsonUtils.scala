@@ -314,6 +314,15 @@ object JsonUtils extends LazyLogging {
     } yield result).get
   }
 
+  def toSingleRowColumnValueSeq(json: JsonObject): Seq[(ColumnId, _)] = {
+    (for {
+      columnsObject <- toJsonObjectSeq("columns", json)
+      columns <- sequence(columnsObject.map(hasLong("id", _)))
+      values <- toJsonObjectSeq("values", json)
+      result <- checkSameLengthsAndZip(columns, values)
+    } yield result).get
+  }
+
   private def mergeColumnWithValue(
       columns: Seq[ColumnId],
       rows: Seq[JsonObject]

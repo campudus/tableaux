@@ -293,6 +293,36 @@ class TableauxController(
     } yield row
   }
 
+  def updateRow(
+      tableId: TableId,
+      rowId: RowId,
+      values: Seq[(ColumnId, _)],
+      rowPermissionsObj: Option[Seq[String]] = None
+  )(
+      implicit user: TableauxUser
+  ): Future[DomainObject] = {
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.updateRow(table, rowId, values, rowPermissionsObj)
+      updatedRow <- repository.retrieveRow(table, rowId)
+    } yield updatedRow
+  }
+
+  def setRow(
+      tableId: TableId,
+      rowId: RowId,
+      values: Seq[(ColumnId, _)],
+      rowPermissionsObj: Option[Seq[String]] = None
+  )(
+      implicit user: TableauxUser
+  ): Future[DomainObject] = {
+    for {
+      table <- repository.retrieveTable(tableId)
+      _ <- repository.setRow(table, rowId, values, rowPermissionsObj)
+      updatedRow <- repository.retrieveRow(table, rowId)
+    } yield updatedRow
+  }
+
   private def checkForTaxonomyTable(table: Table, archivedFlagOpt: Option[Boolean]): Unit = {
     if (table.tableType == TaxonomyTable && archivedFlagOpt.isDefined) {
       throw ForbiddenException(s"Archived flag is not allowed on taxonomy tables (table: ${table.id})", "archive")
