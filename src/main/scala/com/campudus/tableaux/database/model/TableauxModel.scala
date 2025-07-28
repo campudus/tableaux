@@ -466,10 +466,22 @@ class TableauxModel(
       updateEffects = rowUpdate.collect {
         case (columnId, value) if columns.exists(_.id == columnId) =>
           val column = columns.find(_.id == columnId).get
-          updateCellValue(table, column.id, rowId, value, forceHistory)
+          try {
+            println(s"Updating column ${column.id} with value $value")
+            val f = updateCellValue(table, column.id, rowId, value, forceHistory)
+            f.onComplete {
+              case Success(_) => println(s"Update for column ${column.id} completed.")
+              case Failure(e) => println(s"Update for column ${column.id} failed: ${e.getMessage}")
+            }
+            f
+          } catch {
+            case ex: Throwable =>
+              println(s"updateCellValue threw an error: ${ex.getMessage}")
+              Future.failed(ex)
+          }
       }
-      seqOfFutures <- Future.sequence(updateEffects)
-    } yield seqOfFutures
+      futureOfSeq <- Future.sequence(updateEffects)
+    } yield futureOfSeq
   }
 
   def setRow(

@@ -6,8 +6,8 @@
   "database": {
     "host": "127.0.0.1",
     "port": 5432,
-    "username": "<your-db-user>",
-    "database": "testing"
+    "username": "hermann",
+    "database": "grud-test"
   },
   // part for auth should not be changed because the config and in particular the realm-public-key 
   // must match to the hardcoded accessToken provided by the test requests to the backend
