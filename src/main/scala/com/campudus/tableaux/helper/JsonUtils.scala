@@ -318,7 +318,7 @@ object JsonUtils extends LazyLogging {
     (for {
       columnsObject <- toJsonObjectSeq("columns", json)
       columns <- sequence(columnsObject.map(hasLong("id", _)))
-      values <- toJsonObjectSeq("values", json)
+      values <- toValueSeq(json)
       result <- checkSameLengthsAndZip(columns, values)
     } yield result).get
   }
