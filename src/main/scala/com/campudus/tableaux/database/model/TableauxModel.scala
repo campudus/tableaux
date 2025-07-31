@@ -463,10 +463,10 @@ class TableauxModel(
     for {
       allColumns <- retrieveColumns(table)
       columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
-      updateEffects = rowUpdate.collect {
+      updateEffects = rowUpdate.flatMap {
         case (columnId, value) =>
-          columns.find(_.id == columnId) match {
-            case (Some(column)) => updateCellValue(table, column.id, rowId, value, forceHistory)
+          columns.find(_.id == columnId) map {
+            column => updateCellValue(table, column.id, rowId, value, forceHistory)
           }
       }
       futureOfSeq <- Future.sequence(updateEffects)
@@ -483,11 +483,10 @@ class TableauxModel(
     for {
       allColumns <- retrieveColumns(table)
       columns = roleModel.filterDomainObjects(ViewColumn, allColumns, ComparisonObjects(table), isInternalCall = false)
-      updateEffects = rowUpdate.collect {
+      updateEffects = rowUpdate.flatMap {
         case (columnId, value) =>
-          columns.find(_.id == columnId) match {
-            case (Some(column)) =>
-              replaceCellValue(table, column.id, rowId, value, forceHistory)
+          columns.find(_.id == columnId) map {
+            column => replaceCellValue(table, column.id, rowId, value, forceHistory)
           }
       }
       futureOfSeq <- Future.sequence(updateEffects)

@@ -621,7 +621,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   private def updateRow(context: RoutingContext): Unit = {
-    implicit val user = TableauxUser(context)
+    implicit val user: TableauxUser = TableauxUser(context)
     def getUpdate(json: JsonObject) =
       if (json.containsKey("columns") && json.containsKey("values")) {
         Some(toSingleRowColumnValueSeq(json))
@@ -638,12 +638,15 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       rowId <- getRowId(context)
       _ <- Some(logger.info(s"updateRow $rowId of table $tableId"))
     } yield {
-      controller.updateRow(tableId, rowId, update, rowPermissions)
+      sendReply(
+        context,
+        asyncGetReply(controller.updateRow(tableId, rowId, update, rowPermissions))
+      )
     }
   }
 
   private def setRow(context: RoutingContext): Unit = {
-    implicit val user = TableauxUser(context)
+    implicit val user: TableauxUser = TableauxUser(context)
     def getUpdate(json: JsonObject) =
       if (json.containsKey("columns") && json.containsKey("values")) {
         Some(toSingleRowColumnValueSeq(json))
@@ -660,7 +663,10 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
       rowId <- getRowId(context)
       _ <- Some(logger.info(s"setRow $rowId of table $tableId"))
     } yield {
-      controller.setRow(tableId, rowId, update, rowPermissions)
+      sendReply(
+        context,
+        asyncGetReply(controller.setRow(tableId, rowId, update, rowPermissions))
+      )
     }
   }
 
