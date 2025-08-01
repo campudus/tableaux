@@ -66,13 +66,18 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     connection.selectSingleValue(select)
   }
 
-  private def selectStatement(conditions: Option[String]): String = {
+  private def selectStatement(conditions: Option[String], orderKey: Option[String] = Some("name")): String = {
     val where =
       if (conditions.isDefined) {
         s"WHERE ${conditions.get}"
       } else {
         ""
       }
+
+    val orderBy = orderKey match {
+      case None => ""
+      case Some(value) => s"ORDER BY ${value}"
+    }
 
     s"""SELECT
        |id,
@@ -89,7 +94,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
        |  SELECT ARRAY_TO_JSON(parents) FROM prev WHERE cycle IS FALSE AND id = f.id
        |) AS parents,
        |created_at,
-       |updated_at FROM $table f $where ORDER BY name""".stripMargin
+       |updated_at FROM $table f $where $orderBy""".stripMargin
   }
 
   private def convertJsonArrayToFolder(arr: JsonArray): Folder = {
@@ -137,7 +142,7 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
     values.size match {
       case 0 => Future(Seq.empty)
       case _ => for {
-          result <- connection.query(selectStatement(Some(s"id in ($placeholders)")), values)
+          result <- connection.query(selectStatement(Some(s"id in ($placeholders)"), None), values)
           resultArr <- Future(resultObjectToJsonArray(result))
         } yield {
           resultArr.map(convertJsonArrayToFolder)
