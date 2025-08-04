@@ -457,7 +457,7 @@ class TableauxModel(
       table: Table,
       rowId: RowId,
       rowUpdate: Seq[(ColumnId, Any)],
-      rowpermissionOpt: Option[Seq[String]],
+      rowPermissionOpt: Option[Seq[String]],
       forceHistory: Boolean = false
   )(implicit user: TableauxUser): Future[Seq[Cell[_]]] = {
     for {
@@ -477,7 +477,7 @@ class TableauxModel(
       table: Table,
       rowId: RowId,
       rowUpdate: Seq[(ColumnId, Any)],
-      rowpermissionOpt: Option[Seq[String]],
+      rowPermissionOpt: Option[Seq[String]],
       forceHistory: Boolean = false
   )(implicit user: TableauxUser): Future[Seq[Cell[_]]] = {
     for {

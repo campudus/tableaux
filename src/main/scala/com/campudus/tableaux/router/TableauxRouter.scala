@@ -636,7 +636,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
-      _ <- Some(logger.info(s"updateRow $rowId of table $tableId"))
     } yield {
       sendReply(
         context,
@@ -661,7 +660,6 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
     for {
       tableId <- getTableId(context)
       rowId <- getRowId(context)
-      _ <- Some(logger.info(s"setRow $rowId of table $tableId"))
     } yield {
       sendReply(
         context,
@@ -671,7 +669,7 @@ class TableauxRouter(override val config: TableauxConfig, val controller: Tablea
   }
 
   /**
-    * Duplicate row // //
+    * Duplicate row
     */
   private def duplicateRow(context: RoutingContext): Unit = {
     implicit val user = TableauxUser(context)
