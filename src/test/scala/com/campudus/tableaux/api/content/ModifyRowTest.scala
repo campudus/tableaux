@@ -39,13 +39,23 @@ class ModifyRowTest extends TableauxTestBase {
 
   @Test
   def replaceRow(implicit c: TestContext): Unit = {
-    val columnsPayload = Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2))
-    val valuesPayload = Json.arr("some-string", 42)
+    val addColumnPayload = Json.obj("columns" -> Json.arr( Json.obj(
+      "kind" -> "shorttext",
+      "languageType" -> "language",
+      "name" -> "thirdcolumn"
+    )))
+    val columnsPayload = Json.arr(Json.obj("id" -> 1), Json.obj("id" -> 2), Json.obj("id" -> 3))
+    val valuesPayload = Json.arr("some-string", 42, Json.obj("de" -> "TESTWERT"))
     val payload = Json.obj("columns" -> columnsPayload, "values" -> valuesPayload)
 
     okTest {
       for {
+        // Setup
         tableId <- createDefaultTable()
+        _ <- sendRequest("POST", s"/tables/$tableId/columns", addColumnPayload)
+        _ <- sendRequest("POST", s"/tables/$tableId/columns/3/rows/1", Json.obj("value" -> Json.obj("de" -> "Überprüfungswert", "en" -> "testvalue")))
+
+        // Test
         updated <- sendRequest("PUT", s"/tables/$tableId/rows/1", payload)
         updatedValues = updated.getJsonArray("values")
       } yield assertEquals(updatedValues, valuesPayload)
