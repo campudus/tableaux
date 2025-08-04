@@ -39,7 +39,7 @@ class ModifyRowTest extends TableauxTestBase {
 
   @Test
   def replaceRow(implicit c: TestContext): Unit = {
-    val addColumnPayload = Json.obj("columns" -> Json.arr( Json.obj(
+    val addColumnPayload = Json.obj("columns" -> Json.arr(Json.obj(
       "kind" -> "shorttext",
       "languageType" -> "language",
       "name" -> "thirdcolumn"
@@ -53,7 +53,11 @@ class ModifyRowTest extends TableauxTestBase {
         // Setup
         tableId <- createDefaultTable()
         _ <- sendRequest("POST", s"/tables/$tableId/columns", addColumnPayload)
-        _ <- sendRequest("POST", s"/tables/$tableId/columns/3/rows/1", Json.obj("value" -> Json.obj("de" -> "Überprüfungswert", "en" -> "testvalue")))
+        _ <- sendRequest(
+          "POST",
+          s"/tables/$tableId/columns/3/rows/1",
+          Json.obj("value" -> Json.obj("de" -> "Überprüfungswert", "en" -> "testvalue"))
+        )
 
         // Test
         updated <- sendRequest("PUT", s"/tables/$tableId/rows/1", payload)
