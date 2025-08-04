@@ -1787,6 +1787,98 @@
             "$ref": "#/responses/ok-empty-body"
           }
         }
+      },
+      "patch": {
+        "summary": "Update cell values of row",
+        "description": "Update the cells of the given columns in the row",
+        "tags": [
+          "data"
+        ],
+        "operationId": "update-row",
+        "parameters": [
+          {
+            "name": "New row values",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "columns",
+                "values"
+              ],
+              "properties": {
+                "columns": {
+                  "type": "array",
+                  "description": "Array of column ids",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "format": "int64",
+                      "description": "Column id"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "values": {
+                  "type": "array",
+                  "description": "Array of cell values",
+                  "items": {
+                    "$ref": "#/parameters/value"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/definitions/Response: Row"
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace cell values of row",
+        "description": "Replaces the values of cells of the given columns in the row",
+        "tags": [ "data" ],
+        "operationId": "set-row",
+        "parameters": [{
+          "name": "New row values",
+          "in": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "columns",
+              "values"
+            ],
+            "properties": {
+              "columns": {
+                "type": "array",
+                "description": "Array of column ids",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Column id"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              },
+              "values": {
+                "type": "array",
+                "description": "Array of cell values",
+                "items": { "$ref": "#/parameters/value" }
+              }
+            }
+          }
+        }],
+        "responses": {
+          "200": { "$ref": "#/definitions/Response: Row" }
+        }
       }
     },
     "/tables/{tableId}/rows/{rowId}/duplicate": {
