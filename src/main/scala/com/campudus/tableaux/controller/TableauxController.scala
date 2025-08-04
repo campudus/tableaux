@@ -301,6 +301,7 @@ class TableauxController(
   )(
       implicit user: TableauxUser
   ): Future[DomainObject] = {
+    logger.info(s"updateRow table $tableId row $rowId")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- repository.updateRow(table, rowId, values, rowPermissionsObj)
@@ -316,6 +317,7 @@ class TableauxController(
   )(
       implicit user: TableauxUser
   ): Future[DomainObject] = {
+    logger.info(s"setRow table $tableId row $rowId")
     for {
       table <- repository.retrieveTable(tableId)
       _ <- repository.setRow(table, rowId, values, rowPermissionsObj)
