@@ -117,4 +117,37 @@ class FolderModelTest extends TableauxTestBase {
       )
     }
   }
+
+  @Test
+  def testRetrievingParentsAfterFolderMove(implicit c: TestContext): Unit = okTest {
+    for {
+      model <- Future.successful(createFolderModel())
+
+      root <- model.add(name = "root", description = "Test", parentId = None)
+
+      first <- model.add(name = "first", description = "Test", parentId = None)
+      second <- model.add(name = "second", description = "Test", parentId = None)
+      third <- model.add(name = "third", description = "Test", parentId = None)
+      fourth <- model.add(name = "fourth", description = "Test", parentId = None)
+
+      firstUpdated <- model.update(first.id, first.name, first.description, Some(fourth.id))
+      fourthUpdated <- model.update(fourth.id, fourth.name, fourth.description, Some(second.id))
+      secondUpdated <- model.update(second.id, second.name, second.description, Some(third.id))
+      thirdUpdated <- model.update(third.id, third.name, third.description, Some(root.id))
+
+      firstFolder <- model.retrieve(first.id)
+      firstParents <- model.retrieveParentfolders(firstFolder)
+    } yield {
+
+      assertEquals(
+        Seq(root.id, third.id, second.id, fourth.id),
+        firstFolder.parentIds
+      )
+
+      assertEquals(
+        Seq(root.id, third.id, second.id, fourth.id),
+        firstParents.map(_.id)
+      )
+    }
+  }
 }

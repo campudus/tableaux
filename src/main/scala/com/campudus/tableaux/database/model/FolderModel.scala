@@ -137,12 +137,17 @@ class FolderModel(override protected[this] val connection: DatabaseConnection) e
 
   def retrieveParentfolders(folder: Folder): Future[Seq[Folder]] = {
     val placeholders = folder.parentIds.map(_ => "?").mkString(", ");
-    val values = new JsonArray(folder.parentIds.asJava);
 
-    values.size match {
+    folder.parentIds.size match {
       case 0 => Future(Seq.empty)
       case _ => for {
-          result <- connection.query(selectStatement(Some(s"id in ($placeholders)"), None), values)
+          result <- connection.query(
+            selectStatement(
+              Some(s"id in ($placeholders)"),
+              Some(s"array_position(ARRAY[$placeholders]::bigint[], id)")
+            ),
+            new JsonArray((folder.parentIds ++ folder.parentIds).asJava)
+          )
           resultArr <- Future(resultObjectToJsonArray(result))
         } yield {
           resultArr.map(convertJsonArrayToFolder)
