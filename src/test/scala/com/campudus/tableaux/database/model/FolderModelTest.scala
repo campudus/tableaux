@@ -82,4 +82,72 @@ class FolderModelTest extends TableauxTestBase {
       assertEquals(Seq(root.id, root_lustig.id), root_lustig_sepp_folder.parentIds)
     }
   }
+
+  @Test
+  def testRetrievingParents(implicit c: TestContext): Unit = okTest {
+    for {
+      model <- Future.successful(createFolderModel())
+
+      root <- model.add(name = "root", description = "Test", parentId = None)
+
+      root_lustig <- model.add(name = "lustig", description = "Test", parentId = Some(root.id))
+
+      root_lustig_sepp <- model.add(name = "sepp", description = "Test", parentId = Some(root_lustig.id))
+
+      root_lustig_sepp_peter <-
+        model.add(name = "peter", description = "Test", parentId = Some(root_lustig_sepp.id))
+
+      root_lustig_sepp_peter_hallo <- model.add(
+        name = "hallo",
+        description = "Test",
+        parentId = Some(root_lustig_sepp_peter.id)
+      )
+
+      root_lustig_sepp_peter_hallo_folder <- model.retrieve(root_lustig_sepp_peter_hallo.id)
+      root_lustig_sepp_peter_hallo_parents <- model.retrieveParentfolders(root_lustig_sepp_peter_hallo_folder)
+    } yield {
+      assertEquals(
+        Seq(root.id, root_lustig.id, root_lustig_sepp.id, root_lustig_sepp_peter.id),
+        root_lustig_sepp_peter_hallo_folder.parentIds
+      )
+
+      assertEquals(
+        Seq(root.id, root_lustig.id, root_lustig_sepp.id, root_lustig_sepp_peter.id),
+        root_lustig_sepp_peter_hallo_parents.map(_.id)
+      )
+    }
+  }
+
+  @Test
+  def testRetrievingParentsAfterFolderMove(implicit c: TestContext): Unit = okTest {
+    for {
+      model <- Future.successful(createFolderModel())
+
+      root <- model.add(name = "root", description = "Test", parentId = None)
+
+      first <- model.add(name = "first", description = "Test", parentId = None)
+      second <- model.add(name = "second", description = "Test", parentId = None)
+      third <- model.add(name = "third", description = "Test", parentId = None)
+      fourth <- model.add(name = "fourth", description = "Test", parentId = None)
+
+      firstUpdated <- model.update(first.id, first.name, first.description, Some(fourth.id))
+      fourthUpdated <- model.update(fourth.id, fourth.name, fourth.description, Some(second.id))
+      secondUpdated <- model.update(second.id, second.name, second.description, Some(third.id))
+      thirdUpdated <- model.update(third.id, third.name, third.description, Some(root.id))
+
+      firstFolder <- model.retrieve(first.id)
+      firstParents <- model.retrieveParentfolders(firstFolder)
+    } yield {
+
+      assertEquals(
+        Seq(root.id, third.id, second.id, fourth.id),
+        firstFolder.parentIds
+      )
+
+      assertEquals(
+        Seq(root.id, third.id, second.id, fourth.id),
+        firstParents.map(_.id)
+      )
+    }
+  }
 }
