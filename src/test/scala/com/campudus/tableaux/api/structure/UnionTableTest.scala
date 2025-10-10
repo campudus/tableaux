@@ -27,6 +27,9 @@ class UnionTableTest extends TableauxTestBase {
   def createNumberColumnJson(name: String, decimalDigits: Option[Int] = None) =
     RequestCreation.Columns().add(RequestCreation.NumericCol(name, decimalDigits)).getJson
 
+  def fetchTable(tableId: TableId) = sendRequest("GET", s"/completetable/$tableId")
+
+  def fetchColumns(tableId: TableId) = sendRequest("GET", s"/tables/$tableId/columns")
   // format: off
   /**
    * Creates three almost identical tables but with different column order.
@@ -191,6 +194,9 @@ class UnionTableTest extends TableauxTestBase {
         s"/tables/$tableId/columns",
         Json.obj("columns" -> Json.arr(unionTableCol1, unionTableCol2, unionTableCol3))
       )
+
+      // unionTable <- fetchTable(tableId)
+      unionColumns <- fetchColumns(tableId)
     } yield {
       // val expectedColumn = Json.obj(
       //   "name" -> "test",
@@ -199,7 +205,9 @@ class UnionTableTest extends TableauxTestBase {
       //   "description" -> Json.obj("de" -> "")
       // )
 
-      // println(s"column: $column")
+      // println(s"unionTable: $unionTable")
+      println(s"column: $columns")
+      println(s"unionColumns: $unionColumns")
 
       // assertEquals(expectedColumn, column.getJsonArray("columns").getJsonObject(0))
     }
