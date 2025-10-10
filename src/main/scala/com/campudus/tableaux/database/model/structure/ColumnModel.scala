@@ -376,6 +376,7 @@ class ColumnModel(val connection: DatabaseConnection)(
   def createUnionTableColumns(table: Table, createColumns: Seq[CreateColumn])(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
+    // TODO: check if all createColumns have valid originColumn configs, we should fail fast!
     createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
       case (future, next) =>
         for {
@@ -390,75 +391,24 @@ class ColumnModel(val connection: DatabaseConnection)(
   def createUnionTableColumn(table: Table, createColumn: CreateColumn)(
       implicit user: TableauxUser
   ): Future[ColumnType[_]] = {
+    // TODO: check if all origin columns exist and have the same kind, languageType and countryCodes
     val attributes = createColumn.attributes
     val validator = EventClient(Vertx.currentContext().get.owner())
 
     def applyColumnInformation(id: ColumnId, ordering: Ordering, displayInfos: Seq[DisplayInfo]) =
-      BasicUnionTableColumnInformation(table, id, ordering, displayInfos, createColumn)
+      BasicColumnInformation(table, id, ordering, displayInfos, createColumn)
 
     for {
-      columnCreate <- createColumn match {
-        case simpleColumnInfo: CreateSimpleColumn =>
-          createValueColumn(table, simpleColumnInfo)
-            .map({
-              case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-                SimpleValueColumn(
-                  simpleColumnInfo.kind,
-                  simpleColumnInfo.languageType,
-                  applyColumnInformation(id, ordering, displayInfos)
-                )
-            })
 
-        case linkColumnInfo: CreateLinkColumn =>
-          createLinkColumn(table, linkColumnInfo)
-            .map({
-              case (linkId, toCol, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
-                val linkDirection = LeftToRight(table.id, linkColumnInfo.toTable, linkColumnInfo.constraint)
-                LinkColumn(applyColumnInformation(id, ordering, displayInfos), toCol, linkId, linkDirection)
-            })
-
-        case attachmentColumnInfo: CreateAttachmentColumn =>
-          createAttachmentColumn(table.id, attachmentColumnInfo)
-            .map({
-              case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-                AttachmentColumn(applyColumnInformation(id, ordering, displayInfos))
-            })
-
-        case groupColumnInfo: CreateGroupColumn => {
-          println("groupColumnInfo: " + groupColumnInfo)
-          createGroupColumn(table, groupColumnInfo)
-            .map({
-              case CreatedColumnInformation(_, id, ordering, displayInfos) =>
-                // For simplification we return GroupColumn without grouped columns...
-                // ... StructureController will retrieve these anyway
-                GroupColumn(
-                  applyColumnInformation(id, ordering, displayInfos),
-                  Seq.empty,
-                  groupColumnInfo.formatPattern,
-                  groupColumnInfo.showMemberColumns
-                )
-            })
-        }
-
-        case statusColumnInfo: CreateStatusColumn =>
-          for {
-            _ <- validator.validateJson(ValidatorKeys.STATUS, statusColumnInfo.rules).recover {
-              case ex => throw new InvalidJsonException(ex.getMessage(), "rules")
-            }
-
-            statusColumn <- createStatusColumn(table, statusColumnInfo).map({
-              case (dependentColumns, CreatedColumnInformation(_, id, ordering, displayInfos)) =>
-                StatusColumn(
-                  StatusColumnInformation(table, id, ordering, displayInfos, statusColumnInfo),
-                  statusColumnInfo.rules,
-                  dependentColumns
-                )
-
-            })
-          } yield {
-            statusColumn
-          }
-      }
+      columnCreate <- createUnionColumn(table, createColumn)
+        .map({
+          case CreatedColumnInformation(_, id, ordering, displayInfos) =>
+            SimpleValueColumn(
+              createColumn.kind,
+              createColumn.languageType,
+              applyColumnInformation(id, ordering, displayInfos)
+            )
+        })
     } yield {
       columnCreate
     }
@@ -524,6 +474,36 @@ class ColumnModel(val connection: DatabaseConnection)(
     }
   }
 
+  private def insertSystemUnionColumn(
+      t: DbTransaction,
+      table: Table,
+      createColumn: CreateColumn,
+      columnId: ColumnId
+  ): Future[(DbTransaction, JsonObject)] = {
+    val tableId = table.id
+    val originColumns = createColumn.originColumns
+
+    originColumns match {
+      case Some(CreateOriginColumns(tableToColumnMap)) =>
+        // Create INSERT statement for each origin column mapping
+        val insertPlaceholder = tableToColumnMap.map(_ => "(?, ?, ?, ?)").mkString(", ")
+        val values = tableToColumnMap.flatMap { case (originTableId, originColumnId) =>
+          Seq(tableId, columnId, originTableId, originColumnId)
+        }.toSeq
+
+        for {
+          (t, _) <- t.query(
+            s"INSERT INTO system_union_column(table_id, column_id, origin_table_id, origin_column_id) VALUES $insertPlaceholder",
+            Json.arr(values: _*)
+          )
+        } yield (t, Json.obj())
+
+      case None =>
+        // No origin columns specified, return empty result
+        Future.successful((t, Json.obj()))
+    }
+  }
+
   private def insertColumnInUserTable(
       t: DbTransaction,
       table: Table,
@@ -553,9 +533,24 @@ class ColumnModel(val connection: DatabaseConnection)(
         (t, columnInfo) <- insertSystemColumn(t, tableId, simpleColumnInfo, None, None, false)
 
         (t, _) <- table.tableType match {
-          case UnionTable => Future.successful((t, ()))
+          case UnionTable => insertSystemUnionColumn(t, table, simpleColumnInfo, columnInfo.columnId)
           case _ => insertColumnInUserTable(t, table, simpleColumnInfo, columnInfo.columnId)
         }
+      } yield {
+        (t, columnInfo)
+      }
+    }
+  }
+
+  private def createUnionColumn(
+      table: Table,
+      createColumn: CreateColumn
+  ): Future[CreatedColumnInformation] = {
+    val tableId = table.id
+    connection.transactional { t =>
+      for {
+        (t, columnInfo) <- insertSystemColumn(t, tableId, createColumn, None, None, false)
+        (t, _) <- insertSystemUnionColumn(t, table, createColumn, columnInfo.columnId)
       } yield {
         (t, columnInfo)
       }
