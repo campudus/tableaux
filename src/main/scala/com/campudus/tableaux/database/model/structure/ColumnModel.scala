@@ -996,8 +996,26 @@ class ColumnModel(val connection: DatabaseConnection)(
        |  max_length,
        |  min_length,
        |  show_member_columns,
-       |  decimal_digits
+       |  decimal_digits,
+       |  (
+       |    SELECT json_build_object('originColumns', json_object_agg(
+       |      origin_table_id::text,
+       |      json_build_object('id', origin_column_id)
+       |    ))
+       |    FROM system_union_column
+       |    WHERE table_id = c.table_id AND column_id = c.column_id
+       |  ) AS origin_columns
        |""".stripMargin
+  // TODO: insert fancy subquery to get infos from system_union_column for originColumns
+
+  //  |  (
+  //  |    SELECT json_object_agg(
+  //  |      origin_table_id::text,
+  //  |      json_build_object('id', origin_column_id)
+  //  |    )
+  //  |    FROM system_union_column
+  //  |    WHERE table_id = c.table_id AND column_id = c.column_id
+  //  |  ) AS origin_columns
 
   private def retrieveOne(table: Table, columnId: ColumnId, depth: Int)(
       implicit user: TableauxUser
@@ -1010,6 +1028,8 @@ class ColumnModel(val connection: DatabaseConnection)(
          |WHERE
          |  table_id = ? AND
          |  column_id = ?""".stripMargin
+
+    println("### CCC ### query: " + select)
 
     for {
       result <- connection.query(select, Json.arr(table.id, columnId))
@@ -1035,6 +1055,8 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     println("### CCC ### 1")
+    println("### CCC ### query: " + generateRetrieveColumnsQuery(identifiersOnly))
+
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
 
@@ -1295,6 +1317,8 @@ class ColumnModel(val connection: DatabaseConnection)(
     val minLength = Option(row.get[Int](14))
     val showMemberColumns = row.get[Boolean](15)
     val decimalDigits = Option(row.get[Int](16))
+    val originColumns = Option(row.get[String](17))
+      .map(str => CreateOriginColumns.fromJson(Json.fromObjectString(str)))
 
     for {
       displayInfoSeq <- retrieveDisplayInfo(table, columnId)
@@ -1312,7 +1336,8 @@ class ColumnModel(val connection: DatabaseConnection)(
         hidden,
         maxLength,
         minLength,
-        decimalDigits
+        decimalDigits,
+        originColumns
       )
 
       column <- mapColumn(depth, kind, languageType, columnInformation, formatPattern, rules, showMemberColumns)
