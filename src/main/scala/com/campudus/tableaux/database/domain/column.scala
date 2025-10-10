@@ -38,6 +38,7 @@ sealed trait ColumnInformation {
   val maxLength: Option[Int]
   val minLength: Option[Int]
   val decimalDigits: Option[Int]
+  val originColumns: Option[CreateOriginColumns]
 }
 
 object BasicColumnInformation {
@@ -66,7 +67,8 @@ object BasicColumnInformation {
       createColumn.hidden,
       createColumn.maxLength,
       createColumn.minLength,
-      createColumn.decimalDigits
+      createColumn.decimalDigits,
+      createColumn.originColumns
     )
   }
 }
@@ -100,38 +102,6 @@ object StatusColumnInformation {
   }
 }
 
-// very likely we don't need these helper classes
-object BasicUnionTableColumnInformation {
-
-  def apply(
-      table: Table,
-      columnId: ColumnId,
-      ordering: Ordering,
-      displayInfos: Seq[DisplayInfo],
-      createColumn: CreateColumn
-  ): BasicUnionTableColumnInformation = {
-    val attributes = createColumn.attributes match {
-      case Some(obj) => obj
-      case None => new JsonObject("{}")
-    }
-    BasicUnionTableColumnInformation(
-      table,
-      columnId,
-      createColumn.name,
-      ordering,
-      createColumn.identifier,
-      displayInfos,
-      Seq.empty,
-      createColumn.separator,
-      attributes,
-      createColumn.hidden,
-      createColumn.maxLength,
-      createColumn.minLength,
-      createColumn.decimalDigits
-    )
-  }
-}
-
 case class BasicColumnInformation(
     override val table: Table,
     override val id: ColumnId,
@@ -145,7 +115,8 @@ case class BasicColumnInformation(
     override val hidden: Boolean,
     override val maxLength: Option[Int],
     override val minLength: Option[Int],
-    override val decimalDigits: Option[Int]
+    override val decimalDigits: Option[Int],
+    override val originColumns: Option[CreateOriginColumns]
 ) extends ColumnInformation
 
 case class StatusColumnInformation(
@@ -162,23 +133,8 @@ case class StatusColumnInformation(
     override val hidden: Boolean,
     override val maxLength: Option[Int] = None,
     override val minLength: Option[Int] = None,
-    override val decimalDigits: Option[Int] = None
-) extends ColumnInformation
-
-case class BasicUnionTableColumnInformation(
-    override val table: Table,
-    override val id: ColumnId,
-    override val name: String,
-    override val ordering: Ordering,
-    override val identifier: Boolean,
-    override val displayInfos: Seq[DisplayInfo],
-    override val groupColumnIds: Seq[ColumnId],
-    override val separator: Boolean,
-    override val attributes: JsonObject,
-    override val hidden: Boolean,
-    override val maxLength: Option[Int],
-    override val minLength: Option[Int],
-    override val decimalDigits: Option[Int]
+    override val decimalDigits: Option[Int] = None,
+    override val originColumns: Option[CreateOriginColumns] = None
 ) extends ColumnInformation
 
 case class ConcatColumnInformation(override val table: Table) extends ColumnInformation {
@@ -200,6 +156,7 @@ case class ConcatColumnInformation(override val table: Table) extends ColumnInfo
   override val maxLength: Option[Int] = None
   override val minLength: Option[Int] = None
   override val decimalDigits: Option[Int] = None
+  override val originColumns: Option[CreateOriginColumns] = None
 }
 
 object ColumnType {
@@ -304,6 +261,7 @@ sealed trait ColumnType[+A] extends DomainObject {
   val separator: Boolean = columnInformation.separator
   val attributes: JsonObject = columnInformation.attributes
   val hidden: Boolean = columnInformation.hidden
+  val originColumns: Option[CreateOriginColumns] = columnInformation.originColumns
 
   protected[this] implicit def roleModel: RoleModel
 
@@ -354,6 +312,12 @@ sealed trait ColumnType[+A] extends DomainObject {
           .mergeIn(Json.obj("description" -> json.getJsonObject("description")
             .mergeIn(Json.obj(displayInfo.langtag -> desc))))
       })
+    })
+
+    columnInformation.originColumns.map(oc => {
+      json.mergeIn(oc.getJson)
+      // temp get a dummy json
+      // json.mergeIn(Json.obj("originColumns" -> Json.obj("1" -> Json.obj("id" -> 1))))
     })
     json
   }
