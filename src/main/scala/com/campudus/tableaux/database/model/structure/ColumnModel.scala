@@ -1456,7 +1456,7 @@ class ColumnModel(val connection: DatabaseConnection)(
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
           case c: LinkColumn => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
-          case c: UnionSimpleColumn[_] => deleteUnionSimpleColumn(c)
+          // case c: UnionSimpleColumn[_] => deleteUnionSimpleColumn(c)
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
       }
