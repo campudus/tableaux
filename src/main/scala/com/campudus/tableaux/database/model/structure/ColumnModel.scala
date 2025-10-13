@@ -1016,8 +1016,6 @@ class ColumnModel(val connection: DatabaseConnection)(
          |  table_id = ? AND
          |  column_id = ?""".stripMargin
 
-    println("### CCC ### query: " + select)
-
     for {
       result <- connection.query(select, Json.arr(table.id, columnId))
       row = selectNotNull(result).head
@@ -1041,8 +1039,6 @@ class ColumnModel(val connection: DatabaseConnection)(
   private def retrieveColumns(table: Table, depth: Int, identifiersOnly: Boolean)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
-    println("### CCC ### 1")
-    println("### CCC ### query: " + generateRetrieveColumnsQuery(identifiersOnly))
 
     for {
       result <- connection.query(generateRetrieveColumnsQuery(identifiersOnly), Json.arr(table.id))
@@ -1054,7 +1050,6 @@ class ColumnModel(val connection: DatabaseConnection)(
         Future.sequence(futures)
       }
 
-      _ = println("### CCC ### 2")
     } yield {
       val columns = mappedColumns
         .map({
