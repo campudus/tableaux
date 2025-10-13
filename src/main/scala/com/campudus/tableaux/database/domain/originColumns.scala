@@ -40,10 +40,8 @@ object CreateOriginColumns {
   }
 
   def fromJson(json: JsonObject): CreateOriginColumns = {
-    val jsonPart = json.getJsonObject(fieldName, Json.obj())
-
-    val tableToColumn: Map[TableId, ColumnId] = getFieldNames(jsonPart).map { tableId =>
-      val columnId = jsonPart.getJsonObject(tableId).getLong("id").toLong
+    val tableToColumn: Map[TableId, ColumnId] = getFieldNames(json).map { tableId =>
+      val columnId = json.getJsonObject(tableId).getLong("id").toLong
       (tableId.toLong, columnId)
     }.toMap
 
