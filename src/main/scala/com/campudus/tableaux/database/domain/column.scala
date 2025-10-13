@@ -397,6 +397,7 @@ object SimpleValueColumn {
       case DateTimeType => DateTimeColumn.apply
       case IntegerType => IntegerColumn.apply
       case OriginTableType => TextColumn.apply // we can reuse TextColumn internally
+      case UnionLinkType => UnionLinkColumn.apply
 
       case _ => throw new IllegalArgumentException("Can only map type to SimpleValueColumn")
     }
@@ -769,11 +770,11 @@ case class GroupColumn(
   }
 }
 
-sealed abstract class UnionSimpleColumn[+A](override val languageType: LanguageType)(
-    override val columnInformation: ColumnInformation
-)(implicit override val roleModel: RoleModel, val user: TableauxUser)
-    extends ColumnType[A] {
-  // TODO
+case class UnionLinkColumn(override val languageType: LanguageType)(override val columnInformation: ColumnInformation)(
+    implicit override val roleModel: RoleModel,
+    val user: TableauxUser
+) extends SimpleValueColumn[UnionLinkColumn](UnionLinkType)(languageType) {
+  override def checkValidSingleValue[B](value: B): Try[UnionLinkColumn] = Try(value.asInstanceOf[UnionLinkColumn])
 }
 
 /**

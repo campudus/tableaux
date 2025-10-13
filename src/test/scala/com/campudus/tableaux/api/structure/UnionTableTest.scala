@@ -222,8 +222,7 @@ class UnionTableTest extends TableauxTestBase {
     )
     val unionTableCol5 = Json.obj(
       "name" -> "glossLevel",
-      "kind" -> "numeric",
-      // "kind" -> "numeric",
+      "kind" -> "unionlink",
       "ordering" -> 3,
       "displayName" -> Json.obj("de" -> "Glanzgrad", "en" -> "Gloss Level"),
       "description" -> Json.obj("de" -> "Der Glanzgrad der Farbe", "en" -> "The gloss level of the color"),

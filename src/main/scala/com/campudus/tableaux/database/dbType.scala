@@ -26,6 +26,7 @@ object TableauxDbType {
       case GroupType.name => GroupType
       case StatusType.name => StatusType
       case OriginTableType.name => OriginTableType
+      case UnionLinkType.name => UnionLinkType
     }
   }
 }
@@ -96,4 +97,8 @@ case object StatusType extends TableauxDbType {
 
 case object OriginTableType extends TableauxDbType {
   override val name = "origintable"
+}
+
+case object UnionLinkType extends TableauxDbType {
+  override val name = "unionlink"
 }
