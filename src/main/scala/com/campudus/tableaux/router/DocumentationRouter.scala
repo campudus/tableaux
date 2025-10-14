@@ -63,7 +63,7 @@ class DocumentationRouter(override val config: TableauxConfig) extends BaseRoute
       .mkString
       .replace("https://petstore.swagger.io/v2/swagger.json", swaggerURL.toString)
 
-    sendReply(context, OkString(file, "text/html; charset=UTF-8"))
+    sendReply(context, OkString(file, "text/javascript; charset=UTF-8"))
   }
 
   private def indexRedirect(context: RoutingContext): Unit = {
