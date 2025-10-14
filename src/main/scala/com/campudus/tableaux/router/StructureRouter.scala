@@ -251,6 +251,16 @@ class StructureRouter(override val config: TableauxConfig, val controller: Struc
           )
           val concatFormatPattern = Option(json.getString("concatFormatPattern"))
 
+          val originTables = booleanToValueOption(
+            json.containsKey("originTables"),
+            json.getJsonArray("originTables")
+          ).map(_.asScala.map(_.toString.toLong).toSeq)
+          originTables match {
+            case Some(tableIds) =>
+              throw InvalidJsonException("Field originTables can not be changed after table creation.", "originTables")
+            case _ =>
+          }
+
           controller.changeTable(
             tableId,
             name,
