@@ -1,5 +1,6 @@
 package com.campudus.tableaux.api.structure
 
+import com.campudus.tableaux.database.DatabaseConnection
 import com.campudus.tableaux.database.domain.Cardinality
 import com.campudus.tableaux.database.domain.Constraint
 import com.campudus.tableaux.database.model.TableauxModel.ColumnId
@@ -10,6 +11,7 @@ import com.campudus.tableaux.testtools.TableauxTestBase
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
 import io.vertx.ext.unit.junit.VertxUnitRunner
+import io.vertx.scala.SQLConnection
 import org.vertx.scala.core.json.Json
 
 import scala.concurrent.Future
@@ -195,7 +197,7 @@ class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
-  def updateOriginTable_addColumnsToUnionTable_ok(implicit c: TestContext): Unit = okTest {
+  def updateUnionTable_addColumnsToUnionTable_ok(implicit c: TestContext): Unit = okTest {
     import scala.collection.JavaConverters._
 
     val unionTableCol1 = Json.obj(
@@ -293,7 +295,7 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
   }
 
   @Test
-  def updateOriginTable_changeName_ok(implicit c: TestContext): Unit = okTest {
+  def updateUnionTable_changeName_ok(implicit c: TestContext): Unit = okTest {
     val payload = Json.obj("displayName" -> Json.obj("de" -> "Changed Union Table"))
     for {
       tableId <- createUnionTable()
@@ -310,7 +312,7 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
   }
 
   @Test
-  def updateOriginTable_changeOriginTables_shouldFail(implicit c: TestContext): Unit =
+  def updateUnionTable_changeOriginTables_shouldFail(implicit c: TestContext): Unit =
     exceptionTest("error.json.originTables") {
       val payload = Json.obj("originTables" -> Json.arr(1, 2, 3))
       for {
@@ -320,7 +322,7 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
     }
 
   @Test
-  def updateOriginTable_addColumnsToUnionTable_shouldFail(implicit c: TestContext): Unit =
+  def updateUnionTable_addColumnsToUnionTable_shouldFail(implicit c: TestContext): Unit =
     exceptionTest("error.json.originColumns") {
       val unionTableColWithoutOriginColumns = Json.obj(
         "name" -> "name",
@@ -347,7 +349,7 @@ class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 class DeleteUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
-  def deleteOriginTable_deleteColumnOriginTable_shouldFail(implicit c: TestContext): Unit =
+  def deleteUnionTable_deleteColumnOriginTable_shouldFail(implicit c: TestContext): Unit =
     exceptionTest("error.database.delete-column-origintable") {
 
       val unionTableCol = Json.obj(
@@ -364,12 +366,55 @@ class DeleteUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
       for {
         tableId <- createUnionTable()
-        columns <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(unionTableCol)))
+        _ <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(unionTableCol)))
         _ <- sendRequest("DELETE", s"/tables/$tableId/columns/1")
       } yield ()
+    }
+
+  @Test
+  def deleteUnionTable_deleteUnionTable_ok(implicit c: TestContext): Unit =
+    okTest {
+      val sqlConnection = SQLConnection(this.vertxAccess(), databaseConfig)
+      val dbConnection = DatabaseConnection(this.vertxAccess(), sqlConnection)
+
+      val unionTableCol = Json.obj(
+        "name" -> "name",
+        "kind" -> "text",
+        "ordering" -> 1,
+        "description" -> Json.obj("en" -> "add a column so the column originTable is not the only one"),
+        "originColumns" -> Json.obj(
+          "2" -> Json.obj("id" -> 1),
+          "3" -> Json.obj("id" -> 1),
+          "4" -> Json.obj("id" -> 4)
+        )
+      )
+
+      for {
+        tableId <- createUnionTable()
+        // add a column
+        columns <- sendRequest("POST", s"/tables/$tableId/columns", Json.obj("columns" -> Json.arr(unionTableCol)))
+        _ <- sendRequest("DELETE", s"/tables/$tableId")
+
+        systemUnionTables <-
+          dbConnection.query("SELECT count(*) FROM system_union_table").map(
+            _.getJsonArray("results").getJsonArray(0).getInteger(0)
+          )
+        systemUnionColumns <-
+          dbConnection.query("SELECT count(*) FROM system_union_column").map(
+            _.getJsonArray("results").getJsonArray(0).getInteger(0)
+          )
+      } yield {
+        assertEquals(0, systemUnionTables)
+        assertEquals(0, systemUnionColumns)
+      }
     }
 }
 
 // TODOs
 
 // - deleteTable
+// - history: table und column
+// - data: row, rows, columns rows, first row
+// - annotations: rows, columns, langtag
+// - permissions: table row
+// - content: `/tables/{tableId}/columns/{columnId}/rows/{rowId}` should not work, because on union table there is more than one row for that address
