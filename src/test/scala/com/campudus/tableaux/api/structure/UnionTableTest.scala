@@ -7,6 +7,7 @@ import com.campudus.tableaux.database.model.TableauxModel.ColumnId
 import com.campudus.tableaux.database.model.TableauxModel.TableId
 import com.campudus.tableaux.testtools.RequestCreation._
 import com.campudus.tableaux.testtools.TableauxTestBase
+import com.campudus.tableaux.testtools.TestCustomException
 
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.unit.TestContext
@@ -406,6 +407,38 @@ class DeleteUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
       } yield {
         assertEquals(0, systemUnionTables)
         assertEquals(0, systemUnionColumns)
+      }
+    }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class NotImplementedUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+
+  val expectedException = TestCustomException(
+    "com.campudus.tableaux.NotImplementedException: Operation not implemented for table of type union",
+    "error.request.notimplemented",
+    501
+  )
+
+  @Test
+  def unionTable_retrieveCell_shouldFail(implicit c: TestContext): Unit =
+    okTest {
+
+      val cellPostPayload = Json.obj("values" -> Json.obj("de" -> "foo", "en" -> "bar"))
+
+      for {
+        tableId <- createUnionTable()
+        retrieveCellException <-
+          sendRequest("GET", s"/tables/$tableId/columns/1/rows/1").recover({ case ex => ex })
+        postCellException <-
+          sendRequest("POST", s"/tables/$tableId/columns/1/rows/1", cellPostPayload).recover({ case ex => ex })
+        patchCellException <-
+          sendRequest("PATCH", s"/tables/$tableId/columns/1/rows/1", cellPostPayload).recover({ case ex => ex })
+      } yield {
+        println("Expected exception: " + expectedException)
+        assertEquals(expectedException, retrieveCellException)
+        assertEquals(expectedException, postCellException)
+        assertEquals(expectedException, patchCellException)
       }
     }
 }
