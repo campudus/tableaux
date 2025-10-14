@@ -9,6 +9,7 @@ import com.campudus.tableaux.database.domain.DisplayInfos.Langtag
 import com.campudus.tableaux.database.model.{Attachment, TableauxModel}
 import com.campudus.tableaux.database.model.DuplicateRowOptions
 import com.campudus.tableaux.database.model.TableauxModel._
+import com.campudus.tableaux.helper.UnionTableHelper
 import com.campudus.tableaux.router.auth.permission._
 import com.campudus.tableaux.verticles.EventClient
 
@@ -477,6 +478,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       cell <- repository.retrieveCell(table, columnId, rowId)
     } yield cell
   }
@@ -569,6 +571,7 @@ class TableauxController(
 
     for {
       table <- repository.retrieveTable(tableId)
+      _ = UnionTableHelper.notImplemented(table)
       updated <- repository.updateCellValue(table, columnId, rowId, value, forceHistory)
       _ <- eventClient.cellChanged(tableId, columnId, rowId)
     } yield updated

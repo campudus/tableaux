@@ -5,6 +5,7 @@ import com.campudus.tableaux.database.model.TableauxModel._
 
 import org.vertx.scala.core.json._
 
+// TODO rename to OriginColumns???
 sealed trait CreateOriginColumns {
   val fieldName = "originColumns"
   val tableToColumn: Map[TableId, ColumnId]
