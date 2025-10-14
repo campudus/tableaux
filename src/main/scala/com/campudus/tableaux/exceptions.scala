@@ -181,3 +181,8 @@ case class InvalidUserSettingException(override val message: String) extends Cus
   override val id: String = s"error.request.usersetting.invalid"
   override val statusCode: Int = 400
 }
+
+case class NotImplementedException(override val message: String) extends CustomException {
+  override val id: String = s"error.request.notimplemented"
+  override val statusCode: Int = 501
+}
