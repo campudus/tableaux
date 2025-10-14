@@ -377,6 +377,17 @@ class ColumnModel(val connection: DatabaseConnection)(
       implicit user: TableauxUser
   ): Future[Seq[ColumnType[_]]] = {
     // TODO: check if all createColumns have valid originColumn configs, we should fail fast!
+
+    val haveValidOriginColumns = createColumns.foldLeft(true) {
+      case (valid, next) =>
+        valid && next.originColumns.nonEmpty
+    }
+    if (!haveValidOriginColumns) {
+      return Future.failed(
+        InvalidJsonException("All columns need to have valid originColumns for union table", "originColumns")
+      )
+    }
+
     createColumns.foldLeft(Future.successful(Seq.empty[ColumnType[_]])) {
       case (future, next) =>
         for {
@@ -1450,13 +1461,15 @@ class ColumnModel(val connection: DatabaseConnection)(
         )
 
       _ = checkForStatusColumnDependency(columnId, columns, "deleted")
+      _ = println(s"Deleting column: $column from table: ${table.id}")
 
       _ <- {
         column match {
           case c: ConcatColumn => Future.failed(DatabaseException("ConcatColumn can't be deleted", "delete-concat"))
           case c: LinkColumn => deleteLink(c, bothDirections)
           case c: AttachmentColumn => deleteAttachment(c)
-          // case c: UnionSimpleColumn[_] => deleteUnionSimpleColumn(c)
+          case c: OriginTableColumn =>
+            Future.failed(DatabaseException("Column origintable can't be deleted", "delete-column-origintable"))
           case c: ColumnType[_] => deleteSimpleColumn(c)
         }
       }
