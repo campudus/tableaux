@@ -396,7 +396,7 @@ object SimpleValueColumn {
       case DateType => DateColumn.apply
       case DateTimeType => DateTimeColumn.apply
       case IntegerType => IntegerColumn.apply
-      case OriginTableType => TextColumn.apply // we can reuse TextColumn internally
+      case OriginTableType => OriginTableColumn.apply
       case UnionLinkType => UnionLinkColumn.apply
 
       case _ => throw new IllegalArgumentException("Can only map type to SimpleValueColumn")
@@ -767,6 +767,20 @@ case class GroupColumn(
       .mergeIn(groupsJson)
       .mergeIn(formatPatternJson)
       .mergeIn(showMemberColumnsJson)
+  }
+}
+
+case class OriginTableColumn(override val languageType: LanguageType)(
+    override val columnInformation: ColumnInformation
+)(implicit override val roleModel: RoleModel, val user: TableauxUser)
+    extends SimpleValueColumn[OriginTableColumn](OriginTableType)(languageType) {
+  override def checkValidSingleValue[B](value: B): Try[OriginTableColumn] = Try(value.asInstanceOf[OriginTableColumn])
+
+  override def getJson: JsonObject = {
+    // we need the kind `origintable` only for internal purposes,
+    // we can render it externally like a normal TextColumn
+    val overrideKind = Json.obj("kind" -> "text")
+    super.getJson.mergeIn(overrideKind)
   }
 }
 
