@@ -18,8 +18,7 @@ import org.junit.Assert._
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@RunWith(classOf[VertxUnitRunner])
-class UnionTableTest extends TableauxTestBase {
+sealed trait UnionTableTestHelper extends TableauxTestBase {
 
   def createTableJson(name: String) = Json.obj("name" -> name)
 
@@ -44,33 +43,8 @@ class UnionTableTest extends TableauxTestBase {
   def fetchTable(tableId: TableId) = sendRequest("GET", s"/completetable/$tableId")
 
   def fetchColumns(tableId: TableId) = sendRequest("GET", s"/tables/$tableId/columns")
-  // format: off
-  /**
-   * Creates three almost identical tables but with different column order.
-   * 
-   * - column "name" is of type text, single language
-   * - column "color" is of type text, multi language
-   * - column "prio" is of type number, single language
-   * - column "glossLevel" is of type link to same table
-   *
-   * table1 ┌───┬─────┬──────┬─────┬───────────┐
-   *        │id │name │color │prio │glossLevel │
-   *        ├───┼─────┼──────┼─────┼───────────┤
-   *        │0  │1    │2     │3    │4          │
-   *        └───┴─────┴──────┴─────┴───────────┘
-   * table2 ┌───┬─────┬──────┬─────┬───────────┐
-   *        │id │name │color │prio │glossLevel │
-   *        ├───┼─────┼──────┼─────┼───────────┤
-   *        │0  │1    │3     │4    │2          │
-   *        └───┴─────┴──────┴─────┴───────────┘
-   * table3 ┌───┬─────┬──────┬─────┬───────────┐
-   *        │id │name │color │prio │glossLevel │
-   *        ├───┼─────┼──────┼─────┼───────────┤
-   *        │0  │4    │2     │3    │1          │
-   *        └───┴─────┴──────┴─────┴───────────┘
-   */
-  // format: on
-  private def createUnionTable(): Future[TableId] = {
+
+  def createUnionTable(): Future[TableId] = {
 
     val createColumnName = createTextColumnJson("name")
     val createColumnColor = createMultilangTextColumnJson("color")
@@ -110,6 +84,36 @@ class UnionTableTest extends TableauxTestBase {
 
     } yield resultUnionTable.getLong("id")
   }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class CreateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
+  // format: off
+  /**
+   * Creates three almost identical tables but with different column order.
+   * 
+   * - column "name" is of type text, single language
+   * - column "color" is of type text, multi language
+   * - column "prio" is of type number, single language
+   * - column "glossLevel" is of type link to same table
+   *
+   * table1 ┌───┬─────┬──────┬─────┬───────────┐
+   *        │id │name │color │prio │glossLevel │
+   *        ├───┼─────┼──────┼─────┼───────────┤
+   *        │0  │1    │2     │3    │4          │
+   *        └───┴─────┴──────┴─────┴───────────┘
+   * table2 ┌───┬─────┬──────┬─────┬───────────┐
+   *        │id │name │color │prio │glossLevel │
+   *        ├───┼─────┼──────┼─────┼───────────┤
+   *        │0  │1    │3     │4    │2          │
+   *        └───┴─────┴──────┴─────┴───────────┘
+   * table3 ┌───┬─────┬──────┬─────┬───────────┐
+   *        │id │name │color │prio │glossLevel │
+   *        ├───┼─────┼──────┼─────┼───────────┤
+   *        │0  │4    │2     │3    │1          │
+   *        └───┴─────┴──────┴─────┴───────────┘
+   */
+  // format: on
 
   @Test
   def createUnionTable_withOriginTables_ok(implicit c: TestContext): Unit = okTest {
@@ -168,6 +172,10 @@ class UnionTableTest extends TableauxTestBase {
         )
       } yield ()
     }
+}
+
+@RunWith(classOf[VertxUnitRunner])
+class UpdateUnionTableTest extends TableauxTestBase with UnionTableTestHelper {
 
   @Test
   def addSimpleColumnsToUnionTable(implicit c: TestContext): Unit = okTest {
@@ -266,4 +274,32 @@ class UnionTableTest extends TableauxTestBase {
       assertJSONEquals(unionTableCol5, unionColumns(4))
     }
   }
+
+  @Test
+  def updateOriginTable_changeName_ok(implicit c: TestContext): Unit = okTest {
+    val payload = Json.obj("displayName" -> Json.obj("de" -> "Changed Union Table"))
+    for {
+      tableId <- createUnionTable()
+      _ <- sendRequest("PATCH", s"/tables/$tableId", payload)
+      unionTable <- fetchTable(tableId)
+    } yield {
+      val expectedTable = Json.obj(
+        "id" -> 5,
+        "name" -> "union",
+        "hidden" -> false
+      ).mergeIn(payload)
+      assertJSONEquals(expectedTable, unionTable)
+    }
+  }
+
+  @Test
+  def updateOriginTable_changeOriginTables_shouldFail(implicit c: TestContext): Unit =
+    exceptionTest("error.json.originTables") {
+      val payload = Json.obj("originTables" -> Json.arr(1, 2, 3))
+      for {
+        tableId <- createUnionTable()
+        _ <- sendRequest("PATCH", s"/tables/$tableId", payload)
+        unionTable <- fetchTable(tableId)
+      } yield ()
+    }
 }
